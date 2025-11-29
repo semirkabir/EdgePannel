@@ -6,6 +6,7 @@ export interface Market {
   title: string
   description?: string
   category?: string
+  normalizedCategory?: string
   outcome?: string
   probability?: number
   price?: number
@@ -22,6 +23,9 @@ export interface Market {
     }
   }
   rawData?: any
+  isBreakingNews?: boolean
+  isLivePrediction?: boolean
+  keywords?: string[]
 }
 
 export interface MarketComparison {

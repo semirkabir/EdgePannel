@@ -1,6 +1,7 @@
 import { Market, MarketComparison } from '@/types/market'
 import { KalshiClient } from './kalshi'
 import { PolymarketClient } from './polymarket'
+import { enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich'
 
 export class MarketAggregator {
   private kalshiClient?: KalshiClient
@@ -36,6 +37,11 @@ export class MarketAggregator {
     }
 
     return markets
+  }
+
+  async getAllEnrichedMarkets(): Promise<EnrichedMarket[]> {
+    const markets = await this.getAllMarkets()
+    return enrichMarkets(markets)
   }
 
   findSimilarMarkets(markets: Market[]): MarketComparison[] {

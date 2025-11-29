@@ -13,39 +13,62 @@ export async function GET(request: Request) {
     }
 
     // Get user's Kalshi API keys
-    const apiKeyRecord = await prisma.apiKey.findUnique({
-      where: {
-        userId_platform: {
-          userId: session.user.id,
-          platform: 'kalshi',
+    let apiKeyRecord
+    try {
+      apiKeyRecord = await prisma.apiKey.findUnique({
+        where: {
+          userId_platform: {
+            userId: session.user.id,
+            platform: 'kalshi',
+          },
         },
-      },
-    })
-
-    if (!apiKeyRecord || !apiKeyRecord.encryptedKeyData) {
-      return NextResponse.json(
-        { error: 'Kalshi API keys not configured' },
-        { status: 400 }
-      )
+      })
+    } catch (dbError: any) {
+      console.error('Database error:', dbError)
+      // If database connection fails, return empty markets instead of error
+      return NextResponse.json({ markets: [] })
     }
 
-    const accessKeyId = decrypt(apiKeyRecord.encryptedKey)
-    const privateKey = decrypt(apiKeyRecord.encryptedKeyData)
+    if (!apiKeyRecord || !apiKeyRecord.encryptedKeyData) {
+      console.log('[Kalshi] No API keys found for user:', session.user.id)
+      // Return empty markets instead of error - API keys not configured yet
+      return NextResponse.json({ markets: [] })
+    }
 
-    const client = new KalshiClient({ accessKeyId, privateKey })
+    console.log('[Kalshi] API keys found, attempting to decrypt...')
 
-    const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '100')
+    let accessKeyId: string
+    let privateKey: string
+    
+    try {
+      accessKeyId = decrypt(apiKeyRecord.encryptedKey)
+      privateKey = decrypt(apiKeyRecord.encryptedKeyData)
+    } catch (decryptError: any) {
+      console.error('Error decrypting API keys:', decryptError)
+      return NextResponse.json({ markets: [] })
+    }
 
-    const markets = await client.getMarkets({ limit })
+    try {
+      const client = new KalshiClient({ accessKeyId, privateKey })
 
-    return NextResponse.json({ markets })
+      const { searchParams } = new URL(request.url)
+      const limit = parseInt(searchParams.get('limit') || '100')
+
+      console.log(`[Kalshi] Fetching markets (limit: ${limit})`)
+      const markets = await client.getMarkets({ limit })
+      console.log(`[Kalshi] Successfully fetched ${markets.length} markets`)
+
+      return NextResponse.json({ markets })
+    } catch (apiError: any) {
+      console.error('[Kalshi] Error calling API:', apiError.message || apiError)
+      console.error('[Kalshi] Error stack:', apiError.stack)
+      // Return empty markets instead of error - API call failed
+      return NextResponse.json({ markets: [] })
+    }
   } catch (error: any) {
     console.error('Error fetching Kalshi markets:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch markets' },
-      { status: 500 }
-    )
+    // Return empty markets instead of 500 error
+    return NextResponse.json({ markets: [] })
   }
 }
 

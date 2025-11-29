@@ -7,6 +7,8 @@ import { GlobeMap } from '@/components/map/GlobeMap'
 import { Sidebar } from '@/components/panels/Sidebar'
 import { MarketDetails } from '@/components/panels/MarketDetails'
 import { ComparisonPanel } from '@/components/panels/ComparisonPanel'
+import { CountryOverlay } from '@/components/map/CountryOverlay'
+import { BreakingNews } from '@/components/panels/BreakingNews'
 import { Market, MarketComparison } from '@/types/market'
 import { Button } from '@/components/ui/button'
 import { signOut } from 'next-auth/react'
@@ -15,9 +17,34 @@ export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [markets, setMarkets] = useState<Market[]>([])
+  const [breakingNews, setBreakingNews] = useState<Market[]>([])
+  const [livePredictions, setLivePredictions] = useState<Market[]>([])
+  const [categories, setCategories] = useState<string[]>([])
   const [comparisons, setComparisons] = useState<MarketComparison[]>([])
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null)
   const [loading, setLoading] = useState(true)
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+  const [countryMarkets, setCountryMarkets] = useState<Market[]>([])
+  const [apiKeysStatus, setApiKeysStatus] = useState<any>(null)
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      checkApiKeys()
+    }
+  }, [status])
+
+  const checkApiKeys = async () => {
+    try {
+      const response = await fetch('/api/debug/api-keys')
+      if (response.ok) {
+        const data = await response.json()
+        setApiKeysStatus(data)
+        console.log('🔑 API Keys Status:', data)
+      }
+    } catch (error) {
+      console.error('Error checking API keys:', error)
+    }
+  }
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -32,43 +59,46 @@ export default function DashboardPage() {
     }
   }, [status])
 
+  // Reload markets when window regains focus (e.g., returning from settings)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (status === 'authenticated') {
+        loadMarkets()
+      }
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [status])
+
   const loadMarkets = async () => {
     try {
       setLoading(true)
-      const [polymarketRes, kalshiRes] = await Promise.allSettled([
-        fetch('/api/markets/polymarket'),
-        fetch('/api/markets/kalshi'),
-      ])
-
-      const allMarkets: Market[] = []
-
-      if (polymarketRes.status === 'fulfilled' && polymarketRes.value.ok) {
-        const data = await polymarketRes.value.json()
-        allMarkets.push(...(data.markets || []))
+      console.log('🔄 Loading markets...')
+      
+      const response = await fetch('/api/markets/all')
+      
+      if (!response.ok) {
+        console.error('❌ Failed to fetch markets:', response.status)
+        setMarkets([])
+        setBreakingNews([])
+        setLivePredictions([])
+        setCategories([])
+        return
       }
 
-      if (kalshiRes.status === 'fulfilled' && kalshiRes.value.ok) {
-        const data = await kalshiRes.value.json()
-        allMarkets.push(...(data.markets || []))
-      }
-
-      // Add mock locations for demonstration
-      const marketsWithLocations = allMarkets.map((market, index) => ({
-        ...market,
-        location: market.location || {
-          country: 'United States',
-          region: index % 2 === 0 ? 'East Coast' : 'West Coast',
-          city: index % 2 === 0 ? 'Washington, DC' : 'San Francisco, CA',
-          coordinates: {
-            lat: index % 2 === 0 ? 38.9072 : 37.7749,
-            lng: index % 2 === 0 ? -77.0369 : -122.4194,
-          },
-        },
-      }))
-
-      setMarkets(marketsWithLocations)
+      const data = await response.json()
+      console.log('✅ Markets loaded:', data.stats)
+      
+      setMarkets(data.markets || [])
+      setBreakingNews(data.breakingNews || [])
+      setLivePredictions(data.livePredictions || [])
+      setCategories(data.categories || [])
     } catch (error) {
       console.error('Error loading markets:', error)
+      setMarkets([])
+      setBreakingNews([])
+      setLivePredictions([])
+      setCategories([])
     } finally {
       setLoading(false)
     }
@@ -104,6 +134,20 @@ export default function DashboardPage() {
       <header className="glass-effect border-b border-border p-4 flex justify-between items-center">
         <h1 className="text-2xl font-bold">Prediction Markets Map</h1>
         <div className="flex items-center gap-4">
+          {apiKeysStatus && (
+            <div className="flex items-center gap-2 text-xs">
+              {apiKeysStatus.apiKeys.some((k: any) => k.platform === 'polymarket') ? (
+                <span className="text-green-500">✓ Polymarket</span>
+              ) : (
+                <span className="text-muted-foreground">✗ Polymarket</span>
+              )}
+              {apiKeysStatus.apiKeys.some((k: any) => k.platform === 'kalshi') ? (
+                <span className="text-green-500">✓ Kalshi</span>
+              ) : (
+                <span className="text-muted-foreground">✗ Kalshi</span>
+              )}
+            </div>
+          )}
           <Button
             variant="ghost"
             onClick={() => router.push('/dashboard/settings')}
@@ -122,17 +166,40 @@ export default function DashboardPage() {
         {/* Sidebar */}
         <Sidebar
           markets={markets}
+          categories={categories}
           onMarketSelect={setSelectedMarket}
           selectedMarket={selectedMarket}
         />
 
         {/* Map */}
         <div className="flex-1 relative">
+          <BreakingNews
+            breakingNews={breakingNews}
+            livePredictions={livePredictions}
+            onMarketClick={setSelectedMarket}
+          />
           <GlobeMap
             markets={markets}
+            breakingNews={breakingNews}
+            livePredictions={livePredictions}
             onMarketClick={setSelectedMarket}
+            onCountryClick={(countryName, countryMarkets) => {
+              setSelectedCountry(countryName)
+              setCountryMarkets(countryMarkets)
+            }}
             selectedMarket={selectedMarket}
           />
+          {selectedCountry && (
+            <CountryOverlay
+              country={selectedCountry}
+              markets={countryMarkets}
+              onClose={() => {
+                setSelectedCountry(null)
+                setCountryMarkets([])
+              }}
+              onMarketClick={setSelectedMarket}
+            />
+          )}
         </div>
 
         {/* Market Details Panel */}

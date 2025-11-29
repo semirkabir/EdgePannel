@@ -20,9 +20,9 @@ export class KalshiClient {
   constructor(credentials: KalshiCredentials, useDemo: boolean = false) {
     this.accessKeyId = credentials.accessKeyId
     this.privateKey = credentials.privateKey
-    this.baseUrl = useDemo 
+    this.baseUrl = useDemo
       ? 'https://demo-api.kalshi.com/trade-api/v2'
-      : 'https://trade-api.kalshi.com/trade-api/v2'
+      : 'https://api.elections.kalshi.com/trade-api/v2'
   }
 
   private generateSignature(timestamp: string, method: string, path: string): string {
@@ -34,8 +34,8 @@ export class KalshiClient {
     
     const signature = crypto.sign('RSA-SHA256', Buffer.from(message), {
       key,
-      padding: crypto.constants.RSA_PSS_PADDING,
-      saltLength: crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN,
+      padding: (crypto.constants as any).RSA_PSS_PADDING || crypto.constants.RSA_PKCS1_PADDING,
+      saltLength: (crypto.constants as any).RSA_PSS_SALTLEN_MAX_SIGN || 32,
     })
 
     return signature.toString('base64')
@@ -65,11 +65,25 @@ export class KalshiClient {
       options.body = JSON.stringify(body)
     }
 
-    const response = await fetch(`${this.baseUrl}${path}`, options)
+    let response: Response
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, options)
+    } catch (fetchError: any) {
+      console.error(`[Kalshi Client] Fetch failed:`, fetchError.message)
+      throw new Error(`Kalshi API fetch failed: ${fetchError.message}`)
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[Kalshi Client] HTTP error ${response.status}:`, errorText)
+      throw new Error(`Kalshi API HTTP error: ${response.status} ${response.statusText}`)
+    }
+
     const data: KalshiApiResponse<T> = await response.json()
 
-    if (!response.ok || data.status !== 'ok') {
-      throw new Error(data.error || `Kalshi API error: ${response.statusText}`)
+    if (data.status !== 'ok') {
+      console.error('[Kalshi Client] API error response:', data)
+      throw new Error(data.error || `Kalshi API error: ${data.status}`)
     }
 
     return data.data as T
@@ -81,16 +95,21 @@ export class KalshiClient {
     event_ticker?: string
     series_ticker?: string
   }): Promise<Market[]> {
-    const queryParams = new URLSearchParams()
-    if (params?.limit) queryParams.append('limit', params.limit.toString())
-    if (params?.cursor) queryParams.append('cursor', params.cursor)
-    if (params?.event_ticker) queryParams.append('event_ticker', params.event_ticker)
-    if (params?.series_ticker) queryParams.append('series_ticker', params.series_ticker)
+    try {
+      const queryParams = new URLSearchParams()
+      if (params?.limit) queryParams.append('limit', params.limit.toString())
+      if (params?.cursor) queryParams.append('cursor', params.cursor)
+      if (params?.event_ticker) queryParams.append('event_ticker', params.event_ticker)
+      if (params?.series_ticker) queryParams.append('series_ticker', params.series_ticker)
 
-    const path = `/markets?${queryParams.toString()}`
-    const data = await this.request<any>('GET', path)
+      const path = `/markets?${queryParams.toString()}`
+      const data = await this.request<any>('GET', path)
 
-    return this.transformMarkets(data.markets || [])
+      return this.transformMarkets(data.markets || [])
+    } catch (error: any) {
+      console.error('[Kalshi Client] Error fetching markets:', error.message || error)
+      return [] // Return empty array instead of throwing
+    }
   }
 
   async getMarket(ticker: string): Promise<MarketDetails> {
@@ -114,10 +133,67 @@ export class KalshiClient {
   }
 
   private transformMarkets(markets: any[]): Market[] {
-    return markets.map(m => this.transformMarket(m))
+    const now = new Date()
+    return markets
+      .map(m => this.transformMarket(m))
+      .filter(m => {
+        // Filter out expired markets
+        if (m.endDate) {
+          const endDate = m.endDate instanceof Date ? m.endDate : new Date(m.endDate)
+          // Only include markets that haven't expired or expired less than 1 day ago
+          if (endDate < new Date(now.getTime() - 24 * 60 * 60 * 1000)) {
+            return false
+          }
+        }
+        
+        // Filter out markets with invalid prices (resolved)
+        if (m.price === undefined || m.price <= 0 || m.price >= 1) {
+          return false
+        }
+        
+        // Filter out markets with old years in title
+        if (m.title) {
+          const yearMatch = m.title.match(/\b(20\d{2})\b/)
+          if (yearMatch) {
+            const year = parseInt(yearMatch[1])
+            const currentYear = now.getFullYear()
+            if (year < currentYear - 1) {
+              return false
+            }
+          }
+        }
+        
+        return true
+      })
+      .sort((a, b) => {
+        // Sort by end date (most recent first)
+        if (a.endDate && b.endDate) {
+          const aDate = a.endDate instanceof Date ? a.endDate : new Date(a.endDate)
+          const bDate = b.endDate instanceof Date ? b.endDate : new Date(b.endDate)
+          return bDate.getTime() - aDate.getTime()
+        }
+        if (a.endDate) return -1
+        if (b.endDate) return 1
+        // Then by volume
+        if (a.volume24h && b.volume24h) {
+          return b.volume24h - a.volume24h
+        }
+        return 0
+      })
   }
 
   private transformMarket(market: any): Market {
+    const now = new Date()
+    let endDate: Date | undefined
+    
+    if (market.expiration_time) {
+      endDate = new Date(market.expiration_time)
+      // Filter out markets that expired more than 1 day ago
+      if (endDate < new Date(now.getTime() - 24 * 60 * 60 * 1000)) {
+        // Return null would require changing return type, so we'll filter later
+      }
+    }
+
     return {
       id: market.ticker,
       platform: 'kalshi',
@@ -128,7 +204,7 @@ export class KalshiClient {
       price: market.last_price ? market.last_price / 100 : undefined,
       volume24h: market.volume_24h,
       liquidity: market.liquidity,
-      endDate: market.expiration_time ? new Date(market.expiration_time) : undefined,
+      endDate: endDate,
       rawData: market,
     }
   }

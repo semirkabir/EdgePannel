@@ -103,3 +103,45 @@ export async function GET(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const platform = searchParams.get('platform')
+
+    if (!platform || (platform !== 'polymarket' && platform !== 'kalshi')) {
+      return NextResponse.json(
+        { error: 'Invalid platform. Must be "polymarket" or "kalshi"' },
+        { status: 400 }
+      )
+    }
+
+    await prisma.apiKey.delete({
+      where: {
+        userId_platform: {
+          userId: session.user.id,
+          platform: platform as 'polymarket' | 'kalshi',
+        },
+      },
+    })
+
+    return NextResponse.json({ success: true, message: 'API key deleted successfully' })
+  } catch (error: any) {
+    console.error('Error deleting API key:', error)
+    
+    // If key doesn't exist, that's okay - return success
+    if (error.code === 'P2025') {
+      return NextResponse.json({ success: true, message: 'API key not found (already deleted)' })
+    }
+    
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete API key' },
+      { status: 500 }
+    )
+  }
+}
+

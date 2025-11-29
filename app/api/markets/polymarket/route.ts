@@ -12,7 +12,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's Polymarket API key
+    // Polymarket's public GraphQL API doesn't require authentication for reading markets
+    // API key is only needed for trading operations
+    // Try to get API key if available (for future trading features), but don't require it
+    let apiKey: string | undefined
     const apiKeyRecord = await prisma.apiKey.findUnique({
       where: {
         userId_platform: {
@@ -22,29 +25,40 @@ export async function GET(request: Request) {
       },
     })
 
-    if (!apiKeyRecord) {
-      return NextResponse.json(
-        { error: 'Polymarket API key not configured' },
-        { status: 400 }
-      )
+    if (apiKeyRecord) {
+      try {
+        apiKey = decrypt(apiKeyRecord.encryptedKey)
+        console.log('[Polymarket] API key found (for trading), using public API for market data')
+      } catch (decryptError: any) {
+        console.warn('[Polymarket] Error decrypting API key, continuing with public API:', decryptError)
+      }
+    } else {
+      console.log('[Polymarket] No API key found, using public GraphQL API (no auth required)')
     }
 
-    const apiKey = decrypt(apiKeyRecord.encryptedKey)
-    const client = new PolymarketClient({ apiKey })
+    try {
+      // Use empty string or placeholder - the getMarkets method uses public GraphQL API
+      const client = new PolymarketClient({ apiKey: apiKey || '' })
 
-    const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '100')
-    const offset = parseInt(searchParams.get('offset') || '0')
+      const { searchParams } = new URL(request.url)
+      const limit = parseInt(searchParams.get('limit') || '100')
+      const offset = parseInt(searchParams.get('offset') || '0')
 
-    const markets = await client.getMarkets({ limit, offset })
+      console.log(`[Polymarket] Fetching markets (limit: ${limit}, offset: ${offset})`)
+      const markets = await client.getMarkets({ limit, offset })
+      console.log(`[Polymarket] Successfully fetched ${markets.length} markets`)
 
-    return NextResponse.json({ markets })
+      return NextResponse.json({ markets })
+    } catch (apiError: any) {
+      console.error('[Polymarket] Error calling API:', apiError.message || apiError)
+      console.error('[Polymarket] Error stack:', apiError.stack)
+      // Return empty markets instead of error - API call failed
+      return NextResponse.json({ markets: [] })
+    }
   } catch (error: any) {
     console.error('Error fetching Polymarket markets:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch markets' },
-      { status: 500 }
-    )
+    // Return empty markets instead of 500 error
+    return NextResponse.json({ markets: [] })
   }
 }
 
