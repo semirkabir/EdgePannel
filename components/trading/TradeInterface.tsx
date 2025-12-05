@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Market } from '@/types/market'
 import { Button } from '@/components/ui/button'
+import { toast } from '@/hooks/use-toast'
 
 interface TradeInterfaceProps {
   market: Market
@@ -39,11 +40,11 @@ export function TradeInterface({ market }: TradeInterfaceProps) {
         throw new Error(data.error || 'Trade failed')
       }
 
-      alert('Order placed successfully!')
+      toast.success('Order placed successfully!', `${side.toUpperCase()} ${quantity} @ ${orderType === 'limit' ? price : 'market price'}`)
       setQuantity('')
       setPrice('')
     } catch (error: any) {
-      alert(`Error: ${error.message}`)
+      toast.error('Trade failed', error.message || 'An unexpected error occurred')
     } finally {
       setLoading(false)
     }

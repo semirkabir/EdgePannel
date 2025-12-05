@@ -214,105 +214,52 @@ export function GlobeScene({
   breakingNews, 
   livePredictions,
   selectedMarket,
-  onMarketClick 
+  onMarketClick,
+  isAnimating = true
 }: {
   markets: Market[]
   breakingNews?: Market[]
   livePredictions?: Market[]
   selectedMarket?: Market | null
   onMarketClick?: (market: Market) => void
+  isAnimating?: boolean
 }) {
   const globeRef = useRef<THREE.Group>(null)
   const radius = 2
   const [textures, setTextures] = useState<{
     earthTexture?: THREE.Texture
     normalMap?: THREE.Texture
-    specularMap?: THREE.Texture
   }>({})
   
-  // Load Earth textures
+  // Load Earth textures with optimized loading
   useEffect(() => {
-    const loader = new THREE.TextureLoader()
-    
-    // Try to load high-quality Earth texture
-    loader.load(
-      'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg',
-      (texture) => {
-        texture.wrapS = THREE.RepeatWrapping
-        texture.wrapT = THREE.ClampToEdgeWrapping
+    // Import dynamically to avoid SSR issues
+    import('@/lib/globe-textures').then(({ 
+      createProceduralEarthTexture, 
+      createProceduralNormalMap,
+      loadEarthTexture 
+    }) => {
+      // Immediately set procedural textures for fast initial render
+      const proceduralEarth = createProceduralEarthTexture()
+      const proceduralNormal = createProceduralNormalMap()
+      
+      setTextures({
+        earthTexture: proceduralEarth,
+        normalMap: proceduralNormal,
+      })
+      
+      // Try to load higher quality texture in background
+      loadEarthTexture().then((texture) => {
         setTextures(prev => ({ ...prev, earthTexture: texture }))
-      },
-      undefined,
-      () => {
-        // Fallback: create procedural texture
-        const canvas = document.createElement('canvas')
-        canvas.width = 2048
-        canvas.height = 1024
-        const ctx = canvas.getContext('2d')!
-        
-        // Ocean base
-        const oceanGradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
-        oceanGradient.addColorStop(0, '#0a2540')
-        oceanGradient.addColorStop(0.5, '#1a4d7a')
-        oceanGradient.addColorStop(1, '#0a2540')
-        ctx.fillStyle = oceanGradient
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        
-        // Continents
-        ctx.fillStyle = '#2d5016'
-        // North America
-        ctx.beginPath()
-        ctx.ellipse(400, 300, 180, 120, 0, 0, 2 * Math.PI)
-        ctx.fill()
-        // South America
-        ctx.beginPath()
-        ctx.ellipse(350, 650, 100, 180, 0, 0, 2 * Math.PI)
-        ctx.fill()
-        // Europe/Africa
-        ctx.beginPath()
-        ctx.ellipse(950, 450, 120, 200, 0, 0, 2 * Math.PI)
-        ctx.fill()
-        // Asia
-        ctx.beginPath()
-        ctx.ellipse(1300, 300, 250, 150, 0, 0, 2 * Math.PI)
-        ctx.fill()
-        // Australia
-        ctx.beginPath()
-        ctx.ellipse(1500, 650, 80, 60, 0, 0, 2 * Math.PI)
-        ctx.fill()
-        
-        const texture = new THREE.CanvasTexture(canvas)
-        texture.wrapS = THREE.RepeatWrapping
-        texture.wrapT = THREE.ClampToEdgeWrapping
-        setTextures(prev => ({ ...prev, earthTexture: texture }))
-      }
-    )
-    
-    // Load normal map for terrain
-    loader.load(
-      'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_normal_2048.jpg',
-      (texture) => {
-        texture.wrapS = THREE.RepeatWrapping
-        texture.wrapT = THREE.ClampToEdgeWrapping
-        setTextures(prev => ({ ...prev, normalMap: texture }))
-      },
-      undefined,
-      () => {
-        // Fallback normal map
-        const normalTexture = new THREE.DataTexture(
-          new Uint8Array([128, 128, 255, 255]),
-          1,
-          1,
-          THREE.RGBAFormat
-        )
-        setTextures(prev => ({ ...prev, normalMap: normalTexture }))
-      }
-    )
+      }).catch(() => {
+        // Keep using procedural texture
+      })
+    })
   }, [])
   
-  // Auto-rotate globe
+  // Auto-rotate globe (only when animating)
   useFrame((state) => {
-    if (globeRef.current) {
+    if (globeRef.current && isAnimating) {
       globeRef.current.rotation.y += 0.001
     }
   })

@@ -3,12 +3,20 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db/client'
 import { encrypt } from '@/lib/utils/encryption'
+import { AUTH_ENABLED, MOCK_USER_ID } from '@/lib/auth-config'
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Get user ID - use mock if auth is disabled
+    let userId: string
+    if (AUTH_ENABLED) {
+      const session = await getServerSession(authOptions)
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      userId = session.user.id
+    } else {
+      userId = MOCK_USER_ID
     }
 
     const { platform, apiKey, accessKeyId, privateKey } = await request.json()
@@ -45,7 +53,7 @@ export async function POST(request: Request) {
     await prisma.apiKey.upsert({
       where: {
         userId_platform: {
-          userId: session.user.id,
+          userId: userId,
           platform,
         },
       },
@@ -56,7 +64,7 @@ export async function POST(request: Request) {
         updatedAt: new Date(),
       },
       create: {
-        userId: session.user.id,
+        userId: userId,
         platform,
         encryptedKey,
         encryptedKeyData,
@@ -75,14 +83,21 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Get user ID - use mock if auth is disabled
+    let userId: string
+    if (AUTH_ENABLED) {
+      const session = await getServerSession(authOptions)
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      userId = session.user.id
+    } else {
+      userId = MOCK_USER_ID
     }
 
     const apiKeys = await prisma.apiKey.findMany({
       where: {
-        userId: session.user.id,
+        userId: userId,
       },
       select: {
         id: true,
@@ -105,9 +120,16 @@ export async function GET(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Get user ID - use mock if auth is disabled
+    let userId: string
+    if (AUTH_ENABLED) {
+      const session = await getServerSession(authOptions)
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      userId = session.user.id
+    } else {
+      userId = MOCK_USER_ID
     }
 
     const { searchParams } = new URL(request.url)
@@ -123,7 +145,7 @@ export async function DELETE(request: Request) {
     await prisma.apiKey.delete({
       where: {
         userId_platform: {
-          userId: session.user.id,
+          userId: userId,
           platform: platform as 'polymarket' | 'kalshi',
         },
       },

@@ -6,12 +6,20 @@ import { KalshiClient } from '@/lib/api/kalshi'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { decrypt } from '@/lib/utils/encryption'
 import { TradeOrder } from '@/types/trading'
+import { AUTH_ENABLED, MOCK_USER_ID } from '@/lib/auth-config'
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Get user ID - use mock if auth is disabled
+    let userId: string
+    if (AUTH_ENABLED) {
+      const session = await getServerSession(authOptions)
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      userId = session.user.id
+    } else {
+      userId = MOCK_USER_ID
     }
 
     const order: TradeOrder = await request.json()
@@ -20,7 +28,7 @@ export async function POST(request: Request) {
     const apiKeyRecord = await prisma.apiKey.findUnique({
       where: {
         userId_platform: {
-          userId: session.user.id,
+          userId: userId,
           platform: order.platform,
         },
       },
@@ -76,7 +84,7 @@ export async function POST(request: Request) {
     // Save trade to database
     await prisma.trade.create({
       data: {
-        userId: session.user.id,
+        userId: userId,
         platform: order.platform,
         marketId: order.marketId,
         marketTitle: order.marketId, // Will be updated with actual title

@@ -1,19 +1,17 @@
 'use client'
 
-import { useState, useMemo, Suspense, useEffect } from 'react'
+import { useState, useMemo, Suspense, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Market } from '@/types/market'
+import { usePageVisibility, useElementVisibility, usePrefersReducedMotion } from '@/hooks/use-visibility'
+import { SkeletonGlobe } from '@/components/ui/skeleton'
 
 // Dynamically import the entire canvas to avoid SSR issues
 const GlobeCanvas = dynamic(
   () => import('./GlobeCanvas').then((mod) => ({ default: mod.GlobeCanvas })),
   { 
     ssr: false,
-    loading: () => (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="text-muted-foreground">Loading globe...</div>
-      </div>
-    )
+    loading: () => <SkeletonGlobe />
   }
 )
 
@@ -37,6 +35,14 @@ export function GlobeMap({
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
   const [countryMarkets, setCountryMarkets] = useState<Market[]>([])
   const [isMounted, setIsMounted] = useState(false)
+  
+  // Performance optimizations
+  const isPageVisible = usePageVisibility()
+  const [containerRef, isInViewport] = useElementVisibility()
+  const prefersReducedMotion = usePrefersReducedMotion()
+  
+  // Only render/animate when visible
+  const shouldAnimate = isPageVisible && isInViewport && !prefersReducedMotion
 
   // Ensure component only renders on client
   useEffect(() => {
@@ -59,24 +65,24 @@ export function GlobeMap({
   if (!isMounted) {
     return (
       <div className="w-full h-full relative bg-[#0a0e27] flex items-center justify-center">
-        <div className="text-muted-foreground">Loading globe...</div>
+        <SkeletonGlobe />
       </div>
     )
   }
 
   return (
-    <div className="w-full h-full relative bg-[#0a0e27]">
-      <Suspense fallback={
-        <div className="w-full h-full flex items-center justify-center">
-          <div className="text-muted-foreground">Loading globe...</div>
-        </div>
-      }>
+    <div 
+      ref={containerRef as React.RefCallback<HTMLDivElement>}
+      className="w-full h-full relative bg-[#0a0e27]"
+    >
+      <Suspense fallback={<SkeletonGlobe />}>
         <GlobeCanvas
           markets={markets}
           breakingNews={breakingNews}
           livePredictions={livePredictions}
           selectedMarket={selectedMarket}
           onMarketClick={onMarketClick}
+          isAnimating={shouldAnimate}
         />
       </Suspense>
 

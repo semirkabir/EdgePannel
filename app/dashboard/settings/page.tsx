@@ -1,18 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from '@/hooks/use-toast'
+import { useUserApiKeys } from '@/hooks/use-markets'
+import { ArrowLeft, Trash2, Loader2 } from 'lucide-react'
 
 export default function SettingsPage() {
   const { data: session } = useSession()
   const router = useRouter()
-  const [apiKeys, setApiKeys] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  
+  // Use SWR for API keys fetching with caching
+  const { apiKeys, isLoading: loading, refresh: refreshApiKeys } = useUserApiKeys()
+  
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
 
@@ -23,23 +29,10 @@ export default function SettingsPage() {
   const [kalshiAccessKeyId, setKalshiAccessKeyId] = useState('')
   const [kalshiPrivateKey, setKalshiPrivateKey] = useState('')
 
-  useEffect(() => {
-    loadApiKeys()
-  }, [])
-
-  const loadApiKeys = async () => {
-    try {
-      const response = await fetch('/api/user/api-keys')
-      if (response.ok) {
-        const data = await response.json()
-        setApiKeys(data.apiKeys || [])
-      }
-    } catch (error) {
-      console.error('Error loading API keys:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Confirmation dialogs
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<'polymarket' | 'kalshi' | null>(null)
+  const [redirectConfirmOpen, setRedirectConfirmOpen] = useState(false)
 
   const savePolymarketKey = async () => {
     if (!polymarketKey) return
@@ -56,19 +49,17 @@ export default function SettingsPage() {
       })
 
       if (response.ok) {
-        alert('Polymarket API key saved successfully!')
+        toast.success('Polymarket API key saved successfully!')
         setPolymarketKey('')
-        loadApiKeys()
-        // Option to go back to dashboard
-        if (confirm('API key saved! Would you like to go back to the dashboard?')) {
-          router.push('/dashboard')
-        }
+        refreshApiKeys() // Refresh the SWR cache
+        // Show redirect confirmation
+        setRedirectConfirmOpen(true)
       } else {
         const data = await response.json()
-        alert(`Error: ${data.error}`)
+        toast.error('Failed to save API key', data.error)
       }
     } catch (error) {
-      alert('Error saving API key')
+      toast.error('Error saving API key', 'Please try again')
     } finally {
       setSaving(false)
     }
@@ -90,39 +81,42 @@ export default function SettingsPage() {
       })
 
       if (response.ok) {
-        alert('Kalshi API keys saved successfully!')
+        toast.success('Kalshi API keys saved successfully!')
         setKalshiAccessKeyId('')
         setKalshiPrivateKey('')
-        loadApiKeys()
-        // Option to go back to dashboard
-        if (confirm('API keys saved! Would you like to go back to the dashboard?')) {
-          router.push('/dashboard')
-        }
+        refreshApiKeys() // Refresh the SWR cache
+        // Show redirect confirmation
+        setRedirectConfirmOpen(true)
       } else {
         const data = await response.json()
-        alert(`Error: ${data.error}`)
+        toast.error('Failed to save API keys', data.error)
       }
     } catch (error) {
-      alert('Error saving API keys')
+      toast.error('Error saving API keys', 'Please try again')
     } finally {
       setSaving(false)
     }
   }
 
-  const deleteApiKey = async (platform: 'polymarket' | 'kalshi') => {
-    if (!confirm(`Are you sure you want to delete your ${platform} API key?\n\nYou can add it back at any time by entering it again below.`)) {
-      return
-    }
+  const handleDeleteClick = (platform: 'polymarket' | 'kalshi') => {
+    setDeleteTarget(platform)
+    setDeleteConfirmOpen(true)
+  }
 
+  const deleteApiKey = async () => {
+    if (!deleteTarget) return
+
+    const platform = deleteTarget
     setDeleting(platform)
+    
     try {
       const response = await fetch(`/api/user/api-keys?platform=${platform}`, {
         method: 'DELETE',
       })
 
       if (response.ok) {
-        alert(`${platform} API key deleted successfully! You can add it back by entering it below.`)
-        loadApiKeys()
+        toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} API key deleted`, 'You can add it back anytime')
+        refreshApiKeys() // Refresh the SWR cache
         // Clear form fields
         if (platform === 'polymarket') {
           setPolymarketKey('')
@@ -132,19 +126,40 @@ export default function SettingsPage() {
         }
       } else {
         const data = await response.json()
-        alert(`Error: ${data.error}`)
+        toast.error('Failed to delete API key', data.error)
       }
     } catch (error) {
-      alert('Error deleting API key')
+      toast.error('Error deleting API key', 'Please try again')
     } finally {
       setDeleting(null)
+      setDeleteTarget(null)
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen bg-background p-8">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-10 rounded-md" />
+            <Skeleton className="h-9 w-32" />
+          </div>
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-9 w-36" />
+          </div>
+          {/* Skeleton cards for API key sections */}
+          {[1, 2].map((i) => (
+            <div key={i} className="rounded-lg border bg-card p-6 space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-4 w-72" />
+              </div>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-9 w-48" />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -203,7 +218,7 @@ export default function SettingsPage() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => deleteApiKey('polymarket')}
+                  onClick={() => handleDeleteClick('polymarket')}
                   disabled={deleting === 'polymarket'}
                   className="ml-2"
                 >
@@ -243,7 +258,7 @@ export default function SettingsPage() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => deleteApiKey('kalshi')}
+                  onClick={() => handleDeleteClick('kalshi')}
                   disabled={deleting === 'kalshi'}
                   className="ml-2"
                 >
@@ -278,7 +293,29 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title={`Delete ${deleteTarget ? deleteTarget.charAt(0).toUpperCase() + deleteTarget.slice(1) : ''} API Key?`}
+        description="Are you sure you want to delete this API key? You can add it back at any time by entering it again."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={deleteApiKey}
+      />
+
+      {/* Redirect Confirmation Dialog */}
+      <ConfirmDialog
+        open={redirectConfirmOpen}
+        onOpenChange={setRedirectConfirmOpen}
+        title="API Key Saved!"
+        description="Would you like to go back to the dashboard to see your markets?"
+        confirmText="Go to Dashboard"
+        cancelText="Stay Here"
+        onConfirm={() => router.push('/dashboard')}
+      />
     </div>
   )
 }
-
