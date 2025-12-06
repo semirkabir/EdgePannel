@@ -25,6 +25,7 @@
     "clsx": "^2.1.0",
     "crypto-js": "^4.2.0",
     "dotenv": "^17.2.3",
+    "kalshi-typescript": "^3.0.0",
     "lucide-react": "^0.344.0",
     "next": "^14.2.0",
     "next-auth": "^4.24.5",

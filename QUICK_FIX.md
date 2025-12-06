@@ -104,3 +104,4 @@ Or:
 npx prisma db push
 ```
 
+

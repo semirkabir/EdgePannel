@@ -81,3 +81,4 @@ This should work now! ✅
 3. **Update** `.env` with direct connection string
 4. **Run** `npx prisma db push` again
 
+

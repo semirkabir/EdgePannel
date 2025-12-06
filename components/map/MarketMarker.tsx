@@ -38,3 +38,4 @@ export function MarketMarker({ market, onClick, isSelected }: MarketMarkerProps)
   )
 }
 
+

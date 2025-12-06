@@ -16,3 +16,4 @@ export function PriceHistory({ priceHistory }: PriceHistoryProps) {
   )
 }
 
+

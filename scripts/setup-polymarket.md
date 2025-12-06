@@ -57,3 +57,4 @@ The app will:
 
 Since Polymarket's official trading API may require special access, the application is designed to work with market data reading out of the box. Trading functionality will be available once you have official API credentials.
 
+

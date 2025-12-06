@@ -1,92 +1,29 @@
+import { Configuration, MarketApi, PortfolioApi, OrdersApi, Market } from 'kalshi-typescript'
 import crypto from 'crypto'
-import { Market, MarketDetails } from '@/types/market'
+import { Market as AppMarket, MarketDetails } from '@/types/market'
 
 interface KalshiCredentials {
   accessKeyId: string
   privateKey: string
 }
 
-interface KalshiApiResponse<T> {
-  status: string
-  data?: T
-  error?: string
-}
-
 export class KalshiClient {
-  private accessKeyId: string
-  private privateKey: string
-  private baseUrl: string
+  private marketApi: MarketApi
+  private portfolioApi: PortfolioApi
+  private ordersApi: OrdersApi
 
   constructor(credentials: KalshiCredentials, useDemo: boolean = false) {
-    this.accessKeyId = credentials.accessKeyId
-    this.privateKey = credentials.privateKey
-    this.baseUrl = useDemo
-      ? 'https://demo-api.kalshi.com/trade-api/v2'
-      : 'https://api.elections.kalshi.com/trade-api/v2'
-  }
-
-  private generateSignature(timestamp: string, method: string, path: string): string {
-    const message = `${timestamp}${method}${path}`
-    const key = crypto.createPrivateKey({
-      key: this.privateKey,
-      format: 'pem',
-    })
-    
-    const signature = crypto.sign('RSA-SHA256', Buffer.from(message), {
-      key,
-      padding: (crypto.constants as any).RSA_PSS_PADDING || crypto.constants.RSA_PKCS1_PADDING,
-      saltLength: (crypto.constants as any).RSA_PSS_SALTLEN_MAX_SIGN || 32,
+    const config = new Configuration({
+      basePath: useDemo
+        ? 'https://demo-api.kalshi.com/trade-api/v2'
+        : 'https://api.elections.kalshi.com/trade-api/v2',
+      apiKey: credentials.accessKeyId,
+      privateKeyPem: credentials.privateKey,
     })
 
-    return signature.toString('base64')
-  }
-
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: any
-  ): Promise<T> {
-    const timestamp = Date.now().toString()
-    const signature = this.generateSignature(timestamp, method, path)
-
-    const headers: HeadersInit = {
-      'KALSHI-ACCESS-KEY': this.accessKeyId,
-      'KALSHI-ACCESS-TIMESTAMP': timestamp,
-      'KALSHI-ACCESS-SIGNATURE': signature,
-      'Content-Type': 'application/json',
-    }
-
-    const options: RequestInit = {
-      method,
-      headers,
-    }
-
-    if (body) {
-      options.body = JSON.stringify(body)
-    }
-
-    let response: Response
-    try {
-      response = await fetch(`${this.baseUrl}${path}`, options)
-    } catch (fetchError: any) {
-      console.error(`[Kalshi Client] Fetch failed:`, fetchError.message)
-      throw new Error(`Kalshi API fetch failed: ${fetchError.message}`)
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`[Kalshi Client] HTTP error ${response.status}:`, errorText)
-      throw new Error(`Kalshi API HTTP error: ${response.status} ${response.statusText}`)
-    }
-
-    const data: KalshiApiResponse<T> = await response.json()
-
-    if (data.status !== 'ok') {
-      console.error('[Kalshi Client] API error response:', data)
-      throw new Error(data.error || `Kalshi API error: ${data.status}`)
-    }
-
-    return data.data as T
+    this.marketApi = new MarketApi(config)
+    this.portfolioApi = new PortfolioApi(config)
+    this.ordersApi = new OrdersApi(config)
   }
 
   async getMarkets(params?: {
@@ -94,31 +31,30 @@ export class KalshiClient {
     cursor?: string
     event_ticker?: string
     series_ticker?: string
-  }): Promise<Market[]> {
+  }): Promise<AppMarket[]> {
     try {
-      const queryParams = new URLSearchParams()
-      if (params?.limit) queryParams.append('limit', params.limit.toString())
-      if (params?.cursor) queryParams.append('cursor', params.cursor)
-      if (params?.event_ticker) queryParams.append('event_ticker', params.event_ticker)
-      if (params?.series_ticker) queryParams.append('series_ticker', params.series_ticker)
+      const response = await this.marketApi.getMarkets(
+        params?.limit,
+        params?.cursor,
+        params?.event_ticker,
+        params?.series_ticker
+      )
 
-      const path = `/markets?${queryParams.toString()}`
-      const data = await this.request<any>('GET', path)
-
-      return this.transformMarkets(data.markets || [])
+      return this.transformMarkets(response.data.markets || [])
     } catch (error: any) {
       console.error('[Kalshi Client] Error fetching markets:', error.message || error)
-      return [] // Return empty array instead of throwing
+      return []
     }
   }
 
   async getMarket(ticker: string): Promise<MarketDetails> {
-    const data = await this.request<any>('GET', `/markets/${ticker}`)
-    return this.transformMarketDetails(data.market)
+    const response = await this.marketApi.getMarket(ticker)
+    return this.transformMarketDetails(response.data.market)
   }
 
   async getPortfolio(): Promise<any> {
-    return this.request<any>('GET', '/portfolio')
+    const response = await this.portfolioApi.getBalance()
+    return response.data
   }
 
   async createOrder(order: {
@@ -129,10 +65,20 @@ export class KalshiClient {
     type: 'limit' | 'market'
     price?: number
   }): Promise<any> {
-    return this.request<any>('POST', '/portfolio/orders', order)
+    const response = await this.ordersApi.createOrder({
+      ticker: order.ticker,
+      side: order.side === 'yes' ? 'yes' : 'no', // Ensure type match if needed
+      action: order.action,
+      count: order.count,
+      type: order.type,
+      yes_price: order.side === 'yes' ? order.price : undefined,
+      no_price: order.side === 'no' ? order.price : undefined,
+      client_order_id: crypto.randomUUID(), // Recommended to add client_order_id
+    })
+    return response.data
   }
 
-  private transformMarkets(markets: any[]): Market[] {
+  private transformMarkets(markets: any[]): AppMarket[] {
     const now = new Date()
     return markets
       .map(m => this.transformMarket(m))
@@ -145,12 +91,12 @@ export class KalshiClient {
             return false
           }
         }
-        
+
         // Filter out markets with invalid prices (resolved)
         if (m.price === undefined || m.price <= 0 || m.price >= 1) {
           return false
         }
-        
+
         // Filter out markets with old years in title
         if (m.title) {
           const yearMatch = m.title.match(/\b(20\d{2})\b/)
@@ -162,7 +108,7 @@ export class KalshiClient {
             }
           }
         }
-        
+
         return true
       })
       .sort((a, b) => {
@@ -182,16 +128,12 @@ export class KalshiClient {
       })
   }
 
-  private transformMarket(market: any): Market {
+  private transformMarket(market: any): AppMarket {
     const now = new Date()
     let endDate: Date | undefined
-    
+
     if (market.expiration_time) {
       endDate = new Date(market.expiration_time)
-      // Filter out markets that expired more than 1 day ago
-      if (endDate < new Date(now.getTime() - 24 * 60 * 60 * 1000)) {
-        // Return null would require changing return type, so we'll filter later
-      }
     }
 
     return {

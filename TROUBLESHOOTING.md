@@ -152,3 +152,4 @@ DATABASE_URL=postgresql://postgres:your_actual_password@db.onwkzqbrmrskazfitshr.
 # DATABASE_URL=postgresql://postgres:MyP%40ss%23123@db.onwkzqbrmrskazfitshr.supabase.co:5432/postgres
 ```
 
+

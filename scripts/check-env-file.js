@@ -58,3 +58,4 @@ console.log(`   NEXTAUTH_URL: ${process.env.NEXTAUTH_URL || '❌ Missing'}`);
 console.log('\n💡 If DATABASE_URL is in .env but not in process.env,');
 console.log('   make sure you have dotenv installed: npm install dotenv\n');
 
+

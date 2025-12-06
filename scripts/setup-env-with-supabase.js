@@ -85,3 +85,4 @@ if (envVars.DATABASE_URL.includes('[YOUR-PASSWORD]')) {
 console.log('🚀 You can now start your dev server:');
 console.log('   npm run dev\n');
 
+

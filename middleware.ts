@@ -19,3 +19,4 @@ export const config = {
   matcher: ["/dashboard/:path*", "/api/trading/:path*", "/api/user/:path*"],
 }
 
+

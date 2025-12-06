@@ -239,3 +239,4 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     </>
   )
 }
+

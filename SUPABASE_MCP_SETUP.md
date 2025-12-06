@@ -79,3 +79,4 @@ The schema is created and ready to use. You just need to:
 2. Run `npx prisma generate`
 3. Start your application!
 
+

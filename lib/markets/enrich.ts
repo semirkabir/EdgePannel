@@ -64,7 +64,7 @@ export function inferCategory(market: Market): string {
   }
 
   const searchText = `${market.title} ${market.description || ''}`.toLowerCase()
-  
+
   // Find category with most matching keywords
   let bestCategory = 'Other'
   let bestScore = 0
@@ -96,7 +96,7 @@ export function inferCountry(market: Market): string | undefined {
   }
 
   const searchText = `${market.title} ${market.description || ''}`.toLowerCase()
-  
+
   // Find country with matching keywords
   for (const [country, keywords] of Object.entries(COUNTRY_KEYWORDS)) {
     if (keywords.some(keyword => searchText.includes(keyword.toLowerCase()))) {
@@ -132,21 +132,21 @@ export function enrichMarket(market: Market, allMarkets: Market[] = []): Enriche
 
   // Determine if breaking news (newly listed or high volume)
   // Use live volume data from order book
-  const isBreakingNews = 
+  const isBreakingNews =
     (market.volume24h && market.volume24h > 5000) || // Lower threshold for live data
-    (market.rawData?.created_at && 
-     new Date(market.rawData.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000) ||
-    (market.rawData?.start_date_iso && 
-     new Date(market.rawData.start_date_iso).getTime() > Date.now() - 6 * 60 * 60 * 1000) // Last 6 hours
+    (market.rawData?.created_at &&
+      new Date(market.rawData.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000) ||
+    (market.rawData?.start_date_iso &&
+      new Date(market.rawData.start_date_iso).getTime() > Date.now() - 6 * 60 * 60 * 1000) // Last 6 hours
 
   // Determine if live prediction (high probability delta or recent activity)
   // Use live price data from order book
-  const isLivePrediction = 
+  const isLivePrediction =
     market.probability !== undefined &&
     market.probability > 0 && market.probability < 1 && // Valid probability
     (
       (market.probability > 0.75 || market.probability < 0.25) || // Strong signal
-      (market.volume24h && market.volume24h > 500) // Active trading
+      (!!market.volume24h && market.volume24h > 500) // Active trading
     )
 
   return {
