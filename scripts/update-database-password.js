@@ -48,3 +48,4 @@ rl.question('Enter your Supabase database password: ', (password) => {
 });
 
 
+

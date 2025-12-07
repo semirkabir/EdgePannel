@@ -70,8 +70,13 @@ export default function DashboardPage() {
   const [showNotifications, setShowNotifications] = useState(false)
 
   // Feature hooks
-  const { watchlistCount } = useWatchlist()
+  const { watchlist, watchlistCount, getWatchlistMarkets } = useWatchlist()
   const { checkAlerts, activeAlertCount, triggeredAlertCount } = usePriceAlerts()
+  
+  // WebSocket for real-time updates (Polymarket works without keys, Kalshi requires keys)
+  // Note: For security, Kalshi WebSocket should use a server-side proxy
+  // For now, we'll use it for Polymarket only, or implement server-side WebSocket proxy
+  const watchlistMarketIds = watchlist.map(item => item.marketId)
 
   // URL params for sharing
   const searchParams = useSearchParams()

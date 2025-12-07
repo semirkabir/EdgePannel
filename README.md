@@ -15,8 +15,8 @@ A Next.js application featuring an interactive world map that displays predictio
 
 - **Frontend**: Next.js 14 (App Router) with TypeScript, Tailwind CSS
 - **Backend**: Next.js API routes
-- **Database**: PostgreSQL (via Prisma ORM)
-- **Authentication**: NextAuth.js
+- **Database**: PostgreSQL (via Prisma ORM) on Supabase
+- **Authentication**: NextAuth.js with Supabase Auth
 - **Map Visualization**: react-globe.gl
 - **Charts**: Recharts
 
@@ -39,8 +39,14 @@ npm install
 2. Set up your environment variables in `.env`:
 
 ```env
-# Database
+# Database (Supabase)
 DATABASE_URL=your_postgresql_connection_string
+
+# Supabase Auth (Required for user authentication)
+# Get these from Supabase Dashboard → Settings → API
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # NextAuth
 NEXTAUTH_SECRET=your_secret_key
@@ -55,6 +61,8 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
 ```
+
+**Note**: User authentication now goes through Supabase Auth. All registered users will appear in your Supabase Dashboard under **Authentication > Users**.
 
 3. Set up the database:
 
@@ -141,5 +149,6 @@ npx prisma migrate dev
 ## License
 
 MIT
+
 
 

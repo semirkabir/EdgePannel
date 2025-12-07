@@ -47,8 +47,13 @@ openssl rand -base64 32
 Create a `.env` file in the root directory with the following:
 
 ```env
-# Database
+# Database (Supabase)
 DATABASE_URL=your_postgresql_connection_string
+
+# Supabase Auth (Required for user authentication)
+NEXT_PUBLIC_SUPABASE_URL=https://onwkzqbrmrskazfitshr.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # NextAuth
 NEXTAUTH_SECRET=your_generated_secret_here
@@ -66,6 +71,18 @@ GOOGLE_CLIENT_SECRET=
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 ```
+
+### Getting Supabase Auth Keys
+
+1. Go to your Supabase Dashboard: https://supabase.com/dashboard
+2. Select your project
+3. Go to **Settings** → **API**
+4. You'll find:
+   - **Project URL**: This is your `NEXT_PUBLIC_SUPABASE_URL`
+   - **anon/public key**: This is your `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **service_role key**: This is your `SUPABASE_SERVICE_ROLE_KEY` (⚠️ Keep this secret!)
+
+**Important**: The service role key has admin privileges. Never expose it in client-side code or commit it to version control.
 
 ## Important Notes
 
@@ -95,5 +112,6 @@ GITHUB_CLIENT_SECRET=
    ```bash
    npm run dev
    ```
+
 
 

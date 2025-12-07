@@ -42,12 +42,12 @@ const fetcher = async <T>(url: string): Promise<T> => {
   return res.json()
 }
 
-// SWR configuration for markets - refresh every 30 seconds
+// SWR configuration for markets - reduced polling interval (WebSocket handles real-time updates)
 const MARKETS_CONFIG = {
-  refreshInterval: 30000, // 30 seconds
+  refreshInterval: 60000, // 60 seconds (reduced from 30s - WebSocket handles real-time)
   revalidateOnFocus: true,
   revalidateOnReconnect: true,
-  dedupingInterval: 5000, // Dedupe requests within 5 seconds
+  dedupingInterval: 10000, // Dedupe requests within 10 seconds
   errorRetryCount: 3,
   errorRetryInterval: 5000,
 }

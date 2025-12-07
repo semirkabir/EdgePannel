@@ -116,6 +116,12 @@ Here's what your complete `.env` file should look like:
 # Database (Supabase)
 DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
 
+# Supabase Auth (Required for user authentication)
+# Get these from Supabase Dashboard → Settings → API
+NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
 # NextAuth
 NEXTAUTH_SECRET=/Wt0c99yHOikOTn83+72eFiJI4320bqBYL2jIajAxWg=
 NEXTAUTH_URL=http://localhost:3000
@@ -132,6 +138,16 @@ GOOGLE_CLIENT_SECRET=
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 ```
+
+### Getting Supabase Auth Keys
+
+1. Go to your Supabase Dashboard: https://supabase.com/dashboard
+2. Select your project
+3. Go to **Settings** → **API**
+4. Copy the following:
+   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+   - **anon/public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **service_role key** → `SUPABASE_SERVICE_ROLE_KEY` (⚠️ Keep this secret - never expose in client code!)
 
 ---
 
@@ -199,5 +215,6 @@ After completing setup:
 - **Supabase Docs**: https://supabase.com/docs
 - **Kalshi API Docs**: https://docs.kalshi.com
 - **Polymarket Docs**: https://docs.polymarket.com
+
 
 

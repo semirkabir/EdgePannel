@@ -4,7 +4,7 @@ import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from "@/lib/db/client"
-import bcrypt from "bcryptjs"
+import { supabase } from "@/lib/supabase/client"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -21,21 +21,33 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email }
+          // Authenticate with Supabase Auth
+          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: credentials.email,
+            password: credentials.password,
           })
 
-          if (!user || !user.password) {
+          if (authError || !authData?.user) {
+            console.error('Supabase Auth error:', authError)
             return null
           }
 
-          const isPasswordValid = await bcrypt.compare(
-            credentials.password,
-            user.password
-          )
+          // Get user from Prisma to ensure consistency
+          let user = await prisma.user.findUnique({
+            where: { id: authData.user.id }
+          })
 
-          if (!isPasswordValid) {
-            return null
+          // If user doesn't exist in Prisma yet, create it (for backward compatibility)
+          if (!user) {
+            user = await prisma.user.create({
+              data: {
+                id: authData.user.id,
+                email: authData.user.email!,
+                name: authData.user.user_metadata?.name || authData.user.email!.split('@')[0],
+                emailVerified: authData.user.email_confirmed_at ? new Date(authData.user.email_confirmed_at) : null,
+                image: authData.user.user_metadata?.avatar_url,
+              },
+            })
           }
 
           return {
@@ -46,7 +58,7 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           console.error('NextAuth authorize error:', error)
-          // Return null on database errors to prevent exposing connection issues
+          // Return null on errors to prevent exposing connection issues
           return null
         }
       }
@@ -83,5 +95,6 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
+
 
 

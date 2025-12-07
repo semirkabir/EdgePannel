@@ -50,6 +50,15 @@ export async function POST(request: Request) {
       ? encrypt(privateKey)
       : null
 
+    console.log(`[API Keys] Saving ${platform} keys for user:`, {
+      userId,
+      platform,
+      hasEncryptedKey: !!encryptedKey,
+      hasEncryptedKeyData: !!encryptedKeyData,
+      encryptedKeyLength: encryptedKey?.length,
+      encryptedKeyDataLength: encryptedKeyData?.length,
+    })
+
     await prisma.apiKey.upsert({
       where: {
         userId_platform: {
@@ -71,6 +80,7 @@ export async function POST(request: Request) {
       },
     })
 
+    console.log(`[API Keys] Successfully saved ${platform} keys for user:`, userId)
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error saving API keys:', error)

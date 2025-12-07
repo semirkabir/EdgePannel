@@ -105,3 +105,4 @@ Supabase MCP uses a different authentication method (API keys) that doesn't requ
 The most common issue is password encoding, so start with Solution 1!
 
 
+

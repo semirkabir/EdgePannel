@@ -15,28 +15,145 @@ export class MarketAggregator {
     this.polymarketClient = polymarketClient
   }
 
-  async getAllMarkets(): Promise<Market[]> {
+  async getAllMarkets(params?: {
+    limit?: number
+    cursor?: string
+    offset?: number
+  }): Promise<Market[]> {
     const markets: Market[] = []
 
     if (this.kalshiClient) {
       try {
-        const kalshiMarkets = await this.kalshiClient.getMarkets({ limit: 100 })
-        markets.push(...kalshiMarkets)
-      } catch (error) {
-        console.error('Error fetching Kalshi markets:', error)
+        console.log('[MarketAggregator] Fetching Kalshi markets...')
+        const result = await this.kalshiClient.getMarkets({ 
+          limit: params?.limit || 100,
+          cursor: params?.cursor,
+        })
+        console.log(`[MarketAggregator] Fetched ${result.markets.length} Kalshi markets`)
+        markets.push(...result.markets)
+      } catch (error: any) {
+        console.error('[MarketAggregator] Error fetching Kalshi markets:', error.message || error)
+        console.error('[MarketAggregator] Error stack:', error.stack)
       }
+    } else {
+      console.log('[MarketAggregator] Kalshi client not available - API keys may not be configured')
     }
 
     if (this.polymarketClient) {
       try {
-        const polymarketMarkets = await this.polymarketClient.getMarkets({ limit: 100 })
-        markets.push(...polymarketMarkets)
+        const result = await this.polymarketClient.getMarkets({ 
+          limit: params?.limit || 100,
+          offset: params?.offset,
+        })
+        markets.push(...result.markets)
       } catch (error) {
         console.error('Error fetching Polymarket markets:', error)
       }
     }
 
     return markets
+  }
+
+  async searchMarkets(params: {
+    query?: string
+    platform?: 'kalshi' | 'polymarket'
+    category?: string
+    minProbability?: number
+    maxProbability?: number
+    limit?: number
+    cursor?: string
+    offset?: number
+  }): Promise<{
+    markets: Market[]
+    hasMore: boolean
+    nextCursor?: string
+    nextOffset?: number
+  }> {
+    const markets: Market[] = []
+    let hasMore = false
+    let nextCursor: string | undefined
+    let nextOffset: number | undefined
+
+    // Search Kalshi markets
+    if (this.kalshiClient && (params.platform === undefined || params.platform === 'kalshi')) {
+      try {
+        console.log('[MarketAggregator] Searching Kalshi markets...')
+        const result = await this.kalshiClient.getMarkets({
+          limit: params.limit || 50,
+          cursor: params.cursor,
+          search: params.query,
+        })
+        markets.push(...result.markets)
+        if (result.nextCursor) {
+          hasMore = true
+          nextCursor = result.nextCursor
+        }
+      } catch (error: any) {
+        console.error('[MarketAggregator] Error searching Kalshi markets:', error.message || error)
+      }
+    }
+
+    // Search Polymarket markets
+    if (this.polymarketClient && (params.platform === undefined || params.platform === 'polymarket')) {
+      try {
+        console.log('[MarketAggregator] Searching Polymarket markets...')
+        const result = await this.polymarketClient.getMarkets({
+          limit: params.limit || 50,
+          offset: params.offset,
+          search: params.query,
+        })
+        markets.push(...result.markets)
+        if (result.hasMore) {
+          hasMore = true
+          nextOffset = result.nextOffset
+        }
+      } catch (error: any) {
+        console.error('[MarketAggregator] Error searching Polymarket markets:', error.message || error)
+      }
+    }
+
+    // Apply additional filters
+    let filtered = markets
+
+    // Category filter
+    if (params.category) {
+      filtered = filtered.filter(m => 
+        m.category?.toLowerCase().includes(params.category!.toLowerCase()) ||
+        m.normalizedCategory?.toLowerCase().includes(params.category!.toLowerCase())
+      )
+    }
+
+    // Probability filters
+    if (params.minProbability !== undefined || params.maxProbability !== undefined) {
+      filtered = filtered.filter(m => {
+        if (m.probability === undefined) return false
+        const prob = m.probability * 100
+        if (params.minProbability !== undefined && prob < params.minProbability) return false
+        if (params.maxProbability !== undefined && prob > params.maxProbability) return false
+        return true
+      })
+    }
+
+    // Sort by relevance if search query provided
+    if (params.query) {
+      const queryLower = params.query.toLowerCase()
+      filtered.sort((a, b) => {
+        const aTitle = a.title.toLowerCase().includes(queryLower) ? 1 : 0
+        const bTitle = b.title.toLowerCase().includes(queryLower) ? 1 : 0
+        if (aTitle !== bTitle) return bTitle - aTitle
+        
+        const aDesc = a.description?.toLowerCase().includes(queryLower) ? 0.5 : 0
+        const bDesc = b.description?.toLowerCase().includes(queryLower) ? 0.5 : 0
+        return bDesc - aDesc
+      })
+    }
+
+    return {
+      markets: filtered,
+      hasMore,
+      nextCursor,
+      nextOffset,
+    }
   }
 
   async getAllEnrichedMarkets(): Promise<EnrichedMarket[]> {

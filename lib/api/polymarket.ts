@@ -35,12 +35,17 @@ export class PolymarketClient {
     limit?: number
     offset?: number
     closed?: boolean
-  }): Promise<Market[]> {
+    search?: string
+  }): Promise<{ markets: Market[]; hasMore: boolean; nextOffset?: number }> {
     // View-only: use Polymarket's public CLOB endpoint with light filtering
     try {
       const limit = params?.limit || 200
+      const offset = params?.offset || 0
       const url = new URL(`${this.baseUrl}/markets`)
       url.searchParams.set('limit', String(limit))
+      if (offset > 0) {
+        url.searchParams.set('offset', String(offset))
+      }
       // Ask Polymarket for open markets only when supported
       if (params?.closed === false) {
         url.searchParams.set('closed', 'false')
@@ -69,6 +74,23 @@ export class PolymarketClient {
       if (!Array.isArray(markets) || markets.length === 0) {
         console.warn('[Polymarket Client] No markets returned from CLOB API')
         return []
+      }
+
+      // Log sample market structure for debugging
+      if (markets.length > 0) {
+        const sample = markets[0]
+        console.log('[Polymarket Client] Sample market structure:', {
+          question: sample.question?.substring(0, 50),
+          condition_id: sample.condition_id,
+          question_id: sample.question_id,
+          archived: sample.archived,
+          resolved: sample.resolved,
+          closed: sample.closed,
+          hasTokens: !!sample.tokens,
+          tokenCount: sample.tokens?.length || 0,
+          firstTokenPrice: sample.tokens?.[0]?.price,
+          keys: Object.keys(sample).slice(0, 15),
+        })
       }
 
       const now = new Date()
@@ -110,11 +132,18 @@ export class PolymarketClient {
         })
         .map((m: any) => this.transformMarketFromTokens(m))
         .filter((m: Market | null) => {
-          if (!m) return false
-
-          // Require a sane price strictly between 0 and 1
-          if (m.price === undefined || m.price <= 0 || m.price >= 1) {
+          if (!m) {
             return false
+          }
+
+          // Allow markets without prices - they might be new or inactive
+          // Only filter out prices that are completely invalid (outside 0-1 range)
+          // Allow prices of 0 and 1 (they're valid probabilities, just extreme)
+          if (m.price !== undefined && m.price !== null) {
+            if (m.price < 0 || m.price > 1) {
+              return false
+            }
+            // Prices of 0 or 1 are valid (just extreme probabilities)
           }
 
           // If we still have an obviously historical market by endDate, drop it (> 1 year old)
@@ -131,11 +160,32 @@ export class PolymarketClient {
           return true
         }) as Market[]
 
-      console.log(`[Polymarket Client] Transformed ${transformed.length} markets`)
-      return transformed
+      // Apply search filter if provided
+      let filtered = transformed
+      if (params?.search) {
+        const searchLower = params.search.toLowerCase()
+        filtered = transformed.filter(m => 
+          m.title.toLowerCase().includes(searchLower) ||
+          m.description?.toLowerCase().includes(searchLower) ||
+          m.category?.toLowerCase().includes(searchLower)
+        )
+        console.log(`[Polymarket Client] Filtered by search "${params.search}": ${filtered.length} markets`)
+      }
+      
+      console.log(`[Polymarket Client] Transformed ${filtered.length} markets`)
+      
+      // Determine if there are more results
+      const hasMore = filtered.length === limit
+      const nextOffset = hasMore ? offset + limit : undefined
+      
+      return {
+        markets: filtered,
+        hasMore,
+        nextOffset,
+      }
     } catch (error: any) {
       console.error('[Polymarket Client] Error fetching markets:', error)
-      return [] // Return empty array instead of throwing
+      return { markets: [], hasMore: false, nextOffset: undefined } // Return empty array instead of throwing
     }
   }
 
@@ -162,10 +212,14 @@ export class PolymarketClient {
       }
     }
 
-    // Only return if we have a valid price strictly between 0 and 1
-    if (price === undefined || price <= 0 || price >= 1) {
-      return null
+    // Allow markets without prices or with prices between 0 and 1 (inclusive)
+    // Prices of 0 and 1 are valid (extreme probabilities)
+    if (price !== undefined && price !== null) {
+      if (price < 0 || price > 1) {
+        return null // Only filter out completely invalid prices
+      }
     }
+    // Allow markets without prices - they might be new or inactive
 
     return {
       id: conditionId,

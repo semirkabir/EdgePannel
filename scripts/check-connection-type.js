@@ -39,3 +39,4 @@ console.log('Current DATABASE_URL format:');
 console.log(dbUrl.replace(/:[^:@]+@/, ':****@')); // Hide password
 
 
+

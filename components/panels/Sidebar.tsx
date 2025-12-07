@@ -10,6 +10,7 @@ import { Search, Filter, X, ArrowUpDown, Menu, ChevronLeft, Clock, Trash2 } from
 import { cn } from '@/lib/utils/cn'
 import { useSearchHistory } from '@/hooks/use-search-history'
 import { WatchlistButton } from '@/components/panels/WatchlistPanel'
+import { useSearch } from '@/hooks/use-search'
 
 interface SidebarProps {
   markets: Market[]
@@ -54,8 +55,31 @@ export function Sidebar({
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showSearchHistory, setShowSearchHistory] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [useServerSearch, setUseServerSearch] = useState(false)
   
   const { history, addSearch, removeSearch, getRecentSearches, clearHistory } = useSearchHistory()
+
+  // Memoize search params to avoid recreating object on every render
+  const searchParams = useMemo(() => ({
+    q: filters.search || undefined,
+    platform: filters.platform !== 'all' ? filters.platform : undefined,
+    category: activeCategory !== 'All' ? activeCategory : undefined,
+    minProbability: filters.probabilityMin / 100,
+    maxProbability: filters.probabilityMax / 100,
+    limit: 100,
+  }), [filters.search, filters.platform, activeCategory, filters.probabilityMin, filters.probabilityMax])
+
+  // Server-side search hook (used when search query is provided)
+  const {
+    markets: searchResults,
+    isLoading: isSearching,
+    total: searchTotal,
+  } = useSearch(searchParams)
+
+  // Determine if we should use server search (when search query is long enough)
+  useEffect(() => {
+    setUseServerSearch(filters.search.length >= 2)
+  }, [filters.search])
 
   // Group markets by category
   const marketsByCategory = useMemo(() => {
@@ -68,12 +92,39 @@ export function Sidebar({
     return grouped
   }, [markets, categories])
 
+  // Use ref to track previous search results and only update when IDs actually change
+  const prevSearchResultsIdsRef = useRef<string>('')
+  const stableSearchResultsRef = useRef<Market[]>([])
+  
+  // Update stable search results only when the actual market IDs change
+  useEffect(() => {
+    if (!useServerSearch || searchResults.length === 0) {
+      if (stableSearchResultsRef.current.length > 0) {
+        stableSearchResultsRef.current = []
+        prevSearchResultsIdsRef.current = ''
+      }
+      return
+    }
+    
+    const currentIds = searchResults.map(m => `${m.id}-${m.platform}`).sort().join(',')
+    
+    if (currentIds !== prevSearchResultsIdsRef.current) {
+      stableSearchResultsRef.current = searchResults
+      prevSearchResultsIdsRef.current = currentIds
+    }
+  }, [useServerSearch, searchResults])
+
   // Filter and sort markets based on current filters
   const filteredMarkets = useMemo(() => {
-    let filtered = marketsByCategory[activeCategory] || []
+    // Use server search results if available and search query is long enough
+    let sourceMarkets = useServerSearch && stableSearchResultsRef.current.length > 0
+      ? stableSearchResultsRef.current 
+      : marketsByCategory[activeCategory] || []
 
-    // Search filter
-    if (filters.search) {
+    let filtered = sourceMarkets
+
+    // Client-side search filter (only if not using server search)
+    if (filters.search && !useServerSearch) {
       const searchLower = filters.search.toLowerCase()
       filtered = filtered.filter(m => 
         m.title.toLowerCase().includes(searchLower) ||
@@ -130,13 +181,85 @@ export function Sidebar({
     })
 
     return sorted
-  }, [marketsByCategory, activeCategory, filters])
+  }, [marketsByCategory, activeCategory, filters, useServerSearch])
 
   // Virtualization setup
   const [parentRef, setParentRef] = useState<HTMLDivElement | null>(null)
+  const [loadedMarkets, setLoadedMarkets] = useState<Market[]>([])
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+
+  // Load initial markets - use ref to track previous length to avoid infinite loops
+  const prevFilteredLengthRef = useRef<number>(0)
+  const prevFilteredIdsRef = useRef<string>('')
+  const isInitializingRef = useRef<boolean>(false)
+  
+  useEffect(() => {
+    // Prevent running if we're already initializing or loading more
+    if (isInitializingRef.current || isLoadingMore) {
+      return
+    }
+    
+    // Create a stable ID string from filtered markets to detect actual changes
+    const currentIds = filteredMarkets.map(m => `${m.id}-${m.platform}`).join(',')
+    const currentLength = filteredMarkets.length
+    
+    // Only update if the markets actually changed (not just reference)
+    if (currentIds !== prevFilteredIdsRef.current || currentLength !== prevFilteredLengthRef.current) {
+      isInitializingRef.current = true
+      
+      if (filteredMarkets.length > 0) {
+        setLoadedMarkets(filteredMarkets.slice(0, 50)) // Initial load of 50
+        setHasMore(filteredMarkets.length > 50)
+      } else {
+        setLoadedMarkets([])
+        setHasMore(false)
+      }
+      
+      prevFilteredLengthRef.current = currentLength
+      prevFilteredIdsRef.current = currentIds
+      
+      // Reset initialization flag after state update
+      setTimeout(() => {
+        isInitializingRef.current = false
+      }, 0)
+    }
+  }, [filteredMarkets, isLoadingMore])
+
+  // Infinite scroll handler
+  const loadMore = useCallback(() => {
+    if (isLoadingMore || !hasMore) return
+    
+    setIsLoadingMore(true)
+    // Simulate loading delay
+    setTimeout(() => {
+      const currentLength = loadedMarkets.length
+      const nextBatch = filteredMarkets.slice(currentLength, currentLength + 50)
+      setLoadedMarkets(prev => [...prev, ...nextBatch])
+      setHasMore(currentLength + 50 < filteredMarkets.length)
+      setIsLoadingMore(false)
+    }, 300)
+  }, [isLoadingMore, hasMore, loadedMarkets.length, filteredMarkets])
+
+  // Scroll handler for infinite scroll
+  useEffect(() => {
+    const scrollElement = parentRef
+    if (!scrollElement) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollElement
+      // Load more when within 200px of bottom
+      if (scrollHeight - scrollTop - clientHeight < 200) {
+        loadMore()
+      }
+    }
+
+    scrollElement.addEventListener('scroll', handleScroll)
+    return () => scrollElement.removeEventListener('scroll', handleScroll)
+  }, [parentRef, loadMore])
 
   const virtualizer = useVirtualizer({
-    count: filteredMarkets.length,
+    count: loadedMarkets.length,
     getScrollElement: () => parentRef,
     estimateSize: () => 100,
     overscan: 5,
@@ -368,7 +491,13 @@ export function Sidebar({
         </div>
 
         <div className="mt-3 text-xs text-muted-foreground flex items-center justify-between">
-          <span>Showing {filteredMarkets.length} of {markets.length} markets</span>
+          <span>
+            {useServerSearch && isSearching 
+              ? 'Searching...' 
+              : useServerSearch 
+                ? `Found ${searchTotal} markets` 
+                : `Showing ${filteredMarkets.length} of ${markets.length} markets`}
+          </span>
           {hasActiveFilters && (
             <span className="text-primary">Filtered</span>
           )}
@@ -409,7 +538,15 @@ export function Sidebar({
             className="h-full overflow-auto scrollbar-hide"
             style={{ contain: 'strict' }}
           >
-            {filteredMarkets.length === 0 ? (
+            {isSearching ? (
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/50 flex items-center justify-center animate-pulse">
+                  <Search className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium mb-2">Searching markets...</h3>
+                <p className="text-sm text-muted-foreground">Please wait</p>
+              </div>
+            ) : loadedMarkets.length === 0 ? (
               <EmptyState 
                 hasFilters={hasActiveFilters} 
                 onClearFilters={clearFilters}
@@ -424,7 +561,7 @@ export function Sidebar({
                 }}
               >
                 {virtualizer.getVirtualItems().map((virtualItem) => {
-                  const market = filteredMarkets[virtualItem.index]
+                  const market = loadedMarkets[virtualItem.index]
                   const isSelected = selectedMarket?.id === market.id
 
                   return (
@@ -491,6 +628,28 @@ export function Sidebar({
                     </div>
                   )
                 })}
+                
+                {/* Loading more indicator */}
+                {isLoadingMore && (
+                  <div className="p-4 text-center">
+                    <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      Loading more markets...
+                    </div>
+                  </div>
+                )}
+                
+                {/* Load more button (fallback if scroll doesn't trigger) */}
+                {hasMore && !isLoadingMore && (
+                  <div className="p-4 text-center">
+                    <button
+                      onClick={loadMore}
+                      className="text-sm text-primary hover:text-primary/80 underline"
+                    >
+                      Load more markets ({filteredMarkets.length - loadedMarkets.length} remaining)
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

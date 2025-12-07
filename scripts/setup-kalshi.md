@@ -56,3 +56,4 @@ Kalshi offers a demo environment for testing:
 The application uses production by default. If you want to use demo, you can modify `lib/api/kalshi.ts` to set `useDemo: true` in the KalshiClient constructor.
 
 
+

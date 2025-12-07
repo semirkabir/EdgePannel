@@ -235,6 +235,10 @@ export default function SettingsPage() {
                 onChange={(e) => setPolymarketKey(e.target.value)}
                 placeholder={hasPolymarket ? "Enter new API key to replace existing" : "Enter your Polymarket API key"}
                 className="w-full px-4 py-2 bg-background border border-input rounded-md"
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
+                data-form-type="other"
               />
             </div>
             <Button onClick={savePolymarketKey} disabled={saving || !polymarketKey}>
@@ -275,6 +279,10 @@ export default function SettingsPage() {
                 onChange={(e) => setKalshiAccessKeyId(e.target.value)}
                 placeholder={hasKalshi ? "Enter new Access Key ID to replace existing" : "Enter your Kalshi Access Key ID"}
                 className="w-full px-4 py-2 bg-background border border-input rounded-md"
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
+                data-form-type="other"
               />
             </div>
             <div>
@@ -285,6 +293,11 @@ export default function SettingsPage() {
                 placeholder={hasKalshi ? "Enter new Private Key to replace existing" : "Enter your Kalshi Private Key (PEM format)"}
                 rows={4}
                 className="w-full px-4 py-2 bg-background border border-input rounded-md font-mono text-sm"
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
+                data-form-type="other"
+                spellCheck="false"
               />
             </div>
             <Button onClick={saveKalshiKeys} disabled={saving || !kalshiAccessKeyId || !kalshiPrivateKey}>

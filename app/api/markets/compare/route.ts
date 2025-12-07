@@ -9,17 +9,29 @@ import { decrypt } from '@/lib/utils/encryption'
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Get user ID - use mock if auth is disabled (to match api-keys route)
+    let userId: string
+    const { AUTH_ENABLED, MOCK_USER_ID } = await import('@/lib/auth-config')
+    
+    if (AUTH_ENABLED) {
+      const session = await getServerSession(authOptions)
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      userId = session.user.id
+    } else {
+      userId = MOCK_USER_ID
     }
+    
+    console.log('[Compare API] Using user ID:', userId, '(AUTH_ENABLED:', AUTH_ENABLED, ')')
 
     // Get user's API keys
+    console.log('[Compare API] Checking for Kalshi API keys for user:', userId)
     const [kalshiKey, polymarketKey] = await Promise.all([
       prisma.apiKey.findUnique({
         where: {
           userId_platform: {
-            userId: session.user.id,
+            userId: userId,
             platform: 'kalshi',
           },
         },
@@ -27,21 +39,42 @@ export async function GET(request: Request) {
       prisma.apiKey.findUnique({
         where: {
           userId_platform: {
-            userId: session.user.id,
+            userId: userId,
             platform: 'polymarket',
           },
         },
       }),
     ])
 
+    console.log('[Compare API] Kalshi key record:', {
+      found: !!kalshiKey,
+      hasEncryptedKey: !!kalshiKey?.encryptedKey,
+      hasEncryptedKeyData: !!kalshiKey?.encryptedKeyData,
+      isActive: kalshiKey?.isActive,
+    })
+
     let kalshiClient: KalshiClient | undefined
     let polymarketClient: PolymarketClient | undefined
 
     if (kalshiKey && kalshiKey.encryptedKeyData) {
-      const accessKeyId = decrypt(kalshiKey.encryptedKey)
-      const privateKey = decrypt(kalshiKey.encryptedKeyData)
-      kalshiClient = new KalshiClient({ accessKeyId, privateKey })
-    }
+      try {
+        console.log('[Compare API] Kalshi API keys found, decrypting...')
+        const accessKeyId = decrypt(kalshiKey.encryptedKey)
+        const privateKey = decrypt(kalshiKey.encryptedKeyData)
+        console.log('[Compare API] Keys decrypted successfully, creating Kalshi client...')
+        kalshiClient = new KalshiClient({ accessKeyId, privateKey })
+        console.log('[Compare API] Kalshi client created successfully')
+      } catch (error: any) {
+        console.error('[Compare API] Error setting up Kalshi client:', error.message || error)
+        console.error('[Compare API] Error stack:', error.stack)
+      }
+      } else {
+        if (kalshiKey) {
+          console.log('[Compare API] Kalshi key record exists but missing encryptedKeyData (private key)')
+        } else {
+          console.log('[Compare API] No Kalshi API keys found for user:', userId)
+        }
+      }
 
     if (polymarketKey) {
       const apiKey = decrypt(polymarketKey.encryptedKey)
@@ -61,5 +94,6 @@ export async function GET(request: Request) {
     )
   }
 }
+
 
 
