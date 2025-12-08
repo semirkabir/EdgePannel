@@ -28,7 +28,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log error to console in development
     console.error('Error caught by boundary:', error, errorInfo)
-    
+
     this.setState({ errorInfo })
 
     // In production, you would send this to an error tracking service like Sentry
@@ -57,11 +57,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 <AlertTriangle className="h-8 w-8 text-red-500" />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <h2 className="text-xl font-semibold">Something went wrong</h2>
               <p className="text-sm text-muted-foreground">
-                An unexpected error occurred. This has been logged and we'll look into it.
+                We&apos;re sorry, but something went wrong. Please try refreshing the page.
               </p>
             </div>
 

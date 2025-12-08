@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { GlobeMap } from '@/components/map/GlobeMap'
@@ -11,6 +11,8 @@ import { CountryOverlay } from '@/components/map/CountryOverlay'
 import { BreakingNews } from '@/components/panels/BreakingNews'
 import { WatchlistPanel } from '@/components/panels/WatchlistPanel'
 import { PortfolioPanel, PortfolioMiniStats } from '@/components/panels/PortfolioPanel'
+import { LiveTradesPanel } from '@/components/panels/LiveTradesPanel'
+import { FilterBar, TimeFilter } from '@/components/panels/FilterBar'
 import { Market } from '@/types/market'
 import { Button } from '@/components/ui/button'
 import { signOut } from 'next-auth/react'
@@ -20,11 +22,11 @@ import { useKeyboardShortcuts, SHORTCUTS } from '@/hooks/use-keyboard-shortcuts'
 import { KeyboardShortcutsDialog } from '@/components/ui/keyboard-shortcuts-dialog'
 import { useWatchlist } from '@/hooks/use-watchlist'
 import { usePriceAlerts } from '@/hooks/use-price-alerts'
-import { 
-  SkeletonSidebar, 
-  SkeletonBreakingNews, 
+import {
+  SkeletonSidebar,
+  SkeletonBreakingNews,
   SkeletonGlobe,
-  SkeletonDashboard 
+  SkeletonDashboard
 } from '@/components/ui/skeleton'
 import { RefreshCw, Keyboard, Star, Briefcase } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -37,27 +39,27 @@ const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_DISABLED !== 'true'
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  
+
   // SWR hooks for data fetching with caching
-  const { 
-    markets, 
-    breakingNews, 
-    livePredictions, 
-    categories, 
+  const {
+    markets,
+    breakingNews,
+    livePredictions,
+    categories,
     isLoading: marketsLoading,
     isValidating: marketsValidating,
-    refresh: refreshMarkets 
+    refresh: refreshMarkets
   } = useMarkets()
-  
-  const { 
-    comparisons, 
-    isLoading: comparisonsLoading 
+
+  const {
+    comparisons,
+    isLoading: comparisonsLoading
   } = useComparisons()
-  
-  const { 
-    hasPolymarket, 
+
+  const {
+    hasPolymarket,
     hasKalshi,
-    isLoading: apiKeysLoading 
+    isLoading: apiKeysLoading
   } = useApiKeys()
 
   // Local state for UI interactions
@@ -68,11 +70,12 @@ export default function DashboardPage() {
   const [showWatchlist, setShowWatchlist] = useState(false)
   const [showPortfolio, setShowPortfolio] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('24h')
 
   // Feature hooks
   const { watchlist, watchlistCount, getWatchlistMarkets } = useWatchlist()
   const { checkAlerts, activeAlertCount, triggeredAlertCount } = usePriceAlerts()
-  
+
   // WebSocket for real-time updates (Polymarket works without keys, Kalshi requires keys)
   // Note: For security, Kalshi WebSocket should use a server-side proxy
   // For now, we'll use it for Polymarket only, or implement server-side WebSocket proxy
@@ -85,7 +88,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const marketId = searchParams.get('market')
     const platform = searchParams.get('platform')
-    
+
     if (marketId && platform && markets.length > 0) {
       const market = markets.find(m => m.id === marketId && m.platform === platform)
       if (market) {
@@ -101,27 +104,44 @@ export default function DashboardPage() {
     }
   }, [markets, checkAlerts])
 
+  // Filter markets based on time selection (Mock implementation)
+  const filteredMarkets = useMemo(() => {
+    if (timeFilter === 'all') return markets
+
+    // Mock filtering logic since we don't have real timestamps for all markets
+    // In a real app, we would filter by market.createdAt or market.lastActivity
+    const limit = {
+      '1h': 0.1, // Top 10%
+      '3h': 0.2,
+      '6h': 0.4,
+      '12h': 0.7,
+      '24h': 1.0
+    }[timeFilter] || 1.0
+
+    return markets.slice(0, Math.ceil(markets.length * limit))
+  }, [markets, timeFilter])
+
   // Auth state handling
   const isAuthenticated = AUTH_ENABLED ? status === 'authenticated' : true
   const isAuthLoading = AUTH_ENABLED ? status === 'loading' : false
 
   // Navigate between markets
-  const selectMarketByIndex = (direction: 'next' | 'prev') => {
-    if (markets.length === 0) return
-    
-    const currentIndex = selectedMarket 
-      ? markets.findIndex(m => m.id === selectedMarket.id)
+  const selectMarketByIndex = useCallback((direction: 'next' | 'prev') => {
+    if (filteredMarkets.length === 0) return
+
+    const currentIndex = selectedMarket
+      ? filteredMarkets.findIndex(m => m.id === selectedMarket.id)
       : -1
-    
+
     let newIndex: number
     if (direction === 'next') {
-      newIndex = currentIndex < markets.length - 1 ? currentIndex + 1 : 0
+      newIndex = currentIndex < filteredMarkets.length - 1 ? currentIndex + 1 : 0
     } else {
-      newIndex = currentIndex > 0 ? currentIndex - 1 : markets.length - 1
+      newIndex = currentIndex > 0 ? currentIndex - 1 : filteredMarkets.length - 1
     }
-    
-    setSelectedMarket(markets[newIndex])
-  }
+
+    setSelectedMarket(filteredMarkets[newIndex])
+  }, [filteredMarkets, selectedMarket])
 
   // Keyboard shortcuts
   const shortcuts = useMemo(() => [
@@ -189,7 +209,7 @@ export default function DashboardPage() {
       description: 'Open notifications',
       callback: () => setShowNotifications(true),
     },
-  ], [selectedMarket, selectedCountry, showShortcutsDialog, showWatchlist, showPortfolio, showNotifications, markets, refreshMarkets, router])
+  ], [selectedMarket, selectedCountry, showShortcutsDialog, showWatchlist, showPortfolio, showNotifications, filteredMarkets, refreshMarkets, router, selectMarketByIndex])
 
   useKeyboardShortcuts(shortcuts)
 
@@ -216,12 +236,17 @@ export default function DashboardPage() {
       <SkipLink href="#market-list">Skip to market list</SkipLink>
 
       {/* Header */}
-      <header className="glass-effect border-b border-border p-4 flex justify-between items-center" role="banner">
+      <header className="glass-effect border-b border-border p-4 flex justify-between items-center z-20" role="banner">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">EdgePannel</h1>
           {marketsValidating && !marketsLoading && (
             <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
           )}
+
+          {/* Filter Bar */}
+          <div className="ml-8 hidden md:block">
+            <FilterBar currentFilter={timeFilter} onFilterChange={setTimeFilter} />
+          </div>
         </div>
         <div className="flex items-center gap-2 md:gap-4">
           {/* Portfolio mini stats */}
@@ -279,7 +304,7 @@ export default function DashboardPage() {
               )}
             </div>
           )}
-          
+
           {/* Refresh button */}
           <Button
             variant="ghost"
@@ -302,7 +327,7 @@ export default function DashboardPage() {
           >
             <Keyboard className="h-4 w-4" />
           </Button>
-          
+
           <Button
             variant="ghost"
             onClick={() => router.push('/dashboard/settings')}
@@ -310,11 +335,11 @@ export default function DashboardPage() {
           >
             Settings
           </Button>
-          
+
           <span className="text-sm text-muted-foreground hidden lg:block">
             {AUTH_ENABLED ? session?.user?.email : 'Auth Disabled (Dev Mode)'}
           </span>
-          
+
           {AUTH_ENABLED && (
             <Button variant="outline" onClick={() => signOut()}>
               Sign Out
@@ -327,22 +352,25 @@ export default function DashboardPage() {
       <main id="main-content" className="flex-1 flex overflow-hidden" role="main">
         {/* Sidebar */}
         <nav id="market-list" aria-label="Market list">
-        <CompactErrorBoundary>
-          {marketsLoading ? (
-            <SkeletonSidebar />
-          ) : (
-            <Sidebar
-              markets={markets}
-              categories={categories}
-              onMarketSelect={setSelectedMarket}
-              selectedMarket={selectedMarket}
-            />
-          )}
-        </CompactErrorBoundary>
+          <CompactErrorBoundary>
+            {marketsLoading ? (
+              <SkeletonSidebar />
+            ) : (
+              <Sidebar
+                markets={filteredMarkets}
+                categories={categories}
+                onMarketSelect={setSelectedMarket}
+                selectedMarket={selectedMarket}
+              />
+            )}
+          </CompactErrorBoundary>
         </nav>
 
         {/* Map Area */}
         <div className="flex-1 relative">
+          {/* Live Trades Panel */}
+          <LiveTradesPanel markets={markets} onMarketClick={setSelectedMarket} />
+
           {/* Breaking News Banner */}
           <CompactErrorBoundary>
             {marketsLoading ? (
@@ -355,14 +383,14 @@ export default function DashboardPage() {
               />
             )}
           </CompactErrorBoundary>
-          
+
           {/* Globe Map */}
           <AsyncErrorBoundary>
             {marketsLoading ? (
               <SkeletonGlobe />
             ) : (
               <GlobeMap
-                markets={markets}
+                markets={filteredMarkets}
                 breakingNews={breakingNews}
                 livePredictions={livePredictions}
                 onMarketClick={setSelectedMarket}
@@ -374,7 +402,7 @@ export default function DashboardPage() {
               />
             )}
           </AsyncErrorBoundary>
-          
+
           {/* Country Overlay */}
           {selectedCountry && (
             <CountryOverlay
@@ -391,12 +419,12 @@ export default function DashboardPage() {
 
         {/* Market Details Panel */}
         <aside aria-label="Market details">
-        <CompactErrorBoundary>
-          <MarketDetails
-            market={selectedMarket}
-            onClose={() => setSelectedMarket(null)}
-          />
-        </CompactErrorBoundary>
+          <CompactErrorBoundary>
+            <MarketDetails
+              market={selectedMarket}
+              onClose={() => setSelectedMarket(null)}
+            />
+          </CompactErrorBoundary>
         </aside>
       </main>
 
@@ -414,9 +442,9 @@ export default function DashboardPage() {
       )}
 
       {/* Keyboard Shortcuts Dialog */}
-      <KeyboardShortcutsDialog 
-        open={showShortcutsDialog} 
-        onOpenChange={setShowShortcutsDialog} 
+      <KeyboardShortcutsDialog
+        open={showShortcutsDialog}
+        onOpenChange={setShowShortcutsDialog}
       />
 
       {/* Watchlist Panel */}
