@@ -36,7 +36,8 @@ export async function POST(request: Request) {
       }
 
       // Query user from database using Supabase PostgREST
-      const { data: users, error: queryError } = await supabaseClient
+      // maybeSingle() returns a single object or null, not an array
+      const { data: user, error: queryError } = await supabaseClient
         .from('User')
         .select('id, email, name, password, image')
         .eq('email', email)
@@ -54,14 +55,12 @@ export async function POST(request: Request) {
         )
       }
 
-      if (!users || users.length === 0 || !users[0]?.password) {
+      if (!user || !user.password) {
         return NextResponse.json(
           { error: 'Invalid credentials' },
           { status: 401 }
         )
       }
-
-      const user = users[0]
 
       // Verify password with bcrypt
       const isPasswordValid = await bcrypt.compare(password, user.password)

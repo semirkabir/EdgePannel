@@ -324,7 +324,7 @@ function InnerMap({
   );
 }
 
-export function PolyglobeMap({ activeFilters, searchQuery = '', projection = 'mercator' }: PolyglobeMapProps) {
+export function PolyglobeMap({ activeFilters, searchQuery = '', projection = 'mercator', onCountryClick }: PolyglobeMapProps) {
   const { markets, tweets } = usePolyglobeData();
 
   return (
@@ -334,6 +334,7 @@ export function PolyglobeMap({ activeFilters, searchQuery = '', projection = 'me
       activeFilters={activeFilters} 
       searchQuery={searchQuery}
       projection={projection}
+      onCountryClick={onCountryClick}
     />
   );
 }
