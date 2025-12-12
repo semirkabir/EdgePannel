@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import Map, { Source, Layer, Popup, NavigationControl, FullscreenControl, MapLayerMouseEvent } from 'react-map-gl/maplibre';
+import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { usePolyglobeData } from '@/hooks/use-polyglobe-data';
 import { cn } from '@/lib/utils/cn';
@@ -10,6 +11,7 @@ interface PolyglobeMapProps {
   activeFilters: Record<string, boolean>;
   searchQuery?: string;
   projection?: 'globe' | 'mercator';
+  onCountryClick?: (countryName: string) => void;
 }
 
 // Inner component to isolate Map state from Data updates
@@ -18,18 +20,20 @@ function InnerMap({
   tweets, 
   activeFilters, 
   searchQuery,
-  projection = 'mercator'
+  projection = 'mercator',
+  onCountryClick
 }: { 
   markets: any; 
   tweets: any; 
   activeFilters: Record<string, boolean>;
   searchQuery: string;
   projection?: 'globe' | 'mercator';
+  onCountryClick?: (countryName: string) => void;
 }) {
   const [viewState, setViewState] = useState({
     longitude: 0,
     latitude: projection === 'mercator' ? 20 : 0,
-    zoom: projection === 'mercator' ? 1.5 : 2,
+    zoom: 2.5, // Same default zoom for both globe and map views
     pitch: 0,
     bearing: 0
   });
@@ -41,6 +45,7 @@ function InnerMap({
   } | null>(null);
 
   const [selectedFeature, setSelectedFeature] = useState<any | null>(null);
+  const mapRef = useRef<MapRef>(null);
 
   const onHover = useCallback((event: MapLayerMouseEvent) => {
     const feature = event.features && event.features[0];
@@ -55,14 +60,51 @@ function InnerMap({
     );
   }, []);
 
-  const onClick = useCallback((event: MapLayerMouseEvent) => {
-    const feature = event.features && event.features[0];
+  const onClick = useCallback(async (event: MapLayerMouseEvent) => {
+    // Check if clicking on a feature (market or tweet)
+    const feature = event.features && event.features.length > 0 ? event.features[0] : null;
+    
     if (feature) {
       setSelectedFeature(feature);
-    } else {
-      setSelectedFeature(null);
+      return; // Don't trigger country click when clicking on a feature
     }
-  }, []);
+    
+    // Clear selected feature
+    setSelectedFeature(null);
+    
+    // If clicking on empty map area, try to detect country
+    if (onCountryClick && event.lngLat) {
+      console.log('Map clicked at:', event.lngLat, 'Detecting country...');
+      
+      try {
+        // Use OpenStreetMap Nominatim (free, no API key required)
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${event.lngLat.lat}&lon=${event.lngLat.lng}&zoom=3&addressdetails=1`,
+          {
+            headers: {
+              'User-Agent': 'EdgePannel/1.0'
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Nominatim response:', data);
+          
+          if (data.address && data.address.country) {
+            console.log('Country detected:', data.address.country);
+            onCountryClick(data.address.country);
+          } else {
+            console.log('No country found in response:', data);
+          }
+        } else {
+          console.error('Nominatim API error:', response.status, await response.text());
+        }
+      } catch (error) {
+        console.error('Error detecting country:', error);
+      }
+    }
+  }, [onCountryClick]);
 
   // Filter data based on active filters
   const filteredMarkets = useMemo(() => {
@@ -183,9 +225,56 @@ function InnerMap({
     );
   };
 
+  // Add direct map click handler for base map clicks
+  useEffect(() => {
+    if (!mapRef.current || !onCountryClick) return;
+
+    const map = mapRef.current.getMap();
+    
+    const handleMapClick = async (e: any) => {
+      // Only process if no features were clicked
+      if (!e.originalEvent || e.originalEvent.defaultPrevented) return;
+      
+      const lngLat = e.lngLat;
+      if (!lngLat) return;
+
+      console.log('Base map clicked at:', lngLat);
+      
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lngLat.lat}&lon=${lngLat.lng}&zoom=3&addressdetails=1`,
+          {
+            headers: {
+              'User-Agent': 'EdgePannel/1.0'
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Nominatim response:', data);
+          
+          if (data.address && data.address.country) {
+            console.log('Country detected:', data.address.country);
+            onCountryClick(data.address.country);
+          }
+        }
+      } catch (error) {
+        console.error('Error detecting country:', error);
+      }
+    };
+
+    map.on('click', handleMapClick);
+    
+    return () => {
+      map.off('click', handleMapClick);
+    };
+  }, [onCountryClick]);
+
   return (
     <div className="w-full h-full bg-[#030712]">
       <Map
+        ref={mapRef}
         {...viewState}
         onMove={evt => setViewState(evt.viewState)}
         style={{ width: '100%', height: '100%' }}

@@ -37,15 +37,21 @@ export async function GET(request: Request) {
     let polymarketClient: PolymarketClient | undefined
 
     // Try to get Kalshi credentials
-    console.log('[Markets API] Checking for Kalshi API keys for user:', userId)
-    const kalshiKeyRecord = await prisma.apiKey.findUnique({
-      where: {
-        userId_platform: {
-          userId: userId,
-          platform: 'kalshi',
+    let kalshiKeyRecord = null
+    try {
+      console.log('[Markets API] Checking for Kalshi API keys for user:', userId)
+      kalshiKeyRecord = await prisma.apiKey.findUnique({
+        where: {
+          userId_platform: {
+            userId: userId,
+            platform: 'kalshi',
+          },
         },
-      },
-    })
+      })
+    } catch (dbError: any) {
+      console.error('[Markets API] Database error fetching Kalshi keys:', dbError?.message)
+      // Continue without Kalshi keys - Polymarket can still work
+    }
 
     console.log('[Markets API] Kalshi key record:', {
       found: !!kalshiKeyRecord,
@@ -76,14 +82,20 @@ export async function GET(request: Request) {
       }
 
     // Try to get Polymarket credentials (optional for market reading)
-    const polymarketKeyRecord = await prisma.apiKey.findUnique({
-      where: {
-        userId_platform: {
-          userId: userId,
-          platform: 'polymarket',
+    let polymarketKeyRecord = null
+    try {
+      polymarketKeyRecord = await prisma.apiKey.findUnique({
+        where: {
+          userId_platform: {
+            userId: userId,
+            platform: 'polymarket',
+          },
         },
-      },
-    })
+      })
+    } catch (dbError: any) {
+      console.error('[Markets API] Database error fetching Polymarket keys:', dbError?.message)
+      // Continue without Polymarket keys - public API can still work
+    }
 
     if (polymarketKeyRecord) {
       try {
@@ -173,18 +185,30 @@ export async function GET(request: Request) {
       },
     })
   } catch (error: any) {
-    console.error('Error fetching all markets:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch markets',
-        markets: [],
-        breakingNews: [],
-        livePredictions: [],
-        categories: [],
-        stats: { total: 0, byPlatform: {}, byCategory: {} },
+    console.error('[Markets API] Error fetching all markets:', error)
+    console.error('[Markets API] Error stack:', error?.stack)
+    console.error('[Markets API] Error message:', error?.message)
+    
+    // Return empty data instead of 500 to prevent breaking the UI
+    // The UI can still function with empty markets
+    return NextResponse.json({
+      markets: [],
+      breakingNews: [],
+      livePredictions: [],
+      categories: [],
+      pagination: {
+        hasMore: false,
+        nextCursor: undefined,
+        nextOffset: undefined,
+        limit: 50,
       },
-      { status: 500 }
-    )
+      stats: {
+        total: 0,
+        byPlatform: {},
+        byCategory: {},
+      },
+      error: error?.message || 'Failed to fetch markets',
+    })
   }
 }
 
