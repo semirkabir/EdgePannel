@@ -11,11 +11,24 @@ interface PolyglobeUIProps {
   activeFilters: Record<string, boolean>;
   onViewToggle?: () => void;
   currentView?: 'map' | 'globe';
+  isPlaying?: boolean;
+  onPlayPause?: (playing: boolean) => void;
+  onSettingsOpen?: () => void;
 }
 
-export function PolyglobeUI({ onSearch, onFilterChange, activeFilters, onViewToggle, currentView = 'map' }: PolyglobeUIProps) {
-  const [isPlaying, setIsPlaying] = useState(true);
+export function PolyglobeUI({ onSearch, onFilterChange, activeFilters, onViewToggle, currentView = 'map', isPlaying: externalIsPlaying, onPlayPause, onSettingsOpen }: PolyglobeUIProps) {
+  const [internalIsPlaying, setInternalIsPlaying] = useState(true);
+  const isPlaying = externalIsPlaying !== undefined ? externalIsPlaying : internalIsPlaying;
   const isMapView = currentView === 'map';
+
+  const handlePlayPause = () => {
+    const newState = !isPlaying;
+    if (onPlayPause) {
+      onPlayPause(newState);
+    } else {
+      setInternalIsPlaying(newState);
+    }
+  };
 
   return (
     <div className="absolute inset-0 pointer-events-none">
@@ -57,11 +70,15 @@ export function PolyglobeUI({ onSearch, onFilterChange, activeFilters, onViewTog
             <div className="flex items-center">
               <button 
                 className="flex items-center justify-center w-9 h-9 bg-blue-500/15 text-blue-400 border-y border-l border-gray-700 rounded-l-lg hover:bg-blue-500/20 backdrop-blur-md"
-                onClick={() => setIsPlaying(!isPlaying)}
+                onClick={handlePlayPause}
               >
                 {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
               </button>
-              <button className="flex items-center justify-center h-9 px-1.5 bg-blue-500/15 text-blue-400 border border-gray-700 rounded-r-lg hover:bg-blue-500/20 backdrop-blur-md">
+              <button 
+                className="flex items-center justify-center h-9 px-1.5 bg-blue-500/15 text-blue-400 border border-gray-700 rounded-r-lg hover:bg-blue-500/20 backdrop-blur-md"
+                onClick={() => onSettingsOpen?.()}
+                title="Globe Settings"
+              >
                 <Settings className="w-2.5 h-2.5" />
               </button>
             </div>

@@ -12,6 +12,9 @@ interface PolyglobeMapProps {
   searchQuery?: string;
   projection?: 'globe' | 'mercator';
   onCountryClick?: (countryName: string) => void;
+  isPlaying?: boolean;
+  rotationSpeed?: number;
+  pauseOnHover?: boolean;
 }
 
 // Inner component to isolate Map state from Data updates
@@ -21,7 +24,10 @@ function InnerMap({
   activeFilters, 
   searchQuery,
   projection = 'mercator',
-  onCountryClick
+  onCountryClick,
+  isPlaying = true,
+  rotationSpeed = 0.05,
+  pauseOnHover = false
 }: { 
   markets: any; 
   tweets: any; 
@@ -29,6 +35,9 @@ function InnerMap({
   searchQuery: string;
   projection?: 'globe' | 'mercator';
   onCountryClick?: (countryName: string) => void;
+  isPlaying?: boolean;
+  rotationSpeed?: number;
+  pauseOnHover?: boolean;
 }) {
   const [viewState, setViewState] = useState({
     longitude: 0,
@@ -37,6 +46,80 @@ function InnerMap({
     pitch: 0,
     bearing: 0
   });
+
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const interactionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const rotationAnimationRef = useRef<number | null>(null);
+
+  // Auto-rotate globe when playing (spin around vertical axis like Earth)
+  // Pause rotation when user is interacting
+  useEffect(() => {
+    if (projection !== 'globe' || !isPlaying || isUserInteracting) {
+      // Stop rotation if animation is running
+      if (rotationAnimationRef.current) {
+        cancelAnimationFrame(rotationAnimationRef.current);
+        rotationAnimationRef.current = null;
+      }
+      return;
+    }
+
+    let lastTime = performance.now();
+    const rotationSpeed = 0.05; // degrees per frame (slow rotation)
+
+    const rotate = (currentTime: number) => {
+      // Check again if we should still rotate
+      const shouldPause = pauseOnHover ? (isUserInteracting || isHovering) : isUserInteracting;
+      if (projection !== 'globe' || !isPlaying || shouldPause) {
+        rotationAnimationRef.current = null;
+        return;
+      }
+
+      const deltaTime = currentTime - lastTime;
+      lastTime = currentTime;
+
+      setViewState(prev => ({
+        ...prev,
+        longitude: (prev.longitude + rotationSpeed * (deltaTime / 16.67)) % 360, // Rotate longitude to spin around vertical axis
+      }));
+
+      rotationAnimationRef.current = requestAnimationFrame(rotate);
+    };
+
+    rotationAnimationRef.current = requestAnimationFrame(rotate);
+
+    return () => {
+      if (rotationAnimationRef.current) {
+        cancelAnimationFrame(rotationAnimationRef.current);
+        rotationAnimationRef.current = null;
+      }
+    };
+  }, [projection, isPlaying, isUserInteracting, isHovering, pauseOnHover, rotationSpeed]);
+
+  // Handle user interaction - pause rotation immediately
+  const handleInteractionStart = useCallback(() => {
+    setIsUserInteracting(true);
+    // Immediately stop rotation
+    if (rotationAnimationRef.current) {
+      cancelAnimationFrame(rotationAnimationRef.current);
+      rotationAnimationRef.current = null;
+    }
+    // Clear any pending timeout
+    if (interactionTimeoutRef.current) {
+      clearTimeout(interactionTimeoutRef.current);
+      interactionTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleInteractionEnd = useCallback(() => {
+    // Resume rotation after 2 seconds of no interaction
+    if (interactionTimeoutRef.current) {
+      clearTimeout(interactionTimeoutRef.current);
+    }
+    interactionTimeoutRef.current = setTimeout(() => {
+      setIsUserInteracting(false);
+    }, 2000);
+  }, []);
 
   const [hoverInfo, setHoverInfo] = useState<{
     feature: any;
@@ -272,19 +355,49 @@ function InnerMap({
   }, [onCountryClick]);
 
   return (
-    <div className="w-full h-full bg-[#030712]">
+    <div className="w-full h-full" style={{ backgroundColor: projection === 'globe' ? 'transparent' : '#030712' }}>
       <Map
         ref={mapRef}
         {...viewState}
-        onMove={evt => setViewState(evt.viewState)}
+        onMove={evt => {
+          setViewState(evt.viewState);
+          // Detect if this is user-initiated movement (not auto-rotation)
+          if (evt.viewState.longitude !== viewState.longitude && isUserInteracting) {
+            handleInteractionStart();
+          }
+        }}
+        onMoveStart={handleInteractionStart}
+        onMoveEnd={handleInteractionEnd}
+        onDragStart={handleInteractionStart}
+        onDragEnd={handleInteractionEnd}
+        onDrag={handleInteractionStart}
+        onZoomStart={handleInteractionStart}
+        onZoomEnd={handleInteractionEnd}
+        onRotateStart={handleInteractionStart}
+        onRotateEnd={handleInteractionEnd}
+        onPitchStart={handleInteractionStart}
+        onPitchEnd={handleInteractionEnd}
         style={{ width: '100%', height: '100%' }}
         mapStyle="https://api.maptiler.com/maps/darkmatter/style.json?key=35TZqSTSBjgDvsawKAK9"
         attributionControl={false}
         interactiveLayerIds={['markets-layer', 'tweets-layer']}
-        onMouseEnter={onHover}
-        onMouseLeave={() => setHoverInfo(null)}
+        onMouseEnter={(e) => {
+          onHover(e);
+          // Only pause on hover if hovering over a market or tweet feature
+          if (pauseOnHover && projection === 'globe' && e.features && e.features.length > 0) {
+            setIsHovering(true);
+          }
+        }}
+        onMouseLeave={(e) => {
+          setHoverInfo(null);
+          if (pauseOnHover && projection === 'globe') {
+            setIsHovering(false);
+          }
+        }}
         onClick={onClick}
         projection={projection}
+        dragRotate={true}
+        touchZoomRotate={true}
         {...(projection === 'globe' ? {
           fog: {
             "range": [0.5, 10],
@@ -324,7 +437,7 @@ function InnerMap({
   );
 }
 
-export function PolyglobeMap({ activeFilters, searchQuery = '', projection = 'mercator', onCountryClick }: PolyglobeMapProps) {
+export function PolyglobeMap({ activeFilters, searchQuery = '', projection = 'mercator', onCountryClick, isPlaying = true, rotationSpeed = 0.05, pauseOnHover = false }: PolyglobeMapProps) {
   const { markets, tweets } = usePolyglobeData();
 
   return (
@@ -335,6 +448,9 @@ export function PolyglobeMap({ activeFilters, searchQuery = '', projection = 'me
       searchQuery={searchQuery}
       projection={projection}
       onCountryClick={onCountryClick}
+      isPlaying={isPlaying}
+      rotationSpeed={rotationSpeed}
+      pauseOnHover={pauseOnHover}
     />
   );
 }
