@@ -37,3 +37,5 @@ if (Test-Path "$nodePath\node.exe") {
     Write-Host "Node.js installation not found. Please restart your terminal and try again." -ForegroundColor Red
 }
 
+
+

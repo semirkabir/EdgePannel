@@ -276,7 +276,7 @@ export default function RegisterPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+              onClick={() => signIn('google', { callbackUrl: '/polyglobe' })}
               className="gap-2"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -290,7 +290,7 @@ export default function RegisterPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => signIn('twitter', { callbackUrl: '/dashboard' })}
+              onClick={() => signIn('twitter', { callbackUrl: '/polyglobe' })}
               className="gap-2"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">

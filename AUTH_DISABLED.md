@@ -56,3 +56,5 @@ When you're ready to enable authentication again:
 - The mock user ID corresponds to the test user in your database
 - Login/register pages still exist but won't be required
 
+
+

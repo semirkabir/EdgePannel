@@ -1,4 +1,5 @@
 import { Market } from '@/types/market'
+import { LOCATION_COORDINATES } from '@/lib/locations'
 
 // Curated category mapping for when API doesn't provide category
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
@@ -12,34 +13,6 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'International': ['war', 'conflict', 'ukraine', 'russia', 'china', 'trade', 'sanction', 'diplomatic'],
 }
 
-// Country inference keywords
-const COUNTRY_KEYWORDS: Record<string, string[]> = {
-  'United States': ['usa', 'us', 'united states', 'america', 'washington', 'new york', 'california', 'texas', 'florida'],
-  'United Kingdom': ['uk', 'britain', 'england', 'london', 'british', 'ukraine'],
-  'China': ['china', 'chinese', 'beijing', 'shanghai'],
-  'Russia': ['russia', 'russian', 'moscow'],
-  'Japan': ['japan', 'japanese', 'tokyo'],
-  'Germany': ['germany', 'german', 'berlin'],
-  'France': ['france', 'french', 'paris'],
-  'Canada': ['canada', 'canadian', 'toronto', 'vancouver'],
-  'Australia': ['australia', 'australian', 'sydney', 'melbourne'],
-  'India': ['india', 'indian', 'mumbai', 'delhi'],
-}
-
-// Default coordinates for countries
-const COUNTRY_COORDINATES: Record<string, { lat: number; lng: number }> = {
-  'United States': { lat: 39.8283, lng: -98.5795 },
-  'United Kingdom': { lat: 55.3781, lng: -3.4360 },
-  'China': { lat: 35.8617, lng: 104.1954 },
-  'Russia': { lat: 61.5240, lng: 105.3188 },
-  'Japan': { lat: 36.2048, lng: 138.2529 },
-  'Germany': { lat: 51.1657, lng: 10.4515 },
-  'France': { lat: 46.2276, lng: 2.2137 },
-  'Canada': { lat: 56.1304, lng: -106.3468 },
-  'Australia': { lat: -25.2744, lng: 133.7751 },
-  'India': { lat: 20.5937, lng: 78.9629 },
-}
-
 export interface EnrichedMarket extends Market {
   normalizedCategory: string
   isBreakingNews: boolean
@@ -49,15 +22,10 @@ export interface EnrichedMarket extends Market {
 
 /**
  * Infer category from market title/description using keyword matching
- * Uses Polymarket's actual category if available, otherwise infers from keywords
  */
 export function inferCategory(market: Market): string {
-  // If category already exists from Polymarket API, use it directly
   if (market.category) {
-    // Normalize Polymarket categories to match our system
     const category = market.category.trim()
-    // Polymarket categories are usually capitalized or have specific formats
-    // Return as-is if it looks valid, otherwise try to match
     if (category.length > 0 && category !== 'undefined') {
       return category
     }
@@ -65,7 +33,6 @@ export function inferCategory(market: Market): string {
 
   const searchText = `${market.title} ${market.description || ''}`.toLowerCase()
 
-  // Find category with most matching keywords
   let bestCategory = 'Other'
   let bestScore = 0
 
@@ -87,32 +54,29 @@ export function inferCategory(market: Market): string {
 }
 
 /**
- * Infer country from market data
+ * Infer location (coordinates and name) from market data
  */
-export function inferCountry(market: Market): string | undefined {
+export function inferLocation(market: Market): { name: string; coordinates: { lat: number; lng: number } } | undefined {
   // If location already exists, use it
-  if (market.location?.country) {
-    return market.location.country
+  if (market.location?.coordinates) {
+    return {
+      name: market.location.city || market.location.country || 'Unknown',
+      coordinates: market.location.coordinates
+    }
   }
 
   const searchText = `${market.title} ${market.description || ''}`.toLowerCase()
 
-  // Find country with matching keywords
-  for (const [country, keywords] of Object.entries(COUNTRY_KEYWORDS)) {
-    if (keywords.some(keyword => searchText.includes(keyword.toLowerCase()))) {
-      return country
+  // Check specific city/region locations first (more precise)
+  for (const [name, coords] of Object.entries(LOCATION_COORDINATES)) {
+    if (searchText.includes(name.toLowerCase())) {
+      // Return capitalized name for display
+      const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+      return { name: displayName, coordinates: coords }
     }
   }
 
-  // Default to US if no match
-  return 'United States'
-}
-
-/**
- * Get coordinates for a country
- */
-export function getCountryCoordinates(country: string): { lat: number; lng: number } | undefined {
-  return COUNTRY_COORDINATES[country]
+  return undefined
 }
 
 /**
@@ -120,42 +84,35 @@ export function getCountryCoordinates(country: string): { lat: number; lng: numb
  */
 export function enrichMarket(market: Market, allMarkets: Market[] = []): EnrichedMarket {
   const normalizedCategory = inferCategory(market)
-  const country = inferCountry(market)
-  const coordinates = country ? getCountryCoordinates(country) : undefined
+  const locationInfo = inferLocation(market)
 
-  // Extract keywords from title
+  // Extract keywords
   const keywords = market.title
     .toLowerCase()
     .split(/\s+/)
     .filter(word => word.length > 3)
     .slice(0, 5)
 
-  // Determine if breaking news (newly listed or high volume)
-  // Use live volume data from order book
   const isBreakingNews =
-    (market.volume24h && market.volume24h > 5000) || // Lower threshold for live data
+    (market.volume24h && market.volume24h > 5000) ||
     (market.rawData?.created_at &&
-      new Date(market.rawData.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000) ||
-    (market.rawData?.start_date_iso &&
-      new Date(market.rawData.start_date_iso).getTime() > Date.now() - 6 * 60 * 60 * 1000) // Last 6 hours
+      new Date(market.rawData.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000)
 
-  // Determine if live prediction (high probability delta or recent activity)
-  // Use live price data from order book
   const isLivePrediction =
     market.probability !== undefined &&
-    market.probability > 0 && market.probability < 1 && // Valid probability
+    market.probability > 0 && market.probability < 1 &&
     (
-      (market.probability > 0.75 || market.probability < 0.25) || // Strong signal
-      (!!market.volume24h && market.volume24h > 500) // Active trading
+      (market.probability > 0.75 || market.probability < 0.25) ||
+      (!!market.volume24h && market.volume24h > 500)
     )
 
   return {
     ...market,
     category: normalizedCategory,
     normalizedCategory,
-    location: market.location || (country ? {
-      country,
-      coordinates,
+    location: market.location || (locationInfo ? {
+      country: locationInfo.name, // Use matched name as country/region label
+      coordinates: locationInfo.coordinates,
     } : undefined),
     isBreakingNews,
     isLivePrediction,
@@ -171,7 +128,7 @@ export function enrichMarkets(markets: Market[]): EnrichedMarket[] {
 }
 
 /**
- * Get all unique categories from enriched markets
+ * Get all unique categories
  */
 export function getCategories(markets: EnrichedMarket[]): string[] {
   const categories = new Set(markets.map(m => m.normalizedCategory))
@@ -197,4 +154,3 @@ export function getLivePredictions(markets: EnrichedMarket[]): EnrichedMarket[] 
     .sort((a, b) => Math.abs((b.probability || 0.5) - 0.5) - Math.abs((a.probability || 0.5) - 0.5))
     .slice(0, 10)
 }
-

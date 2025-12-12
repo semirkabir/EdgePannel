@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { Market } from '@/types/market'
 import { usePageVisibility, useElementVisibility, usePrefersReducedMotion } from '@/hooks/use-visibility'
 import { SkeletonGlobe } from '@/components/ui/skeleton'
+import { LiveTradesPanel } from '@/components/panels/LiveTradesPanel'
 
 // Dynamically import the entire canvas to avoid SSR issues
 const GlobeCanvas = dynamic(
@@ -17,6 +18,7 @@ const GlobeCanvas = dynamic(
 
 interface GlobeMapProps {
   markets: Market[]
+  activityMarkets?: Market[]
   breakingNews?: Market[]
   livePredictions?: Market[]
   onMarketClick?: (market: Market) => void
@@ -26,6 +28,7 @@ interface GlobeMapProps {
 
 export function GlobeMap({
   markets,
+  activityMarkets,
   breakingNews = [],
   livePredictions = [],
   onMarketClick,
@@ -62,6 +65,8 @@ export function GlobeMap({
     return grouped
   }, [markets])
 
+  const liveActivityMarkets = activityMarkets ?? markets
+
   if (!isMounted) {
     return (
       <div className="w-full h-full relative bg-[#0a0e27] flex items-center justify-center">
@@ -73,7 +78,7 @@ export function GlobeMap({
   return (
     <div 
       ref={containerRef as React.RefCallback<HTMLDivElement>}
-      className="w-full h-full relative bg-[#0a0e27]"
+      className="w-full h-full relative"
     >
       <Suspense fallback={<SkeletonGlobe />}>
         <GlobeCanvas
@@ -83,6 +88,7 @@ export function GlobeMap({
           selectedMarket={selectedMarket}
           onMarketClick={onMarketClick}
           isAnimating={shouldAnimate}
+          overlay={<LiveTradesPanel markets={liveActivityMarkets} onMarketClick={onMarketClick} />}
         />
       </Suspense>
 

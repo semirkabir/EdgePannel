@@ -1,19 +1,31 @@
 'use client'
 
 import { signIn } from 'next-auth/react'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/hooks/use-toast'
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Globe, TrendingUp, Zap } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Globe, TrendingUp, Zap, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // Check for OAuth errors
+  useEffect(() => {
+    const error = searchParams.get('error')
+    if (error === 'Callback') {
+      toast.error(
+        'OAuth login failed',
+        'Database connection error. Please check DATABASE_URL in your .env file. See DATABASE_CONNECTION_FIX.md for help.'
+      )
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,8 +41,8 @@ export default function LoginPage() {
       if (result?.error) {
         toast.error('Invalid credentials', 'Please check your email and password')
       } else {
-        toast.success('Welcome back!', 'Redirecting to dashboard...')
-        router.push('/dashboard')
+        toast.success('Welcome back!', 'Redirecting...')
+        router.push('/polyglobe')
       }
     } catch (err) {
       toast.error('An error occurred', 'Please try again')
@@ -194,7 +206,7 @@ export default function LoginPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+              onClick={() => signIn('google', { callbackUrl: '/polyglobe' })}
               className="gap-2"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -208,7 +220,7 @@ export default function LoginPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => signIn('twitter', { callbackUrl: '/dashboard' })}
+              onClick={() => signIn('twitter', { callbackUrl: '/polyglobe' })}
               className="gap-2"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">

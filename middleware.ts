@@ -16,7 +16,7 @@ export default AUTH_ENABLED ? withAuth({
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/trading/:path*", "/api/user/:path*"],
+  matcher: ["/dashboard/:path*", "/polyglobe/:path*", "/api/trading/:path*", "/api/user/:path*"],
 }
 
 

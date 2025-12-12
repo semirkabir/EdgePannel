@@ -1,67 +1,103 @@
-const { PrismaClient } = require('@prisma/client');
+// Test login with a known user
+require('dotenv').config();
 const bcrypt = require('bcryptjs');
+const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  log: ['error', 'warn'],
+});
 
 async function testLogin() {
   try {
-    console.log('🔍 Testing login functionality...\n');
+    console.log('🔍 Testing login flow...\n');
+
+    // Test credentials
+    const testEmail = 'test@example.com';
+    const testPassword = 'testpassword123'; // Common test password
+
+    console.log(`Testing login for: ${testEmail}\n`);
+
+    // Try to find user
+    console.log('1. Looking up user in database...');
+    let user;
     
-    // Test database connection
-    console.log('1. Testing database connection...');
-    await prisma.$connect();
-    console.log('   ✅ Database connected\n');
-    
-    // Find test user
-    console.log('2. Finding test user...');
-    const user = await prisma.user.findUnique({
-      where: { email: 'test@example.com' }
-    });
-    
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: testEmail }
+      });
+      console.log('   ✅ User found via Prisma findUnique');
+    } catch (error) {
+      console.log('   ⚠️  Prisma findUnique failed, trying raw SQL...');
+      try {
+        const users = await prisma.$queryRaw`
+          SELECT id, email, name, password, image
+          FROM "User"
+          WHERE email = ${testEmail}
+          LIMIT 1
+        `;
+        if (users.length > 0) {
+          user = users[0];
+          console.log('   ✅ User found via raw SQL');
+        } else {
+          console.log('   ❌ User not found');
+        }
+      } catch (rawError) {
+        console.error('   ❌ Raw SQL also failed:', rawError.message);
+        throw rawError;
+      }
+    }
+
     if (!user) {
-      console.log('   ❌ Test user not found!');
-      return;
+      console.log('\n❌ User not found in database');
+      console.log('\n💡 To create a test user, run:');
+      console.log('   node scripts/create-test-user-via-api.js');
+      process.exit(1);
     }
-    
-    console.log(`   ✅ User found: ${user.email}`);
-    console.log(`   ✅ Has password: ${user.password ? 'Yes' : 'No'}\n`);
-    
+
+    console.log(`   User ID: ${user.id}`);
+    console.log(`   Name: ${user.name || 'N/A'}`);
+    console.log(`   Has password: ${user.password ? 'Yes' : 'No'}\n`);
+
     if (!user.password) {
-      console.log('   ❌ User has no password!');
-      return;
+      console.log('❌ User has no password set');
+      console.log('   This user was likely created via OAuth');
+      process.exit(1);
     }
+
+    // Test password verification
+    console.log('2. Verifying password...');
+    const isPasswordValid = await bcrypt.compare(testPassword, user.password);
     
-    // Test password
-    console.log('3. Testing password...');
-    const testPassword = 'testpassword123';
-    const isValid = await bcrypt.compare(testPassword, user.password);
-    
-    if (isValid) {
-      console.log('   ✅ Password is valid!');
-      console.log('\n✅ Login should work with:');
-      console.log(`   Email: ${user.email}`);
-      console.log(`   Password: ${testPassword}\n`);
+    if (isPasswordValid) {
+      console.log('   ✅ Password is correct!');
+      console.log('\n✅ Login test passed!');
+      console.log('\n📋 You can now log in with:');
+      console.log(`   Email: ${testEmail}`);
+      console.log(`   Password: ${testPassword}`);
     } else {
-      console.log('   ❌ Password is invalid!');
-      console.log('   Generating new password hash...\n');
+      console.log('   ❌ Password is incorrect');
+      console.log('\n💡 The password hash in the database doesn\'t match the test password');
+      console.log('   Try registering a new account or resetting the password');
       
-      const newHash = await bcrypt.hash(testPassword, 10);
-      console.log('   New hash:', newHash);
-      console.log('\n   Update the user in database with this hash.\n');
+      // Show what password was used to create this hash (for debugging)
+      console.log('\n🔍 Debugging info:');
+      console.log(`   Password hash: ${user.password.substring(0, 20)}...`);
+      console.log('   Try different common passwords or check registration logs');
+    }
+
+  } catch (error) {
+    console.error('\n❌ Test failed:', error.message);
+    
+    if (error.message.includes("Can't reach database server")) {
+      console.log('\n💡 Database connection failed');
+      console.log('   This means Prisma can\'t connect to your Supabase database');
+      console.log('   See DATABASE_CONNECTION_FIX.md for help');
     }
     
-  } catch (error) {
-    console.error('❌ Error:', error.message);
-    if (error.message.includes("Can't reach database server")) {
-      console.log('\n⚠️  DATABASE_URL is not set or incorrect in .env file!');
-      console.log('   Run: node scripts/update-database-password.js\n');
-    }
+    process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
 testLogin();
-
-
-

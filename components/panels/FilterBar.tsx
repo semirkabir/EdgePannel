@@ -8,9 +8,16 @@ export type TimeFilter = '1h' | '3h' | '6h' | '12h' | '24h' | 'all'
 interface FilterBarProps {
   currentFilter: TimeFilter
   onFilterChange: (filter: TimeFilter) => void
+  label?: string
+  className?: string
 }
 
-export function FilterBar({ currentFilter, onFilterChange }: FilterBarProps) {
+export function FilterBar({
+  currentFilter,
+  onFilterChange,
+  label = 'Time',
+  className,
+}: FilterBarProps) {
   const filters: { label: string; value: TimeFilter }[] = [
     { label: '1h', value: '1h' },
     { label: '3h', value: '3h' },
@@ -21,8 +28,17 @@ export function FilterBar({ currentFilter, onFilterChange }: FilterBarProps) {
   ]
 
   return (
-    <div className="flex items-center gap-1 bg-background/50 backdrop-blur-sm p-1 rounded-lg border border-border/50">
-      <span className="text-xs text-muted-foreground px-2 font-medium">Tweets:</span>
+    <div
+      className={cn(
+        "flex items-center gap-1 bg-background/50 backdrop-blur-sm p-1 rounded-lg border border-border/50",
+        className
+      )}
+      role="group"
+      aria-label={`${label} filter`}
+    >
+      <span className="text-xs text-muted-foreground px-2 font-medium whitespace-nowrap">
+        {label}:
+      </span>
       {filters.map((filter) => (
         <Button
           key={filter.value}

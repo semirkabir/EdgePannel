@@ -81,3 +81,5 @@ export const SHORTCUTS = {
   PREV_MARKET: { key: 'k', description: 'Previous market' },
 }
 
+
+

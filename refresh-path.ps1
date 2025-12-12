@@ -3,3 +3,5 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 Write-Host "PATH refreshed! Testing npm..." -ForegroundColor Green
 npm --version
 
+
+

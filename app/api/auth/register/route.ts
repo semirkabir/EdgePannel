@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/client'
-import { getSupabaseAdmin } from '@/lib/supabase/client'
+import { getSupabaseAdmin, supabaseAdmin } from '@/lib/supabase/client'
+import bcrypt from 'bcryptjs'
 
 export async function POST(request: Request) {
   try {
@@ -13,8 +14,47 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check if SUPABASE_SERVICE_ROLE_KEY is available
+    if (!supabaseAdmin) {
+      // Fallback: Use Prisma with bcrypt (traditional method)
+      console.log('⚠️ SUPABASE_SERVICE_ROLE_KEY not set, using Prisma fallback')
+      
+      // Check if user already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email }
+      })
+
+      if (existingUser) {
+        return NextResponse.json(
+          { error: 'User already exists' },
+          { status: 400 }
+        )
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10)
+
+      // Create user in Prisma
+      const user = await prisma.user.create({
+        data: {
+          name: name || email.split('@')[0],
+          email,
+          password: hashedPassword,
+          emailVerified: null,
+        },
+      })
+
+      return NextResponse.json(
+        { 
+          message: 'User created successfully', 
+          userId: user.id,
+        },
+        { status: 201 }
+      )
+    }
+
     // Create user in Supabase Auth (this will appear in Authentication > Users)
-    const supabaseAdmin = getSupabaseAdmin()
+    // Use supabaseAdmin directly since we've already checked it exists
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -78,10 +118,25 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Registration error:', error)
+    
+    // Provide more specific error messages
+    if (error?.message?.includes('SUPABASE_SERVICE_ROLE_KEY')) {
+      return NextResponse.json(
+        { 
+          error: 'Server configuration error: SUPABASE_SERVICE_ROLE_KEY is not set. Please add it to your .env file or use the fallback registration method.',
+          details: 'To get your service role key, go to Supabase Dashboard → Settings → API → service_role key'
+        },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: error?.message || 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+      },
       { status: 500 }
     )
   }
