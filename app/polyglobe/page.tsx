@@ -1,11 +1,19 @@
 'use client';
 
+'use client';
+
+'use client';
+'use client';
+
+import { MarketCardStack } from '@/components/polyglobe/MarketCardStack';
+import { EnrichedMarket } from '@/lib/markets/enrich';
 import React, { useState, useEffect } from 'react';
 import { PolyglobeMap } from '@/components/polyglobe/PolyglobeMap';
 import { PolyglobeUI } from '@/components/polyglobe/PolyglobeUI';
 import { CountryNewsPanel } from '@/components/polyglobe/CountryNewsPanel';
 import { Starfield } from '@/components/polyglobe/Starfield';
 import { GlobeSettings } from '@/components/polyglobe/GlobeSettings';
+import { useSearch } from '@/hooks/use-search';
 
 export default function PolyglobePage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
@@ -18,6 +26,8 @@ export default function PolyglobePage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'map' | 'globe'>('globe');
+
+  const { markets, isLoading } = useSearch({ q: searchQuery, limit: 10 });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -65,6 +75,10 @@ export default function PolyglobePage() {
     setSelectedCountry(null);
   };
 
+  const handleMarketClick = (market: EnrichedMarket) => {
+    console.log('Market clicked:', market);
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-gray-950">
       {/* Starfield background - only in globe mode */}
@@ -91,6 +105,11 @@ export default function PolyglobePage() {
         onPlayPause={setIsPlaying}
         onSettingsOpen={() => setIsSettingsOpen(true)}
       />
+      {searchQuery && (
+        <div className="absolute top-16 right-4 z-[1000]">
+          <MarketCardStack markets={markets} onMarketClick={handleMarketClick} />
+        </div>
+      )}
       {selectedCountry && (
         <CountryNewsPanel
           country={selectedCountry}

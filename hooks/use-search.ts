@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import useSWR from 'swr'
 import { Market } from '@/types/market'
+import { EnrichedMarket } from '@/lib/markets/enrich'
 
 interface SearchParams {
   q?: string
@@ -16,7 +17,7 @@ interface SearchParams {
 }
 
 interface SearchResponse {
-  markets: Market[]
+  markets: EnrichedMarket[]
   pagination: {
     hasMore: boolean
     nextCursor?: string | null

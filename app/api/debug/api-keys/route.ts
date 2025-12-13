@@ -20,12 +20,7 @@ export async function GET(request: Request) {
         isActive: true,
         createdAt: true,
         updatedAt: true,
-        // Don't return encrypted keys, just check if they exist
-        encryptedKey: {
-          select: {
-            // Just check length to verify it exists
-          }
-        }
+        encryptedKey: true,
       },
     })
 
@@ -33,7 +28,7 @@ export async function GET(request: Request) {
     const keysStatus = apiKeys.map(key => ({
       platform: key.platform,
       isActive: key.isActive,
-      hasKey: true, // If record exists, key exists
+      hasKey: !!key.encryptedKey, // If record exists, key exists
       createdAt: key.createdAt,
       updatedAt: key.updatedAt,
     }))

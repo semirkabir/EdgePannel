@@ -1,3 +1,7 @@
+'use client';
+
+'use client';
+
 import { useRef, useEffect } from 'react'
 import { EnrichedMarket } from '@/lib/markets/enrich'
 import { MarketCard } from './MarketCard'
