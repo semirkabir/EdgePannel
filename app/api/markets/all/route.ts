@@ -110,7 +110,7 @@ export async function GET(request: Request) {
       polymarketClient = new PolymarketClient({ apiKey: '' })
     }
 
-    // Create aggregator and get enriched markets
+    // Create aggregator
     const aggregator = new MarketAggregator(kalshiClient, polymarketClient)
 
     console.log(`[Markets API] Fetching markets - Kalshi: ${kalshiClient ? 'enabled' : 'disabled'}, Polymarket: ${polymarketClient ? 'enabled' : 'disabled'}`)

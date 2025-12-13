@@ -13,6 +13,10 @@ export interface Market {
   volume24h?: number
   liquidity?: number
   endDate?: Date
+  slug?: string // URL slug for market page
+  ticker?: string // Kalshi ticker
+  outcomes?: string[] // Possible outcomes (Yes/No or custom)
+  outcomePrices?: number[] // Prices for each outcome
   location?: {
     country?: string
     region?: string

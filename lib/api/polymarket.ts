@@ -37,19 +37,20 @@ export class PolymarketClient {
     closed?: boolean
     search?: string
   }): Promise<{ markets: Market[]; hasMore: boolean; nextOffset?: number }> {
-    // View-only: use Polymarket's public CLOB endpoint with light filtering
+    // Fetch top markets by volume from Polymarket's Gamma API (has better volume data)
     try {
-      const limit = params?.limit || 500
+      // Gamma API supports limit and active parameters
+      // Fetch more than requested to ensure we have enough after filtering
+      const requestLimit = Math.min((params?.limit || 500) * 2, 2000)
       const offset = params?.offset || 0
-      const url = new URL(`${this.baseUrl}/markets`)
-      url.searchParams.set('limit', String(limit))
+
+      const url = new URL('https://gamma-api.polymarket.com/markets')
+      url.searchParams.set('limit', String(requestLimit))
       if (offset > 0) {
         url.searchParams.set('offset', String(offset))
       }
-      // Ask Polymarket for open markets only when supported
-      if (params?.closed === false) {
-        url.searchParams.set('closed', 'false')
-      }
+      // Only fetch open (not closed) markets - these have active trading
+      url.searchParams.set('closed', 'false')
 
       const marketsResponse = await fetch(url.toString(), {
         method: 'GET',
@@ -66,13 +67,12 @@ export class PolymarketClient {
         return { markets: [], hasMore: false, nextOffset: undefined }
       }
 
-      const responseData = await marketsResponse.json()
-      const markets = responseData.data || responseData || []
+      const markets = await marketsResponse.json()
 
-      console.log(`[Polymarket Client] Received ${markets.length} markets from CLOB API`)
+      console.log(`[Polymarket Client] Received ${markets.length} markets from Gamma API`)
 
       if (!Array.isArray(markets) || markets.length === 0) {
-        console.warn('[Polymarket Client] No markets returned from CLOB API')
+        console.warn('[Polymarket Client] No markets returned from Gamma API')
         return { markets: [], hasMore: false, nextOffset: undefined }
       }
 
@@ -81,79 +81,60 @@ export class PolymarketClient {
         const sample = markets[0]
         console.log('[Polymarket Client] Sample market structure:', {
           question: sample.question?.substring(0, 50),
-          condition_id: sample.condition_id,
-          question_id: sample.question_id,
+          conditionId: sample.conditionId,
+          active: sample.active,
           archived: sample.archived,
-          resolved: sample.resolved,
           closed: sample.closed,
-          hasTokens: !!sample.tokens,
-          tokenCount: sample.tokens?.length || 0,
-          firstTokenPrice: sample.tokens?.[0]?.price,
+          volume24hr: sample.volume24hr,
+          liquidity: sample.liquidity,
+          endDateIso: sample.endDateIso,
           keys: Object.keys(sample).slice(0, 15),
         })
       }
 
       const now = new Date()
 
-      // Transform markets using token prices (fast, view-only)
+      // Transform markets using Gamma API format
       const transformed = markets
         .filter((m: any) => {
           // Basic sanity checks: must have a question and ID
-          if (!m || !m.question || (!m.condition_id && !m.question_id)) {
+          if (!m || !m.question || !m.conditionId) {
             return false
           }
 
           // Skip archived markets
-          if (m.archived) {
+          if (m.archived === true) {
             return false
           }
 
-          // If Polymarket flags as resolved, skip
-          if (m.resolved === true) {
-            return false
-          }
-
-          // Allow recently closed markets (closed within last 7 days) for display purposes
-          if (m.closed === true) {
-            // Check if it was closed recently (within 7 days)
-            if (m.end_date_iso) {
-              const endDate = new Date(m.end_date_iso)
-              const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-              if (endDate < sevenDaysAgo) {
-                return false
-              }
-            } else {
-              // If no end date but marked as closed, skip
-              return false
-            }
-          }
-
+          // Since we're fetching with active=true, most markets should be valid
+          // Just filter out obviously resolved markets
           return true
         })
-        .map((m: any) => this.transformMarketFromTokens(m))
+        .map((m: any) => this.transformMarketFromGamma(m))
         .filter((m: Market | null) => {
           if (!m) {
             return false
           }
 
+          // Filter out markets with zero or very low volume (likely old/resolved)
+          if (m.volume24h !== undefined && m.volume24h < 10) {
+            // Check if market has a future end date
+            if (m.endDate) {
+              const end = m.endDate instanceof Date ? m.endDate : new Date(m.endDate)
+              if (end < now) {
+                return false // Past end date and no volume = resolved market
+              }
+            } else {
+              return false // No volume and no end date
+            }
+          }
+
           // Allow markets without prices - they might be new or inactive
           // Only filter out prices that are completely invalid (outside 0-1 range)
-          // Allow prices of 0 and 1 (they're valid probabilities, just extreme)
           if (m.price !== undefined && m.price !== null) {
             if (m.price < 0 || m.price > 1) {
               return false
-            }
-            // Prices of 0 or 1 are valid (just extreme probabilities)
-          }
-
-          // If we still have an obviously historical market by endDate, drop it (> 1 year old)
-          if (m.endDate) {
-            const end = m.endDate instanceof Date ? m.endDate : new Date(m.endDate)
-            if (isFinite(end.getTime())) {
-              const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-              if (end < oneYearAgo) {
-                return false
-              }
             }
           }
 
@@ -172,20 +153,92 @@ export class PolymarketClient {
         console.log(`[Polymarket Client] Filtered by search "${params.search}": ${filtered.length} markets`)
       }
 
-      console.log(`[Polymarket Client] Transformed ${filtered.length} markets`)
+      // Sort by 24h volume (highest first) to get top markets
+      filtered.sort((a, b) => {
+        const volA = a.volume24h || 0
+        const volB = b.volume24h || 0
+        return volB - volA
+      })
+
+      // Limit to requested amount after filtering
+      const finalMarkets = filtered.slice(0, params?.limit || 500)
+
+      console.log(`[Polymarket Client] Transformed and sorted ${finalMarkets.length} markets by volume (filtered from ${markets.length})`)
+      if (finalMarkets.length > 0) {
+        console.log(`[Polymarket Client] Top market: ${finalMarkets[0].title} (volume: ${finalMarkets[0].volume24h})`)
+      }
 
       // Determine if there are more results
-      const hasMore = filtered.length === limit
-      const nextOffset = hasMore ? offset + limit : undefined
+      const hasMore = filtered.length > finalMarkets.length
+      const nextOffset = hasMore ? offset + finalMarkets.length : undefined
 
       return {
-        markets: filtered,
+        markets: finalMarkets,
         hasMore,
         nextOffset,
       }
     } catch (error: any) {
       console.error('[Polymarket Client] Error fetching markets:', error)
       return { markets: [], hasMore: false, nextOffset: undefined } // Return empty array instead of throwing
+    }
+  }
+
+  private transformMarketFromGamma(market: any): Market | null {
+    const conditionId = market.conditionId
+    if (!conditionId || !market.question) {
+      return null
+    }
+
+    // Extract price from Gamma API format (outcomePrices is a JSON string like "[\"0.65\", \"0.35\"]")
+    let price: number | undefined
+    let outcomePrices: number[] = []
+
+    if (market.outcomePrices) {
+      try {
+        const prices = typeof market.outcomePrices === 'string'
+          ? JSON.parse(market.outcomePrices)
+          : market.outcomePrices
+
+        if (Array.isArray(prices)) {
+          outcomePrices = prices.map((p: any) => parseFloat(p.toString()))
+          // First outcome is typically "Yes"
+          if (outcomePrices.length > 0) {
+            price = outcomePrices[0]
+          }
+        }
+      } catch (e) {
+        console.warn(`[Polymarket] Failed to parse outcomePrices for ${market.question}`)
+      }
+    }
+
+    // Validate price range
+    if (price !== undefined && price !== null) {
+      if (price < 0 || price > 1 || isNaN(price)) {
+        price = undefined // Reset invalid prices instead of filtering out the entire market
+      }
+    }
+
+    // Parse volume (can be number or string)
+    const volume = market.volume24hr ? parseFloat(market.volume24hr.toString()) : 0
+
+    // Parse outcomes (default to Yes/No)
+    const outcomes = market.outcomes || ['Yes', 'No']
+
+    return {
+      id: conditionId,
+      platform: 'polymarket',
+      title: market.question,
+      description: market.description || '',
+      category: market.category || undefined,
+      price: price,
+      probability: price,
+      volume24h: volume,
+      liquidity: market.liquidityNum ? parseFloat(market.liquidityNum.toString()) : undefined,
+      endDate: market.endDateIso ? new Date(market.endDateIso) : undefined,
+      slug: market.slug || market.marketSlug || undefined,
+      outcomes: outcomes,
+      outcomePrices: outcomePrices.length > 0 ? outcomePrices : undefined,
+      rawData: market,
     }
   }
 
@@ -237,6 +290,50 @@ export class PolymarketClient {
   }
 
 
+
+  /**
+   * Fetch a single market by ID or URL
+   * Supports:
+   * - Direct ID: "0x123..."
+   * - Polymarket URL: "https://polymarket.com/event/..."
+   * - Slug: "will-trump-win"
+   */
+  async getMarketByUrl(urlOrId: string): Promise<Market | null> {
+    try {
+      // Extract condition ID from URL if it's a URL
+      let conditionId = urlOrId
+
+      if (urlOrId.includes('polymarket.com')) {
+        // Try to extract from URL path
+        // Format: https://polymarket.com/event/...?id=0x123 or /market/slug
+        const url = new URL(urlOrId)
+        const idParam = url.searchParams.get('id')
+        if (idParam) {
+          conditionId = idParam
+        } else {
+          // Try to get from path (last segment might be the slug or ID)
+          const pathSegments = url.pathname.split('/').filter(Boolean)
+          conditionId = pathSegments[pathSegments.length - 1]
+        }
+      }
+
+      // Fetch from CLOB API
+      const response = await fetch(`${this.baseUrl}/markets/${conditionId}`, {
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!response.ok) {
+        console.error('[Polymarket Client] Error fetching market:', response.status)
+        return null
+      }
+
+      const marketData = await response.json()
+      return this.transformMarketFromTokens(marketData)
+    } catch (error) {
+      console.error('[Polymarket Client] Error fetching market by URL:', error)
+      return null
+    }
+  }
 
   async getMarket(marketId: string): Promise<MarketDetails> {
     const query = `

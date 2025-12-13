@@ -1,33 +1,37 @@
 /**
  * Polymarket WebSocket Client
- * Connects to Polymarket's WebSocket API for real-time orderbook updates
- * 
- * Polymarket uses WebSocket for real-time market data
- * Documentation: https://docs.polymarket.com
+ * Connects to Polymarket's WebSocket API for real-time market updates
+ *
+ * Using CLOB Market Channel for order book and price updates
+ * Documentation: https://docs.polymarket.com/developers/CLOB/websocket/wss-overview
  */
 
 export interface PolymarketWebSocketMessage {
   type: string
-  channel?: string
-  data?: any
+  event_type?: string
+  asset_id?: string
   market?: string
-  condition_id?: string
+  price?: number
+  timestamp?: number
+  [key: string]: any
 }
 
 export type PolymarketWebSocketCallback = (message: PolymarketWebSocketMessage) => void
 
 export class PolymarketWebSocketClient {
   private ws: WebSocket | null = null
-  private url: string = 'wss://clob.polymarket.com/ws'
+  // Use CLOB market WebSocket endpoint
+  private url: string = 'wss://ws-subscriptions-clob.polymarket.com/ws/market'
   private callbacks: Set<PolymarketWebSocketCallback> = new Set()
   private subscriptions: Set<string> = new Set()
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
-  private reconnectDelay = 1000
+  private reconnectDelay = 2000
   private isConnecting = false
+  private heartbeatInterval: NodeJS.Timeout | null = null
 
   constructor() {
-    // Polymarket WebSocket is public, no auth required for market data
+    // CLOB market channel doesn't require authentication for public market data
   }
 
   connect(): Promise<void> {
@@ -46,19 +50,27 @@ export class PolymarketWebSocketClient {
         this.ws = new WebSocket(this.url)
 
         this.ws.onopen = () => {
-          console.log('[Polymarket WS] Connected')
+          console.log('[Polymarket WS] Connected to CLOB market channel')
           this.isConnecting = false
           this.reconnectAttempts = 0
-          
+
+          // Start heartbeat to keep connection alive
+          this.startHeartbeat()
+
           // Resubscribe to all previous subscriptions
-          this.subscriptions.forEach(conditionId => {
-            this.subscribe(conditionId)
+          this.subscriptions.forEach(assetId => {
+            this.subscribe(assetId)
           })
           resolve()
         }
 
         this.ws.onmessage = (event) => {
           try {
+            // Handle PONG responses (they're plain text, not JSON)
+            if (typeof event.data === 'string' && event.data === 'PONG') {
+              return // Ignore PONG responses
+            }
+
             const message: PolymarketWebSocketMessage = JSON.parse(event.data)
             this.handleMessage(message)
           } catch (error) {
@@ -118,12 +130,12 @@ export class PolymarketWebSocketClient {
 
   private sendSubscribe(conditionId: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      // Polymarket WebSocket subscription format
+      // CLOB market channel subscription format (subscribes by asset_id/token)
       const message = {
         type: 'subscribe',
-        channel: `market:${conditionId}`,
-        condition_id: conditionId,
+        assets_ids: [conditionId], // Array of asset IDs to subscribe to
       }
+      console.log('[Polymarket WS] Subscribing to asset:', conditionId)
       this.ws.send(JSON.stringify(message))
     }
   }
@@ -132,10 +144,30 @@ export class PolymarketWebSocketClient {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const message = {
         type: 'unsubscribe',
-        channel: `market:${conditionId}`,
-        condition_id: conditionId,
+        assets_ids: [conditionId],
       }
       this.ws.send(JSON.stringify(message))
+    }
+  }
+
+  private startHeartbeat(): void {
+    // Clear any existing heartbeat
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+    }
+
+    // Send ping every 30 seconds to keep connection alive
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping' }))
+      }
+    }, 30000)
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
     }
   }
 
@@ -158,6 +190,7 @@ export class PolymarketWebSocketClient {
   }
 
   disconnect(): void {
+    this.stopHeartbeat()
     if (this.ws) {
       this.ws.close()
       this.ws = null

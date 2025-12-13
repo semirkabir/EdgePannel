@@ -127,6 +127,32 @@ export class KalshiClient {
     }
   }
 
+  /**
+   * Fetch a single market by ticker or URL
+   * Supports:
+   * - Direct ticker: "KXHIGHNY-25"
+   * - Kalshi URL: "https://kalshi.com/markets/..."
+   */
+  async getMarketByUrl(urlOrTicker: string): Promise<AppMarket | null> {
+    try {
+      let ticker = urlOrTicker
+
+      // Extract ticker from URL if it's a URL
+      if (urlOrTicker.includes('kalshi.com')) {
+        // Format: https://kalshi.com/markets/KXHIGHNY-25
+        const url = new URL(urlOrTicker)
+        const pathSegments = url.pathname.split('/').filter(Boolean)
+        ticker = pathSegments[pathSegments.length - 1]
+      }
+
+      const response = await this.marketApi.getMarket(ticker)
+      return this.transformMarket(response.data.market)
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching market by URL:', error)
+      return null
+    }
+  }
+
   async getMarket(ticker: string): Promise<MarketDetails> {
     const response = await this.marketApi.getMarket(ticker)
     return this.transformMarketDetails(response.data.market)
@@ -289,6 +315,7 @@ export class KalshiClient {
       volume24h: market.volume_24h || market.volume24h || market.volume || 0,
       liquidity: market.liquidity || 0,
       endDate: endDate,
+      ticker: market.ticker || undefined,
       rawData: market,
     }
   }

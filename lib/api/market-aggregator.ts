@@ -22,10 +22,11 @@ export class MarketAggregator {
   }): Promise<Market[]> {
     const markets: Market[] = []
 
+    // Fetch from Kalshi
     if (this.kalshiClient) {
       try {
         console.log('[MarketAggregator] Fetching Kalshi markets...')
-        const result = await this.kalshiClient.getMarkets({ 
+        const result = await this.kalshiClient.getMarkets({
           limit: params?.limit || 100,
           cursor: params?.cursor,
         })
@@ -39,9 +40,10 @@ export class MarketAggregator {
       console.log('[MarketAggregator] Kalshi client not available - API keys may not be configured')
     }
 
+    // Fetch from Polymarket
     if (this.polymarketClient) {
       try {
-        const result = await this.polymarketClient.getMarkets({ 
+        const result = await this.polymarketClient.getMarkets({
           limit: params?.limit || 100,
           offset: params?.offset,
         })

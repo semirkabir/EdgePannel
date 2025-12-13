@@ -19,6 +19,7 @@ interface PolyglobeMapProps {
 }
 
 import { MarketCardStack } from './MarketCardStack';
+import { MarketDetailModal } from './MarketDetailModal';
 
 // Inner component to isolate Map state from Data updates
 function InnerMap({
@@ -134,6 +135,7 @@ function InnerMap({
 
   const [selectedFeature, setSelectedFeature] = useState<any | null>(null);
   const [countryBorders, setCountryBorders] = useState<any>(null);
+  const [selectedMarket, setSelectedMarket] = useState<any | null>(null);
   const mapRef = useRef<MapRef>(null);
 
   // Load country borders GeoJSON
@@ -339,34 +341,18 @@ function InnerMap({
   };
 
   const handleCardClick = (market: any) => {
-    if (!market.location || !market.location.coordinates) return;
+    // Open the market detail modal
+    setSelectedMarket(market);
 
-    const { lat, lng } = market.location.coordinates;
-
-    // Fly to location
-    mapRef.current?.flyTo({
-      center: [lng, lat],
-      zoom: 6,
-      duration: 2000
-    });
-
-    // Select the feature logic (simplified simulation)
-    // We would ideally find the feature in the source, but we can just rely on zoom.
-    // Or set selectedFeature manually from the market data, transforming it to feature format.
-    setSelectedFeature({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [lng, lat] },
-      properties: {
-        id: market.id,
-        market_id: market.id,
-        title: market.title,
-        url: `https://polymarket.com/market/${market.id}`,
-        last_price: market.price || 0,
-        volume: market.volume24h || 0,
-        description: market.description
-      },
-      layer: { id: 'markets-layer' } // Mock layer to satisfy renderPopup check
-    });
+    // Also fly to location if available
+    if (market.location && market.location.coordinates) {
+      const { lat, lng } = market.location.coordinates;
+      mapRef.current?.flyTo({
+        center: [lng, lat],
+        zoom: 6,
+        duration: 2000
+      });
+    }
   };
 
   // Add direct map click handler for base map clicks
@@ -504,6 +490,13 @@ function InnerMap({
           className="pointer-events-auto"
         />
       </div>
+
+      {/* Market Detail Modal */}
+      <MarketDetailModal
+        market={selectedMarket}
+        isOpen={!!selectedMarket}
+        onClose={() => setSelectedMarket(null)}
+      />
 
       <style jsx global>{`
         .maplibregl-popup-content {

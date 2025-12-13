@@ -59,15 +59,22 @@ export function MarketCard({ market, onClick, className }: MarketCardProps) {
                 <h4 className="text-sm font-medium text-white/90 line-clamp-2 leading-snug group-hover:text-white transition-colors">
                     {market.title}
                 </h4>
-                <a
-                    href={`https://polymarket.com/event/${market.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white/40 hover:text-white/80 transition-colors shrink-0 p-1"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <ExternalLink size={14} />
-                </a>
+                {(market.slug || market.ticker) && (
+                    <a
+                        href={
+                            market.platform === 'polymarket'
+                                ? `https://polymarket.com/event/${market.slug}`
+                                : `https://kalshi.com/markets/${market.ticker}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-white/40 hover:text-white/80 transition-colors shrink-0 p-1"
+                        onClick={(e) => e.stopPropagation()}
+                        title={`Trade on ${market.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}`}
+                    >
+                        <ExternalLink size={14} />
+                    </a>
+                )}
             </div>
 
             <div className="mt-3 flex items-center justify-between text-xs">
