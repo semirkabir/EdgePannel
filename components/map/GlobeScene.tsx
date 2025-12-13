@@ -97,7 +97,7 @@ function SimplifiedBorders({ radius }: { radius: number }) {
                 itemSize={3}
               />
             </bufferGeometry>
-            <lineBasicMaterial color="#ffffff" transparent opacity={0.4} linewidth={1} />
+            <lineBasicMaterial color="#ffffff" transparent opacity={1.0} linewidth={1.5} />
           </line>
         )
       })}
@@ -130,7 +130,10 @@ function CountryLabels({ radius }: { radius: number }) {
         const pos = latLngToVector3(country.lat, country.lng, radius)
         return (
           <Html key={i} position={[pos.x, pos.y, pos.z]} center distanceFactor={10} occlude>
-            <div className="text-[6px] text-white/50 font-mono tracking-widest uppercase pointer-events-none select-none" style={{ textShadow: '0 0 2px black' }}>
+            <div className="text-[9px] text-white font-sans font-semibold tracking-wide pointer-events-none select-none" style={{ 
+              textShadow: '0 0 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.6), 1px 1px 2px rgba(0,0,0,0.9)',
+              WebkitTextStroke: '0.5px rgba(0,0,0,0.8)'
+            }}>
               {country.name}
             </div>
           </Html>

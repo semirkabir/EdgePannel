@@ -6,6 +6,7 @@ import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { usePolyglobeData } from '@/hooks/use-polyglobe-data';
 import { cn } from '@/lib/utils/cn';
+import { loadGeoJSON } from '@/lib/geojson-loader';
 
 interface PolyglobeMapProps {
   activeFilters: Record<string, boolean>;
@@ -128,7 +129,17 @@ function InnerMap({
   } | null>(null);
 
   const [selectedFeature, setSelectedFeature] = useState<any | null>(null);
+  const [countryBorders, setCountryBorders] = useState<any>(null);
   const mapRef = useRef<MapRef>(null);
+
+  // Load country borders GeoJSON
+  useEffect(() => {
+    loadGeoJSON().then(data => {
+      setCountryBorders(data);
+    }).catch(err => {
+      console.error('Failed to load country borders:', err);
+    });
+  }, []);
 
   const onHover = useCallback((event: MapLayerMouseEvent) => {
     const feature = event.features && event.features[0];
@@ -420,6 +431,21 @@ function InnerMap({
           <Layer {...tweetLayer as any} />
         </Source>
 
+        {/* Country borders layer */}
+        {countryBorders && (
+          <Source id="country-borders" type="geojson" data={countryBorders as any}>
+            <Layer
+              id="country-borders-layer"
+              type="line"
+              paint={{
+                'line-color': '#ffffff',
+                'line-width': 0.5,
+                'line-opacity': 0.5
+              }}
+            />
+          </Source>
+        )}
+
         {renderPopup()}
       </Map>
 
@@ -454,3 +480,4 @@ export function PolyglobeMap({ activeFilters, searchQuery = '', projection = 'me
     />
   );
 }
+

@@ -141,3 +141,4 @@ export function CountryNewsPanel({ country, onClose }: CountryNewsPanelProps) {
     </div>
   );
 }
+

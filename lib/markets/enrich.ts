@@ -154,3 +154,4 @@ export function getLivePredictions(markets: EnrichedMarket[]): EnrichedMarket[] 
     .sort((a, b) => Math.abs((b.probability || 0.5) - 0.5) - Math.abs((a.probability || 0.5) - 0.5))
     .slice(0, 10)
 }
+

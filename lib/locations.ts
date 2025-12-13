@@ -66,3 +66,4 @@ export const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> 
   'ethereum': { lat: 46.9480, lng: 7.4474 }, // Switzerland
   'crypto': { lat: 25.0343, lng: -77.3963 }, // Bahamas
 };
+
