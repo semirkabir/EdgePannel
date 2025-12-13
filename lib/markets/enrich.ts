@@ -18,6 +18,8 @@ export interface EnrichedMarket extends Market {
   isBreakingNews: boolean
   isLivePrediction: boolean
   keywords: string[]
+  price_movement?: number
+  slug?: string
 }
 
 /**
@@ -67,11 +69,18 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
 
   const searchText = `${market.title} ${market.description || ''}`.toLowerCase()
 
-  // Check specific city/region locations first (more precise)
-  for (const [name, coords] of Object.entries(LOCATION_COORDINATES)) {
+  // specific city/region locations first (more precise)
+  // Sort keys by length descending to match "New York" before "York" or "New"
+  const locationKeys = Object.keys(LOCATION_COORDINATES).sort((a, b) => b.length - a.length);
+
+  for (const name of locationKeys) {
+    // improved matching: check for word boundaries if possible or just inclusion for now
+    // Simple inclusion is risky for short words like "US" matching "status", but most keys are distinct enough.
+    // We can add boundary checks for short keys later if needed.
     if (searchText.includes(name.toLowerCase())) {
+      const coords = LOCATION_COORDINATES[name];
       // Return capitalized name for display
-      const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+      const displayName = name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
       return { name: displayName, coordinates: coords }
     }
   }

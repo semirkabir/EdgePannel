@@ -1,16 +1,17 @@
 /**
- * Kalshi WebSocket Client
- * Connects to Kalshi's WebSocket API for real-time market updates
- * 
- * Note: Kalshi WebSocket documentation may vary. This is a basic implementation
- * that can be extended based on actual Kalshi WebSocket API specifications.
+ * Kalshi WebSocket Client (V2)
+ * Connects to Kalshi's V2 WebSocket API for real-time market updates.
+ * Documentation: https://trading-api.readme.io/reference/websocket
  */
 
 export interface KalshiWebSocketMessage {
   type: string
-  data: any
+  id?: number
+  msg?: any
+  // Legacy support or normalized fields
   market?: string
   ticker?: string
+  data?: any
 }
 
 export type KalshiWebSocketCallback = (message: KalshiWebSocketMessage) => void
@@ -18,20 +19,20 @@ export type KalshiWebSocketCallback = (message: KalshiWebSocketMessage) => void
 export class KalshiWebSocketClient {
   private ws: WebSocket | null = null
   private url: string
-  private accessKeyId: string
-  private privateKey: string
+  private accessKeyId?: string
+  private privateKey?: string
   private callbacks: Set<KalshiWebSocketCallback> = new Set()
   private subscriptions: Set<string> = new Set()
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
   private reconnectDelay = 1000
   private isConnecting = false
+  private msgId = 1
 
-  constructor(accessKeyId: string, privateKey: string, useDemo: boolean = false) {
-    // Kalshi WebSocket endpoint (update based on actual documentation)
+  constructor(accessKeyId?: string, privateKey?: string, useDemo: boolean = false) {
     this.url = useDemo
       ? 'wss://demo-api.kalshi.com/trade-api/v2/ws'
-      : 'wss://api.elections.kalshi.com/trade-api/v2/ws'
+      : 'wss://api.kalshi.com/trade-api/v2/ws'
     this.accessKeyId = accessKeyId
     this.privateKey = privateKey
   }
@@ -49,30 +50,33 @@ export class KalshiWebSocketClient {
 
     return new Promise((resolve, reject) => {
       try {
-        // Create WebSocket connection
-        // Note: Kalshi may require authentication via query params or initial message
         this.ws = new WebSocket(this.url)
 
         this.ws.onopen = () => {
-          console.log('[Kalshi WS] Connected')
+          console.log('[Kalshi WS] Connected to V2 API')
           this.isConnecting = false
           this.reconnectAttempts = 0
-          
-          // Authenticate if required
-          this.authenticate()
-            .then(() => {
-              // Resubscribe to all previous subscriptions
-              this.subscriptions.forEach(ticker => {
-                this.subscribe(ticker)
-              })
-              resolve()
-            })
-            .catch(reject)
+
+          // Resubscribe to all previous subscriptions
+          if (this.subscriptions.size > 0) {
+            this.sendSubscribe(Array.from(this.subscriptions))
+          }
+          resolve()
         }
 
         this.ws.onmessage = (event) => {
           try {
-            const message: KalshiWebSocketMessage = JSON.parse(event.data)
+            const raw = JSON.parse(event.data)
+            // Normalize for internal consumption
+            // V2 format: { type: 'ticker', msg: { ticker: '...', price: ... } }
+            const message: KalshiWebSocketMessage = {
+              type: raw.type,
+              id: raw.id,
+              msg: raw.msg,
+              // Add normalized fields for compatibility
+              ticker: raw.msg?.ticker,
+              data: raw.msg
+            }
             this.handleMessage(message)
           } catch (error) {
             console.error('[Kalshi WS] Error parsing message:', error)
@@ -82,15 +86,15 @@ export class KalshiWebSocketClient {
         this.ws.onerror = (error) => {
           console.error('[Kalshi WS] Error:', error)
           this.isConnecting = false
-          reject(error)
+          // Don't reject if already connected, just log
+          // If purely connecting (promise pending), reject might be appropriate but difficult to scope with event listeners
         }
 
         this.ws.onclose = () => {
           console.log('[Kalshi WS] Disconnected')
           this.isConnecting = false
           this.ws = null
-          
-          // Attempt to reconnect
+
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++
             setTimeout(() => {
@@ -105,67 +109,59 @@ export class KalshiWebSocketClient {
     })
   }
 
-  private async authenticate(): Promise<void> {
-    // Kalshi WebSocket authentication
-    // This may require sending an auth message with signed credentials
-    // Implementation depends on Kalshi's actual WebSocket auth protocol
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      // Example auth message (update based on actual Kalshi requirements)
-      const authMessage = {
-        type: 'auth',
-        access_key_id: this.accessKeyId,
-        // Add signature if required
-      }
-      this.ws.send(JSON.stringify(authMessage))
-    }
-  }
+  // V2 API handles multiple tickers in one request
+  subscribe(ticker: string | string[]): void {
+    const tickers = Array.isArray(ticker) ? ticker : [ticker]
 
-  subscribe(ticker: string): void {
+    tickers.forEach(t => this.subscriptions.add(t))
+
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      // Queue subscription for when connection is ready
-      this.subscriptions.add(ticker)
-      this.connect().then(() => {
-        if (this.ws?.readyState === WebSocket.OPEN) {
-          this.sendSubscribe(ticker)
-        }
-      })
+      this.connect()
       return
     }
 
-    this.subscriptions.add(ticker)
-    this.sendSubscribe(ticker)
+    this.sendSubscribe(tickers)
   }
 
-  unsubscribe(ticker: string): void {
-    this.subscriptions.delete(ticker)
-    
+  unsubscribe(ticker: string | string[]): void {
+    const tickers = Array.isArray(ticker) ? ticker : [ticker]
+
+    tickers.forEach(t => this.subscriptions.delete(t))
+
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.sendUnsubscribe(ticker)
+      this.sendUnsubscribe(tickers)
     }
   }
 
-  private sendSubscribe(ticker: string): void {
+  private sendSubscribe(tickers: string[]): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const message = {
-        type: 'subscribe',
-        ticker: ticker,
+        id: this.msgId++,
+        cmd: 'subscribe',
+        params: {
+          channels: ['ticker', 'orderbook_delta'],
+          market_tickers: tickers
+        }
       }
       this.ws.send(JSON.stringify(message))
     }
   }
 
-  private sendUnsubscribe(ticker: string): void {
+  private sendUnsubscribe(tickers: string[]): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const message = {
-        type: 'unsubscribe',
-        ticker: ticker,
+        id: this.msgId++,
+        cmd: 'unsubscribe',
+        params: {
+          channels: ['ticker', 'orderbook_delta'],
+          market_tickers: tickers
+        }
       }
       this.ws.send(JSON.stringify(message))
     }
   }
 
   private handleMessage(message: KalshiWebSocketMessage): void {
-    // Notify all callbacks
     this.callbacks.forEach(callback => {
       try {
         callback(message)
@@ -195,4 +191,3 @@ export class KalshiWebSocketClient {
     return this.ws?.readyState === WebSocket.OPEN
   }
 }
-

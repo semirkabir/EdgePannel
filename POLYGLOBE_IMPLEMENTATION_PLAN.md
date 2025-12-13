@@ -107,7 +107,7 @@ Each market is converted to a GeoJSON Point feature:
 
 #### 5. Market Cards Display
 
-- **Position**: Bottom-right corner
+- **Position**: right corner
 - **Layout**: Stacked cards (newest on top)
 - **Content**:
   - Market title

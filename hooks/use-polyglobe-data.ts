@@ -26,7 +26,7 @@ export function usePolyglobeData() {
   // 2. Construct the market features from our enriched local markets
   const marketFeatures = useMemo(() => {
     if (!localMarkets) return [];
-    
+
     return localMarkets
       .filter(m => m.location?.coordinates) // Only show markets where we successfully inferred a location
       .map(m => ({
@@ -74,7 +74,7 @@ export function usePolyglobeData() {
   // 4. Setup WebSocket for live updates
   const marketIds = useMemo(() => {
     return marketFeatures
-      .slice(0, 50)
+      .slice(0, 500)
       .map((f: any) => f.properties.market_id)
       .filter(Boolean);
   }, [marketFeatures]);
@@ -85,12 +85,12 @@ export function usePolyglobeData() {
     markets: localMarkets
   });
 
-  // 5. Merge live updates into features
-  const liveMarketFeatures = useMemo(() => {
-    return marketFeatures.map((feature: any) => {
+  // 5. Merge live updates into features and raw markets
+  const { liveFeatures, liveMarkets } = useMemo(() => {
+    const features = marketFeatures.map((feature: any) => {
       const id = feature.properties.market_id;
       const update = getMarketUpdate(id);
-      
+
       if (update) {
         const oldPrice = feature.properties.last_price;
         const newPrice = update.price ?? oldPrice;
@@ -108,11 +108,38 @@ export function usePolyglobeData() {
       }
       return feature;
     });
-  }, [marketFeatures, getMarketUpdate]);
+
+    // Also apply updates to the raw enriched markets for the card stack
+    const markets = (localMarkets || []).map(m => {
+      if (!m.location?.coordinates) return null; // Filter out markets without location (matching GeoJSON logic)
+
+      const update = getMarketUpdate(m.id);
+      if (update) {
+        return {
+          ...m,
+          price: update.price ?? m.price,
+          volume24h: update.volume24h ?? m.volume24h,
+          // Calculate movement if previous price is known, or store it in update
+          price_movement: (update.price && m.price) ? update.price - m.price : 0,
+          // Note: simplified movement calc. Ideally we track historical price.
+          // merging properties needed for MarketCard:
+          probability: update.price ?? m.price, // assuming price is probability
+        };
+      }
+      return {
+        ...m,
+        price_movement: 0,
+        probability: m.price
+      };
+    }).filter(Boolean) as any[]; // Type assertion for now
+
+    return { liveFeatures: features, liveMarkets: markets };
+  }, [marketFeatures, getMarketUpdate, localMarkets]);
 
   return {
-    markets: { type: 'FeatureCollection', features: liveMarketFeatures } as GeoJSONFeatureCollection,
+    markets: { type: 'FeatureCollection', features: liveFeatures } as GeoJSONFeatureCollection,
     tweets: { type: 'FeatureCollection', features: tweetFeatures } as GeoJSONFeatureCollection,
+    rawMarkets: liveMarkets,
     isLoading: marketsLoading,
     usingRemote: false
   };

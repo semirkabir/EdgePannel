@@ -120,7 +120,29 @@ export function useMarketWebSocket(options: UseMarketWebSocketOptions) {
     if (!kalshiClientRef.current && !polymarketClientRef.current) return
 
     const kalshiUnsubscribe = kalshiClientRef.current?.onMessage((message) => {
-      if (message.type === 'market_update' || message.type === 'price_update') {
+      // Handle Kalshi V2 'ticker' messages
+      if (message.type === 'ticker' && message.msg) {
+        const ticker = message.ticker || message.msg.ticker
+        if (ticker) {
+          // Kalshi V2 sends prices in cents (integer)
+          const rawPrice = message.msg.price // Last traded price
+          const price = typeof rawPrice === 'number' ? rawPrice / 100 : undefined
+
+          if (price !== undefined) {
+            setMarketUpdates(prev => {
+              const updates = new Map(prev)
+              updates.set(ticker, {
+                price: price,
+                probability: price,
+                volume24h: message.msg.volume,
+              })
+              return updates
+            })
+          }
+        }
+      }
+      // Legacy or other message types fallback
+      else if (message.type === 'market_update' || message.type === 'price_update') {
         const ticker = message.ticker || message.market
         if (ticker) {
           setMarketUpdates(prev => {

@@ -30,15 +30,15 @@ interface ApiKeysResponse {
 // Fetcher with error handling
 const fetcher = async <T>(url: string): Promise<T> => {
   const res = await fetch(url)
-  
+
   if (!res.ok) {
     const error = new Error('An error occurred while fetching the data.')
-    // Attach extra info to the error object
-    ;(error as any).info = await res.json().catch(() => ({}))
-    ;(error as any).status = res.status
+      // Attach extra info to the error object
+      ; (error as any).info = await res.json().catch(() => ({}))
+      ; (error as any).status = res.status
     throw error
   }
-  
+
   return res.json()
 }
 
@@ -71,7 +71,7 @@ const API_KEYS_CONFIG = {
  */
 export function useMarkets() {
   const { data, error, isLoading, isValidating, mutate } = useSWR<MarketsResponse>(
-    '/api/markets/all',
+    '/api/markets/all?limit=500',
     fetcher,
     MARKETS_CONFIG
   )

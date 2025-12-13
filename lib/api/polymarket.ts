@@ -39,7 +39,7 @@ export class PolymarketClient {
   }): Promise<{ markets: Market[]; hasMore: boolean; nextOffset?: number }> {
     // View-only: use Polymarket's public CLOB endpoint with light filtering
     try {
-      const limit = params?.limit || 200
+      const limit = params?.limit || 500
       const offset = params?.offset || 0
       const url = new URL(`${this.baseUrl}/markets`)
       url.searchParams.set('limit', String(limit))
@@ -63,7 +63,7 @@ export class PolymarketClient {
         const errorText = await marketsResponse.text()
         console.error('[Polymarket Client] CLOB API error:', marketsResponse.status, errorText)
         // Don't throw - return empty array so other platforms can still work
-        return []
+        return { markets: [], hasMore: false, nextOffset: undefined }
       }
 
       const responseData = await marketsResponse.json()
@@ -73,7 +73,7 @@ export class PolymarketClient {
 
       if (!Array.isArray(markets) || markets.length === 0) {
         console.warn('[Polymarket Client] No markets returned from CLOB API')
-        return []
+        return { markets: [], hasMore: false, nextOffset: undefined }
       }
 
       // Log sample market structure for debugging
@@ -164,20 +164,20 @@ export class PolymarketClient {
       let filtered = transformed
       if (params?.search) {
         const searchLower = params.search.toLowerCase()
-        filtered = transformed.filter(m => 
+        filtered = transformed.filter(m =>
           m.title.toLowerCase().includes(searchLower) ||
           m.description?.toLowerCase().includes(searchLower) ||
           m.category?.toLowerCase().includes(searchLower)
         )
         console.log(`[Polymarket Client] Filtered by search "${params.search}": ${filtered.length} markets`)
       }
-      
+
       console.log(`[Polymarket Client] Transformed ${filtered.length} markets`)
-      
+
       // Determine if there are more results
       const hasMore = filtered.length === limit
       const nextOffset = hasMore ? offset + limit : undefined
-      
+
       return {
         markets: filtered,
         hasMore,

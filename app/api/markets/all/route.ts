@@ -12,14 +12,14 @@ export async function GET(request: Request) {
   try {
     // Parse query parameters for pagination
     const { searchParams } = new URL(request.url)
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 50
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 500
     const cursor = searchParams.get('cursor') || undefined
     const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : undefined
 
     // Get user ID - use mock if auth is disabled (to match api-keys route)
     let userId: string
     const { AUTH_ENABLED, MOCK_USER_ID } = await import('@/lib/auth-config')
-    
+
     if (AUTH_ENABLED) {
       const session = await getServerSession(authOptions)
       if (!session?.user?.id) {
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     } else {
       userId = MOCK_USER_ID
     }
-    
+
     console.log('[Markets API] Using user ID:', userId, '(AUTH_ENABLED:', AUTH_ENABLED, ')')
 
     // Get API keys for both platforms
@@ -72,14 +72,14 @@ export async function GET(request: Request) {
         console.error('[Markets API] Error setting up Kalshi client:', error.message || error)
         console.error('[Markets API] Error stack:', error.stack)
       }
+    } else {
+      if (kalshiKeyRecord) {
+        console.log('[Markets API] Kalshi key record exists but missing encryptedKeyData (private key)')
+        console.log('[Markets API] This usually means only the Access Key ID was saved, not the Private Key')
       } else {
-        if (kalshiKeyRecord) {
-          console.log('[Markets API] Kalshi key record exists but missing encryptedKeyData (private key)')
-          console.log('[Markets API] This usually means only the Access Key ID was saved, not the Private Key')
-        } else {
-          console.log('[Markets API] No Kalshi API keys found for user:', userId)
-        }
+        console.log('[Markets API] No Kalshi API keys found for user:', userId)
       }
+    }
 
     // Try to get Polymarket credentials (optional for market reading)
     let polymarketKeyRecord = null
@@ -112,19 +112,19 @@ export async function GET(request: Request) {
 
     // Create aggregator and get enriched markets
     const aggregator = new MarketAggregator(kalshiClient, polymarketClient)
-    
+
     console.log(`[Markets API] Fetching markets - Kalshi: ${kalshiClient ? 'enabled' : 'disabled'}, Polymarket: ${polymarketClient ? 'enabled' : 'disabled'}`)
     console.log(`[Markets API] Pagination params - limit: ${limit}, cursor: ${cursor || 'none'}, offset: ${offset || 'none'}`)
-    
+
     // Get markets from both platforms with pagination (errors are handled internally)
     const markets = await aggregator.getAllMarkets({ limit, cursor, offset })
     const enrichedMarkets = enrichMarkets(markets)
-    
+
     // Get pagination info for next page
     let nextCursor: string | undefined
     let nextOffset: number | undefined
     let hasMore = false
-    
+
     if (kalshiClient && markets.length > 0) {
       try {
         const kalshiResult = await kalshiClient.getMarkets({ limit: 1, cursor })
@@ -136,7 +136,7 @@ export async function GET(request: Request) {
         // Ignore errors when checking for next page
       }
     }
-    
+
     if (polymarketClient && markets.length > 0) {
       try {
         const polymarketResult = await polymarketClient.getMarkets({ limit: 1, offset })
@@ -148,17 +148,17 @@ export async function GET(request: Request) {
         // Ignore errors when checking for next page
       }
     }
-    
+
     const kalshiCount = enrichedMarkets.filter(m => m.platform === 'kalshi').length
     const polymarketCount = enrichedMarkets.filter(m => m.platform === 'polymarket').length
-    
+
     console.log(`[Markets API] Total enriched markets: ${enrichedMarkets.length} (Kalshi: ${kalshiCount}, Polymarket: ${polymarketCount})`)
 
     // Extract breaking news and live predictions
     const breakingNews = getBreakingNews(enrichedMarkets)
     const livePredictions = getLivePredictions(enrichedMarkets)
     const categories = getCategories(enrichedMarkets)
-    
+
     console.log(`[Markets API] Breaking news: ${breakingNews.length}, Live predictions: ${livePredictions.length}, Categories: ${categories.length}`)
 
     return NextResponse.json({
@@ -188,7 +188,7 @@ export async function GET(request: Request) {
     console.error('[Markets API] Error fetching all markets:', error)
     console.error('[Markets API] Error stack:', error?.stack)
     console.error('[Markets API] Error message:', error?.message)
-    
+
     // Return empty data instead of 500 to prevent breaking the UI
     // The UI can still function with empty markets
     return NextResponse.json({

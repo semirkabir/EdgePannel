@@ -15,15 +15,18 @@ export default function PolyglobePage() {
     fires: false,
     frontline: false
   });
-  
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'map' | 'globe'>(() => {
+  const [viewMode, setViewMode] = useState<'map' | 'globe'>('globe');
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('polyglobe-view-mode');
-      return (saved === 'globe' || saved === 'map') ? saved : 'map';
+      if (saved === 'globe' || saved === 'map') {
+        setViewMode(saved);
+      }
     }
-    return 'map';
-  });
+  }, []);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -66,10 +69,10 @@ export default function PolyglobePage() {
     <div className="relative w-screen h-screen overflow-hidden bg-gray-950">
       {/* Starfield background - only in globe mode */}
       {viewMode === 'globe' && <Starfield starCount={300} />}
-      
+
       <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
-        <PolyglobeMap 
-          activeFilters={activeFilters} 
+        <PolyglobeMap
+          activeFilters={activeFilters}
           searchQuery={searchQuery}
           projection={viewMode === 'globe' ? 'globe' : 'mercator'}
           onCountryClick={handleCountryClick}
@@ -78,9 +81,9 @@ export default function PolyglobePage() {
           pauseOnHover={pauseOnHover}
         />
       </div>
-      <PolyglobeUI 
-        onSearch={handleSearch} 
-        onFilterChange={handleFilterChange} 
+      <PolyglobeUI
+        onSearch={handleSearch}
+        onFilterChange={handleFilterChange}
         activeFilters={activeFilters}
         onViewToggle={handleViewToggle}
         currentView={viewMode}
@@ -89,7 +92,7 @@ export default function PolyglobePage() {
         onSettingsOpen={() => setIsSettingsOpen(true)}
       />
       {selectedCountry && (
-        <CountryNewsPanel 
+        <CountryNewsPanel
           country={selectedCountry}
           onClose={handleCloseNews}
         />

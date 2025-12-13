@@ -18,20 +18,24 @@ interface PolyglobeMapProps {
   pauseOnHover?: boolean;
 }
 
+import { MarketCardStack } from './MarketCardStack';
+
 // Inner component to isolate Map state from Data updates
-function InnerMap({ 
-  markets, 
-  tweets, 
-  activeFilters, 
+function InnerMap({
+  markets,
+  rawMarkets = [],
+  tweets,
+  activeFilters,
   searchQuery,
   projection = 'mercator',
   onCountryClick,
   isPlaying = true,
   rotationSpeed = 0.05,
   pauseOnHover = false
-}: { 
-  markets: any; 
-  tweets: any; 
+}: {
+  markets: any;
+  rawMarkets?: any[];
+  tweets: any;
   activeFilters: Record<string, boolean>;
   searchQuery: string;
   projection?: 'globe' | 'mercator';
@@ -146,10 +150,10 @@ function InnerMap({
     setHoverInfo(
       feature
         ? {
-            feature,
-            x: event.point.x,
-            y: event.point.y
-          }
+          feature,
+          x: event.point.x,
+          y: event.point.y
+        }
         : null
     );
   }, []);
@@ -157,19 +161,19 @@ function InnerMap({
   const onClick = useCallback(async (event: MapLayerMouseEvent) => {
     // Check if clicking on a feature (market or tweet)
     const feature = event.features && event.features.length > 0 ? event.features[0] : null;
-    
+
     if (feature) {
       setSelectedFeature(feature);
       return; // Don't trigger country click when clicking on a feature
     }
-    
+
     // Clear selected feature
     setSelectedFeature(null);
-    
+
     // If clicking on empty map area, try to detect country
     if (onCountryClick && event.lngLat) {
       console.log('Map clicked at:', event.lngLat, 'Detecting country...');
-      
+
       try {
         // Use OpenStreetMap Nominatim (free, no API key required)
         const response = await fetch(
@@ -180,19 +184,14 @@ function InnerMap({
             }
           }
         );
-        
+
         if (response.ok) {
           const data = await response.json();
-          console.log('Nominatim response:', data);
-          
+          // console.log('Nominatim response:', data);
+
           if (data.address && data.address.country) {
-            console.log('Country detected:', data.address.country);
             onCountryClick(data.address.country);
-          } else {
-            console.log('No country found in response:', data);
           }
-        } else {
-          console.error('Nominatim API error:', response.status, await response.text());
         }
       } catch (error) {
         console.error('Error detecting country:', error);
@@ -210,7 +209,7 @@ function InnerMap({
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      features = features.filter((f: any) => 
+      features = features.filter((f: any) =>
         (f.properties.title || '').toLowerCase().includes(q) ||
         (f.properties.description || '').toLowerCase().includes(q)
       );
@@ -218,6 +217,25 @@ function InnerMap({
 
     return { type: 'FeatureCollection', features };
   }, [markets, activeFilters, searchQuery]);
+
+  const filteredRawMarkets = useMemo(() => {
+    let items = rawMarkets || [];
+
+    if (!activeFilters.live && !activeFilters.breaking) {
+      items = [];
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter((m: any) =>
+        (m.title || '').toLowerCase().includes(q) ||
+        (m.description || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Sort by volume or importance? Default newest/highest vol usually
+    return items.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0));
+  }, [rawMarkets, activeFilters, searchQuery]);
 
   const filteredTweets = useMemo(() => {
     if (!activeFilters.osint) return { type: 'FeatureCollection', features: [] };
@@ -231,16 +249,16 @@ function InnerMap({
       'circle-radius': [
         'interpolate',
         ['linear'],
-        ['zoom'],
-        0, 3, // Zoom 0 -> 3px
-        5, 6, // Zoom 5 -> 6px
-        10, 10 // Zoom 10 -> 10px
+        ['get', 'volume'],
+        0, 3,
+        10000, 8,
+        100000, 15
       ],
       'circle-color': [
         'case',
-        ['>', ['get', 'price_movement'], 0], '#3b82f6',
-        ['<', ['get', 'price_movement'], 0], '#ef4444',
-        '#3b82f6'
+        ['>', ['get', 'price_movement'], 0], '#10b981', // green for up
+        ['<', ['get', 'price_movement'], 0], '#ef4444', // red for down
+        '#3b82f6' // blue default
       ],
       'circle-opacity': 0.8,
       'circle-stroke-width': 1,
@@ -292,11 +310,12 @@ function InnerMap({
               <div className="text-xs text-gray-400 font-mono mb-3">
                 <div>Vol: <span className="text-gray-200">${Math.round(props.volume).toLocaleString()}</span></div>
               </div>
-              <a 
-                href={props.url} 
-                target="_blank" 
+              <a
+                href={props.url}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="block text-center w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded transition-colors"
+                onClick={(e) => e.stopPropagation()}
               >
                 TRADE ON POLYMARKET
               </a>
@@ -319,21 +338,52 @@ function InnerMap({
     );
   };
 
+  const handleCardClick = (market: any) => {
+    if (!market.location || !market.location.coordinates) return;
+
+    const { lat, lng } = market.location.coordinates;
+
+    // Fly to location
+    mapRef.current?.flyTo({
+      center: [lng, lat],
+      zoom: 6,
+      duration: 2000
+    });
+
+    // Select the feature logic (simplified simulation)
+    // We would ideally find the feature in the source, but we can just rely on zoom.
+    // Or set selectedFeature manually from the market data, transforming it to feature format.
+    setSelectedFeature({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [lng, lat] },
+      properties: {
+        id: market.id,
+        market_id: market.id,
+        title: market.title,
+        url: `https://polymarket.com/market/${market.id}`,
+        last_price: market.price || 0,
+        volume: market.volume24h || 0,
+        description: market.description
+      },
+      layer: { id: 'markets-layer' } // Mock layer to satisfy renderPopup check
+    });
+  };
+
   // Add direct map click handler for base map clicks
   useEffect(() => {
     if (!mapRef.current || !onCountryClick) return;
 
     const map = mapRef.current.getMap();
-    
+
     const handleMapClick = async (e: any) => {
       // Only process if no features were clicked
       if (!e.originalEvent || e.originalEvent.defaultPrevented) return;
-      
+
       const lngLat = e.lngLat;
       if (!lngLat) return;
 
-      console.log('Base map clicked at:', lngLat);
-      
+      // console.log('Base map clicked at:', lngLat);
+
       try {
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lngLat.lat}&lon=${lngLat.lng}&zoom=3&addressdetails=1`,
@@ -343,13 +393,10 @@ function InnerMap({
             }
           }
         );
-        
+
         if (response.ok) {
           const data = await response.json();
-          console.log('Nominatim response:', data);
-          
           if (data.address && data.address.country) {
-            console.log('Country detected:', data.address.country);
             onCountryClick(data.address.country);
           }
         }
@@ -359,14 +406,14 @@ function InnerMap({
     };
 
     map.on('click', handleMapClick);
-    
+
     return () => {
       map.off('click', handleMapClick);
     };
   }, [onCountryClick]);
 
   return (
-    <div className="w-full h-full" style={{ backgroundColor: projection === 'globe' ? 'transparent' : '#030712' }}>
+    <div className="w-full h-full relative" style={{ backgroundColor: projection === 'globe' ? 'transparent' : '#030712' }}>
       <Map
         ref={mapRef}
         {...viewState}
@@ -449,6 +496,15 @@ function InnerMap({
         {renderPopup()}
       </Map>
 
+      {/* Market Cards Stack - Bottom Right */}
+      <div className="absolute bottom-10 right-14 z-20 pointer-events-none">
+        <MarketCardStack
+          markets={filteredRawMarkets}
+          onMarketClick={handleCardClick}
+          className="pointer-events-auto"
+        />
+      </div>
+
       <style jsx global>{`
         .maplibregl-popup-content {
           background: transparent !important;
@@ -464,13 +520,14 @@ function InnerMap({
 }
 
 export function PolyglobeMap({ activeFilters, searchQuery = '', projection = 'mercator', onCountryClick, isPlaying = true, rotationSpeed = 0.05, pauseOnHover = false }: PolyglobeMapProps) {
-  const { markets, tweets } = usePolyglobeData();
+  const { markets, tweets, rawMarkets } = usePolyglobeData();
 
   return (
-    <InnerMap 
-      markets={markets} 
-      tweets={tweets} 
-      activeFilters={activeFilters} 
+    <InnerMap
+      markets={markets}
+      rawMarkets={rawMarkets}
+      tweets={tweets}
+      activeFilters={activeFilters}
       searchQuery={searchQuery}
       projection={projection}
       onCountryClick={onCountryClick}
