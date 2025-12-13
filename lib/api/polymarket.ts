@@ -41,22 +41,34 @@ export class PolymarketClient {
     try {
       // Gamma API supports limit and active parameters
       // Fetch more than requested to ensure we have enough after filtering
-      const requestLimit = Math.min((params?.limit || 500) * 2, 2000)
+      // If searching, fetch maximum allowing to filter properly
+      const isSearch = !!params?.search
+      const requestLimit = isSearch ? 2000 : Math.min((params?.limit || 1000) * 2, 2000)
       const offset = params?.offset || 0
 
       const url = new URL('https://gamma-api.polymarket.com/markets')
       url.searchParams.set('limit', String(requestLimit))
+      // Sort by volume as requested to show highest volume markets first
+      url.searchParams.set('order', 'volume')
+      url.searchParams.set('ascending', 'false')
+
       if (offset > 0) {
         url.searchParams.set('offset', String(offset))
       }
       // Only fetch open (not closed) markets - these have active trading
       url.searchParams.set('closed', 'false')
 
+      // Use server-side filtering for search if available
+      if (isSearch && params?.search) {
+        url.searchParams.set('question', params.search)
+      }
+
       const marketsResponse = await fetch(url.toString(), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        // Cache shorter time or no-store? code had no-store
         cache: 'no-store', // Always get fresh data
       })
 
@@ -153,7 +165,7 @@ export class PolymarketClient {
         console.log(`[Polymarket Client] Filtered by search "${params.search}": ${filtered.length} markets`)
       }
 
-      // Sort by 24h volume (highest first) to get top markets
+      // Sort by volume (highest first) as requested
       filtered.sort((a, b) => {
         const volA = a.volume24h || 0
         const volB = b.volume24h || 0
@@ -411,6 +423,23 @@ export class PolymarketClient {
       liquidity: market.liquidity ? parseFloat(market.liquidity.toString()) : undefined,
       endDate: market.endDate ? new Date(parseInt(market.endDate.toString()) * 1000) : undefined,
       rawData: market,
+    }
+  }
+
+  async getPriceHistory(tokenId: string, interval: string = '1d'): Promise<{ timestamp: Date; price: number; volume: number }[]> {
+    try {
+      const response = await this.request<any>(`/prices-history?market=${tokenId}&interval=${interval}`)
+      if (response && Array.isArray(response.history)) {
+        return response.history.map((point: any) => ({
+          timestamp: new Date(point.t * 1000),
+          price: point.p,
+          volume: 0 // API might not return volume per point in this endpoint, usually it's price history
+        }))
+      }
+      return []
+    } catch (error) {
+      console.error('[Polymarket Client] Error fetching price history:', error)
+      return []
     }
   }
 

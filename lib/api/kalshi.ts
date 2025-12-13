@@ -15,7 +15,7 @@ export class KalshiClient {
   constructor(credentials: KalshiCredentials, useDemo: boolean = false) {
     // Normalize private key - handle both RSA and PKCS#8 formats
     let normalizedPrivateKey = credentials.privateKey.trim()
-    
+
     // If it's RSA format, we'll let the SDK handle it (it should support both)
     // But ensure proper line breaks are preserved
     if (!normalizedPrivateKey.includes('\n') && normalizedPrivateKey.length > 100) {
@@ -57,9 +57,15 @@ export class KalshiClient {
   }): Promise<{ markets: AppMarket[]; nextCursor?: string }> {
     try {
       console.log('[Kalshi Client] Fetching markets with params:', params)
-      
+
+
+      // Enhance search: If searching, fetch MAX limit (1000) to ensure we scan the whole catalog
+      // otherwise we only scan the first 100 random markets and likely miss the search term.
+      const isSearch = !!params?.search;
+      const fetchLimit = isSearch ? 1000 : (params?.limit || 100);
+
       const response = await this.marketApi.getMarkets(
-        params?.limit,
+        fetchLimit,
         params?.cursor,
         params?.event_ticker,
         params?.series_ticker
@@ -67,7 +73,7 @@ export class KalshiClient {
 
       const markets = response.data?.markets || []
       console.log(`[Kalshi Client] Received ${markets.length} raw markets from API`)
-      
+
       // Log sample market structure for debugging
       if (markets.length > 0) {
         const sample = markets[0]
@@ -84,25 +90,25 @@ export class KalshiClient {
           keys: Object.keys(sample).slice(0, 15), // First 15 keys
         })
       }
-      
+
       const transformed = this.transformMarkets(markets)
       console.log(`[Kalshi Client] Transformed to ${transformed.length} valid markets (filtered out ${markets.length - transformed.length})`)
-      
+
       // Apply search filter if provided
       let filtered = transformed
       if (params?.search) {
         const searchLower = params.search.toLowerCase()
-        filtered = transformed.filter(m => 
+        filtered = transformed.filter(m =>
           m.title.toLowerCase().includes(searchLower) ||
           m.description?.toLowerCase().includes(searchLower) ||
           m.category?.toLowerCase().includes(searchLower)
         )
         console.log(`[Kalshi Client] Filtered by search "${params.search}": ${filtered.length} markets`)
       }
-      
+
       // Get next cursor from response
       const nextCursor = response.data?.cursor || undefined
-      
+
       return {
         markets: filtered,
         nextCursor,
@@ -115,14 +121,14 @@ export class KalshiClient {
         data: error.response?.data,
         stack: error.stack,
       })
-      
+
       // Provide more specific error information
       if (error.response?.status === 401) {
         console.error('[Kalshi Client] Authentication failed - check API key ID and private key')
       } else if (error.response?.status === 403) {
         console.error('[Kalshi Client] Forbidden - check API key permissions')
       }
-      
+
       return { markets: [], nextCursor: undefined }
     }
   }
@@ -188,7 +194,7 @@ export class KalshiClient {
     const now = new Date()
     let filteredCount = 0
     const filterReasons: Record<string, number> = {}
-    
+
     const transformed = markets
       .map(m => this.transformMarket(m))
       .filter(m => {
@@ -206,13 +212,13 @@ export class KalshiClient {
         // But allow markets without prices (they might be new or inactive)
         const rawMarket = m.rawData
         const isResolved = rawMarket?.status === 'resolved' || rawMarket?.status === 'closed' || rawMarket?.closed === true
-        
+
         // If market is explicitly resolved, filter it out
         if (isResolved) {
           filterReasons['resolved'] = (filterReasons['resolved'] || 0) + 1
           return false
         }
-        
+
         // Only filter out prices that are completely invalid (outside 0-1 range)
         // Allow prices of 0 or 1 for active markets (they might be new or have extreme probabilities)
         if (m.price !== undefined && m.price !== null) {
@@ -228,11 +234,11 @@ export class KalshiClient {
 
         return true
       })
-    
+
     if (filteredCount > 0 || Object.keys(filterReasons).length > 0) {
       console.log(`[Kalshi Client] Filtered out ${markets.length - transformed.length} markets:`, filterReasons)
     }
-    
+
     return transformed
       .sort((a, b) => {
         // Sort by end date (most recent first)
@@ -284,7 +290,7 @@ export class KalshiClient {
       // If already in 0-1 format
       price = market.price > 1 ? market.price / 100 : market.price
     }
-    
+
     // Debug: log if price is still undefined (only log first few to avoid spam)
     if (price === undefined) {
       const debugKey = `no_price_${market.ticker}`

@@ -107,10 +107,27 @@ export const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> 
   // Misc
   'fed': { lat: 38.8977, lng: -77.0365 }, // DC
   'interest rate': { lat: 40.7128, lng: -74.0060 }, // NYC (Wall St)
+  'wall street': { lat: 40.7128, lng: -74.0060 }, // NYC
   'bitcoin': { lat: 13.7563, lng: -89.5019 }, // El Salvador
   'ethereum': { lat: 46.9480, lng: 7.4474 }, // Switzerland
   'crypto': { lat: 25.0343, lng: -77.3963 }, // Bahamas
   'global': { lat: 0, lng: 0 },
   'world': { lat: 0, lng: 0 },
+
+  // Specific Requests
+  'hollywood': { lat: 34.0928, lng: -118.3287 },
+  'los angeles': { lat: 34.0522, lng: -118.2437 },
+  'la': { lat: 34.0522, lng: -118.2437 },
+  'hawthorne': { lat: 33.9164, lng: -118.3526 }, // SpaceX
+  'spacex': { lat: 33.9164, lng: -118.3526 },
+  'austin': { lat: 30.2672, lng: -97.7431 }, // Tesla/XAI
+  'tesla': { lat: 30.2672, lng: -97.7431 },
+  'xai': { lat: 30.2672, lng: -97.7431 },
+  'silicon valley': { lat: 37.3875, lng: -122.0575 },
+  'san francisco': { lat: 37.7749, lng: -122.4194 },
+  'sf': { lat: 37.7749, lng: -122.4194 },
+  'white house': { lat: 38.8977, lng: -77.0365 },
+  'congress': { lat: 38.8899, lng: -77.0091 },
+  'senate': { lat: 38.8899, lng: -77.0091 },
 };
 

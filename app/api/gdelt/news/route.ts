@@ -133,19 +133,19 @@ export async function GET(request: NextRequest) {
     }
 
     const countryCode = getCountryCode(country);
-    
+
     // Get date range (last 7 days)
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 7);
-    
-    const startDateStr = startDate.toISOString().split('T')[0];
-    const endDateStr = endDate.toISOString().split('T')[0];
+
+    const startDateStr = startDate.toISOString().split('T')[0].replace(/-/g, '');
+    const endDateStr = endDate.toISOString().split('T')[0].replace(/-/g, '');
 
     // Construct GDELT API query
     // Using the GDELT 2.0 Doc API for article search
     const query = `country:${countryCode}`;
-    const apiUrl = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&startdatetime=${startDateStr}T000000&enddatetime=${endDateStr}T235959&mode=artlist&format=json&maxrecords=20`;
+    const apiUrl = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&startdatetime=${startDateStr}000000&enddatetime=${endDateStr}235959&mode=artlist&format=json&maxrecords=20`;
 
     const response = await fetch(apiUrl, {
       headers: {
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    
+
     // Transform GDELT response to our format
     const articles = (data.articles || []).map((article: any) => ({
       url: article.url,
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching GDELT news:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch news',
         message: error instanceof Error ? error.message : 'Unknown error'
       },

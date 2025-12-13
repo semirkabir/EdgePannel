@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, ExternalLink, Loader2 } from 'lucide-react';
+import { ExternalLink, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { RightPanel } from '@/components/ui/RightPanel';
+import { Button } from '@/components/ui/button';
 
 interface GDELTArticle {
   url: string;
@@ -16,27 +18,39 @@ interface GDELTArticle {
 }
 
 interface CountryNewsPanelProps {
-  country: string;
+  country: string | null;
   onClose: () => void;
 }
 
 export function CountryNewsPanel({ country, onClose }: CountryNewsPanelProps) {
+  const [activeCountry, setActiveCountry] = useState<string | null>(country);
   const [articles, setArticles] = useState<GDELTArticle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Cache the country for animation
+  useEffect(() => {
+    if (country) {
+      setActiveCountry(country);
+    }
+  }, [country]);
+
+  // Fetch news when activeCountry changes (and is truthy)
   useEffect(() => {
     const fetchNews = async () => {
+      if (!activeCountry) return;
+
       setLoading(true);
       setError(null);
-      
+      setArticles([]); // Clear previous articles while loading
+
       try {
-        const response = await fetch(`/api/gdelt/news?country=${encodeURIComponent(country)}`);
-        
+        const response = await fetch(`/api/gdelt/news?country=${encodeURIComponent(activeCountry)}`);
+
         if (!response.ok) {
           throw new Error('Failed to fetch news');
         }
-        
+
         const data = await response.json();
         setArticles(data.articles || []);
       } catch (err) {
@@ -47,98 +61,76 @@ export function CountryNewsPanel({ country, onClose }: CountryNewsPanelProps) {
       }
     };
 
-    if (country) {
-      fetchNews();
-    }
-  }, [country]);
+    fetchNews();
+  }, [activeCountry]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-        onClick={onClose}
-      />
-      <div 
-        className="relative w-full max-w-2xl max-h-[80vh] bg-gray-900 border border-gray-700 rounded-lg shadow-2xl overflow-hidden pointer-events-auto flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800/50">
-          <div>
-            <h2 className="text-xl font-bold text-white">News: {country}</h2>
-            <p className="text-sm text-gray-400 mt-1">Powered by GDELT</p>
+    <RightPanel
+      isOpen={!!country}
+      onClose={onClose}
+      title={`News: ${activeCountry || 'Country'}`}
+      subtitle={
+        <span className="text-[10px] font-mono uppercase tracking-wider text-blue-400">
+          POWERED BY GDELT
+        </span>
+      }
+    >
+      <div className="px-5 py-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-3">
+            <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+            <span className="text-gray-400 text-sm animate-pulse">Scanning global news feeds...</span>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-              <span className="ml-3 text-gray-400">Loading news...</span>
-            </div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <p className="text-red-400 mb-2">{error}</p>
-              <p className="text-sm text-gray-400">Please try again later</p>
-            </div>
-          ) : articles.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-400">No recent news found for {country}</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {articles.map((article, index) => (
-                <a
-                  key={index}
-                  href={article.url || article.url_mobile || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-800 hover:border-blue-500/50 transition-all group"
-                >
-                  <div className="flex items-start gap-3">
-                    {article.socialimage && (
+        ) : error ? (
+          <div className="text-center py-12 bg-red-500/10 rounded-xl border border-red-500/20">
+            <p className="text-red-400 mb-2 font-medium">{error}</p>
+            <p className="text-xs text-gray-400">Please try again later</p>
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="text-center py-12 bg-white/5 rounded-xl border border-white/5">
+            <p className="text-gray-400">No recent high-impact news found for {activeCountry}.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {articles.map((article, index) => (
+              <a
+                key={index}
+                href={article.url || article.url_mobile || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group relative overflow-hidden"
+              >
+                <div className="flex items-start gap-3">
+                  {article.socialimage && (
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-800">
                       <img
                         src={article.socialimage}
                         alt=""
-                        className="w-20 h-20 object-cover rounded flex-shrink-0"
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-white font-medium group-hover:text-blue-400 transition-colors line-clamp-2 mb-2">
-                        {article.title}
-                      </h3>
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
-                        <span className="truncate">{article.domain}</span>
-                        <span>•</span>
-                        <span>{new Date(article.seendate).toLocaleDateString()}</span>
-                        {article.language && article.language !== 'unknown' && (
-                          <>
-                            <span>•</span>
-                            <span className="uppercase">{article.language}</span>
-                          </>
-                        )}
-                      </div>
                     </div>
-                    <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors flex-shrink-0 mt-1" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-bold text-gray-200 group-hover:text-blue-400 transition-colors line-clamp-2 leading-tight mb-1.5">
+                      {article.title}
+                    </h3>
+                    <div className="flex items-center gap-2 text-[10px] text-gray-500 font-mono uppercase tracking-wide">
+                      <span className="truncate max-w-[100px]">{article.domain}</span>
+                      <span>•</span>
+                      <span>{new Date(article.seendate).toLocaleDateString()}</span>
+                    </div>
+                    {/* Abstract/Snippet if available in future */}
                   </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-gray-600 group-hover:text-blue-400 transition-colors flex-shrink-0 mt-0.5" />
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </RightPanel>
   );
 }
-

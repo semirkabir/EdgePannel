@@ -1,10 +1,5 @@
 'use client';
 
-'use client';
-
-'use client';
-'use client';
-
 import { MarketCardStack } from '@/components/polyglobe/MarketCardStack';
 import { EnrichedMarket } from '@/lib/markets/enrich';
 import React, { useState, useEffect } from 'react';
@@ -14,6 +9,7 @@ import { CountryNewsPanel } from '@/components/polyglobe/CountryNewsPanel';
 import { Starfield } from '@/components/polyglobe/Starfield';
 import { GlobeSettings } from '@/components/polyglobe/GlobeSettings';
 import { useSearch } from '@/hooks/use-search';
+import { MarketDetails } from '@/components/panels/MarketDetails';
 
 export default function PolyglobePage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
@@ -21,13 +17,15 @@ export default function PolyglobePage() {
     osint: true,
     live: true,
     fires: false,
-    frontline: false
+    frontline: false,
+    heatmap: false
   });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'map' | 'globe'>('globe');
+  const [selectedMarket, setSelectedMarket] = useState<EnrichedMarket | null>(null);
 
-  const { markets, isLoading } = useSearch({ q: searchQuery, limit: 10 });
+  const { markets, isLoading } = useSearch({ q: searchQuery, limit: 100 });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -69,6 +67,7 @@ export default function PolyglobePage() {
 
   const handleCountryClick = (countryName: string) => {
     setSelectedCountry(countryName);
+    setSelectedMarket(null);
   };
 
   const handleCloseNews = () => {
@@ -76,7 +75,9 @@ export default function PolyglobePage() {
   };
 
   const handleMarketClick = (market: EnrichedMarket) => {
-    console.log('Market clicked:', market);
+    console.log('Market selected:', market);
+    setSelectedMarket(market);
+    setSelectedCountry(null);
   };
 
   return (
@@ -93,6 +94,8 @@ export default function PolyglobePage() {
           isPlaying={isPlaying}
           rotationSpeed={rotationSpeed}
           pauseOnHover={pauseOnHover}
+          selectedMarket={selectedMarket}
+          onMarketSelect={handleMarketClick}
         />
       </div>
       <PolyglobeUI
@@ -104,18 +107,23 @@ export default function PolyglobePage() {
         isPlaying={isPlaying}
         onPlayPause={setIsPlaying}
         onSettingsOpen={() => setIsSettingsOpen(true)}
+        searchResults={markets}
+        onMarketSelect={handleMarketClick}
+        isSearching={isLoading}
       />
-      {searchQuery && (
-        <div className="absolute top-16 right-4 z-[1000]">
-          <MarketCardStack markets={markets} onMarketClick={handleMarketClick} />
-        </div>
-      )}
-      {selectedCountry && (
-        <CountryNewsPanel
-          country={selectedCountry}
-          onClose={handleCloseNews}
-        />
-      )}
+
+      {/* Search results are now handled inside PolyglobeUI */}
+
+      <MarketDetails
+        market={selectedMarket as any}
+        onClose={() => setSelectedMarket(null)}
+      />
+
+      <CountryNewsPanel
+        country={selectedCountry}
+        onClose={handleCloseNews}
+      />
+
       <GlobeSettings
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}

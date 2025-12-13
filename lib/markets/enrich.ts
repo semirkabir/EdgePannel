@@ -73,6 +73,24 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
   // Sort keys by length descending to match "New York" before "York" or "New"
   const locationKeys = Object.keys(LOCATION_COORDINATES).sort((a, b) => b.length - a.length);
 
+  // 1. Check for specific topic-based overrides first
+  if (searchText.includes('musk') || searchText.includes('tesla') || searchText.includes('xai') || searchText.includes('cybertruck')) {
+    return { name: 'Austin', coordinates: LOCATION_COORDINATES['austin'] }
+  }
+  if (searchText.includes('spacex') || searchText.includes('starship')) {
+    return { name: 'Hawthorne', coordinates: LOCATION_COORDINATES['hawthorne'] }
+  }
+  if (searchText.includes('movie') || searchText.includes('box office') || searchText.includes('cinema') || searchText.includes('avatar') || searchText.includes('film')) {
+    return { name: 'Hollywood', coordinates: LOCATION_COORDINATES['hollywood'] }
+  }
+  if (searchText.includes('senate') || searchText.includes('congress') || searchText.includes('house') || searchText.includes('supreme court') || searchText.includes('biden') || searchText.includes('trump') || searchText.includes('white house') || searchText.includes('election')) {
+    return { name: 'Washington DC', coordinates: LOCATION_COORDINATES['dc'] }
+  }
+  if (searchText.includes('tech') || searchText.includes('startup') || searchText.includes('silicon valley') || searchText.includes('venture capital') || searchText.includes('ai') || searchText.includes('openai') || searchText.includes('google') || searchText.includes('apple')) {
+    return { name: 'Silicon Valley', coordinates: LOCATION_COORDINATES['silicon valley'] }
+  }
+
+  // 2. Original geographic matching
   for (const name of locationKeys) {
     // improved matching: check for word boundaries if possible or just inclusion for now
     // Simple inclusion is risky for short words like "US" matching "status", but most keys are distinct enough.

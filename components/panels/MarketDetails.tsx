@@ -2,290 +2,207 @@
 
 import { useEffect, useState } from 'react'
 import { MarketDetails as MarketDetailsType } from '@/types/market'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MarketChart } from '@/components/charts/MarketChart'
-import { TradeInterface } from '@/components/trading/TradeInterface'
-import { WatchlistButton } from '@/components/panels/WatchlistPanel'
-import { AlertButton } from '@/components/panels/AlertDialog'
-import { ShareButton } from '@/components/ui/share-button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { X, TrendingUp, DollarSign, Clock, ExternalLink, BarChart3, MessageCircle, Twitter } from 'lucide-react'
+import { TrendingUp, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { RightPanel } from '@/components/ui/RightPanel'
 
 interface MarketDetailsProps {
   market: MarketDetailsType | null
-  onClose?: () => void
+  onClose: () => void
 }
 
 export function MarketDetails({ market, onClose }: MarketDetailsProps) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [shouldRender, setShouldRender] = useState(false)
+  // Cache the market so we can display it while the panel is animating out
+  const [activeMarket, setActiveMarket] = useState<MarketDetailsType | null>(market)
+  const [timeRange, setTimeRange] = useState('24H')
 
-  // Handle animation states
   useEffect(() => {
     if (market) {
-      setShouldRender(true)
-      // Small delay to trigger animation
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsVisible(true)
-        })
-      })
-    } else {
-      setIsVisible(false)
-      // Wait for animation to complete before unmounting
-      const timeout = setTimeout(() => {
-        setShouldRender(false)
-      }, 300)
-      return () => clearTimeout(timeout)
+      setActiveMarket(market)
     }
   }, [market])
 
-  if (!shouldRender) return null
-
-  // Format end date
-  const formatEndDate = (endDate: Date | string | undefined) => {
-    if (!endDate) return null
-    const date = endDate instanceof Date ? endDate : new Date(endDate)
-    const now = new Date()
-    const diff = date.getTime() - now.getTime()
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-
-    if (diff < 0) return 'Ended'
-    if (days > 30) return date.toLocaleDateString()
-    if (days > 0) return `${days}d ${hours}h remaining`
-    if (hours > 0) return `${hours}h remaining`
-    return 'Ending soon'
+  // Helper to safely get date string
+  const getEndDateString = () => {
+    if (!activeMarket?.endDate) return 'N/A';
+    try {
+      const date = activeMarket.endDate instanceof Date ? activeMarket.endDate : new Date(activeMarket.endDate);
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } catch (e) {
+      return 'Invalid Date';
+    }
   }
 
   // Mock tweets
   const mockTweets = [
-    { id: 1, user: 'MarketAnalyst', handle: '@analyst_top', text: `Huge movement on "${market?.title}" today! Volume spiking. #predictionmarkets`, time: '2m ago' },
+    { id: 1, user: 'MarketAnalyst', handle: '@analyst_top', text: `Huge movement on "${activeMarket?.title}" today! Volume spiking. #predictionmarkets`, time: '2m ago' },
     { id: 2, user: 'CryptoTrader', handle: '@cryptotrader', text: 'Buying YES on this one. The odds are too good to pass up.', time: '15m ago' },
     { id: 3, user: 'NewsBreaker', handle: '@newsbreaker', text: 'Breaking: New developments might affect the outcome of this market significantly.', time: '1h ago' },
     { id: 4, user: 'PolymarketWhale', handle: '@polywhale', text: 'Just saw a massive buy order come in. Someone knows something.', time: '3h ago' },
   ]
 
   return (
-    <>
-      {/* Backdrop for mobile */}
-      <div
-        className={cn(
-          "fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300",
-          isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={onClose}
-      />
+    <RightPanel
+      isOpen={!!market}
+      onClose={onClose}
+      title={activeMarket?.title || 'Market'}
+      subtitle={
+        <span className={cn(
+          "text-[10px] font-mono uppercase tracking-wider",
+          activeMarket?.platform === 'polymarket' ? "text-blue-400" : "text-green-400"
+        )}>
+          {activeMarket?.platform}
+        </span>
+      }
+    >
+      {/* 1. Hero / Price Section (Gamified) */}
+      {activeMarket && (
+        <div className="px-5 pt-8 pb-4 text-center relative">
+          <div className="inline-flex flex-col items-center">
+            <span className="text-sm font-medium text-gray-400 mb-1 tracking-wide">CHANCE</span>
+            <div className={cn(
+              "text-6xl font-black tracking-tighter tabular-nums mb-2",
+              (activeMarket.price || 0) >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]" // Neon Green / Red
+            )}>
+              {Math.round((activeMarket.price || 0) * 100)}%
+            </div>
 
-      {/* Panel */}
-      <div
-        className={cn(
-          "fixed right-0 top-0 h-full w-full sm:w-96 z-50 lg:relative lg:z-auto",
-          "glass-effect border-l border-border flex flex-col",
-          "transform transition-transform duration-300 ease-out",
-          isVisible ? "translate-x-0" : "translate-x-full"
-        )}
-      >
-        {/* Header with close button */}
-        <div className="flex items-center justify-between p-4 border-b border-border bg-background/80 backdrop-blur-sm">
-          <h2 className="text-lg font-semibold">Market Details</h2>
-          <div className="flex items-center gap-1">
-            {market && (
-              <>
-                <WatchlistButton market={market} size="sm" />
-                <AlertButton market={market} size="sm" />
-                <ShareButton market={market} size="sm" />
-              </>
-            )}
-            {onClose && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+            {/* Price Change (Mocked for now or calc from history) */}
+            <div className="flex items-center gap-1.5 text-sm font-medium text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>+2.4% Today</span>
+            </div>
           </div>
         </div>
+      )}
 
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
-            {market && (
-              <Tabs defaultValue="price" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-4">
-                  <TabsTrigger value="price">Price</TabsTrigger>
-                  <TabsTrigger value="stats">Stats</TabsTrigger>
-                  <TabsTrigger value="tweets">Tweets</TabsTrigger>
-                </TabsList>
+      {/* 2. Chart Section */}
+      <div className="w-full h-[220px] mb-4 relative group">
+        {/* Time Filters Bubble */}
+        <div className="absolute top-2 right-4 flex gap-1 p-0.5 bg-white/5 rounded-lg border border-white/5 backdrop-blur-sm z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+          {['1H', '1D', '1W', 'ALL'].map((range) => (
+            <button
+              key={range}
+              onClick={() => setTimeRange(range)}
+              className={cn(
+                "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+                timeRange === range ? "bg-white/20 text-white" : "text-gray-500 hover:text-gray-300"
+              )}
+            >
+              {range}
+            </button>
+          ))}
+        </div>
 
-                <TabsContent value="price" className="space-y-4 mt-0">
-                  {/* Market Title Card */}
-                  <Card className="overflow-hidden">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base leading-tight">{market.title}</CardTitle>
-                        <span className={cn(
-                          "px-2 py-1 rounded text-xs font-medium uppercase shrink-0",
-                          market.platform === 'polymarket'
-                            ? "bg-blue-500/20 text-blue-400"
-                            : "bg-green-500/20 text-green-400"
-                        )}>
-                          {market.platform}
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Price Display */}
-                      {market.price !== undefined && (
-                        <div className="flex items-center gap-4">
-                          <div className="flex-1">
-                            <div className="text-xs text-muted-foreground mb-1">Current Probability</div>
-                            <div className="text-3xl font-bold text-primary">
-                              {(market.price * 100).toFixed(1)}%
-                            </div>
-                          </div>
-                          <div className="h-16 w-16 rounded-full border-4 border-primary/20 flex items-center justify-center relative">
-                            <div
-                              className="absolute inset-0 rounded-full border-4 border-primary"
-                              style={{
-                                clipPath: `polygon(0 0, 100% 0, 100% ${market.price * 100}%, 0 ${market.price * 100}%)`
-                              }}
-                            />
-                            <TrendingUp className="h-6 w-6 text-primary" />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Price History Chart */}
-                      {market.priceHistory && market.priceHistory.length > 0 && (
-                        <div className="h-[200px] w-full mt-4">
-                          <MarketChart data={market.priceHistory} />
-                        </div>
-                      )}
-
-                      {/* Trade Interface */}
-                      <div className="pt-4 border-t border-border">
-                        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          Trade
-                        </h3>
-                        <TradeInterface market={market} />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="stats" className="space-y-4 mt-0">
-                  <Card>
-                    <CardContent className="p-4 space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        {market.volume24h !== undefined && (
-                          <div className="bg-background/50 rounded-lg p-3">
-                            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                              <BarChart3 className="h-3 w-3" />
-                              <span className="text-xs">24h Volume</span>
-                            </div>
-                            <div className="font-semibold">
-                              ${market.volume24h.toLocaleString()}
-                            </div>
-                          </div>
-                        )}
-                        {market.liquidity !== undefined && (
-                          <div className="bg-background/50 rounded-lg p-3">
-                            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                              <DollarSign className="h-3 w-3" />
-                              <span className="text-xs">Liquidity</span>
-                            </div>
-                            <div className="font-semibold">
-                              ${market.liquidity.toLocaleString()}
-                            </div>
-                          </div>
-                        )}
-                        {market.endDate && (
-                          <div className="bg-background/50 rounded-lg p-3 col-span-2">
-                            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                              <Clock className="h-3 w-3" />
-                              <span className="text-xs">End Date</span>
-                            </div>
-                            <div className="font-semibold">
-                              {formatEndDate(market.endDate)}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Description */}
-                      {market.description && (
-                        <div>
-                          <div className="text-xs text-muted-foreground mb-1">Description</div>
-                          <p className="text-sm leading-relaxed">
-                            {market.description}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* External Link */}
-                      {market.rawData?.url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full gap-2"
-                          onClick={() => window.open(market.rawData.url, '_blank')}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                          View on {market.platform}
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="tweets" className="space-y-4 mt-0">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Twitter className="h-4 w-4 text-blue-400" />
-                        Relevant Tweets
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {mockTweets.map((tweet) => (
-                        <div key={tweet.id} className="p-3 rounded-lg bg-background/50 border border-border/50">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-[10px] font-bold text-white">
-                                {tweet.user[0]}
-                              </div>
-                              <div>
-                                <div className="text-xs font-bold">{tweet.user}</div>
-                                <div className="text-[10px] text-muted-foreground">{tweet.handle}</div>
-                              </div>
-                            </div>
-                            <span className="text-[10px] text-muted-foreground">{tweet.time}</span>
-                          </div>
-                          <p className="text-xs leading-relaxed mt-2">
-                            {tweet.text}
-                          </p>
-                        </div>
-                      ))}
-                      <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground">
-                        Load more tweets
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            )}
+        {activeMarket?.priceHistory && activeMarket.priceHistory.length > 0 ? (
+          <MarketChart
+            data={activeMarket.priceHistory}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs tracking-wider">
+            Waiting for chart data...
           </div>
-        </ScrollArea>
+        )}
       </div>
-    </>
+
+      {/* 3. Action Buttons (Gamified) */}
+      {activeMarket && (
+        <div className="px-5 mb-8">
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              className="h-12 bg-[#00ff7f] hover:bg-[#00cc66] text-black font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(0,255,127,0.2)] border-0"
+              onClick={() => {
+                const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.ticker || activeMarket.id}`);
+                window.open(url, '_blank');
+              }}
+            >
+              BET YES
+            </Button>
+            <Button
+              className="h-12 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(255,77,77,0.2)] border-0"
+              onClick={() => {
+                const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.ticker || activeMarket.id}`);
+                window.open(url, '_blank');
+              }}
+            >
+              BET NO
+            </Button>
+          </div>
+          <div className="flex items-center justify-center gap-6 mt-4 text-xs font-mono text-gray-500">
+            <div className="flex flex-col items-center">
+              <span className="text-gray-300 font-bold mb-0.5">${(activeMarket.volume24h || 0).toLocaleString(undefined, { notation: 'compact' })}</span>
+              <span>VOL</span>
+            </div>
+            <div className="w-px h-6 bg-white/10" />
+            <div className="flex flex-col items-center">
+              <span className="text-gray-300 font-bold mb-0.5">${(activeMarket.liquidity || 0).toLocaleString(undefined, { notation: 'compact' })}</span>
+              <span>LIQ</span>
+            </div>
+            <div className="w-px h-6 bg-white/10" />
+            <div className="flex flex-col items-center">
+              <span className="text-gray-300 font-bold mb-0.5">
+                {getEndDateString()}
+              </span>
+              <span>ENDS</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Details / Tweets Tabs */}
+      {activeMarket && (
+        <div className="px-5">
+          <Tabs defaultValue="tweets" className="w-full">
+            <TabsList className="w-full bg-white/5 p-1 rounded-xl mb-4 border border-white/5">
+              <TabsTrigger value="tweets" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
+                LATEST NEWS
+              </TabsTrigger>
+              <TabsTrigger value="info" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
+                MARKET INFO
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="tweets" className="mt-0 space-y-3">
+              {mockTweets.map((tweet) => (
+                <div key={tweet.id} className="p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] text-white font-black">
+                      {tweet.user[0]}
+                    </div>
+                    <span className="text-xs font-bold text-gray-200">{tweet.user}</span>
+                    <span className="text-[10px] text-gray-500 ml-auto">{tweet.time}</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    {tweet.text}
+                  </p>
+                </div>
+              ))}
+            </TabsContent>
+
+            <TabsContent value="info" className="mt-0">
+              <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                <h4 className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">Description</h4>
+                <p className="text-xs text-gray-400 leading-relaxed mb-4">
+                  {activeMarket.description || 'No description available for this market.'}
+                </p>
+
+                <h4 className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">Resolution Source</h4>
+                <a
+                  href={activeMarket.rawData?.url || '#'}
+                  target="_blank"
+                  className="flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  {activeMarket.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'} Source
+                </a>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
+    </RightPanel>
   )
 }
-
-

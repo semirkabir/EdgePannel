@@ -27,28 +27,69 @@ export function usePolyglobeData() {
   const marketFeatures = useMemo(() => {
     if (!localMarkets) return [];
 
-    return localMarkets
-      .filter(m => m.location?.coordinates) // Only show markets where we successfully inferred a location
-      .map(m => ({
+    // Filter for "Trending" markets (volume > 500)
+    const allTrending = localMarkets.filter(m => (m.volume24h || 0) > 500);
+
+    // Get Top 250 from Polymarket
+    const polyMarkets = allTrending
+      .filter(m => m.platform === 'polymarket')
+      .sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
+      .slice(0, 250);
+
+    // Get Top 250 from Kalshi
+    const kalshiMarkets = allTrending
+      .filter(m => m.platform === 'kalshi')
+      .sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
+      .slice(0, 250);
+
+    // Combine lists
+    const mixedMarkets = [...polyMarkets, ...kalshiMarkets];
+
+    return mixedMarkets.map((m: any) => {
+      // Fallback coordinates if none found (generic "Global" location at 0,0 or distributed)
+      // Distribute them slightly to avoid perfect overlap at 0,0
+      const hasLoc = m.location?.coordinates;
+      const lng = hasLoc ? m.location.coordinates.lng : (Math.random() * 360 - 180);
+      const lat = hasLoc ? m.location.coordinates.lat : (Math.random() * 160 - 80);
+
+      // Fix Kalshi URL: Prefer series_ticker from rawData
+      let marketUrl = m.url;
+      if (!marketUrl) {
+        if (m.platform === 'polymarket') {
+          marketUrl = `https://polymarket.com/market/${m.slug || m.id}`;
+        } else {
+          // Kalshi: Try rawData.series_ticker, then m.series_ticker, then ticker
+          const series = m.rawData?.series_ticker || m.series_ticker;
+          marketUrl = `https://kalshi.com/markets/${series || m.ticker}`;
+        }
+      }
+
+      return {
         type: 'Feature' as const,
         geometry: {
           type: 'Point' as const,
-          coordinates: [m.location!.coordinates!.lng, m.location!.coordinates!.lat]
+          coordinates: [lng, lat]
         },
         properties: {
           id: m.id,
           market_id: m.id,
           title: m.title,
           slug: m.id,
-          url: `https://polymarket.com/market/${m.id}`,
+          url: marketUrl,
           last_price: m.price || 0,
           volume: m.volume24h || 0,
           image_url: null,
           is_open: true,
           description: m.description,
-          price_movement: 0
+          price_movement: m.price_movement || 0,
+          isBreakingNews: m.isBreakingNews || false,
+          // Add platform to properties for styling
+          platform: m.platform,
+          // Flag to indicate if this is a random location
+          is_random_location: !hasLoc
         }
-      }));
+      };
+    });
   }, [localMarkets]);
 
   // 3. Construct tweet features

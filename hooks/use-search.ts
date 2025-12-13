@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import useSWR from 'swr'
 import { Market } from '@/types/market'
 import { EnrichedMarket } from '@/lib/markets/enrich'
+import { useMarketWebSocket } from './use-market-websocket'
 
 interface SearchParams {
   q?: string
@@ -95,6 +96,37 @@ export function useSearch(params: SearchParams) {
     }
   )
 
+  const rawMarkets = data?.markets ?? []
+
+  // WebSocket Integration for Live Search Results
+  // Only watch the top 50 to avoid overloading sockets if list is huge
+  const marketIds = useMemo(() => {
+    return rawMarkets.slice(0, 50).map(m => m.id)
+  }, [rawMarkets])
+
+  const { getMarketUpdate } = useMarketWebSocket({
+    watchlistMarketIds: marketIds,
+    markets: rawMarkets
+  })
+
+  // Merge live updates
+  const liveMarkets = useMemo(() => {
+    if (!rawMarkets.length) return rawMarkets
+
+    return rawMarkets.map(m => {
+      const update = getMarketUpdate(m.id)
+      if (update) {
+        return {
+          ...m,
+          price: update.price ?? m.price,
+          volume24h: update.volume24h ?? m.volume24h,
+          probability: update.price ?? m.probability,
+        }
+      }
+      return m
+    })
+  }, [rawMarkets, getMarketUpdate])
+
   const loadMore = useCallback(() => {
     if (!data?.pagination.hasMore) return
 
@@ -104,13 +136,13 @@ export function useSearch(params: SearchParams) {
       offset: data.pagination.nextOffset || undefined,
     }
 
-    // TODO: Implement pagination loading
-    // This would require appending to existing results
+    // TODO: Implement pagination using SWR infinite if needed
+    // For now, simple mutation trigger
     mutate()
   }, [data, debouncedParams, mutate])
 
   return {
-    markets: data?.markets ?? [],
+    markets: liveMarkets,
     isLoading,
     isError: !!error,
     error,
@@ -120,4 +152,3 @@ export function useSearch(params: SearchParams) {
     refresh: mutate,
   }
 }
-
