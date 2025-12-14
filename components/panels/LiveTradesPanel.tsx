@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { Market } from '@/types/market'
+import { WhaleTrade, WhaleNotification } from '@/types/whale-trade'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { X, Activity, Radio, Trophy, Mic2, Landmark } from 'lucide-react'
+import { X, Activity, Radio, Trophy, Mic2, Landmark, Fish } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
 interface LiveTradesPanelProps {
@@ -12,7 +13,7 @@ interface LiveTradesPanelProps {
     onMarketClick?: (market: Market) => void
 }
 
-type ActivityType = 'trade' | 'event'
+type ActivityType = 'whale_trade' | 'event'
 type EventCategory = 'sports' | 'politics' | 'economics' | 'other'
 
 interface ActivityItem {
@@ -22,12 +23,8 @@ interface ActivityItem {
     marketId?: string
     marketTitle?: string
 
-    // Trade specific
-    tradeType?: 'buy' | 'sell'
-    outcome?: 'Yes' | 'No'
-    amount?: number
-    price?: number
-    platform?: 'polymarket' | 'kalshi'
+    // Whale trade specific
+    whaleTrade?: WhaleTrade
 
     // Event specific
     eventCategory?: EventCategory
@@ -40,70 +37,30 @@ export function LiveTradesPanel({ markets, onMarketClick }: LiveTradesPanelProps
     const [isVisible, setIsVisible] = useState(true)
     const scrollRef = useRef<HTMLDivElement>(null)
 
-    // Simulate live activity
+    // Listen for real whale trade notifications
     useEffect(() => {
-        if (markets.length === 0) return
+        const handleWhaleNotification = (event: CustomEvent<WhaleNotification>) => {
+            const notification = event.detail
+            const trade = notification.trade
 
-        const interval = setInterval(() => {
-            const isEvent = Math.random() > 0.7 // 30% chance of being an event
-
-            if (isEvent) {
-                // Generate random event
-                const categories: EventCategory[] = ['sports', 'politics', 'economics']
-                const category = categories[Math.floor(Math.random() * categories.length)]
-
-                let title = ''
-                let description = ''
-
-                if (category === 'sports') {
-                    const teams = ['Lakers', 'Warriors', 'Chiefs', 'Eagles', 'Real Madrid', 'Barcelona']
-                    const team = teams[Math.floor(Math.random() * teams.length)]
-                    title = `${team} scores!`
-                    description = `Goal scored in the 88th minute. Odds shifting rapidly.`
-                } else if (category === 'politics') {
-                    title = 'Presidential Speech Live'
-                    description = 'President addressing economic policy now. Watch for market reaction.'
-                } else if (category === 'economics') {
-                    title = 'FOMC Meeting Update'
-                    description = 'Fed Chair announces interest rate decision. Markets volatile.'
-                }
-
-                const newEvent: ActivityItem = {
-                    id: Math.random().toString(36).substring(7),
-                    type: 'event',
-                    timestamp: Date.now(),
-                    eventCategory: category,
-                    eventTitle: title,
-                    eventDescription: description
-                }
-
-                setActivities(prev => [newEvent, ...prev].slice(0, 50))
-            } else {
-                // Generate random trade
-                const randomMarket = markets[Math.floor(Math.random() * markets.length)]
-                const isBuy = Math.random() > 0.5
-                const amount = Math.floor(Math.random() * 1000) + 10
-                const price = randomMarket.price || Math.random()
-
-                const newTrade: ActivityItem = {
-                    id: Math.random().toString(36).substring(7),
-                    type: 'trade',
-                    timestamp: Date.now(),
-                    marketId: randomMarket.id,
-                    marketTitle: randomMarket.title,
-                    tradeType: isBuy ? 'buy' : 'sell',
-                    outcome: Math.random() > 0.5 ? 'Yes' : 'No',
-                    amount,
-                    price,
-                    platform: randomMarket.platform
-                }
-
-                setActivities(prev => [newTrade, ...prev].slice(0, 50))
+            const newActivity: ActivityItem = {
+                id: notification.id,
+                type: 'whale_trade',
+                timestamp: notification.timestamp,
+                marketId: trade.marketId,
+                marketTitle: trade.marketTitle,
+                whaleTrade: trade,
             }
-        }, 2000)
 
-        return () => clearInterval(interval)
-    }, [markets])
+            setActivities(prev => [newActivity, ...prev].slice(0, 50))
+        }
+
+        window.addEventListener('whale-trade-notification', handleWhaleNotification as EventListener)
+
+        return () => {
+            window.removeEventListener('whale-trade-notification', handleWhaleNotification as EventListener)
+        }
+    }, [])
 
     const getEventIcon = (category?: EventCategory) => {
         switch (category) {
@@ -150,9 +107,9 @@ export function LiveTradesPanel({ markets, onMarketClick }: LiveTradesPanelProps
                         key={item.id}
                         className={cn(
                             "group relative p-3 rounded-lg border transition-all cursor-pointer",
-                            item.type === 'event'
-                                ? "bg-blue-500/5 border-blue-500/20 hover:bg-blue-500/10"
-                                : "bg-background/50 border-border/50 hover:bg-accent/50"
+                            item.type === 'whale_trade'
+                                ? "bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-blue-500/30 hover:from-blue-500/20 hover:to-purple-500/20"
+                                : "bg-blue-500/5 border-blue-500/20 hover:bg-blue-500/10"
                         )}
                         onClick={() => {
                             if (item.marketId) {
@@ -161,48 +118,49 @@ export function LiveTradesPanel({ markets, onMarketClick }: LiveTradesPanelProps
                             }
                         }}
                     >
-                        {item.type === 'trade' ? (
-                            // Trade Item
+                        {item.type === 'whale_trade' && item.whaleTrade ? (
+                            // Whale Trade Item
                             <>
                                 <div className="flex items-start justify-between mb-1">
                                     <div className="flex items-center gap-1.5">
+                                        <Fish className="h-3 w-3 text-blue-400" />
                                         <Badge
                                             variant="outline"
                                             className={cn(
                                                 "text-[10px] px-1 py-0 h-4 border-0",
-                                                item.tradeType === 'buy'
+                                                item.whaleTrade.tradeType === 'buy'
                                                     ? "bg-green-500/20 text-green-400"
                                                     : "bg-red-500/20 text-red-400"
                                             )}
                                         >
-                                            {item.tradeType?.toUpperCase()}
+                                            {item.whaleTrade.tradeType.toUpperCase()}
                                         </Badge>
                                         <span className="text-[10px] text-muted-foreground font-medium">
-                                            {item.outcome}
+                                            {item.whaleTrade.outcome}
                                         </span>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-xs font-bold text-primary">
-                                            {((item.price || 0) * 100).toFixed(1)}¢
+                                        <div className="text-xs font-bold text-blue-400">
+                                            ${(item.whaleTrade.amountUSD / 1000).toFixed(1)}K
                                         </div>
                                         <div className="text-[10px] text-muted-foreground">
-                                            ${item.amount}
+                                            {(item.whaleTrade.price * 100).toFixed(1)}¢
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="text-xs font-medium leading-tight line-clamp-2 mb-1 group-hover:text-primary transition-colors">
-                                    {item.marketTitle}
+                                    {item.whaleTrade.marketTitle}
                                 </div>
 
                                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                                    <span>{item.platform}</span>
+                                    <span className="uppercase">{item.whaleTrade.platform}</span>
                                     <span className="flex items-center gap-0.5">
                                         {Math.floor((Date.now() - item.timestamp) / 1000)}s ago
                                     </span>
                                 </div>
                             </>
-                        ) : (
+                        ) : item.type === 'event' ? (
                             // Event Item
                             <>
                                 <div className="flex items-start gap-2 mb-1">
@@ -229,7 +187,7 @@ export function LiveTradesPanel({ markets, onMarketClick }: LiveTradesPanelProps
                                     </span>
                                 </div>
                             </>
-                        )}
+                        ) : null}
 
                         {/* Flash effect on new */}
                         <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-lg" />
@@ -238,8 +196,11 @@ export function LiveTradesPanel({ markets, onMarketClick }: LiveTradesPanelProps
 
                 {activities.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-                        <Activity className="h-8 w-8 opacity-20" />
-                        <span className="text-xs">Waiting for activity...</span>
+                        <Fish className="h-8 w-8 opacity-20" />
+                        <span className="text-xs font-medium">Waiting for whale trades...</span>
+                        <span className="text-[10px] text-center max-w-[200px]">
+                            Large trades will appear here in real-time
+                        </span>
                     </div>
                 )}
             </div>

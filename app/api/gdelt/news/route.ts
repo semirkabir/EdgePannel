@@ -132,8 +132,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const countryCode = getCountryCode(country);
-
     // Get date range (last 7 days)
     const endDate = new Date();
     const startDate = new Date();
@@ -143,9 +141,10 @@ export async function GET(request: NextRequest) {
     const endDateStr = endDate.toISOString().split('T')[0].replace(/-/g, '');
 
     // Construct GDELT API query
-    // Using the GDELT 2.0 Doc API for article search
-    const query = `country:${countryCode}`;
-    const apiUrl = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&startdatetime=${startDateStr}000000&enddatetime=${endDateStr}235959&mode=artlist&format=json&maxrecords=20`;
+    // Use the country name directly in quotes for better matching
+    // GDELT rejects short country codes like "IN" as too common
+    const query = `"${country}"`;
+    const apiUrl = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&startdatetime=${startDateStr}000000&enddatetime=${endDateStr}235959&mode=artlist&format=json&maxrecords=100&sourcelang=eng`;
 
     const response = await fetch(apiUrl, {
       headers: {
@@ -154,13 +153,44 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      throw new Error(`GDELT API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('[GDELT API] Error response:', errorText);
+      throw new Error(`GDELT API error: ${response.status} - ${errorText.substring(0, 100)}`);
+    }
+
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('[GDELT API] Non-JSON response:', text.substring(0, 200));
+      throw new Error(`GDELT API returned non-JSON response: ${text.substring(0, 100)}`);
     }
 
     const data = await response.json();
 
-    // Transform GDELT response to our format
-    const articles = (data.articles || []).map((article: any) => ({
+    // List of trusted English news domains
+    const trustedDomains = [
+      'bbc.com', 'bbc.co.uk', 'cnn.com', 'reuters.com', 'apnews.com',
+      'theguardian.com', 'nytimes.com', 'washingtonpost.com', 'wsj.com',
+      'bloomberg.com', 'ft.com', 'economist.com', 'aljazeera.com',
+      'dw.com', 'france24.com', 'news.sky.com', 'independent.co.uk',
+      'telegraph.co.uk', 'thetimes.co.uk', 'cnbc.com', 'foxnews.com',
+      'nbcnews.com', 'abcnews.go.com', 'cbsnews.com', 'usatoday.com',
+      'latimes.com', 'nypost.com', 'newsweek.com', 'time.com',
+      'theatlantic.com', 'politico.com', 'axios.com', 'vox.com',
+      'npr.org', 'pbs.org', 'theverge.com', 'techcrunch.com',
+      'wired.com', 'arstechnica.com', 'engadget.com', 'zdnet.com'
+    ];
+
+    // Chinese and non-English domains to exclude
+    const excludedDomains = [
+      '.cn', '.tw', '.hk', '.jp', '.kr', '.ru', '.ua',
+      'sina.com', 'qq.com', 'sohu.com', 'weibo.com', 'baidu.com',
+      '163.com', '126.com', 'ifeng.com', 'people.com.cn', 'xinhua'
+    ];
+
+    // Transform and filter GDELT response
+    const allArticles = (data.articles || []).map((article: any) => ({
       url: article.url,
       url_mobile: article.url_mobile,
       title: article.title || article.snippet || 'No title',
@@ -170,6 +200,35 @@ export async function GET(request: NextRequest) {
       language: article.language || 'unknown',
       sourcecountry: article.sourcecountry || 'unknown',
     }));
+
+    // Filter articles
+    const filteredArticles = allArticles.filter((article: any) => {
+      const domain = article.domain.toLowerCase();
+
+      // Exclude Chinese and non-English domains
+      const isExcluded = excludedDomains.some(excluded =>
+        domain.includes(excluded.toLowerCase())
+      );
+      if (isExcluded) return false;
+
+      // Only include English language articles
+      if (article.language !== 'English' && article.language !== 'english' && article.language !== 'unknown') {
+        return false;
+      }
+
+      return true;
+    });
+
+    // Prioritize trusted domains
+    const trustedArticles = filteredArticles.filter((article: any) => {
+      const domain = article.domain.toLowerCase();
+      return trustedDomains.some(trusted => domain.includes(trusted));
+    });
+
+    // If we have trusted articles, use those; otherwise use filtered articles
+    const articles = trustedArticles.length > 0
+      ? trustedArticles.slice(0, 50)
+      : filteredArticles.slice(0, 50);
 
     return NextResponse.json({ articles });
   } catch (error) {

@@ -16,6 +16,7 @@ interface SearchParams {
   cursor?: string
   offset?: number
   sort?: 'volume' | 'relevance' | 'liquidity'
+  onTickerUpdate?: (platform: 'polymarket' | 'kalshi', marketId: string, price: number, volume: number) => void
 }
 
 interface SearchResponse {
@@ -37,10 +38,11 @@ const fetcher = async (url: string): Promise<SearchResponse> => {
 }
 
 export function useSearch(params: SearchParams) {
-  const [debouncedParams, setDebouncedParams] = useState<SearchParams>(params)
+  // Split params into query (debounced) and filters (immediate)
+  const [debouncedQuery, setDebouncedQuery] = useState<string | undefined>(params.q)
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Debounce search query - use ref for timer to avoid stale closures
+  // Debounce only the search query - filters should update immediately
   useEffect(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
@@ -48,7 +50,7 @@ export function useSearch(params: SearchParams) {
 
     const delay = params.q ? 300 : 0
     debounceTimerRef.current = setTimeout(() => {
-      setDebouncedParams(params)
+      setDebouncedQuery(params.q)
     }, delay)
 
     return () => {
@@ -57,7 +59,20 @@ export function useSearch(params: SearchParams) {
         debounceTimerRef.current = null
       }
     }
-  }, [params.q, params.platform, params.category, params.minProbability, params.maxProbability, params.limit, params.sort])
+  }, [params.q])
+
+  // Combine debounced query with immediate filter params
+  const debouncedParams = useMemo(() => ({
+    q: debouncedQuery,
+    platform: params.platform,
+    category: params.category,
+    minProbability: params.minProbability,
+    maxProbability: params.maxProbability,
+    limit: params.limit,
+    sort: params.sort,
+    cursor: params.cursor,
+    offset: params.offset,
+  }), [debouncedQuery, params.platform, params.category, params.minProbability, params.maxProbability, params.limit, params.sort, params.cursor, params.offset])
 
   // Build search URL
   const searchUrl = useCallback(() => {
@@ -100,17 +115,33 @@ export function useSearch(params: SearchParams) {
     }
   )
 
-  const rawMarkets = data?.markets ?? []
+  // Manually implement "keep previous data" behavior
+  // Store the last successful data to prevent empty states during transitions
+  const previousDataRef = useRef<SearchResponse | undefined>()
+
+  useEffect(() => {
+    if (data && data.markets.length > 0) {
+      previousDataRef.current = data
+    }
+  }, [data])
+
+  // Use current data if available, otherwise fall back to previous data
+  const effectiveData = data || previousDataRef.current
+  const rawMarkets = effectiveData?.markets ?? []
 
   // WebSocket Integration for Live Search Results
   // Only watch the top 50 to avoid overloading sockets if list is huge
+  // Only connect WebSocket if we actually have markets to watch
   const marketIds = useMemo(() => {
     return rawMarkets.slice(0, 50).map(m => m.id)
   }, [rawMarkets])
 
+  const shouldConnectWebSocket = marketIds.length > 0
+
   const { getMarketUpdate } = useMarketWebSocket({
-    watchlistMarketIds: marketIds,
-    markets: rawMarkets
+    watchlistMarketIds: shouldConnectWebSocket ? marketIds : [],
+    markets: shouldConnectWebSocket ? rawMarkets : [],
+    onTickerUpdate: params.onTickerUpdate,
   })
 
   // Merge live updates

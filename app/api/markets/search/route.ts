@@ -39,6 +39,17 @@ export async function GET(request: Request) {
 
     console.log('[Search API] Search params:', params)
 
+    // Early validation
+    if (params.limit) {
+      const limitNum = parseInt(params.limit, 10)
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000) {
+        return NextResponse.json(
+          { error: 'Invalid limit parameter', markets: [], pagination: { hasMore: false, nextCursor: null, nextOffset: null, total: 0 } },
+          { status: 400 }
+        )
+      }
+    }
+
     // Get user ID - use mock if auth is disabled
     let userId: string
     const { AUTH_ENABLED, MOCK_USER_ID } = await import('@/lib/auth-config')
@@ -59,47 +70,63 @@ export async function GET(request: Request) {
 
     // Try to get Kalshi credentials
     if (params.platform === 'all' || params.platform === 'kalshi') {
-      const kalshiKeyRecord = await prisma.apiKey.findUnique({
-        where: {
-          userId_platform: {
-            userId: userId,
-            platform: 'kalshi',
+      try {
+        const kalshiKeyRecord = await prisma.apiKey.findUnique({
+          where: {
+            userId_platform: {
+              userId: userId,
+              platform: 'kalshi',
+            },
           },
-        },
-      })
+        })
 
-      if (kalshiKeyRecord?.encryptedKeyData) {
-        try {
-          const accessKeyId = decrypt(kalshiKeyRecord.encryptedKey)
-          const privateKey = decrypt(kalshiKeyRecord.encryptedKeyData)
-          kalshiClient = new KalshiClient({ accessKeyId, privateKey })
-        } catch (error: any) {
-          console.error('[Search API] Error setting up Kalshi client:', error.message || error)
+        if (kalshiKeyRecord?.encryptedKeyData) {
+          try {
+            const accessKeyId = decrypt(kalshiKeyRecord.encryptedKey)
+            const privateKey = decrypt(kalshiKeyRecord.encryptedKeyData)
+            kalshiClient = new KalshiClient({ accessKeyId, privateKey })
+            console.log('[Search API] Kalshi client initialized')
+          } catch (error: any) {
+            console.error('[Search API] Error setting up Kalshi client:', error.message || error)
+          }
+        } else {
+          console.log('[Search API] No Kalshi API keys found')
         }
+      } catch (error: any) {
+        console.error('[Search API] Error querying Kalshi API keys:', error.message || error)
       }
     }
 
     // Try to get Polymarket credentials (optional for market reading)
     if (params.platform === 'all' || params.platform === 'polymarket') {
-      const polymarketKeyRecord = await prisma.apiKey.findUnique({
-        where: {
-          userId_platform: {
-            userId: userId,
-            platform: 'polymarket',
+      try {
+        const polymarketKeyRecord = await prisma.apiKey.findUnique({
+          where: {
+            userId_platform: {
+              userId: userId,
+              platform: 'polymarket',
+            },
           },
-        },
-      })
+        })
 
-      if (polymarketKeyRecord) {
-        try {
-          const apiKey = decrypt(polymarketKeyRecord.encryptedKey)
-          polymarketClient = new PolymarketClient({ apiKey })
-        } catch (error) {
-          // Polymarket can work without API key for reading markets
+        if (polymarketKeyRecord) {
+          try {
+            const apiKey = decrypt(polymarketKeyRecord.encryptedKey)
+            polymarketClient = new PolymarketClient({ apiKey })
+            console.log('[Search API] Polymarket client initialized with API key')
+          } catch (error) {
+            // Polymarket can work without API key for reading markets
+            console.log('[Search API] Error decrypting Polymarket key, using public API')
+            polymarketClient = new PolymarketClient({ apiKey: '' })
+          }
+        } else {
+          // Polymarket public API doesn't require auth
+          console.log('[Search API] No Polymarket API keys found, using public API')
           polymarketClient = new PolymarketClient({ apiKey: '' })
         }
-      } else {
-        // Polymarket public API doesn't require auth
+      } catch (error: any) {
+        console.error('[Search API] Error querying Polymarket API keys:', error.message || error)
+        // Fall back to public API
         polymarketClient = new PolymarketClient({ apiKey: '' })
       }
     }
@@ -109,25 +136,56 @@ export async function GET(request: Request) {
 
     // Parse limit
     const limit = parseInt(params.limit || '50', 10)
-    const safeLimit = isNaN(limit) ? 50 : limit
+    const safeLimit = isNaN(limit) ? 50 : Math.min(limit, 500)
     const minProb = params.minProbability ? parseFloat(params.minProbability) : undefined
     const maxProb = params.maxProbability ? parseFloat(params.maxProbability) : undefined
 
-    // Search markets
-    const searchResults = await aggregator.searchMarkets({
+    console.log('[Search API] Searching with aggregator:', {
       query: params.q,
-      platform: params.platform === 'all' ? undefined : params.platform,
+      platform: params.platform,
       category: params.category,
-      minProbability: minProb,
-      maxProbability: maxProb,
       limit: safeLimit,
-      cursor: params.cursor,
-      offset: params.offset ? parseInt(params.offset, 10) : undefined,
-      sort: params.sort as any,
+      sort: params.sort
     })
 
+    // Search markets
+    let searchResults
+    try {
+      searchResults = await aggregator.searchMarkets({
+        query: params.q,
+        platform: params.platform === 'all' ? undefined : params.platform,
+        category: params.category,
+        minProbability: minProb,
+        maxProbability: maxProb,
+        limit: safeLimit,
+        cursor: params.cursor,
+        offset: params.offset ? parseInt(params.offset, 10) : undefined,
+        sort: params.sort as any,
+      })
+    } catch (error: any) {
+      console.error('[Search API] Error in aggregator.searchMarkets:', error.message || error)
+      console.error('[Search API] Stack:', error.stack)
+      // Return empty results instead of 500 error
+      return NextResponse.json({
+        markets: [],
+        pagination: {
+          hasMore: false,
+          nextCursor: null,
+          nextOffset: null,
+          total: 0,
+        },
+      })
+    }
+
     // Enrich results
-    const enrichedResults = enrichMarkets(searchResults.markets)
+    let enrichedResults
+    try {
+      enrichedResults = enrichMarkets(searchResults.markets)
+    } catch (error: any) {
+      console.error('[Search API] Error enriching markets:', error.message || error)
+      // Return raw markets if enrichment fails
+      enrichedResults = searchResults.markets as any[]
+    }
 
     console.log(`[Search API] Found ${enrichedResults.length} markets (hasMore: ${searchResults.hasMore})`)
 

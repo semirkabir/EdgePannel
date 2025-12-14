@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { PolymarketClient } from '@/lib/api/polymarket'
+import { KalshiClient } from '@/lib/api/kalshi'
 
 export async function GET(request: Request) {
     try {
@@ -57,8 +58,33 @@ export async function GET(request: Request) {
             return NextResponse.json({ history })
         }
 
-        // TODO: Implement Kalshi history
-        return NextResponse.json({ history: [] })
+        if (platform === 'kalshi') {
+            try {
+                // Initialize Kalshi client with credentials from env
+                const accessKeyId = process.env.KALSHI_API_KEY_ID || ''
+                const privateKey = process.env.KALSHI_PRIVATE_KEY || ''
+
+                if (!accessKeyId || !privateKey) {
+                    console.warn('[History API] Kalshi credentials not configured')
+                    return NextResponse.json({ history: [] })
+                }
+
+                const client = new KalshiClient({
+                    accessKeyId,
+                    privateKey,
+                })
+
+                console.log(`[History API] Fetching Kalshi history for ticker ${id} (interval: ${interval})`)
+                const history = await client.getPriceHistory(id, interval)
+
+                return NextResponse.json({ history })
+            } catch (error: any) {
+                console.error('[History API] Kalshi error:', error)
+                return NextResponse.json({ history: [] })
+            }
+        }
+
+        return NextResponse.json({ error: 'Unsupported platform' }, { status: 400 })
 
     } catch (error: any) {
         console.error('[History API] Error:', error)

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ExternalLink, Loader2, ArrowUpDown, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { RightPanel } from '@/components/ui/RightPanel';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,8 @@ export function CountryNewsPanel({ country, onClose }: CountryNewsPanelProps) {
   const [articles, setArticles] = useState<GDELTArticle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'date' | 'domain'>('date');
+  const [filterDomain, setFilterDomain] = useState<string>('all');
 
   // Cache the country for animation
   useEffect(() => {
@@ -64,18 +66,71 @@ export function CountryNewsPanel({ country, onClose }: CountryNewsPanelProps) {
     fetchNews();
   }, [activeCountry]);
 
+  // Get unique domains for filter
+  const domains = useMemo(() => {
+    const uniqueDomains = Array.from(new Set(articles.map(a => a.domain))).sort();
+    return ['all', ...uniqueDomains];
+  }, [articles]);
+
+  // Sort and filter articles
+  const processedArticles = useMemo(() => {
+    let filtered = articles;
+
+    // Filter by domain
+    if (filterDomain !== 'all') {
+      filtered = filtered.filter(a => a.domain === filterDomain);
+    }
+
+    // Sort
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'date') {
+        return new Date(b.seendate).getTime() - new Date(a.seendate).getTime();
+      } else {
+        return a.domain.localeCompare(b.domain);
+      }
+    });
+
+    return sorted;
+  }, [articles, sortBy, filterDomain]);
+
   return (
     <RightPanel
       isOpen={!!country}
       onClose={onClose}
       title={`News: ${activeCountry || 'Country'}`}
-      subtitle={
-        <span className="text-[10px] font-mono uppercase tracking-wider text-blue-400">
-          POWERED BY GDELT
-        </span>
-      }
     >
       <div className="px-5 py-4">
+        {/* Sort and Filter Controls */}
+        {!loading && !error && articles.length > 0 && (
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+            <div className="flex items-center gap-2 flex-1">
+              <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'date' | 'domain')}
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-gray-200 font-mono outline-none focus:border-blue-500 transition-colors"
+              >
+                <option value="date">Newest First</option>
+                <option value="domain">By Source</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2 flex-1">
+              <Filter className="w-3.5 h-3.5 text-gray-400" />
+              <select
+                value={filterDomain}
+                onChange={(e) => setFilterDomain(e.target.value)}
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-gray-200 font-mono outline-none focus:border-blue-500 transition-colors"
+              >
+                {domains.map(domain => (
+                  <option key={domain} value={domain}>
+                    {domain === 'all' ? 'All Sources' : domain}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-3">
             <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
@@ -86,13 +141,20 @@ export function CountryNewsPanel({ country, onClose }: CountryNewsPanelProps) {
             <p className="text-red-400 mb-2 font-medium">{error}</p>
             <p className="text-xs text-gray-400">Please try again later</p>
           </div>
-        ) : articles.length === 0 ? (
+        ) : processedArticles.length === 0 ? (
           <div className="text-center py-12 bg-white/5 rounded-xl border border-white/5">
-            <p className="text-gray-400">No recent high-impact news found for {activeCountry}.</p>
+            <p className="text-gray-400">
+              {articles.length === 0
+                ? `No recent news found for ${activeCountry}.`
+                : 'No articles match the selected filter.'}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {articles.map((article, index) => (
+            <div className="text-xs text-gray-500 font-mono mb-2">
+              Showing {processedArticles.length} article{processedArticles.length !== 1 ? 's' : ''}
+            </div>
+            {processedArticles.map((article, index) => (
               <a
                 key={index}
                 href={article.url || article.url_mobile || '#'}

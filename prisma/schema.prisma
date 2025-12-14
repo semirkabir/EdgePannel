@@ -118,9 +118,45 @@ model Watchlist {
   marketId      String
   marketTitle   String
   createdAt     DateTime @default(now())
-  
+
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([userId, platform, marketId])
   @@index([userId])
+}
+
+model GeotaggedMarket {
+  id            String   @id @default(cuid())
+  marketId      String   @unique // platform-externalId
+  platform      String   // "polymarket" or "kalshi"
+  externalId    String   // The market's ID on the platform
+  title         String   @db.Text
+  description   String   @db.Text
+  category      String?
+  probability   Float?
+  volume24h     Float?
+  liquidity     Float?
+  endDate       DateTime?
+  slug          String?
+  ticker        String?
+
+  // Geolocation data
+  country       String?
+  region        String?
+  city          String?
+  latitude      Float?
+  longitude     Float?
+  confidence    String?  // "high", "medium", "low"
+  extractedFrom String?  // "country", "city", "state", "pattern"
+
+  // Metadata
+  rawData       Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([platform])
+  @@index([country])
+  @@index([latitude, longitude])
+  @@index([confidence])
+  @@index([endDate])
 }

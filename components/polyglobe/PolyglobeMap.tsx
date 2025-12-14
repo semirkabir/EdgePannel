@@ -8,6 +8,21 @@ import { usePolyglobeData } from '@/hooks/use-polyglobe-data';
 import { cn } from '@/lib/utils/cn';
 import { loadGeoJSON } from '@/lib/geojson-loader';
 import { Sparkline } from '@/components/ui/Sparkline';
+import { Landmark, TrendingUp, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid } from 'lucide-react';
+
+// Map categories to icons
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  'Politics': <Landmark className="w-2.5 h-2.5" />,
+  'Economics': <TrendingUp className="w-2.5 h-2.5" />,
+  'Weather': <CloudRain className="w-2.5 h-2.5" />,
+  'Sports': <Trophy className="w-2.5 h-2.5" />,
+  'Technology': <Cpu className="w-2.5 h-2.5" />,
+  'Entertainment': <Film className="w-2.5 h-2.5" />,
+  'Health': <Activity className="w-2.5 h-2.5" />,
+  'International': <GlobeIcon className="w-2.5 h-2.5" />,
+  'General': <LayoutGrid className="w-2.5 h-2.5" />,
+  'Other': <LayoutGrid className="w-2.5 h-2.5" />
+};
 
 interface PolyglobeMapProps {
   activeFilters: Record<string, boolean>;
@@ -18,6 +33,8 @@ interface PolyglobeMapProps {
   rotationSpeed?: number;
   pauseOnHover?: boolean;
   overrideMarkets?: any; // GeoJSON FeatureCollection
+  onZoomChange?: (isZoomed: boolean) => void;
+  shouldResetZoom?: boolean;
 }
 
 // Inner component to isolate Map state from Data updates
@@ -33,7 +50,10 @@ function InnerMap({
   rotationSpeed = 0.05,
   pauseOnHover = false,
   selectedMarket,
-  onMarketSelect
+  onMarketSelect,
+  isUsingOverride = false,
+  onZoomChange,
+  shouldResetZoom = false
 }: {
   markets: any;
   rawMarkets?: any[];
@@ -47,6 +67,9 @@ function InnerMap({
   pauseOnHover?: boolean;
   selectedMarket?: any;
   onMarketSelect?: (market: any) => void;
+  isUsingOverride?: boolean;
+  onZoomChange?: (isZoomed: boolean) => void;
+  shouldResetZoom?: boolean;
 }) {
   const [viewState, setViewState] = useState({
     longitude: 0,
@@ -61,6 +84,33 @@ function InnerMap({
   const interactionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rotationAnimationRef = useRef<number | null>(null);
   const mapRef = useRef<MapRef>(null);
+
+  // Detect zoom level changes
+  const DEFAULT_ZOOM = 2.5;
+  const ZOOM_THRESHOLD = 0.3; // Consider zoomed if zoom > DEFAULT_ZOOM + THRESHOLD
+
+  useEffect(() => {
+    if (onZoomChange) {
+      const isZoomed = viewState.zoom > DEFAULT_ZOOM + ZOOM_THRESHOLD;
+      onZoomChange(isZoomed);
+    }
+  }, [viewState.zoom, onZoomChange]);
+
+  // Handle reset zoom request
+  useEffect(() => {
+    if (shouldResetZoom && mapRef.current) {
+      const map = mapRef.current.getMap();
+      if (map) {
+        map.flyTo({
+          center: [0, projection === 'mercator' ? 20 : 0],
+          zoom: DEFAULT_ZOOM,
+          pitch: 0,
+          bearing: 0,
+          duration: 1000
+        });
+      }
+    }
+  }, [shouldResetZoom, projection]);
 
   // Auto-rotate globe
   useEffect(() => {
@@ -241,27 +291,45 @@ function InnerMap({
     // Handle both direct array of features and FeatureCollection object
     let features = Array.isArray(markets) ? markets : (markets?.features || []);
 
-    // Filter for active/breaking
+    console.log('[InnerMap] Initial features count:', features.length);
+    console.log('[InnerMap] isUsingOverride:', isUsingOverride);
+    console.log('[InnerMap] activeFilters:', activeFilters);
+
+    // IMPORTANT: When using override markets (category/platform filters active),
+    // we should always show them regardless of "live" toggle state
+    // The "live" toggle only affects the default global view
+    if (!isUsingOverride) {
+      // Only apply live filter when NOT using category/platform overrides
+      if (!activeFilters.live && !activeFilters.heatmap) {
+        console.log('[InnerMap] Clearing features because live is off and not using override');
+        features = [];
+      }
+    } else {
+      console.log('[InnerMap] Using override, keeping all features regardless of live toggle');
+    }
+
+    // Filter for active/breaking - apply to all cases
     if (activeFilters.breaking) {
+      const beforeCount = features.length;
       features = features.filter((f: any) =>
         (f.properties.volume > 50000) || f.properties.price_movement > 0.05
       );
-    } else if (!activeFilters.live && !activeFilters.heatmap) {
-      if (!activeFilters.live) {
-        features = [];
-      }
+      console.log('[InnerMap] Breaking filter applied:', beforeCount, '->', features.length);
     }
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
+      const beforeCount = features.length;
       features = features.filter((f: any) =>
         (f.properties.title || '').toLowerCase().includes(q) ||
         (f.properties.description || '').toLowerCase().includes(q)
       );
+      console.log('[InnerMap] Search filter applied:', beforeCount, '->', features.length);
     }
 
+    console.log('[InnerMap] Final filtered features:', features.length);
     return { type: 'FeatureCollection', features };
-  }, [markets, activeFilters, searchQuery]);
+  }, [markets, activeFilters, searchQuery, isUsingOverride]);
 
   const filteredTweets = useMemo(() => {
     if (!activeFilters.osint) return { type: 'FeatureCollection', features: [] };
@@ -394,8 +462,17 @@ function InnerMap({
           {isMarket ? (
             <>
               <div className="flex justify-between items-start mb-2">
-                <h3 className="font-bold text-sm leading-tight text-blue-100">{props.title}</h3>
-                <span className={cn("text-xs font-mono px-1.5 py-0.5 rounded", "bg-blue-500/20 text-blue-400")}>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-sm leading-tight text-blue-100 mb-1">{props.title}</h3>
+                  {/* Category Badge */}
+                  {props.category && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-md text-[10px] font-medium text-purple-300">
+                      {CATEGORY_ICONS[props.category.charAt(0).toUpperCase() + props.category.slice(1)] || <LayoutGrid className="w-2.5 h-2.5" />}
+                      {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
+                    </span>
+                  )}
+                </div>
+                <span className={cn("text-xs font-mono px-1.5 py-0.5 rounded shrink-0", "bg-blue-500/20 text-blue-400")}>
                   {Math.round(props.last_price * 100)}¢
                 </span>
               </div>
@@ -486,6 +563,28 @@ function InnerMap({
     const map = mapRef.current?.getMap();
     if (map && map.setProjection) {
       map.setProjection(projection === 'globe' ? { type: 'globe' } : { type: 'mercator' });
+
+      // Reset viewState to appropriate values for the new projection
+      // Use flyTo for smooth transition
+      if (projection === 'globe') {
+        // For globe: reset to world view
+        map.flyTo({
+          center: [viewState.longitude, 0],
+          zoom: 2.5,
+          pitch: 0,
+          bearing: 0,
+          duration: 800
+        });
+      } else {
+        // For mercator: reset to slightly higher latitude
+        map.flyTo({
+          center: [viewState.longitude, 20],
+          zoom: 2.5,
+          pitch: 0,
+          bearing: 0,
+          duration: 800
+        });
+      }
     }
   }, [projection]);
 
@@ -581,7 +680,9 @@ export function PolyglobeMap({
   pauseOnHover = false,
   selectedMarket,
   onMarketSelect,
-  overrideMarkets
+  overrideMarkets,
+  onZoomChange,
+  shouldResetZoom
 }: PolyglobeMapProps & {
   selectedMarket?: any;
   onMarketSelect?: (market: any) => void;
@@ -593,6 +694,11 @@ export function PolyglobeMap({
   // ALSO, if a market is selected, ensure it's included in the display list so it can be seen/focused.
   const displayMarkets = useMemo(() => {
     const base = overrideMarkets || markets;
+
+    console.log('[PolyglobeMap] overrideMarkets provided:', !!overrideMarkets);
+    console.log('[PolyglobeMap] overrideMarkets count:', overrideMarkets ? (Array.isArray(overrideMarkets) ? overrideMarkets.length : overrideMarkets?.features?.length) : 0);
+    console.log('[PolyglobeMap] Using displayMarkets source:', overrideMarkets ? 'override' : 'default');
+
     if (!selectedMarket) return base;
 
     // Check if selectedMarket is already in base list
@@ -638,6 +744,9 @@ export function PolyglobeMap({
       pauseOnHover={pauseOnHover}
       selectedMarket={selectedMarket}
       onMarketSelect={onMarketSelect}
+      isUsingOverride={!!overrideMarkets}
+      onZoomChange={onZoomChange}
+      shouldResetZoom={shouldResetZoom}
     />
   );
 }

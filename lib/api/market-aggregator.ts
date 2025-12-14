@@ -127,16 +127,70 @@ export class MarketAggregator {
     // Category filter
     if (params.category) {
       const categories = params.category.toLowerCase().split(',').map(c => c.trim());
+      console.log('[MarketAggregator] Filtering by categories:', categories);
+      console.log('[MarketAggregator] Total markets before category filter:', filtered.length);
+
+      // Log sample market categories for debugging
+      if (filtered.length > 0) {
+        const sample = filtered.slice(0, 5).map(m => ({
+          title: m.title?.substring(0, 50),
+          category: m.category,
+          normalizedCategory: m.normalizedCategory
+        }));
+        console.log('[MarketAggregator] Sample market categories:', JSON.stringify(sample, null, 2));
+      }
+
+      // Get unique categories from all markets for debugging
+      const uniqueCategories = Array.from(new Set(filtered.map(m => m.category || m.normalizedCategory).filter(Boolean)));
+      console.log('[MarketAggregator] Unique categories in markets:', uniqueCategories.slice(0, 20));
+
       filtered = filtered.filter(m => {
         const mCat = (m.category || '').toLowerCase();
         const mNormCat = (m.normalizedCategory || '').toLowerCase();
+        const mTitle = (m.title || '').toLowerCase();
+
         // Check if market category/tags include any of the selected categories
-        return categories.some(cat =>
-          mCat.includes(cat) || mNormCat.includes(cat) ||
-          // Also check title/description for category keywords if category field is missing
-          (m.title && m.title.toLowerCase().includes(cat))
-        );
+        // Need to be flexible with matching (e.g., "tech" should match "Technology")
+        const matches = categories.some(cat => {
+          const catLower = cat.toLowerCase();
+
+          // Exact or partial matches
+          const categoryMatch = mCat.includes(catLower) || mNormCat.includes(catLower);
+
+          // Also check reverse - if the category in the market contains the search term
+          const reverseMatch = catLower.includes(mCat) || catLower.includes(mNormCat);
+
+          // Special mappings for common category names
+          const specialMappings: Record<string, string[]> = {
+            'tech': ['technology', 'ai', 'crypto', 'software'],
+            'technology': ['tech', 'ai', 'crypto', 'software'],
+            'culture': ['entertainment', 'pop culture', 'sports', 'music'],
+            'entertainment': ['culture', 'pop culture', 'sports', 'music'],
+            'politics': ['political', 'election', 'government'],
+            'sports': ['sport', 'athletics', 'games'],
+            'crypto': ['cryptocurrency', 'bitcoin', 'ethereum', 'web3'],
+          };
+
+          const mappedTerms = specialMappings[catLower] || [];
+          const mappingMatch = mappedTerms.some(term =>
+            mCat.includes(term) || mNormCat.includes(term)
+          );
+
+          return categoryMatch || reverseMatch || mappingMatch;
+        });
+
+        if (matches && filtered.indexOf(m) < 3) {
+          console.log('[MarketAggregator] Match found:', {
+            title: m.title?.substring(0, 50),
+            category: m.category,
+            searchCategories: categories
+          });
+        }
+
+        return matches;
       });
+
+      console.log('[MarketAggregator] Markets after category filter:', filtered.length);
     }
 
     // Probability filters

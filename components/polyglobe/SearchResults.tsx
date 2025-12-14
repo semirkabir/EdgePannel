@@ -137,9 +137,22 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
                                     {/* Content */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between gap-4">
-                                            <h4 className="text-sm font-medium text-gray-200 leading-snug group-hover:text-white transition-colors line-clamp-2">
-                                                {market.title}
-                                            </h4>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h4 className="text-sm font-medium text-gray-200 leading-snug group-hover:text-white transition-colors line-clamp-2">
+                                                        {market.title}
+                                                    </h4>
+                                                </div>
+                                                {/* Category Badge */}
+                                                {market.category && (
+                                                    <div className="flex items-center gap-1 mt-1">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-md text-[10px] font-medium text-purple-300">
+                                                            {CATEGORY_ICONS[category] || <LayoutGrid className="w-2.5 h-2.5" />}
+                                                            {category}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
 
                                             {/* Price/Probability */}
                                             {market.price !== undefined && (

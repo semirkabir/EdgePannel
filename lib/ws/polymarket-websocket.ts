@@ -192,17 +192,27 @@ export class PolymarketWebSocketClient {
 
   disconnect(): void {
     this.stopHeartbeat()
+    this.isConnecting = false
+
     if (this.ws) {
       // Prevent reconnection logic from firing
       this.ws.onclose = null
       this.ws.onerror = null
 
-      this.ws.close()
+      // Only close if connection is fully open
+      // Don't try to close CONNECTING state - just let it fail naturally
+      if (this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.close()
+        } catch (error) {
+          // Silently ignore close errors
+        }
+      }
+      // For CONNECTING state, just null out the reference and let it die
       this.ws = null
     }
     this.subscriptions.clear()
     this.callbacks.clear()
-    this.isConnecting = false
   }
 
   isConnected(): boolean {

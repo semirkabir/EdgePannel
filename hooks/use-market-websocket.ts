@@ -11,6 +11,7 @@ interface UseMarketWebSocketOptions {
   markets?: Market[]
   selectedMarket?: Market | null
   watchlistMarketIds?: string[]
+  onTickerUpdate?: (platform: 'polymarket' | 'kalshi', marketId: string, price: number, volume: number) => void
 }
 
 export function useMarketWebSocket(options: UseMarketWebSocketOptions) {
@@ -20,6 +21,7 @@ export function useMarketWebSocket(options: UseMarketWebSocketOptions) {
     markets = [],
     selectedMarket,
     watchlistMarketIds = [],
+    onTickerUpdate,
   } = options
 
   const [kalshiClient, setKalshiClient] = useState<KalshiWebSocketClient | null>(null)
@@ -134,15 +136,22 @@ export function useMarketWebSocket(options: UseMarketWebSocketOptions) {
           const price = typeof rawPrice === 'number' ? rawPrice / 100 : undefined
 
           if (price !== undefined) {
+            const volume = message.msg.volume || 0
+
             setMarketUpdates(prev => {
               const updates = new Map(prev)
               updates.set(ticker, {
                 price: price,
                 probability: price,
-                volume24h: message.msg.volume,
+                volume24h: volume,
               })
               return updates
             })
+
+            // Notify whale trade detector if callback provided
+            if (onTickerUpdate) {
+              onTickerUpdate('kalshi', ticker, price, volume)
+            }
           }
         }
       }
@@ -167,15 +176,23 @@ export function useMarketWebSocket(options: UseMarketWebSocketOptions) {
       if (message.type === 'orderbook_update' || message.type === 'price_update') {
         const conditionId = message.condition_id || message.market
         if (conditionId) {
+          const price = message.data?.price
+          const volume = message.data?.volume || 0
+
           setMarketUpdates(prev => {
             const updates = new Map(prev)
             updates.set(conditionId, {
-              price: message.data?.price,
-              probability: message.data?.price,
-              volume24h: message.data?.volume,
+              price,
+              probability: price,
+              volume24h: volume,
             })
             return updates
           })
+
+          // Notify whale trade detector if callback provided
+          if (onTickerUpdate && price !== undefined) {
+            onTickerUpdate('polymarket', conditionId, price, volume)
+          }
         }
       }
     })
@@ -184,7 +201,7 @@ export function useMarketWebSocket(options: UseMarketWebSocketOptions) {
       kalshiUnsubscribe?.()
       polymarketUnsubscribe?.()
     }
-  }, [])
+  }, [onTickerUpdate])
 
   const getMarketUpdate = useCallback((marketId: string): Partial<Market> | undefined => {
     return marketUpdates.get(marketId)

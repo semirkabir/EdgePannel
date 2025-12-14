@@ -1,20 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { RightPanel } from '@/components/ui/RightPanel'
 import { usePriceAlerts, PriceAlert } from '@/hooks/use-price-alerts'
-import { 
-  Bell, 
-  BellOff, 
-  X, 
-  Trash2, 
+import { useWhaleTrades } from '@/hooks/use-whale-trades'
+import { WhaleNotification } from '@/types/whale-trade'
+import { WhaleTradeNotificationItem } from '@/components/notifications/WhaleTradeNotificationItem'
+import {
+  Bell,
+  BellOff,
+  Trash2,
   CheckCheck,
   Clock,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Whale
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { formatDistanceToNow } from '@/lib/utils/date'
+
+// Unified notification type
+type NotificationType = 'price_alert' | 'whale_trade'
+interface UnifiedNotification {
+  id: string
+  type: NotificationType
+  timestamp: number
+  read: boolean
+  data: PriceAlert | WhaleNotification
+}
 
 interface NotificationCenterProps {
   isOpen: boolean
@@ -22,139 +36,151 @@ interface NotificationCenterProps {
   onMarketSelect?: (marketId: string, platform: string) => void
 }
 
-export function NotificationCenter({ 
-  isOpen, 
+export function NotificationCenter({
+  isOpen,
   onClose,
-  onMarketSelect 
+  onMarketSelect
 }: NotificationCenterProps) {
-  const { 
-    alerts, 
-    activeAlerts, 
-    triggeredAlerts, 
-    removeAlert, 
+  const {
+    alerts,
+    activeAlerts,
+    triggeredAlerts,
+    removeAlert,
     clearTriggeredAlerts,
-    clearAllAlerts 
+    clearAllAlerts
   } = usePriceAlerts()
 
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'triggered'>('all')
+  const {
+    activeNotifications: whaleNotifications,
+    unreadCount: whaleUnreadCount,
+    dismissNotification,
+    clearReadNotifications,
+    clearAllNotifications: clearAllWhaleNotifications,
+  } = useWhaleTrades({ enabled: true })
 
-  const displayAlerts = activeTab === 'all' 
-    ? alerts 
-    : activeTab === 'active' 
-      ? activeAlerts 
-      : triggeredAlerts
+  // Merge price alerts and whale notifications into unified list
+  const unifiedNotifications = useMemo((): UnifiedNotification[] => {
+    const priceAlertNotifications: UnifiedNotification[] = alerts.map(alert => ({
+      id: alert.id,
+      type: 'price_alert' as const,
+      timestamp: alert.triggeredAt || alert.createdAt,
+      read: alert.triggered,
+      data: alert,
+    }))
 
-  if (!isOpen) return null
+    const whaleTradeNotifications: UnifiedNotification[] = whaleNotifications.map(notif => ({
+      id: notif.id,
+      type: 'whale_trade' as const,
+      timestamp: notif.timestamp,
+      read: notif.read,
+      data: notif,
+    }))
+
+    // Combine and sort by timestamp (newest first)
+    return [...priceAlertNotifications, ...whaleTradeNotifications]
+      .sort((a, b) => b.timestamp - a.timestamp)
+  }, [alerts, whaleNotifications])
+
+  // Clear all notifications
+  const handleClearAll = () => {
+    clearAllAlerts()
+    clearAllWhaleNotifications()
+  }
+
+  const handleClearRead = () => {
+    clearTriggeredAlerts()
+    clearReadNotifications()
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/50 backdrop-blur-sm">
-      <div 
-        className="bg-background border-l border-border shadow-2xl w-full max-w-md h-full flex flex-col overflow-hidden animate-in slide-in-from-right duration-300"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Notifications</h2>
-            {alerts.length > 0 && (
-              <span className="px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
-                {alerts.length}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {triggeredAlerts.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearTriggeredAlerts}
-                className="text-muted-foreground hover:text-foreground gap-1"
-              >
-                <CheckCheck className="h-4 w-4" />
-                Clear read
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-border">
-          {[
-            { key: 'all', label: 'All', count: alerts.length },
-            { key: 'active', label: 'Active', count: activeAlerts.length },
-            { key: 'triggered', label: 'Triggered', count: triggeredAlerts.length },
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={cn(
-                "flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-                activeTab === tab.key
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab.label}
-              {tab.count > 0 && (
-                <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-muted rounded">
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-auto">
-          {displayAlerts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <BellOff className="h-16 w-16 text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-medium mb-2">No notifications</h3>
-              <p className="text-sm text-muted-foreground">
-                {activeTab === 'active' 
-                  ? "You don't have any active price alerts"
-                  : activeTab === 'triggered'
-                    ? "No alerts have been triggered yet"
-                    : "Set price alerts on markets to get notified"}
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {displayAlerts.map(alert => (
-                <NotificationItem
-                  key={alert.id}
-                  alert={alert}
-                  onRemove={() => removeAlert(alert.id)}
-                  onClick={() => {
-                    onMarketSelect?.(alert.marketId, alert.platform)
-                    onClose()
-                  }}
-                />
-              ))}
-            </div>
+    <RightPanel
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        <div className="flex items-center gap-2">
+          <Bell className="h-5 w-5 text-primary" />
+          <span>Notifications</span>
+          {unifiedNotifications.length > 0 && (
+            <span className="px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full">
+              {unifiedNotifications.length}
+            </span>
           )}
         </div>
+      }
+      headerContent={
+        unifiedNotifications.some(n => n.read || (n.type === 'price_alert' && (n.data as PriceAlert).triggered)) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearRead}
+            className="text-muted-foreground hover:text-foreground gap-1"
+          >
+            <CheckCheck className="h-4 w-4" />
+            Clear read
+          </Button>
+        )
+      }
+    >
 
-        {/* Footer */}
-        {alerts.length > 0 && (
-          <div className="p-4 border-t border-border">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearAllAlerts}
-              className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Clear all notifications
-            </Button>
+      <div className="flex-1 overflow-auto">
+        {unifiedNotifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+            <BellOff className="h-16 w-16 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-medium mb-2">No notifications</h3>
+            <p className="text-sm text-muted-foreground">
+              Set up alerts to get notified about price changes and whale trades
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {unifiedNotifications.map(notification => {
+                if (notification.type === 'price_alert') {
+                  const alert = notification.data as PriceAlert
+                  return (
+                    <NotificationItem
+                      key={notification.id}
+                      alert={alert}
+                      onRemove={() => removeAlert(alert.id)}
+                      onClick={() => {
+                        onMarketSelect?.(alert.marketId, alert.platform)
+                        onClose()
+                      }}
+                    />
+                  )
+                } else {
+                  const whaleNotif = notification.data as WhaleNotification
+                  return (
+                    <WhaleTradeNotificationItem
+                      key={notification.id}
+                      notification={whaleNotif}
+                      onDismiss={() => dismissNotification(whaleNotif.id)}
+                      onClick={() => {
+                        onMarketSelect?.(whaleNotif.trade.marketId, whaleNotif.trade.platform)
+                        onClose()
+                      }}
+                    />
+                  )
+                }
+              })}
           </div>
         )}
       </div>
-    </div>
+
+      {/* Footer */}
+      {unifiedNotifications.length > 0 && (
+        <div className="p-4 border-t border-border bg-[#0e0f11]">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearAll}
+            className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Clear all notifications
+          </Button>
+        </div>
+      )}
+    </RightPanel>
   )
 }
 
@@ -245,13 +271,17 @@ function NotificationItem({
 }
 
 // Notification bell button for header
-export function NotificationBell({ 
-  onClick 
-}: { 
-  onClick: () => void 
+export function NotificationBell({
+  onClick
+}: {
+  onClick: () => void
 }) {
   const { alerts, triggeredAlerts } = usePriceAlerts()
-  const unreadCount = triggeredAlerts.length
+  const { unreadCount: whaleUnreadCount, activeNotifications } = useWhaleTrades({ enabled: true })
+
+  // Combined unread count
+  const unreadCount = triggeredAlerts.length + whaleUnreadCount
+  const totalNotifications = alerts.length + activeNotifications.length
 
   return (
     <Button
@@ -267,7 +297,7 @@ export function NotificationBell({
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>
       )}
-      {alerts.length > 0 && unreadCount === 0 && (
+      {totalNotifications > 0 && unreadCount === 0 && (
         <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full" />
       )}
     </Button>

@@ -1,6 +1,6 @@
 import { Configuration, MarketApi, PortfolioApi, OrdersApi, Market } from 'kalshi-typescript'
 import crypto from 'crypto'
-import { Market as AppMarket, MarketDetails } from '@/types/market'
+import { Market as AppMarket, MarketDetails, EventData, Candlestick } from '@/types/market'
 
 interface KalshiCredentials {
   accessKeyId: string
@@ -190,6 +190,64 @@ export class KalshiClient {
     return response.data
   }
 
+  async getPriceHistory(ticker: string, interval: string = '1d'): Promise<{ timestamp: Date; price: number; volume: number }[]> {
+    try {
+      // Map interval to Kalshi's time range format
+      let minTs = Date.now() - 24 * 60 * 60 * 1000 // Default: last 24 hours
+
+      if (interval === '1m' || interval === '5m') {
+        minTs = Date.now() - 60 * 60 * 1000 // Last hour
+      } else if (interval === '1h') {
+        minTs = Date.now() - 24 * 60 * 60 * 1000 // Last day
+      } else if (interval === '6h') {
+        minTs = Date.now() - 7 * 24 * 60 * 60 * 1000 // Last week
+      } else if (interval === '1d') {
+        minTs = Date.now() - 30 * 24 * 60 * 60 * 1000 // Last 30 days
+      }
+
+      const maxTs = Date.now()
+
+      console.log(`[Kalshi Client] Fetching price history for ${ticker} from ${new Date(minTs)} to ${new Date(maxTs)}`)
+
+      // Use the market API to get series history
+      // The Kalshi API doesn't have a direct price history endpoint in the SDK
+      // We need to use the market data which may include recent prices
+      const response = await this.marketApi.getMarket(ticker)
+      const market = response.data.market
+
+      // If the market has price history, return it
+      if (market && (market as any).price_history) {
+        return (market as any).price_history
+          .filter((p: any) => {
+            const ts = new Date(p.timestamp).getTime()
+            return ts >= minTs && ts <= maxTs
+          })
+          .map((p: any) => ({
+            timestamp: new Date(p.timestamp),
+            price: p.price / 100, // Kalshi prices are in cents
+            volume: p.volume || 0,
+          }))
+      }
+
+      // Fallback: create a simple history from current price
+      const currentPrice = (market as any).last_price || (market as any).yes_bid || (market as any).yes_ask
+      if (currentPrice !== undefined) {
+        return [
+          {
+            timestamp: new Date(),
+            price: currentPrice / 100,
+            volume: 0,
+          }
+        ]
+      }
+
+      return []
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching price history:', error)
+      return []
+    }
+  }
+
   private transformMarkets(markets: any[]): AppMarket[] {
     const now = new Date()
     let filteredCount = 0
@@ -345,6 +403,143 @@ export class KalshiClient {
           quantity: a.count,
         })) || [],
       } : undefined,
+    }
+  }
+
+  async getEventDetails(tickerOrEventId: string): Promise<EventData | null> {
+    try {
+      // Fetch market details which includes event information
+      const response = await this.marketApi.getMarket(tickerOrEventId)
+      const market = response.data.market as any
+
+      // Transform to EventData structure
+      // Note: Kalshi API may not provide articles directly
+      // This would need to be enriched with external news APIs
+      const eventData: EventData = {
+        id: market.ticker || tickerOrEventId,
+        eventId: market.event_ticker || market.ticker,
+        probability: (market.last_price || market.yes_bid || 0) / 100,
+        liquidity: market.liquidity || 0,
+        question: market.title || market.subtitle || '',
+        backgroundInfo: market.description || market.rules || '',
+        resolutionCriteria: market.rules || market.ranged_group_name || '',
+        dateRangeStart: market.open_time || new Date().toISOString(),
+        dateRangeEnd: market.expiration_time || new Date().toISOString(),
+        active: market.status === 'active' || market.status === 'open',
+        closed: market.status === 'closed' || market.status === 'resolved',
+        searchQueries: undefined, // Would need to generate these
+        rankedArticles: undefined, // Would need to fetch from external news APIs
+      }
+
+      return eventData
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching event details:', error)
+      return null
+    }
+  }
+
+  async getCandlesticks(ticker: string, interval: string = '1h'): Promise<Candlestick[]> {
+    try {
+      // Map interval to time range
+      let periodInterval = 1 // Default 1 minute
+      let minTs = Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
+
+      if (interval === '1m') {
+        periodInterval = 1
+        minTs = Date.now() - 60 * 60 * 1000 // Last hour
+      } else if (interval === '5m') {
+        periodInterval = 5
+        minTs = Date.now() - 6 * 60 * 60 * 1000 // Last 6 hours
+      } else if (interval === '1h') {
+        periodInterval = 60
+        minTs = Date.now() - 7 * 24 * 60 * 60 * 1000 // Last week
+      } else if (interval === '6h') {
+        periodInterval = 360
+        minTs = Date.now() - 30 * 24 * 60 * 60 * 1000 // Last 30 days
+      } else if (interval === '1d') {
+        periodInterval = 1440
+        minTs = Date.now() - 90 * 24 * 60 * 60 * 1000 // Last 90 days
+      }
+
+      const maxTs = Date.now()
+
+      console.log(`[Kalshi Client] Fetching candlesticks for ${ticker} from ${new Date(minTs)} to ${new Date(maxTs)} with interval ${interval}`)
+
+      // Use the Kalshi SDK to fetch series history
+      // Note: The actual API endpoint may vary - this is based on common patterns
+      const response = await (this.marketApi as any).getMarketCandlesticks?.(
+        ticker,
+        Math.floor(minTs / 1000),
+        Math.floor(maxTs / 1000),
+        periodInterval
+      )
+
+      if (response?.data?.candlesticks) {
+        return response.data.candlesticks.map((c: any) => ({
+          timestamp: new Date(c.timestamp || c.ts),
+          open: (c.open || 0) / 100,
+          high: (c.high || 0) / 100,
+          low: (c.low || 0) / 100,
+          close: (c.close || 0) / 100,
+          volume: c.volume || 0,
+        }))
+      }
+
+      // Fallback: use price history and construct candlesticks
+      const priceHistory = await this.getPriceHistory(ticker, interval)
+      if (priceHistory.length === 0) {
+        return []
+      }
+
+      // Group price history into candlesticks based on interval
+      const candlesticks: Candlestick[] = []
+      const intervalMs = periodInterval * 60 * 1000
+
+      let currentBucket: typeof priceHistory = []
+      let bucketStartTime = Math.floor(priceHistory[0].timestamp.getTime() / intervalMs) * intervalMs
+
+      for (const point of priceHistory) {
+        const pointBucket = Math.floor(point.timestamp.getTime() / intervalMs) * intervalMs
+
+        if (pointBucket !== bucketStartTime) {
+          // Create candlestick from current bucket
+          if (currentBucket.length > 0) {
+            const prices = currentBucket.map(p => p.price)
+            candlesticks.push({
+              timestamp: new Date(bucketStartTime),
+              open: currentBucket[0].price,
+              high: Math.max(...prices),
+              low: Math.min(...prices),
+              close: currentBucket[currentBucket.length - 1].price,
+              volume: currentBucket.reduce((sum, p) => sum + p.volume, 0),
+            })
+          }
+
+          // Start new bucket
+          currentBucket = [point]
+          bucketStartTime = pointBucket
+        } else {
+          currentBucket.push(point)
+        }
+      }
+
+      // Add final bucket
+      if (currentBucket.length > 0) {
+        const prices = currentBucket.map(p => p.price)
+        candlesticks.push({
+          timestamp: new Date(bucketStartTime),
+          open: currentBucket[0].price,
+          high: Math.max(...prices),
+          low: Math.min(...prices),
+          close: currentBucket[currentBucket.length - 1].price,
+          volume: currentBucket.reduce((sum, p) => sum + p.volume, 0),
+        })
+      }
+
+      return candlesticks
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching candlesticks:', error)
+      return []
     }
   }
 }

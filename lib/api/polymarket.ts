@@ -1,15 +1,15 @@
-import { Market, MarketDetails } from '@/types/market'
+import { Market, MarketDetails, EventData, Candlestick } from '@/types/market'
 
 interface PolymarketCredentials {
-  apiKey: string
+  apiKey?: string
 }
 
 export class PolymarketClient {
-  private apiKey: string
+  private apiKey?: string
   private baseUrl: string = 'https://clob.polymarket.com'
 
-  constructor(credentials: PolymarketCredentials) {
-    this.apiKey = credentials.apiKey
+  constructor(credentials?: PolymarketCredentials) {
+    this.apiKey = credentials?.apiKey
   }
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -100,7 +100,9 @@ export class PolymarketClient {
           volume24hr: sample.volume24hr,
           liquidity: sample.liquidity,
           endDateIso: sample.endDateIso,
-          keys: Object.keys(sample).slice(0, 15),
+          category: sample.category,
+          tags: sample.tags,
+          allKeys: Object.keys(sample),
         })
       }
 
@@ -175,9 +177,13 @@ export class PolymarketClient {
       // Limit to requested amount after filtering
       const finalMarkets = filtered.slice(0, params?.limit || 500)
 
-      console.log(`[Polymarket Client] Transformed and sorted ${finalMarkets.length} markets by volume (filtered from ${markets.length})`)
-      if (finalMarkets.length > 0) {
-        console.log(`[Polymarket Client] Top market: ${finalMarkets[0].title} (volume: ${finalMarkets[0].volume24h})`)
+      // Enrich top markets with tags for better categorization
+      // Only enrich top 20 to avoid too many API calls
+      const enrichedMarkets = await this.enrichMarketsWithTags(finalMarkets, 20)
+
+      console.log(`[Polymarket Client] Transformed and sorted ${enrichedMarkets.length} markets by volume (filtered from ${markets.length})`)
+      if (enrichedMarkets.length > 0) {
+        console.log(`[Polymarket Client] Top market: ${enrichedMarkets[0].title} (volume: ${enrichedMarkets[0].volume24h}, category: ${enrichedMarkets[0].category})`)
       }
 
       // Determine if there are more results
@@ -185,7 +191,7 @@ export class PolymarketClient {
       const nextOffset = hasMore ? offset + finalMarkets.length : undefined
 
       return {
-        markets: finalMarkets,
+        markets: enrichedMarkets,
         hasMore,
         nextOffset,
       }
@@ -193,6 +199,69 @@ export class PolymarketClient {
       console.error('[Polymarket Client] Error fetching markets:', error)
       return { markets: [], hasMore: false, nextOffset: undefined } // Return empty array instead of throwing
     }
+  }
+
+  /**
+   * Fetch tags for a market by its numeric ID
+   */
+  private async fetchMarketTags(numericId: string | number): Promise<string[]> {
+    try {
+      const response = await fetch(`https://gamma-api.polymarket.com/markets/${numericId}/tags`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        return []
+      }
+
+      const tags = await response.json()
+      if (Array.isArray(tags)) {
+        // Extract tag labels (e.g., "Culture", "Games", "Politics")
+        return tags.map((tag: any) => tag.label).filter(Boolean)
+      }
+      return []
+    } catch (error) {
+      console.warn(`[Polymarket Client] Error fetching tags for market ${numericId}:`, error)
+      return []
+    }
+  }
+
+  /**
+   * Enrich markets with tags from the tags API
+   * Only enriches the first N markets to avoid too many API calls
+   */
+  private async enrichMarketsWithTags(markets: Market[], limit: number = 20): Promise<Market[]> {
+    const marketsToEnrich = markets.slice(0, limit)
+    const remainingMarkets = markets.slice(limit)
+
+    const enrichedMarkets = await Promise.all(
+      marketsToEnrich.map(async (market) => {
+        const numericId = market.rawData?.numericId
+        if (!numericId) {
+          return market
+        }
+
+        const tags = await this.fetchMarketTags(numericId)
+        if (tags.length > 0) {
+          return {
+            ...market,
+            // Use the first tag as category if no category exists
+            category: market.category || tags[0],
+            normalizedCategory: market.normalizedCategory || tags[0],
+            // Store all tags in rawData for future use
+            rawData: {
+              ...market.rawData,
+              tags,
+            },
+          }
+        }
+        return market
+      })
+    )
+
+    return [...enrichedMarkets, ...remainingMarkets]
   }
 
   private transformMarketFromGamma(market: any): Market | null {
@@ -242,6 +311,7 @@ export class PolymarketClient {
       title: market.question,
       description: market.description || '',
       category: market.category || undefined,
+      normalizedCategory: market.category || undefined, // Use API category as normalized category
       price: price,
       probability: price,
       volume24h: volume,
@@ -250,7 +320,10 @@ export class PolymarketClient {
       slug: market.slug || market.marketSlug || undefined,
       outcomes: outcomes,
       outcomePrices: outcomePrices.length > 0 ? outcomePrices : undefined,
-      rawData: market,
+      rawData: {
+        ...market,
+        numericId: market.id, // Store numeric ID for tag fetching
+      },
     }
   }
 
@@ -428,13 +501,59 @@ export class PolymarketClient {
 
   async getPriceHistory(tokenId: string, interval: string = '1d'): Promise<{ timestamp: Date; price: number; volume: number }[]> {
     try {
-      const response = await this.request<any>(`/prices-history?market=${tokenId}&interval=${interval}`)
-      if (response && Array.isArray(response.history)) {
-        return response.history.map((point: any) => ({
+      // Map interval to appropriate time range and fidelity
+      const now = Math.floor(Date.now() / 1000) // Current time in seconds
+      let startTs: number
+      let fidelity: number // Data point frequency in seconds
+
+      if (interval === '1m' || interval === '5m') {
+        // Last hour with 1-minute granularity
+        startTs = now - (60 * 60)
+        fidelity = 60
+      } else if (interval === '1h') {
+        // Last day with 1-hour granularity
+        startTs = now - (24 * 60 * 60)
+        fidelity = 3600
+      } else if (interval === '6h') {
+        // Last week with 6-hour granularity
+        startTs = now - (7 * 24 * 60 * 60)
+        fidelity = 6 * 3600
+      } else {
+        // Last 30 days (ALL) with 1-day granularity
+        startTs = now - (30 * 24 * 60 * 60)
+        fidelity = 24 * 3600
+      }
+
+      // Use direct fetch for public endpoint - no auth required
+      const url = `${this.baseUrl}/prices-history?market=${tokenId}&interval=${interval}&startTs=${startTs}&endTs=${now}&fidelity=${fidelity}`
+      console.log(`[Polymarket Client] Fetching price history: ${url}`)
+      console.log(`[Polymarket Client] Time range: ${new Date(startTs * 1000).toLocaleString()} to ${new Date(now * 1000).toLocaleString()}`)
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        console.error(`[Polymarket Client] Price history request failed: ${response.status} ${response.statusText}`)
+        return []
+      }
+
+      const data = await response.json()
+      console.log(`[Polymarket Client] Price history response points: ${data?.history?.length || 0}`)
+
+      if (data && Array.isArray(data.history)) {
+        const history = data.history.map((point: any) => ({
           timestamp: new Date(point.t * 1000),
           price: point.p,
-          volume: 0 // API might not return volume per point in this endpoint, usually it's price history
+          volume: point.v || 0
         }))
+
+        console.log(`[Polymarket Client] First point: ${history[0]?.timestamp.toLocaleString()}, Last point: ${history[history.length - 1]?.timestamp.toLocaleString()}`)
+        return history
       }
       return []
     } catch (error) {
@@ -452,6 +571,186 @@ export class PolymarketClient {
         asks: market.orderbook.asks || [],
       } : undefined,
     }
+  }
+
+  async getEventDetails(slugOrId: string): Promise<EventData | null> {
+    try {
+      // Fetch market details from Gamma API
+      // Gamma API has endpoint: /markets?slug=<slug>
+      const url = new URL('https://gamma-api.polymarket.com/markets')
+      url.searchParams.set('slug', slugOrId)
+      url.searchParams.set('limit', '20') // Get related markets in same event
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        console.error('[Polymarket] Event details request failed:', response.status)
+        return null
+      }
+
+      const markets = await response.json()
+      if (!Array.isArray(markets) || markets.length === 0) {
+        return null
+      }
+
+      // Use first market as primary event data
+      const primaryMarket = markets[0]
+
+      // Transform to EventData structure
+      const eventData: EventData = {
+        id: primaryMarket.id?.toString() || slugOrId,
+        eventId: primaryMarket.conditionId || slugOrId,
+        probability: parseFloat(primaryMarket.outcomePrices?.[0] || '0'),
+        liquidity: parseFloat(primaryMarket.liquidityNum?.toString() || '0'),
+        question: primaryMarket.question || '',
+        backgroundInfo: primaryMarket.description || '',
+        resolutionCriteria: primaryMarket.description || '',
+        dateRangeStart: primaryMarket.startDate || new Date().toISOString(),
+        dateRangeEnd: primaryMarket.endDateIso || new Date().toISOString(),
+        active: primaryMarket.active === true,
+        closed: primaryMarket.closed === true,
+        searchQueries: undefined, // Would need to generate these
+        rankedArticles: undefined, // Would need to fetch from news APIs
+      }
+
+      return eventData
+    } catch (error) {
+      console.error('[Polymarket] Error fetching event details:', error)
+      return null
+    }
+  }
+
+  async getCandlesticksForMarkets(
+    slugs: string[],
+    interval: string = '1h'
+  ): Promise<Record<string, Candlestick[]>> {
+    try {
+      console.log(`[Polymarket] Fetching candlesticks for ${slugs.length} markets`)
+
+      // Fetch candlesticks for each market in parallel
+      const candlesticksPromises = slugs.map(async (slug) => {
+        try {
+          // First, fetch market details to get the token ID
+          const url = new URL('https://gamma-api.polymarket.com/markets')
+          url.searchParams.set('slug', slug)
+          url.searchParams.set('limit', '1')
+
+          const marketResponse = await fetch(url.toString(), {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+          })
+
+          if (!marketResponse.ok) {
+            console.warn(`[Polymarket] Failed to fetch market for slug ${slug}`)
+            return { slug, candlesticks: [] }
+          }
+
+          const markets = await marketResponse.json()
+          if (!Array.isArray(markets) || markets.length === 0) {
+            return { slug, candlesticks: [] }
+          }
+
+          const market = markets[0]
+          const tokenId = market.clobTokenIds?.[0] || market.tokens?.[0]
+
+          if (!tokenId) {
+            console.warn(`[Polymarket] No token ID found for slug ${slug}`)
+            return { slug, candlesticks: [] }
+          }
+
+          // Fetch price history and convert to candlesticks
+          const priceHistory = await this.getPriceHistory(tokenId, interval)
+
+          // Convert price history to candlesticks
+          const candlesticks = this.convertPriceHistoryToCandlesticks(priceHistory, interval)
+
+          return { slug, candlesticks }
+        } catch (error) {
+          console.error(`[Polymarket] Error fetching candlesticks for ${slug}:`, error)
+          return { slug, candlesticks: [] }
+        }
+      })
+
+      const results = await Promise.all(candlesticksPromises)
+
+      // Convert array of results to map keyed by slug
+      const candlesticksMap: Record<string, Candlestick[]> = {}
+      for (const result of results) {
+        candlesticksMap[result.slug] = result.candlesticks
+      }
+
+      console.log(`[Polymarket] Fetched candlesticks for ${Object.keys(candlesticksMap).length} markets`)
+      return candlesticksMap
+    } catch (error) {
+      console.error('[Polymarket] Error fetching candlesticks for markets:', error)
+      return {}
+    }
+  }
+
+  private convertPriceHistoryToCandlesticks(
+    priceHistory: { timestamp: Date; price: number; volume: number }[],
+    interval: string
+  ): Candlestick[] {
+    if (priceHistory.length === 0) {
+      return []
+    }
+
+    // Determine interval duration in milliseconds
+    let intervalMs: number
+    if (interval === '1m') intervalMs = 60 * 1000
+    else if (interval === '5m') intervalMs = 5 * 60 * 1000
+    else if (interval === '1h') intervalMs = 60 * 60 * 1000
+    else if (interval === '6h') intervalMs = 6 * 60 * 60 * 1000
+    else intervalMs = 24 * 60 * 60 * 1000 // 1d default
+
+    const candlesticks: Candlestick[] = []
+    let currentBucket: typeof priceHistory = []
+    let bucketStartTime = Math.floor(priceHistory[0].timestamp.getTime() / intervalMs) * intervalMs
+
+    for (const point of priceHistory) {
+      const pointBucket = Math.floor(point.timestamp.getTime() / intervalMs) * intervalMs
+
+      if (pointBucket !== bucketStartTime) {
+        // Create candlestick from current bucket
+        if (currentBucket.length > 0) {
+          const prices = currentBucket.map(p => p.price)
+          candlesticks.push({
+            timestamp: new Date(bucketStartTime),
+            open: currentBucket[0].price,
+            high: Math.max(...prices),
+            low: Math.min(...prices),
+            close: currentBucket[currentBucket.length - 1].price,
+            volume: currentBucket.reduce((sum, p) => sum + p.volume, 0),
+          })
+        }
+
+        // Start new bucket
+        currentBucket = [point]
+        bucketStartTime = pointBucket
+      } else {
+        currentBucket.push(point)
+      }
+    }
+
+    // Add final bucket
+    if (currentBucket.length > 0) {
+      const prices = currentBucket.map(p => p.price)
+      candlesticks.push({
+        timestamp: new Date(bucketStartTime),
+        open: currentBucket[0].price,
+        high: Math.max(...prices),
+        low: Math.min(...prices),
+        close: currentBucket[currentBucket.length - 1].price,
+        volume: currentBucket.reduce((sum, p) => sum + p.volume, 0),
+      })
+    }
+
+    return candlesticks
   }
 }
 

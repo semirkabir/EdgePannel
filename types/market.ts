@@ -43,6 +43,8 @@ export interface MarketDetails extends Market {
   priceHistory?: PricePoint[]
   orderBook?: OrderBook
   relatedMarkets?: Market[]
+  eventData?: EventData
+  candlesticks?: Candlestick[]
 }
 
 export interface PricePoint {
@@ -59,5 +61,44 @@ export interface OrderBook {
 export interface Order {
   price: number
   quantity: number
+}
+
+export interface RankedArticle {
+  link: string
+  title: string
+  author: string | null
+  summary: string
+  clean_url: string | null
+  full_text?: string
+}
+
+export interface SearchQueries {
+  gnews: string[]
+  newscatcher: string[]
+}
+
+export interface EventData {
+  id: string
+  eventId: string
+  probability: number
+  liquidity: number
+  question: string
+  backgroundInfo: string
+  resolutionCriteria: string
+  dateRangeStart: string
+  dateRangeEnd: string
+  active: boolean
+  closed: boolean
+  searchQueries?: SearchQueries
+  rankedArticles?: RankedArticle[]
+}
+
+export interface Candlestick {
+  timestamp: Date
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
 }
 

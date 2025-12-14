@@ -77,28 +77,51 @@ export function MarketCard({ market, onClick, className }: MarketCardProps) {
                 )}
             </div>
 
-            <div className="mt-3 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3">
-                    <div className={cn("flex items-center gap-1 font-mono font-bold text-lg", priceColor.split(' ')[0])}>
-                        {market.probability ? formatPrice(market.probability) : '-'}
-                    </div>
+            {/* Multi-outcome markets: show compact list */}
+            {Array.isArray(market.outcomes) && Array.isArray(market.outcomePrices) && market.outcomes.length > 2 ? (
+                <div className="mt-3 space-y-1.5">
+                    {market.outcomes.slice(0, 3).map((outcome, index) => {
+                        const price = market.outcomePrices?.[index]
+                        if (price === undefined) return null
+                        const percentage = Math.round(price * 100)
 
-                    <div className="flex items-center gap-1 text-white/50" title="24h Volume">
-                        <BarChart2 size={12} />
-                        <span>{market.volume24h ? formatVolume(market.volume24h) : '$0'}</span>
-                    </div>
+                        return (
+                            <div key={index} className="flex items-center justify-between text-xs">
+                                <span className="text-white/70 truncate flex-1 pr-2">{outcome}</span>
+                                <span className="text-white/90 font-bold tabular-nums">{percentage}%</span>
+                            </div>
+                        )
+                    })}
+                    {market.outcomes.length > 3 && (
+                        <div className="text-[10px] text-white/40 text-center pt-1">
+                            +{market.outcomes.length - 3} more outcomes
+                        </div>
+                    )}
                 </div>
+            ) : (
+                <div className="mt-3 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                        <div className={cn("flex items-center gap-1 font-mono font-bold text-lg", priceColor.split(' ')[0])}>
+                            {market.probability ? formatPrice(market.probability) : '-'}
+                        </div>
 
-                {market.price_movement !== undefined && market.price_movement !== 0 && (
-                    <div className={cn(
-                        "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/5",
-                        market.price_movement > 0 ? "text-emerald-400" : "text-rose-400"
-                    )}>
-                        {market.price_movement > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                        <span>{Math.abs(market.price_movement * 100).toFixed(0)}%</span>
+                        <div className="flex items-center gap-1 text-white/50" title="24h Volume">
+                            <BarChart2 size={12} />
+                            <span>{market.volume24h ? formatVolume(market.volume24h) : '$0'}</span>
+                        </div>
                     </div>
-                )}
-            </div>
+
+                    {market.price_movement !== undefined && market.price_movement !== 0 && (
+                        <div className={cn(
+                            "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/5",
+                            market.price_movement > 0 ? "text-emerald-400" : "text-rose-400"
+                        )}>
+                            {market.price_movement > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                            <span>{Math.abs(market.price_movement * 100).toFixed(0)}%</span>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Decorative gradient glow on hover */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer pointer-events-none" />
