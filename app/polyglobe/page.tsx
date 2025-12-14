@@ -7,7 +7,7 @@ import { PolyglobeMap } from '@/components/polyglobe/PolyglobeMap';
 import { PolyglobeUI } from '@/components/polyglobe/PolyglobeUI';
 import { CountryNewsPanel } from '@/components/polyglobe/CountryNewsPanel';
 import { Starfield } from '@/components/polyglobe/Starfield';
-import { GlobeSettings } from '@/components/polyglobe/GlobeSettings';
+import { SettingsModal } from '@/components/settings/SettingsModal';
 import { useSearch } from '@/hooks/use-search';
 import { useGeotaggedMarkets } from '@/hooks/use-geotagged-markets';
 import { useWhaleTrades } from '@/hooks/use-whale-trades';
@@ -53,6 +53,8 @@ export default function PolyglobePage() {
   // Handle zoom reset
   const handleResetZoom = () => {
     setShouldResetZoom(true);
+    setSelectedMarket(null);
+    setSelectedCountry(null);
     // Reset the trigger after a short delay
     setTimeout(() => {
       setShouldResetZoom(false);
@@ -229,10 +231,12 @@ export default function PolyglobePage() {
     setSelectedCountry(null);
   };
 
-  const handleMarketClick = (market: EnrichedMarket) => {
+  const handleMarketClick = (market: EnrichedMarket | null) => {
     console.log('Market selected:', market);
     setSelectedMarket(market);
-    setSelectedCountry(null);
+    if (market) {
+      setSelectedCountry(null);
+    }
   };
 
   return (
@@ -300,7 +304,7 @@ export default function PolyglobePage() {
         onMarketSelect={handleMarketClick}
       />
 
-      <GlobeSettings
+      <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         rotationSpeed={rotationSpeed}
@@ -318,7 +322,7 @@ export default function PolyglobePage() {
           // Find and select the market
           const market = mapFilteredMarkets.find(m => m.id === marketId && m.platform === platform);
           if (market) {
-            setSelectedMarket(market);
+            setSelectedMarket(market as unknown as EnrichedMarket);
           }
         }}
       />

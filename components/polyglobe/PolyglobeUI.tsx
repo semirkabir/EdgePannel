@@ -114,228 +114,111 @@ export function PolyglobeUI({
     }
   };
 
-  // Handle search input - detect URLs and route accordingly
+  // Handle search input - just update regular search
   const handleSearchInput = (value: string) => {
-    const trimmed = value.trim();
+    onSearch(value);
+  };
 
-    // Check if input is a Polymarket or Kalshi URL
-    const parsedUrl = parseMarketUrl(trimmed);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const value = inputRef.current?.value.trim() || '';
+      const parsedUrl = parseMarketUrl(value);
 
-    if (parsedUrl && onUrlSearch) {
-      // It's a valid market URL - fetch and display it
-      console.log('[PolyglobeUI] Detected market URL:', parsedUrl);
-      onUrlSearch(trimmed);
+      if (parsedUrl && onUrlSearch) {
+        // It's a valid market URL - fetch and display it
+        console.log('[PolyglobeUI] Detected market URL on Enter:', parsedUrl);
+        onUrlSearch(value);
 
-      // Clear the input after URL is processed
-      if (inputRef.current) {
-        inputRef.current.value = '';
+        // Clear the input and search query
+        if (inputRef.current) {
+          inputRef.current.value = '';
+        }
+        onSearch(''); // Clear regular search results
+        setIsSearchFocused(false);
+        e.currentTarget.blur();
       }
-      setIsSearchFocused(false);
-    } else {
-      // Regular search
-      onSearch(value);
     }
   };
 
   return (
     <div className="absolute inset-0 pointer-events-none">
-      {/* Top Left: Logo - moved below controls */}
-      <div className="absolute top-16 left-4 pointer-events-auto flex items-center gap-2">
-        <div className="flex items-center gap-1 bg-[#0e0f11]/90 border border-white/10 rounded-lg px-2 py-1.5 text-gray-200 shadow-md backdrop-blur-md">
-          <span className="font-mono text-sm font-bold">EDGEPANNEL</span>
-        </div>
-      </div>
 
-      {/* Top Right: Alerts, Maps, Search and Profile */}
-      <div className="absolute top-4 right-4 z-[1000] pointer-events-auto flex items-center gap-2">
-        {/* Notification Button */}
-        <button
-          onClick={onNotificationClick}
-          className="relative px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 backdrop-blur-md transition-all shadow-lg"
-          title="Notifications"
-        >
-          <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-blue-300" />
-            <span className="text-xs font-bold text-gray-300">ALERTS</span>
-            {notificationCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-red-500 rounded-full text-[9px] font-bold text-white animate-pulse">
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
-            )}
-          </div>
-        </button>
-
-        {/* Maps/Globe Toggle / Reset Zoom */}
-        <button
-          onClick={isZoomedIn ? onResetZoom : onViewToggle}
-          className={cn(
-            "px-4 py-2 rounded-lg border backdrop-blur-md transition-all shadow-lg",
-            isZoomedIn
-              ? "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/40"
-              : "bg-white/5 hover:bg-white/10 border-white/5"
-          )}
-          title={isZoomedIn ? 'Reset Zoom' : (isMapView ? 'Switch to Globe View' : 'Switch to Map View')}
-        >
-          <div className="flex items-center gap-2">
-            {isZoomedIn ? (
-              <RotateCcw className="w-4 h-4 text-amber-300" />
-            ) : isMapView ? (
-              <Globe className="w-4 h-4 text-blue-300" />
-            ) : (
-              <Map className="w-4 h-4 text-blue-300" />
-            )}
-            <span className={cn(
-              "text-xs font-bold",
-              isZoomedIn ? "text-amber-300" : "text-gray-300"
-            )}>
-              {isZoomedIn ? 'RESET' : (isMapView ? 'GLOBE' : 'MAP')}
-            </span>
-          </div>
-        </button>
-
-        {/* Search Bar */}
-        <div className="relative min-w-[320px]">
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="Search markets or paste URL..."
-            className="w-full bg-[#0e0f11]/90 border border-white/10 rounded-lg py-2.5 pl-3 pr-10 font-mono text-xs text-gray-200 outline-none focus:border-blue-500 transition-colors shadow-lg backdrop-blur-md"
-            onChange={(e) => handleSearchInput(e.target.value)}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => {
-              // Delay blur to allow click on results
-              setTimeout(() => setIsSearchFocused(false), 200);
-            }}
-          />
-          <div className="absolute right-3 top-0 bottom-0 flex items-center pointer-events-none">
-            <Search className="w-4 h-4 text-gray-400" />
+      {/* Top Left: Control Island */}
+      <div className="absolute top-4 left-4 z-[1000] pointer-events-auto flex flex-col gap-3">
+        {/* Logo & Main Controls */}
+        <div className="flex items-center gap-2 p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
+          {/* Logo */}
+          <div className="flex items-center gap-0.5 px-3 py-1.5 bg-white/5 rounded-xl border border-white/5">
+            <span className="font-serif text-lg italic font-bold text-white tracking-tight">Edge</span>
+            <span className="font-sans text-lg font-bold text-white tracking-tighter">Pannel</span>
           </div>
 
-          {isSearchFocused && (searchResults.length > 0 || isSearching) && (
-            <SearchResults
-              results={searchResults}
-              onSelect={(market) => {
-                if (onMarketSelect) onMarketSelect(market);
-                // Clear search
-                onSearch('');
-                if (inputRef.current) inputRef.current.value = '';
-              }}
-              isLoading={isSearching}
-            />
-          )}
-        </div>
+          <div className="w-px h-6 bg-white/10 mx-1" />
 
-        {/* Profile Dropdown */}
-        <div className="relative" ref={profileRef}>
+          {/* Play/Pause */}
           <button
-            onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="flex items-center justify-center w-10 h-10 bg-[#0e0f11]/90 border border-white/10 rounded-lg hover:bg-white/5 text-gray-300 shadow-lg backdrop-blur-md transition-colors"
-            title="Profile Menu"
-          >
-            <User className="w-5 h-5" />
-          </button>
-
-          {/* Profile Dropdown Menu */}
-          {isProfileOpen && (
-            <div className="absolute top-full right-0 mt-2 w-56 bg-[#0e0f11]/95 border border-white/10 rounded-lg shadow-2xl backdrop-blur-xl overflow-hidden">
-              <div className="p-2">
-                {/* Portfolio Option */}
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    router.push('/dashboard/portfolio');
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-blue-500/10 text-blue-400 transition-colors text-left"
-                >
-                  <Wallet className="w-4 h-4" />
-                  <span className="text-sm font-medium">Portfolio</span>
-                </button>
-
-                {/* Profile Option */}
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    // TODO: Navigate to profile page
-                    console.log('Navigate to profile');
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-white/5 text-gray-200 transition-colors text-left"
-                >
-                  <User className="w-4 h-4" />
-                  <span className="text-sm font-medium">Profile</span>
-                </button>
-
-                {/* Settings Option */}
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    onSettingsOpen?.();
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-white/5 text-gray-200 transition-colors text-left"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="text-sm font-medium">Settings</span>
-                </button>
-
-                {/* Divider */}
-                <div className="my-1 border-t border-white/10" />
-
-                {/* Logout Option */}
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    // TODO: Handle logout
-                    console.log('Logout');
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-red-500/10 text-red-400 transition-colors text-left"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="text-sm font-medium">Logout</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-
-      {/* Top Left Controls */}
-      <div className="absolute top-4 left-4 z-[1000] pointer-events-auto">
-        <div className="flex items-center gap-2">
-          {/* Play/Pause Button */}
-          <button
-            className="flex items-center justify-center w-9 h-9 bg-[#0e0f11]/90 text-blue-400 border border-white/10 rounded-lg hover:bg-white/5 backdrop-blur-md transition-colors"
             onClick={handlePlayPause}
+            className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all"
+            title={isPlaying ? "Pause Rotation" : "Resume Rotation"}
           >
-            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
           </button>
 
-          {/* Breaking Button - Keep outside filter */}
+          {/* View Toggle / Reset */}
           <button
+            onClick={isZoomedIn ? onResetZoom : onViewToggle}
             className={cn(
-              "px-2.5 py-2 bg-[#0e0f11]/90 border border-white/10 rounded-lg font-mono text-xs text-gray-200 hover:bg-white/5 backdrop-blur-md transition-all",
-              activeFilters.breaking && "border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)] animate-pulse"
+              "h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all",
+              isZoomedIn
+                ? "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
             )}
-            onClick={() => onFilterChange('breaking', !activeFilters.breaking)}
           >
-            Breaking
+            {isZoomedIn ? (
+              <>
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>RESET</span>
+              </>
+            ) : (
+              <>
+                {isMapView ? <Globe className="w-3.5 h-3.5" /> : <Map className="w-3.5 h-3.5" />}
+                <span>{isMapView ? 'GLOBE' : 'MAP'}</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Filters Row */}
+        <div className="flex items-center gap-2">
+          {/* Breaking Toggle */}
+          <button
+            onClick={() => onFilterChange('breaking', !activeFilters.breaking)}
+            className={cn(
+              "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
+              activeFilters.breaking
+                ? "bg-red-500/10 border-red-500/50 text-red-400"
+                : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+            )}
+          >
+            <div className={cn("w-1.5 h-1.5 rounded-full", activeFilters.breaking ? "bg-red-500 animate-pulse" : "bg-gray-600")} />
+            BREAKING
           </button>
 
-          {/* Filter Popover Trigger */}
+          {/* Filter Menu Trigger */}
           <div className="relative" ref={filterRef}>
             <button
-              className={cn(
-                "px-3 py-2 flex items-center gap-2 border rounded-lg backdrop-blur-md transition-all font-medium text-xs",
-                isFilterOpen || selectedCategories.length > 0
-                  ? "bg-blue-500/20 border-blue-500 text-blue-400 shadow-lg shadow-blue-500/20"
-                  : "bg-[#0e0f11]/90 border-white/10 text-gray-200 hover:bg-white/5 hover:border-white/20"
-              )}
               onClick={() => setIsFilterOpen(!isFilterOpen)}
-              title="Filters"
+              className={cn(
+                "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
+                isFilterOpen || selectedCategories.length > 0
+                  ? "bg-blue-500/10 border-blue-500/50 text-blue-400"
+                  : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+              )}
             >
-              <Filter className="w-4 h-4" />
-              <span>Filters</span>
+              <Filter className="w-3.5 h-3.5" />
+              FILTERS
               {(selectedCategories.length > 0 && !selectedCategories.includes('All')) && (
-                <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white rounded-full text-[10px] font-bold">
+                <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white rounded-full text-[9px] font-bold">
                   {selectedCategories.length}
                 </span>
               )}
@@ -344,7 +227,6 @@ export function PolyglobeUI({
             {/* Filter Popover */}
             {isFilterOpen && (
               <div className="absolute top-full left-0 mt-2 w-[420px] bg-[#0e0f11]/98 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-
                 {/* Header */}
                 <div className="px-5 py-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-b border-white/5">
                   <div className="flex items-center justify-between">
@@ -419,18 +301,12 @@ export function PolyglobeUI({
                               key={cat}
                               onClick={() => {
                                 if (!onCategorySelect) return;
-
-                                // Special handling for "All"
                                 if (cat === 'All') {
-                                  // Clicking "All" deselects everything else and selects only "All"
                                   onCategorySelect(['All']);
                                 } else {
-                                  // Clicking any other category deselects "All"
                                   const newCats = isSelected
                                     ? selectedCategories.filter(c => c !== cat)
                                     : [...selectedCategories.filter(c => c !== 'All'), cat];
-
-                                  // If no categories left, revert to "All"
                                   onCategorySelect(newCats.length === 0 ? ['All'] : newCats);
                                 }
                               }}
@@ -468,9 +344,6 @@ export function PolyglobeUI({
                               : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
                           )}
                         >
-                          {activeFilters.osint && (
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          )}
                           <Radio className="w-3.5 h-3.5 relative z-10" />
                           <span className="relative z-10">OSINT</span>
                         </button>
@@ -485,9 +358,6 @@ export function PolyglobeUI({
                               : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
                           )}
                         >
-                          {activeFilters.live && (
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          )}
                           <span className={cn("w-1.5 h-1.5 rounded-full relative z-10", activeFilters.live ? "bg-white animate-pulse" : "bg-gray-500")} />
                           <span className="relative z-10">LIVE</span>
                         </button>
@@ -502,9 +372,6 @@ export function PolyglobeUI({
                               : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
                           )}
                         >
-                          {activeFilters.fires && (
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          )}
                           <Flame className={cn("w-3.5 h-3.5 relative z-10", activeFilters.fires ? "fill-white" : "")} />
                           <span className="relative z-10">Fires</span>
                         </button>
@@ -519,9 +386,6 @@ export function PolyglobeUI({
                               : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
                           )}
                         >
-                          {activeFilters.heatmap && (
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          )}
                           <Activity className="w-3.5 h-3.5 relative z-10" />
                           <span className="relative z-10">Heatmap</span>
                         </button>
@@ -536,9 +400,6 @@ export function PolyglobeUI({
                               : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
                           )}
                         >
-                          {activeFilters.frontline && (
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          )}
                           <Shield className="w-3.5 h-3.5 relative z-10" />
                           <span className="relative z-10">Frontline</span>
                         </button>
@@ -552,10 +413,111 @@ export function PolyglobeUI({
         </div>
       </div>
 
+      {/* Top Right: User Island */}
+      <div className="absolute top-4 right-4 z-[1000] pointer-events-auto flex items-center gap-3">
+        {/* Search Bar - Modernized */}
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
+          </div>
+          <input
+            ref={inputRef}
+            type="text"
+            className="block w-[320px] pl-10 pr-4 py-2.5 bg-[#0e0f11]/80 border border-white/10 rounded-2xl text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-xl transition-all shadow-xl font-sans tracking-tight"
+            placeholder="Search markets or paste URL..."
+            onChange={(e) => handleSearchInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+          />
+          {/* Search Results Dropdown */}
+          {isSearchFocused && (searchResults.length > 0 || isSearching) && (
+            <div className="absolute top-full left-0 right-0 mt-2">
+              <SearchResults
+                results={searchResults}
+                onSelect={(market) => {
+                  if (onMarketSelect) onMarketSelect(market);
+                  onSearch('');
+                  if (inputRef.current) inputRef.current.value = '';
+                }}
+                isLoading={isSearching}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons Group */}
+        <div className="flex items-center p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl gap-1">
+          {/* Notifications */}
+          <button
+            onClick={onNotificationClick}
+            className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all"
+          >
+            <Bell className="w-4 h-4" />
+            {notificationCount > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-[#0e0f11]" />
+            )}
+          </button>
+
+          <div className="w-px h-5 bg-white/10" />
+
+          {/* Profile */}
+          <div className="relative" ref={profileRef}>
+            <button
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all"
+            >
+              <User className="w-4 h-4" />
+            </button>
+            {/* Profile Dropdown Menu */}
+            {isProfileOpen && (
+              <div className="absolute top-full right-0 mt-2 w-56 bg-[#0e0f11]/95 border border-white/10 rounded-lg shadow-2xl backdrop-blur-xl overflow-hidden">
+                <div className="p-2">
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      router.push('/dashboard/portfolio');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-blue-500/10 text-blue-400 transition-colors text-left"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    <span className="text-sm font-medium">Portfolio</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      onSettingsOpen?.();
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-white/5 text-gray-200 transition-colors text-left"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span className="text-sm font-medium">Settings</span>
+                  </button>
+
+                  <div className="my-1 border-t border-white/10" />
+
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      console.log('Logout');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-red-500/10 text-red-400 transition-colors text-left"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="text-sm font-medium">Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Bottom Center: Ukraine Timeline (Positioned absolutely) */}
       <button
         className="absolute flex items-center gap-2 px-4 py-2 bg-black/80 backdrop-blur-md border border-gray-700 rounded-full text-white hover:bg-gray-800 hover:border-blue-500/50 transition-all shadow-lg group pointer-events-auto z-40 justify-start flex-wrap"
-        style={{ left: '50%', top: '853px', transform: 'translateX(-50%)' }}
+        style={{ left: '50%', bottom: '32px', transform: 'translateX(-50%)' }}
       >
         <span className="text-xs font-mono text-blue-400 uppercase tracking-wider">Ukraine War</span>
         <div className="h-3 w-[1px] bg-gray-700"></div>
@@ -565,4 +527,3 @@ export function PolyglobeUI({
     </div>
   );
 }
-

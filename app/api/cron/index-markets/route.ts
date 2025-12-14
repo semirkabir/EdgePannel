@@ -52,22 +52,61 @@ export async function GET(request: Request) {
         const privateKey = decrypt(apiKeyRecord.encryptedKeyData)
         const client = new KalshiClient({ accessKeyId, privateKey })
 
-        console.log('[Cron] Fetching Kalshi markets...')
-        const { markets } = await client.getMarkets({ limit: 1000 })
-        console.log(`[Cron] Fetched ${markets.length} Kalshi markets`)
+        console.log('[Cron] Fetching ALL Kalshi markets with pagination...')
 
-        const kalshiResults = await indexMarkets(markets, 'kalshi', false)
-        results.platforms.kalshi = kalshiResults
-        results.total += markets.length
-        results.indexed += kalshiResults.indexed
-        results.failed += kalshiResults.failed
-        results.skipped += kalshiResults.skipped
+        let cursor: string | undefined
+        let totalFetched = 0
+        let pageCount = 0
+        const batchSize = 100
+
+        // Loop until no more pages
+        do {
+          pageCount++
+          console.log(`[Cron] Fetching Kalshi page ${pageCount} (cursor: ${cursor || 'start'})...`)
+
+          const response = await client.getMarkets({
+            limit: batchSize,
+            cursor: cursor
+          })
+
+          const markets = response.markets || []
+
+          if (markets.length === 0) {
+            break
+          }
+
+          // Index this batch
+          const batchResults = await indexMarkets(markets, 'kalshi', false)
+
+          // Accumulate results
+          if (!results.platforms.kalshi) {
+            results.platforms.kalshi = { indexed: 0, failed: 0, skipped: 0 }
+          }
+          results.platforms.kalshi.indexed += batchResults.indexed
+          results.platforms.kalshi.failed += batchResults.failed
+          results.platforms.kalshi.skipped += batchResults.skipped
+
+          results.total += markets.length
+          results.indexed += batchResults.indexed
+          results.failed += batchResults.failed
+          results.skipped += batchResults.skipped // Note: Global 'skipped' might need better tracking if we want to distinguish platform skips
+
+          totalFetched += markets.length
+          console.log(`[Cron] Kalshi Page ${pageCount}: Got ${markets.length} markets. Results: ${batchResults.indexed} indexed, ${batchResults.skipped} skipped. Total fetched: ${totalFetched}`)
+
+          // Update cursor for next iteration
+          cursor = response.nextCursor
+
+        } while (cursor)
+
+        console.log(`[Cron] Finished fetching Kalshi markets. Total: ${totalFetched}`)
+
       } else {
         console.log('[Cron] No Kalshi API keys found')
       }
     } catch (error) {
       console.error('[Cron] Error indexing Kalshi markets:', error)
-      results.platforms.kalshi = { indexed: 0, failed: 0, skipped: 0 }
+      if (!results.platforms.kalshi) results.platforms.kalshi = { indexed: 0, failed: 0, skipped: 0 }
     }
 
     // Index Polymarket markets (no auth required) - with pagination
@@ -156,13 +195,18 @@ async function indexMarkets(
       // Extract location from market data
       const location = extractLocation(market.title, market.description)
 
+      // Enrich location with market context
+      // Even if location is null, we might want to store the market (non-geotagged) 
+      // OR specifically only store geotagged ones. 
+      // The current logic was "if (!location) continue". 
+      // This implies we ONLY want Geotagged markets in the "GeotaggedMarket" table. Valid.
+
       if (!location) {
         // No location found, skip
         skipped++
         continue
       }
 
-      // Enrich location with market context
       const enrichedLocation = enrichLocationData(location, {
         category: market.category,
         tags: market.rawData?.tags
@@ -170,17 +214,31 @@ async function indexMarkets(
 
       // Store or update in database
       const marketId = `${platform}-${market.id}`
+      const existing = await prisma.geotaggedMarket.findUnique({
+        where: { marketId }
+      })
 
-      // Check if already indexed (unless force reindex)
-      if (!forceReindex) {
-        const existing = await prisma.geotaggedMarket.findUnique({
-          where: { marketId }
-        })
+      // Smart Update Logic:
+      // 1. If forceReindex: Update it.
+      // 2. If not exists: Create it.
+      // 3. If exists AND has NO location but we found one now: Update it.
+      // 4. If exists AND has location but we found a BETTER one (higher confidence): Update it.
 
-        if (existing) {
-          skipped++
-          continue // Skip already indexed
+      let shouldUpdate = false
+      if (forceReindex || !existing) {
+        shouldUpdate = true
+      } else {
+        // Exists. Check if we can improve it.
+        if (existing.latitude === null && enrichedLocation.coordinates) {
+          shouldUpdate = true // Found location for previously unlocated market
+        } else if (existing.confidence !== 'high' && enrichedLocation.confidence === 'high') {
+          shouldUpdate = true // Found high confidence location for previously low confidence market
         }
+      }
+
+      if (existing && !shouldUpdate) {
+        skipped++
+        continue
       }
 
       // Upsert geotagged market
@@ -229,9 +287,9 @@ async function indexMarkets(
       indexed++
 
       // Log progress every 100 markets
-      if (indexed % 100 === 0) {
-        console.log(`[Cron] Indexed ${indexed} markets...`)
-      }
+      // if (indexed % 100 === 0) {
+      //   console.log(`[Cron] Indexed ${indexed} markets...`)
+      // }
     } catch (error) {
       console.error(`[Cron] Failed to index market ${market.id}:`, error)
       failed++

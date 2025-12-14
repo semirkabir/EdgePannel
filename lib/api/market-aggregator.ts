@@ -80,44 +80,62 @@ export class MarketAggregator {
     // Enhance limits for volume sort to ensure we get high volume markets across pages if needed
     // If category filtering is active, we need to fetch significantly more markets to ensure we find matches
     // since the APIs often don't support direct category filtering 1:1.
-    const baseLimit = params.limit ? Math.max(params.limit, 50) : 50;
-    const fetchLimit = params.category ? Math.max(baseLimit, 500) : baseLimit;
+    // For general search, we also want to fetch more from each provider to fill the quota.
+    const userLimit = params.limit ? Math.max(params.limit, 50) : 50;
+
+    // We fetch a bit more from each to ensure we have enough after merging and filtering
+    const fetchLimit = params.category ? Math.max(userLimit, 500) : userLimit + 20;
+
+    const fetchPromises = [];
 
     // Search Kalshi markets
     if (this.kalshiClient && (params.platform === undefined || params.platform === 'kalshi')) {
-      try {
-        console.log('[MarketAggregator] Searching Kalshi markets...')
-        const result = await this.kalshiClient.getMarkets({
+      fetchPromises.push(
+        this.kalshiClient.getMarkets({
           limit: fetchLimit,
           cursor: params.cursor,
           search: params.query,
+        }).then(result => {
+          console.log(`[MarketAggregator] Fetched ${result.markets.length} Kalshi markets`);
+          return { markets: result.markets, nextCursor: result.nextCursor };
+        }).catch(error => {
+          console.error('[MarketAggregator] Error searching Kalshi markets:', error.message || error);
+          return { markets: [], nextCursor: undefined };
         })
-        markets.push(...result.markets)
-        if (result.nextCursor) {
-          hasMore = true
-          nextCursor = result.nextCursor
-        }
-      } catch (error: any) {
-        console.error('[MarketAggregator] Error searching Kalshi markets:', error.message || error)
-      }
+      );
     }
 
     // Search Polymarket markets
     if (this.polymarketClient && (params.platform === undefined || params.platform === 'polymarket')) {
-      try {
-        console.log('[MarketAggregator] Searching Polymarket markets...')
-        const result = await this.polymarketClient.getMarkets({
+      fetchPromises.push(
+        this.polymarketClient.getMarkets({
           limit: fetchLimit,
           offset: params.offset,
-          search: params.query,
+          search: params.query, // Pass search query to Polymarket
+        }).then(result => {
+          console.log(`[MarketAggregator] Fetched ${result.markets.length} Polymarket markets`);
+          return { markets: result.markets, hasMore: result.hasMore, nextOffset: result.nextOffset };
+        }).catch(error => {
+          console.error('[MarketAggregator] Error searching Polymarket markets:', error.message || error);
+          return { markets: [], hasMore: false };
         })
-        markets.push(...result.markets)
-        if (result.hasMore) {
-          hasMore = true
-          nextOffset = result.nextOffset
-        }
-      } catch (error: any) {
-        console.error('[MarketAggregator] Error searching Polymarket markets:', error.message || error)
+      );
+    }
+
+    // Wait for both concurrent fetches
+    const results = await Promise.all(fetchPromises);
+
+    // Flatten results
+    // Flatten results
+    for (const res of results) {
+      markets.push(...res.markets);
+      // Naive cursor handling: just take the first valid one we find for now (imperfect for aggregated paging)
+      if ((res as any).nextCursor && !nextCursor) nextCursor = (res as any).nextCursor;
+      if ((res as any).nextOffset !== undefined && nextOffset === undefined) {
+        nextOffset = (res as any).nextOffset;
+        hasMore = (res as any).hasMore || false;
+      } else if ((res as any).nextCursor) {
+        hasMore = true;
       }
     }
 
@@ -127,40 +145,17 @@ export class MarketAggregator {
     // Category filter
     if (params.category) {
       const categories = params.category.toLowerCase().split(',').map(c => c.trim());
-      console.log('[MarketAggregator] Filtering by categories:', categories);
-      console.log('[MarketAggregator] Total markets before category filter:', filtered.length);
-
-      // Log sample market categories for debugging
-      if (filtered.length > 0) {
-        const sample = filtered.slice(0, 5).map(m => ({
-          title: m.title?.substring(0, 50),
-          category: m.category,
-          normalizedCategory: m.normalizedCategory
-        }));
-        console.log('[MarketAggregator] Sample market categories:', JSON.stringify(sample, null, 2));
-      }
-
-      // Get unique categories from all markets for debugging
-      const uniqueCategories = Array.from(new Set(filtered.map(m => m.category || m.normalizedCategory).filter(Boolean)));
-      console.log('[MarketAggregator] Unique categories in markets:', uniqueCategories.slice(0, 20));
-
+      // Logic from before...
       filtered = filtered.filter(m => {
         const mCat = (m.category || '').toLowerCase();
         const mNormCat = (m.normalizedCategory || '').toLowerCase();
-        const mTitle = (m.title || '').toLowerCase();
 
-        // Check if market category/tags include any of the selected categories
-        // Need to be flexible with matching (e.g., "tech" should match "Technology")
+        // Exact or partial matches
         const matches = categories.some(cat => {
           const catLower = cat.toLowerCase();
-
-          // Exact or partial matches
           const categoryMatch = mCat.includes(catLower) || mNormCat.includes(catLower);
 
-          // Also check reverse - if the category in the market contains the search term
-          const reverseMatch = catLower.includes(mCat) || catLower.includes(mNormCat);
-
-          // Special mappings for common category names
+          // Special mappings
           const specialMappings: Record<string, string[]> = {
             'tech': ['technology', 'ai', 'crypto', 'software'],
             'technology': ['tech', 'ai', 'crypto', 'software'],
@@ -170,27 +165,13 @@ export class MarketAggregator {
             'sports': ['sport', 'athletics', 'games'],
             'crypto': ['cryptocurrency', 'bitcoin', 'ethereum', 'web3'],
           };
-
           const mappedTerms = specialMappings[catLower] || [];
-          const mappingMatch = mappedTerms.some(term =>
-            mCat.includes(term) || mNormCat.includes(term)
-          );
+          const mappingMatch = mappedTerms.some(term => mCat.includes(term) || mNormCat.includes(term));
 
-          return categoryMatch || reverseMatch || mappingMatch;
+          return categoryMatch || mappingMatch;
         });
-
-        if (matches && filtered.indexOf(m) < 3) {
-          console.log('[MarketAggregator] Match found:', {
-            title: m.title?.substring(0, 50),
-            category: m.category,
-            searchCategories: categories
-          });
-        }
-
         return matches;
       });
-
-      console.log('[MarketAggregator] Markets after category filter:', filtered.length);
     }
 
     // Probability filters
@@ -224,11 +205,9 @@ export class MarketAggregator {
     }
 
     // Slice to limit
-    const finalMarkets = filtered.slice(0, params.limit || 50)
+    const finalMarkets = filtered.slice(0, userLimit)
 
     // Populate Price History for Top Results (for Sparkline)
-    // We do this in parallel to minimize latency
-    // Only for the top 15 to preserve rate limits
     const marketsWithHistory = await Promise.all(finalMarkets.map(async (market, index) => {
       if (index >= 15) return market // Skip beyond top 15
 
@@ -236,14 +215,10 @@ export class MarketAggregator {
         let history: any[] = []
 
         if (market.platform === 'polymarket' && this.polymarketClient) {
-          // Use 1d interval, we need just enough for a sparkline (e.g. 24 points)
           history = await this.polymarketClient.getPriceHistory(market.id, '1h')
-          // Filter to last 24h
           const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
           history = history.filter(p => p.timestamp >= oneDayAgo)
         } else if (market.platform === 'kalshi' && this.kalshiClient) {
-          // Kalshi history fetching is expensive usually, might skip or use simplified logic
-          // For now, if Kalshi client has getMarket, we might get history from details
           const details = await this.kalshiClient.getMarket(market.id)
           if (details.priceHistory) {
             history = details.priceHistory
@@ -251,8 +226,6 @@ export class MarketAggregator {
         }
 
         if (history.length > 0) {
-          // Attach history to rawData or a new property if we extend the type
-          // For now, attaching to rawData.priceHistory as a quick transport
           return {
             ...market,
             priceHistory: history
@@ -270,8 +243,6 @@ export class MarketAggregator {
       nextCursor,
       nextOffset,
     }
-
-
   }
 
   async getAllEnrichedMarkets(): Promise<EnrichedMarket[]> {

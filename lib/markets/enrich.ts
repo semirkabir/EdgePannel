@@ -86,6 +86,9 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
   if (searchText.includes('senate') || searchText.includes('congress') || searchText.includes('house') || searchText.includes('supreme court') || searchText.includes('biden') || searchText.includes('trump') || searchText.includes('white house') || searchText.includes('election')) {
     return { name: 'Washington DC', coordinates: LOCATION_COORDINATES['dc'] }
   }
+  if (searchText.includes('inflation') || searchText.includes('cpi') || searchText.includes('pce') || searchText.includes('jobs report') || searchText.includes('unemployment') || searchText.includes('rates') || searchText.includes('hike') || searchText.includes('cut')) {
+    return { name: 'Washington DC', coordinates: LOCATION_COORDINATES['dc'] }
+  }
   if (searchText.includes('tech') || searchText.includes('startup') || searchText.includes('silicon valley') || searchText.includes('venture capital') || searchText.includes('ai') || searchText.includes('openai') || searchText.includes('google') || searchText.includes('apple')) {
     return { name: 'Silicon Valley', coordinates: LOCATION_COORDINATES['silicon valley'] }
   }
@@ -101,6 +104,12 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
       const displayName = name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
       return { name: displayName, coordinates: coords }
     }
+  }
+
+  // 3. Platform fallback
+  if (market.platform === 'kalshi') {
+    // If no specific location found, default Kalshi markets to USA as they are US-regulated events
+    return { name: 'United States', coordinates: LOCATION_COORDINATES['united states'] }
   }
 
   return undefined

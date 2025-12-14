@@ -21,3 +21,5 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
+
+// Forced restart to pick up new dependencies

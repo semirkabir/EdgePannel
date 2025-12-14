@@ -634,6 +634,7 @@ export class KalshiClient {
       liquidity: market.liquidity || 0,
       endDate: endDate,
       ticker: market.ticker || undefined,
+      slug: market.series_ticker || market.event_ticker,
       rawData: market,
     }
   }

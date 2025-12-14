@@ -274,9 +274,9 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                 <span>
                   {priceChange.isPositive ? '+' : ''}{priceChange.percentage.toFixed(1)}% {
                     timeRange === '1H' ? 'Last Hour' :
-                    timeRange === '1D' ? 'Today' :
-                    timeRange === '1W' ? 'This Week' :
-                    'All Time'
+                      timeRange === '1D' ? 'Today' :
+                        timeRange === '1W' ? 'This Week' :
+                          'All Time'
                   }
                 </span>
               </div>
@@ -406,7 +406,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             <Button
               className="h-12 bg-[#00ff7f] hover:bg-[#00cc66] text-black font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(0,255,127,0.2)] border-0"
               onClick={() => {
-                const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.ticker || activeMarket.id}`);
+                const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.slug || activeMarket.ticker || activeMarket.id}`);
                 window.open(url, '_blank');
               }}
             >
@@ -415,7 +415,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             <Button
               className="h-12 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(255,77,77,0.2)] border-0"
               onClick={() => {
-                const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.ticker || activeMarket.id}`);
+                const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.slug || activeMarket.ticker || activeMarket.id}`);
                 window.open(url, '_blank');
               }}
             >

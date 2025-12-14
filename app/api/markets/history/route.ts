@@ -19,32 +19,58 @@ export async function GET(request: Request) {
 
             let tokenId = assetId
 
-            // If we don't have the assetId (token_id), we need to fetch it from the market details
+            // If we don't have the assetId (token_id), we need to fetch it
             if (!tokenId) {
-                try {
-                    // Fetch market details from CLOB API to get the token ID
-                    // The ID passed is usually the conditionId
-                    const marketResponse = await fetch(`https://clob.polymarket.com/markets/${id}`)
+                // If ID is a slug (doesn't start with 0x), try Gamma API first
+                if (!id.startsWith('0x')) {
+                    try {
+                        const gammaResponse = await fetch(`https://gamma-api.polymarket.com/markets?slug=${id}`)
+                        if (gammaResponse.ok) {
+                            const markets = await gammaResponse.json()
+                            if (Array.isArray(markets) && markets.length > 0) {
+                                const market = markets[0]
+                                // Try to find "Yes" token or default to first
+                                if (market.clobTokenIds && Array.isArray(JSON.parse(market.clobTokenIds))) {
+                                    const tokenIds = JSON.parse(market.clobTokenIds)
+                                    const outcomes = JSON.parse(market.outcomes || '[]')
 
-                    if (marketResponse.ok) {
-                        const marketData = await marketResponse.json()
-
-                        // Find the "Yes" token
-                        if (marketData.tokens && Array.isArray(marketData.tokens)) {
-                            const yesToken = marketData.tokens.find((t: any) =>
-                                t.outcome === 'Yes' || t.outcome === 'YES' || t.outcome === 'True'
-                            )
-
-                            if (yesToken) {
-                                tokenId = yesToken.token_id
-                            } else if (marketData.tokens.length > 0) {
-                                // Fallback to first token if Yes not found
-                                tokenId = marketData.tokens[0].token_id
+                                    const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === 'yes')
+                                    tokenId = yesIndex >= 0 ? tokenIds[yesIndex] : tokenIds[0]
+                                }
                             }
                         }
+                    } catch (e) {
+                        console.error('[History API] Error resolving slug:', e)
                     }
-                } catch (error) {
-                    console.error('[History API] Error fetching market details:', error)
+                }
+
+                // If still no token ID, try CLOB API (assumes ID is condition ID)
+                if (!tokenId) {
+                    try {
+                        // Fetch market details from CLOB API to get the token ID
+                        // The ID passed is usually the conditionId
+                        const marketResponse = await fetch(`https://clob.polymarket.com/markets/${id}`)
+
+                        if (marketResponse.ok) {
+                            const marketData = await marketResponse.json()
+
+                            // Find the "Yes" token
+                            if (marketData.tokens && Array.isArray(marketData.tokens)) {
+                                const yesToken = marketData.tokens.find((t: any) =>
+                                    t.outcome === 'Yes' || t.outcome === 'YES' || t.outcome === 'True'
+                                )
+
+                                if (yesToken) {
+                                    tokenId = yesToken.token_id
+                                } else if (marketData.tokens.length > 0) {
+                                    // Fallback to first token if Yes not found
+                                    tokenId = marketData.tokens[0].token_id
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('[History API] Error fetching market details:', error)
+                    }
                 }
             }
 

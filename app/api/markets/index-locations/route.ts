@@ -51,22 +51,71 @@ export async function POST(request: Request) {
           const privateKey = decrypt(apiKeyRecord.encryptedKeyData)
           const client = new KalshiClient({ accessKeyId, privateKey })
 
-          console.log('[Market Indexer] Fetching Kalshi markets...')
-          const { markets } = await client.getMarkets({ limit })
-          console.log(`[Market Indexer] Fetched ${markets.length} Kalshi markets`)
+          console.log('[Market Indexer] Fetching ALL Kalshi markets with pagination...')
 
-          const kalshiResults = await indexMarkets(markets, 'kalshi', forceReindex)
-          results.platforms.kalshi = kalshiResults
-          results.total += markets.length
-          results.indexed += kalshiResults.indexed
-          results.failed += kalshiResults.failed
-          results.skipped += kalshiResults.skipped
+          let cursor: string | undefined
+          let totalFetched = 0
+          let pageCount = 0
+          const batchSize = 100
+
+          // Loop until no more pages or until we reach the global limit if it was very small (optional)
+          // But since the user wants to index everything usually, we loop properly.
+          // Note: The 'limit' param from URL acts as a batch size or total limit? 
+          // Usually 'limit' in this context meant "how many to fetch". 
+          // If the user said limit=2000, we should stop after 2000.
+
+          let remainingLimit = limit;
+
+          do {
+            pageCount++
+            const fetchSize = Math.min(batchSize, remainingLimit)
+
+            console.log(`[Market Indexer] Fetching Kalshi page ${pageCount} (cursor: ${cursor || 'start'})...`)
+
+            const response = await client.getMarkets({
+              limit: fetchSize,
+              cursor: cursor
+            })
+
+            const markets = response.markets || []
+
+            if (markets.length === 0) {
+              break
+            }
+
+            // Index this batch
+            const batchResults = await indexMarkets(markets, 'kalshi', forceReindex)
+
+            // Accumulate results
+            if (!results.platforms.kalshi) {
+              results.platforms.kalshi = { indexed: 0, failed: 0, skipped: 0 }
+            }
+            results.platforms.kalshi.indexed += batchResults.indexed
+            results.platforms.kalshi.failed += batchResults.failed
+            results.platforms.kalshi.skipped += batchResults.skipped
+
+            results.total += markets.length
+            results.indexed += batchResults.indexed
+            results.failed += batchResults.failed
+            results.skipped += batchResults.skipped
+
+            totalFetched += markets.length
+            remainingLimit -= markets.length
+
+            console.log(`[Market Indexer] Kalshi Page ${pageCount}: Got ${markets.length} markets. Results: ${batchResults.indexed} indexed, ${batchResults.skipped} skipped. Total: ${totalFetched}`)
+
+            cursor = response.nextCursor
+
+            if (remainingLimit <= 0) break;
+
+          } while (cursor)
+
         } else {
           console.log('[Market Indexer] No Kalshi API keys found')
         }
       } catch (error) {
         console.error('[Market Indexer] Error indexing Kalshi markets:', error)
-        results.platforms.kalshi = { indexed: 0, failed: 0, skipped: 0 }
+        if (!results.platforms.kalshi) results.platforms.kalshi = { indexed: 0, failed: 0, skipped: 0 }
       }
     }
 
@@ -76,6 +125,8 @@ export async function POST(request: Request) {
         const client = new PolymarketClient()
 
         console.log('[Market Indexer] Fetching Polymarket markets...')
+        // Polymarket client helper usually handles some pagination, but let's trust it respects 'limit'
+        // or effectively fetches until limit
         const { markets } = await client.getMarkets({ limit })
         console.log(`[Market Indexer] Fetched ${markets.length} Polymarket markets`)
 
@@ -137,17 +188,31 @@ async function indexMarkets(
 
       // Store or update in database
       const marketId = `${platform}-${market.id}`
+      const existing = await prisma.geotaggedMarket.findUnique({
+        where: { marketId }
+      })
 
-      // Check if already indexed (unless force reindex)
-      if (!forceReindex) {
-        const existing = await prisma.geotaggedMarket.findUnique({
-          where: { marketId }
-        })
+      // Smart Update Logic:
+      // 1. If forceReindex: Update it.
+      // 2. If not exists: Create it.
+      // 3. If exists AND has NO location but we found one now: Update it.
+      // 4. If exists AND has location but we found a BETTER one (higher confidence): Update it.
 
-        if (existing) {
-          skipped++
-          continue // Skip already indexed
+      let shouldUpdate = false
+      if (forceReindex || !existing) {
+        shouldUpdate = true
+      } else {
+        // Exists. Check if we can improve it.
+        if (existing.latitude === null && enrichedLocation.coordinates) {
+          shouldUpdate = true // Found location for previously unlocated market
+        } else if (existing.confidence !== 'high' && enrichedLocation.confidence === 'high') {
+          shouldUpdate = true // Found high confidence location for previously low confidence market
         }
+      }
+
+      if (existing && !shouldUpdate) {
+        skipped++
+        continue
       }
 
       // Upsert geotagged market

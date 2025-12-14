@@ -159,8 +159,36 @@ function InnerMap({
     };
   }, [isPlaying, isUserInteracting, isHovering, pauseOnHover, rotationSpeed, selectedMarket]);
 
+  // Track when selection changes to prevent immediate closure during fly-in
+  const lastSelectionTimeRef = useRef(0);
+
+  useEffect(() => {
+    if (selectedMarket) {
+      lastSelectionTimeRef.current = Date.now();
+    }
+  }, [selectedMarket]);
+
+  // Handle manual zoom out to close panel
+  useEffect(() => {
+    // If we have a selected market, the user is interacting, and they zoom out below a threshold
+    // KEY FIX: Ensure we don't trigger this during the initial "fly-in" animation (2 second grace period)
+    const isInGracePeriod = Date.now() - lastSelectionTimeRef.current < 2000;
+
+    if (selectedMarket && isUserInteracting && viewState.zoom < 3.5 && !isInGracePeriod) {
+      console.log('[InnerMap] Users zoomed out, deselecting market');
+      if (onMarketSelect) {
+        onMarketSelect(null);
+      }
+    }
+  }, [selectedMarket, isUserInteracting, viewState.zoom, onMarketSelect]);
+
   // Interaction Handlers
-  const handleInteractionStart = useCallback(() => {
+  const handleInteractionStart = useCallback((e?: any) => {
+    // If event is provided and has no originalEvent, it's likely programmatic (flyTo) - ignore
+    if (e && typeof e === 'object' && 'originalEvent' in e && !e.originalEvent) {
+      return;
+    }
+
     setIsUserInteracting(true);
     if (rotationAnimationRef.current) {
       cancelAnimationFrame(rotationAnimationRef.current);
@@ -250,7 +278,25 @@ function InnerMap({
     if (feature) {
       if (feature.layer.id === 'markets-layer') {
         const marketId = feature.properties?.id;
-        const market = rawMarkets?.find((m: any) => m.id === marketId);
+        // Try to find full market data in rawMarkets (default view) OR from the feature properties itself (search view)
+        let market = rawMarkets?.find((m: any) => m.id === marketId);
+
+        // If using override markets (e.g. search results), rawMarkets might not contain this market.
+        // In that case, we can try to reconstruct/use the properties from the feature itself.
+        if (!market && isUsingOverride) {
+          console.log('[InnerMap] Market not found in rawMarkets (likely from search), using feature properties:', feature.properties);
+          market = {
+            ...feature.properties,
+            // Ensure critical fields are present
+            id: feature.properties.id || feature.properties.market_id,
+            title: feature.properties.title,
+            description: feature.properties.description,
+            platform: feature.properties.platform,
+            volume24h: feature.properties.volume,
+            price: feature.properties.last_price,
+          };
+        }
+
         if (market) {
           handleCardClick(market);
           setSelectedFeature(null);
