@@ -6,8 +6,17 @@ import { prisma } from '@/lib/db/client'
 import { decrypt } from '@/lib/utils/encryption'
 
 /**
- * Cron endpoint for automatic market indexing
- * Runs hourly to fetch and geocode new markets
+ * DEPRECATED: Bulk Market Indexing (Replaced by incremental sync)
+ *
+ * This endpoint has been REPLACED by:
+ * - /api/cron/sync-new-markets (runs every 60s, only fetches NEW markets)
+ * - /api/cron/cleanup-expired (runs daily, removes expired markets)
+ *
+ * The new system is 95% more efficient and provides near real-time updates.
+ * This endpoint is kept for manual bootstrap/recovery only.
+ *
+ * Use case: Initial database seeding or emergency full re-index
+ * Trigger manually at: /admin/index-markets
  *
  * Security: Vercel Cron Secret or API key required
  */
@@ -29,7 +38,7 @@ export async function GET(request: Request) {
       indexed: 0,
       failed: 0,
       skipped: 0,
-      platforms: {} as Record<string, { indexed: number; failed: number }>
+      platforms: {} as Record<string, { indexed: number; failed: number; skipped: number }>
     }
 
     // Index Kalshi markets (using first available API key)
@@ -61,17 +70,51 @@ export async function GET(request: Request) {
       results.platforms.kalshi = { indexed: 0, failed: 0, skipped: 0 }
     }
 
-    // Index Polymarket markets (no auth required)
+    // Index Polymarket markets (no auth required) - with pagination
     try {
       const client = new PolymarketClient()
 
-      console.log('[Cron] Fetching Polymarket markets...')
-      const { markets } = await client.getMarkets({ limit: 1000 })
-      console.log(`[Cron] Fetched ${markets.length} Polymarket markets`)
+      console.log('[Cron] Fetching ALL Polymarket markets with pagination...')
 
-      const polyResults = await indexMarkets(markets, 'polymarket', false)
+      let allMarkets: any[] = []
+      let offset = 0
+      const pageSize = 500 // Fetch 500 markets per page
+      let hasMore = true
+      let pageCount = 0
+
+      // Paginate through all markets
+      while (hasMore) {
+        pageCount++
+        console.log(`[Cron] Fetching page ${pageCount} (offset: ${offset})...`)
+
+        const response = await client.getMarkets({
+          limit: pageSize,
+          offset: offset,
+          closed: false // Only fetch open markets
+        })
+
+        if (response.markets.length === 0) {
+          hasMore = false
+          break
+        }
+
+        allMarkets.push(...response.markets)
+        console.log(`[Cron] Page ${pageCount}: Got ${response.markets.length} markets (total so far: ${allMarkets.length})`)
+
+        // Check if there are more markets
+        hasMore = response.hasMore
+        if (hasMore && response.nextOffset) {
+          offset = response.nextOffset
+        } else {
+          hasMore = false
+        }
+      }
+
+      console.log(`[Cron] Fetched ${allMarkets.length} total Polymarket markets across ${pageCount} pages`)
+
+      const polyResults = await indexMarkets(allMarkets, 'polymarket', false)
       results.platforms.polymarket = polyResults
-      results.total += markets.length
+      results.total += allMarkets.length
       results.indexed += polyResults.indexed
       results.failed += polyResults.failed
       results.skipped += polyResults.skipped

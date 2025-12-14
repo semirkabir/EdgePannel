@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw } from 'lucide-react';
+import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { SearchResults } from './SearchResults';
 import { EnrichedMarket } from '@/lib/markets/enrich';
@@ -77,6 +78,7 @@ export function PolyglobeUI({
   isZoomedIn = false,
   onResetZoom
 }: PolyglobeUIProps) {
+  const router = useRouter();
   const [internalIsPlaying, setInternalIsPlaying] = useState(true);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -237,6 +239,18 @@ export function PolyglobeUI({
           {isProfileOpen && (
             <div className="absolute top-full right-0 mt-2 w-56 bg-[#0e0f11]/95 border border-white/10 rounded-lg shadow-2xl backdrop-blur-xl overflow-hidden">
               <div className="p-2">
+                {/* Portfolio Option */}
+                <button
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    router.push('/dashboard/portfolio');
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-blue-500/10 text-blue-400 transition-colors text-left"
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span className="text-sm font-medium">Portfolio</span>
+                </button>
+
                 {/* Profile Option */}
                 <button
                   onClick={() => {

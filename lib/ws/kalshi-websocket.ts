@@ -31,8 +31,8 @@ export class KalshiWebSocketClient {
 
   constructor(accessKeyId?: string, privateKey?: string, useDemo: boolean = false) {
     this.url = useDemo
-      ? 'wss://demo-api.kalshi.com/trade-api/v2/ws'
-      : 'wss://api.kalshi.com/trade-api/v2/ws'
+      ? 'wss://demo-api.kalshi.co/trade-api/ws/v2'
+      : 'wss://api.elections.kalshi.com/trade-api/ws/v2'
     this.accessKeyId = accessKeyId
     this.privateKey = privateKey
   }
@@ -110,7 +110,10 @@ export class KalshiWebSocketClient {
   }
 
   // V2 API handles multiple tickers in one request
-  subscribe(ticker: string | string[]): void {
+  subscribe(
+    ticker: string | string[],
+    channels: Array<'ticker' | 'orderbook_delta' | 'fill' | 'market_positions' | 'trade' | 'market_lifecycle_v2'> = ['ticker', 'orderbook_delta']
+  ): void {
     const tickers = Array.isArray(ticker) ? ticker : [ticker]
 
     tickers.forEach(t => this.subscriptions.add(t))
@@ -120,26 +123,91 @@ export class KalshiWebSocketClient {
       return
     }
 
-    this.sendSubscribe(tickers)
+    this.sendSubscribe(tickers, channels)
   }
 
-  unsubscribe(ticker: string | string[]): void {
+  unsubscribe(
+    ticker: string | string[],
+    channels: Array<'ticker' | 'orderbook_delta' | 'fill' | 'market_positions' | 'trade' | 'market_lifecycle_v2'> = ['ticker', 'orderbook_delta']
+  ): void {
     const tickers = Array.isArray(ticker) ? ticker : [ticker]
 
     tickers.forEach(t => this.subscriptions.delete(t))
 
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.sendUnsubscribe(tickers)
+      this.sendUnsubscribe(tickers, channels)
     }
   }
 
-  private sendSubscribe(tickers: string[]): void {
+  /**
+   * Subscribe to authenticated user channels (fill, market_positions)
+   * Requires valid API credentials
+   */
+  subscribeToUserChannels(channels: Array<'fill' | 'market_positions'>): void {
+    if (!this.accessKeyId || !this.privateKey) {
+      console.warn('[Kalshi WS] Cannot subscribe to user channels without credentials')
+      return
+    }
+
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.connect().then(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          this.sendUserChannelSubscribe(channels)
+        }
+      })
+      return
+    }
+
+    this.sendUserChannelSubscribe(channels)
+  }
+
+  /**
+   * Subscribe to public channels (trade, market_lifecycle_v2)
+   */
+  subscribeToPublicChannels(
+    channels: Array<'trade' | 'market_lifecycle_v2'>,
+    tickers?: string[]
+  ): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.connect().then(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          this.sendPublicChannelSubscribe(channels, tickers)
+        }
+      })
+      return
+    }
+
+    this.sendPublicChannelSubscribe(channels, tickers)
+  }
+
+  private sendSubscribe(
+    tickers: string[],
+    channels: Array<'ticker' | 'orderbook_delta' | 'fill' | 'market_positions' | 'trade' | 'market_lifecycle_v2'>
+  ): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const message = {
         id: this.msgId++,
         cmd: 'subscribe',
         params: {
-          channels: ['ticker', 'orderbook_delta'],
+          channels,
+          market_tickers: tickers
+        }
+      }
+      console.log('[Kalshi WS] Subscribing to channels:', channels, 'for tickers:', tickers)
+      this.ws.send(JSON.stringify(message))
+    }
+  }
+
+  private sendUnsubscribe(
+    tickers: string[],
+    channels: Array<'ticker' | 'orderbook_delta' | 'fill' | 'market_positions' | 'trade' | 'market_lifecycle_v2'>
+  ): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      const message = {
+        id: this.msgId++,
+        cmd: 'unsubscribe',
+        params: {
+          channels,
           market_tickers: tickers
         }
       }
@@ -147,16 +215,34 @@ export class KalshiWebSocketClient {
     }
   }
 
-  private sendUnsubscribe(tickers: string[]): void {
+  private sendUserChannelSubscribe(channels: Array<'fill' | 'market_positions'>): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const message = {
         id: this.msgId++,
-        cmd: 'unsubscribe',
+        cmd: 'subscribe',
         params: {
-          channels: ['ticker', 'orderbook_delta'],
-          market_tickers: tickers
+          channels
         }
       }
+      console.log('[Kalshi WS] Subscribing to user channels:', channels)
+      this.ws.send(JSON.stringify(message))
+    }
+  }
+
+  private sendPublicChannelSubscribe(
+    channels: Array<'trade' | 'market_lifecycle_v2'>,
+    tickers?: string[]
+  ): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      const message = {
+        id: this.msgId++,
+        cmd: 'subscribe',
+        params: {
+          channels,
+          ...(tickers ? { market_tickers: tickers } : {})
+        }
+      }
+      console.log('[Kalshi WS] Subscribing to public channels:', channels, tickers ? `for tickers: ${tickers}` : '(all)')
       this.ws.send(JSON.stringify(message))
     }
   }

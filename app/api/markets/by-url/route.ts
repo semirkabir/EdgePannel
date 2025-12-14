@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
             rawData: marketData,
           };
 
-          const enriched = await enrichMarket(transformedMarket, 'polymarket');
+          const enriched = enrichMarket(transformedMarket, []);
           return NextResponse.json({ market: enriched });
         } catch (error: any) {
           console.error('[Markets By URL API] Error fetching by slug:', error);
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
             rawData: marketData,
           };
 
-          const enriched = await enrichMarket(transformedMarket, 'polymarket');
+          const enriched = enrichMarket(transformedMarket, []);
           return NextResponse.json({ market: enriched });
         } catch (error: any) {
           console.error('[Markets By URL API] Error fetching by ID:', error);
@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const enriched = await enrichMarket(market, 'kalshi');
+      const enriched = enrichMarket(market, []);
       return NextResponse.json({ market: enriched });
     }
 

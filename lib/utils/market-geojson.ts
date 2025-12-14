@@ -17,16 +17,22 @@ export interface GeoJSONFeatureCollection {
 
 export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
     const features = markets.map((m: any) => {
-        // Fallback coordinates if none found (generic "Global" location at 0,0 or distributed)
-        // Use deterministic pseudo-random based on ID to avoid hydration mismatches and jumping
-        const hasLoc = m.location?.coordinates;
+        // Check for coordinates in multiple formats:
+        // 1. Nested in location.coordinates (standard Market type)
+        // 2. Direct properties latitude/longitude (GeotaggedMarket from DB)
+        const hasNestedCoords = m.location?.coordinates;
+        const hasDirectCoords = m.latitude != null && m.longitude != null;
 
         let lng, lat;
-        if (hasLoc) {
+        if (hasNestedCoords) {
             lng = m.location.coordinates.lng;
             lat = m.location.coordinates.lat;
+        } else if (hasDirectCoords) {
+            // GeotaggedMarket format (latitude/longitude as direct properties)
+            lng = m.longitude;
+            lat = m.latitude;
         } else {
-            // Simple hash of the ID
+            // Fallback: generate deterministic pseudo-random coordinates
             let hash = 0;
             const str = m.id || 'unknown';
             for (let i = 0; i < str.length; i++) {
@@ -41,6 +47,8 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
             lng = (rand1 * 360) - 180;
             lat = (rand2 * 160) - 80;
         }
+
+        const hasValidCoords = hasNestedCoords || hasDirectCoords;
 
         // Fix URL logic could go here too, but likely handled in map tooltip or type
         // We assume properties are mostly passed through
@@ -77,7 +85,7 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
                 price_movement: m.price_movement || 0,
                 isBreakingNews: m.isBreakingNews || false,
                 platform: m.platform,
-                is_random_location: !hasLoc,
+                is_random_location: !hasValidCoords,
                 priceHistory: m.priceHistory ? JSON.stringify(m.priceHistory) : null
             }
         };

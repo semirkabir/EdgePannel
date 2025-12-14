@@ -105,7 +105,7 @@ export function DatabaseSetupNotice() {
                 </div>
                 <div className="flex-1">
                   <p className="text-white font-semibold">Open Supabase SQL Editor</p>
-                  <p className="text-sm text-gray-400">Go to your project's SQL editor</p>
+                  <p className="text-sm text-gray-400">Go to your project&apos;s SQL editor</p>
                 </div>
               </div>
 
@@ -126,7 +126,7 @@ export function DatabaseSetupNotice() {
                 <div className="flex-1">
                   <p className="text-white font-semibold">Paste and Run</p>
                   <p className="text-sm text-gray-400">
-                    Paste the SQL into the editor and click "Run" or press Ctrl+Enter
+                    Paste the SQL into the editor and click &quot;Run&quot; or press Ctrl+Enter
                   </p>
                 </div>
               </div>

@@ -169,6 +169,260 @@ export class KalshiClient {
     return response.data
   }
 
+  /**
+   * Get all market and event positions with P&L
+   */
+  async getPositions(params?: {
+    limit?: number
+    cursor?: string
+    countFilter?: 'position' | 'total_traded'
+    ticker?: string
+    eventTicker?: string
+  }): Promise<{
+    marketPositions: Array<{
+      ticker: string
+      position: number
+      totalTraded: number
+      marketExposure: number
+      realizedPnl: number
+      feesPaid: number
+    }>
+    eventPositions: Array<{
+      eventTicker: string
+      totalCost: number
+      eventExposure: number
+      realizedPnl: number
+    }>
+    cursor?: string
+  }> {
+    try {
+      const response = await (this.portfolioApi as any).getPositions(
+        params?.limit,
+        params?.cursor,
+        params?.countFilter,
+        params?.ticker,
+        params?.eventTicker
+      )
+
+      return {
+        marketPositions: (response.data?.market_positions || []).map((p: any) => ({
+          ticker: p.ticker,
+          position: p.position,
+          totalTraded: p.total_traded,
+          marketExposure: p.market_exposure,
+          realizedPnl: p.realized_pnl,
+          feesPaid: p.fees_paid,
+        })),
+        eventPositions: (response.data?.event_positions || []).map((p: any) => ({
+          eventTicker: p.event_ticker,
+          totalCost: p.total_cost,
+          eventExposure: p.event_exposure,
+          realizedPnl: p.realized_pnl,
+        })),
+        cursor: response.data?.cursor,
+      }
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching positions:', error)
+      return { marketPositions: [], eventPositions: [] }
+    }
+  }
+
+  /**
+   * Get trade execution history (fills)
+   */
+  async getFills(params?: {
+    ticker?: string
+    orderId?: string
+    minTs?: number
+    maxTs?: number
+    limit?: number
+    cursor?: string
+  }): Promise<{
+    fills: Array<{
+      orderId: string
+      ticker: string
+      side: 'yes' | 'no'
+      action: 'buy' | 'sell'
+      count: number
+      price: number
+      createdTime: string
+      isTaker: boolean
+      tradeId: string
+    }>
+    cursor?: string
+  }> {
+    try {
+      const response = await (this.portfolioApi as any).getFills(
+        params?.ticker,
+        params?.orderId,
+        params?.minTs,
+        params?.maxTs,
+        params?.limit,
+        params?.cursor
+      )
+
+      return {
+        fills: (response.data?.fills || []).map((f: any) => ({
+          orderId: f.order_id,
+          ticker: f.ticker,
+          side: f.side,
+          action: f.action,
+          count: f.count,
+          price: f.price / 100, // Convert cents to dollars
+          createdTime: f.created_time,
+          isTaker: f.is_taker,
+          tradeId: f.trade_id,
+        })),
+        cursor: response.data?.cursor,
+      }
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching fills:', error)
+      return { fills: [] }
+    }
+  }
+
+  /**
+   * Get historical settlements and payouts from resolved markets
+   */
+  async getSettlements(params?: {
+    ticker?: string
+    limit?: number
+    cursor?: string
+  }): Promise<{
+    settlements: Array<{
+      ticker: string
+      marketResult: 'yes' | 'no'
+      yesCount: number
+      noCount: number
+      yesTotalCost: number
+      noTotalCost: number
+      revenue: number
+      settlementValue: number
+      settledTime: string
+      feesPaid: number
+    }>
+    cursor?: string
+  }> {
+    try {
+      const response = await (this.portfolioApi as any).getSettlements(
+        params?.ticker,
+        params?.limit,
+        params?.cursor
+      )
+
+      return {
+        settlements: (response.data?.settlements || []).map((s: any) => ({
+          ticker: s.ticker,
+          marketResult: s.market_result,
+          yesCount: s.yes_count,
+          noCount: s.no_count,
+          yesTotalCost: s.yes_total_cost,
+          noTotalCost: s.no_total_cost,
+          revenue: s.revenue,
+          settlementValue: s.settlement_value / 100, // Convert cents to dollars
+          settledTime: s.settled_time,
+          feesPaid: s.fees_paid,
+        })),
+        cursor: response.data?.cursor,
+      }
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching settlements:', error)
+      return { settlements: [] }
+    }
+  }
+
+  /**
+   * Get public trades feed across markets
+   */
+  async getTrades(params?: {
+    ticker?: string
+    limit?: number
+    cursor?: string
+  }): Promise<{
+    trades: Array<{
+      ticker: string
+      yesPrice: number
+      noPrice: number
+      count: number
+      createdTime: string
+      takerSide: 'yes' | 'no'
+    }>
+    cursor?: string
+  }> {
+    try {
+      const response = await (this.marketApi as any).getTrades(
+        params?.ticker,
+        params?.limit,
+        params?.cursor
+      )
+
+      return {
+        trades: (response.data?.trades || []).map((t: any) => ({
+          ticker: t.ticker,
+          yesPrice: t.yes_price / 100,
+          noPrice: t.no_price / 100,
+          count: t.count,
+          createdTime: t.created_time,
+          takerSide: t.taker_side,
+        })),
+        cursor: response.data?.cursor,
+      }
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching trades:', error)
+      return { trades: [] }
+    }
+  }
+
+  /**
+   * Get full order book depth for a market
+   */
+  async getOrderBook(ticker: string): Promise<{
+    bids: Array<{ price: number; quantity: number }>
+    asks: Array<{ price: number; quantity: number }>
+  }> {
+    try {
+      const response = await (this.marketApi as any).getMarketOrderbook(ticker)
+
+      const orderbook = response.data?.orderbook
+
+      return {
+        bids: (orderbook?.yes || []).map((level: any) => ({
+          price: level[0] / 100,
+          quantity: level[1],
+        })),
+        asks: (orderbook?.no || []).map((level: any) => ({
+          price: level[0] / 100,
+          quantity: level[1],
+        })),
+      }
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching orderbook:', error)
+      return { bids: [], asks: [] }
+    }
+  }
+
+  /**
+   * Get exchange status (trading active, maintenance windows)
+   */
+  async getExchangeStatus(): Promise<{
+    exchangeActive: boolean
+    tradingActive: boolean
+    estimatedResumeTime?: string
+  }> {
+    try {
+      const response = await (this.marketApi as any).getExchangeStatus()
+
+      return {
+        exchangeActive: response.data?.exchange_active || false,
+        tradingActive: response.data?.trading_active || false,
+        estimatedResumeTime: response.data?.exchange_estimated_resume_time,
+      }
+    } catch (error) {
+      console.error('[Kalshi Client] Error fetching exchange status:', error)
+      return { exchangeActive: true, tradingActive: true }
+    }
+  }
+
   async createOrder(order: {
     ticker: string
     side: 'yes' | 'no'
@@ -438,11 +692,15 @@ export class KalshiClient {
     }
   }
 
+  /**
+   * Get candlestick/OHLCV data for a market
+   * Uses proper Kalshi API endpoint: GET /series/{series_ticker}/markets/{ticker}/candlesticks
+   */
   async getCandlesticks(ticker: string, interval: string = '1h'): Promise<Candlestick[]> {
     try {
-      // Map interval to time range
-      let periodInterval = 1 // Default 1 minute
-      let minTs = Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
+      // Map interval to Kalshi's period_interval (in minutes)
+      let periodInterval = 60 // Default 1 hour
+      let minTs = Date.now() - 7 * 24 * 60 * 60 * 1000 // Last 7 days
 
       if (interval === '1m') {
         periodInterval = 1
@@ -462,83 +720,48 @@ export class KalshiClient {
       }
 
       const maxTs = Date.now()
+      const startTs = Math.floor(minTs / 1000)
+      const endTs = Math.floor(maxTs / 1000)
 
       console.log(`[Kalshi Client] Fetching candlesticks for ${ticker} from ${new Date(minTs)} to ${new Date(maxTs)} with interval ${interval}`)
 
-      // Use the Kalshi SDK to fetch series history
-      // Note: The actual API endpoint may vary - this is based on common patterns
-      const response = await (this.marketApi as any).getMarketCandlesticks?.(
+      // First, get market details to extract series_ticker
+      const marketResponse = await this.marketApi.getMarket(ticker)
+      const market = marketResponse.data.market as any
+      const seriesTicker = market.series_ticker
+
+      if (!seriesTicker) {
+        console.warn('[Kalshi Client] No series_ticker found for market')
+        return []
+      }
+
+      // Use the proper candlesticks endpoint
+      // SDK method signature: getMarketCandlesticks(seriesTicker, ticker, startTs, endTs, periodInterval)
+      const response = await (this.marketApi as any).getMarketCandlesticks(
+        seriesTicker,
         ticker,
-        Math.floor(minTs / 1000),
-        Math.floor(maxTs / 1000),
+        startTs,
+        endTs,
         periodInterval
       )
 
-      if (response?.data?.candlesticks) {
+      if (response?.data?.candlesticks && Array.isArray(response.data.candlesticks)) {
+        console.log(`[Kalshi Client] Received ${response.data.candlesticks.length} candlesticks`)
+
         return response.data.candlesticks.map((c: any) => ({
-          timestamp: new Date(c.timestamp || c.ts),
-          open: (c.open || 0) / 100,
-          high: (c.high || 0) / 100,
-          low: (c.low || 0) / 100,
-          close: (c.close || 0) / 100,
+          timestamp: new Date(c.end_period_ts * 1000),
+          open: (c.price?.open || 0) / 100,
+          high: (c.price?.high || 0) / 100,
+          low: (c.price?.low || 0) / 100,
+          close: (c.price?.close || 0) / 100,
           volume: c.volume || 0,
         }))
       }
 
-      // Fallback: use price history and construct candlesticks
-      const priceHistory = await this.getPriceHistory(ticker, interval)
-      if (priceHistory.length === 0) {
-        return []
-      }
-
-      // Group price history into candlesticks based on interval
-      const candlesticks: Candlestick[] = []
-      const intervalMs = periodInterval * 60 * 1000
-
-      let currentBucket: typeof priceHistory = []
-      let bucketStartTime = Math.floor(priceHistory[0].timestamp.getTime() / intervalMs) * intervalMs
-
-      for (const point of priceHistory) {
-        const pointBucket = Math.floor(point.timestamp.getTime() / intervalMs) * intervalMs
-
-        if (pointBucket !== bucketStartTime) {
-          // Create candlestick from current bucket
-          if (currentBucket.length > 0) {
-            const prices = currentBucket.map(p => p.price)
-            candlesticks.push({
-              timestamp: new Date(bucketStartTime),
-              open: currentBucket[0].price,
-              high: Math.max(...prices),
-              low: Math.min(...prices),
-              close: currentBucket[currentBucket.length - 1].price,
-              volume: currentBucket.reduce((sum, p) => sum + p.volume, 0),
-            })
-          }
-
-          // Start new bucket
-          currentBucket = [point]
-          bucketStartTime = pointBucket
-        } else {
-          currentBucket.push(point)
-        }
-      }
-
-      // Add final bucket
-      if (currentBucket.length > 0) {
-        const prices = currentBucket.map(p => p.price)
-        candlesticks.push({
-          timestamp: new Date(bucketStartTime),
-          open: currentBucket[0].price,
-          high: Math.max(...prices),
-          low: Math.min(...prices),
-          close: currentBucket[currentBucket.length - 1].price,
-          volume: currentBucket.reduce((sum, p) => sum + p.volume, 0),
-        })
-      }
-
-      return candlesticks
-    } catch (error) {
-      console.error('[Kalshi Client] Error fetching candlesticks:', error)
+      console.warn('[Kalshi Client] No candlesticks data in response')
+      return []
+    } catch (error: any) {
+      console.error('[Kalshi Client] Error fetching candlesticks:', error?.message || error)
       return []
     }
   }

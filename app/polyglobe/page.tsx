@@ -111,7 +111,10 @@ export default function PolyglobePage() {
   useEffect(() => {
     mapFilteredMarkets.forEach(market => {
       if (market.ticker || market.slug) {
-        processTicker(market.ticker || market.slug || '', market.platform);
+        const marketId = market.ticker || market.slug || ''
+        const price = market.price || 0
+        const volume = market.volume24h || 0
+        processTicker(market.platform, marketId, price, volume);
       }
     });
   }, [mapFilteredMarkets, processTicker]);
@@ -294,6 +297,7 @@ export default function PolyglobePage() {
       <CountryNewsPanel
         country={selectedCountry}
         onClose={handleCloseNews}
+        onMarketSelect={handleMarketClick}
       />
 
       <GlobeSettings

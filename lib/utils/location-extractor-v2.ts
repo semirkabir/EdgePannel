@@ -10,6 +10,7 @@
 
 import { COUNTRY_COORDINATES, CITY_COORDINATES, US_STATES } from './geo-data'
 import { detectSportsTeam, SPORTS_TEAMS } from './sports-teams'
+import { detectPoliticalEntity, POLITICAL_ENTITIES } from './political-entities'
 
 export interface LocationInfo {
   country?: string
@@ -33,9 +34,25 @@ export function extractLocation(title: string, description?: string): LocationIn
 
   console.log(`[Location] Analyzing: "${title.substring(0, 100)}"`)
 
-  // Priority 1: Sports teams (most specific)
+  // Priority 0: Political entities (highest priority to avoid false sports matches)
+  const politicalMatch = detectPoliticalEntity(text)
+  if (politicalMatch) {
+    const countryData = Object.values(COUNTRY_COORDINATES).find(c => c.name === politicalMatch.country)
+    if (countryData) {
+      console.log(`[Location] ✓ Political entity → ${politicalMatch.entity} (${politicalMatch.country})`)
+      return {
+        country: countryData.name,
+        coordinates: { lat: countryData.lat, lng: countryData.lng },
+        confidence: 'high',
+        extractedFrom: 'pattern',
+        matchedText: politicalMatch.entity
+      }
+    }
+  }
+
+  // Priority 1: Sports teams (with context validation)
   const sportsMatch = detectSportsTeam(text)
-  if (sportsMatch) {
+  if (sportsMatch && isSportsContext(lowerText)) {
     const cityData = CITY_COORDINATES[sportsMatch.city.toLowerCase()]
     if (cityData) {
       console.log(`[Location] ✓ Sports team → ${cityData.name}, ${cityData.country}`)
@@ -81,6 +98,24 @@ export function extractLocation(title: string, description?: string): LocationIn
 
   console.log(`[Location] ✗ No location found`)
   return null
+}
+
+/**
+ * Check if text has sports context keywords
+ * Helps avoid false positives from partial team name matches
+ */
+function isSportsContext(lowerText: string): boolean {
+  const sportsKeywords = [
+    'vs', 'vs.', 'versus', 'v.', 'v ',
+    'game', 'match', 'playoff', 'championship', 'season', 'finals',
+    'win', 'wins', 'winning', 'won', 'lose', 'defeat',
+    'spread', 'odds', 'over', 'under', 'total', 'points',
+    'score', 'nfl', 'nba', 'mlb', 'nhl', 'league',
+    'team', 'super bowl', 'stanley cup', 'world series',
+    'conference', 'division', 'regular season'
+  ]
+
+  return sportsKeywords.some(keyword => lowerText.includes(keyword))
 }
 
 /**
@@ -178,31 +213,39 @@ function detectCountryWithContext(text: string, lowerText: string): LocationInfo
   // Multiple countries - pick the most relevant one using heuristics
   console.log(`[Location] Found ${foundCountries.length} countries: ${foundCountries.map(c => c.country).join(', ')}`)
 
-  // Heuristic 1: Look for subject indicators
-  const subjectKeywords = ['prime minister', 'president', 'election', 'government', 'capital', 'leader', 'minister']
-  for (const country of foundCountries) {
-    if (subjectKeywords.some(kw => country.context.includes(kw))) {
-      console.log(`[Location] → Selected ${country.country} (subject of market)`)
+  // Heuristic 1: For "X and Y meet in/at Z", pick Z (the location)
+  // This must come FIRST to avoid picking the wrong country
+  const meetingMatch = lowerText.match(/meet\s+(?:next\s+)?(?:in|at)\s+([a-z\s]+?)(?:\s|$|[,?.!])/)
+  if (meetingMatch) {
+    const meetingPlace = meetingMatch[1].trim()
+    const meetingCountry = foundCountries.find(c =>
+      c.country.toLowerCase() === meetingPlace ||
+      c.country.toLowerCase().includes(meetingPlace) ||
+      meetingPlace.includes(c.country.toLowerCase())
+    )
+    if (meetingCountry) {
+      console.log(`[Location] → Selected ${meetingCountry.country} (meeting location)`)
       return {
-        country: country.data.name,
-        coordinates: { lat: country.data.lat, lng: country.data.lng },
+        country: meetingCountry.data.name,
+        coordinates: { lat: meetingCountry.data.lat, lng: meetingCountry.data.lng },
         confidence: 'high',
         extractedFrom: 'context',
-        matchedText: country.data.name
+        matchedText: meetingCountry.data.name
       }
     }
   }
 
   // Heuristic 2: For "X invade Y", pick Y (the target)
-  const invasionMatch = lowerText.match(/(\w+)\s+(?:invade|invades|invasion of|attack|attacks)\s+(\w+)/)
+  const invasionMatch = lowerText.match(/([a-z]+)\s+(?:invade|invades|invasion of|attack|attacks|strike|strikes)\s+([a-z\s]+?)(?:\s|$|[,?.!])/)
   if (invasionMatch) {
-    const target = invasionMatch[2]
+    const target = invasionMatch[2].trim()
     const targetCountry = foundCountries.find(c =>
+      c.country.toLowerCase() === target ||
       c.country.toLowerCase().includes(target) ||
-      target.includes(c.country.toLowerCase().substring(0, 4))
+      target.includes(c.country.toLowerCase())
     )
     if (targetCountry) {
-      console.log(`[Location] → Selected ${targetCountry.country} (invasion target)`)
+      console.log(`[Location] → Selected ${targetCountry.country} (invasion/strike target)`)
       return {
         country: targetCountry.data.name,
         coordinates: { lat: targetCountry.data.lat, lng: targetCountry.data.lng },
@@ -213,22 +256,17 @@ function detectCountryWithContext(text: string, lowerText: string): LocationInfo
     }
   }
 
-  // Heuristic 3: For "X and Y meet in Z", pick Z (the location)
-  const meetingMatch = lowerText.match(/meet\s+(?:next\s+)?(?:in|at)\s+(\w+)/)
-  if (meetingMatch) {
-    const meetingPlace = meetingMatch[1]
-    const meetingCountry = foundCountries.find(c =>
-      c.country.toLowerCase().includes(meetingPlace) ||
-      meetingPlace.includes(c.country.toLowerCase().substring(0, 4))
-    )
-    if (meetingCountry) {
-      console.log(`[Location] → Selected ${meetingCountry.country} (meeting location)`)
+  // Heuristic 3: Look for subject indicators (political context)
+  const subjectKeywords = ['prime minister', 'president', 'election', 'government', 'capital', 'leader', 'minister', 'parliament', 'senate', 'congress']
+  for (const country of foundCountries) {
+    if (subjectKeywords.some(kw => country.context.includes(kw))) {
+      console.log(`[Location] → Selected ${country.country} (subject of market)`)
       return {
-        country: meetingCountry.data.name,
-        coordinates: { lat: meetingCountry.data.lat, lng: meetingCountry.data.lng },
+        country: country.data.name,
+        coordinates: { lat: country.data.lat, lng: country.data.lng },
         confidence: 'high',
         extractedFrom: 'context',
-        matchedText: meetingCountry.data.name
+        matchedText: country.data.name
       }
     }
   }
@@ -278,7 +316,7 @@ function detectCountry(text: string): LocationInfo | null {
       key.toLowerCase(),
       data.demonym?.toLowerCase(),
       ...(data.aliases || []).map(a => a.toLowerCase())
-    ].filter(Boolean)
+    ].filter((v): v is string => typeof v === 'string')
 
     for (const variation of variations) {
       const regex = new RegExp(`\\b${variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')

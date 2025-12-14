@@ -456,6 +456,220 @@ export class PolymarketClient {
     return this.request(`/book?market=${marketId}`)
   }
 
+  /**
+   * Get order books for multiple tokens in batch
+   */
+  async getOrderBooks(tokenIds: string[]): Promise<Record<string, any>> {
+    try {
+      const response = await fetch(`${this.baseUrl}/books`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {}),
+        },
+        body: JSON.stringify(tokenIds),
+      })
+
+      if (!response.ok) {
+        console.error('[Polymarket] Error fetching batch order books:', response.status)
+        return {}
+      }
+
+      return response.json()
+    } catch (error) {
+      console.error('[Polymarket] Error fetching batch order books:', error)
+      return {}
+    }
+  }
+
+  /**
+   * Get prices for multiple tokens in batch
+   */
+  async getPrices(tokenIds: string[]): Promise<Record<string, { price: number; side: string }>> {
+    try {
+      const response = await fetch(`${this.baseUrl}/prices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tokenIds),
+      })
+
+      if (!response.ok) {
+        console.error('[Polymarket] Error fetching batch prices:', response.status)
+        return {}
+      }
+
+      return response.json()
+    } catch (error) {
+      console.error('[Polymarket] Error fetching batch prices:', error)
+      return {}
+    }
+  }
+
+  /**
+   * Get top position holders for a market (whale tracking)
+   */
+  async getHolders(conditionId: string, limit: number = 100): Promise<Array<{
+    address: string
+    amount: number
+    outcome: string
+  }>> {
+    try {
+      const url = new URL('https://data-api.polymarket.com/holders')
+      url.searchParams.set('market', conditionId)
+      url.searchParams.set('limit', String(limit))
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        console.error('[Polymarket] Error fetching holders:', response.status)
+        return []
+      }
+
+      const data = await response.json()
+      return data || []
+    } catch (error) {
+      console.error('[Polymarket] Error fetching holders:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get all trades across users/markets (market activity)
+   */
+  async getTrades(params?: {
+    limit?: number
+    offset?: number
+    takerOnly?: boolean
+    filterType?: string
+    filterAmount?: number
+    market?: string
+    user?: string
+    side?: string
+  }): Promise<Array<{
+    id: string
+    market: string
+    asset: string
+    side: string
+    size: number
+    price: number
+    timestamp: string
+    trader: string
+  }>> {
+    try {
+      const url = new URL('https://data-api.polymarket.com/trades')
+
+      if (params?.limit) url.searchParams.set('limit', String(params.limit))
+      if (params?.offset) url.searchParams.set('offset', String(params.offset))
+      if (params?.takerOnly) url.searchParams.set('takerOnly', 'true')
+      if (params?.market) url.searchParams.set('market', params.market)
+      if (params?.user) url.searchParams.set('user', params.user)
+      if (params?.side) url.searchParams.set('side', params.side)
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        console.error('[Polymarket] Error fetching trades:', response.status)
+        return []
+      }
+
+      const data = await response.json()
+      return data || []
+    } catch (error) {
+      console.error('[Polymarket] Error fetching trades:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get user positions with P&L
+   */
+  async getPositions(userAddress: string, params?: {
+    market?: string
+    sizeThreshold?: number
+    redeemable?: boolean
+    mergeable?: boolean
+    limit?: number
+    offset?: number
+    sortBy?: string
+    sortDirection?: 'asc' | 'desc'
+  }): Promise<Array<{
+    market: string
+    asset: string
+    size: number
+    currentValue: number
+    initialValue: number
+    cashPnl: number
+    percentPnl: number
+    avgEntryPrice: number
+  }>> {
+    try {
+      const url = new URL('https://data-api.polymarket.com/positions')
+      url.searchParams.set('user', userAddress)
+
+      if (params?.market) url.searchParams.set('market', params.market)
+      if (params?.sizeThreshold) url.searchParams.set('sizeThreshold', String(params.sizeThreshold))
+      if (params?.limit) url.searchParams.set('limit', String(params.limit))
+      if (params?.offset) url.searchParams.set('offset', String(params.offset))
+      if (params?.sortBy) url.searchParams.set('sortBy', params.sortBy)
+      if (params?.sortDirection) url.searchParams.set('sortDirection', params.sortDirection)
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        console.error('[Polymarket] Error fetching positions:', response.status)
+        return []
+      }
+
+      const data = await response.json()
+      return data || []
+    } catch (error) {
+      console.error('[Polymarket] Error fetching positions:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get user's total portfolio value
+   */
+  async getPortfolioValue(userAddress: string, market?: string): Promise<number> {
+    try {
+      const url = new URL('https://data-api.polymarket.com/value')
+      url.searchParams.set('user', userAddress)
+      if (market) url.searchParams.set('market', market)
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        console.error('[Polymarket] Error fetching portfolio value:', response.status)
+        return 0
+      }
+
+      const data = await response.json()
+      return data?.value || 0
+    } catch (error) {
+      console.error('[Polymarket] Error fetching portfolio value:', error)
+      return 0
+    }
+  }
+
   async createOrder(order: {
     market: string
     side: 'buy' | 'sell'

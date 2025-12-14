@@ -3,6 +3,7 @@
 import { SessionProvider } from 'next-auth/react'
 import { SWRConfig } from 'swr'
 import { Toaster } from '@/components/ui/toaster'
+import { Toaster as SonnerToaster } from 'sonner'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { toast } from '@/hooks/use-toast'
 
@@ -40,6 +41,7 @@ export function Providers({ children }: ProvidersProps) {
         <SessionProvider>
           {children}
           <Toaster />
+          <SonnerToaster position="top-right" theme="dark" richColors />
         </SessionProvider>
       </SWRConfig>
     </ErrorBoundary>

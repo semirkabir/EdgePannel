@@ -187,7 +187,7 @@ export default function IndexMarketsPage() {
           <div className="mt-4 text-sm text-gray-400">
             <p>• Initial indexing extracts locations from market titles and descriptions</p>
             <p>• Only markets not already indexed will be processed (unless force reindex)</p>
-            <p>• Use "Clear All & Re-index" if location extraction logic was updated</p>
+            <p>• Use &quot;Clear All &amp; Re-index&quot; if location extraction logic was updated</p>
             <p>• This may take 1-2 minutes for 2000+ markets</p>
           </div>
         </Card>

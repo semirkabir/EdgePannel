@@ -1,8 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/cron/index-markets",
-      "schedule": "0 * * * *"
+      "path": "/api/cron/sync-new-markets",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-expired",
+      "schedule": "0 3 * * *"
     }
   ]
 }
