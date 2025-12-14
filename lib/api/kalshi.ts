@@ -76,7 +76,7 @@ export class KalshiClient {
 
       // Log sample market structure for debugging
       if (markets.length > 0) {
-        const sample = markets[0]
+        const sample = markets[0] as any
         console.log('[Kalshi Client] Sample market structure:', {
           ticker: sample.ticker,
           title: sample.title,
@@ -165,7 +165,7 @@ export class KalshiClient {
   }
 
   async getPortfolio(): Promise<any> {
-    const response = await this.portfolioApi.getBalance()
+    const response = await (this.portfolioApi as any).getBalance()
     return response.data
   }
 

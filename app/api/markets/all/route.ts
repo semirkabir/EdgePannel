@@ -127,10 +127,10 @@ export async function GET(request: Request) {
 
     if (kalshiClient && markets.length > 0) {
       try {
-        const kalshiResult = await kalshiClient.getMarkets({ limit: 1, cursor })
-        if (kalshiResult.nextCursor) {
+        const { markets: kalshiMarkets, nextCursor: kNextCursor } = await kalshiClient.getMarkets({ limit: 1, cursor })
+        if (kNextCursor) {
           hasMore = true
-          nextCursor = kalshiResult.nextCursor
+          nextCursor = kNextCursor
         }
       } catch (error) {
         // Ignore errors when checking for next page
@@ -139,10 +139,10 @@ export async function GET(request: Request) {
 
     if (polymarketClient && markets.length > 0) {
       try {
-        const polymarketResult = await polymarketClient.getMarkets({ limit: 1, offset })
-        if (polymarketResult.hasMore) {
+        const { markets: polymarketMarkets, hasMore: pmHasMore, nextOffset: pmNextOffset } = await polymarketClient.getMarkets({ limit: 1, offset })
+        if (pmHasMore) {
           hasMore = true
-          nextOffset = polymarketResult.nextOffset
+          nextOffset = pmNextOffset
         }
       } catch (error) {
         // Ignore errors when checking for next page

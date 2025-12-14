@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
     let accessKeyId: string
     let privateKey: string
-    
+
     try {
       accessKeyId = decrypt(apiKeyRecord.encryptedKey)
       privateKey = decrypt(apiKeyRecord.encryptedKeyData)
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
       const limit = parseInt(searchParams.get('limit') || '100')
 
       console.log(`[Kalshi] Fetching markets (limit: ${limit})`)
-      const markets = await client.getMarkets({ limit })
+      const { markets } = await client.getMarkets({ limit })
       console.log(`[Kalshi] Successfully fetched ${markets.length} markets`)
 
       return NextResponse.json({ markets })

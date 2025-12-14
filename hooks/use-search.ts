@@ -15,6 +15,7 @@ interface SearchParams {
   limit?: number
   cursor?: string
   offset?: number
+  sort?: 'volume' | 'relevance' | 'liquidity'
 }
 
 interface SearchResponse {
@@ -56,15 +57,16 @@ export function useSearch(params: SearchParams) {
         debounceTimerRef.current = null
       }
     }
-  }, [params.q, params.platform, params.category, params.minProbability, params.maxProbability, params.limit])
+  }, [params.q, params.platform, params.category, params.minProbability, params.maxProbability, params.limit, params.sort])
 
   // Build search URL
   const searchUrl = useCallback(() => {
-    if (!debouncedParams.q && !debouncedParams.platform && !debouncedParams.category) {
-      return null // Don't search if no params
-    }
+    if (typeof window === 'undefined') return null
 
-    const url = new URL('/api/markets/search', window.location.origin)
+    // Use a dummy base for URL construction, then extract relative path + query
+    const baseUrl = 'http://localhost'
+    const url = new URL('/api/markets/search', baseUrl)
+
     if (debouncedParams.q) url.searchParams.set('q', debouncedParams.q)
     if (debouncedParams.platform && debouncedParams.platform !== 'all') {
       url.searchParams.set('platform', debouncedParams.platform)
@@ -81,8 +83,10 @@ export function useSearch(params: SearchParams) {
     if (debouncedParams.offset !== undefined) {
       url.searchParams.set('offset', String(debouncedParams.offset))
     }
+    if (debouncedParams.sort) url.searchParams.set('sort', debouncedParams.sort)
 
-    return url.toString()
+    // Return relative path and query string
+    return url.pathname + url.search
   }, [debouncedParams])
 
   const url = searchUrl()
@@ -130,16 +134,10 @@ export function useSearch(params: SearchParams) {
   const loadMore = useCallback(() => {
     if (!data?.pagination.hasMore) return
 
-    const nextParams: SearchParams = {
-      ...debouncedParams,
-      cursor: data.pagination.nextCursor || undefined,
-      offset: data.pagination.nextOffset || undefined,
-    }
-
     // TODO: Implement pagination using SWR infinite if needed
     // For now, simple mutation trigger
     mutate()
-  }, [data, debouncedParams, mutate])
+  }, [data, mutate])
 
   return {
     markets: liveMarkets,

@@ -36,6 +36,44 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
   }
 
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!activeMarket?.id || !activeMarket.platform) return
+
+      // If we already have history and it matches the requested range/granularity, maybe skip?
+      // For now, simple fetch on mount/change
+
+      setIsLoadingHistory(true)
+      try {
+        // Map timeRange to interval
+        let interval = '1d'
+        if (timeRange === '1H') interval = '1m' // or 5m
+        else if (timeRange === '1D') interval = '1h'
+        else if (timeRange === '1W') interval = '6h'
+        else if (timeRange === 'ALL') interval = '1d'
+
+        const response = await fetch(`/api/markets/history?id=${activeMarket.id}&platform=${activeMarket.platform}&interval=${interval}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.history && Array.isArray(data.history)) {
+            setActiveMarket(prev => prev ? ({
+              ...prev,
+              priceHistory: data.history
+            }) : null)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch history:', error)
+      } finally {
+        setIsLoadingHistory(false)
+      }
+    }
+
+    fetchHistory()
+  }, [activeMarket?.id, activeMarket?.platform, timeRange])
+
   // Mock tweets
   const mockTweets = [
     { id: 1, user: 'MarketAnalyst', handle: '@analyst_top', text: `Huge movement on "${activeMarket?.title}" today! Volume spiking. #predictionmarkets`, time: '2m ago' },
@@ -103,7 +141,15 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs tracking-wider">
-            Waiting for chart data...
+            {isLoadingHistory ? (
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            ) : (
+              'No chart data available'
+            )}
           </div>
         )}
       </div>

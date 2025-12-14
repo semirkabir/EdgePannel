@@ -57,9 +57,14 @@ export function useMarketWebSocket(options: UseMarketWebSocketOptions) {
       setPolymarketClient(client)
 
       client.connect().then(() => {
-        setIsConnected(true)
+        if (polymarketClientRef.current === client) {
+          setIsConnected(true)
+        }
       }).catch((error) => {
-        console.error('[useMarketWebSocket] Failed to connect Polymarket WS:', error)
+        // Only log if we're still using this client
+        if (polymarketClientRef.current === client) {
+          console.error('[useMarketWebSocket] Failed to connect Polymarket WS:', error)
+        }
       })
 
       return () => {

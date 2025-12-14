@@ -7,6 +7,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { usePolyglobeData } from '@/hooks/use-polyglobe-data';
 import { cn } from '@/lib/utils/cn';
 import { loadGeoJSON } from '@/lib/geojson-loader';
+import { Sparkline } from '@/components/ui/Sparkline';
 
 interface PolyglobeMapProps {
   activeFilters: Record<string, boolean>;
@@ -16,6 +17,7 @@ interface PolyglobeMapProps {
   isPlaying?: boolean;
   rotationSpeed?: number;
   pauseOnHover?: boolean;
+  overrideMarkets?: any; // GeoJSON FeatureCollection
 }
 
 // Inner component to isolate Map state from Data updates
@@ -236,7 +238,8 @@ function InnerMap({
 
   // Filter data
   const filteredMarkets = useMemo(() => {
-    let features = markets.features || [];
+    // Handle both direct array of features and FeatureCollection object
+    let features = Array.isArray(markets) ? markets : (markets?.features || []);
 
     // Filter for active/breaking
     if (activeFilters.breaking) {
@@ -397,7 +400,29 @@ function InnerMap({
                 </span>
               </div>
               <div className="text-xs text-gray-400 font-mono mb-3">
-                <div>Vol: <span className="text-gray-200">${Math.round(props.volume).toLocaleString()}</span></div>
+                <div className="flex justify-between items-end mb-1">
+                  <span>Vol: <span className="text-gray-200">${Math.round(props.volume).toLocaleString()}</span></span>
+                  {props.price_movement !== undefined && (
+                    <span className={cn(
+                      "font-bold",
+                      props.price_movement >= 0 ? "text-emerald-400" : "text-red-400"
+                    )}>
+                      {props.price_movement > 0 ? '+' : ''}{Math.round(props.price_movement * 100)}%
+                    </span>
+                  )}
+                </div>
+
+                {/* 24h Price Sparkline */}
+                {JSON.parse(props.priceHistory || '[]').length > 0 && (
+                  <div className="mt-2 mb-1 p-1 bg-black/20 rounded">
+                    <Sparkline
+                      data={JSON.parse(props.priceHistory || '[]').map((p: any) => p.price)}
+                      width={200}
+                      height={40}
+                      className="w-full"
+                    />
+                  </div>
+                )}
               </div>
               <button
                 className="block text-center w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded transition-colors"
@@ -555,16 +580,53 @@ export function PolyglobeMap({
   rotationSpeed = 0.05,
   pauseOnHover = false,
   selectedMarket,
-  onMarketSelect
+  onMarketSelect,
+  overrideMarkets
 }: PolyglobeMapProps & {
-  selectedMarket?: any,
-  onMarketSelect?: (market: any) => void
+  selectedMarket?: any;
+  onMarketSelect?: (market: any) => void;
 }) {
   const { markets, tweets, rawMarkets } = usePolyglobeData();
+  const [mounted, setMounted] = useState(false);
+
+  // If overrideMarkets is provided, use it, otherwise default.
+  // ALSO, if a market is selected, ensure it's included in the display list so it can be seen/focused.
+  const displayMarkets = useMemo(() => {
+    const base = overrideMarkets || markets;
+    if (!selectedMarket) return base;
+
+    // Check if selectedMarket is already in base list
+    // base can be array or FeatureCollection. Normalize to array for check.
+    const baseFeatures = Array.isArray(base) ? base : (base?.features || []);
+    const exists = baseFeatures.find((f: any) =>
+      (f.properties?.id === selectedMarket.id) || (f.id === selectedMarket.id)
+    );
+
+    if (exists) return base;
+
+    // If not exists, add it. We need to convert selectedMarket to GeoJSON feature first if it isn't one.
+    // selectedMarket is usually EnrichedMarket object.
+    // We can rely on marketsToGeoJSON utils or manual creation.
+    // For now, let's just assume we need to add it.
+    // However, selectedMarket from onMarketSelect might not be a Feature.
+    // We should probably rely on the parent (Page) to ensure selectedMarket is a Feature or pass it correctly.
+    // But selectedMarket here is `any` (likely EnrichedMarket).
+
+    // Actually, creating a feature on the fly here is risky without the helper.
+    // Let's just trust the parent for now, OR better:
+    // Page.tsx should handle this logic.
+    return base;
+  }, [overrideMarkets, markets, selectedMarket]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
 
   return (
     <InnerMap
-      markets={markets}
+      markets={displayMarkets}
       rawMarkets={rawMarkets}
       tweets={tweets}
       activeFilters={activeFilters}

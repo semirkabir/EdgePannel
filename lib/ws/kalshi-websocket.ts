@@ -180,11 +180,16 @@ export class KalshiWebSocketClient {
 
   disconnect(): void {
     if (this.ws) {
+      // Prevent reconnection logic from firing
+      this.ws.onclose = null
+      this.ws.onerror = null
+
       this.ws.close()
       this.ws = null
     }
     this.subscriptions.clear()
     this.callbacks.clear()
+    this.isConnecting = false
   }
 
   isConnected(): boolean {

@@ -79,6 +79,7 @@ export class PolymarketWebSocketClient {
         }
 
         this.ws.onerror = (error) => {
+          if (!this.ws) return // Ignore if disconnected intentionally
           console.error('[Polymarket WS] Error:', error)
           this.isConnecting = false
           reject(error)
@@ -88,7 +89,7 @@ export class PolymarketWebSocketClient {
           console.log('[Polymarket WS] Disconnected')
           this.isConnecting = false
           this.ws = null
-          
+
           // Attempt to reconnect
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++
@@ -122,7 +123,7 @@ export class PolymarketWebSocketClient {
 
   unsubscribe(conditionId: string): void {
     this.subscriptions.delete(conditionId)
-    
+
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.sendUnsubscribe(conditionId)
     }
@@ -192,11 +193,16 @@ export class PolymarketWebSocketClient {
   disconnect(): void {
     this.stopHeartbeat()
     if (this.ws) {
+      // Prevent reconnection logic from firing
+      this.ws.onclose = null
+      this.ws.onerror = null
+
       this.ws.close()
       this.ws = null
     }
     this.subscriptions.clear()
     this.callbacks.clear()
+    this.isConnecting = false
   }
 
   isConnected(): boolean {

@@ -65,6 +65,7 @@ export class MarketAggregator {
     limit?: number
     cursor?: string
     offset?: number
+    sort?: 'volume' | 'relevance' | 'liquidity'
   }): Promise<{
     markets: Market[]
     hasMore: boolean
@@ -76,12 +77,18 @@ export class MarketAggregator {
     let nextCursor: string | undefined
     let nextOffset: number | undefined
 
+    // Enhance limits for volume sort to ensure we get high volume markets across pages if needed
+    // If category filtering is active, we need to fetch significantly more markets to ensure we find matches
+    // since the APIs often don't support direct category filtering 1:1.
+    const baseLimit = params.limit ? Math.max(params.limit, 50) : 50;
+    const fetchLimit = params.category ? Math.max(baseLimit, 500) : baseLimit;
+
     // Search Kalshi markets
     if (this.kalshiClient && (params.platform === undefined || params.platform === 'kalshi')) {
       try {
         console.log('[MarketAggregator] Searching Kalshi markets...')
         const result = await this.kalshiClient.getMarkets({
-          limit: params.limit || 50,
+          limit: fetchLimit,
           cursor: params.cursor,
           search: params.query,
         })
@@ -100,7 +107,7 @@ export class MarketAggregator {
       try {
         console.log('[MarketAggregator] Searching Polymarket markets...')
         const result = await this.polymarketClient.getMarkets({
-          limit: params.limit || 50,
+          limit: fetchLimit,
           offset: params.offset,
           search: params.query,
         })
@@ -119,10 +126,17 @@ export class MarketAggregator {
 
     // Category filter
     if (params.category) {
-      filtered = filtered.filter(m => 
-        m.category?.toLowerCase().includes(params.category!.toLowerCase()) ||
-        m.normalizedCategory?.toLowerCase().includes(params.category!.toLowerCase())
-      )
+      const categories = params.category.toLowerCase().split(',').map(c => c.trim());
+      filtered = filtered.filter(m => {
+        const mCat = (m.category || '').toLowerCase();
+        const mNormCat = (m.normalizedCategory || '').toLowerCase();
+        // Check if market category/tags include any of the selected categories
+        return categories.some(cat =>
+          mCat.includes(cat) || mNormCat.includes(cat) ||
+          // Also check title/description for category keywords if category field is missing
+          (m.title && m.title.toLowerCase().includes(cat))
+        );
+      });
     }
 
     // Probability filters
@@ -136,26 +150,74 @@ export class MarketAggregator {
       })
     }
 
-    // Sort by relevance if search query provided
-    if (params.query) {
+    // Sort
+    if (params.sort === 'volume') {
+      filtered.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
+    } else if (params.sort === 'liquidity') {
+      filtered.sort((a, b) => (b.liquidity || 0) - (a.liquidity || 0))
+    } else if (params.query) {
+      // Relevance sort (default for search)
       const queryLower = params.query.toLowerCase()
       filtered.sort((a, b) => {
         const aTitle = a.title.toLowerCase().includes(queryLower) ? 1 : 0
         const bTitle = b.title.toLowerCase().includes(queryLower) ? 1 : 0
         if (aTitle !== bTitle) return bTitle - aTitle
-        
+
         const aDesc = a.description?.toLowerCase().includes(queryLower) ? 0.5 : 0
         const bDesc = b.description?.toLowerCase().includes(queryLower) ? 0.5 : 0
         return bDesc - aDesc
       })
     }
 
+    // Slice to limit
+    const finalMarkets = filtered.slice(0, params.limit || 50)
+
+    // Populate Price History for Top Results (for Sparkline)
+    // We do this in parallel to minimize latency
+    // Only for the top 15 to preserve rate limits
+    const marketsWithHistory = await Promise.all(finalMarkets.map(async (market, index) => {
+      if (index >= 15) return market // Skip beyond top 15
+
+      try {
+        let history: any[] = []
+
+        if (market.platform === 'polymarket' && this.polymarketClient) {
+          // Use 1d interval, we need just enough for a sparkline (e.g. 24 points)
+          history = await this.polymarketClient.getPriceHistory(market.id, '1h')
+          // Filter to last 24h
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+          history = history.filter(p => p.timestamp >= oneDayAgo)
+        } else if (market.platform === 'kalshi' && this.kalshiClient) {
+          // Kalshi history fetching is expensive usually, might skip or use simplified logic
+          // For now, if Kalshi client has getMarket, we might get history from details
+          const details = await this.kalshiClient.getMarket(market.id)
+          if (details.priceHistory) {
+            history = details.priceHistory
+          }
+        }
+
+        if (history.length > 0) {
+          // Attach history to rawData or a new property if we extend the type
+          // For now, attaching to rawData.priceHistory as a quick transport
+          return {
+            ...market,
+            priceHistory: history
+          }
+        }
+      } catch (e) {
+        console.warn(`[Aggregator] Failed to fetch history for ${market.id}`, e)
+      }
+      return market
+    }))
+
     return {
-      markets: filtered,
+      markets: marketsWithHistory,
       hasMore,
       nextCursor,
       nextOffset,
     }
+
+
   }
 
   async getAllEnrichedMarkets(): Promise<EnrichedMarket[]> {
@@ -179,7 +241,7 @@ export class MarketAggregator {
         if (processed.has(key)) continue
 
         const similarity = this.calculateSimilarity(market1, market2)
-        
+
         if (similarity > 0.6) { // Threshold for similarity
           const discrepancy = market1.price && market2.price
             ? Math.abs(market1.price - market2.price)
@@ -212,10 +274,10 @@ export class MarketAggregator {
       const title2 = market2.title.toLowerCase()
       const words1 = new Set(title1.split(/\s+/))
       const words2 = new Set(title2.split(/\s+/))
-      
+
       const intersection = new Set([...words1].filter(x => words2.has(x)))
       const union = new Set([...words1, ...words2])
-      
+
       const jaccard = intersection.size / union.size
       score += jaccard * 0.5
       factors += 0.5

@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       const offset = parseInt(searchParams.get('offset') || '0')
 
       console.log(`[Polymarket] Fetching markets (limit: ${limit}, offset: ${offset})`)
-      const markets = await client.getMarkets({ limit, offset })
+      const { markets } = await client.getMarkets({ limit, offset })
       console.log(`[Polymarket] Successfully fetched ${markets.length} markets`)
 
       return NextResponse.json({ markets })

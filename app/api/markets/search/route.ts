@@ -17,12 +17,13 @@ interface SearchParams {
   limit?: string
   cursor?: string
   offset?: string
+  sort?: string
 }
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    
+
     // Parse query parameters
     const params: SearchParams = {
       q: searchParams.get('q') || undefined,
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
       limit: searchParams.get('limit') || '50',
       cursor: searchParams.get('cursor') || undefined,
       offset: searchParams.get('offset') || undefined,
+      sort: searchParams.get('sort') || undefined,
     }
 
     console.log('[Search API] Search params:', params)
@@ -40,7 +42,7 @@ export async function GET(request: Request) {
     // Get user ID - use mock if auth is disabled
     let userId: string
     const { AUTH_ENABLED, MOCK_USER_ID } = await import('@/lib/auth-config')
-    
+
     if (AUTH_ENABLED) {
       const session = await getServerSession(authOptions)
       if (!session?.user?.id) {
@@ -107,6 +109,7 @@ export async function GET(request: Request) {
 
     // Parse limit
     const limit = parseInt(params.limit || '50', 10)
+    const safeLimit = isNaN(limit) ? 50 : limit
     const minProb = params.minProbability ? parseFloat(params.minProbability) : undefined
     const maxProb = params.maxProbability ? parseFloat(params.maxProbability) : undefined
 
@@ -117,9 +120,10 @@ export async function GET(request: Request) {
       category: params.category,
       minProbability: minProb,
       maxProbability: maxProb,
-      limit,
+      limit: safeLimit,
       cursor: params.cursor,
       offset: params.offset ? parseInt(params.offset, 10) : undefined,
+      sort: params.sort as any,
     })
 
     // Enrich results
@@ -138,8 +142,9 @@ export async function GET(request: Request) {
     })
   } catch (error: any) {
     console.error('[Search API] Error searching markets:', error)
+    console.error('[Search API] Stack:', error.stack)
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to search markets',
         markets: [],
         pagination: {

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useMarkets } from './use-markets';
 import { useMarketWebSocket } from './use-market-websocket';
 import { MOCK_TWEETS } from '@/lib/polyglobe-data';
+import { marketsToGeoJSON } from '@/lib/utils/market-geojson';
 import type { Market } from '@/types/market';
 
 // GeoJSON types
@@ -45,51 +46,7 @@ export function usePolyglobeData() {
     // Combine lists
     const mixedMarkets = [...polyMarkets, ...kalshiMarkets];
 
-    return mixedMarkets.map((m: any) => {
-      // Fallback coordinates if none found (generic "Global" location at 0,0 or distributed)
-      // Distribute them slightly to avoid perfect overlap at 0,0
-      const hasLoc = m.location?.coordinates;
-      const lng = hasLoc ? m.location.coordinates.lng : (Math.random() * 360 - 180);
-      const lat = hasLoc ? m.location.coordinates.lat : (Math.random() * 160 - 80);
-
-      // Fix Kalshi URL: Prefer series_ticker from rawData
-      let marketUrl = m.url;
-      if (!marketUrl) {
-        if (m.platform === 'polymarket') {
-          marketUrl = `https://polymarket.com/market/${m.slug || m.id}`;
-        } else {
-          // Kalshi: Try rawData.series_ticker, then m.series_ticker, then ticker
-          const series = m.rawData?.series_ticker || m.series_ticker;
-          marketUrl = `https://kalshi.com/markets/${series || m.ticker}`;
-        }
-      }
-
-      return {
-        type: 'Feature' as const,
-        geometry: {
-          type: 'Point' as const,
-          coordinates: [lng, lat]
-        },
-        properties: {
-          id: m.id,
-          market_id: m.id,
-          title: m.title,
-          slug: m.id,
-          url: marketUrl,
-          last_price: m.price || 0,
-          volume: m.volume24h || 0,
-          image_url: null,
-          is_open: true,
-          description: m.description,
-          price_movement: m.price_movement || 0,
-          isBreakingNews: m.isBreakingNews || false,
-          // Add platform to properties for styling
-          platform: m.platform,
-          // Flag to indicate if this is a random location
-          is_random_location: !hasLoc
-        }
-      };
-    });
+    return marketsToGeoJSON(mixedMarkets).features;
   }, [localMarkets]);
 
   // 3. Construct tweet features
