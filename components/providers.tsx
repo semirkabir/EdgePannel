@@ -21,10 +21,11 @@ export function Providers({ children }: ProvidersProps) {
             if (error?.status === 401) return
             
             // Show error toast for other errors
-            toast.error(
-              'Failed to load data',
-              error?.message || 'Please check your connection and try again'
-            )
+            toast({
+              title: 'Failed to load data',
+              description: error?.message || 'Please check your connection and try again',
+              variant: 'destructive',
+            })
           },
           onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
             // Never retry on 401/403
