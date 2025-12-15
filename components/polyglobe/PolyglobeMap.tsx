@@ -125,7 +125,7 @@ function InnerMap({
     }
   }, [shouldResetZoom, projection]);
 
-  // Auto-rotate globe
+  // Auto-rotate globe - stops on interaction and only resumes when user clicks play
   useEffect(() => {
     // Return early if paused or user is interacting
     if (!isPlaying || isUserInteracting) {
@@ -141,8 +141,8 @@ function InnerMap({
 
     const rotate = (currentTime: number) => {
       // Pause if:
-      // 1. User is interacting (dragging/zooming)
-      // 2. A market is selected (we are focused on it)
+      // 1. User is interacting (dragging/zooming) - rotation stops and won't resume until user clicks play
+      // 2. A market is selected (we are focused on it) - rotation stops
       // 3. Pause on Hover is enabled AND mouse is hovering
       const shouldPause = isUserInteracting || !!selectedMarket || (pauseOnHover && isHovering);
 
@@ -219,6 +219,8 @@ function InnerMap({
     }
     interactionTimeoutRef.current = setTimeout(() => {
       setIsUserInteracting(false);
+      // Stop rotation when user finishes interacting
+      // They must click play button to resume rotation
     }, 3000);
   }, []);
 
