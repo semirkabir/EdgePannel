@@ -9,30 +9,31 @@ export interface PoliticalEntity {
   type: 'leader' | 'politician' | 'party' | 'institution' | 'government'
   titles?: string[]
   aliases?: string[]
+  state?: string // US State for US politicians
 }
 
 export const POLITICAL_ENTITIES: PoliticalEntity[] = [
-  // US Political Figures
-  { name: 'Donald Trump', country: 'United States', type: 'politician', titles: ['President', 'Former President'], aliases: ['trump', 'donald j trump', 'donald j. trump'] },
-  { name: 'Joe Biden', country: 'United States', type: 'leader', titles: ['President'], aliases: ['biden', 'joseph biden'] },
-  { name: 'Kamala Harris', country: 'United States', type: 'politician', titles: ['Vice President'], aliases: ['harris', 'kamala'] },
-  { name: 'Ron DeSantis', country: 'United States', type: 'politician', titles: ['Governor'], aliases: ['desantis'] },
-  { name: 'Gavin Newsom', country: 'United States', type: 'politician', titles: ['Governor'], aliases: ['newsom'] },
-  { name: 'Mike Johnson', country: 'United States', type: 'politician', titles: ['Speaker'], aliases: ['johnson'] },
-  { name: 'Mitch McConnell', country: 'United States', type: 'politician', titles: ['Senator'], aliases: ['mcconnell'] },
-  { name: 'Chuck Schumer', country: 'United States', type: 'politician', titles: ['Senator'], aliases: ['schumer'] },
-  { name: 'Kevin McCarthy', country: 'United States', type: 'politician', titles: ['Former Speaker'], aliases: ['mccarthy'] },
-  { name: 'Nancy Pelosi', country: 'United States', type: 'politician', titles: ['Former Speaker'], aliases: ['pelosi'] },
-  { name: 'Pete Buttigieg', country: 'United States', type: 'politician', titles: ['Secretary'], aliases: ['buttigieg', 'mayor pete'] },
-  { name: 'J.D. Vance', country: 'United States', type: 'politician', aliases: ['vance', 'jd vance'] },
-  { name: 'Nikki Haley', country: 'United States', type: 'politician', aliases: ['haley'] },
-  { name: 'Vivek Ramaswamy', country: 'United States', type: 'politician', aliases: ['ramaswamy', 'vivek'] },
-  { name: 'Marco Rubio', country: 'United States', type: 'politician', aliases: ['rubio'] },
-  { name: 'Ted Cruz', country: 'United States', type: 'politician', aliases: ['cruz'] },
-  { name: 'Alexandria Ocasio-Cortez', country: 'United States', type: 'politician', aliases: ['aoc', 'ocasio-cortez', 'ocasio cortez'] },
-  { name: 'Bernie Sanders', country: 'United States', type: 'politician', aliases: ['sanders', 'bernie'] },
-  { name: 'Elizabeth Warren', country: 'United States', type: 'politician', aliases: ['warren'] },
-  { name: 'Adam Schiff', country: 'United States', type: 'politician', aliases: ['schiff'] },
+  // US Political Figures (with home states for better geolocation)
+  { name: 'Donald Trump', country: 'United States', state: 'Florida', type: 'politician', titles: ['President', 'Former President'], aliases: ['trump', 'donald j trump', 'donald j. trump'] },
+  { name: 'Joe Biden', country: 'United States', state: 'Delaware', type: 'leader', titles: ['President'], aliases: ['biden', 'joseph biden'] },
+  { name: 'Kamala Harris', country: 'United States', state: 'California', type: 'politician', titles: ['Vice President'], aliases: ['harris', 'kamala'] },
+  { name: 'Ron DeSantis', country: 'United States', state: 'Florida', type: 'politician', titles: ['Governor'], aliases: ['desantis'] },
+  { name: 'Gavin Newsom', country: 'United States', state: 'California', type: 'politician', titles: ['Governor'], aliases: ['newsom'] },
+  { name: 'Mike Johnson', country: 'United States', state: 'Louisiana', type: 'politician', titles: ['Speaker'], aliases: ['johnson'] },
+  { name: 'Mitch McConnell', country: 'United States', state: 'Kentucky', type: 'politician', titles: ['Senator'], aliases: ['mcconnell'] },
+  { name: 'Chuck Schumer', country: 'United States', state: 'New York', type: 'politician', titles: ['Senator'], aliases: ['schumer'] },
+  { name: 'Kevin McCarthy', country: 'United States', state: 'California', type: 'politician', titles: ['Former Speaker'], aliases: ['mccarthy'] },
+  { name: 'Nancy Pelosi', country: 'United States', state: 'California', type: 'politician', titles: ['Former Speaker'], aliases: ['pelosi'] },
+  { name: 'Pete Buttigieg', country: 'United States', state: 'Indiana', type: 'politician', titles: ['Secretary'], aliases: ['buttigieg', 'mayor pete'] },
+  { name: 'J.D. Vance', country: 'United States', state: 'Ohio', type: 'politician', aliases: ['vance', 'jd vance'] },
+  { name: 'Nikki Haley', country: 'United States', state: 'South Carolina', type: 'politician', aliases: ['haley'] },
+  { name: 'Vivek Ramaswamy', country: 'United States', state: 'Ohio', type: 'politician', aliases: ['ramaswamy', 'vivek'] },
+  { name: 'Marco Rubio', country: 'United States', state: 'Florida', type: 'politician', aliases: ['rubio'] },
+  { name: 'Ted Cruz', country: 'United States', state: 'Texas', type: 'politician', aliases: ['cruz'] },
+  { name: 'Alexandria Ocasio-Cortez', country: 'United States', state: 'New York', type: 'politician', aliases: ['aoc', 'ocasio-cortez', 'ocasio cortez'] },
+  { name: 'Bernie Sanders', country: 'United States', state: 'Vermont', type: 'politician', aliases: ['sanders', 'bernie'] },
+  { name: 'Elizabeth Warren', country: 'United States', state: 'Massachusetts', type: 'politician', aliases: ['warren'] },
+  { name: 'Adam Schiff', country: 'United States', state: 'California', type: 'politician', aliases: ['schiff'] },
 
   // US Institutions
   { name: 'Federal Reserve', country: 'United States', type: 'institution', aliases: ['fed', 'the fed', 'federal reserve bank', 'federal reserve system'] },
@@ -88,9 +89,9 @@ export const POLITICAL_ENTITIES: PoliticalEntity[] = [
 ]
 
 /**
- * Detect political entity and return associated country
+ * Detect political entity and return associated country and state
  */
-export function detectPoliticalEntity(text: string): { country: string; entity: string; type: string } | null {
+export function detectPoliticalEntity(text: string): { country: string; entity: string; type: string; state?: string } | null {
   const lowerText = text.toLowerCase()
 
   for (const entity of POLITICAL_ENTITIES) {
@@ -104,7 +105,8 @@ export function detectPoliticalEntity(text: string): { country: string; entity: 
         return {
           country: entity.country,
           entity: entity.name,
-          type: entity.type
+          type: entity.type,
+          state: entity.state
         }
       }
     }

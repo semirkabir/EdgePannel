@@ -37,6 +37,23 @@ export function extractLocation(title: string, description?: string): LocationIn
   // Priority 0: Political entities (highest priority to avoid false sports matches)
   const politicalMatch = detectPoliticalEntity(text)
   if (politicalMatch) {
+    // If US politician with a state, use state coordinates instead of country
+    if (politicalMatch.country === 'United States' && politicalMatch.state) {
+      const stateData = Object.values(US_STATES).find(s => s.name === politicalMatch.state)
+      if (stateData) {
+        console.log(`[Location] ✓ Political entity → ${politicalMatch.entity} (${politicalMatch.state})`)
+        return {
+          country: 'United States',
+          region: stateData.name,
+          coordinates: { lat: stateData.lat, lng: stateData.lng },
+          confidence: 'high',
+          extractedFrom: 'pattern',
+          matchedText: politicalMatch.entity
+        }
+      }
+    }
+
+    // Otherwise use country coordinates
     const countryData = Object.values(COUNTRY_COORDINATES).find(c => c.name === politicalMatch.country)
     if (countryData) {
       console.log(`[Location] ✓ Political entity → ${politicalMatch.entity} (${politicalMatch.country})`)
@@ -68,11 +85,11 @@ export function extractLocation(title: string, description?: string): LocationIn
     }
   }
 
-  // Priority 2: Explicit location patterns ("in Paris", "at Tokyo", "from Brazil")
-  const patternMatch = extractExplicitPattern(text)
-  if (patternMatch) {
-    console.log(`[Location] ✓ Pattern → ${patternMatch.matchedText}`)
-    return patternMatch
+  // Priority 2: US State mentions (check BEFORE patterns to avoid default US coords)
+  const stateMatch = detectUSState(text)
+  if (stateMatch) {
+    console.log(`[Location] ✓ State → ${stateMatch.region}`)
+    return stateMatch
   }
 
   // Priority 3: City mentions (specific locations)
@@ -82,11 +99,11 @@ export function extractLocation(title: string, description?: string): LocationIn
     return cityMatch
   }
 
-  // Priority 4: US State mentions
-  const stateMatch = detectUSState(text)
-  if (stateMatch) {
-    console.log(`[Location] ✓ State → ${stateMatch.region}`)
-    return stateMatch
+  // Priority 4: Explicit location patterns ("in Paris", "at Tokyo", "from Brazil")
+  const patternMatch = extractExplicitPattern(text)
+  if (patternMatch) {
+    console.log(`[Location] ✓ Pattern → ${patternMatch.matchedText}`)
+    return patternMatch
   }
 
   // Priority 5: Context-aware country detection
@@ -341,8 +358,47 @@ function detectCountry(text: string): LocationInfo | null {
 function detectUSState(text: string): LocationInfo | null {
   const lowerText = text.toLowerCase()
 
-  // Problematic abbreviations that are common words
-  const problematicAbbrs = ['in', 'or', 'me', 'hi', 'oh', 'id', 'ok', 'pa', 'ms', 'al', 'ma', 'la', 'de', 'ar', 'co', 'ca', 'wa', 'mi', 'mo']
+  // Problematic abbreviations that are common words (but allow "in" for Indiana in context)
+  const problematicAbbrs = ['or', 'me', 'hi', 'oh', 'id', 'ok', 'pa', 'ms', 'al', 'ma', 'la', 'de', 'ar', 'co', 'ca', 'wa', 'mi', 'mo']
+
+  // Enhanced political/state context patterns
+  const stateContextKeywords = [
+    'primary', 'election', 'governor', 'senate', 'senator', 'representative', 'district',
+    'state', 'legislature', 'assembly', 'ballot', 'vote', 'poll', 'campaign',
+    'caucus', 'referendum', 'attorney general', 'secretary of state', 'house race',
+    'congressional', 'midterm', 'general election', 'runoff', 'recall'
+  ]
+
+  // Check for explicit US state patterns first
+  const explicitStatePatterns = [
+    /\b([\w\s]+?)\s+(governor|senate|senator|primary|election|state\s+election|state\s+legislature)/gi,
+    /\bwin\s+([\w\s]+?)(?:\s+in\s+\d{4}|\?)/gi,
+    /\b([\w\s]+?)\s+(?:ballot|referendum|proposition)/gi
+  ]
+
+  for (const pattern of explicitStatePatterns) {
+    const matches = text.matchAll(pattern)
+    for (const match of matches) {
+      if (match[1]) {
+        const potentialState = match[1].trim().toLowerCase()
+
+        // Try to match this to a state
+        for (const [abbr, data] of Object.entries(US_STATES)) {
+          if (data.name.toLowerCase() === potentialState ||
+              abbr.toLowerCase() === potentialState) {
+            return {
+              country: 'United States',
+              region: data.name,
+              coordinates: { lat: data.lat, lng: data.lng },
+              confidence: 'high',
+              extractedFrom: 'state',
+              matchedText: data.name
+            }
+          }
+        }
+      }
+    }
+  }
 
   for (const [abbr, data] of Object.entries(US_STATES)) {
     // Always check full state name first
@@ -356,6 +412,23 @@ function detectUSState(text: string): LocationInfo | null {
         extractedFrom: 'state',
         matchedText: data.name
       }
+    }
+
+    // Special handling for "IN" - only match if followed by context or if it's clearly Indiana
+    if (abbr.toLowerCase() === 'in') {
+      // Match "Indiana" or "IN" in political context
+      const indianaContextRegex = new RegExp(`\\b(indiana|in)\\s+(${stateContextKeywords.join('|')})`, 'i')
+      if (indianaContextRegex.test(lowerText)) {
+        return {
+          country: 'United States',
+          region: data.name,
+          coordinates: { lat: data.lat, lng: data.lng },
+          confidence: 'high',
+          extractedFrom: 'state',
+          matchedText: data.name
+        }
+      }
+      continue
     }
 
     // Only match abbreviations if NOT in problematic list
@@ -373,7 +446,7 @@ function detectUSState(text: string): LocationInfo | null {
       }
     } else {
       // For problematic abbreviations, only match in political contexts
-      const contextRegex = new RegExp(`\\b${abbr}\\s+(primary|election|governor|senate|representative|district|state)`, 'i')
+      const contextRegex = new RegExp(`\\b${abbr}\\s+(${stateContextKeywords.join('|')})`, 'i')
       if (contextRegex.test(lowerText)) {
         return {
           country: 'United States',

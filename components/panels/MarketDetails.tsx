@@ -455,45 +455,64 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     >
       {/* 1. Hero / Price Section (Gamified) */}
       {activeMarket && (
-        <div className="px-5 pt-8 pb-4 text-center relative overflow-hidden">
-          <div className="inline-flex flex-col items-center">
-            {/* Show specific option if this is part of a multi-option event */}
-            {activeMarket.rawData?.subtitle && (
-              <div className="mb-3 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
-                  {activeMarket.rawData.subtitle}
-                </span>
+        <div className="px-5 pt-8 pb-4 relative overflow-hidden">
+          {/* Compact Layout with Image on Side */}
+          <div className="flex items-start gap-4 mb-4">
+            {/* Left: Price Section */}
+            <div className="flex-1 text-center">
+              {/* Show specific option if this is part of a multi-option event */}
+              {activeMarket.rawData?.subtitle && (
+                <div className="mb-3 inline-block px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
+                    {activeMarket.rawData.subtitle}
+                  </span>
+                </div>
+              )}
+              <span className="text-sm font-medium text-gray-400 mb-1 tracking-wide block">CHANCE</span>
+              <div className={cn(
+                "text-6xl font-black tracking-tighter tabular-nums mb-2",
+                currentPrice >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]" // Neon Green / Red
+              )}>
+                {Math.round(currentPrice * 100)}%
               </div>
-            )}
-            <span className="text-sm font-medium text-gray-400 mb-1 tracking-wide">CHANCE</span>
-            <div className={cn(
-              "text-6xl font-black tracking-tighter tabular-nums mb-2",
-              currentPrice >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]" // Neon Green / Red
-            )}>
-              {Math.round(currentPrice * 100)}%
+
+              {/* Price Change - Calculated from history */}
+              {priceChange.percentage !== 0 && (
+                <div className={cn(
+                  "inline-flex items-center gap-1.5 text-sm font-medium px-2 py-0.5 rounded-full",
+                  priceChange.isPositive
+                    ? "text-emerald-400 bg-emerald-400/10"
+                    : "text-red-400 bg-red-400/10"
+                )}>
+                  {priceChange.isPositive ? (
+                    <TrendingUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <TrendingDown className="w-3.5 h-3.5" />
+                  )}
+                  <span>
+                    {priceChange.isPositive ? '+' : ''}{priceChange.percentage.toFixed(1)}% {
+                      timeRange === '1H' ? 'Last Hour' :
+                        timeRange === '1D' ? 'Today' :
+                          timeRange === '1W' ? 'This Week' :
+                            'All Time'
+                    }
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Price Change - Calculated from history */}
-            {priceChange.percentage !== 0 && (
-              <div className={cn(
-                "flex items-center gap-1.5 text-sm font-medium px-2 py-0.5 rounded-full",
-                priceChange.isPositive
-                  ? "text-emerald-400 bg-emerald-400/10"
-                  : "text-red-400 bg-red-400/10"
-              )}>
-                {priceChange.isPositive ? (
-                  <TrendingUp className="w-3.5 h-3.5" />
-                ) : (
-                  <TrendingDown className="w-3.5 h-3.5" />
-                )}
-                <span>
-                  {priceChange.isPositive ? '+' : ''}{priceChange.percentage.toFixed(1)}% {
-                    timeRange === '1H' ? 'Last Hour' :
-                      timeRange === '1D' ? 'Today' :
-                        timeRange === '1W' ? 'This Week' :
-                          'All Time'
-                  }
-                </span>
+            {/* Right: Compact Market Image */}
+            {activeMarket.imageUrl && (
+              <div className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-700/50 shadow-lg">
+                <img
+                  src={activeMarket.imageUrl}
+                  alt={activeMarket.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Hide parent container if image fails to load
+                    e.currentTarget.parentElement!.style.display = 'none';
+                  }}
+                />
               </div>
             )}
           </div>

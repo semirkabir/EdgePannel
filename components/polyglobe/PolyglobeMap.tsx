@@ -550,52 +550,71 @@ function InnerMap({
         onClose={() => setSelectedFeature(null)}
         anchor="top"
         className="polyglobe-popup z-50"
-        maxWidth="280px"
+        maxWidth="240px"
       >
-        <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-3 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden">
+        <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden">
           {/* Gradient overlay for modern effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
 
           {isMarket ? (
             <div className="relative z-10">
               {/* Price Badge - Floating top right */}
-              <div className="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-3 py-1.5 rounded-lg shadow-lg">
-                <span className="text-xl font-bold tabular-nums">{Math.round(props.last_price * 100)}¢</span>
+              <div className="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-2.5 py-1 rounded-lg shadow-lg z-10">
+                <span className="text-lg font-bold tabular-nums">{Math.round(props.last_price * 100)}¢</span>
               </div>
 
-              {/* Title */}
-              <div className="pr-16 mb-3">
-                <h3 className="font-semibold text-base leading-tight text-white line-clamp-2">{props.title}</h3>
-              </div>
+              {/* Compact Layout with Image Float */}
+              <div className="flex gap-2.5 mb-2.5">
+                {/* Left: Title and Badges */}
+                <div className="flex-1 min-w-0">
+                  {/* Title */}
+                  <h3 className="font-semibold text-sm leading-tight text-white line-clamp-2 mb-1.5 pr-14">{props.title}</h3>
 
-              {/* Platform & Category Badge Row */}
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <span className={cn(
-                  "px-2.5 py-1 rounded-md text-xs font-semibold shadow-sm",
-                  props.platform === 'polymarket'
-                    ? "bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-400/30"
-                    : "bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border border-green-400/30"
-                )}>
-                  {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
-                </span>
-                {props.category && (
-                  <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-gray-700/40 text-gray-300 border border-gray-600/30">
-                    {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
-                  </span>
+                  {/* Platform & Category Badge Row */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[10px] font-semibold shadow-sm",
+                      props.platform === 'polymarket'
+                        ? "bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-400/30"
+                        : "bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border border-green-400/30"
+                    )}>
+                      {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
+                    </span>
+                    {props.category && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-700/40 text-gray-300 border border-gray-600/30">
+                        {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Compact Image */}
+                {props.image_url && (
+                  <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-700/30">
+                    <img
+                      src={props.image_url}
+                      alt={props.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Hide parent container if image fails to load
+                        e.currentTarget.parentElement!.style.display = 'none';
+                      }}
+                    />
+                  </div>
                 )}
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div className="bg-gray-800/40 rounded-lg p-2 border border-gray-700/30">
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Volume 24h</div>
-                  <div className="text-sm font-bold text-white">${(props.volume / 1000).toFixed(1)}k</div>
+              <div className="grid grid-cols-2 gap-1.5 mb-2">
+                <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30">
+                  <div className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">Volume 24h</div>
+                  <div className="text-xs font-bold text-white">${(props.volume / 1000).toFixed(1)}k</div>
                 </div>
                 {props.price_movement !== undefined && props.price_movement !== 0 && (
-                  <div className="bg-gray-800/40 rounded-lg p-2 border border-gray-700/30">
-                    <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">24h Change</div>
+                  <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30">
+                    <div className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">24h Change</div>
                     <div className={cn(
-                      "text-sm font-bold",
+                      "text-xs font-bold",
                       props.price_movement >= 0 ? "text-emerald-400" : "text-red-400"
                     )}>
                       {props.price_movement > 0 ? '+' : ''}{Math.round(props.price_movement * 100)}%
@@ -606,7 +625,7 @@ function InnerMap({
 
               {/* End Date */}
               {props.endDate && (
-                <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-2">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
@@ -620,12 +639,12 @@ function InnerMap({
 
               {/* Chart */}
               {JSON.parse(props.priceHistory || '[]').length > 0 && (
-                <div className="mb-3">
-                  <div className="bg-black/30 rounded-lg p-2 border border-gray-700/20">
+                <div className="mb-2">
+                  <div className="bg-black/30 rounded p-1.5 border border-gray-700/20">
                     <Sparkline
                       data={JSON.parse(props.priceHistory || '[]').map((p: any) => p.price)}
-                      width={240}
-                      height={40}
+                      width={220}
+                      height={32}
                       className="w-full"
                     />
                   </div>
@@ -634,7 +653,7 @@ function InnerMap({
 
               {/* CTA Button */}
               <button
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-sm font-bold py-2.5 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98]"
                 onClick={(e) => {
                   e.stopPropagation();
                   // Find full market data or reconstruct from properties
@@ -665,6 +684,7 @@ function InnerMap({
                       slug: props.slug,
                       ticker: props.ticker,
                       category: props.category,
+                      imageUrl: props.image_url,
                       rawData: rawData || {},
                     };
                   }

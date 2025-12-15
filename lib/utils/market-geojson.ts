@@ -119,7 +119,7 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
                 last_price: Number(m.price || m.probability || 0),
                 volume: Number(m.volume24h || m.liquidity || 0),
                 liquidity: Number(m.liquidity || 0),
-                image_url: null,
+                image_url: m.imageUrl || null,
                 is_open: true,
                 description: m.description || '',
                 category: m.category || '',

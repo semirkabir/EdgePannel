@@ -102,6 +102,8 @@ export class PolymarketClient {
           endDateIso: sample.endDateIso,
           category: sample.category,
           tags: sample.tags,
+          image: sample.image,
+          icon: sample.icon,
           allKeys: Object.keys(sample),
         })
       }
@@ -229,7 +231,41 @@ export class PolymarketClient {
   }
 
   /**
-   * Enrich markets with tags from the tags API
+   * Fetch full market/event details including images
+   * Uses server-side proxy to avoid CORS issues
+   */
+  private async fetchMarketDetails(conditionId: string): Promise<{ image?: string; icon?: string } | null> {
+    try {
+      // Use our proxy API to avoid CORS issues
+      const response = await fetch(`/api/markets/images?conditionId=${encodeURIComponent(conditionId)}`, {
+        method: 'GET',
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        console.warn(`[Polymarket Client] Image proxy failed for ${conditionId}: ${response.status}`)
+        return null
+      }
+
+      const data = await response.json()
+
+      // Return null if no images found
+      if (data.source === 'none') {
+        return null
+      }
+
+      return {
+        image: data.image,
+        icon: data.icon
+      }
+    } catch (error) {
+      console.warn(`[Polymarket Client] Error fetching market details for ${conditionId}:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Enrich markets with tags and images from the API
    * Only enriches the first N markets to avoid too many API calls
    */
   private async enrichMarketsWithTags(markets: Market[], limit: number = 20): Promise<Market[]> {
@@ -239,25 +275,31 @@ export class PolymarketClient {
     const enrichedMarkets = await Promise.all(
       marketsToEnrich.map(async (market) => {
         const numericId = market.rawData?.numericId
-        if (!numericId) {
-          return market
+        const conditionId = market.id
+
+        // Fetch tags
+        const tags = numericId ? await this.fetchMarketTags(numericId) : []
+
+        // Fetch full details for image if not already present
+        let imageData = null
+        if (!market.imageUrl && conditionId) {
+          imageData = await this.fetchMarketDetails(conditionId)
         }
 
-        const tags = await this.fetchMarketTags(numericId)
-        if (tags.length > 0) {
-          return {
-            ...market,
-            // Use the first tag as category if no category exists
-            category: market.category || tags[0],
-            normalizedCategory: market.normalizedCategory || tags[0],
-            // Store all tags in rawData for future use
-            rawData: {
-              ...market.rawData,
-              tags,
-            },
-          }
+        return {
+          ...market,
+          // Use the first tag as category if no category exists
+          category: market.category || (tags.length > 0 ? tags[0] : undefined),
+          normalizedCategory: market.normalizedCategory || (tags.length > 0 ? tags[0] : undefined),
+          // Add image if we fetched it
+          imageUrl: market.imageUrl || imageData?.image || imageData?.icon,
+          // Store all tags in rawData for future use
+          rawData: {
+            ...market.rawData,
+            tags,
+            ...(imageData && { image: imageData.image, icon: imageData.icon })
+          },
         }
-        return market
       })
     )
 
@@ -360,6 +402,7 @@ export class PolymarketClient {
       slug: market.slug || market.marketSlug || undefined,
       outcomes: outcomes,
       outcomePrices: outcomePrices.length > 0 ? outcomePrices : undefined,
+      imageUrl: market.image || market.icon || undefined,
       rawData: {
         ...market,
         numericId: market.id, // Store numeric ID for tag fetching

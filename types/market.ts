@@ -17,6 +17,7 @@ export interface Market {
   ticker?: string // Kalshi ticker
   outcomes?: string[] // Possible outcomes (Yes/No or custom)
   outcomePrices?: number[] // Prices for each outcome
+  imageUrl?: string // Market image/icon URL
   location?: {
     country?: string
     region?: string
