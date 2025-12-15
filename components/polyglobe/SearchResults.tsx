@@ -37,7 +37,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 }
 
 export function SearchResults({ results, onSelect, isLoading, className }: SearchResultsProps) {
-    // Group results by category
+    // Filter out sports markets and group results by category
     const groupedResults = useMemo(() => {
         const groups: Record<string, EnrichedMarket[]> = {}
 
@@ -46,6 +46,11 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
             let category = market.category || 'General'
             // Simple capitalization if it's lowercase
             category = category.charAt(0).toUpperCase() + category.slice(1)
+
+            // Filter out sports markets
+            if (category.toLowerCase() === 'sports') {
+                return;
+            }
 
             if (!groups[category]) {
                 groups[category] = []
@@ -58,8 +63,8 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
 
     const sortedCategories = useMemo(() => {
         return Object.keys(groupedResults).sort((a, b) => {
-            // Priority ordering
-            const priority = ['Politics', 'Economics', 'Technology'];
+            // Priority ordering - prioritize news and finance categories
+            const priority = ['Politics', 'Finance', 'Economics', 'Crypto', 'Geopolitics', 'Technology'];
             const idxA = priority.indexOf(a);
             const idxB = priority.indexOf(b);
 
@@ -114,78 +119,92 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
                                 key={market.id}
                                 onClick={() => onSelect(market)}
                                 className={cn(
-                                    "group relative cursor-pointer p-3 transition-all hover:pl-4",
-                                    // Subtle background tint based on platform
+                                    "group relative cursor-pointer p-4 transition-all hover:pl-5",
+                                    // Enhanced background with gradient tint based on platform
                                     market.platform === 'polymarket'
-                                        ? "hover:bg-blue-500/5 hover:shadow-[inset_2px_0_0_0_#3b82f6]"
-                                        : "hover:bg-green-500/5 hover:shadow-[inset_2px_0_0_0_#10b981]"
+                                        ? "hover:bg-gradient-to-r hover:from-blue-500/10 hover:to-blue-500/5 hover:shadow-[inset_3px_0_0_0_#3b82f6]"
+                                        : "hover:bg-gradient-to-r hover:from-green-500/10 hover:to-green-500/5 hover:shadow-[inset_3px_0_0_0_#10b981]"
                                 )}
                             >
-                                <div className="flex items-start gap-3">
-                                    {/* Platform Indicator - Icon/Badge style */}
+                                <div className="flex items-start gap-4">
+                                    {/* Enhanced Platform Indicator with Logo-style Badge */}
                                     <div className={cn(
-                                        "shrink-0 w-8 h-8 rounded-lg flex flex-col items-center justify-center border mt-0.5",
+                                        "shrink-0 w-10 h-10 rounded-xl flex flex-col items-center justify-center border-2 mt-0.5 shadow-lg",
                                         market.platform === 'polymarket'
-                                            ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                                            : "bg-green-500/10 border-green-500/20 text-green-400"
+                                            ? "bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-blue-500/30 text-blue-400"
+                                            : "bg-gradient-to-br from-green-500/20 to-green-600/10 border-green-500/30 text-green-400"
                                     )}>
-                                        <span className="text-[9px] font-black tracking-tighter leading-none">
+                                        <span className="text-[8px] font-black tracking-tighter leading-none">
                                             {market.platform === 'polymarket' ? 'POLY' : 'KALS'}
                                         </span>
                                     </div>
 
-                                    {/* Content */}
+                                    {/* Enhanced Content Layout */}
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between gap-4">
+                                        <div className="flex justify-between gap-4 mb-2">
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <h4 className="text-sm font-medium text-gray-200 leading-snug group-hover:text-white transition-colors line-clamp-2">
-                                                        {market.title}
-                                                    </h4>
-                                                </div>
-                                                {/* Category Badge */}
-                                                {market.category && (
-                                                    <div className="flex items-center gap-1 mt-1">
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-md text-[10px] font-medium text-purple-300">
-                                                            {CATEGORY_ICONS[category] || <LayoutGrid className="w-2.5 h-2.5" />}
+                                                <h4 className="text-sm font-semibold text-gray-100 leading-snug group-hover:text-white transition-colors line-clamp-2 mb-2">
+                                                    {market.title}
+                                                </h4>
+
+                                                {/* Enhanced Info Row with More Details */}
+                                                <div className="flex items-center gap-3 flex-wrap">
+                                                    {/* Category Badge */}
+                                                    {market.category && (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-purple-500/15 to-purple-600/10 border border-purple-500/30 rounded-lg text-[10px] font-bold text-purple-300 uppercase tracking-wide">
+                                                            {CATEGORY_ICONS[category] || <LayoutGrid className="w-3 h-3" />}
                                                             {category}
                                                         </span>
-                                                    </div>
-                                                )}
-                                            </div>
+                                                    )}
 
-                                            {/* Price/Probability */}
-                                            {market.price !== undefined && (
-                                                <div className="text-right shrink-0">
+                                                    {/* Volume Badge */}
+                                                    {market.volume24h !== undefined && (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] font-mono font-bold text-emerald-400">
+                                                            <BarChart3 className="w-3 h-3" />
+                                                            ${market.volume24h.toLocaleString(undefined, { maximumFractionDigits: 0, notation: 'compact' })}
+                                                        </span>
+                                                    )}
+
+                                                    {/* Liquidity Badge if available */}
+                                                    {market.liquidity !== undefined && market.liquidity > 0 && (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg text-[10px] font-mono font-bold text-blue-400">
+                                                            <Activity className="w-3 h-3" />
+                                                            ${market.liquidity.toLocaleString(undefined, { maximumFractionDigits: 0, notation: 'compact' })} Liq
+                                                        </span>
+                                                    )}
+
+                                                    {/* Platform Source Badge */}
                                                     <span className={cn(
-                                                        "text-sm font-bold tabular-nums block",
-                                                        market.price > 0.5 ? "text-emerald-400 shadow-emerald-500/20" : "text-red-400"
+                                                        "inline-flex items-center px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-black border",
+                                                        market.platform === 'polymarket'
+                                                            ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                                                            : "bg-green-500/10 border-green-500/20 text-green-400"
                                                     )}>
-                                                        {(market.price * 100).toFixed(0)}%
+                                                        {market.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
                                                     </span>
                                                 </div>
-                                            )}
-                                        </div>
+                                            </div>
 
-                                        <div className="flex items-center gap-4 mt-1.5">
-                                            {/* Volume */}
-                                            {market.volume24h !== undefined && (
-                                                <div className="flex items-center gap-1.5 text-[10px] text-gray-500 group-hover:text-gray-400">
-                                                    <BarChart3 className="w-3 h-3" />
-                                                    <span className="font-mono">${market.volume24h.toLocaleString(undefined, { maximumFractionDigits: 0, notation: 'compact' })} Vol</span>
+                                            {/* Enhanced Price/Probability Display */}
+                                            {market.price !== undefined && (
+                                                <div className="text-right shrink-0">
+                                                    <div className={cn(
+                                                        "text-2xl font-black tabular-nums mb-1",
+                                                        market.price > 0.5 ? "text-emerald-400" : "text-red-400"
+                                                    )}>
+                                                        {(market.price * 100).toFixed(0)}%
+                                                    </div>
+                                                    <div className="text-[9px] text-gray-500 uppercase tracking-wider font-bold">
+                                                        {market.price > 0.5 ? 'Bullish' : 'Bearish'}
+                                                    </div>
                                                 </div>
                                             )}
-
-                                            {/* Source Tag (Subtle) */}
-                                            <div className={cn(
-                                                "text-[9px] uppercase tracking-wider font-semibold opacity-60",
-                                                market.platform === 'polymarket' ? "text-blue-400" : "text-green-400"
-                                            )}>
-                                                {market.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Hover Effect Overlay */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none" />
                             </div>
                         ))}
                     </div>

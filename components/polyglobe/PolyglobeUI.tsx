@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet } from 'lucide-react';
+import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { SearchResults } from './SearchResults';
@@ -12,7 +12,8 @@ interface PolyglobeUIProps {
   onFilterChange: (filter: string, active: boolean) => void;
   activeFilters: Record<string, boolean>;
   onViewToggle?: () => void;
-  currentView?: 'map' | 'globe';
+  onMapGlobeToggle?: () => void;
+  currentView?: 'map' | 'globe' | 'agent';
   isPlaying?: boolean;
   onPlayPause?: (playing: boolean) => void;
   onSettingsOpen?: () => void;
@@ -60,6 +61,7 @@ export function PolyglobeUI({
   onFilterChange,
   activeFilters,
   onViewToggle,
+  onMapGlobeToggle,
   currentView = 'map',
   isPlaying: externalIsPlaying,
   onPlayPause,
@@ -83,11 +85,13 @@ export function PolyglobeUI({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const isPlaying = externalIsPlaying !== undefined ? externalIsPlaying : internalIsPlaying;
   const isMapView = currentView === 'map';
+  const isAgentView = currentView === 'agent';
 
   // Click-outside handling for dropdowns
   useEffect(() => {
@@ -165,27 +169,42 @@ export function PolyglobeUI({
           </button>
 
           {/* View Toggle / Reset */}
-          <button
-            onClick={isZoomedIn ? onResetZoom : onViewToggle}
-            className={cn(
-              "h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all",
-              isZoomedIn
-                ? "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
-            )}
-          >
-            {isZoomedIn ? (
-              <>
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>RESET</span>
-              </>
-            ) : (
-              <>
-                {isMapView ? <Globe className="w-3.5 h-3.5" /> : <Map className="w-3.5 h-3.5" />}
-                <span>{isMapView ? 'GLOBE' : 'MAP'}</span>
-              </>
-            )}
-          </button>
+          {isZoomedIn ? (
+            <button
+              onClick={onResetZoom}
+              className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>RESET ZOOM</span>
+            </button>
+          ) : (
+            <>
+              {/* Map/Globe Toggle - Only show when not in agent view */}
+              {!isAgentView && (
+                <button
+                  onClick={onMapGlobeToggle}
+                  className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                >
+                  {isMapView ? <Globe className="w-3.5 h-3.5" /> : <Map className="w-3.5 h-3.5" />}
+                  <span>{isMapView ? 'GLOBE' : 'MAP'}</span>
+                </button>
+              )}
+
+              {/* Agent Mode Toggle */}
+              <button
+                onClick={onViewToggle}
+                className={cn(
+                  "h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all border",
+                  isAgentView
+                    ? "bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-500/50 text-purple-300"
+                    : "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30 text-purple-400 hover:from-purple-500/20 hover:to-blue-500/20"
+                )}
+              >
+                <Brain className="w-3.5 h-3.5" />
+                <span>{isAgentView ? 'EXIT AGENT' : 'AGENT MODE'}</span>
+              </button>
+            </>
+          )}
         </div>
 
         {/* Filters Row */}
@@ -514,16 +533,18 @@ export function PolyglobeUI({
         </div>
       </div>
 
-      {/* Bottom Center: Ukraine Timeline (Positioned absolutely) */}
-      <button
-        className="absolute flex items-center gap-2 px-4 py-2 bg-black/80 backdrop-blur-md border border-gray-700 rounded-full text-white hover:bg-gray-800 hover:border-blue-500/50 transition-all shadow-lg group pointer-events-auto z-40 justify-start flex-wrap"
-        style={{ left: '50%', bottom: '32px', transform: 'translateX(-50%)' }}
-      >
-        <span className="text-xs font-mono text-blue-400 uppercase tracking-wider">Ukraine War</span>
-        <div className="h-3 w-[1px] bg-gray-700"></div>
-        <span className="text-sm font-medium group-hover:text-blue-300">View Timeline</span>
-        <span className="text-gray-500 text-xs">›</span>
-      </button>
+      {/* Bottom Center: Ukraine Timeline (Positioned absolutely) - Only show in map/globe view */}
+      {!isAgentView && (
+        <button
+          className="absolute flex items-center gap-2 px-4 py-2 bg-black/80 backdrop-blur-md border border-gray-700 rounded-full text-white hover:bg-gray-800 hover:border-blue-500/50 transition-all shadow-lg group pointer-events-auto z-40 justify-start flex-wrap"
+          style={{ left: '50%', bottom: '32px', transform: 'translateX(-50%)' }}
+        >
+          <span className="text-xs font-mono text-blue-400 uppercase tracking-wider">Ukraine War</span>
+          <div className="h-3 w-[1px] bg-gray-700"></div>
+          <span className="text-sm font-medium group-hover:text-blue-300">View Timeline</span>
+          <span className="text-gray-500 text-xs">›</span>
+        </button>
+      )}
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { MarketDetails } from '@/components/panels/MarketDetails';
 import { NotificationCenter } from '@/components/panels/NotificationCenter';
 import { DatabaseSetupNotice } from '@/components/polyglobe/DatabaseSetupNotice';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
+import { AgentDashboard } from '@/components/agent/AgentDashboard';
 
 export default function PolyglobePage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
@@ -30,7 +31,7 @@ export default function PolyglobePage() {
   });
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'map' | 'globe'>('globe');
+  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'agent'>('globe');
   const [selectedMarket, setSelectedMarket] = useState<EnrichedMarket | null>(null);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
@@ -159,7 +160,7 @@ export default function PolyglobePage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('polyglobe-view-mode');
-      if (saved === 'globe' || saved === 'map') {
+      if (saved === 'globe' || saved === 'map' || saved === 'agent') {
         setViewMode(saved);
       }
     }
@@ -217,7 +218,51 @@ export default function PolyglobePage() {
   const handleViewToggle = () => {
     setIsTransitioning(true);
     setTimeout(() => {
-      setViewMode(prev => prev === 'map' ? 'globe' : 'map');
+      setViewMode(prev => {
+        let newView: 'map' | 'globe' | 'agent';
+
+        if (prev === 'agent') {
+          // Return to last map/globe view (default to globe)
+          const lastView = localStorage.getItem('polyglobe-last-map-view') || 'globe';
+          newView = lastView as 'map' | 'globe';
+        } else if (prev === 'map') {
+          // Map -> Globe
+          localStorage.setItem('polyglobe-last-map-view', 'globe');
+          newView = 'globe';
+        } else {
+          // Globe -> Map or to Agent mode
+          // This will be handled by the individual buttons
+          localStorage.setItem('polyglobe-last-map-view', 'map');
+          newView = 'map';
+        }
+
+        localStorage.setItem('polyglobe-view-mode', newView);
+        return newView;
+      });
+      setIsTransitioning(false);
+    }, 150);
+  };
+
+  // Separate handler for Agent mode toggle
+  const handleAgentToggle = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setViewMode(prev => {
+        let newView: 'map' | 'globe' | 'agent';
+
+        if (prev === 'agent') {
+          // Return to last map/globe view
+          const lastView = localStorage.getItem('polyglobe-last-map-view') || 'globe';
+          newView = lastView as 'map' | 'globe';
+        } else {
+          // Save current view and switch to agent
+          localStorage.setItem('polyglobe-last-map-view', prev);
+          newView = 'agent';
+        }
+
+        localStorage.setItem('polyglobe-view-mode', newView);
+        return newView;
+      });
       setIsTransitioning(false);
     }, 150);
   };
@@ -247,28 +292,39 @@ export default function PolyglobePage() {
       {/* Starfield background - only in globe mode */}
       {viewMode === 'globe' && <Starfield starCount={300} />}
 
-      <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
-        <PolyglobeMap
-          activeFilters={activeFilters}
-          searchQuery={searchQuery}
-          projection={viewMode === 'globe' ? 'globe' : 'mercator'}
-          onCountryClick={handleCountryClick}
-          isPlaying={isPlaying}
-          rotationSpeed={rotationSpeed}
-          pauseOnHover={pauseOnHover}
-          selectedMarket={selectedMarket}
-          onMarketSelect={handleMarketClick}
-          overrideMarkets={overrideMarkets}
-          onZoomChange={setIsZoomedIn}
-          shouldResetZoom={shouldResetZoom}
-        />
-      </div>
+      {/* Map/Globe View */}
+      {viewMode !== 'agent' && (
+        <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
+          <PolyglobeMap
+            activeFilters={activeFilters}
+            searchQuery={searchQuery}
+            projection={viewMode === 'globe' ? 'globe' : 'mercator'}
+            onCountryClick={handleCountryClick}
+            isPlaying={isPlaying}
+            rotationSpeed={rotationSpeed}
+            pauseOnHover={pauseOnHover}
+            selectedMarket={selectedMarket}
+            onMarketSelect={handleMarketClick}
+            overrideMarkets={overrideMarkets}
+            onZoomChange={setIsZoomedIn}
+            shouldResetZoom={shouldResetZoom}
+          />
+        </div>
+      )}
+
+      {/* Agent Dashboard View */}
+      {viewMode === 'agent' && (
+        <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
+          <AgentDashboard markets={mapFilteredMarkets} />
+        </div>
+      )}
       <PolyglobeUI
         onSearch={handleSearch}
         onUrlSearch={handleUrlSearch}
         onFilterChange={handleFilterChange}
         activeFilters={activeFilters}
-        onViewToggle={handleViewToggle}
+        onViewToggle={handleAgentToggle}
+        onMapGlobeToggle={handleViewToggle}
         currentView={viewMode}
         isPlaying={isPlaying}
         onPlayPause={setIsPlaying}
@@ -293,16 +349,21 @@ export default function PolyglobePage() {
 
       {/* Search results are now handled inside PolyglobeUI */}
 
-      <MarketDetails
-        market={selectedMarket as any}
-        onClose={() => setSelectedMarket(null)}
-      />
+      {/* Only show MarketDetails and CountryNewsPanel in map/globe view */}
+      {viewMode !== 'agent' && (
+        <>
+          <MarketDetails
+            market={selectedMarket as any}
+            onClose={() => setSelectedMarket(null)}
+          />
 
-      <CountryNewsPanel
-        country={selectedCountry}
-        onClose={handleCloseNews}
-        onMarketSelect={handleMarketClick}
-      />
+          <CountryNewsPanel
+            country={selectedCountry}
+            onClose={handleCloseNews}
+            onMarketSelect={handleMarketClick}
+          />
+        </>
+      )}
 
       <SettingsModal
         isOpen={isSettingsOpen}

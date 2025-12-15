@@ -168,143 +168,210 @@ export default function SettingsPage() {
   const hasKalshi = apiKeys.some(k => k.platform === 'kalshi' && k.isActive)
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push('/dashboard')}
-            className="hover:bg-accent"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-3xl font-bold">Settings</h1>
-        </div>
-        
+    <div className="min-h-screen bg-gray-950 p-8 relative overflow-hidden">
+      {/* Futuristic Grid Background */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:2rem_2rem] pointer-events-none" />
+
+      {/* Gradient Overlay */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-emerald-500/10 blur-[120px] pointer-events-none" />
+
+      <div className="relative max-w-6xl mx-auto space-y-8">
+        {/* Modern Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link 
-              href="/dashboard" 
-              className="hover:text-foreground transition-colors"
+          <div className="flex items-center gap-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push('/dashboard')}
+              className="w-12 h-12 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
             >
-              Dashboard
-            </Link>
-            <span>/</span>
-            <span>Settings</span>
+              <ArrowLeft className="h-5 w-5 text-gray-300" />
+            </Button>
+            <div>
+              <h1 className="text-4xl font-black text-white tracking-tight mb-1">Settings</h1>
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Link
+                  href="/dashboard"
+                  className="hover:text-blue-400 transition-colors font-medium"
+                >
+                  Dashboard
+                </Link>
+                <span>/</span>
+                <span className="text-gray-400">Settings</span>
+              </div>
+            </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Button>
         </div>
 
-        {/* Polymarket API Key */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Polymarket API Key</CardTitle>
-            <CardDescription>
-              Enter your Polymarket API key to enable trading and market data access
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {hasPolymarket && (
-              <div className="p-3 bg-green-500/20 border border-green-500 rounded text-sm flex items-center justify-between">
-                <span>✓ Polymarket API key is configured</span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDeleteClick('polymarket')}
-                  disabled={deleting === 'polymarket'}
-                  className="ml-2"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  {deleting === 'polymarket' ? 'Deleting...' : 'Delete'}
-                </Button>
+        {/* Polymarket API Key - Modernized */}
+        <div className="relative group">
+          <div className="absolute -inset-[1px] bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-2xl blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+            {/* Header with Icon */}
+            <div className="px-8 py-6 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-b border-white/5">
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30 flex items-center justify-center shrink-0">
+                  <span className="text-lg font-black text-blue-400">PM</span>
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black text-white mb-1">Polymarket API</h2>
+                  <p className="text-sm text-gray-400">
+                    Connect your Polymarket account to enable live trading and real-time market data
+                  </p>
+                </div>
               </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium mb-2">API Key</label>
-              <input
-                type="text"
-                value={polymarketKey}
-                onChange={(e) => setPolymarketKey(e.target.value)}
-                placeholder={hasPolymarket ? "Enter new API key to replace existing" : "Enter your Polymarket API key"}
-                className="w-full px-4 py-2 bg-background border border-input rounded-md"
-                autoComplete="off"
-                data-1p-ignore
-                data-lpignore="true"
-                data-form-type="other"
-              />
             </div>
-            <Button onClick={savePolymarketKey} disabled={saving || !polymarketKey}>
-              {saving ? 'Saving...' : hasPolymarket ? 'Update Polymarket API Key' : 'Save Polymarket API Key'}
-            </Button>
-          </CardContent>
-        </Card>
 
-        {/* Kalshi API Keys */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Kalshi API Keys</CardTitle>
-            <CardDescription>
-              Enter your Kalshi Access Key ID and Private Key to enable trading and market data access
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {hasKalshi && (
-              <div className="p-3 bg-green-500/20 border border-green-500 rounded text-sm flex items-center justify-between">
-                <span>✓ Kalshi API keys are configured</span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDeleteClick('kalshi')}
-                  disabled={deleting === 'kalshi'}
-                  className="ml-2"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  {deleting === 'kalshi' ? 'Deleting...' : 'Delete'}
-                </Button>
+            {/* Content */}
+            <div className="px-8 py-6 space-y-6">
+              {hasPolymarket && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between backdrop-blur-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                      <span className="text-emerald-400 text-xl">✓</span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-emerald-400">Connected</div>
+                      <div className="text-xs text-gray-400">Polymarket API is active and ready</div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteClick('polymarket')}
+                    disabled={deleting === 'polymarket'}
+                    className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {deleting === 'polymarket' ? 'Removing...' : 'Remove'}
+                  </Button>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-bold text-gray-300 mb-3 uppercase tracking-wider">API Key</label>
+                <input
+                  type="text"
+                  value={polymarketKey}
+                  onChange={(e) => setPolymarketKey(e.target.value)}
+                  placeholder={hasPolymarket ? "Enter new API key to replace existing" : "paste-your-polymarket-api-key-here"}
+                  className="w-full px-5 py-4 bg-black/40 border border-white/10 rounded-xl text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 backdrop-blur-xl transition-all font-mono"
+                  autoComplete="off"
+                  data-1p-ignore
+                  data-lpignore="true"
+                  data-form-type="other"
+                />
               </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium mb-2">Access Key ID</label>
-              <input
-                type="text"
-                value={kalshiAccessKeyId}
-                onChange={(e) => setKalshiAccessKeyId(e.target.value)}
-                placeholder={hasKalshi ? "Enter new Access Key ID to replace existing" : "Enter your Kalshi Access Key ID"}
-                className="w-full px-4 py-2 bg-background border border-input rounded-md"
-                autoComplete="off"
-                data-1p-ignore
-                data-lpignore="true"
-                data-form-type="other"
-              />
+
+              <Button
+                onClick={savePolymarketKey}
+                disabled={saving || !polymarketKey}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : hasPolymarket ? 'Update API Key' : 'Save API Key'}
+              </Button>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Private Key</label>
-              <textarea
-                value={kalshiPrivateKey}
-                onChange={(e) => setKalshiPrivateKey(e.target.value)}
-                placeholder={hasKalshi ? "Enter new Private Key to replace existing" : "Enter your Kalshi Private Key (PEM format)"}
-                rows={4}
-                className="w-full px-4 py-2 bg-background border border-input rounded-md font-mono text-sm"
-                autoComplete="off"
-                data-1p-ignore
-                data-lpignore="true"
-                data-form-type="other"
-                spellCheck="false"
-              />
+          </div>
+        </div>
+
+        {/* Kalshi API Keys - Modernized */}
+        <div className="relative group">
+          <div className="absolute -inset-[1px] bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 rounded-2xl blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+            {/* Header with Icon */}
+            <div className="px-8 py-6 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-b border-white/5">
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <span className="text-lg font-black text-emerald-400">KL</span>
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black text-white mb-1">Kalshi API</h2>
+                  <p className="text-sm text-gray-400">
+                    Connect your Kalshi account with Access Key ID and Private Key for trading access
+                  </p>
+                </div>
+              </div>
             </div>
-            <Button onClick={saveKalshiKeys} disabled={saving || !kalshiAccessKeyId || !kalshiPrivateKey}>
-              {saving ? 'Saving...' : hasKalshi ? 'Update Kalshi API Keys' : 'Save Kalshi API Keys'}
-            </Button>
-          </CardContent>
-        </Card>
+
+            {/* Content */}
+            <div className="px-8 py-6 space-y-6">
+              {hasKalshi && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between backdrop-blur-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                      <span className="text-emerald-400 text-xl">✓</span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-emerald-400">Connected</div>
+                      <div className="text-xs text-gray-400">Kalshi API is active and ready</div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteClick('kalshi')}
+                    disabled={deleting === 'kalshi'}
+                    className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {deleting === 'kalshi' ? 'Removing...' : 'Remove'}
+                  </Button>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-300 mb-3 uppercase tracking-wider">Access Key ID</label>
+                  <input
+                    type="text"
+                    value={kalshiAccessKeyId}
+                    onChange={(e) => setKalshiAccessKeyId(e.target.value)}
+                    placeholder={hasKalshi ? "Enter new Access Key ID" : "your-kalshi-access-key-id"}
+                    className="w-full px-5 py-4 bg-black/40 border border-white/10 rounded-xl text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 backdrop-blur-xl transition-all font-mono"
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
+                    data-form-type="other"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-300 mb-3 uppercase tracking-wider">Private Key <span className="text-xs text-gray-500 normal-case">(PEM format)</span></label>
+                  <textarea
+                    value={kalshiPrivateKey}
+                    onChange={(e) => setKalshiPrivateKey(e.target.value)}
+                    placeholder={hasKalshi ? "Enter new Private Key" : "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"}
+                    rows={6}
+                    className="w-full px-5 py-4 bg-black/40 border border-white/10 rounded-xl text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 backdrop-blur-xl transition-all font-mono resize-none"
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
+                    data-form-type="other"
+                    spellCheck="false"
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={saveKalshiKeys}
+                disabled={saving || !kalshiAccessKeyId || !kalshiPrivateKey}
+                className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : hasKalshi ? 'Update API Keys' : 'Save API Keys'}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Delete Confirmation Dialog */}

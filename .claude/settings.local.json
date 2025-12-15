@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(npm run build:*)",
+      "Bash(cmd.exe /c \"taskkill /PID 62216 /F & taskkill /PID 37380 /F & taskkill /PID 67084 /F\")",
+      "Bash(npm run dev:*)",
+      "Bash(rm:*)",
+      "Bash(del nul)",
+      "Bash(cmd.exe /c \"del nul\")",
+      "Bash(cmd.exe /c \"del \\\\?\\c:\\Users\\kabir\\New folder\\nul\")",
+      "Bash(powershell.exe -Command \"Remove-Item -Path ''.\\nul'' -Force\")"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}

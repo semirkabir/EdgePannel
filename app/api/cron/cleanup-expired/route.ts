@@ -10,9 +10,9 @@ import { prisma } from '@/lib/db/client'
  * Runs once daily at 3:00 AM UTC
  *
  * Process:
- * 1. Find all markets where endDate < now AND active = true
- * 2. Mark them as active = false
- * 3. Return count of deactivated markets
+ * 1. Find all markets where endDate < now
+ * 2. Delete them
+ * 3. Return count of deleted markets
  */
 export async function GET(request: Request) {
   const startTime = Date.now()
@@ -31,68 +31,62 @@ export async function GET(request: Request) {
 
     const now = new Date()
 
-    // Find all active markets that have expired
-    const expiredMarkets = await prisma.geotaggedMarket.findMany({
+    // Find count of markets to be deleted
+    const count = await prisma.geotaggedMarket.count({
       where: {
-        active: true,
+        endDate: {
+          lt: now
+        }
+      }
+    })
+
+    console.log(`[CleanupExpired] Found ${count} expired markets to delete`)
+
+    if (count === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'No expired markets to clean up',
+        deleted: 0,
+        duration: Date.now() - startTime
+      })
+    }
+
+    // Capture some examples before deletion
+    const examples = await prisma.geotaggedMarket.findMany({
+      where: {
         endDate: {
           lt: now
         }
       },
+      take: 5,
       select: {
-        id: true,
-        marketId: true,
         title: true,
         endDate: true,
         platform: true
       }
     })
 
-    console.log(`[CleanupExpired] Found ${expiredMarkets.length} expired markets`)
-
-    if (expiredMarkets.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'No expired markets to clean up',
-        deactivated: 0,
-        duration: Date.now() - startTime
-      })
-    }
-
-    // Mark them as inactive
-    const result = await prisma.geotaggedMarket.updateMany({
+    // Delete expired markets
+    const result = await prisma.geotaggedMarket.deleteMany({
       where: {
-        active: true,
         endDate: {
           lt: now
         }
-      },
-      data: {
-        active: false,
-        updatedAt: now
       }
     })
 
-    // Log some examples
-    const examples = expiredMarkets.slice(0, 5).map(m => ({
-      title: m.title.substring(0, 60),
-      endDate: m.endDate,
-      platform: m.platform
-    }))
-
-    console.log('[CleanupExpired] Deactivated markets examples:', examples)
-    console.log(`[CleanupExpired] Complete: ${result.count} markets deactivated`)
+    console.log(`[CleanupExpired] Complete: ${result.count} markets deleted`)
 
     // Get statistics
     const stats = await prisma.geotaggedMarket.groupBy({
-      by: ['platform', 'active'],
+      by: ['platform'],
       _count: true
     })
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
-      deactivated: result.count,
+      deleted: result.count,
       examples,
       statistics: stats,
       duration: Date.now() - startTime
