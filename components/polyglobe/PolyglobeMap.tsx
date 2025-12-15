@@ -959,3 +959,4 @@ export function PolyglobeMap({
     />
   );
 }
+

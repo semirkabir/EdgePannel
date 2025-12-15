@@ -131,3 +131,4 @@ export const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> 
   'senate': { lat: 38.8899, lng: -77.0091 },
 };
 
+

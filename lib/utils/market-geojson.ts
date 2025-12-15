@@ -15,6 +15,33 @@ export interface GeoJSONFeatureCollection {
     features: GeoJSONFeature[];
 }
 
+/**
+ * Apply smart jitter to prevent markets from overlapping exactly
+ * Uses deterministic offset based on market ID so positions are stable
+ */
+function applyJitter(lng: number, lat: number, marketId: string, zoom: number = 2.5): [number, number] {
+    // Create deterministic offset from market ID
+    let hash = 0;
+    for (let i = 0; i < marketId.length; i++) {
+        hash = ((hash << 5) - hash) + marketId.charCodeAt(i);
+        hash |= 0;
+    }
+
+    // Scale jitter based on zoom level (less jitter at world view, more when zoomed)
+    // At zoom 2.5 (world view): ~0.5-1 degree offset
+    // At zoom 5: ~0.1-0.2 degree offset
+    const baseJitter = 0.8 / Math.pow(2, zoom - 2.5);
+
+    // Use sin/cos for even distribution in a circle
+    const angle = (Math.abs(hash) % 360) * (Math.PI / 180);
+    const radius = (Math.abs(Math.sin(hash)) * baseJitter);
+
+    const offsetLng = Math.cos(angle) * radius;
+    const offsetLat = Math.sin(angle) * radius;
+
+    return [lng + offsetLng, lat + offsetLat];
+}
+
 export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
     const features = markets.map((m: any) => {
         // Check for coordinates in multiple formats:
@@ -49,6 +76,12 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
         }
 
         const hasValidCoords = hasNestedCoords || hasDirectCoords;
+
+        // Apply jitter to prevent exact overlaps (only for valid coordinates)
+        if (hasValidCoords) {
+            const marketId = m.externalId || m.id || 'unknown';
+            [lng, lat] = applyJitter(lng, lat, marketId);
+        }
 
         // Fix URL logic could go here too, but likely handled in map tooltip or type
         // We assume properties are mostly passed through
