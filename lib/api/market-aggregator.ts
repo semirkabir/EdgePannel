@@ -215,9 +215,22 @@ export class MarketAggregator {
         let history: any[] = []
 
         if (market.platform === 'polymarket' && this.polymarketClient) {
-          history = await this.polymarketClient.getPriceHistory(market.id, '1h')
-          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-          history = history.filter(p => p.timestamp >= oneDayAgo)
+          // Extract token ID from rawData.clobTokenIds
+          const tokenIds = market.rawData?.clobTokenIds
+          let tokenId: string | undefined
+
+          if (Array.isArray(tokenIds) && tokenIds.length > 0) {
+            // Find the "Yes" token or use the first token
+            const outcomes = market.outcomes || []
+            const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === 'yes')
+            tokenId = yesIndex >= 0 && tokenIds[yesIndex] ? tokenIds[yesIndex] : tokenIds[0]
+          }
+
+          if (tokenId) {
+            history = await this.polymarketClient.getPriceHistory(tokenId, '1h')
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+            history = history.filter(p => p.timestamp >= oneDayAgo)
+          }
         } else if (market.platform === 'kalshi' && this.kalshiClient) {
           const details = await this.kalshiClient.getMarket(market.id)
           if (details.priceHistory) {

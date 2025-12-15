@@ -13,7 +13,7 @@ interface PolyglobeUIProps {
   activeFilters: Record<string, boolean>;
   onViewToggle?: () => void;
   onMapGlobeToggle?: () => void;
-  currentView?: 'map' | 'globe' | 'agent';
+  currentView?: 'map' | 'globe' | 'insights';
   isPlaying?: boolean;
   onPlayPause?: (playing: boolean) => void;
   onSettingsOpen?: () => void;
@@ -91,7 +91,7 @@ export function PolyglobeUI({
   const profileRef = useRef<HTMLDivElement>(null);
   const isPlaying = externalIsPlaying !== undefined ? externalIsPlaying : internalIsPlaying;
   const isMapView = currentView === 'map';
-  const isAgentView = currentView === 'agent';
+  const isInsightsView = currentView === 'insights';
 
   // Click-outside handling for dropdowns
   useEffect(() => {
@@ -179,8 +179,8 @@ export function PolyglobeUI({
             </button>
           ) : (
             <>
-              {/* Map/Globe Toggle - Only show when not in agent view */}
-              {!isAgentView && (
+              {/* Map/Globe Toggle - Only show when not in insights view */}
+              {!isInsightsView && (
                 <button
                   onClick={onMapGlobeToggle}
                   className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
@@ -190,18 +190,26 @@ export function PolyglobeUI({
                 </button>
               )}
 
-              {/* Agent Mode Toggle */}
+              {/* Insights Mode Toggle */}
               <button
                 onClick={onViewToggle}
                 className={cn(
-                  "h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all border",
-                  isAgentView
-                    ? "bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-500/50 text-purple-300"
-                    : "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30 text-purple-400 hover:from-purple-500/20 hover:to-blue-500/20"
+                  "h-8 px-3 flex items-center gap-2 rounded-xl transition-all duration-300 border shadow-sm",
+                  isInsightsView
+                    ? "bg-gradient-to-r from-amber-500/25 via-yellow-600/20 to-amber-500/25 border-amber-400/50 shadow-amber-500/20"
+                    : "bg-gradient-to-r from-amber-900/20 via-yellow-900/15 to-amber-900/20 border-amber-700/30 hover:border-amber-500/40 hover:shadow-amber-500/10"
                 )}
               >
-                <Brain className="w-3.5 h-3.5" />
-                <span>{isAgentView ? 'EXIT AGENT' : 'AGENT MODE'}</span>
+                <Brain className={cn(
+                  "w-3.5 h-3.5 transition-colors",
+                  isInsightsView ? "text-amber-300" : "text-amber-400/70"
+                )} />
+                <span className={cn(
+                  "font-serif italic tracking-tight font-bold transition-all",
+                  isInsightsView ? "text-white text-sm" : "text-white/90 text-xs"
+                )}>
+                  {isInsightsView ? 'EXIT' : 'Insights'}
+                </span>
               </button>
             </>
           )}
@@ -534,7 +542,7 @@ export function PolyglobeUI({
       </div>
 
       {/* Bottom Center: Ukraine Timeline (Positioned absolutely) - Only show in map/globe view */}
-      {!isAgentView && (
+      {!isInsightsView && (
         <button
           className="absolute flex items-center gap-2 px-4 py-2 bg-black/80 backdrop-blur-md border border-gray-700 rounded-full text-white hover:bg-gray-800 hover:border-blue-500/50 transition-all shadow-lg group pointer-events-auto z-40 justify-start flex-wrap"
           style={{ left: '50%', bottom: '32px', transform: 'translateX(-50%)' }}

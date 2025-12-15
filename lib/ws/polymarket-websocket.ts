@@ -131,10 +131,12 @@ export class PolymarketWebSocketClient {
 
   private sendSubscribe(conditionId: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      // CLOB market channel subscription format (subscribes by asset_id/token)
+      // CLOB market channel subscription format
+      // Per docs: https://docs.polymarket.com/developers/CLOB/websocket/wss-overview
+      // Subscribe to market channel with assets_ids array
       const message = {
-        type: 'subscribe',
-        assets_ids: [conditionId], // Array of asset IDs to subscribe to
+        type: 'market',
+        assets_ids: [conditionId],
       }
       console.log('[Polymarket WS] Subscribing to asset:', conditionId)
       this.ws.send(JSON.stringify(message))

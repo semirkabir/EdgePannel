@@ -65,6 +65,11 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
             }
         }
 
+        // For geotagged markets from DB, use externalId as the actual market ID
+        // For regular markets, use the existing id
+        const actualId = m.externalId || m.id;
+        const actualSlug = m.slug || actualId;
+
         return {
             type: 'Feature' as const,
             geometry: {
@@ -72,21 +77,26 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
                 coordinates: [lng, lat] as [number, number]
             },
             properties: {
-                id: m.id,
-                market_id: m.id,
+                id: actualId,
+                market_id: actualId,
                 title: m.title,
-                slug: m.id,
+                slug: actualSlug,
+                ticker: m.ticker,
                 url: marketUrl,
                 last_price: m.price || m.probability || 0,
                 volume: m.volume24h || m.liquidity || 0,
+                liquidity: m.liquidity,
                 image_url: null,
                 is_open: true,
                 description: m.description,
+                category: m.category,
                 price_movement: m.price_movement || 0,
                 isBreakingNews: m.isBreakingNews || false,
                 platform: m.platform,
+                endDate: m.endDate,
                 is_random_location: !hasValidCoords,
-                priceHistory: m.priceHistory ? JSON.stringify(m.priceHistory) : null
+                priceHistory: m.priceHistory ? JSON.stringify(m.priceHistory) : null,
+                rawData: m.rawData ? JSON.stringify(m.rawData) : '{}'
             }
         };
     });

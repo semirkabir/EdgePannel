@@ -16,7 +16,6 @@ import { usePriceAlerts } from '@/hooks/use-price-alerts';
 import { marketsToGeoJSON } from '@/lib/utils/market-geojson';
 import { MarketDetails } from '@/components/panels/MarketDetails';
 import { NotificationCenter } from '@/components/panels/NotificationCenter';
-import { DatabaseSetupNotice } from '@/components/polyglobe/DatabaseSetupNotice';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
 import { AgentDashboard } from '@/components/agent/AgentDashboard';
 
@@ -31,7 +30,7 @@ export default function PolyglobePage() {
   });
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'agent'>('globe');
+  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights'>('globe');
   const [selectedMarket, setSelectedMarket] = useState<EnrichedMarket | null>(null);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
@@ -105,10 +104,6 @@ export default function PolyglobePage() {
   // Use geotagged markets if available, otherwise fall back to search results
   const mapFilteredMarkets = geotaggedTotal > 0 ? geotaggedMarkets : fallbackMarkets;
   const isMapFiltering = geotaggedTotal > 0 ? isGeotaggedLoading : isFallbackLoading;
-
-  // Check if database needs setup
-  const needsDatabaseSetup = geotaggedError?.includes('Database not set up');
-  const needsIndexing = !needsDatabaseSetup && geotaggedTotal === 0 && !isGeotaggedLoading;
 
   // Process tickers for whale trade detection
   useEffect(() => {
@@ -243,21 +238,21 @@ export default function PolyglobePage() {
     }, 150);
   };
 
-  // Separate handler for Agent mode toggle
-  const handleAgentToggle = () => {
+  // Separate handler for Insights mode toggle
+  const handleInsightsToggle = () => {
     setIsTransitioning(true);
     setTimeout(() => {
       setViewMode(prev => {
-        let newView: 'map' | 'globe' | 'agent';
+        let newView: 'map' | 'globe' | 'insights';
 
-        if (prev === 'agent') {
+        if (prev === 'insights') {
           // Return to last map/globe view
           const lastView = localStorage.getItem('polyglobe-last-map-view') || 'globe';
           newView = lastView as 'map' | 'globe';
         } else {
-          // Save current view and switch to agent
+          // Save current view and switch to insights
           localStorage.setItem('polyglobe-last-map-view', prev);
-          newView = 'agent';
+          newView = 'insights';
         }
 
         localStorage.setItem('polyglobe-view-mode', newView);
@@ -286,14 +281,11 @@ export default function PolyglobePage() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-gray-950">
-      {/* Database Setup Notice */}
-      {needsDatabaseSetup && <DatabaseSetupNotice />}
-
       {/* Starfield background - only in globe mode */}
       {viewMode === 'globe' && <Starfield starCount={300} />}
 
       {/* Map/Globe View */}
-      {viewMode !== 'agent' && (
+      {viewMode !== 'insights' && (
         <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
           <PolyglobeMap
             activeFilters={activeFilters}
@@ -312,8 +304,8 @@ export default function PolyglobePage() {
         </div>
       )}
 
-      {/* Agent Dashboard View */}
-      {viewMode === 'agent' && (
+      {/* Insights Dashboard View */}
+      {viewMode === 'insights' && (
         <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
           <AgentDashboard markets={mapFilteredMarkets} />
         </div>
@@ -323,7 +315,7 @@ export default function PolyglobePage() {
         onUrlSearch={handleUrlSearch}
         onFilterChange={handleFilterChange}
         activeFilters={activeFilters}
-        onViewToggle={handleAgentToggle}
+        onViewToggle={handleInsightsToggle}
         onMapGlobeToggle={handleViewToggle}
         currentView={viewMode}
         isPlaying={isPlaying}
@@ -350,7 +342,7 @@ export default function PolyglobePage() {
       {/* Search results are now handled inside PolyglobeUI */}
 
       {/* Only show MarketDetails and CountryNewsPanel in map/globe view */}
-      {viewMode !== 'agent' && (
+      {viewMode !== 'insights' && (
         <>
           <MarketDetails
             market={selectedMarket as any}

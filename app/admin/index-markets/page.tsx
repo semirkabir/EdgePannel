@@ -36,18 +36,22 @@ export default function IndexMarketsPage() {
         throw new Error(`Failed to clear data: ${clearResponse.statusText}`)
       }
 
-      // Step 2: Re-index
-      const indexResponse = await fetch(
-        '/api/markets/index-locations?platform=all&limit=2000&force=true',
-        { method: 'POST' }
-      )
+      // Step 2: Re-index using new optimized endpoint
+      const indexResponse = await fetch('/api/markets/index-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platforms: ['polymarket', 'kalshi'],
+          batchSize: 500
+        })
+      })
 
       if (!indexResponse.ok) {
         throw new Error(`Failed to index: ${indexResponse.statusText}`)
       }
 
       const data = await indexResponse.json()
-      setIndexResults(data.results)
+      setIndexResults(data.stats)
 
       // Refresh status after indexing
       await fetchStatus()
@@ -64,17 +68,24 @@ export default function IndexMarketsPage() {
     setIndexResults(null)
 
     try {
-      const response = await fetch(
-        `/api/markets/index-locations?platform=${platform}&limit=2000${force ? '&force=true' : ''}`,
-        { method: 'POST' }
-      )
+      // Use new optimized indexing endpoint
+      const platforms = platform === 'all' ? ['polymarket', 'kalshi'] : [platform]
+      
+      const response = await fetch('/api/markets/index-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platforms,
+          batchSize: 500
+        })
+      })
 
       if (!response.ok) {
         throw new Error(`Failed to index: ${response.statusText}`)
       }
 
       const data = await response.json()
-      setIndexResults(data.results)
+      setIndexResults(data.stats)
 
       // Refresh status after indexing
       await fetchStatus()
@@ -198,37 +209,67 @@ export default function IndexMarketsPage() {
             <h2 className="text-xl font-bold text-white mb-4">Indexing Results</h2>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-300">Total Processed:</span>
-                <span className="text-white font-semibold">{indexResults.total}</span>
+                <span className="text-gray-300">Total Fetched:</span>
+                <span className="text-white font-semibold">
+                  {(indexResults.polymarket?.fetched || 0) + (indexResults.kalshi?.fetched || 0)}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-300">Successfully Indexed:</span>
-                <span className="text-green-400 font-semibold">{indexResults.indexed}</span>
+                <span className="text-green-400 font-semibold">{indexResults.total}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-300">Failed:</span>
-                <span className="text-red-400 font-semibold">{indexResults.failed}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300">Skipped (No Location):</span>
-                <span className="text-yellow-400 font-semibold">
-                  {indexResults.total - indexResults.indexed - indexResults.failed}
+                <span className="text-gray-300">Duration:</span>
+                <span className="text-blue-400 font-semibold">
+                  {(indexResults.duration / 1000).toFixed(1)}s
                 </span>
               </div>
 
-              {indexResults.platforms && (
-                <div className="mt-4 pt-4 border-t border-gray-700">
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">By Platform:</h3>
-                  {Object.entries(indexResults.platforms).map(([platform, stats]: [string, any]) => (
-                    <div key={platform} className="flex justify-between text-sm">
-                      <span className="text-gray-300 capitalize">{platform}:</span>
-                      <span className="text-white">
-                        {stats.indexed} indexed, {stats.failed} failed
-                      </span>
+              <div className="mt-4 pt-4 border-t border-gray-700">
+                <h3 className="text-sm font-semibold text-gray-400 mb-2">By Platform:</h3>
+                {indexResults.polymarket && (
+                  <div className="mb-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-purple-300 font-semibold">Polymarket:</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="ml-4 text-xs text-gray-400 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Fetched:</span>
+                        <span>{indexResults.polymarket.fetched}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Indexed:</span>
+                        <span className="text-green-400">{indexResults.polymarket.indexed}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Errors:</span>
+                        <span className="text-red-400">{indexResults.polymarket.errors}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {indexResults.kalshi && (
+                  <div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-green-300 font-semibold">Kalshi:</span>
+                    </div>
+                    <div className="ml-4 text-xs text-gray-400 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Fetched:</span>
+                        <span>{indexResults.kalshi.fetched}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Indexed:</span>
+                        <span className="text-green-400">{indexResults.kalshi.indexed}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Errors:</span>
+                        <span className="text-red-400">{indexResults.kalshi.errors}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
         )}

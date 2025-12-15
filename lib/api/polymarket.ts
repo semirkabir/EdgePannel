@@ -302,13 +302,53 @@ export class PolymarketClient {
     // Parse volume (can be number or string)
     const volume = market.volume24hr ? parseFloat(market.volume24hr.toString()) : 0
 
-    // Parse outcomes (default to Yes/No)
-    const outcomes = market.outcomes || ['Yes', 'No']
+    // Parse outcomes (can be string or array, default to Yes/No)
+    let outcomes: string[] = ['Yes', 'No']
+    if (market.outcomes) {
+      try {
+        outcomes = typeof market.outcomes === 'string'
+          ? JSON.parse(market.outcomes)
+          : market.outcomes
+      } catch (e) {
+        console.warn(`[Polymarket] Failed to parse outcomes for ${market.question}`)
+      }
+    }
+
+    // Parse clobTokenIds (can be string or array)
+    let clobTokenIds: string[] = []
+    if (market.clobTokenIds) {
+      try {
+        clobTokenIds = typeof market.clobTokenIds === 'string'
+          ? JSON.parse(market.clobTokenIds)
+          : market.clobTokenIds
+      } catch (e) {
+        console.warn(`[Polymarket] Failed to parse clobTokenIds for ${market.question}`)
+      }
+    }
+
+    // Use event title if available, otherwise use market question
+    // Event title is the broader question, market question is the specific option
+    let title = market.question
+    let subtitle: string | undefined = undefined
+
+    if (market.events && Array.isArray(market.events) && market.events.length > 0) {
+      const event = market.events[0]
+      if (event.title && event.title !== market.question) {
+        // Event has a broader title - use it as the main title
+        title = event.title
+        // Extract the specific option from the question
+        // e.g., "Will X win?" -> "X"
+        const optionMatch = market.question.match(/Will (.+?) (win|be|get|reach|hit|dip to|rise to)/)
+        if (optionMatch) {
+          subtitle = optionMatch[1]
+        }
+      }
+    }
 
     return {
       id: conditionId,
       platform: 'polymarket',
-      title: market.question,
+      title: title,
       description: market.description || '',
       category: market.category || undefined,
       normalizedCategory: market.category || undefined, // Use API category as normalized category
@@ -323,6 +363,9 @@ export class PolymarketClient {
       rawData: {
         ...market,
         numericId: market.id, // Store numeric ID for tag fetching
+        clobTokenIds: clobTokenIds, // Store token IDs for price history
+        subtitle: subtitle, // Store the option name
+        originalQuestion: market.question, // Store original question
       },
     }
   }
@@ -723,23 +766,24 @@ export class PolymarketClient {
       if (interval === '1m' || interval === '5m') {
         // Last hour with 1-minute granularity
         startTs = now - (60 * 60)
-        fidelity = 60
+        fidelity = 1
       } else if (interval === '1h') {
         // Last day with 1-hour granularity
         startTs = now - (24 * 60 * 60)
-        fidelity = 3600
+        fidelity = 60
       } else if (interval === '6h') {
         // Last week with 6-hour granularity
         startTs = now - (7 * 24 * 60 * 60)
-        fidelity = 6 * 3600
+        fidelity = 360
       } else {
-        // Last 30 days (ALL) with 1-day granularity
-        startTs = now - (30 * 24 * 60 * 60)
-        fidelity = 24 * 3600
+        // ALL time - fetch 90 days with 1-day granularity
+        // Most markets don't exist longer than this, and API may not return data beyond 90 days
+        startTs = now - (90 * 24 * 60 * 60)
+        fidelity = 1440
       }
 
-      // Use direct fetch for public endpoint - no auth required
-      const url = `${this.baseUrl}/prices-history?market=${tokenId}&interval=${interval}&startTs=${startTs}&endTs=${now}&fidelity=${fidelity}`
+      // Use CLOB API for price history
+      const url = `${this.baseUrl}/prices-history?market=${tokenId}&startTs=${startTs}&endTs=${now}&fidelity=${fidelity}`
       console.log(`[Polymarket Client] Fetching price history: ${url}`)
       console.log(`[Polymarket Client] Time range: ${new Date(startTs * 1000).toLocaleString()} to ${new Date(now * 1000).toLocaleString()}`)
 
@@ -753,13 +797,16 @@ export class PolymarketClient {
 
       if (!response.ok) {
         console.error(`[Polymarket Client] Price history request failed: ${response.status} ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`[Polymarket Client] Error response: ${errorText}`)
         return []
       }
 
       const data = await response.json()
       console.log(`[Polymarket Client] Price history response points: ${data?.history?.length || 0}`)
+      console.log(`[Polymarket Client] Raw response data:`, data)
 
-      if (data && Array.isArray(data.history)) {
+      if (data && Array.isArray(data.history) && data.history.length > 0) {
         const history = data.history.map((point: any) => ({
           timestamp: new Date(point.t * 1000),
           price: point.p,
@@ -769,6 +816,8 @@ export class PolymarketClient {
         console.log(`[Polymarket Client] First point: ${history[0]?.timestamp.toLocaleString()}, Last point: ${history[history.length - 1]?.timestamp.toLocaleString()}`)
         return history
       }
+
+      console.warn(`[Polymarket Client] No history data available for interval ${interval}`)
       return []
     } catch (error) {
       console.error('[Polymarket Client] Error fetching price history:', error)

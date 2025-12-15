@@ -36,6 +36,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const [chartType, setChartType] = useState<'line' | 'candle'>('line')
   const [candlesticks, setCandlesticks] = useState<Candlestick[]>([])
   const [isLoadingCandlesticks, setIsLoadingCandlesticks] = useState(false)
+  const [comments, setComments] = useState<any[]>([])
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
+  const [relatedMarkets, setRelatedMarkets] = useState<any[]>([])
+  const [isLoadingRelated, setIsLoadingRelated] = useState(false)
 
   useEffect(() => {
     if (market) {
@@ -54,6 +58,20 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
   }
 
+  // Get current price (prioritize live data)
+  const getCurrentPrice = () => {
+    // Use the most recent price from history if available, otherwise use market price
+    if (activeMarket?.priceHistory && activeMarket.priceHistory.length > 0) {
+      const latestHistoryPrice = activeMarket.priceHistory[activeMarket.priceHistory.length - 1]?.price
+      if (latestHistoryPrice !== undefined) {
+        return latestHistoryPrice
+      }
+    }
+    return activeMarket?.price || 0
+  }
+
+  const currentPrice = getCurrentPrice()
+
   // Calculate price change from history
   const getPriceChange = () => {
     if (!activeMarket?.priceHistory || activeMarket.priceHistory.length < 2) {
@@ -61,14 +79,14 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     const history = activeMarket.priceHistory;
-    const currentPrice = activeMarket.price || history[history.length - 1]?.price || 0;
+    const latestPrice = history[history.length - 1]?.price || activeMarket.price || 0;
     const oldestPrice = history[0]?.price || 0;
 
     if (oldestPrice === 0) {
       return { change: 0, percentage: 0, isPositive: true };
     }
 
-    const change = currentPrice - oldestPrice;
+    const change = latestPrice - oldestPrice;
     const percentage = (change / oldestPrice) * 100;
     const isPositive = change >= 0;
 
@@ -95,15 +113,35 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         else if (timeRange === '1W') interval = '6h'
         else if (timeRange === 'ALL') interval = '1d'
 
-        const response = await fetch(`/api/markets/history?id=${activeMarket.id}&platform=${activeMarket.platform}&interval=${interval}`)
+        // For Polymarket, try to get the token ID from rawData
+        let url = `/api/markets/history?id=${activeMarket.id}&platform=${activeMarket.platform}&interval=${interval}`
+        
+        if (activeMarket.platform === 'polymarket') {
+          // Try to get token ID from rawData.clobTokenIds
+          const tokenIds = activeMarket.rawData?.clobTokenIds
+          if (tokenIds && Array.isArray(tokenIds) && tokenIds.length > 0) {
+            url += `&assetId=${tokenIds[0]}`
+          } else if (activeMarket.slug) {
+            // Fallback to using slug
+            url = `/api/markets/history?id=${activeMarket.slug}&platform=${activeMarket.platform}&interval=${interval}`
+          }
+        }
+
+        console.log('[MarketDetails] Fetching history:', url)
+        const response = await fetch(url)
         if (response.ok) {
           const data = await response.json()
           if (data.history && Array.isArray(data.history)) {
+            console.log('[MarketDetails] Received history points:', data.history.length)
             setActiveMarket(prev => prev ? ({
               ...prev,
               priceHistory: data.history
             }) : null)
+          } else {
+            console.warn('[MarketDetails] No history data in response')
           }
+        } else {
+          console.error('[MarketDetails] History API error:', response.status, response.statusText)
         }
       } catch (error) {
         console.error('Failed to fetch history:', error)
@@ -203,6 +241,136 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     fetchEventDetails()
   }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform])
 
+  // Fetch Polymarket comments
+  useEffect(() => {
+    const fetchComments = async () => {
+      if (!activeMarket || activeMarket.platform !== 'polymarket') {
+        setComments([])
+        return
+      }
+
+      // Extract identifiers for fetching comments
+      const conditionId = activeMarket.id || activeMarket.rawData?.conditionId
+      const marketId = activeMarket.rawData?.numericId || activeMarket.rawData?.id
+      const slug = activeMarket.slug || activeMarket.rawData?.slug
+
+      if (!conditionId && !marketId && !slug) {
+        console.warn('[MarketDetails] No identifiers found for comments')
+        return
+      }
+
+      setIsLoadingComments(true)
+      try {
+        // Build params - prefer slug for page scraping, then marketId, then conditionId
+        const params = new URLSearchParams({ limit: '20' })
+        if (slug) {
+          params.set('slug', slug)
+        } else if (marketId) {
+          params.set('marketId', String(marketId))
+        } else if (conditionId) {
+          params.set('conditionId', conditionId)
+        }
+
+        console.log('[MarketDetails] Fetching comments with params:', params.toString())
+        const response = await fetch(`/api/markets/comments?${params.toString()}`)
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log('[MarketDetails] Received comments:', data.comments?.length || 0, 'source:', data.source || 'unknown')
+          // Sort by reaction count (highest to lowest)
+          const sortedComments = (data.comments || []).sort((a: any, b: any) => {
+            return (b.likes || 0) - (a.likes || 0)
+          })
+          setComments(sortedComments)
+        } else {
+          console.error('[MarketDetails] Comments API error:', response.status, response.statusText)
+        }
+      } catch (error) {
+        console.error('[MarketDetails] Error fetching comments:', error)
+      } finally {
+        setIsLoadingComments(false)
+      }
+    }
+
+    fetchComments()
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeMarket?.slug])
+
+  // Fetch related markets from the same event
+  useEffect(() => {
+    const fetchRelatedMarkets = async () => {
+      if (!activeMarket || activeMarket.platform !== 'polymarket') {
+        setRelatedMarkets([])
+        return
+      }
+
+      const eventId = activeMarket.rawData?.events?.[0]?.id
+      if (!eventId) {
+        setRelatedMarkets([])
+        return
+      }
+
+      setIsLoadingRelated(true)
+      try {
+        console.log('[MarketDetails] Fetching related markets for event:', eventId)
+        const response = await fetch(`https://gamma-api.polymarket.com/events/${eventId}`)
+
+        if (response.ok) {
+          const eventData = await response.json()
+          const markets = eventData.markets || []
+
+          // Filter out the current market and sort by volume
+          const otherMarkets = markets
+            .filter((m: any) => m.conditionId !== activeMarket.id)
+            .sort((a: any, b: any) => {
+              const aVol = a.volume24hr || 0
+              const bVol = b.volume24hr || 0
+              return parseFloat(bVol.toString()) - parseFloat(aVol.toString())
+            })
+            .slice(0, 10) // Show top 10 related markets
+            .map((m: any) => {
+              // Parse outcome prices
+              let price = 0
+              try {
+                const prices = typeof m.outcomePrices === 'string'
+                  ? JSON.parse(m.outcomePrices)
+                  : m.outcomePrices
+                if (Array.isArray(prices) && prices.length > 0) {
+                  price = parseFloat(prices[0].toString())
+                }
+              } catch (e) {
+                console.warn('[MarketDetails] Failed to parse outcomePrices')
+              }
+
+              // Extract option name from question
+              let optionName = m.question
+              const optionMatch = m.question.match(/Will (.+?) (win|be|get|reach|hit|dip to|rise to)/)
+              if (optionMatch) {
+                optionName = optionMatch[1]
+              }
+
+              return {
+                id: m.conditionId,
+                question: m.question,
+                optionName,
+                price,
+                volume: m.volume24hr || 0,
+                slug: m.slug
+              }
+            })
+
+          console.log('[MarketDetails] Found', otherMarkets.length, 'related markets')
+          setRelatedMarkets(otherMarkets)
+        }
+      } catch (error) {
+        console.error('[MarketDetails] Error fetching related markets:', error)
+      } finally {
+        setIsLoadingRelated(false)
+      }
+    }
+
+    fetchRelatedMarkets()
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData])
+
   // Get articles from event data or use mock tweets
   const articles = activeMarket?.eventData?.rankedArticles || []
   const hasArticles = articles.length > 0
@@ -250,12 +418,20 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
       {activeMarket && (
         <div className="px-5 pt-8 pb-4 text-center relative">
           <div className="inline-flex flex-col items-center">
+            {/* Show specific option if this is part of a multi-option event */}
+            {activeMarket.rawData?.subtitle && (
+              <div className="mb-3 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
+                  {activeMarket.rawData.subtitle}
+                </span>
+              </div>
+            )}
             <span className="text-sm font-medium text-gray-400 mb-1 tracking-wide">CHANCE</span>
             <div className={cn(
               "text-6xl font-black tracking-tighter tabular-nums mb-2",
-              (activeMarket.price || 0) >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]" // Neon Green / Red
+              currentPrice >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]" // Neon Green / Red
             )}>
-              {Math.round((activeMarket.price || 0) * 100)}%
+              {Math.round(currentPrice * 100)}%
             </div>
 
             {/* Price Change - Calculated from history */}
@@ -410,7 +586,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                 window.open(url, '_blank');
               }}
             >
-              BET YES
+              BUY YES
             </Button>
             <Button
               className="h-12 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(255,77,77,0.2)] border-0"
@@ -419,7 +595,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                 window.open(url, '_blank');
               }}
             >
-              BET NO
+              BUY NO
             </Button>
           </div>
           <div className="flex items-center justify-center gap-6 mt-4 text-xs font-mono text-gray-500">
@@ -443,21 +619,96 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         </div>
       )}
 
+      {/* 3.5. Related Markets in Same Event */}
+      {activeMarket && relatedMarkets.length > 0 && (
+        <div className="px-5 mb-6">
+          <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wide">Other Options</h3>
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            {relatedMarkets.map((relMarket: any) => (
+              <button
+                key={relMarket.id}
+                onClick={() => {
+                  window.open(`https://polymarket.com/event/${relMarket.slug}`, '_blank')
+                }}
+                className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 hover:border-white/10 transition-all group"
+              >
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-medium text-white mb-1 group-hover:text-blue-400 transition-colors line-clamp-1">
+                    {relMarket.optionName}
+                  </div>
+                  <div className="text-xs text-gray-500 font-mono">
+                    ${(relMarket.volume || 0).toLocaleString(undefined, { notation: 'compact' })} vol
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "text-2xl font-black tabular-nums",
+                    relMarket.price >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]"
+                  )}>
+                    {Math.round(relMarket.price * 100)}%
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 4. Details / Tweets Tabs */}
       {activeMarket && (
         <div className="px-5">
-          <Tabs defaultValue="tweets" className="w-full">
+          <Tabs defaultValue="comments" className="w-full">
             <TabsList className="w-full bg-white/5 p-1 rounded-xl mb-4 border border-white/5">
-              <TabsTrigger value="tweets" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
-                LATEST NEWS
+              <TabsTrigger value="comments" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
+                {activeMarket.platform === 'polymarket' ? 'COMMENTS' : 'LATEST NEWS'}
               </TabsTrigger>
               <TabsTrigger value="info" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
                 MARKET INFO
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="tweets" className="mt-0 space-y-3">
-              {hasArticles ? (
+            <TabsContent value="comments" className="mt-0 space-y-3">
+              {isLoadingComments ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              ) : activeMarket.platform === 'polymarket' && comments.length > 0 ? (
+                comments.map((comment) => (
+                  <div key={comment.id} className="p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      {comment.user?.profile_image ? (
+                        <img 
+                          src={comment.user.profile_image} 
+                          alt={comment.user.username}
+                          className="w-5 h-5 rounded-full"
+                        />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] text-white font-black">
+                          {comment.user?.username?.[0]?.toUpperCase() || '?'}
+                        </div>
+                      )}
+                      <span className="text-xs font-bold text-gray-200">{comment.user?.username || 'Anonymous'}</span>
+                      <span className="text-[10px] text-gray-500 ml-auto">
+                        {new Date(comment.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      {comment.comment}
+                    </p>
+                    {(comment.likes > 0 || comment.replies_count > 0) && (
+                      <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-500">
+                        {comment.likes > 0 && <span>❤️ {comment.likes}</span>}
+                        {comment.replies_count > 0 && <span>💬 {comment.replies_count}</span>}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : hasArticles ? (
                 articles.map((article, idx) => (
                   <a
                     key={idx}
@@ -485,20 +736,9 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                   </a>
                 ))
               ) : (
-                mockTweets.map((tweet) => (
-                  <div key={tweet.id} className="p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] text-white font-black">
-                        {tweet.user[0]}
-                      </div>
-                      <span className="text-xs font-bold text-gray-200">{tweet.user}</span>
-                      <span className="text-[10px] text-gray-500 ml-auto">{tweet.time}</span>
-                    </div>
-                    <p className="text-xs text-gray-400 leading-relaxed">
-                      {tweet.text}
-                    </p>
-                  </div>
-                ))
+                <div className="text-center py-8 text-gray-500 text-xs">
+                  No comments available yet
+                </div>
               )}
             </TabsContent>
 

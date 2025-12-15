@@ -270,34 +270,59 @@ function InnerMap({
   };
 
   const onClick = useCallback(async (event: MapLayerMouseEvent) => {
+    console.log('[InnerMap] onClick triggered, isDragging:', isDraggingRef.current, 'features:', event.features?.length);
+
     if (isDraggingRef.current) return;
 
     // Check for feature clicks first
     const feature = event.features && event.features.length > 0 ? event.features[0] : null;
 
     if (feature) {
-      if (feature.layer.id === 'markets-layer') {
+      console.log('[InnerMap] Feature detected, layer:', feature.layer.id);
+
+      if (feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer') {
         const marketId = feature.properties?.id;
+        console.log('[InnerMap] Market clicked, ID:', marketId);
+
         // Try to find full market data in rawMarkets (default view) OR from the feature properties itself (search view)
         let market = rawMarkets?.find((m: any) => m.id === marketId);
 
-        // If using override markets (e.g. search results), rawMarkets might not contain this market.
-        // In that case, we can try to reconstruct/use the properties from the feature itself.
-        if (!market && isUsingOverride) {
-          console.log('[InnerMap] Market not found in rawMarkets (likely from search), using feature properties:', feature.properties);
+        // If market not found in rawMarkets, reconstruct from feature properties
+        // This happens when using override markets (database/geotagged markets)
+        if (!market) {
+          console.log('[InnerMap] Market not found in rawMarkets, reconstructing from feature properties');
+
+          // Parse rawData if it's a JSON string
+          let rawData = feature.properties.rawData;
+          if (typeof rawData === 'string') {
+            try {
+              rawData = JSON.parse(rawData);
+            } catch (e) {
+              console.warn('[InnerMap] Failed to parse rawData:', e);
+              rawData = {};
+            }
+          }
+
           market = {
-            ...feature.properties,
-            // Ensure critical fields are present
             id: feature.properties.id || feature.properties.market_id,
             title: feature.properties.title,
-            description: feature.properties.description,
+            description: feature.properties.description || '',
             platform: feature.properties.platform,
-            volume24h: feature.properties.volume,
-            price: feature.properties.last_price,
+            volume24h: feature.properties.volume || feature.properties.volume24h,
+            price: feature.properties.last_price || feature.properties.price,
+            probability: feature.properties.last_price || feature.properties.price,
+            liquidity: feature.properties.liquidity,
+            endDate: feature.properties.endDate,
+            slug: feature.properties.slug,
+            ticker: feature.properties.ticker,
+            category: feature.properties.category,
+            rawData: rawData || {},
           };
+          console.log('[InnerMap] Reconstructed market:', market);
         }
 
         if (market) {
+          console.log('[InnerMap] Calling handleCardClick');
           handleCardClick(market);
           setSelectedFeature(null);
         }
@@ -491,7 +516,7 @@ function InnerMap({
 
     const props = feature.properties;
     const [lon, lat] = feature.geometry.coordinates;
-    const isMarket = feature.layer.id === 'markets-layer';
+    const isMarket = feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer';
 
     return (
       <Popup
@@ -502,66 +527,133 @@ function InnerMap({
         onClose={() => setSelectedFeature(null)}
         anchor="top"
         className="polyglobe-popup z-50"
-        maxWidth="320px"
+        maxWidth="280px"
       >
-        <div className="bg-gray-900/95 border border-gray-700 rounded-lg p-4 text-white shadow-xl backdrop-blur-md min-w-[240px]">
+        <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-3 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden">
+          {/* Gradient overlay for modern effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
+
           {isMarket ? (
-            <>
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-sm leading-tight text-blue-100 mb-1">{props.title}</h3>
-                  {/* Category Badge */}
-                  {props.category && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-md text-[10px] font-medium text-purple-300">
-                      {CATEGORY_ICONS[props.category.charAt(0).toUpperCase() + props.category.slice(1)] || <LayoutGrid className="w-2.5 h-2.5" />}
-                      {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
-                    </span>
-                  )}
-                </div>
-                <span className={cn("text-xs font-mono px-1.5 py-0.5 rounded shrink-0", "bg-blue-500/20 text-blue-400")}>
-                  {Math.round(props.last_price * 100)}¢
-                </span>
+            <div className="relative z-10">
+              {/* Price Badge - Floating top right */}
+              <div className="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-3 py-1.5 rounded-lg shadow-lg">
+                <span className="text-xl font-bold tabular-nums">{Math.round(props.last_price * 100)}¢</span>
               </div>
-              <div className="text-xs text-gray-400 font-mono mb-3">
-                <div className="flex justify-between items-end mb-1">
-                  <span>Vol: <span className="text-gray-200">${Math.round(props.volume).toLocaleString()}</span></span>
-                  {props.price_movement !== undefined && (
-                    <span className={cn(
-                      "font-bold",
+
+              {/* Title */}
+              <div className="pr-16 mb-3">
+                <h3 className="font-semibold text-base leading-tight text-white line-clamp-2">{props.title}</h3>
+              </div>
+
+              {/* Platform & Category Badge Row */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span className={cn(
+                  "px-2.5 py-1 rounded-md text-xs font-semibold shadow-sm",
+                  props.platform === 'polymarket'
+                    ? "bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-400/30"
+                    : "bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border border-green-400/30"
+                )}>
+                  {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
+                </span>
+                {props.category && (
+                  <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-gray-700/40 text-gray-300 border border-gray-600/30">
+                    {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
+                  </span>
+                )}
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-gray-800/40 rounded-lg p-2 border border-gray-700/30">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Volume 24h</div>
+                  <div className="text-sm font-bold text-white">${(props.volume / 1000).toFixed(1)}k</div>
+                </div>
+                {props.price_movement !== undefined && props.price_movement !== 0 && (
+                  <div className="bg-gray-800/40 rounded-lg p-2 border border-gray-700/30">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">24h Change</div>
+                    <div className={cn(
+                      "text-sm font-bold",
                       props.price_movement >= 0 ? "text-emerald-400" : "text-red-400"
                     )}>
                       {props.price_movement > 0 ? '+' : ''}{Math.round(props.price_movement * 100)}%
-                    </span>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                {/* 24h Price Sparkline */}
-                {JSON.parse(props.priceHistory || '[]').length > 0 && (
-                  <div className="mt-2 mb-1 p-1 bg-black/20 rounded">
+              {/* End Date */}
+              {props.endDate && (
+                <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-3">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span>Ends {new Date(props.endDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}</span>
+                </div>
+              )}
+
+              {/* Chart */}
+              {JSON.parse(props.priceHistory || '[]').length > 0 && (
+                <div className="mb-3">
+                  <div className="bg-black/30 rounded-lg p-2 border border-gray-700/20">
                     <Sparkline
                       data={JSON.parse(props.priceHistory || '[]').map((p: any) => p.price)}
-                      width={200}
+                      width={240}
                       height={40}
                       className="w-full"
                     />
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* CTA Button */}
               <button
-                className="block text-center w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded transition-colors"
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-sm font-bold py-2.5 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98]"
                 onClick={(e) => {
                   e.stopPropagation();
-                  // Find full market data
+                  // Find full market data or reconstruct from properties
                   const marketId = props.id || props.market_id;
-                  const fullMarket = rawMarkets?.find((m: any) => m.id === marketId);
-                  if (fullMarket) {
-                    handleCardClick(fullMarket);
+                  let market = rawMarkets?.find((m: any) => m.id === marketId);
+
+                  // If not found, reconstruct from feature properties (for geotagged markets)
+                  if (!market) {
+                    let rawData = props.rawData;
+                    if (typeof rawData === 'string') {
+                      try {
+                        rawData = JSON.parse(rawData);
+                      } catch (e) {
+                        rawData = {};
+                      }
+                    }
+
+                    market = {
+                      id: props.id || props.market_id,
+                      title: props.title,
+                      description: props.description || '',
+                      platform: props.platform,
+                      volume24h: props.volume || props.volume24h,
+                      price: props.last_price || props.price,
+                      probability: props.last_price || props.price,
+                      liquidity: props.liquidity,
+                      endDate: props.endDate,
+                      slug: props.slug,
+                      ticker: props.ticker,
+                      category: props.category,
+                      rawData: rawData || {},
+                    };
+                  }
+
+                  if (market) {
+                    handleCardClick(market);
                   }
                 }}
               >
-                VIEW DETAILS
+                VIEW DETAILS →
               </button>
-            </>
+            </div>
           ) : (
             <>
               <div className="flex items-center gap-2 mb-2">
@@ -634,6 +726,23 @@ function InnerMap({
     }
   }, [projection]);
 
+  // Debug: Log map and layer state on load
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (map) {
+      map.on('load', () => {
+        console.log('[InnerMap] Map loaded');
+        console.log('[InnerMap] Available layers:', map.getStyle()?.layers?.map((l: any) => l.id));
+      });
+
+      // Also check layers after a delay to ensure they're rendered
+      setTimeout(() => {
+        console.log('[InnerMap] Layers after timeout:', map.getStyle()?.layers?.map((l: any) => l.id));
+        console.log('[InnerMap] interactiveLayerIds:', activeFilters.heatmap ? [] : ['markets-layer', 'tweets-layer']);
+      }, 2000);
+    }
+  }, [mapRef.current, activeFilters.heatmap]);
+
   return (
     <div className="w-full h-full relative" style={{ backgroundColor: projection === 'globe' ? 'transparent' : '#030712' }}>
       <Map
@@ -657,16 +766,22 @@ function InnerMap({
         onRotateEnd={handleInteractionEnd}
         onPitchStart={handleInteractionStart}
         onPitchEnd={handleInteractionEnd}
-        onMouseDown={handleInteractionStart}
+        onMouseDown={(e) => {
+          console.log('[InnerMap] onMouseDown fired');
+          handleInteractionStart(e);
+        }}
         onTouchStart={handleInteractionStart}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         onMouseMove={onHover}
-        onClick={onClick}
+        onClick={(e) => {
+          console.log('[InnerMap] onClick PROP FIRED');
+          onClick(e);
+        }}
         style={{ width: '100%', height: '100%' }}
         mapStyle="https://api.maptiler.com/maps/darkmatter/style.json?key=35TZqSTSBjgDvsawKAK9"
         attributionControl={false}
-        interactiveLayerIds={activeFilters.heatmap ? [] : ['markets-layer', 'tweets-layer']}
+        interactiveLayerIds={activeFilters.heatmap ? [] : ['markets-glow-layer', 'tweets-layer']}
       >
         <NavigationControl position="bottom-right" />
         <FullscreenControl position="bottom-right" />
@@ -676,8 +791,8 @@ function InnerMap({
             <Layer {...heatmapLayer as any} source="markets" />
           ) : (
             <>
-              <Layer {...marketGlowLayer as any} source="markets" />
               <Layer {...marketLayer as any} source="markets" />
+              <Layer {...marketGlowLayer as any} source="markets" />
             </>
           )}
         </Source>

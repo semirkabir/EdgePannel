@@ -56,9 +56,7 @@ export async function GET(request: Request) {
 
       const client = new PolymarketClient()
       const { markets } = await client.getMarkets({
-        limit: 1,
-        order: 'id',
-        ascending: false // Get the most recent market
+        limit: 1
       })
 
       const initialId = markets[0]?.id || '0'
@@ -66,9 +64,7 @@ export async function GET(request: Request) {
       syncState = await prisma.marketSyncState.create({
         data: {
           platform: 'polymarket',
-          lastSeenId: initialId,
-          lastSeenTimestamp: new Date(),
-          marketsProcessed: 0
+          lastSeenId: initialId
         }
       })
 
@@ -92,8 +88,6 @@ export async function GET(request: Request) {
     // and filter for IDs greater than lastSeenId
     const { markets: allMarkets } = await client.getMarkets({
       limit: 100, // Max new markets to fetch (typically 0-20 per minute)
-      order: 'id',
-      ascending: false, // Newest first
       closed: false // Only active markets
     })
 
@@ -104,12 +98,11 @@ export async function GET(request: Request) {
     results.newMarkets = newMarkets.length
 
     if (newMarkets.length === 0) {
-      // No new markets, just update lastSync timestamp
+      // No new markets, just update lastSyncAt timestamp
       await prisma.marketSyncState.update({
         where: { platform: 'polymarket' },
         data: {
-          lastSync: new Date(),
-          updatedAt: new Date()
+          lastSyncAt: new Date()
         }
       })
 
@@ -123,7 +116,6 @@ export async function GET(request: Request) {
 
     // Process new markets
     let highestId = syncState.lastSeenId
-    let highestTimestamp = syncState.lastSeenTimestamp
 
     for (const market of newMarkets) {
       try {
@@ -216,12 +208,7 @@ export async function GET(request: Request) {
       where: { platform: 'polymarket' },
       data: {
         lastSeenId: highestId,
-        lastSeenTimestamp: highestTimestamp,
-        lastSync: new Date(),
-        marketsProcessed: {
-          increment: results.indexed
-        },
-        updatedAt: new Date()
+        lastSyncAt: new Date()
       }
     })
 

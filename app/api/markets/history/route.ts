@@ -15,12 +15,15 @@ export async function GET(request: Request) {
         }
 
         if (platform === 'polymarket') {
-            const client = new PolymarketClient({ apiKey: '' }) // Public API doesn't need key for reading
+            const client = new PolymarketClient({ apiKey: '' })
+            
+            console.log('[History API] Polymarket request:', { id, interval, assetId })
 
             let tokenId = assetId
 
             // If we don't have the assetId (token_id), we need to fetch it
             if (!tokenId) {
+                console.log('[History API] No assetId provided, attempting to resolve from id:', id)
                 // If ID is a slug (doesn't start with 0x), try Gamma API first
                 if (!id.startsWith('0x')) {
                     try {
@@ -29,13 +32,38 @@ export async function GET(request: Request) {
                             const markets = await gammaResponse.json()
                             if (Array.isArray(markets) && markets.length > 0) {
                                 const market = markets[0]
+                                console.log('[History API] Market data:', { 
+                                    clobTokenIds: market.clobTokenIds, 
+                                    outcomes: market.outcomes 
+                                })
+                                
                                 // Try to find "Yes" token or default to first
-                                if (market.clobTokenIds && Array.isArray(JSON.parse(market.clobTokenIds))) {
-                                    const tokenIds = JSON.parse(market.clobTokenIds)
-                                    const outcomes = JSON.parse(market.outcomes || '[]')
+                                if (market.clobTokenIds) {
+                                    let tokenIds = market.clobTokenIds
+                                    
+                                    // Parse if it's a string
+                                    if (typeof tokenIds === 'string') {
+                                        try {
+                                            tokenIds = JSON.parse(tokenIds)
+                                        } catch (e) {
+                                            console.error('[History API] Failed to parse clobTokenIds:', e)
+                                        }
+                                    }
+                                    
+                                    if (Array.isArray(tokenIds) && tokenIds.length > 0) {
+                                        let outcomes = market.outcomes || []
+                                        if (typeof outcomes === 'string') {
+                                            try {
+                                                outcomes = JSON.parse(outcomes)
+                                            } catch (e) {
+                                                outcomes = []
+                                            }
+                                        }
 
-                                    const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === 'yes')
-                                    tokenId = yesIndex >= 0 ? tokenIds[yesIndex] : tokenIds[0]
+                                        const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === 'yes')
+                                        tokenId = yesIndex >= 0 ? tokenIds[yesIndex] : tokenIds[0]
+                                        console.log('[History API] Resolved tokenId:', tokenId)
+                                    }
                                 }
                             }
                         }
