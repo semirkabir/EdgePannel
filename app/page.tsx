@@ -19,43 +19,50 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Starfield } from '@/components/polyglobe/Starfield'
+import dynamic from 'next/dynamic'
+
+// Dynamically import the globe preview (client-side only)
+const PolyglobePreview = dynamic(
+  () => import('@/components/landing/PolyglobePreview').then(mod => mod.PolyglobePreview),
+  { ssr: false }
+)
 
 // Feature cards data
 const features = [
   {
     icon: Globe,
     title: '3D Globe Visualization',
-    description: 'Explore prediction markets on an interactive 3D globe. See where events are happening worldwide.',
+    description: 'Explore prediction markets on an interactive 3D globe. See where events are happening worldwide with real-time data overlays.',
     color: 'from-blue-500 to-cyan-400',
   },
   {
     icon: TrendingUp,
-    title: 'Multi-Platform Data',
-    description: 'Aggregate data from Polymarket and Kalshi in one unified interface.',
+    title: 'Pluggable Brokers',
+    description: 'Connect to any prediction market platform. Currently supporting Polymarket and Kalshi, with more brokers coming soon.',
     color: 'from-green-500 to-emerald-400',
   },
   {
     icon: Zap,
-    title: 'Real-Time Updates',
-    description: 'Live price feeds and breaking news alerts. Never miss a market movement.',
+    title: 'Extensible Data Sources',
+    description: 'Overlay real-world data on the globe. Weather systems, news events, economic indicators, and custom data sources.',
     color: 'from-yellow-500 to-orange-400',
   },
   {
     icon: Bell,
-    title: 'Price Alerts',
-    description: 'Set custom alerts for price movements. Get notified when markets hit your targets.',
+    title: 'Intelligent Alerts',
+    description: 'Set custom alerts for price movements, whale trades, and data events. Get notified when markets hit your targets.',
     color: 'from-purple-500 to-pink-400',
   },
   {
-    icon: Star,
-    title: 'Watchlist',
-    description: 'Track your favorite markets. Add notes and monitor them from one place.',
+    icon: Activity,
+    title: 'Whale Tracking',
+    description: 'Monitor large holders and trades in real-time. Identify smart money movements across all platforms.',
     color: 'from-pink-500 to-rose-400',
   },
   {
     icon: BarChart3,
-    title: 'Portfolio Tracking',
-    description: 'Monitor your positions and P&L in real-time. Make informed trading decisions.',
+    title: 'Unified Portfolio',
+    description: 'Track positions and P&L across all brokers in one dashboard. Cross-platform analytics and arbitrage detection.',
     color: 'from-indigo-500 to-violet-400',
   },
 ]
@@ -263,7 +270,7 @@ export default function LandingPage() {
               mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             )}>
               {/* Status badges */}
-              <div className="inline-flex items-center gap-3 mb-6">
+              <div className="inline-flex items-center gap-3 mb-6 flex-wrap justify-center">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse-dot" />
                   <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Polymarket</span>
@@ -272,19 +279,26 @@ export default function LandingPage() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />
                   <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Kalshi</span>
                 </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/5 rounded-full">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-500">+ More Coming Soon</span>
+                </div>
               </div>
 
               <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6">
-                <span className="text-white">Your </span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00ff7f] to-blue-400">Edge</span>
-                <span className="text-white"> in</span>
+                <span className="text-white">One Platform.</span>
                 <br />
-                <span className="text-white">Prediction Markets</span>
+                <span className="text-white">Every </span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00ff7f] to-blue-400">Market</span>
+                <span className="text-white">.</span>
+                <br />
+                <span className="text-white">Visualized </span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Globally</span>
+                <span className="text-white">.</span>
               </h1>
 
               <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-8">
-                The command center for prediction market intelligence.
-                Real-time data, global visualization, and instant insights.
+                The unified intelligence platform for prediction markets. Trade across any broker,
+                overlay real-world data, and discover insights through geospatial visualization.
               </p>
 
               {/* CTA Buttons */}
@@ -325,46 +339,11 @@ export default function LandingPage() {
                 </div>
 
                 {/* Globe embed area - 16:9 aspect ratio */}
-                <div className="relative aspect-[16/9] bg-gray-950">
-                  {/* Simplified globe mockup with animated overlays */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    {/* Globe circle */}
-                    <div className="relative w-[60%] aspect-square rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 overflow-hidden">
-                      {/* Longitude lines */}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-[90%] h-[90%] rounded-full border border-slate-600/50" />
-                        <div className="absolute w-[70%] h-[90%] rounded-full border border-slate-600/30" />
-                        <div className="absolute w-[45%] h-[90%] rounded-full border border-slate-600/20" />
-                      </div>
-
-                      {/* Latitude lines */}
-                      <div className="absolute inset-0 flex flex-col items-center justify-around py-[15%]">
-                        {[...Array(5)].map((_, i) => (
-                          <div key={i} className="w-full border-t border-slate-600/30" />
-                        ))}
-                      </div>
-
-                      {/* Animated market dots */}
-                      {mounted && [...Array(12)].map((_, i) => (
-                        <div
-                          key={i}
-                          className={cn(
-                            'absolute w-2 h-2 rounded-full animate-pulse',
-                            i % 3 === 0 ? 'bg-blue-400' : i % 3 === 1 ? 'bg-[#00ff7f]' : 'bg-[#ff4d4d]'
-                          )}
-                          style={{
-                            top: `${20 + Math.random() * 60}%`,
-                            left: `${20 + Math.random() * 60}%`,
-                            animationDelay: `${i * 0.2}s`,
-                            opacity: 0.7 + Math.random() * 0.3,
-                          }}
-                        />
-                      ))}
-
-                      {/* Center glow */}
-                      <div className="absolute inset-0 bg-gradient-radial from-blue-500/10 to-transparent" />
-                    </div>
-                  </div>
+                <div className="relative aspect-[16/9] bg-gray-950 overflow-hidden">
+                  {/* Interactive Globe Preview */}
+                  {mounted && (
+                    <PolyglobePreview className="absolute inset-0" />
+                  )}
 
                   {/* Floating stat cards */}
                   <FloatingStatCard position="top-left" delay="0s" />
@@ -404,13 +383,13 @@ export default function LandingPage() {
             <div className="text-center mb-16">
               <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/30 rounded-full text-xs font-bold uppercase tracking-wider text-blue-400 mb-4">
                 <Zap className="w-3 h-3" />
-                Capabilities
+                Platform Capabilities
               </span>
               <h2 className="text-4xl md:text-5xl font-black text-white mb-4">
-                Command Center Features
+                Modular Architecture, Infinite Possibilities
               </h2>
               <p className="text-gray-400 max-w-2xl mx-auto">
-                Professional-grade tools for prediction market analysis
+                Built for extensibility. Connect any broker, integrate any data source, visualize everything in real-time.
               </p>
             </div>
 
@@ -473,11 +452,12 @@ export default function LandingPage() {
                 </div>
 
                 <h2 className="text-4xl md:text-5xl font-black text-white mb-4">
-                  Ready to Get Your Edge?
+                  See Every Market, From Every Angle
                 </h2>
 
                 <p className="text-gray-400 max-w-lg mx-auto mb-8">
-                  Join thousands of traders using EdgePannel to discover alpha in prediction markets.
+                  Connect all your brokers, overlay real-world data, and make decisions with
+                  complete intelligence. The platform that brings clarity to prediction markets.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">

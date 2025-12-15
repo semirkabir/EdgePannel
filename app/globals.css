@@ -160,3 +160,24 @@
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
+/* Maplibre GL Popup Styles */
+.maplibregl-popup {
+  max-width: none !important;
+}
+
+.maplibregl-popup-content {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.maplibregl-popup-tip {
+  display: none !important;
+}
+
+.market-popup .maplibregl-popup-content {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
