@@ -12,7 +12,8 @@
       "Bash(powershell.exe -Command \"Remove-Item -Path ''.\\nul'' -Force\")",
       "Bash(dir:*)",
       "Bash(findstr:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(echo:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

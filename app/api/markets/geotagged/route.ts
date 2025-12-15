@@ -14,25 +14,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if GeotaggedMarket table exists
-    try {
-      await prisma.$queryRaw`SELECT 1 FROM "GeotaggedMarket" LIMIT 1`
-    } catch (tableError: any) {
-      console.error('[Geotagged Markets] Table does not exist:', tableError.message)
-      return NextResponse.json({
-        error: 'GeotaggedMarket table not found',
-        message: 'Please run the database migration first. See: prisma/migrations/add_geotagged_markets.sql',
-        instructions: {
-          step1: 'Go to https://app.supabase.com/project/_/sql/new',
-          step2: 'Copy SQL from prisma/migrations/add_geotagged_markets.sql',
-          step3: 'Paste and run in SQL Editor',
-          step4: 'Then visit /admin/index-markets to index your markets'
-        },
-        markets: [],
-        total: 0
-      }, { status: 503 })
-    }
-
     const { searchParams } = new URL(request.url)
 
     // Filters
@@ -132,6 +113,7 @@ export async function GET(request: Request) {
           longitude: true,
           confidence: true,
           updatedAt: true,
+          rawData: true,
         }
       }),
       prisma.geotaggedMarket.count({ where })
@@ -139,8 +121,38 @@ export async function GET(request: Request) {
 
     console.log(`[Geotagged Markets] Returned ${markets.length} of ${total} markets`)
 
+    // Transform markets to include outcomes and outcomePrices from rawData
+    const transformedMarkets = markets.map((market: any) => {
+      const rawData = market.rawData || {}
+
+      // Extract outcomes and outcomePrices from rawData if available
+      let outcomes = rawData.outcomes
+      let outcomePrices = rawData.outcomePrices
+
+      // Parse outcomePrices if it's a string
+      if (typeof outcomePrices === 'string') {
+        try {
+          outcomePrices = JSON.parse(outcomePrices)
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+
+      // Convert string prices to numbers if needed
+      if (Array.isArray(outcomePrices)) {
+        outcomePrices = outcomePrices.map((p: any) => typeof p === 'string' ? parseFloat(p) : p)
+      }
+
+      return {
+        ...market,
+        outcomes,
+        outcomePrices,
+        price: market.probability
+      }
+    })
+
     return NextResponse.json({
-      markets,
+      markets: transformedMarkets,
       total,
       limit,
       offset,

@@ -10,8 +10,8 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 interface IndexStats {
-  polymarket: { fetched: number; indexed: number; errors: number }
-  kalshi: { fetched: number; indexed: number; errors: number }
+  polymarket: { fetched: number; indexed: number; skipped: number; errors: number }
+  kalshi: { fetched: number; indexed: number; skipped: number; errors: number }
   total: number
   duration: number
 }
@@ -23,7 +23,14 @@ async function processMarketsInChunks(
   stats: IndexStats['polymarket'] | IndexStats['kalshi']
 ) {
   const marketsWithLocation = markets.filter(m => m.location?.coordinates)
-  
+  const skipped = markets.length - marketsWithLocation.length
+
+  stats.skipped += skipped
+
+  if (skipped > 0) {
+    console.log(`[Index All] Skipping ${skipped} markets without location data`)
+  }
+
   // Process sequentially to avoid prepared statement cache issues with PgBouncer/Supabase
   for (const market of marketsWithLocation) {
     try {
@@ -60,7 +67,8 @@ async function processMarketsInChunks(
         }
       })
       stats.indexed++
-    } catch (e) {
+    } catch (e: any) {
+      console.error(`[Index All] Error indexing market ${market.id}:`, e.message)
       stats.errors++
     }
   }
@@ -75,8 +83,8 @@ export async function POST(request: Request) {
 
     const startTime = Date.now()
     const stats: IndexStats = {
-      polymarket: { fetched: 0, indexed: 0, errors: 0 },
-      kalshi: { fetched: 0, indexed: 0, errors: 0 },
+      polymarket: { fetched: 0, indexed: 0, skipped: 0, errors: 0 },
+      kalshi: { fetched: 0, indexed: 0, skipped: 0, errors: 0 },
       total: 0,
       duration: 0
     }

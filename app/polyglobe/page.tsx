@@ -18,6 +18,7 @@ import { MarketDetails } from '@/components/panels/MarketDetails';
 import { NotificationCenter } from '@/components/panels/NotificationCenter';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
 import { AgentDashboard } from '@/components/agent/AgentDashboard';
+import { InsightsDashboard } from '@/components/insights/InsightsDashboard';
 
 export default function PolyglobePage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
@@ -38,8 +39,9 @@ export default function PolyglobePage() {
   const [sortBy, setSortBy] = useState('volume');
   const [selectedPlatform, setSelectedPlatform] = useState<'kalshi' | 'polymarket' | 'all'>('all');
 
-  // Zoom state
+  // View state - tracks both zoom and pan
   const [isZoomedIn, setIsZoomedIn] = useState(false);
+  const [isViewModified, setIsViewModified] = useState(false);
   const [shouldResetZoom, setShouldResetZoom] = useState(false);
 
   // Whale Trade Detection Setup
@@ -50,7 +52,7 @@ export default function PolyglobePage() {
   // Combined notification count
   const totalNotificationCount = whaleUnreadCount + triggeredAlertCount;
 
-  // Handle zoom reset
+  // Handle view reset (both zoom and pan)
   const handleResetZoom = () => {
     setShouldResetZoom(true);
     setSelectedMarket(null);
@@ -59,6 +61,7 @@ export default function PolyglobePage() {
     setTimeout(() => {
       setShouldResetZoom(false);
       setIsZoomedIn(false);
+      setIsViewModified(false);
     }, 100);
   };
 
@@ -101,9 +104,11 @@ export default function PolyglobePage() {
     onTickerUpdate: processTicker,
   });
 
-  // Use geotagged markets if available, otherwise fall back to search results
-  const mapFilteredMarkets = geotaggedTotal > 0 ? geotaggedMarkets : fallbackMarkets;
-  const isMapFiltering = geotaggedTotal > 0 ? isGeotaggedLoading : isFallbackLoading;
+  // Use geotagged markets if available AND no error, otherwise fall back to search results
+  // If geotagged has error or returns 0 results, use fallback
+  const shouldUseFallback = geotaggedError || geotaggedTotal === 0;
+  const mapFilteredMarkets = shouldUseFallback ? fallbackMarkets : geotaggedMarkets;
+  const isMapFiltering = shouldUseFallback ? isFallbackLoading : isGeotaggedLoading;
 
   // Process tickers for whale trade detection
   useEffect(() => {
@@ -299,6 +304,7 @@ export default function PolyglobePage() {
             onMarketSelect={handleMarketClick}
             overrideMarkets={overrideMarkets}
             onZoomChange={setIsZoomedIn}
+            onViewChange={setIsViewModified}
             shouldResetZoom={shouldResetZoom}
           />
         </div>
@@ -307,7 +313,7 @@ export default function PolyglobePage() {
       {/* Insights Dashboard View */}
       {viewMode === 'insights' && (
         <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
-          <AgentDashboard markets={mapFilteredMarkets} />
+          <InsightsDashboard onMarketSelect={handleMarketClick} />
         </div>
       )}
       <PolyglobeUI
@@ -334,8 +340,8 @@ export default function PolyglobePage() {
         // Notification Props
         onNotificationClick={() => setIsNotificationCenterOpen(true)}
         notificationCount={totalNotificationCount}
-        // Zoom Props
-        isZoomedIn={isZoomedIn}
+        // View Props
+        isZoomedIn={isViewModified}
         onResetZoom={handleResetZoom}
       />
 

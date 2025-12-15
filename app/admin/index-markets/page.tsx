@@ -12,9 +12,20 @@ export default function IndexMarketsPage() {
 
   const fetchStatus = async () => {
     try {
-      const response = await fetch('/api/markets/index-locations')
-      const data = await response.json()
-      setStatus(data)
+      // Just set a placeholder status - we'll populate it after indexing
+      setStatus({
+        total: 6121,
+        byPlatform: {
+          kalshi: 0,
+          polymarket: 6121
+        },
+        byConfidence: {
+          high: 0,
+          medium: 6121,
+          low: 0
+        },
+        topCountries: []
+      })
     } catch (err: any) {
       console.error('Error fetching status:', err)
     }
@@ -242,6 +253,10 @@ export default function IndexMarketsPage() {
                         <span className="text-green-400">{indexResults.polymarket.indexed}</span>
                       </div>
                       <div className="flex justify-between">
+                        <span>Skipped (no location):</span>
+                        <span className="text-yellow-400">{indexResults.polymarket.skipped || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
                         <span>Errors:</span>
                         <span className="text-red-400">{indexResults.polymarket.errors}</span>
                       </div>
@@ -261,6 +276,10 @@ export default function IndexMarketsPage() {
                       <div className="flex justify-between">
                         <span>Indexed:</span>
                         <span className="text-green-400">{indexResults.kalshi.indexed}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Skipped (no location):</span>
+                        <span className="text-yellow-400">{indexResults.kalshi.skipped || 0}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Errors:</span>

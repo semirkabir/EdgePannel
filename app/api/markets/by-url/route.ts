@@ -61,12 +61,26 @@ export async function GET(request: NextRequest) {
 
           // Transform the market data to our format
           const marketData = markets[0];
+
+          // Get proper category from Polymarket
+          let category = marketData.category
+
+          // Prefer tags over category field if available
+          if (marketData.tags && Array.isArray(marketData.tags) && marketData.tags.length > 0) {
+            category = marketData.tags[0]
+          }
+
+          // If still no category, try groupItemTitle (used in some Polymarket responses)
+          if (!category && marketData.groupItemTitle) {
+            category = marketData.groupItemTitle
+          }
+
           const transformedMarket = {
             id: marketData.conditionId,
             platform: 'polymarket' as const,
             title: marketData.question,
             description: marketData.description || '',
-            category: marketData.category,
+            category: category,
             price: marketData.outcomePrices ? parseFloat(JSON.parse(marketData.outcomePrices)[0]) : undefined,
             probability: marketData.outcomePrices ? parseFloat(JSON.parse(marketData.outcomePrices)[0]) : undefined,
             volume24h: marketData.volume24hr ? parseFloat(marketData.volume24hr) : 0,
@@ -116,12 +130,26 @@ export async function GET(request: NextRequest) {
           }
 
           const marketData = markets[0];
+
+          // Get proper category from Polymarket
+          let category = marketData.category
+
+          // Prefer tags over category field if available
+          if (marketData.tags && Array.isArray(marketData.tags) && marketData.tags.length > 0) {
+            category = marketData.tags[0]
+          }
+
+          // If still no category, try groupItemTitle (used in some Polymarket responses)
+          if (!category && marketData.groupItemTitle) {
+            category = marketData.groupItemTitle
+          }
+
           const transformedMarket = {
             id: marketData.conditionId,
             platform: 'polymarket' as const,
             title: marketData.question,
             description: marketData.description || '',
-            category: marketData.category,
+            category: category,
             price: marketData.outcomePrices ? parseFloat(JSON.parse(marketData.outcomePrices)[0]) : undefined,
             probability: marketData.outcomePrices ? parseFloat(JSON.parse(marketData.outcomePrices)[0]) : undefined,
             volume24h: marketData.volume24hr ? parseFloat(marketData.volume24hr) : 0,

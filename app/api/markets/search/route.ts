@@ -148,22 +148,140 @@ export async function GET(request: Request) {
       sort: params.sort
     })
 
-    // Search markets
+    // Search markets - combine Polymarket API + indexed results
     let searchResults
     try {
-      searchResults = await aggregator.searchMarkets({
-        query: params.q,
-        platform: params.platform === 'all' ? undefined : params.platform,
-        category: params.category,
-        minProbability: minProb,
-        maxProbability: maxProb,
-        limit: safeLimit,
-        cursor: params.cursor,
-        offset: params.offset ? parseInt(params.offset, 10) : undefined,
-        sort: params.sort as any,
-      })
+      // If there's a query and we're searching polymarket or all platforms, use Polymarket API
+      if (params.q && (params.platform === 'polymarket' || params.platform === 'all')) {
+        console.log('[Search API] Searching Polymarket unified API')
+        const searchUrl = `https://api.polymarket.com/search?query=${encodeURIComponent(params.q)}&limit=${safeLimit}`
+
+        try {
+          const response = await fetch(searchUrl, {
+            headers: {
+              'Accept': 'application/json'
+            }
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            // Extract markets from search results
+            const polymarkets = (data.markets || []).map((m: any) => {
+              // Polymarket uses 'tags' array for categorization, with first tag being primary category
+              // Also has 'category' field which might be different
+              let category = m.category
+
+              // Prefer tags over category field if available
+              if (m.tags && Array.isArray(m.tags) && m.tags.length > 0) {
+                category = m.tags[0]
+              }
+
+              // If still no category, try groupItemTitle (used in some Polymarket responses)
+              if (!category && m.groupItemTitle) {
+                category = m.groupItemTitle
+              }
+
+              return {
+                id: m.condition_id || m.id,
+                platform: 'polymarket',
+                title: m.question || m.title,
+                description: m.description || '',
+                category: category,
+                price: m.outcome_prices ? parseFloat(m.outcome_prices[0]) : undefined,
+                probability: m.outcome_prices ? parseFloat(m.outcome_prices[0]) : undefined,
+                volume24h: m.volume_24hr || m.volume,
+                liquidity: m.liquidity,
+                endDate: m.end_date_iso ? new Date(m.end_date_iso) : undefined,
+                slug: m.slug,
+                outcomes: m.outcomes,
+                outcomePrices: m.outcome_prices ? m.outcome_prices.map((p: string) => parseFloat(p)) : undefined,
+                rawData: m
+              }
+            })
+
+            console.log(`[Search API] Polymarket API returned ${polymarkets.length} markets`)
+
+            // If platform is 'polymarket' only, just return Polymarket results
+            if (params.platform === 'polymarket') {
+              searchResults = {
+                markets: polymarkets,
+                hasMore: false,
+                nextCursor: null,
+                nextOffset: null
+              }
+            } else {
+              // For 'all' platforms, also search indexed markets and combine
+              const indexedResults = await aggregator.searchMarkets({
+                query: params.q,
+                platform: undefined, // search all platforms in index
+                category: params.category,
+                minProbability: minProb,
+                maxProbability: maxProb,
+                limit: safeLimit,
+                cursor: params.cursor,
+                offset: params.offset ? parseInt(params.offset, 10) : undefined,
+                sort: params.sort as any,
+              })
+
+              // Combine and deduplicate (prefer Polymarket API results)
+              const polymarketIds = new Set(polymarkets.map(m => m.id))
+              const uniqueIndexedMarkets = indexedResults.markets.filter(m => !polymarketIds.has(m.id))
+
+              searchResults = {
+                markets: [...polymarkets, ...uniqueIndexedMarkets].slice(0, safeLimit),
+                hasMore: indexedResults.hasMore,
+                nextCursor: indexedResults.nextCursor,
+                nextOffset: indexedResults.nextOffset
+              }
+
+              console.log(`[Search API] Combined: ${polymarkets.length} from Polymarket API + ${uniqueIndexedMarkets.length} from index = ${searchResults.markets.length} total`)
+            }
+          } else {
+            // Polymarket API failed, fallback to aggregator only
+            console.warn('[Search API] Polymarket API failed, using aggregator only')
+            searchResults = await aggregator.searchMarkets({
+              query: params.q,
+              platform: params.platform === 'all' ? undefined : params.platform,
+              category: params.category,
+              minProbability: minProb,
+              maxProbability: maxProb,
+              limit: safeLimit,
+              cursor: params.cursor,
+              offset: params.offset ? parseInt(params.offset, 10) : undefined,
+              sort: params.sort as any,
+            })
+          }
+        } catch (polyError: any) {
+          console.error('[Search API] Polymarket API error:', polyError.message)
+          // Fallback to aggregator
+          searchResults = await aggregator.searchMarkets({
+            query: params.q,
+            platform: params.platform === 'all' ? undefined : params.platform,
+            category: params.category,
+            minProbability: minProb,
+            maxProbability: maxProb,
+            limit: safeLimit,
+            cursor: params.cursor,
+            offset: params.offset ? parseInt(params.offset, 10) : undefined,
+            sort: params.sort as any,
+          })
+        }
+      } else {
+        // No query or Kalshi only - use aggregator
+        searchResults = await aggregator.searchMarkets({
+          query: params.q,
+          platform: params.platform === 'all' ? undefined : params.platform,
+          category: params.category,
+          minProbability: minProb,
+          maxProbability: maxProb,
+          limit: safeLimit,
+          cursor: params.cursor,
+          offset: params.offset ? parseInt(params.offset, 10) : undefined,
+          sort: params.sort as any,
+        })
+      }
     } catch (error: any) {
-      console.error('[Search API] Error in aggregator.searchMarkets:', error.message || error)
+      console.error('[Search API] Error in searchMarkets:', error.message || error)
       console.error('[Search API] Stack:', error.stack)
       // Return empty results instead of 500 error
       return NextResponse.json({

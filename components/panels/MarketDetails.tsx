@@ -40,6 +40,9 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const [isLoadingComments, setIsLoadingComments] = useState(false)
   const [relatedMarkets, setRelatedMarkets] = useState<any[]>([])
   const [isLoadingRelated, setIsLoadingRelated] = useState(false)
+  const [topHolders, setTopHolders] = useState<any[]>([])
+  const [isLoadingHolders, setIsLoadingHolders] = useState(false)
+  const [commentSort, setCommentSort] = useState<'recent' | 'likes'>('recent')
 
   useEffect(() => {
     if (market) {
@@ -371,6 +374,42 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     fetchRelatedMarkets()
   }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData])
 
+  // Fetch top holders for Polymarket markets
+  useEffect(() => {
+    const fetchTopHolders = async () => {
+      if (!activeMarket || activeMarket.platform !== 'polymarket') {
+        setTopHolders([])
+        return
+      }
+
+      const conditionId = activeMarket.id || activeMarket.rawData?.conditionId
+      if (!conditionId) {
+        console.warn('[MarketDetails] No condition ID found for top holders')
+        return
+      }
+
+      setIsLoadingHolders(true)
+      try {
+        console.log('[MarketDetails] Fetching top holders for conditionId:', conditionId)
+        const response = await fetch(`/api/markets/top-holders?conditionId=${conditionId}&limit=20`)
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log('[MarketDetails] Received top holders:', data.holders?.length || 0)
+          setTopHolders(data.holders || [])
+        } else {
+          console.error('[MarketDetails] Top holders API error:', response.status, response.statusText)
+        }
+      } catch (error) {
+        console.error('[MarketDetails] Error fetching top holders:', error)
+      } finally {
+        setIsLoadingHolders(false)
+      }
+    }
+
+    fetchTopHolders()
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData])
+
   // Get articles from event data or use mock tweets
   const articles = activeMarket?.eventData?.rankedArticles || []
   const hasArticles = articles.length > 0
@@ -416,7 +455,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     >
       {/* 1. Hero / Price Section (Gamified) */}
       {activeMarket && (
-        <div className="px-5 pt-8 pb-4 text-center relative">
+        <div className="px-5 pt-8 pb-4 text-center relative overflow-hidden">
           <div className="inline-flex flex-col items-center">
             {/* Show specific option if this is part of a multi-option event */}
             {activeMarket.rawData?.subtitle && (
@@ -463,7 +502,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
       {/* Multi-Outcome Display */}
       {activeMarket && Array.isArray(activeMarket.outcomes) && Array.isArray(activeMarket.outcomePrices) && activeMarket.outcomes.length > 2 && (
-        <div className="px-5 mb-6">
+        <div className="px-5 mb-6 overflow-hidden">
           <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wide">All Outcomes</h3>
           <div className="space-y-2">
             {activeMarket.outcomes.map((outcome, index) => {
@@ -515,7 +554,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
       )}
 
       {/* 2. Chart Section */}
-      <div className="w-full h-[280px] mb-4 relative group">
+      <div className="w-full h-[280px] mb-4 relative group overflow-hidden">
         {/* Controls Bubble */}
         <div className="absolute top-2 right-4 flex gap-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
           {/* Chart Type Toggle - show for both platforms */}
@@ -577,10 +616,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
       {/* 3. Action Buttons (Gamified) */}
       {activeMarket && (
-        <div className="px-5 mb-8">
+        <div className="px-5 mb-8 overflow-hidden">
           <div className="grid grid-cols-2 gap-3">
             <Button
-              className="h-12 bg-[#00ff7f] hover:bg-[#00cc66] text-black font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(0,255,127,0.2)] border-0"
+              className="h-12 bg-[#00ff7f] hover:bg-[#00cc66] text-black font-bold text-base rounded-xl shadow-[0_0_20px_rgba(0,255,127,0.2)] border-0"
               onClick={() => {
                 const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.slug || activeMarket.ticker || activeMarket.id}`);
                 window.open(url, '_blank');
@@ -589,7 +628,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               BUY YES
             </Button>
             <Button
-              className="h-12 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(255,77,77,0.2)] border-0"
+              className="h-12 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-base rounded-xl shadow-[0_0_20px_rgba(255,77,77,0.2)] border-0"
               onClick={() => {
                 const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.slug || activeMarket.ticker || activeMarket.id}`);
                 window.open(url, '_blank');
@@ -621,7 +660,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
       {/* 3.5. Related Markets in Same Event */}
       {activeMarket && relatedMarkets.length > 0 && (
-        <div className="px-5 mb-6">
+        <div className="px-5 mb-6 overflow-hidden">
           <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wide">Other Options</h3>
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
             {relatedMarkets.map((relMarket: any) => (
@@ -657,18 +696,23 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
       {/* 4. Details / Tweets Tabs */}
       {activeMarket && (
-        <div className="px-5">
+        <div className="px-5 w-full overflow-hidden">
           <Tabs defaultValue="comments" className="w-full">
-            <TabsList className="w-full bg-white/5 p-1 rounded-xl mb-4 border border-white/5">
+            <TabsList className="w-full bg-white/5 p-1 rounded-xl mb-4 border border-white/5 shrink-0">
               <TabsTrigger value="comments" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
                 {activeMarket.platform === 'polymarket' ? 'COMMENTS' : 'LATEST NEWS'}
               </TabsTrigger>
+              {activeMarket.platform === 'polymarket' && (
+                <TabsTrigger value="holders" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
+                  TOP HOLDERS
+                </TabsTrigger>
+              )}
               <TabsTrigger value="info" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
                 MARKET INFO
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="comments" className="mt-0 space-y-3">
+            <TabsContent value="comments" className="mt-0 w-full overflow-hidden">
               {isLoadingComments ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="flex items-center gap-2">
@@ -678,36 +722,75 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                   </div>
                 </div>
               ) : activeMarket.platform === 'polymarket' && comments.length > 0 ? (
-                comments.map((comment) => (
-                  <div key={comment.id} className="p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                      {comment.user?.profile_image ? (
-                        <img 
-                          src={comment.user.profile_image} 
-                          alt={comment.user.username}
-                          className="w-5 h-5 rounded-full"
-                        />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] text-white font-black">
-                          {comment.user?.username?.[0]?.toUpperCase() || '?'}
-                        </div>
-                      )}
-                      <span className="text-xs font-bold text-gray-200">{comment.user?.username || 'Anonymous'}</span>
-                      <span className="text-[10px] text-gray-500 ml-auto">
-                        {new Date(comment.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </span>
+                <>
+                  {/* Sort Controls */}
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-gray-400 font-medium">
+                      {comments.length} comment{comments.length !== 1 ? 's' : ''}
+                    </span>
+                    <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg border border-white/5">
+                      <button
+                        onClick={() => setCommentSort('recent')}
+                        className={cn(
+                          "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+                          commentSort === 'recent' ? "bg-white/20 text-white" : "text-gray-500 hover:text-gray-300"
+                        )}
+                      >
+                        RECENT
+                      </button>
+                      <button
+                        onClick={() => setCommentSort('likes')}
+                        className={cn(
+                          "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+                          commentSort === 'likes' ? "bg-white/20 text-white" : "text-gray-500 hover:text-gray-300"
+                        )}
+                      >
+                        TOP
+                      </button>
                     </div>
-                    <p className="text-xs text-gray-400 leading-relaxed">
-                      {comment.comment}
-                    </p>
-                    {(comment.likes > 0 || comment.replies_count > 0) && (
-                      <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-500">
-                        {comment.likes > 0 && <span>❤️ {comment.likes}</span>}
-                        {comment.replies_count > 0 && <span>💬 {comment.replies_count}</span>}
-                      </div>
-                    )}
                   </div>
-                ))
+
+                  {/* Comments List */}
+                  <div className="space-y-2 max-h-[500px] overflow-y-auto scrollbar-hide w-full">
+                    {[...comments]
+                      .sort((a, b) => {
+                        if (commentSort === 'likes') {
+                          return (b.likes || 0) - (a.likes || 0)
+                        }
+                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                      })
+                      .map((comment) => (
+                        <div key={comment.id} className="p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors w-full overflow-hidden">
+                          <div className="flex items-center gap-2 mb-2">
+                            {comment.user?.profile_image ? (
+                              <img
+                                src={comment.user.profile_image}
+                                alt={comment.user.username}
+                                className="w-5 h-5 rounded-full flex-shrink-0"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] text-white font-black flex-shrink-0">
+                                {comment.user?.username?.[0]?.toUpperCase() || '?'}
+                              </div>
+                            )}
+                            <span className="text-xs font-bold text-gray-200 truncate max-w-[120px]">{comment.user?.username || 'Anonymous'}</span>
+                            <span className="text-[10px] text-gray-500 ml-auto whitespace-nowrap">
+                              {new Date(comment.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400 leading-relaxed break-words whitespace-normal overflow-wrap-anywhere">
+                            {comment.comment}
+                          </p>
+                          {(comment.likes > 0 || comment.replies_count > 0) && (
+                            <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-500">
+                              {comment.likes > 0 && <span>❤️ {comment.likes}</span>}
+                              {comment.replies_count > 0 && <span>💬 {comment.replies_count}</span>}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </>
               ) : hasArticles ? (
                 articles.map((article, idx) => (
                   <a
@@ -742,7 +825,101 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               )}
             </TabsContent>
 
-            <TabsContent value="info" className="mt-0">
+            {activeMarket.platform === 'polymarket' && (
+              <TabsContent value="holders" className="mt-0 space-y-3 w-full overflow-hidden">
+                {isLoadingHolders ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                ) : topHolders.length > 0 ? (
+                  <div className="space-y-2">
+                    {topHolders.map((holder, idx) => {
+                      const position = holder.outcome === 0 ? 'YES' : 'NO'
+                      const positionColor = position === 'YES' ? 'text-[#00ff7f]' : 'text-[#ff4d4d]'
+                      const positionBg = position === 'YES' ? 'bg-[#00ff7f]/10' : 'bg-[#ff4d4d]/10'
+                      const amount = parseFloat(holder.amount || 0)
+                      const username = holder.name || holder.pseudonym || 'Anonymous'
+                      const profileImage = holder.profileImageOptimized || holder.profileImage
+
+                      const profileUrl = `https://polymarket.com/profile/${encodeURIComponent(username)}`
+
+                      return (
+                        <a
+                          key={idx}
+                          href={profileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {profileImage ? (
+                                <img
+                                  src={profileImage}
+                                  alt={username}
+                                  className="w-7 h-7 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xs text-white font-black">
+                                  {username.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <div className="text-xs font-medium text-gray-200 truncate max-w-[180px] group-hover:text-blue-400 transition-colors">
+                                  {username}
+                                  {holder.verified && (
+                                    <span className="ml-1 text-blue-400">✓</span>
+                                  )}
+                                </div>
+                                <div className={cn(
+                                  "text-[10px] font-bold uppercase tracking-wider mt-0.5",
+                                  positionColor
+                                )}>
+                                  {position} Position
+                                </div>
+                              </div>
+                            </div>
+                            <div className={cn(
+                              "px-2 py-1 rounded-md text-xs font-bold",
+                              positionBg,
+                              positionColor
+                            )}>
+                              {position}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex flex-col">
+                              <span className="text-gray-500 text-[10px] uppercase tracking-wide">Holdings</span>
+                              <span className="text-gray-300 font-bold tabular-nums">
+                                {amount.toLocaleString(undefined, { maximumFractionDigits: 0 })} shares
+                              </span>
+                            </div>
+                            {holder.proxyWallet && (
+                              <div className="flex flex-col items-end">
+                                <span className="text-gray-500 text-[10px] uppercase tracking-wide">Wallet</span>
+                                <span className="text-gray-400 font-mono text-[10px]">
+                                  {holder.proxyWallet.slice(0, 6)}...{holder.proxyWallet.slice(-4)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </a>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500 text-xs">
+                    No top holders data available
+                  </div>
+                )}
+              </TabsContent>
+            )}
+
+            <TabsContent value="info" className="mt-0 w-full overflow-hidden">
               <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                 <h4 className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">Description</h4>
                 <p className="text-xs text-gray-400 leading-relaxed mb-4">

@@ -34,6 +34,7 @@ interface PolyglobeMapProps {
   pauseOnHover?: boolean;
   overrideMarkets?: any; // GeoJSON FeatureCollection
   onZoomChange?: (isZoomed: boolean) => void;
+  onViewChange?: (isModified: boolean) => void;
   shouldResetZoom?: boolean;
 }
 
@@ -53,6 +54,7 @@ function InnerMap({
   onMarketSelect,
   isUsingOverride = false,
   onZoomChange,
+  onViewChange,
   shouldResetZoom = false
 }: {
   markets: any;
@@ -69,6 +71,7 @@ function InnerMap({
   onMarketSelect?: (market: any) => void;
   isUsingOverride?: boolean;
   onZoomChange?: (isZoomed: boolean) => void;
+  onViewChange?: (isModified: boolean) => void;
   shouldResetZoom?: boolean;
 }) {
   const [viewState, setViewState] = useState({
@@ -85,16 +88,26 @@ function InnerMap({
   const rotationAnimationRef = useRef<number | null>(null);
   const mapRef = useRef<MapRef>(null);
 
-  // Detect zoom level changes
+  // Detect zoom level changes and pan changes
   const DEFAULT_ZOOM = 2.5;
   const ZOOM_THRESHOLD = 0.3; // Consider zoomed if zoom > DEFAULT_ZOOM + THRESHOLD
+  const DEFAULT_LONGITUDE = 0;
+  const DEFAULT_LATITUDE = projection === 'mercator' ? 20 : 0;
+  const PAN_THRESHOLD = 10; // Consider panned if moved more than 10 degrees
 
   useEffect(() => {
+    const isZoomed = viewState.zoom > DEFAULT_ZOOM + ZOOM_THRESHOLD;
+    const isPanned = Math.abs(viewState.longitude - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
+                     Math.abs(viewState.latitude - DEFAULT_LATITUDE) > PAN_THRESHOLD;
+    const isViewModified = isZoomed || isPanned;
+
     if (onZoomChange) {
-      const isZoomed = viewState.zoom > DEFAULT_ZOOM + ZOOM_THRESHOLD;
       onZoomChange(isZoomed);
     }
-  }, [viewState.zoom, onZoomChange]);
+    if (onViewChange) {
+      onViewChange(isViewModified);
+    }
+  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, projection]);
 
   // Handle reset zoom request
   useEffect(() => {
@@ -248,6 +261,11 @@ function InnerMap({
 
   const onHover = useCallback((event: MapLayerMouseEvent) => {
     const feature = event.features && event.features[0];
+
+    if (feature) {
+      console.log('[InnerMap] Hover detected on layer:', feature.layer.id);
+    }
+
     setHoverInfo(
       feature
         ? {
@@ -271,14 +289,19 @@ function InnerMap({
 
   const onClick = useCallback(async (event: MapLayerMouseEvent) => {
     console.log('[InnerMap] onClick triggered, isDragging:', isDraggingRef.current, 'features:', event.features?.length);
+    console.log('[InnerMap] event.features:', event.features);
 
-    if (isDraggingRef.current) return;
+    if (isDraggingRef.current) {
+      console.log('[InnerMap] Ignoring click because isDragging is true');
+      return;
+    }
 
     // Check for feature clicks first
     const feature = event.features && event.features.length > 0 ? event.features[0] : null;
 
     if (feature) {
       console.log('[InnerMap] Feature detected, layer:', feature.layer.id);
+      console.log('[InnerMap] Feature properties:', feature.properties);
 
       if (feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer') {
         const marketId = feature.properties?.id;
@@ -735,16 +758,41 @@ function InnerMap({
         console.log('[InnerMap] Available layers:', map.getStyle()?.layers?.map((l: any) => l.id));
       });
 
+      // Add direct map click listener as backup
+      map.on('click', 'markets-layer', (e: any) => {
+        console.log('[MapLibre Direct] markets-layer clicked!', e);
+      });
+
+      map.on('click', 'markets-glow-layer', (e: any) => {
+        console.log('[MapLibre Direct] markets-glow-layer clicked!', e);
+      });
+
       // Also check layers after a delay to ensure they're rendered
       setTimeout(() => {
         console.log('[InnerMap] Layers after timeout:', map.getStyle()?.layers?.map((l: any) => l.id));
-        console.log('[InnerMap] interactiveLayerIds:', activeFilters.heatmap ? [] : ['markets-layer', 'tweets-layer']);
+        console.log('[InnerMap] interactiveLayerIds:', activeFilters.heatmap ? [] : ['markets-layer', 'markets-glow-layer', 'tweets-layer']);
       }, 2000);
     }
   }, [mapRef.current, activeFilters.heatmap]);
 
+  // Compute interactive layers - memoize to prevent re-renders
+  const interactiveIds = useMemo(() =>
+    activeFilters.heatmap ? [] : ['markets-layer', 'markets-glow-layer', 'tweets-layer'],
+    [activeFilters.heatmap]
+  );
+
+  // Only log on mount or when interactive IDs change
+  useEffect(() => {
+    console.log('[InnerMap] interactiveLayerIds updated:', interactiveIds);
+  }, [interactiveIds]);
+
   return (
-    <div className="w-full h-full relative" style={{ backgroundColor: projection === 'globe' ? 'transparent' : '#030712' }}>
+    <div
+      className="w-full h-full relative"
+      style={{ backgroundColor: projection === 'globe' ? 'transparent' : '#030712' }}
+      onMouseMove={() => console.log('[Container] Mouse moved over map container')}
+      onClick={() => console.log('[Container] Click detected on map container')}
+    >
       <Map
         ref={mapRef}
         {...viewState}
@@ -771,8 +819,6 @@ function InnerMap({
           handleInteractionStart(e);
         }}
         onTouchStart={handleInteractionStart}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
         onMouseMove={onHover}
         onClick={(e) => {
           console.log('[InnerMap] onClick PROP FIRED');
@@ -781,7 +827,7 @@ function InnerMap({
         style={{ width: '100%', height: '100%' }}
         mapStyle="https://api.maptiler.com/maps/darkmatter/style.json?key=35TZqSTSBjgDvsawKAK9"
         attributionControl={false}
-        interactiveLayerIds={activeFilters.heatmap ? [] : ['markets-glow-layer', 'tweets-layer']}
+        interactiveLayerIds={interactiveIds}
       >
         <NavigationControl position="bottom-right" />
         <FullscreenControl position="bottom-right" />
@@ -791,8 +837,8 @@ function InnerMap({
             <Layer {...heatmapLayer as any} source="markets" />
           ) : (
             <>
-              <Layer {...marketLayer as any} source="markets" />
               <Layer {...marketGlowLayer as any} source="markets" />
+              <Layer {...marketLayer as any} source="markets" />
             </>
           )}
         </Source>
@@ -843,6 +889,7 @@ export function PolyglobeMap({
   onMarketSelect,
   overrideMarkets,
   onZoomChange,
+  onViewChange,
   shouldResetZoom
 }: PolyglobeMapProps & {
   selectedMarket?: any;
@@ -907,6 +954,7 @@ export function PolyglobeMap({
       onMarketSelect={onMarketSelect}
       isUsingOverride={!!overrideMarkets}
       onZoomChange={onZoomChange}
+      onViewChange={onViewChange}
       shouldResetZoom={shouldResetZoom}
     />
   );

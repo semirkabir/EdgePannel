@@ -159,23 +159,35 @@ export function PolyglobeUI({
 
           <div className="w-px h-6 bg-white/10 mx-1" />
 
-          {/* Play/Pause */}
-          <button
-            onClick={handlePlayPause}
-            className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all"
-            title={isPlaying ? "Pause Rotation" : "Resume Rotation"}
-          >
-            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-          </button>
+          {/* Play/Pause Rotation - Only show in map/globe view */}
+          {!isInsightsView && (
+            <button
+              onClick={handlePlayPause}
+              className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
+              title={isPlaying ? "Pause Rotation" : "Resume Rotation"}
+            >
+              {isPlaying ? (
+                <>
+                  <Pause className="w-3.5 h-3.5" />
+                  <span>Pause Rotation</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 ml-0.5" />
+                  <span>Resume Rotation</span>
+                </>
+              )}
+            </button>
+          )}
 
           {/* View Toggle / Reset */}
           {isZoomedIn ? (
             <button
               onClick={onResetZoom}
-              className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+              className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>RESET ZOOM</span>
+              <span>Reset View</span>
             </button>
           ) : (
             <>
@@ -183,10 +195,19 @@ export function PolyglobeUI({
               {!isInsightsView && (
                 <button
                   onClick={onMapGlobeToggle}
-                  className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                  className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
                 >
-                  {isMapView ? <Globe className="w-3.5 h-3.5" /> : <Map className="w-3.5 h-3.5" />}
-                  <span>{isMapView ? 'GLOBE' : 'MAP'}</span>
+                  {isMapView ? (
+                    <>
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>Switch to Globe</span>
+                    </>
+                  ) : (
+                    <>
+                      <Map className="w-3.5 h-3.5" />
+                      <span>Switch to Map</span>
+                    </>
+                  )}
                 </button>
               )}
 
@@ -196,60 +217,66 @@ export function PolyglobeUI({
                 className={cn(
                   "h-8 px-3 flex items-center gap-2 rounded-xl transition-all duration-300 border shadow-sm",
                   isInsightsView
-                    ? "bg-gradient-to-r from-amber-500/25 via-yellow-600/20 to-amber-500/25 border-amber-400/50 shadow-amber-500/20"
+                    ? "bg-gradient-to-r from-blue-500/20 via-blue-600/15 to-blue-500/20 border-blue-400/50 shadow-blue-500/20"
                     : "bg-gradient-to-r from-amber-900/20 via-yellow-900/15 to-amber-900/20 border-amber-700/30 hover:border-amber-500/40 hover:shadow-amber-500/10"
                 )}
               >
-                <Brain className={cn(
-                  "w-3.5 h-3.5 transition-colors",
-                  isInsightsView ? "text-amber-300" : "text-amber-400/70"
-                )} />
-                <span className={cn(
-                  "font-serif italic tracking-tight font-bold transition-all",
-                  isInsightsView ? "text-white text-sm" : "text-white/90 text-xs"
-                )}>
-                  {isInsightsView ? 'EXIT' : 'Insights'}
-                </span>
+                {isInsightsView ? (
+                  <>
+                    <Globe className="w-3.5 h-3.5 text-blue-300" />
+                    <span className="font-sans tracking-tight font-bold text-white text-xs">
+                      Back to Map
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-3.5 h-3.5 text-amber-400/70" />
+                    <span className="font-serif italic tracking-tight font-bold text-white/90 text-xs">
+                      Insights
+                    </span>
+                  </>
+                )}
               </button>
             </>
           )}
         </div>
 
-        {/* Filters Row */}
-        <div className="flex items-center gap-2">
-          {/* Breaking Toggle */}
-          <button
-            onClick={() => onFilterChange('breaking', !activeFilters.breaking)}
-            className={cn(
-              "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
-              activeFilters.breaking
-                ? "bg-red-500/10 border-red-500/50 text-red-400"
-                : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
-            )}
-          >
-            <div className={cn("w-1.5 h-1.5 rounded-full", activeFilters.breaking ? "bg-red-500 animate-pulse" : "bg-gray-600")} />
-            BREAKING
-          </button>
-
-          {/* Filter Menu Trigger */}
-          <div className="relative" ref={filterRef}>
+        {/* Filters Row - Hide when in insights view */}
+        {!isInsightsView && (
+          <div className="flex items-center gap-2">
+            {/* Breaking Toggle */}
             <button
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              onClick={() => onFilterChange('breaking', !activeFilters.breaking)}
               className={cn(
                 "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
-                isFilterOpen || selectedCategories.length > 0
-                  ? "bg-blue-500/10 border-blue-500/50 text-blue-400"
+                activeFilters.breaking
+                  ? "bg-red-500/10 border-red-500/50 text-red-400"
                   : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
               )}
             >
-              <Filter className="w-3.5 h-3.5" />
-              FILTERS
-              {(selectedCategories.length > 0 && !selectedCategories.includes('All')) && (
-                <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white rounded-full text-[9px] font-bold">
-                  {selectedCategories.length}
-                </span>
-              )}
+              <div className={cn("w-1.5 h-1.5 rounded-full", activeFilters.breaking ? "bg-red-500 animate-pulse" : "bg-gray-600")} />
+              BREAKING
             </button>
+
+            {/* Filter Menu Trigger */}
+            <div className="relative" ref={filterRef}>
+              <button
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className={cn(
+                  "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
+                  isFilterOpen || selectedCategories.length > 0
+                    ? "bg-blue-500/10 border-blue-500/50 text-blue-400"
+                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                )}
+              >
+                <Filter className="w-3.5 h-3.5" />
+                FILTERS
+                {(selectedCategories.length > 0 && !selectedCategories.includes('All')) && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white rounded-full text-[9px] font-bold">
+                    {selectedCategories.length}
+                  </span>
+                )}
+              </button>
 
             {/* Filter Popover */}
             {isFilterOpen && (
@@ -436,8 +463,9 @@ export function PolyglobeUI({
                 </div>
               </div>
             )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Top Right: User Island */}
