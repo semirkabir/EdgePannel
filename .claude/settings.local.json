@@ -9,7 +9,9 @@
       "Bash(del nul)",
       "Bash(cmd.exe /c \"del nul\")",
       "Bash(cmd.exe /c \"del \\\\?\\c:\\Users\\kabir\\New folder\\nul\")",
-      "Bash(powershell.exe -Command \"Remove-Item -Path ''.\\nul'' -Force\")"
+      "Bash(powershell.exe -Command \"Remove-Item -Path ''.\\nul'' -Force\")",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
