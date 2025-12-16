@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { KalshiClient } from '@/lib/api/kalshi'
 import { PolymarketClient } from '@/lib/api/polymarket'
-import { extractLocation, enrichLocationData } from '@/lib/utils/location-extractor-v2'
+import { inferLocation } from '@/lib/markets/enrich'
 import { prisma } from '@/lib/db/client'
 import { decrypt } from '@/lib/utils/encryption'
 
@@ -158,7 +158,34 @@ export async function POST(request: Request) {
 }
 
 /**
- * Index a batch of markets with geolocation
+ * Fetch tags for a Polymarket market
+ */
+async function fetchPolymarketTags(marketId: string): Promise<string[]> {
+  try {
+    const response = await fetch(`https://gamma-api.polymarket.com/markets/${marketId}/tags`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const tags = await response.json()
+    if (Array.isArray(tags)) {
+      // Extract tag labels (e.g., "Politics", "Sports", "Crypto")
+      return tags.map((tag: any) => tag.label).filter(Boolean)
+    }
+    return []
+  } catch (error) {
+    console.warn(`[Indexer] Error fetching tags for market ${marketId}:`, error)
+    return []
+  }
+}
+
+/**
+ * Index a batch of markets with geolocation and tags
  */
 async function indexMarkets(
   markets: any[],
@@ -171,20 +198,41 @@ async function indexMarkets(
 
   for (const market of markets) {
     try {
-      // Extract location from market data
-      const location = extractLocation(market.title, market.description)
+      // Extract location from market data using improved inference
+      const locationResult = inferLocation(market)
 
-      if (!location) {
+      if (!locationResult) {
         // No location found, skip
         skipped++
         continue
       }
 
-      // Enrich location with market context
-      const enrichedLocation = enrichLocationData(location, {
-        category: market.category,
-        tags: market.rawData?.tags
-      })
+      // Fetch tags for Polymarket markets
+      let tags: string[] = []
+      let primaryCategory: string | undefined = market.category
+
+      if (platform === 'polymarket') {
+        // Get the numeric ID for tag fetching
+        const numericId = market.rawData?.numericId || market.id
+        tags = await fetchPolymarketTags(numericId)
+
+        // Use first tag as primary category if no category exists
+        if (!primaryCategory && tags.length > 0) {
+          primaryCategory = tags[0]
+        }
+
+        console.log(`[Indexer] Market "${market.title.substring(0, 50)}..." - Tags: ${tags.join(', ') || 'none'}`)
+      }
+
+      // Map the location result to the enriched format
+      const enrichedLocation = {
+        country: locationResult.name,
+        region: null,
+        city: null,
+        coordinates: locationResult.coordinates,
+        confidence: 'high', // New algorithm is more reliable
+        extractedFrom: 'improved-context-detection'
+      }
 
       // Store or update in database
       const marketId = `${platform}-${market.id}`
@@ -215,7 +263,7 @@ async function indexMarkets(
         continue
       }
 
-      // Upsert geotagged market
+      // Upsert geotagged market with tags
       await prisma.geotaggedMarket.upsert({
         where: { marketId },
         create: {
@@ -224,7 +272,8 @@ async function indexMarkets(
           externalId: market.id,
           title: market.title,
           description: market.description || '',
-          category: market.category,
+          category: primaryCategory,
+          tags: tags,
           probability: market.price || market.probability,
           volume24h: market.volume24h,
           liquidity: market.liquidity,
@@ -243,6 +292,8 @@ async function indexMarkets(
         update: {
           title: market.title,
           description: market.description || '',
+          category: primaryCategory,
+          tags: tags,
           probability: market.price || market.probability,
           volume24h: market.volume24h,
           liquidity: market.liquidity,

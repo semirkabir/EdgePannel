@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     const country = searchParams.get('country')
     const region = searchParams.get('region')
     const category = searchParams.get('category')
+    const tag = searchParams.get('tag') // Filter by specific tag
     const confidence = searchParams.get('confidence') // 'high', 'medium', 'low'
     const search = searchParams.get('search')
 
@@ -65,6 +66,13 @@ export async function GET(request: Request) {
       }
     }
 
+    if (tag) {
+      // Filter by markets that have this tag in their tags array
+      where.tags = {
+        has: tag
+      }
+    }
+
     if (confidence) {
       where.confidence = confidence
     }
@@ -100,6 +108,7 @@ export async function GET(request: Request) {
           title: true,
           description: true,
           category: true,
+          tags: true,
           probability: true,
           volume24h: true,
           liquidity: true,

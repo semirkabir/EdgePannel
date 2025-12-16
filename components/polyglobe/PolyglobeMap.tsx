@@ -542,6 +542,7 @@ function InnerMap({
     const props = feature.properties;
     const [lon, lat] = feature.geometry.coordinates;
     const isMarket = feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer';
+    const isGroup = props.isGroup === true;
 
     return (
       <Popup
@@ -552,13 +553,82 @@ function InnerMap({
         onClose={() => setSelectedFeature(null)}
         anchor="top"
         className="polyglobe-popup z-50"
-        maxWidth="240px"
+        maxWidth={isGroup ? "320px" : "240px"}
       >
         <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden">
           {/* Gradient overlay for modern effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
 
-          {isMarket ? (
+          {isMarket && isGroup ? (
+            <div className="relative z-10">
+              {/* Group Header */}
+              <div className="mb-2">
+                <h3 className="font-semibold text-sm leading-tight text-white mb-1.5">{props.title}</h3>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-[10px] font-semibold shadow-sm",
+                    props.platform === 'polymarket'
+                      ? "bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-400/30"
+                      : "bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border border-green-400/30"
+                  )}>
+                    {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-purple-700/40 text-purple-300 border border-purple-600/30">
+                    {props.marketCount} Options
+                  </span>
+                  {props.category && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-700/40 text-gray-300 border border-gray-600/30">
+                      {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Market Options List */}
+              <div className="space-y-1.5 mb-2 max-h-64 overflow-y-auto">
+                {props.markets && JSON.parse(JSON.stringify(props.markets)).map((market: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="bg-gray-800/40 rounded p-2 border border-gray-700/30 hover:bg-gray-800/60 transition-colors cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Reconstruct market for selection
+                      const fullMarket = {
+                        id: market.id,
+                        title: market.title,
+                        description: market.description || '',
+                        platform: market.platform,
+                        volume24h: market.volume24h,
+                        price: market.price,
+                        probability: market.price,
+                        slug: market.slug,
+                        ticker: market.ticker,
+                        imageUrl: market.imageUrl,
+                        endDate: market.endDate,
+                        rawData: {},
+                      };
+                      handleCardClick(fullMarket);
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-white line-clamp-2">{market.title}</div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <span className="text-sm font-bold text-blue-300">{Math.round(market.price * 100)}¢</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Total Volume */}
+              <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30 mb-2">
+                <div className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">Total Volume 24h</div>
+                <div className="text-xs font-bold text-white">${(props.volume / 1000).toFixed(1)}k</div>
+              </div>
+            </div>
+          ) : isMarket ? (
             <div className="relative z-10">
               {/* Price Badge - Floating top right */}
               <div className="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-2.5 py-1 rounded-lg shadow-lg z-10">
