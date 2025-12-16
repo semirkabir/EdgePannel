@@ -5,8 +5,9 @@ export interface Market {
   platform: Platform
   title: string
   description?: string
-  category?: string
+  category?: string // Primary category
   normalizedCategory?: string
+  tags?: string[] // All tags/categories for this market (Polymarket)
   outcome?: string
   probability?: number
   price?: number

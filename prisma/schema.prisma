@@ -132,7 +132,8 @@ model GeotaggedMarket {
   externalId    String   // The market's ID on the platform
   title         String   @db.Text
   description   String   @db.Text
-  category      String?
+  category      String?  // Primary category/tag
+  tags          String[] @default([]) // All tags for the market
   probability   Float?
   volume24h     Float?
   liquidity     Float?
@@ -159,6 +160,7 @@ model GeotaggedMarket {
   @@index([latitude, longitude])
   @@index([confidence])
   @@index([endDate])
+  @@index([category])
 }
 
 model MarketSyncState {

@@ -1,10 +1,12 @@
 import { Market, MarketComparison } from '@/types/market'
 import { KalshiClient } from './kalshi'
+import { PublicKalshiClient } from './kalshi-public'
 import { PolymarketClient } from './polymarket'
 import { enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich'
 
 export class MarketAggregator {
   private kalshiClient?: KalshiClient
+  private publicKalshiClient?: PublicKalshiClient
   private polymarketClient?: PolymarketClient
 
   constructor(
@@ -13,6 +15,12 @@ export class MarketAggregator {
   ) {
     this.kalshiClient = kalshiClient
     this.polymarketClient = polymarketClient
+
+    // If no authenticated Kalshi client provided, use public client for read-only access
+    if (!kalshiClient) {
+      console.log('[MarketAggregator] No authenticated Kalshi client - using public API')
+      this.publicKalshiClient = new PublicKalshiClient()
+    }
   }
 
   async getAllMarkets(params?: {
@@ -22,11 +30,13 @@ export class MarketAggregator {
   }): Promise<Market[]> {
     const markets: Market[] = []
 
-    // Fetch from Kalshi
-    if (this.kalshiClient) {
+    // Fetch from Kalshi (use authenticated client if available, otherwise use public)
+    const kalshiClientToUse = this.kalshiClient || this.publicKalshiClient
+
+    if (kalshiClientToUse) {
       try {
         console.log('[MarketAggregator] Fetching Kalshi markets...')
-        const result = await this.kalshiClient.getMarkets({
+        const result = await kalshiClientToUse.getMarkets({
           limit: params?.limit || 100,
           cursor: params?.cursor,
         })
@@ -37,7 +47,7 @@ export class MarketAggregator {
         console.error('[MarketAggregator] Error stack:', error.stack)
       }
     } else {
-      console.log('[MarketAggregator] Kalshi client not available - API keys may not be configured')
+      console.log('[MarketAggregator] No Kalshi client available')
     }
 
     // Fetch from Polymarket
@@ -88,10 +98,12 @@ export class MarketAggregator {
 
     const fetchPromises = [];
 
-    // Search Kalshi markets
-    if (this.kalshiClient && (params.platform === undefined || params.platform === 'kalshi')) {
+    // Search Kalshi markets (use authenticated client if available, otherwise use public)
+    const kalshiClientToUse = this.kalshiClient || this.publicKalshiClient
+
+    if (kalshiClientToUse && (params.platform === undefined || params.platform === 'kalshi')) {
       fetchPromises.push(
-        this.kalshiClient.getMarkets({
+        kalshiClientToUse.getMarkets({
           limit: fetchLimit,
           cursor: params.cursor,
           search: params.query,

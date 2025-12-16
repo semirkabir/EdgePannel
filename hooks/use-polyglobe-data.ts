@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { useMarkets } from './use-markets';
 import { useMarketWebSocket } from './use-market-websocket';
 import { MOCK_TWEETS } from '@/lib/polyglobe-data';
-import { marketsToGeoJSON } from '@/lib/utils/market-geojson';
+import { marketsToGeoJSON, marketsToGeoJSONWithGroups } from '@/lib/utils/market-geojson';
+import { enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich';
 import type { Market } from '@/types/market';
 
 // GeoJSON types
@@ -46,7 +47,11 @@ export function usePolyglobeData() {
     // Combine lists
     const mixedMarkets = [...polyMarkets, ...kalshiMarkets];
 
-    return marketsToGeoJSON(mixedMarkets).features;
+    // Enrich markets to ensure they have location data and grouping info
+    const enrichedMarkets = enrichMarkets(mixedMarkets);
+
+    // Convert to GeoJSON with grouping support
+    return marketsToGeoJSONWithGroups(enrichedMarkets).features;
   }, [localMarkets]);
 
   // 3. Construct tweet features

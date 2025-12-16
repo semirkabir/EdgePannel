@@ -16,7 +16,14 @@
       "Bash(echo:*)",
       "Bash(npx prisma generate:*)",
       "Bash(cat:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(node:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(netstat:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 70312 -Force\")",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(exit 0)",
+      "Bash(cmd.exe /c \"del \"\"\\\\?\\C:\\Users\\kabir\\New folder\\nul\"\"\")"
     ]
   },
   "enableAllProjectMcpServers": true,
