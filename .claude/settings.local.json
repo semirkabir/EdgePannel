@@ -14,7 +14,9 @@
       "Bash(findstr:*)",
       "Bash(curl:*)",
       "Bash(echo:*)",
-      "Bash(npx prisma generate:*)"
+      "Bash(npx prisma generate:*)",
+      "Bash(cat:*)",
+      "Bash(taskkill:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

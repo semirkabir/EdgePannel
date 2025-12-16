@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db/client'
 import { MarketAggregator } from '@/lib/api/market-aggregator'
 import { KalshiClient } from '@/lib/api/kalshi'
+import { KalshiOptimizedClient } from '@/lib/api/kalshi-optimized'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { decrypt } from '@/lib/utils/encryption'
 import { enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich'
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
     let kalshiClient: KalshiClient | undefined
     let polymarketClient: PolymarketClient | undefined
 
-    // Try to get Kalshi credentials
+    // Try to get Kalshi credentials - but use public API if not available
     if (params.platform === 'all' || params.platform === 'kalshi') {
       try {
         const kalshiKeyRecord = await prisma.apiKey.findUnique({
@@ -85,12 +86,13 @@ export async function GET(request: Request) {
             const accessKeyId = decrypt(kalshiKeyRecord.encryptedKey)
             const privateKey = decrypt(kalshiKeyRecord.encryptedKeyData)
             kalshiClient = new KalshiClient({ accessKeyId, privateKey })
-            console.log('[Search API] Kalshi client initialized')
+            console.log('[Search API] Kalshi client initialized with credentials')
           } catch (error: any) {
             console.error('[Search API] Error setting up Kalshi client:', error.message || error)
+            console.log('[Search API] Falling back to Kalshi public API')
           }
         } else {
-          console.log('[Search API] No Kalshi API keys found')
+          console.log('[Search API] No Kalshi API keys found, using public API')
         }
       } catch (error: any) {
         console.error('[Search API] Error querying Kalshi API keys:', error.message || error)
@@ -148,7 +150,21 @@ export async function GET(request: Request) {
       sort: params.sort
     })
 
-    // Search markets - combine Polymarket API + indexed results
+    // Fetch Kalshi markets directly using public API if no credentials
+    let kalshiMarkets: any[] = []
+    if ((params.platform === 'kalshi' || params.platform === 'all') && !kalshiClient) {
+      try {
+        console.log('[Search API] Fetching Kalshi markets from public API')
+        const kalshiOptimized = new KalshiOptimizedClient()
+        const result = await kalshiOptimized.getMarkets({ limit: safeLimit, status: 'open' })
+        kalshiMarkets = result.markets
+        console.log(`[Search API] Kalshi public API returned ${kalshiMarkets.length} markets`)
+      } catch (kalshiError: any) {
+        console.error('[Search API] Kalshi public API error:', kalshiError.message)
+      }
+    }
+
+    // Search markets - combine Polymarket API + Kalshi API + indexed results
     let searchResults
     try {
       // If there's a query and we're searching polymarket or all platforms, use Polymarket API
@@ -210,31 +226,37 @@ export async function GET(request: Request) {
                 nextOffset: null
               }
             } else {
-              // For 'all' platforms, also search indexed markets and combine
-              const indexedResults = await aggregator.searchMarkets({
-                query: params.q,
-                platform: undefined, // search all platforms in index
-                category: params.category,
-                minProbability: minProb,
-                maxProbability: maxProb,
-                limit: safeLimit,
-                cursor: params.cursor,
-                offset: params.offset ? parseInt(params.offset, 10) : undefined,
-                sort: params.sort as any,
-              })
+              // For 'all' platforms, combine Polymarket + Kalshi + indexed markets
+              // Apply search filter to Kalshi markets if we have a query
+              let filteredKalshiMarkets = kalshiMarkets
+              if (params.q && kalshiMarkets.length > 0) {
+                const searchLower = params.q.toLowerCase()
+                filteredKalshiMarkets = kalshiMarkets.filter(m =>
+                  m.title?.toLowerCase().includes(searchLower) ||
+                  m.description?.toLowerCase().includes(searchLower) ||
+                  m.category?.toLowerCase().includes(searchLower)
+                )
+                console.log(`[Search API] Filtered Kalshi markets by "${params.q}": ${filteredKalshiMarkets.length} of ${kalshiMarkets.length}`)
+              }
 
               // Combine and deduplicate (prefer Polymarket API results)
               const polymarketIds = new Set(polymarkets.map(m => m.id))
-              const uniqueIndexedMarkets = indexedResults.markets.filter(m => !polymarketIds.has(m.id))
+              const kalshiIds = new Set(filteredKalshiMarkets.map(m => m.id))
+
+              // Combine all markets
+              const combined = [
+                ...polymarkets,
+                ...filteredKalshiMarkets.filter(m => !polymarketIds.has(m.id))
+              ]
 
               searchResults = {
-                markets: [...polymarkets, ...uniqueIndexedMarkets].slice(0, safeLimit),
-                hasMore: indexedResults.hasMore,
-                nextCursor: indexedResults.nextCursor,
-                nextOffset: indexedResults.nextOffset
+                markets: combined.slice(0, safeLimit),
+                hasMore: combined.length > safeLimit,
+                nextCursor: null,
+                nextOffset: null
               }
 
-              console.log(`[Search API] Combined: ${polymarkets.length} from Polymarket API + ${uniqueIndexedMarkets.length} from index = ${searchResults.markets.length} total`)
+              console.log(`[Search API] Combined: ${polymarkets.length} Polymarket + ${filteredKalshiMarkets.length} Kalshi = ${searchResults.markets.length} total`)
             }
           } else {
             // Polymarket API failed, fallback to aggregator only
@@ -267,18 +289,41 @@ export async function GET(request: Request) {
           })
         }
       } else {
-        // No query or Kalshi only - use aggregator
-        searchResults = await aggregator.searchMarkets({
-          query: params.q,
-          platform: params.platform === 'all' ? undefined : params.platform,
-          category: params.category,
-          minProbability: minProb,
-          maxProbability: maxProb,
-          limit: safeLimit,
-          cursor: params.cursor,
-          offset: params.offset ? parseInt(params.offset, 10) : undefined,
-          sort: params.sort as any,
-        })
+        // No query or Kalshi only
+        if (params.platform === 'kalshi') {
+          // Kalshi only - return Kalshi markets directly
+          console.log('[Search API] Returning Kalshi markets only')
+          searchResults = {
+            markets: kalshiMarkets.slice(0, safeLimit),
+            hasMore: kalshiMarkets.length > safeLimit,
+            nextCursor: null,
+            nextOffset: null
+          }
+        } else {
+          // No query, all platforms - combine Polymarket (from aggregator) + Kalshi
+          console.log('[Search API] No query - fetching from aggregator and combining with Kalshi')
+          const indexedResults = await aggregator.searchMarkets({
+            query: params.q,
+            platform: params.platform === 'all' ? undefined : params.platform,
+            category: params.category,
+            minProbability: minProb,
+            maxProbability: maxProb,
+            limit: safeLimit,
+            cursor: params.cursor,
+            offset: params.offset ? parseInt(params.offset, 10) : undefined,
+            sort: params.sort as any,
+          })
+
+          // Combine indexed results with Kalshi markets
+          const combined = [...indexedResults.markets, ...kalshiMarkets]
+          searchResults = {
+            markets: combined.slice(0, safeLimit),
+            hasMore: combined.length > safeLimit || indexedResults.hasMore,
+            nextCursor: indexedResults.nextCursor,
+            nextOffset: indexedResults.nextOffset
+          }
+          console.log(`[Search API] Combined: ${indexedResults.markets.length} indexed + ${kalshiMarkets.length} Kalshi = ${searchResults.markets.length} total`)
+        }
       }
     } catch (error: any) {
       console.error('[Search API] Error in searchMarkets:', error.message || error)
