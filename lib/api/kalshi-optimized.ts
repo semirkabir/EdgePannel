@@ -1,65 +1,44 @@
 /**
- * Optimized Kalshi Client - Public API Access
+ * Optimized Kalshi Client - Public API Access (matching Polymarket Client structure)
  *
- * Similar to Polymarket, Kalshi has public endpoints that don't require authentication:
+ * Kalshi public endpoints that don't require authentication:
  * - GET /markets - List all markets (public)
  * - GET /events - List all events (public)
  * - GET /markets/{ticker} - Get market details (public)
- * - GET /series - List series (public)
- *
- * This client focuses on public data access without requiring API keys.
  */
 
-import { Market as AppMarket } from '@/types/market'
-
-const KALSHI_API_BASE = 'https://api.elections.kalshi.com/trade-api/v2'
-
-interface KalshiMarketResponse {
-  markets: any[]
-  cursor?: string
-}
-
-interface KalshiEventResponse {
-  events: any[]
-  cursor?: string
-}
+import { Market } from '@/types/market'
 
 export class KalshiOptimizedClient {
-  private baseUrl: string
+  private baseUrl: string = 'https://api.elections.kalshi.com/trade-api/v2'
 
-  constructor(useDemo: boolean = false) {
-    this.baseUrl = useDemo
-      ? 'https://demo-api.kalshi.com/trade-api/v2'
-      : KALSHI_API_BASE
+  constructor() {
+    // No credentials needed for public API
   }
 
   /**
-   * Fetch markets from Kalshi public API (no auth required)
+   * Fetch markets from Kalshi public API (matches Polymarket Client.getMarkets signature)
    */
   async getMarkets(params?: {
     limit?: number
-    cursor?: string
-    status?: 'open' | 'closed' | 'settled'
-    series_ticker?: string
-    event_ticker?: string
-  }): Promise<{ markets: AppMarket[]; nextCursor?: string }> {
+    offset?: number
+    closed?: boolean
+    search?: string
+  }): Promise<{ markets: Market[]; hasMore: boolean; nextOffset?: number }> {
     try {
+      // Match Polymarket's fetch strategy
+      const isSearch = !!params?.search
+      const requestLimit = isSearch ? 1000 : Math.min((params?.limit || 500) * 2, 1000)
+      const offset = params?.offset || 0
+
       const url = new URL(`${this.baseUrl}/markets`)
 
-      // Default to open markets (Kalshi uses 'open' not 'active')
-      url.searchParams.set('status', params?.status || 'open')
-      url.searchParams.set('limit', String(params?.limit || 200))
+      // Kalshi uses 'open' status (not 'active' like Polymarket)
+      url.searchParams.set('status', 'open')
+      url.searchParams.set('limit', String(requestLimit))
 
-      if (params?.cursor) {
-        url.searchParams.set('cursor', params.cursor)
-      }
-
-      if (params?.series_ticker) {
-        url.searchParams.set('series_ticker', params.series_ticker)
-      }
-
-      if (params?.event_ticker) {
-        url.searchParams.set('event_ticker', params.event_ticker)
+      if (offset > 0) {
+        url.searchParams.set('cursor', this.offsetToCursor(offset))
       }
 
       console.log('[Kalshi Optimized] Fetching markets from:', url.toString())
@@ -67,175 +46,170 @@ export class KalshiOptimizedClient {
       const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
+          'Content-Type': 'application/json',
         },
-        cache: 'no-store',
+        cache: 'no-store', // Always get fresh data (matching Polymarket)
       })
 
       if (!response.ok) {
-        console.error('[Kalshi Optimized] API error:', response.status, response.statusText)
-        const text = await response.text()
-        console.error('[Kalshi Optimized] Response:', text.substring(0, 500))
-        return { markets: [], nextCursor: undefined }
-      }
-
-      const data: KalshiMarketResponse = await response.json()
-
-      console.log(`[Kalshi Optimized] Received ${data.markets?.length || 0} markets`)
-
-      if (!data.markets || data.markets.length === 0) {
-        return { markets: [], nextCursor: data.cursor }
-      }
-
-      // Log sample market for debugging
-      if (data.markets.length > 0) {
-        const sample = data.markets[0]
-        console.log('[Kalshi Optimized] Sample market:', {
-          ticker: sample.ticker,
-          title: sample.title,
-          status: sample.status,
-          last_price: sample.last_price,
-          volume: sample.volume,
-        })
-      }
-
-      const transformed = this.transformMarkets(data.markets)
-
-      return {
-        markets: transformed,
-        nextCursor: data.cursor,
-      }
-    } catch (error: any) {
-      console.error('[Kalshi Optimized] Error fetching markets:', error.message || error)
-      return { markets: [], nextCursor: undefined }
-    }
-  }
-
-  /**
-   * Fetch events from Kalshi public API (no auth required)
-   */
-  async getEvents(params?: {
-    limit?: number
-    cursor?: string
-    status?: 'active' | 'closed' | 'settled'
-    series_ticker?: string
-  }): Promise<{ events: any[]; nextCursor?: string }> {
-    try {
-      const url = new URL(`${this.baseUrl}/events`)
-
-      url.searchParams.set('status', params?.status || 'active')
-      url.searchParams.set('limit', String(params?.limit || 100))
-
-      if (params?.cursor) {
-        url.searchParams.set('cursor', params.cursor)
-      }
-
-      if (params?.series_ticker) {
-        url.searchParams.set('series_ticker', params.series_ticker)
-      }
-
-      console.log('[Kalshi Optimized] Fetching events from:', url.toString())
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        console.error('[Kalshi Optimized] Events API error:', response.status)
-        return { events: [], nextCursor: undefined }
-      }
-
-      const data: KalshiEventResponse = await response.json()
-
-      console.log(`[Kalshi Optimized] Received ${data.events?.length || 0} events`)
-
-      return {
-        events: data.events || [],
-        nextCursor: data.cursor,
-      }
-    } catch (error: any) {
-      console.error('[Kalshi Optimized] Error fetching events:', error.message || error)
-      return { events: [], nextCursor: undefined }
-    }
-  }
-
-  /**
-   * Fetch a single market by ticker
-   */
-  async getMarket(ticker: string): Promise<AppMarket | null> {
-    try {
-      const url = `${this.baseUrl}/markets/${ticker}`
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        console.error('[Kalshi Optimized] Market API error:', response.status)
-        return null
+        const errorText = await response.text()
+        console.error('[Kalshi Optimized] API error:', response.status, errorText)
+        // Don't throw - return empty array so other platforms can still work (matching Polymarket)
+        return { markets: [], hasMore: false, nextOffset: undefined }
       }
 
       const data = await response.json()
+      const markets = data.markets || []
 
-      if (!data.market) {
-        return null
+      console.log(`[Kalshi Optimized] Received ${markets.length} markets from API`)
+
+      if (!Array.isArray(markets) || markets.length === 0) {
+        console.warn('[Kalshi Optimized] No markets returned from API')
+        return { markets: [], hasMore: false, nextOffset: undefined }
       }
 
-      return this.transformMarket(data.market)
+      // Log sample market structure for debugging (matching Polymarket)
+      if (markets.length > 0) {
+        const sample = markets[0]
+        console.log('[Kalshi Optimized] Sample market structure:', {
+          ticker: sample.ticker?.substring(0, 50),
+          title: sample.title?.substring(0, 50),
+          status: sample.status,
+          last_price: sample.last_price,
+          volume: sample.volume,
+          close_time: sample.close_time,
+          category: sample.category,
+          allKeys: Object.keys(sample),
+        })
+      }
+
+      const now = new Date()
+
+      // Transform markets (matching Polymarket's filtering logic)
+      const transformed = markets
+        .filter((m: any) => {
+          // Basic sanity checks: must have ticker and title
+          if (!m || !m.ticker || !m.title) {
+            return false
+          }
+
+          // Only fetch open markets (we already filtered by status, but double-check)
+          if (m.status !== 'open') {
+            return false
+          }
+
+          // Filter out sports markets
+          const titleLower = m.title?.toLowerCase() || ''
+          const categoryLower = m.category?.toLowerCase() || ''
+          const sportsKeywords = ['nfl', 'nba', 'mlb', 'nhl', 'soccer', 'football', 'basketball', 'baseball', 'championship', 'super bowl', 'world cup', 'sports', 'game', 'match', 'player', 'team', 'season']
+          if (sportsKeywords.some(keyword => titleLower.includes(keyword) || categoryLower.includes(keyword))) {
+            return false
+          }
+
+          return true
+        })
+        .map((m: any) => this.transformMarket(m))
+        .filter((m: Market | null) => {
+          if (!m) {
+            return false
+          }
+
+          // Filter out markets with zero or very low volume (matching Polymarket)
+          if (m.volume24h !== undefined && m.volume24h < 10) {
+            // Check if market has a future end date
+            if (m.endDate) {
+              const end = m.endDate instanceof Date ? m.endDate : new Date(m.endDate)
+              if (end < now) {
+                return false // Past end date and no volume
+              }
+            } else {
+              return false // No volume and no end date
+            }
+          }
+
+          // Only filter out prices that are completely invalid (outside 0-1 range)
+          if (m.price !== undefined && m.price !== null) {
+            if (m.price < 0 || m.price > 1) {
+              return false
+            }
+          }
+
+          return true
+        }) as Market[]
+
+      // Apply search filter if provided (matching Polymarket)
+      let filtered = transformed
+      if (params?.search) {
+        const searchLower = params.search.toLowerCase()
+        filtered = transformed.filter(m =>
+          m.title.toLowerCase().includes(searchLower) ||
+          m.description?.toLowerCase().includes(searchLower) ||
+          m.category?.toLowerCase().includes(searchLower)
+        )
+        console.log(`[Kalshi Optimized] Filtered by search "${params.search}": ${filtered.length} markets`)
+      }
+
+      // Sort by volume (highest first) - matching Polymarket
+      filtered.sort((a, b) => {
+        const volA = a.volume24h || 0
+        const volB = b.volume24h || 0
+        return volB - volA
+      })
+
+      // Limit to requested amount after filtering (matching Polymarket)
+      const finalMarkets = filtered.slice(0, params?.limit || 500)
+
+      console.log(`[Kalshi Optimized] Transformed and sorted ${finalMarkets.length} markets by volume (filtered from ${markets.length})`)
+      if (finalMarkets.length > 0) {
+        console.log(`[Kalshi Optimized] Top market: ${finalMarkets[0].title} (volume: ${finalMarkets[0].volume24h}, category: ${finalMarkets[0].category})`)
+      }
+
+      // Determine if there are more results (matching Polymarket)
+      const hasMore = filtered.length > finalMarkets.length
+      const nextOffset = hasMore ? offset + finalMarkets.length : undefined
+
+      return {
+        markets: finalMarkets,
+        hasMore,
+        nextOffset,
+      }
     } catch (error: any) {
-      console.error('[Kalshi Optimized] Error fetching market:', error.message || error)
-      return null
+      console.error('[Kalshi Optimized] Error fetching markets:', error.message || error)
+      return { markets: [], hasMore: false, nextOffset: undefined } // Return empty array instead of throwing
     }
   }
 
   /**
-   * Transform Kalshi markets to app format
+   * Transform a single Kalshi market to app format (matching Polymarket structure)
    */
-  private transformMarkets(markets: any[]): AppMarket[] {
-    return markets
-      .map(m => this.transformMarket(m))
-      .filter(m => {
-        // Filter out invalid markets
-        if (!m.title) return false
+  private transformMarket(market: any): Market | null {
+    const ticker = market.ticker
+    if (!ticker || !market.title) {
+      return null
+    }
 
-        // Only include active/open markets
-        const status = m.rawData?.status
-        if (status && !['active', 'open'].includes(status)) {
-          return false
-        }
-
-        return true
-      })
-      .sort((a, b) => {
-        // Sort by volume (highest first)
-        if (a.volume24h && b.volume24h) {
-          return b.volume24h - a.volume24h
-        }
-        return 0
-      })
-  }
-
-  /**
-   * Transform a single Kalshi market to app format
-   */
-  private transformMarket(market: any): AppMarket {
-    // Kalshi prices are in cents (0-100), convert to 0-1
+    // Handle price - Kalshi returns prices in cents (0-100), convert to 0-1
     let price: number | undefined
     if (market.last_price !== undefined && market.last_price !== null) {
       price = market.last_price / 100
-    } else if (market.yes_bid !== undefined) {
+    } else if (market.yes_bid !== undefined && market.yes_bid !== null) {
       price = market.yes_bid / 100
-    } else if (market.yes_ask !== undefined) {
+    } else if (market.yes_ask !== undefined && market.yes_ask !== null) {
       price = market.yes_ask / 100
     }
+
+    // Validate price range
+    if (price !== undefined && price !== null) {
+      if (price < 0 || price > 1 || isNaN(price)) {
+        price = undefined // Reset invalid prices instead of filtering out the entire market
+      }
+    }
+
+    // Parse volume
+    const volume = market.volume ? parseFloat(market.volume.toString()) : 0
+
+    // Parse outcomes (Kalshi uses yes/no)
+    const outcomes: string[] = ['Yes', 'No']
 
     // Parse end date
     let endDate: Date | undefined
@@ -245,20 +219,37 @@ export class KalshiOptimizedClient {
       endDate = new Date(market.expiration_time)
     }
 
+    // Parse category
+    const category = market.category || market.series_ticker || 'Uncategorized'
+
+    // Normalize category (matching Polymarket's structure)
+    const normalizedCategory = category
+
     return {
-      id: market.ticker,
+      id: ticker,
       platform: 'kalshi',
-      title: market.title || market.ticker || 'Untitled',
+      title: market.title,
       description: market.subtitle || '',
-      category: market.category || market.series_ticker || 'Uncategorized',
+      category: category,
+      normalizedCategory: normalizedCategory,
       probability: price,
       price: price,
-      volume24h: market.volume || market.volume_24h || 0,
+      volume24h: volume,
       liquidity: market.liquidity || market.open_interest || 0,
       endDate: endDate,
-      ticker: market.ticker,
       slug: market.series_ticker,
+      ticker: ticker,
+      outcomes: outcomes,
+      outcomePrices: price !== undefined ? [price, 1 - price] : undefined,
       rawData: market,
-    }
+    } as Market
+  }
+
+  /**
+   * Simple offset to cursor converter
+   * In a real implementation, you'd use the cursor from the API response
+   */
+  private offsetToCursor(offset: number): string {
+    return `offset_${offset}`
   }
 }

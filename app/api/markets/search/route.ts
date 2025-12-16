@@ -156,7 +156,12 @@ export async function GET(request: Request) {
       try {
         console.log('[Search API] Fetching Kalshi markets from public API')
         const kalshiOptimized = new KalshiOptimizedClient()
-        const result = await kalshiOptimized.getMarkets({ limit: safeLimit, status: 'open' })
+        const result = await kalshiOptimized.getMarkets({
+          limit: safeLimit,
+          offset: params.offset ? parseInt(params.offset, 10) : undefined,
+          search: params.q,
+          closed: false
+        })
         kalshiMarkets = result.markets
         console.log(`[Search API] Kalshi public API returned ${kalshiMarkets.length} markets`)
       } catch (kalshiError: any) {

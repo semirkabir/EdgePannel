@@ -163,12 +163,6 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
     }
   }
 
-  // 4. Platform fallback
-  if (market.platform === 'kalshi') {
-    // If no specific location found, default Kalshi markets to USA as they are US-regulated events
-    return { name: 'United States', coordinates: LOCATION_COORDINATES['united states'] }
-  }
-
   return undefined
 }
 

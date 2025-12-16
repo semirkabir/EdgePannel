@@ -9,6 +9,7 @@ export default function IndexMarketsPage() {
   const [status, setStatus] = useState<any>(null)
   const [indexResults, setIndexResults] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [lastIndexedTime, setLastIndexedTime] = useState<string | null>(null)
 
   const fetchStatus = async () => {
     try {
@@ -63,6 +64,7 @@ export default function IndexMarketsPage() {
 
       const data = await indexResponse.json()
       setIndexResults(data.stats)
+      setLastIndexedTime(new Date().toISOString())
 
       // Refresh status after indexing
       await fetchStatus()
@@ -97,6 +99,7 @@ export default function IndexMarketsPage() {
 
       const data = await response.json()
       setIndexResults(data.stats)
+      setLastIndexedTime(new Date().toISOString())
 
       // Refresh status after indexing
       await fetchStatus()
@@ -123,7 +126,17 @@ export default function IndexMarketsPage() {
         {/* Status Card */}
         {status && (
           <Card className="p-6 bg-gray-800/50 border-gray-700">
-            <h2 className="text-xl font-bold text-white mb-4">Current Index Status</h2>
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold text-white">Current Index Status</h2>
+              {lastIndexedTime && (
+                <div className="bg-green-500/20 border border-green-500/50 rounded px-3 py-1">
+                  <div className="text-xs text-green-400 font-semibold">Last Indexed</div>
+                  <div className="text-xs text-green-300">
+                    {new Date(lastIndexedTime).toLocaleString()}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-gray-900/50 p-4 rounded-lg">
                 <div className="text-3xl font-bold text-blue-400">{status.total}</div>

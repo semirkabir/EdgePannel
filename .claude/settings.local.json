@@ -23,7 +23,8 @@
       "Bash(powershell -Command \"Stop-Process -Id 70312 -Force\")",
       "Bash(timeout /t 5 /nobreak)",
       "Bash(exit 0)",
-      "Bash(cmd.exe /c \"del \"\"\\\\?\\C:\\Users\\kabir\\New folder\\nul\"\"\")"
+      "Bash(cmd.exe /c \"del \"\"\\\\?\\C:\\Users\\kabir\\New folder\\nul\"\"\")",
+      "Bash(tasklist:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

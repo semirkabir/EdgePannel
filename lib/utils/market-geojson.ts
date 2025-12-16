@@ -44,7 +44,14 @@ function applyJitter(lng: number, lat: number, marketId: string, zoom: number = 
 }
 
 export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
-    const features = markets.map((m: any) => {
+    // Filter out markets without valid coordinates first
+    const validMarkets = markets.filter((m: any) => {
+        const hasNestedCoords = m.location?.coordinates;
+        const hasDirectCoords = m.latitude != null && m.longitude != null;
+        return hasNestedCoords || hasDirectCoords;
+    });
+
+    const features = validMarkets.map((m: any) => {
         // Check for coordinates in multiple formats:
         // 1. Nested in location.coordinates (standard Market type)
         // 2. Direct properties latitude/longitude (GeotaggedMarket from DB)
@@ -60,23 +67,11 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
             lng = m.longitude;
             lat = m.latitude;
         } else {
-            // Fallback: generate deterministic pseudo-random coordinates
-            let hash = 0;
-            const str = m.id || 'unknown';
-            for (let i = 0; i < str.length; i++) {
-                hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                hash |= 0; // Convert to 32bit integer
-            }
-
-            // Map hash to coordinates (pseudo-random but deterministic)
-            const rand1 = Math.abs(Math.sin(hash) * 10000) % 1;
-            const rand2 = Math.abs(Math.cos(hash) * 10000) % 1;
-
-            lng = (rand1 * 360) - 180;
-            lat = (rand2 * 160) - 80;
+            // Should not happen due to filter above, but safety check
+            return null;
         }
 
-        const hasValidCoords = hasNestedCoords || hasDirectCoords;
+        const hasValidCoords = true; // We know it's valid because we filtered
 
         // Apply jitter to prevent exact overlaps (only for valid coordinates)
         if (hasValidCoords) {
@@ -128,11 +123,11 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
                 isBreakingNews: Boolean(m.isBreakingNews),
                 platform: m.platform || '',
                 endDate: m.endDate ? String(m.endDate) : null,
-                is_random_location: !hasValidCoords,
+                is_random_location: false,
                 rawData: m.rawData ? JSON.stringify(m.rawData) : '{}'
             }
         };
-    });
+    }).filter(Boolean); // Filter out any null entries
 
     return {
         type: 'FeatureCollection',
@@ -148,13 +143,18 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
     const { groups, ungroupedMarkets } = getMarketsWithGroups(markets);
     const features: GeoJSONFeature[] = [];
 
-    // Add grouped markets as single features
+    // Add grouped markets as single features (only if they have valid coordinates)
     groups.forEach((group) => {
         // Use the location from the first market in the group
         const primaryMarket = group.markets[0];
 
         const hasNestedCoords = primaryMarket.location?.coordinates;
         const hasDirectCoords = (primaryMarket as any).latitude != null && (primaryMarket as any).longitude != null;
+
+        // Skip groups without valid coordinates
+        if (!hasNestedCoords && !hasDirectCoords) {
+            return;
+        }
 
         let lng, lat;
         if (hasNestedCoords) {
@@ -164,20 +164,10 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
             lng = (primaryMarket as any).longitude;
             lat = (primaryMarket as any).latitude;
         } else {
-            // Fallback to random coordinates
-            let hash = 0;
-            const str = group.groupId;
-            for (let i = 0; i < str.length; i++) {
-                hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                hash |= 0;
-            }
-            const rand1 = Math.abs(Math.sin(hash) * 10000) % 1;
-            const rand2 = Math.abs(Math.cos(hash) * 10000) % 1;
-            lng = (rand1 * 360) - 180;
-            lat = (rand2 * 160) - 80;
+            return; // Should not happen, but safety check
         }
 
-        const hasValidCoords = hasNestedCoords || hasDirectCoords;
+        const hasValidCoords = true;
 
         // Apply jitter
         if (hasValidCoords) {
@@ -227,10 +217,15 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
         });
     });
 
-    // Add ungrouped markets as individual features
+    // Add ungrouped markets as individual features (only if they have valid coordinates)
     ungroupedMarkets.forEach((m) => {
         const hasNestedCoords = m.location?.coordinates;
         const hasDirectCoords = (m as any).latitude != null && (m as any).longitude != null;
+
+        // Skip markets without valid coordinates
+        if (!hasNestedCoords && !hasDirectCoords) {
+            return;
+        }
 
         let lng, lat;
         if (hasNestedCoords) {
@@ -240,19 +235,10 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
             lng = (m as any).longitude;
             lat = (m as any).latitude;
         } else {
-            let hash = 0;
-            const str = m.id || 'unknown';
-            for (let i = 0; i < str.length; i++) {
-                hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                hash |= 0;
-            }
-            const rand1 = Math.abs(Math.sin(hash) * 10000) % 1;
-            const rand2 = Math.abs(Math.cos(hash) * 10000) % 1;
-            lng = (rand1 * 360) - 180;
-            lat = (rand2 * 160) - 80;
+            return; // Should not happen, but safety check
         }
 
-        const hasValidCoords = hasNestedCoords || hasDirectCoords;
+        const hasValidCoords = true;
 
         if (hasValidCoords) {
             const marketId = (m as any).externalId || m.id || 'unknown';
@@ -296,7 +282,7 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
                 isBreakingNews: Boolean(m.isBreakingNews),
                 platform: m.platform || '',
                 endDate: m.endDate ? String(m.endDate) : null,
-                is_random_location: !hasValidCoords,
+                is_random_location: false,
                 rawData: m.rawData ? JSON.stringify(m.rawData) : '{}',
                 isGroup: false,
             }
