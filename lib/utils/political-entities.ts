@@ -10,15 +10,16 @@ export interface PoliticalEntity {
   titles?: string[]
   aliases?: string[]
   state?: string // US State for US politicians
+  city?: string // Override city location (e.g. Sacramento for CA Governor)
 }
 
 export const POLITICAL_ENTITIES: PoliticalEntity[] = [
   // US Political Figures (with home states for better geolocation)
-  { name: 'Donald Trump', country: 'United States', state: 'Florida', type: 'politician', titles: ['President', 'Former President'], aliases: ['trump', 'donald j trump', 'donald j. trump'] },
+  { name: 'Donald Trump', country: 'United States', state: 'District of Columbia', type: 'politician', titles: ['President', 'Former President'], aliases: ['trump', 'donald j trump', 'donald j. trump'] },
   { name: 'Joe Biden', country: 'United States', state: 'Delaware', type: 'leader', titles: ['President'], aliases: ['biden', 'joseph biden'] },
   { name: 'Kamala Harris', country: 'United States', state: 'California', type: 'politician', titles: ['Vice President'], aliases: ['harris', 'kamala'] },
   { name: 'Ron DeSantis', country: 'United States', state: 'Florida', type: 'politician', titles: ['Governor'], aliases: ['desantis'] },
-  { name: 'Gavin Newsom', country: 'United States', state: 'California', type: 'politician', titles: ['Governor'], aliases: ['newsom'] },
+  { name: 'Gavin Newsom', country: 'United States', state: 'California', city: 'sacramento', type: 'politician', titles: ['Governor'], aliases: ['newsom'] },
   { name: 'Mike Johnson', country: 'United States', state: 'Louisiana', type: 'politician', titles: ['Speaker'], aliases: ['johnson'] },
   { name: 'Mitch McConnell', country: 'United States', state: 'Kentucky', type: 'politician', titles: ['Senator'], aliases: ['mcconnell'] },
   { name: 'Chuck Schumer', country: 'United States', state: 'New York', type: 'politician', titles: ['Senator'], aliases: ['schumer'] },
@@ -73,9 +74,9 @@ export const POLITICAL_ENTITIES: PoliticalEntity[] = [
   { name: 'Abdel Fattah el-Sisi', country: 'Egypt', type: 'leader', titles: ['President'], aliases: ['sisi', 'el-sisi'] },
 
   // Appointees & Cabinet Officials
-  { name: 'Kevin Warsh', country: 'United States', type: 'politician', titles: ['Former Fed Governor'], aliases: ['warsh'] },
-  { name: 'Jerome Powell', country: 'United States', type: 'institution', titles: ['Fed Chair'], aliases: ['powell', 'jay powell'] },
-  { name: 'Janet Yellen', country: 'United States', type: 'politician', titles: ['Treasury Secretary'], aliases: ['yellen'] },
+  { name: 'Kevin Warsh', country: 'United States', type: 'politician', city: 'washington', titles: ['Former Fed Governor'], aliases: ['warsh'] },
+  { name: 'Jerome Powell', country: 'United States', type: 'institution', city: 'washington', titles: ['Fed Chair'], aliases: ['powell', 'jay powell'] },
+  { name: 'Janet Yellen', country: 'United States', type: 'politician', city: 'washington', titles: ['Treasury Secretary'], aliases: ['yellen'] },
   { name: 'Antony Blinken', country: 'United States', type: 'politician', titles: ['Secretary of State'], aliases: ['blinken'] },
   { name: 'Lloyd Austin', country: 'United States', type: 'politician', titles: ['Defense Secretary'], aliases: ['austin'] },
   { name: 'Merrick Garland', country: 'United States', type: 'politician', titles: ['Attorney General'], aliases: ['garland'] },
@@ -91,7 +92,7 @@ export const POLITICAL_ENTITIES: PoliticalEntity[] = [
 /**
  * Detect political entity and return associated country and state
  */
-export function detectPoliticalEntity(text: string): { country: string; entity: string; type: string; state?: string } | null {
+export function detectPoliticalEntity(text: string): { country: string; entity: string; type: string; state?: string; city?: string } | null {
   const lowerText = text.toLowerCase()
 
   for (const entity of POLITICAL_ENTITIES) {
@@ -106,7 +107,8 @@ export function detectPoliticalEntity(text: string): { country: string; entity: 
           country: entity.country,
           entity: entity.name,
           type: entity.type,
-          state: entity.state
+          state: entity.state,
+          city: entity.city
         }
       }
     }

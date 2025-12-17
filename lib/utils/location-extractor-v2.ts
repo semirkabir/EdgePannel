@@ -8,6 +8,8 @@
  * - Explicit patterns → "in Paris", "at Tokyo", etc.
  */
 
+import nlp from 'compromise'
+// import { GoogleGenerativeAI } from "@google/generative-ai" // Removed
 import { COUNTRY_COORDINATES, CITY_COORDINATES, US_STATES } from './geo-data'
 import { detectSportsTeam, SPORTS_TEAMS } from './sports-teams'
 import { detectPoliticalEntity, POLITICAL_ENTITIES } from './political-entities'
@@ -26,18 +28,180 @@ export interface LocationInfo {
 }
 
 /**
- * Smart location extraction with context awareness
+ * Smart location extraction with context awareness (Regex/Heuristic)
  */
-export function extractLocation(title: string, description?: string): LocationInfo | null {
+export function extractLocationRegex(title: string, description?: string): LocationInfo | null {
   const text = `${title} ${description || ''}`
   const lowerText = text.toLowerCase()
 
   console.log(`[Location] Analyzing: "${title.substring(0, 100)}"`)
 
-  // Priority 0: Political entities (highest priority to avoid false sports matches)
+  // Priority 0: Exclusions (Crypto matches should NOT be geotagged)
+  if (/\b(bitcoin|ethereum|solana|btc|eth|sol|crypto|cryptocurrency|doge)\b/i.test(text)) {
+    console.log(`[Location] ✗ Crypto exclusion (Skipping map)`)
+    return null
+  }
+
+  // Priority 1: Explicit location patterns ("in [Location]", "at [Location]")
+  const patternMatch = extractExplicitPattern(text)
+  if (patternMatch) {
+    console.log(`[Location] ✓ Pattern → ${patternMatch.matchedText}`)
+    return patternMatch
+  }
+
+  // Priority 1.5: Special Topic Rules (e.g. Movies -> Hollywood)
+  if (/\b(movie|film|cinema|box office|academy award|oscar|hollywood|best picture|best actor|best actress|best director|opening weekend)\b/i.test(text)) {
+    const laData = CITY_COORDINATES['los angeles']
+    if (laData) {
+      console.log(`[Location] ✓ Special Topic (Movie) → Los Angeles`)
+      return {
+        city: laData.name,
+        country: laData.country,
+        region: laData.region,
+        coordinates: { lat: laData.lat, lng: laData.lng },
+        confidence: 'high',
+        extractedFrom: 'pattern',
+        matchedText: 'Movie/Hollywood Context'
+      }
+    }
+  }
+
+  // Priority 1.6: Tech/AI Rules (e.g. OpenAI -> SF)
+  if (/\b(openai|sam altman|chatgpt|gpt-4|gpt-5|sora)\b/i.test(text)) {
+    const sfData = CITY_COORDINATES['san francisco']
+    if (sfData) {
+      console.log(`[Location] ✓ Special Topic (OpenAI) → San Francisco`)
+      return {
+        city: sfData.name,
+        country: sfData.country,
+        region: sfData.region,
+        coordinates: { lat: sfData.lat, lng: sfData.lng },
+        confidence: 'high',
+        extractedFrom: 'pattern',
+        matchedText: 'OpenAI Context'
+      }
+    }
+  }
+
+  // Priority 1.7: Economics/Fed Rules (e.g. Fed/Interest Rates -> Washington DC)
+  if (/\b(fed|federal reserve|interest rates?|fomc|inflation|cpi|pce)\b/i.test(text)) {
+    const dcData = CITY_COORDINATES['washington']
+    if (dcData) {
+      console.log(`[Location] ✓ Special Topic (Fed/Econ) → Washington DC`)
+      return {
+        city: dcData.name,
+        country: dcData.country,
+        region: dcData.region,
+        coordinates: { lat: dcData.lat, lng: dcData.lng },
+        confidence: 'high',
+        extractedFrom: 'pattern',
+        matchedText: 'Fed/Economics Context'
+      }
+    }
+  }
+
+  // Priority 1.8: Tech/Microsoft Rules (e.g. Microsoft -> Redmond)
+  if (/\b(microsoft|satya nadella|windows|xbox|surface)\b/i.test(text)) {
+    const redmondData = CITY_COORDINATES['redmond']
+    if (redmondData) {
+      console.log(`[Location] ✓ Special Topic (Microsoft) → Redmond`)
+      return {
+        city: redmondData.name,
+        country: redmondData.country,
+        region: redmondData.region,
+        coordinates: { lat: redmondData.lat, lng: redmondData.lng },
+        confidence: 'high',
+        extractedFrom: 'pattern',
+        matchedText: 'Microsoft Context'
+      }
+    }
+  }
+
+  // Priority 1.9: Tech/Apple Rules (e.g. Apple -> Cupertino)
+  if (/\b(apple|tim cook|iphone|macbook|ios|vision pro)\b/i.test(text)) {
+    const cupertinoData = CITY_COORDINATES['cupertino']
+    if (cupertinoData) {
+      console.log(`[Location] ✓ Special Topic (Apple) → Cupertino`)
+      return {
+        city: cupertinoData.name,
+        country: cupertinoData.country,
+        region: cupertinoData.region,
+        coordinates: { lat: cupertinoData.lat, lng: cupertinoData.lng },
+        confidence: 'high',
+        extractedFrom: 'pattern',
+        matchedText: 'Apple Context'
+      }
+    }
+  }
+
+  // Priority 2: City mentions (specific coordinates)
+  // Check for cities BEFORE politicians to catch "Trump in NYC" -> NYC
+  const cityMatch = detectCity(text)
+  if (cityMatch) {
+    console.log(`[Location] ✓ City → ${cityMatch.city}`)
+    return cityMatch
+  }
+
+  // Priority 3: US State mentions
+  // Check states before politicians to catch "Biden in Michigan" -> Michigan
+  const stateMatch = detectUSState(text)
+  if (stateMatch) {
+    console.log(`[Location] ✓ State → ${stateMatch.region}`)
+    return stateMatch
+  }
+
+  // Priority 4: Sports teams
+  // Specific to home stadiums/cities
+  const sportsMatch = detectSportsTeam(text)
+  if (sportsMatch && isSportsContext(lowerText)) {
+    const cityData = CITY_COORDINATES[sportsMatch.city.toLowerCase()]
+    if (cityData) {
+      console.log(`[Location] ✓ Sports team → ${cityData.name}, ${cityData.country}`)
+      return {
+        city: cityData.name,
+        country: cityData.country,
+        region: cityData.region,
+        coordinates: { lat: cityData.lat, lng: cityData.lng },
+        confidence: 'high',
+        extractedFrom: 'sports',
+        matchedText: sportsMatch.city
+      }
+    }
+  }
+
+  // Priority 5: Political entities
+  // These provide a "Default Home Location" for the subject (e.g. Trump -> FL)
+  // Used as a fallback if no specific event location is found
   const politicalMatch = detectPoliticalEntity(text)
   if (politicalMatch) {
-    // If US politician with a state, use state coordinates instead of country
+    // Check for explicit city override (e.g. Newsom -> Sacramento)
+    if (politicalMatch.city) {
+      const cityKey = politicalMatch.city.toLowerCase()
+      // Check if city exists in our database, or try to find it if it's a "display name" vs key issue
+      // Assuming keys are lowercase names or we can find by name
+      let cityData = CITY_COORDINATES[cityKey] // direct key match
+
+      if (!cityData) {
+        // try finding by name value 
+        const foundKey = Object.keys(CITY_COORDINATES).find(k => CITY_COORDINATES[k].name.toLowerCase() === cityKey)
+        if (foundKey) cityData = CITY_COORDINATES[foundKey]
+      }
+
+      if (cityData) {
+        console.log(`[Location] ✓ Political entity city override → ${politicalMatch.entity} (${cityData.name})`)
+        return {
+          city: cityData.name,
+          country: cityData.country,
+          region: cityData.region,
+          coordinates: { lat: cityData.lat, lng: cityData.lng },
+          confidence: 'high',
+          extractedFrom: 'pattern',
+          matchedText: politicalMatch.entity
+        }
+      }
+    }
+
+    // If US politician with a state, use state coordinates
     if (politicalMatch.country === 'United States' && politicalMatch.state) {
       const stateData = Object.values(US_STATES).find(s => s.name === politicalMatch.state)
       if (stateData) {
@@ -47,7 +211,7 @@ export function extractLocation(title: string, description?: string): LocationIn
           region: stateData.name,
           coordinates: { lat: stateData.lat, lng: stateData.lng },
           confidence: 'high',
-          extractedFrom: 'pattern',
+          extractedFrom: 'pattern', // Keeping 'pattern' or maybe 'context'
           matchedText: politicalMatch.entity
         }
       }
@@ -67,46 +231,8 @@ export function extractLocation(title: string, description?: string): LocationIn
     }
   }
 
-  // Priority 1: Sports teams (with context validation)
-  const sportsMatch = detectSportsTeam(text)
-  if (sportsMatch && isSportsContext(lowerText)) {
-    const cityData = CITY_COORDINATES[sportsMatch.city.toLowerCase()]
-    if (cityData) {
-      console.log(`[Location] ✓ Sports team → ${cityData.name}, ${cityData.country}`)
-      return {
-        city: cityData.name,
-        country: cityData.country,
-        region: cityData.region,
-        coordinates: { lat: cityData.lat, lng: cityData.lng },
-        confidence: 'high',
-        extractedFrom: 'sports',
-        matchedText: sportsMatch.city
-      }
-    }
-  }
-
-  // Priority 2: US State mentions (check BEFORE patterns to avoid default US coords)
-  const stateMatch = detectUSState(text)
-  if (stateMatch) {
-    console.log(`[Location] ✓ State → ${stateMatch.region}`)
-    return stateMatch
-  }
-
-  // Priority 3: City mentions (specific locations)
-  const cityMatch = detectCity(text)
-  if (cityMatch) {
-    console.log(`[Location] ✓ City → ${cityMatch.city}`)
-    return cityMatch
-  }
-
-  // Priority 4: Explicit location patterns ("in Paris", "at Tokyo", "from Brazil")
-  const patternMatch = extractExplicitPattern(text)
-  if (patternMatch) {
-    console.log(`[Location] ✓ Pattern → ${patternMatch.matchedText}`)
-    return patternMatch
-  }
-
-  // Priority 5: Context-aware country detection
+  // Priority 6: Context-aware country detection
+  // General mentions of countries
   const countryMatch = detectCountryWithContext(text, lowerText)
   if (countryMatch) {
     console.log(`[Location] ✓ Country → ${countryMatch.country}`)
@@ -385,7 +511,7 @@ function detectUSState(text: string): LocationInfo | null {
         // Try to match this to a state
         for (const [abbr, data] of Object.entries(US_STATES)) {
           if (data.name.toLowerCase() === potentialState ||
-              abbr.toLowerCase() === potentialState) {
+            abbr.toLowerCase() === potentialState) {
             return {
               country: 'United States',
               region: data.name,
@@ -466,13 +592,106 @@ function detectUSState(text: string): LocationInfo | null {
 /**
  * Batch extract locations
  */
+
+/**
+ * Smart Batch Location Extraction (Async with LLM)
+ * - Tries Regex first (free, fast)
+ * - Batches remaining items for Gemini LLM (to save requests/time)
+ * - Rate limits LLM calls to respect free tier (15 RPM -> ~4s delay)
+ */
+export async function batchExtractLocationsSmart(
+  markets: Array<{ id?: string; title: string; description?: string }>
+): Promise<Map<number, LocationInfo>> {
+  const results = new Map<number, LocationInfo>()
+  const locationCache = new Map<string, LocationInfo | null>()
+
+  // 1. Prepare items for LLM (Filter out obvious exclusions OR easy Regex wins)
+  markets.forEach((market, index) => {
+    // Quick check for Crypto/Exclusions only - saves LLM from obvious junk
+    if (/\\b(bitcoin|ethereum|solana|btc|eth|sol|crypto|cryptocurrency|doge)\\b/i.test(market.title)) {
+      return // Skip crypto entirely
+    }
+
+    const cacheKey = `${market.title}|${market.description || ''}`
+    let regexResult: LocationInfo | null = null
+
+    if (locationCache.has(cacheKey)) {
+      regexResult = locationCache.get(cacheKey) || null
+    } else {
+      // TRY REGEX/HEURISTIC FIRST (Free & Fast & Accurate for known entities)
+      regexResult = extractLocationRegex(market.title, market.description)
+
+      // Fallback: Try "compromise" NLP if regex failed
+      if (!regexResult) {
+        try {
+          const doc = nlp(market.title)
+
+          // Look for recognized places
+          const places = doc.places().json()
+          if (places && places.length > 0) {
+            const placeName = places[0].text
+            // Try to match this place name against our known coordinates
+            const cityMatch = detectCity(placeName)
+            if (cityMatch) {
+              regexResult = cityMatch
+              console.log(`[Location] 🧠 NLP (Compromise) matched city: ${placeName}`)
+            } else {
+              // Try country match
+              const countryMatch = detectCountry(placeName)
+              if (countryMatch) {
+                regexResult = countryMatch
+                console.log(`[Location] 🧠 NLP (Compromise) matched country: ${placeName}`)
+              }
+            }
+          }
+        } catch (e) {
+          // NLP error, ignore
+        }
+      }
+
+      // Cache the result
+      locationCache.set(cacheKey, regexResult)
+    }
+
+    if (regexResult && (regexResult.confidence === 'high' || regexResult.confidence === 'medium')) {
+      // If we found a match locally, USE IT!
+      // But if it's a broad region (Country/State), apply randomization so dots don't stack
+      let coords = regexResult.coordinates
+      if (coords && !regexResult.city) {
+        // It's a broad region (no specific city), so fuzz the coordinates slightly
+        // +/- 1.5 degree is roughly ~150km, good for separating dots in a country
+        coords = {
+          lat: coords.lat + (Math.random() - 0.5) * 3.0,
+          lng: coords.lng + (Math.random() - 0.5) * 3.0
+        }
+      }
+
+      results.set(index, {
+        ...regexResult,
+        coordinates: coords // Use randomized coords if applicable
+      })
+      return
+    }
+
+    // LLM Disabled by user request. Local only.
+    // matches that fail Regex + NLP are simply not geotagged.
+  })
+
+  // Log summary
+  console.log(`[Location] ⚡ Processed ${markets.length} items locally. Found ${results.size} locations.`)
+  return results
+}
+
+/**
+ * Legacy sync batch extractor (deprecated in favor of smart one)
+ */
 export function batchExtractLocations(
   markets: Array<{ title: string; description?: string; category?: string }>
 ): Map<number, LocationInfo> {
   const locations = new Map<number, LocationInfo>()
 
   markets.forEach((market, index) => {
-    const location = extractLocation(market.title, market.description)
+    const location = extractLocationRegex(market.title, market.description)
     if (location) {
       locations.set(index, location)
     }
@@ -505,6 +724,40 @@ export function enrichLocationData(
     }
   }
 
+  // Distribute country-level markets randomly across the country
+  // This prevents all "US Election" markets from stacking on the geographic center of the US
+  // Apply this to ANY location that is just a country (no city/region), regardless of extraction method
+  const isCountryLevel = location.country && !location.city && (!location.region || location.region === location.country)
+
+  if (isCountryLevel) {
+    // Find country data to get bounds
+    const countryEntry = Object.values(COUNTRY_COORDINATES).find(c => c.name === location.country)
+
+    if (countryEntry && countryEntry.bounds) {
+      const [minLat, minLng, maxLat, maxLng] = countryEntry.bounds
+
+      // Generate random coordinates within bounds
+      // Add a slight buffer (5%) from edges to ensure we don't put points right on the border/ocean
+      const latBuffer = (maxLat - minLat) * 0.05
+      const lngBuffer = (maxLng - minLng) * 0.05
+
+      const safeMinLat = minLat + latBuffer
+      const safeMaxLat = maxLat - latBuffer
+      const safeMinLng = minLng + lngBuffer
+      const safeMaxLng = maxLng - lngBuffer
+
+      const randomLat = safeMinLat + Math.random() * (safeMaxLat - safeMinLat)
+      const randomLng = safeMinLng + Math.random() * (safeMaxLng - safeMinLng)
+
+      location.coordinates = {
+        lat: Number(randomLat.toFixed(4)),
+        lng: Number(randomLng.toFixed(4))
+      }
+
+      console.log(`[Location] 🎲 Spread ${location.country} market to ${randomLat.toFixed(2)}, ${randomLng.toFixed(2)}`)
+    }
+  }
+
   return location
 }
 
@@ -528,4 +781,41 @@ export function isGeoRelevantCategory(category?: string): boolean {
   return geoCategories.some(cat =>
     category.toLowerCase().includes(cat)
   )
+}
+
+/**
+ * Main Location Extraction Entry Point (Async for compatibility, but purely local)
+ * Tries heuristics first, then falls back to NLP.
+ */
+export async function extractLocation(title: string, description?: string): Promise<LocationInfo | null> {
+  // 1. Try Regex/Heuristic
+  let location = extractLocationRegex(title, description)
+
+  // 2. Try NLP (Compromise)
+  if (!location) {
+    try {
+      const doc = nlp(title)
+      const places = doc.places().json()
+      if (places && places.length > 0) {
+        const placeName = places[0].text
+        const cityMatch = detectCity(placeName)
+        if (cityMatch) return cityMatch
+
+        const countryMatch = detectCountry(placeName)
+        if (countryMatch) return countryMatch
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // Randomize if broad region
+  if (location && location.coordinates && !location.city) {
+    location.coordinates = {
+      lat: location.coordinates.lat + (Math.random() - 0.5) * 4.0,
+      lng: location.coordinates.lng + (Math.random() - 0.5) * 4.0
+    }
+  }
+
+  return location
 }

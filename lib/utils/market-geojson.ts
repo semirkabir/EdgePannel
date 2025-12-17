@@ -108,7 +108,7 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
                 last_price: Number(m.price || m.probability || 0),
                 volume: Number(m.volume24h || m.liquidity || 0),
                 liquidity: Number(m.liquidity || 0),
-                image_url: m.imageUrl || null,
+                image_url: m.imageUrl || (m as any).image || m.rawData?.image || m.rawData?.icon || m.rawData?.eventImage || null,
                 is_open: true,
                 description: m.description || '',
                 category: m.category || '',
@@ -209,7 +209,7 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
                 platform: primaryMarket.platform,
                 isBreakingNews: group.isBreakingNews,
                 is_random_location: false,
-                image_url: primaryMarket.imageUrl || null,
+                image_url: primaryMarket.imageUrl || (primaryMarket as any).image || primaryMarket.rawData?.image || primaryMarket.rawData?.icon || primaryMarket.rawData?.eventImage || null,
                 description: primaryMarket.description || group.baseQuestion, // Event description
                 // Event metadata - prefer eventId from rawData (set when fetching from events API)
                 eventId: primaryMarket.rawData?.eventId 

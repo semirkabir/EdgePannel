@@ -123,6 +123,14 @@ export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModal
           {/* Header */}
           <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-md border-b border-white/10 p-6">
             <div className="flex items-start justify-between gap-4">
+              {(market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage) && (
+                <img
+                  src={market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage}
+                  alt={market.title}
+                  className="w-16 h-16 rounded-md object-cover bg-gray-800 border border-white/10 flex-shrink-0"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              )}
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   <span className={cn(
@@ -186,8 +194,8 @@ export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModal
                         isYes
                           ? "from-emerald-500/10 to-emerald-500/5 border-emerald-500/30"
                           : isNo
-                          ? "from-rose-500/10 to-rose-500/5 border-rose-500/30"
-                          : "from-blue-500/10 to-blue-500/5 border-blue-500/30"
+                            ? "from-rose-500/10 to-rose-500/5 border-rose-500/30"
+                            : "from-blue-500/10 to-blue-500/5 border-blue-500/30"
                       )}
                     >
                       {/* Progress bar */}
@@ -197,8 +205,8 @@ export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModal
                           isYes
                             ? "bg-emerald-500/10"
                             : isNo
-                            ? "bg-rose-500/10"
-                            : "bg-blue-500/10"
+                              ? "bg-rose-500/10"
+                              : "bg-blue-500/10"
                         )}
                         style={{
                           width: `${outcomePrice * 100}%`,
@@ -216,8 +224,8 @@ export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModal
                             isYes
                               ? "text-emerald-400"
                               : isNo
-                              ? "text-rose-400"
-                              : "text-blue-400"
+                                ? "text-rose-400"
+                                : "text-blue-400"
                           )}>
                             {formatPrice(outcomePrice)}
                           </span>
@@ -255,7 +263,7 @@ export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModal
                   {liveVolume !== null && market.volume24h && (
                     <div className="text-xs text-gray-500">
                       24h: {formatVolume(market.volume24h)}
-                  </div>
+                    </div>
                   )}
                 </div>
               )}

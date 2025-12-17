@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * GET /api/whale-activity
- * Get recent whale trades (large trades) across platforms
- * Currently returns simulated data based on high-volume markets
+ * Get recent whale trades (large trades) from Polymarket using real orderbook data
  *
  * Query params:
  * - timeframe: '1h' | '24h' | '7d' (default: '24h')
@@ -13,140 +12,120 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const timeframe = searchParams.get('timeframe') || '24h';
-    const minAmount = parseFloat(searchParams.get('minAmount') || '5000');
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const platform = searchParams.get('platform') || 'all';
+    const { searchParams } = new URL(request.url)
+    const timeframe = searchParams.get('timeframe') || '24h'
+    const minAmount = parseFloat(searchParams.get('minAmount') || '5000')
+    const limit = parseInt(searchParams.get('limit') || '20', 10)
+    const platform = searchParams.get('platform') || 'all'
 
-    console.log('[Whale Activity API] Fetching whale trades:', { timeframe, minAmount, limit, platform });
+    console.log('[Whale Activity API] Fetching whale trades:', { timeframe, minAmount, limit, platform })
 
-    // Fetch high-volume markets from Polymarket to simulate whale activity
+    // Calculate timeframe in seconds
+    let secondsAgo = 86400 // 24h
+    if (timeframe === '1h') secondsAgo = 3600
+    else if (timeframe === '7d') secondsAgo = 604800
+
+    const startTimestamp = Math.floor(Date.now() / 1000) - secondsAgo
+
+    // Fetch real whale trades from Polymarket
     if (platform === 'polymarket' || platform === 'all') {
       try {
-        const polymarketUrl = `https://gamma-api.polymarket.com/markets?limit=50&active=true&closed=false`;
-        console.log('[Whale Activity API] Fetching markets from Polymarket');
+        // Use Polymarket CLOB Data API to fetch trades filtered by amount
+        // Filter by CASH amount to get large trades (whales)
+        const tradesUrl = `https://data-api.polymarket.com/trades?limit=${Math.min(limit * 5, 1000)}&filterType=CASH&filterAmount=${minAmount}&takerOnly=true`
+        console.log('[Whale Activity API] Fetching trades from Polymarket Data API:', tradesUrl)
 
-        const response = await fetch(polymarketUrl, {
-          headers: { 'Accept': 'application/json' },
+        const response = await fetch(tradesUrl, {
+          headers: { Accept: 'application/json' },
           cache: 'no-store',
-        });
+        })
 
         if (!response.ok) {
-          console.warn('[Whale Activity API] Polymarket API error:', response.status);
-          return returnEmptyData(timeframe, minAmount);
+          console.error('[Whale Activity API] Polymarket Data API error:', response.status)
+          return returnEmptyData(timeframe, minAmount, 'Failed to fetch from Polymarket Data API')
         }
 
-        const markets = await response.json();
+        const allTrades = await response.json()
+        console.log(`[Whale Activity API] Fetched ${allTrades.length} trades from Polymarket`)
 
-        // Filter high-volume markets and simulate whale trades
-        const simulatedTrades: any[] = [];
-        const now = new Date();
+        // Filter trades by timeframe and calculate trade value
+        const whaleTrades = allTrades
+          .filter((trade: any) => {
+            // Filter by timestamp
+            return trade.timestamp >= startTimestamp
+          })
+          .map((trade: any) => {
+            // Calculate trade value (size * price)
+            const tradeValue = trade.size * trade.price
 
-        markets
-          .filter((m: any) => parseFloat(m.volume24hr || 0) > 50000)
-          .slice(0, limit)
-          .forEach((market: any, idx: number) => {
-            const volume = parseFloat(market.volume24hr || 0);
-
-            // Parse price
-            let price = 0.5;
-            try {
-              const prices = typeof market.outcomePrices === 'string'
-                ? JSON.parse(market.outcomePrices)
-                : market.outcomePrices;
-              if (Array.isArray(prices) && prices.length > 0) {
-                price = parseFloat(prices[0].toString());
-              }
-            } catch (e) {
-              // ignore
+            return {
+              id: `${trade.conditionId}_${trade.timestamp}_${trade.proxyWallet}`,
+              marketId: trade.conditionId,
+              marketTitle: trade.title || 'Unknown Market',
+              marketSlug: trade.slug || null,
+              marketTicker: null,
+              platform: 'polymarket',
+              category: null, // Trade API doesn't return category
+              amount: tradeValue,
+              side: trade.side?.toLowerCase() || 'buy',
+              outcome: trade.outcome || null,
+              price: trade.price,
+              timestamp: new Date(trade.timestamp * 1000),
+              walletAddress: trade.proxyWallet || null,
+              transactionHash: trade.transactionHash || null,
+              size: trade.size, // Number of contracts
+              traderName: trade.name || trade.pseudonym || null,
+              traderProfileImage: trade.profileImageOptimized || trade.profileImage || null,
             }
+          })
+          .filter((trade: any) => trade.amount >= minAmount) // Double-check filter
+          .sort((a: any, b: any) => b.amount - a.amount) // Sort by amount descending
+          .slice(0, limit) // Limit results
 
-            // Get proper category
-            let category = market.category;
-            if (market.tags && Array.isArray(market.tags) && market.tags.length > 0) {
-              category = market.tags[0];
-            }
-
-            // Simulate 1-3 whale trades per high-volume market
-            const numTrades = Math.min(3, Math.floor(volume / 100000));
-
-            for (let i = 0; i < numTrades; i++) {
-              const tradeAmount = minAmount + Math.random() * (volume * 0.1);
-              const side = Math.random() > 0.5 ? 'buy' : 'sell';
-              const outcome = Math.random() > 0.5 ? 'Yes' : 'No';
-
-              // Simulate timestamp within timeframe
-              let maxHoursAgo = 24;
-              if (timeframe === '1h') maxHoursAgo = 1;
-              else if (timeframe === '7d') maxHoursAgo = 168;
-
-              const hoursAgo = Math.random() * maxHoursAgo;
-              const timestamp = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
-
-              simulatedTrades.push({
-                id: `sim_${market.conditionId}_${i}`,
-                marketId: market.conditionId,
-                marketTitle: market.question,
-                marketSlug: market.slug,
-                marketTicker: null,
-                platform: 'polymarket',
-                category,
-                amount: tradeAmount,
-                side,
-                outcome,
-                price,
-                timestamp,
-                walletAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
-                transactionHash: null,
-              });
-            }
-          });
-
-        // Sort by amount descending and limit
-        simulatedTrades.sort((a, b) => b.amount - a.amount);
-        const limitedTrades = simulatedTrades.slice(0, limit);
+        console.log(`[Whale Activity API] Filtered to ${whaleTrades.length} whale trades`)
 
         // Calculate summary statistics
-        const totalAmount = limitedTrades.reduce((sum, t) => sum + t.amount, 0);
-        const avgAmount = limitedTrades.length > 0 ? totalAmount / limitedTrades.length : 0;
-        const buyCount = limitedTrades.filter((t) => t.side === 'buy').length;
-        const sellCount = limitedTrades.filter((t) => t.side === 'sell').length;
-        const uniqueMarkets = new Set(limitedTrades.map((t) => t.marketId)).size;
+        const totalAmount = whaleTrades.reduce((sum: number, t: any) => sum + t.amount, 0)
+        const avgAmount = whaleTrades.length > 0 ? totalAmount / whaleTrades.length : 0
+        const buyCount = whaleTrades.filter((t: any) => t.side === 'buy').length
+        const sellCount = whaleTrades.filter((t: any) => t.side === 'sell').length
+        const uniqueMarkets = new Set(whaleTrades.map((t: any) => t.marketId)).size
+        const uniqueWallets = new Set(whaleTrades.map((t: any) => t.walletAddress)).size
 
         return NextResponse.json({
           timeframe,
           minAmount,
           summary: {
-            totalTrades: limitedTrades.length,
+            totalTrades: whaleTrades.length,
             totalAmount,
             averageAmount: avgAmount,
             buyCount,
             sellCount,
-            polymarketCount: limitedTrades.length,
+            polymarketCount: whaleTrades.length,
             kalshiCount: 0,
             uniqueMarkets,
+            uniqueWallets,
           },
-          trades: limitedTrades,
-          note: 'Simulated whale trades based on high-volume markets. Real-time trade tracking coming soon.',
-        });
+          trades: whaleTrades,
+        })
       } catch (error: any) {
-        console.error('[Whale Activity API] Error:', error);
-        return returnEmptyData(timeframe, minAmount);
+        console.error('[Whale Activity API] Error:', error)
+        return returnEmptyData(timeframe, minAmount, error.message)
       }
     }
 
-    return returnEmptyData(timeframe, minAmount);
+    // Kalshi not yet implemented
+    return returnEmptyData(timeframe, minAmount, 'Kalshi whale tracking not yet implemented')
   } catch (error: any) {
-    console.error('[Whale Activity API] Error:', error);
+    console.error('[Whale Activity API] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch whale activity' },
       { status: 500 }
-    );
+    )
   }
 }
 
-function returnEmptyData(timeframe: string, minAmount: number) {
+function returnEmptyData(timeframe: string, minAmount: number, note?: string) {
   return NextResponse.json({
     timeframe,
     minAmount,
@@ -159,8 +138,9 @@ function returnEmptyData(timeframe: string, minAmount: number) {
       polymarketCount: 0,
       kalshiCount: 0,
       uniqueMarkets: 0,
+      uniqueWallets: 0,
     },
     trades: [],
-    note: 'Whale trade tracking not yet configured. Displaying simulated data based on volume.',
-  });
+    note: note || 'No whale trades found in the specified timeframe',
+  })
 }

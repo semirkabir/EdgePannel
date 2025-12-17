@@ -154,6 +154,7 @@ export async function GET(request: Request) {
 
       return {
         ...market,
+        image: rawData.image || rawData.icon || rawData.eventImage,
         outcomes,
         outcomePrices,
         price: market.probability

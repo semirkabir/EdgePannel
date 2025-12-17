@@ -77,7 +77,7 @@ export function RightPanel({
                 <div className="flex items-center justify-between px-4 py-4 border-b border-white/5 bg-[#0e0f11] shrink-0">
                     <div className="flex flex-col min-w-0 mr-4">
                         {title && (
-                            <h2 className="text-base font-bold text-gray-100 line-clamp-1">{title}</h2>
+                            <h2 className="text-base font-bold text-gray-100 leading-tight">{title}</h2>
                         )}
                         {subtitle && (
                             <div className="mt-0.5">{subtitle}</div>

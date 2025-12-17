@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/client'
-import { getSupabaseAdmin, supabaseAdmin } from '@/lib/supabase/client'
+// Supabase import removed
+
 import bcrypt from 'bcryptjs'
 
 export async function POST(request: Request) {
@@ -14,126 +15,44 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if SUPABASE_SERVICE_ROLE_KEY is available
-    if (!supabaseAdmin) {
-      // Fallback: Use Prisma with bcrypt (traditional method)
-      console.log('⚠️ SUPABASE_SERVICE_ROLE_KEY not set, using Prisma fallback')
-      
-      // Check if user already exists
-      const existingUser = await prisma.user.findUnique({
-        where: { email }
-      })
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    })
 
-      if (existingUser) {
-        return NextResponse.json(
-          { error: 'User already exists' },
-          { status: 400 }
-        )
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10)
-
-      // Create user in Prisma
-      const user = await prisma.user.create({
-        data: {
-          name: name || email.split('@')[0],
-          email,
-          password: hashedPassword,
-          emailVerified: null,
-        },
-      })
-
+    if (existingUser) {
       return NextResponse.json(
-        { 
-          message: 'User created successfully', 
-          userId: user.id,
-        },
-        { status: 201 }
+        { error: 'User already exists' },
+        { status: 400 }
       )
     }
 
-    // Create user in Supabase Auth (this will appear in Authentication > Users)
-    // Use supabaseAdmin directly since we've already checked it exists
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: {
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // Create user in Prisma
+    const user = await prisma.user.create({
+      data: {
         name: name || email.split('@')[0],
+        email,
+        password: hashedPassword,
+        emailVerified: null,
       },
     })
 
-    // Check if user already exists (Supabase returns specific error for duplicates)
-    if (authError) {
-      // Check if error is due to user already existing
-      if (authError.message?.includes('already registered') || authError.message?.includes('already exists')) {
-        return NextResponse.json(
-          { error: 'User already exists' },
-          { status: 400 }
-        )
-      }
-      console.error('Supabase Auth error:', authError)
-      return NextResponse.json(
-        { error: authError.message || 'Failed to create user in Supabase Auth' },
-        { status: 500 }
-      )
-    }
+    return NextResponse.json(
+      {
+        message: 'User created successfully',
+        userId: user.id,
+      },
+      { status: 201 }
+    )
 
-    if (!authUser?.user) {
-      return NextResponse.json(
-        { error: 'Failed to create user in Supabase Auth' },
-        { status: 500 }
-      )
-    }
-
-    // Also create user record in Prisma for compatibility with existing code
-    try {
-      const user = await prisma.user.create({
-        data: {
-          id: authUser.user.id, // Use Supabase Auth user ID
-          name: name || authUser.user.user_metadata?.name || email.split('@')[0],
-          email,
-          emailVerified: authUser.user.email_confirmed_at ? new Date(authUser.user.email_confirmed_at) : null,
-          // Don't store password - authentication is handled by Supabase Auth
-        },
-      })
-
-      return NextResponse.json(
-        { 
-          message: 'User created successfully', 
-          userId: user.id,
-          supabaseUserId: authUser.user.id 
-        },
-        { status: 201 }
-      )
-    } catch (dbError: any) {
-      // If Prisma creation fails, try to clean up Supabase Auth user
-      console.error('Prisma error:', dbError)
-      if (authUser.user.id) {
-        await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
-      }
-      return NextResponse.json(
-        { error: 'Failed to create user record in database' },
-        { status: 500 }
-      )
-    }
   } catch (error: any) {
     console.error('Registration error:', error)
-    
-    // Provide more specific error messages
-    if (error?.message?.includes('SUPABASE_SERVICE_ROLE_KEY')) {
-      return NextResponse.json(
-        { 
-          error: 'Server configuration error: SUPABASE_SERVICE_ROLE_KEY is not set. Please add it to your .env file or use the fallback registration method.',
-          details: 'To get your service role key, go to Supabase Dashboard → Settings → API → service_role key'
-        },
-        { status: 500 }
-      )
-    }
-    
+
     return NextResponse.json(
-      { 
+      {
         error: error?.message || 'Internal server error',
         details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
       },

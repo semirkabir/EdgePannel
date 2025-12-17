@@ -84,7 +84,7 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
         <div className={cn(
             "absolute top-full left-0 right-0 mt-2",
             "bg-[#0e0f11]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl",
-            "max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent animate-in fade-in slide-in-from-top-2 duration-200",
+            "max-h-[60vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] animate-in fade-in slide-in-from-top-2 duration-200",
             className
         )}>
             {isLoading && (
@@ -127,77 +127,106 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
                                 )}
                             >
                                 <div className="flex items-start gap-4">
-                                    {/* Enhanced Platform Indicator with Logo-style Badge */}
-                                    <div className={cn(
-                                        "shrink-0 w-10 h-10 rounded-xl flex flex-col items-center justify-center border-2 mt-0.5 shadow-lg",
-                                        market.platform === 'polymarket'
-                                            ? "bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-blue-500/30 text-blue-400"
-                                            : "bg-gradient-to-br from-green-500/20 to-green-600/10 border-green-500/30 text-green-400"
-                                    )}>
-                                        <span className="text-[8px] font-black tracking-tighter leading-none">
-                                            {market.platform === 'polymarket' ? 'POLY' : 'KALS'}
-                                        </span>
+                                    {/* Market Image or Fallback Icon */}
+                                    <div className="shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-white/10 shadow-lg bg-gray-900 relative">
+                                        {(() => {
+                                            // Check multiple possible image sources
+                                            const imageUrl = market.imageUrl ||
+                                                           (market as any).image ||
+                                                           (market as any).rawData?.image ||
+                                                           (market as any).rawData?.icon ||
+                                                           (market as any).rawData?.eventImage;
+
+                                            return imageUrl ? (
+                                                <img
+                                                    src={imageUrl}
+                                                    alt={market.title}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        // Hide image and show fallback
+                                                        e.currentTarget.style.display = 'none';
+                                                        const fallback = e.currentTarget.nextElementSibling;
+                                                        if (fallback) {
+                                                            fallback.classList.remove('hidden');
+                                                        }
+                                                    }}
+                                                />
+                                            ) : null;
+                                        })()}
+
+                                        {/* Fallback content - hidden by default, shown if image fails or missing */}
+                                        <div className={`w-full h-full flex items-center justify-center bg-gray-800 ${
+                                            !(market.imageUrl ||
+                                              (market as any).image ||
+                                              (market as any).rawData?.image ||
+                                              (market as any).rawData?.icon ||
+                                              (market as any).rawData?.eventImage) ? '' : 'hidden'
+                                        }`}>
+                                            {market.platform === 'polymarket' ? (
+                                                <span className="text-[8px] font-black text-blue-400">POLY</span>
+                                            ) : (
+                                                <span className="text-[8px] font-black text-green-400">KALS</span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Enhanced Content Layout */}
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between gap-4 mb-2">
+                                        <div className="flex justify-between gap-4 mb-3">
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-semibold text-gray-100 leading-snug group-hover:text-white transition-colors line-clamp-2 mb-2">
+                                                {/* Title - Now with more space and no truncation */}
+                                                <h4 className="text-sm font-semibold text-gray-100 leading-tight group-hover:text-white transition-colors mb-2">
                                                     {market.title}
                                                 </h4>
-
-                                                {/* Enhanced Info Row with More Details */}
-                                                <div className="flex items-center gap-3 flex-wrap">
-                                                    {/* Category Badge */}
-                                                    {market.category && (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-purple-500/15 to-purple-600/10 border border-purple-500/30 rounded-lg text-[10px] font-bold text-purple-300 uppercase tracking-wide">
-                                                            {CATEGORY_ICONS[category] || <LayoutGrid className="w-3 h-3" />}
-                                                            {category}
-                                                        </span>
-                                                    )}
-
-                                                    {/* Volume Badge */}
-                                                    {market.volume24h !== undefined && (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] font-mono font-bold text-emerald-400">
-                                                            <BarChart3 className="w-3 h-3" />
-                                                            ${market.volume24h.toLocaleString(undefined, { maximumFractionDigits: 0, notation: 'compact' })}
-                                                        </span>
-                                                    )}
-
-                                                    {/* Liquidity Badge if available */}
-                                                    {market.liquidity !== undefined && market.liquidity > 0 && (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg text-[10px] font-mono font-bold text-blue-400">
-                                                            <Activity className="w-3 h-3" />
-                                                            ${market.liquidity.toLocaleString(undefined, { maximumFractionDigits: 0, notation: 'compact' })} Liq
-                                                        </span>
-                                                    )}
-
-                                                    {/* Platform Source Badge */}
-                                                    <span className={cn(
-                                                        "inline-flex items-center px-2 py-1 rounded-lg text-[9px] uppercase tracking-wider font-black border",
-                                                        market.platform === 'polymarket'
-                                                            ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                                                            : "bg-green-500/10 border-green-500/20 text-green-400"
-                                                    )}>
-                                                        {market.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
-                                                    </span>
-                                                </div>
                                             </div>
 
-                                            {/* Enhanced Price/Probability Display */}
-                                            {market.price !== undefined && (
-                                                <div className="text-right shrink-0">
+                                            {/* Enhanced Price and Platform Display */}
+                                            <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                                                {market.price !== undefined && (
                                                     <div className={cn(
-                                                        "text-2xl font-black tabular-nums mb-1",
+                                                        "text-2xl font-black tabular-nums",
                                                         market.price > 0.5 ? "text-emerald-400" : "text-red-400"
                                                     )}>
                                                         {(market.price * 100).toFixed(0)}%
                                                     </div>
-                                                    <div className="text-[9px] text-gray-500 uppercase tracking-wider font-bold">
-                                                        {market.price > 0.5 ? 'Bullish' : 'Bearish'}
-                                                    </div>
-                                                </div>
+                                                )}
+
+                                                {/* Platform Badge on the Right */}
+                                                <span className={cn(
+                                                    "inline-flex items-center px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border",
+                                                    market.platform === 'polymarket'
+                                                        ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                                                        : "bg-green-500/10 border-green-500/20 text-green-400"
+                                                )}>
+                                                    {market.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Tags Row - Moved to Bottom */}
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {/* Category Badge */}
+                                            {market.category && (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-gradient-to-r from-purple-500/15 to-purple-600/10 border border-purple-500/30 rounded text-[9px] font-bold text-purple-300 uppercase tracking-wide">
+                                                    {CATEGORY_ICONS[category] || <LayoutGrid className="w-3 h-3" />}
+                                                    {category}
+                                                </span>
+                                            )}
+
+                                            {/* Volume Badge */}
+                                            {market.volume24h !== undefined && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-[9px] font-mono font-bold text-emerald-400">
+                                                    <BarChart3 className="w-3 h-3" />
+                                                    ${market.volume24h.toLocaleString(undefined, { maximumFractionDigits: 0, notation: 'compact' })}
+                                                </span>
+                                            )}
+
+                                            {/* Liquidity Badge if available */}
+                                            {market.liquidity !== undefined && market.liquidity > 0 && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-[9px] font-mono font-bold text-blue-400">
+                                                    <Activity className="w-3 h-3" />
+                                                    ${market.liquidity.toLocaleString(undefined, { maximumFractionDigits: 0, notation: 'compact' })} Liq
+                                                </span>
                                             )}
                                         </div>
                                     </div>

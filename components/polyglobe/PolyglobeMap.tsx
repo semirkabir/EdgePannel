@@ -25,6 +25,8 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   'Other': <LayoutGrid className="w-2.5 h-2.5" />
 };
 
+export type VisualizationMode = 'dots' | 'heatmap' | 'cluster' | 'choropleth';
+
 interface PolyglobeMapProps {
   activeFilters: Record<string, boolean>;
   searchQuery?: string;
@@ -37,6 +39,7 @@ interface PolyglobeMapProps {
   onZoomChange?: (isZoomed: boolean) => void;
   onViewChange?: (isModified: boolean) => void;
   shouldResetZoom?: boolean;
+  visualizationMode?: VisualizationMode;
 }
 
 // Inner component to isolate Map state from Data updates
@@ -56,7 +59,8 @@ function InnerMap({
   isUsingOverride = false,
   onZoomChange,
   onViewChange,
-  shouldResetZoom = false
+  shouldResetZoom = false,
+  visualizationMode = 'dots'
 }: {
   markets: any;
   rawMarkets?: any[];
@@ -74,6 +78,7 @@ function InnerMap({
   onZoomChange?: (isZoomed: boolean) => void;
   onViewChange?: (isModified: boolean) => void;
   shouldResetZoom?: boolean;
+  visualizationMode?: VisualizationMode;
 }) {
   const [viewState, setViewState] = useState({
     longitude: 0,
@@ -99,7 +104,7 @@ function InnerMap({
   useEffect(() => {
     const isZoomed = viewState.zoom > DEFAULT_ZOOM + ZOOM_THRESHOLD;
     const isPanned = Math.abs(viewState.longitude - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
-                     Math.abs(viewState.latitude - DEFAULT_LATITUDE) > PAN_THRESHOLD;
+      Math.abs(viewState.latitude - DEFAULT_LATITUDE) > PAN_THRESHOLD;
     const isViewModified = isZoomed || isPanned;
 
     if (onZoomChange) {
@@ -183,17 +188,7 @@ function InnerMap({
   }, [selectedMarket]);
 
   // Handle manual zoom out to close panel
-  useEffect(() => {
-    // If we have a selected market, the user is interacting, and they zoom out below a threshold
-    // KEY FIX: Ensure we don't trigger this during the initial "fly-in" animation (2 second grace period)
-    const isInGracePeriod = Date.now() - lastSelectionTimeRef.current < 2000;
 
-    if (selectedMarket && isUserInteracting && viewState.zoom < 3.5 && !isInGracePeriod) {
-      if (onMarketSelect) {
-        onMarketSelect(null);
-      }
-    }
-  }, [selectedMarket, isUserInteracting, viewState.zoom, onMarketSelect]);
 
   // Interaction Handlers
   const handleInteractionStart = useCallback((e?: any) => {
@@ -294,10 +289,30 @@ function InnerMap({
     const feature = event.features && event.features.length > 0 ? event.features[0] : null;
 
     if (feature) {
-      if (feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer') {
+      // Handle cluster clicks - zoom in
+      if (feature.layer.id === 'markets-clusters') {
+        const clusterId = feature.properties.cluster_id;
+        const mapInstance = mapRef.current?.getMap();
+        const source = mapInstance?.getSource('markets') as any;
+
+        if (source && source.getClusterExpansionZoom) {
+          source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+            if (err) return;
+
+            const coordinates = (feature.geometry as any).coordinates;
+            mapInstance?.easeTo({
+              center: coordinates,
+              zoom: zoom
+            });
+          });
+        }
+        return;
+      }
+
+      if (feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer' || feature.layer.id === 'markets-unclustered') {
         const props = feature.properties;
         const isGroup = props.isGroup === true;
-        
+
         // If it's a group (event), pass the event data with markets array
         if (isGroup && props.markets && Array.isArray(props.markets)) {
           // Parse markets if they're stored as JSON strings
@@ -309,7 +324,7 @@ function InnerMap({
               console.warn('[InnerMap] Failed to parse markets array:', e);
             }
           }
-          
+
           // Create an event object that contains all markets
           const eventData = {
             id: props.id || props.groupId,
@@ -323,7 +338,7 @@ function InnerMap({
             imageUrl: props.image_url,
             description: props.description || '',
           };
-          
+
           if (onMarketSelect) {
             onMarketSelect(eventData);
           }
@@ -528,6 +543,76 @@ function InnerMap({
     }
   };
 
+  // Cluster layers - shows aggregated circles with count
+  const clusterLayer = {
+    id: 'markets-clusters',
+    type: 'circle',
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': [
+        'step',
+        ['get', 'point_count'],
+        '#3b82f6',  // blue for < 10
+        10,
+        '#8b5cf6',  // purple for 10-30
+        30,
+        '#ec4899',  // pink for 30-100
+        100,
+        '#ef4444'   // red for 100+
+      ],
+      'circle-radius': [
+        'step',
+        ['get', 'point_count'],
+        20,  // radius for < 10
+        10, 30,
+        30, 40,
+        100, 50
+      ],
+      'circle-opacity': 0.8,
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-opacity': 0.5
+    }
+  };
+
+  const clusterCountLayer = {
+    id: 'markets-cluster-count',
+    type: 'symbol',
+    filter: ['has', 'point_count'],
+    layout: {
+      'text-field': '{point_count_abbreviated}',
+      'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+      'text-size': 14
+    },
+    paint: {
+      'text-color': '#ffffff'
+    }
+  };
+
+  const unclusteredPointLayer = {
+    id: 'markets-unclustered',
+    type: 'circle',
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-color': [
+        'case',
+        ['==', ['get', 'platform'], 'kalshi'], '#00d26a',
+        '#2563eb'
+      ],
+      'circle-radius': [
+        'interpolate',
+        ['exponential', 1.2],
+        ['zoom'],
+        2, ['*', ['sqrt', ['/', ['coalesce', ['get', 'volume'], 0], 10000]], 3],
+        10, ['*', ['sqrt', ['/', ['coalesce', ['get', 'volume'], 0], 10000]], 8]
+      ],
+      'circle-opacity': 0.85,
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-opacity': 0.8
+    }
+  };
+
   const tweetLayer = {
     id: 'tweets-layer',
     type: 'circle',
@@ -547,6 +632,13 @@ function InnerMap({
 
     const props = feature.properties;
     const [lon, lat] = feature.geometry.coordinates;
+
+    // Validate coordinates before rendering popup
+    if (!lon || !lat || isNaN(lon) || isNaN(lat)) {
+      console.warn('[PolyglobeMap] Invalid coordinates:', { lon, lat, feature });
+      return null;
+    }
+
     const isMarket = feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer';
     const isGroup = props.isGroup === true;
 
@@ -861,6 +953,20 @@ function InnerMap({
     }
   }, [projection]);
 
+  // Compute interactive layers - memoize to prevent re-renders
+  const interactiveIds = useMemo(() => {
+    if (visualizationMode === 'heatmap') {
+      return []; // Heatmap is not interactive
+    } else if (visualizationMode === 'cluster') {
+      return ['markets-clusters', 'markets-unclustered', 'tweets-layer'];
+    } else if (visualizationMode === 'choropleth') {
+      return ['country-choropleth', 'markets-layer', 'tweets-layer'];
+    } else {
+      // Default dots mode
+      return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
+    }
+  }, [visualizationMode]);
+
   // Debug: Log map and layer state on load
   useEffect(() => {
     const map = mapRef.current?.getMap();
@@ -882,16 +988,10 @@ function InnerMap({
       // Also check layers after a delay to ensure they're rendered
       setTimeout(() => {
         console.log('[InnerMap] Layers after timeout:', map.getStyle()?.layers?.map((l: any) => l.id));
-        console.log('[InnerMap] interactiveLayerIds:', activeFilters.heatmap ? [] : ['markets-layer', 'markets-glow-layer', 'tweets-layer']);
+        console.log('[InnerMap] interactiveLayerIds:', interactiveIds);
       }, 2000);
     }
-  }, [mapRef.current, activeFilters.heatmap]);
-
-  // Compute interactive layers - memoize to prevent re-renders
-  const interactiveIds = useMemo(() =>
-    activeFilters.heatmap ? [] : ['markets-layer', 'markets-glow-layer', 'tweets-layer'],
-    [activeFilters.heatmap]
-  );
+  }, [mapRef.current, interactiveIds, visualizationMode]);
 
   // Only log on mount or when interactive IDs change
   useEffect(() => {
@@ -940,10 +1040,69 @@ function InnerMap({
         <NavigationControl position="bottom-right" />
         <FullscreenControl position="bottom-right" />
 
-        <Source id="markets" type="geojson" data={filteredMarkets as any}>
-          {activeFilters.heatmap ? (
+        <Source
+          id="markets"
+          type="geojson"
+          data={filteredMarkets as any}
+          cluster={visualizationMode === 'cluster'}
+          clusterMaxZoom={14}
+          clusterRadius={50}
+        >
+          {visualizationMode === 'heatmap' ? (
             <Layer {...heatmapLayer as any} source="markets" />
+          ) : visualizationMode === 'cluster' ? (
+            <>
+              <Layer {...clusterLayer as any} source="markets" />
+              <Layer {...clusterCountLayer as any} source="markets" />
+              <Layer {...unclusteredPointLayer as any} source="markets" />
+            </>
+          ) : visualizationMode === 'choropleth' ? (
+            <>
+              {/* Choropleth mode - will color countries based on market data */}
+              {countryBorders && (
+                <Source id="country-fills" type="geojson" data={countryBorders as any}>
+                  <Layer
+                    id="country-choropleth"
+                    type="fill"
+                    paint={{
+                      'fill-color': [
+                        'case',
+                        ['has', 'marketCount'],
+                        [
+                          'interpolate',
+                          ['linear'],
+                          ['get', 'marketCount'],
+                          0, 'rgba(59, 130, 246, 0.1)',
+                          5, 'rgba(59, 130, 246, 0.3)',
+                          10, 'rgba(99, 102, 241, 0.5)',
+                          20, 'rgba(168, 85, 247, 0.6)',
+                          50, 'rgba(236, 72, 153, 0.7)'
+                        ],
+                        'rgba(255, 255, 255, 0.05)'
+                      ],
+                      'fill-opacity': 0.7
+                    }}
+                  />
+                  <Layer
+                    id="country-borders-choropleth"
+                    type="line"
+                    paint={{
+                      'line-color': '#ffffff',
+                      'line-width': 1,
+                      'line-opacity': 0.3
+                    }}
+                  />
+                </Source>
+              )}
+              {/* Still show small dots for individual markets */}
+              <Layer {...marketLayer as any} source="markets" paint={{
+                ...marketLayer.paint,
+                'circle-radius': 3,
+                'circle-opacity': 0.6
+              }} />
+            </>
           ) : (
+            // Default dots mode
             <>
               <Layer {...marketGlowLayer as any} source="markets" />
               <Layer {...marketLayer as any} source="markets" />
@@ -998,7 +1157,8 @@ export function PolyglobeMap({
   overrideMarkets,
   onZoomChange,
   onViewChange,
-  shouldResetZoom
+  shouldResetZoom,
+  visualizationMode = 'dots'
 }: PolyglobeMapProps & {
   selectedMarket?: any;
   onMarketSelect?: (market: any) => void;
@@ -1060,6 +1220,7 @@ export function PolyglobeMap({
       onZoomChange={onZoomChange}
       onViewChange={onViewChange}
       shouldResetZoom={shouldResetZoom}
+      visualizationMode={visualizationMode}
     />
   );
 }

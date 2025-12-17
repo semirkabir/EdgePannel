@@ -35,7 +35,7 @@ interface MarketDetailsProps {
 export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   // Check if market is actually an event (has markets array)
   const isEvent = market && (market as any).isEvent === true && Array.isArray((market as any).markets)
-  
+
   // Cache the market/event so we can display it while the panel is animating out
   const [activeMarket, setActiveMarket] = useState<MarketDetailsType | null>(
     isEvent ? null : (market as MarketDetailsType | null)
@@ -52,9 +52,11 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const [topHolders, setTopHolders] = useState<any[]>([])
   const [isLoadingHolders, setIsLoadingHolders] = useState(false)
   const [commentSort, setCommentSort] = useState<'recent' | 'likes'>('recent')
-  const [expandedMarketIds, setExpandedMarketIds] = useState<Set<string>>(new Set()) // Track which markets are expanded
   const [relatedMarketsByTags, setRelatedMarketsByTags] = useState<any[]>([])
   const [isLoadingRelatedByTags, setIsLoadingRelatedByTags] = useState(false)
+
+  // Ref to scroll container for scrolling to top when switching markets
+  const panelTopRef = useRef<HTMLDivElement>(null)
 
   // Virtualizer for related markets
   const relatedParentRef = useRef<HTMLDivElement>(null)
@@ -73,8 +75,8 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   })
 
   // Fetch Open Interest for Polymarket markets
-  const conditionId = activeMarket?.platform === 'polymarket' 
-    ? (activeMarket.id || activeMarket.rawData?.conditionId) 
+  const conditionId = activeMarket?.platform === 'polymarket'
+    ? (activeMarket.id || activeMarket.rawData?.conditionId)
     : null
   const { openInterest, isLoading: isLoadingOI } = useOpenInterest(conditionId || undefined, {
     enabled: !!conditionId && !!activeMarket && activeMarket.platform === 'polymarket',
@@ -188,7 +190,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
         // For Polymarket, try to get the token ID from rawData
         let url = `/api/markets/history?id=${activeMarket.id}&platform=${activeMarket.platform}&interval=${interval}`
-        
+
         if (activeMarket.platform === 'polymarket') {
           // Try to get token ID from rawData.clobTokenIds
           const tokenIds = activeMarket.rawData?.clobTokenIds
@@ -454,7 +456,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     // Reset related markets when market changes
     setRelatedMarketsByTags([])
     setIsLoadingRelatedByTags(false)
-    
+
     const fetchRelatedByTags = async () => {
       if (!activeMarket || activeMarket.platform !== 'polymarket') {
         setRelatedMarketsByTags([])
@@ -465,14 +467,14 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
       // Get tags from market - try multiple sources
       // Polymarket API returns tags as objects with {id, slug, label} or as strings
       let tagObjects: any[] = []
-      
+
       // Try to get tag objects from rawData (from events API or market details)
       if (activeMarket.rawData?.tags && Array.isArray(activeMarket.rawData.tags)) {
-        tagObjects = activeMarket.rawData.tags.filter((t: any) => 
+        tagObjects = activeMarket.rawData.tags.filter((t: any) =>
           typeof t === 'object' && (t.slug || t.id || t.label)
         )
       }
-      
+
       // If no tag objects, try to get from market.tags (might be strings or objects)
       if (tagObjects.length === 0 && activeMarket.tags) {
         tagObjects = activeMarket.tags
@@ -480,7 +482,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
           .map((t: any) => typeof t === 'object' ? t : null)
           .filter(Boolean)
       }
-      
+
       // If still no tag objects, try to fetch tags from API using market ID
       if (tagObjects.length === 0 && activeMarket.id) {
         try {
@@ -497,7 +499,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
           // Fallback to category if tag fetch fails
         }
       }
-      
+
       // Fallback: use category as tag name if no tag objects found
       if (tagObjects.length === 0 && activeMarket.category) {
         // We'll need to convert category to slug, but this is less ideal
@@ -505,12 +507,12 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
           .toLowerCase()
           .replace(/\s+/g, '-')
           .replace(/[^a-z0-9-]/g, '')
-        
+
         if (categorySlug) {
           tagObjects = [{ slug: categorySlug, label: activeMarket.category }]
         }
       }
-      
+
       if (tagObjects.length === 0) {
         setRelatedMarketsByTags([])
         setIsLoadingRelatedByTags(false)
@@ -533,14 +535,14 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         const params = new URLSearchParams({
           limit: '20',
         })
-        
+
         // Prefer tagId over tagSlug for more accurate results
         if (tagId) {
           params.set('tagId', String(tagId))
         } else if (tagSlug) {
           params.set('tagSlug', tagSlug)
         }
-        
+
         if (activeMarket.id) {
           params.set('marketId', activeMarket.id)
         }
@@ -635,17 +637,17 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         title: activeEvent.title,
         marketsCount: activeEvent.markets?.length || 0,
         hasMarkets: Array.isArray(activeEvent.markets),
-        markets: activeEvent.markets?.map((m: any) => ({ 
-          id: m.id, 
+        markets: activeEvent.markets?.map((m: any) => ({
+          id: m.id,
           title: m.title,
           price: m.price,
-          volume24h: m.volume24h 
+          volume24h: m.volume24h
         })) || []
       })
-      console.log('[MarketDetails] Active market:', { 
-        id: activeMarket?.id, 
+      console.log('[MarketDetails] Active market:', {
+        id: activeMarket?.id,
         slug: activeMarket?.slug,
-        ticker: activeMarket?.ticker 
+        ticker: activeMarket?.ticker
       })
     } else {
       console.log('[MarketDetails] No activeEvent')
@@ -679,6 +681,9 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         </div>
       }
     >
+      {/* Scroll anchor for when switching markets */}
+      <div ref={panelTopRef} className="h-0" />
+
       {/* 1. Hero / Price Section (Gamified) */}
       {activeMarket && (
         <div className="px-4 pt-8 pb-4 relative overflow-hidden w-full max-w-full">
@@ -728,10 +733,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             </div>
 
             {/* Right: Compact Market Image */}
-            {activeMarket.imageUrl && (
+            {(activeMarket.imageUrl || (activeMarket as any).image || activeMarket.rawData?.image || activeMarket.rawData?.icon || activeMarket.rawData?.eventImage) && (
               <div className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-700/50 shadow-lg">
                 <img
-                  src={activeMarket.imageUrl}
+                  src={activeMarket.imageUrl || (activeMarket as any).image || activeMarket.rawData?.image || activeMarket.rawData?.icon || activeMarket.rawData?.eventImage}
                   alt={activeMarket.title}
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -803,43 +808,43 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         <div className="w-full h-[280px] relative overflow-hidden max-w-full">
           {/* Controls Bubble */}
           <div className="absolute top-2 right-2 flex gap-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex-wrap">
-          {/* Chart Type Toggle - show for both platforms */}
-          <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg border border-white/5 backdrop-blur-sm">
-            <button
-              onClick={() => setChartType('line')}
-              className={cn(
-                "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
-                chartType === 'line' ? "bg-white/20 text-white" : "text-gray-500 hover:text-gray-300"
-              )}
-            >
-              LINE
-            </button>
-            <button
-              onClick={() => setChartType('candle')}
-              className={cn(
-                "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
-                chartType === 'candle' ? "bg-white/20 text-white" : "text-gray-500 hover:text-gray-300"
-              )}
-            >
-              CANDLE
-            </button>
-          </div>
-          {/* Time Filters */}
-          <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg border border-white/5 backdrop-blur-sm">
-            {['1H', '1D', '1W', 'ALL'].map((range) => (
+            {/* Chart Type Toggle - show for both platforms */}
+            <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg border border-white/5 backdrop-blur-sm">
               <button
-                key={range}
-                onClick={() => setTimeRange(range)}
+                onClick={() => setChartType('line')}
                 className={cn(
                   "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
-                  timeRange === range ? "bg-white/20 text-white" : "text-gray-500 hover:text-gray-300"
+                  chartType === 'line' ? "bg-white/20 text-white" : "text-gray-500 hover:text-gray-300"
                 )}
               >
-                {range}
+                LINE
               </button>
-            ))}
+              <button
+                onClick={() => setChartType('candle')}
+                className={cn(
+                  "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+                  chartType === 'candle' ? "bg-white/20 text-white" : "text-gray-500 hover:text-gray-300"
+                )}
+              >
+                CANDLE
+              </button>
+            </div>
+            {/* Time Filters */}
+            <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg border border-white/5 backdrop-blur-sm">
+              {['1H', '1D', '1W', 'ALL'].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={cn(
+                    "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+                    timeRange === range ? "bg-white/20 text-white" : "text-gray-500 hover:text-gray-300"
+                  )}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
           {chartType === 'candle' && candlesticks.length > 0 ? (
             <div className="w-full h-full max-w-full overflow-hidden">
@@ -876,7 +881,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                 window.open(url, '_blank');
               }}
             >
-              BUY YES
+              <div className="flex items-center justify-between w-full px-2">
+                <span>Yes</span>
+                <span className="font-mono opacity-80">{Math.round(currentPrice * 100)}¢</span>
+              </div>
             </Button>
             <Button
               className="h-12 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-sm rounded-xl shadow-[0_0_20px_rgba(255,77,77,0.2)] border-0 min-w-0 w-full"
@@ -885,7 +893,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                 window.open(url, '_blank');
               }}
             >
-              BUY NO
+              <div className="flex items-center justify-between w-full px-2">
+                <span>No</span>
+                <span className="font-mono opacity-80">{Math.round((1 - currentPrice) * 100)}¢</span>
+              </div>
             </Button>
           </div>
           <div className="flex items-center justify-center gap-3 mt-4 text-xs font-mono text-gray-500 w-full max-w-full overflow-hidden px-1 flex-wrap">
@@ -928,7 +939,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse flex-shrink-0" title="Open Interest" />
                       </span>
                       <span className="text-[10px] text-gray-600 truncate">
-                        Y: ${openInterest.yesOI.toLocaleString(undefined, { notation: 'compact' })} | 
+                        Y: ${openInterest.yesOI.toLocaleString(undefined, { notation: 'compact' })} |
                         N: ${openInterest.noOI.toLocaleString(undefined, { notation: 'compact' })}
                       </span>
                     </>
@@ -948,128 +959,6 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         </div>
       )}
 
-      {/* 3.5. Market Outcomes List (Polymarket-style) - Show ALL markets in event */}
-      {activeMarket && activeEvent && activeEvent.markets && Array.isArray(activeEvent.markets) && activeEvent.markets.length > 0 && (
-        <div className="px-4 mb-6 overflow-hidden">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide">OUTCOME</h3>
-            <span className="text-xs text-gray-500 font-mono">% CHANCE</span>
-          </div>
-          
-          <div className="space-y-2">
-            {activeEvent.markets
-              .filter((m: any) => {
-                // Filter out the currently active market - only show other markets
-                const marketId = m.id || m.slug || m.ticker || ''
-                const marketIds = [m.id, m.slug, m.ticker].filter(Boolean).map(id => String(id).toLowerCase())
-              const activeMarketIds = [
-                activeMarket.id, 
-                activeMarket.slug, 
-                activeMarket.ticker,
-              ].filter(Boolean).map(id => String(id).toLowerCase())
-                return !marketIds.some(mid => activeMarketIds.includes(mid))
-              })
-              .map((m: any, idx: number) => {
-              const marketId = m.id || m.slug || m.ticker || String(idx)
-              const isExpanded = expandedMarketIds.has(marketId)
-              
-              const marketPrice = m.price || 0
-              const marketVolume = m.volume24h || 0
-              const buyYesPrice = marketPrice
-              const buyNoPrice = 1 - marketPrice
-              
-              return (
-                <div
-                  key={marketId}
-                  className="bg-gray-800/40 rounded-lg border border-gray-700/30 transition-all hover:border-gray-600/50"
-                >
-                  {/* Compact Market Row */}
-                  <div className="p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      {/* Left: Market Name and Volume */}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold text-white line-clamp-1 mb-1">
-                          {m.title || m.question}
-                        </h4>
-                        <div className="text-xs text-gray-400 font-mono">
-                          ${marketVolume.toLocaleString(undefined, { notation: 'compact' })} Vol.
-                        </div>
-                      </div>
-                      
-                      {/* Right: Probability and Buy Buttons */}
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <div className="text-right">
-                          <div className={cn(
-                            "text-lg font-black tabular-nums",
-                            marketPrice >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]"
-                          )}>
-                            {Math.round(marketPrice * 100)}%
-                          </div>
-                        </div>
-                        
-                        {/* Buy Buttons */}
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="h-8 px-3 bg-[#00ff7f] hover:bg-[#00cc66] text-black font-bold text-xs rounded-lg"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const url = m.url || (m.platform === 'polymarket' ? `https://polymarket.com/market/${m.slug || m.id}` : `https://kalshi.com/markets/${m.ticker}`)
-                              window.open(url, '_blank')
-                            }}
-                          >
-                            Buy Yes {Math.round(buyYesPrice * 100)}¢
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="h-8 px-3 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-xs rounded-lg"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const url = m.url || (m.platform === 'polymarket' ? `https://polymarket.com/market/${m.slug || m.id}` : `https://kalshi.com/markets/${m.ticker}`)
-                              window.open(url, '_blank')
-                            }}
-                          >
-                            Buy No {Math.round(buyNoPrice * 100)}¢
-                          </Button>
-                        </div>
-                        
-                        {/* Expand/Collapse Button */}
-                        <button
-                          onClick={() => {
-                            setExpandedMarketIds(prev => {
-                              const next = new Set(prev)
-                              if (next.has(marketId)) {
-                                next.delete(marketId)
-                              } else {
-                                next.add(marketId)
-                              }
-                              return next
-                            })
-                          }}
-                          className="p-1.5 hover:bg-gray-700/50 rounded transition-colors"
-                        >
-                          {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 text-gray-400" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-gray-400" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Expanded Content - This should not show since expanding switches active market */}
-                  {isExpanded && (
-                    <div className="px-3 pb-3 pt-0 border-t border-gray-700/30">
-                      <p className="text-xs text-gray-400">Switching to this market...</p>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* 3.6. Related Markets in Same Event (fallback for non-event markets) */}
       {activeMarket && !activeEvent && relatedMarkets.length > 0 && (
@@ -1345,7 +1234,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                   </div>
                 </div>
               ) : relatedMarketsByTags.length > 0 ? (
-                <div 
+                <div
                   ref={relatedParentRef}
                   className="max-h-[500px] overflow-y-auto scrollbar-hide w-full"
                 >
@@ -1443,6 +1332,109 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               </div>
             </TabsContent>
           </Tabs>
+        </div>
+      )}
+
+      {/* Market Options List - Show ALL markets in event BELOW the tabs */}
+      {activeMarket && activeEvent && activeEvent.markets && Array.isArray(activeEvent.markets) && activeEvent.markets.length > 1 && (
+        <div className="px-4 mb-6 mt-6 overflow-hidden">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide">All Markets in Event</h3>
+            <span className="text-xs text-gray-500 font-mono">{activeEvent.markets.length} markets</span>
+          </div>
+
+          <div className="space-y-2">
+            {activeEvent.markets
+              .map((m: any, idx: number) => {
+                const marketId = m.id || m.slug || m.ticker || String(idx)
+
+                // Check if this is the currently active market
+                const marketIds = [m.id, m.slug, m.ticker].filter(Boolean).map(id => String(id).toLowerCase())
+                const activeMarketIds = [
+                  activeMarket.id,
+                  activeMarket.slug,
+                  activeMarket.ticker,
+                ].filter(Boolean).map(id => String(id).toLowerCase())
+                const isActive = marketIds.some(mid => activeMarketIds.includes(mid))
+
+                const marketPrice = m.price || 0
+                const marketVolume = m.volume24h || 0
+
+                return (
+                  <button
+                    key={marketId}
+                    onClick={() => {
+                      // Switch to this market
+                      const fullMarket = {
+                        id: m.id,
+                        title: m.title,
+                        description: m.description || '',
+                        platform: activeEvent.platform,
+                        volume24h: m.volume24h || 0,
+                        price: m.price || 0,
+                        probability: m.price || 0,
+                        slug: m.slug || m.id,
+                        ticker: m.ticker || '',
+                        category: activeEvent.category,
+                        imageUrl: m.imageUrl,
+                        endDate: m.endDate ? (typeof m.endDate === 'string' ? new Date(m.endDate) : m.endDate) : undefined,
+                        rawData: m.rawData || {},
+                        tags: m.tags || m.rawData?.tags || activeEvent.tags || [],
+                      }
+                      setActiveMarket(fullMarket as MarketDetailsType)
+                      // Scroll to top of panel to show the chart
+                      setTimeout(() => {
+                        panelTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }, 100)
+                    }}
+                    className={cn(
+                      "w-full bg-gray-800/40 rounded-lg border transition-all hover:border-gray-600/50 cursor-pointer text-left",
+                      isActive ? "border-blue-500/50 bg-blue-500/10" : "border-gray-700/30"
+                    )}
+                  >
+                    <div className="p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        {/* Left: Market Name and Volume */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className={cn(
+                              "text-sm font-semibold line-clamp-1",
+                              isActive ? "text-blue-300" : "text-white"
+                            )}>
+                              {m.title || m.question}
+                            </h4>
+                            {isActive && (
+                              <span className="px-1.5 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-[9px] font-bold text-blue-300 uppercase flex-shrink-0">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 font-mono">
+                            ${marketVolume.toLocaleString(undefined, { notation: 'compact' })} Vol.
+                          </div>
+                        </div>
+
+                        {/* Right: Probability */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="text-right">
+                            <div className={cn(
+                              "text-2xl font-black tabular-nums",
+                              marketPrice >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]"
+                            )}>
+                              {Math.round(marketPrice * 100)}%
+                            </div>
+                          </div>
+                          <ChevronDown className={cn(
+                            "w-4 h-4 transition-transform",
+                            isActive ? "rotate-180 text-blue-400" : "text-gray-500"
+                          )} />
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+          </div>
         </div>
       )}
     </RightPanel>

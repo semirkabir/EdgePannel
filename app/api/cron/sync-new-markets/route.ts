@@ -119,8 +119,14 @@ export async function GET(request: Request) {
 
     for (const market of newMarkets) {
       try {
+        // Skip markets that have already expired
+        if (market.endDate && new Date(market.endDate) < new Date()) {
+          results.skipped++
+          continue
+        }
+
         // Extract location from market data
-        const location = extractLocation(market.title, market.description)
+        const location = await extractLocation(market.title, market.description)
 
         if (!location) {
           // No location found, skip

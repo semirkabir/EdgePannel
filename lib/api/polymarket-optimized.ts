@@ -115,14 +115,14 @@ export class PolymarketOptimizedClient {
     slug?: string
   }): Promise<{ markets: Market[]; total: number; hasMore: boolean }> {
     const url = new URL(`${GAMMA_API}/markets`)
-    
+
     // Default to fetching open, active markets sorted by volume
     url.searchParams.set('limit', String(options?.limit || 500))
     url.searchParams.set('offset', String(options?.offset || 0))
     url.searchParams.set('closed', String(options?.closed ?? false))
     url.searchParams.set('order', options?.order || 'volume')
     url.searchParams.set('ascending', String(options?.ascending ?? false))
-    
+
     if (options?.active !== undefined) {
       url.searchParams.set('active', String(options.active))
     }
@@ -147,13 +147,14 @@ export class PolymarketOptimizedClient {
       }
 
       const data: GammaMarket[] = await response.json()
-      
+
       if (!Array.isArray(data)) {
         return { markets: [], total: 0, hasMore: false }
       }
 
       const markets = data
         .filter(m => m.conditionId && m.question && !m.archived)
+        .filter(m => !m.endDateIso || new Date(m.endDateIso) >= new Date()) // Skip expired markets
         .map(m => this.transformGammaMarket(m))
         .filter((m): m is Market => m !== null)
 
@@ -181,10 +182,10 @@ export class PolymarketOptimizedClient {
     active?: boolean
   }): Promise<GammaEvent[]> {
     const url = new URL(`${GAMMA_API}/events`)
-    
+
     url.searchParams.set('limit', String(options?.limit || 100))
     url.searchParams.set('offset', String(options?.offset || 0))
-    
+
     if (options?.slug) {
       url.searchParams.set('slug', options.slug)
     }
@@ -199,7 +200,20 @@ export class PolymarketOptimizedClient {
       })
 
       if (!response.ok) return []
-      return response.json()
+      const data = await response.json()
+
+      if (!Array.isArray(data)) return []
+
+      // DEBUG LOG
+      if (data.length > 0 && options?.offset === 0) {
+        console.log('[Polymarket Debug] Raw Event Sample:', JSON.stringify(data[0], null, 2))
+      }
+
+      if (options?.active) {
+        return data.filter((e: any) => !e.closed && !e.archived)
+      }
+
+      return data
     } catch (error) {
       console.error('[Polymarket Optimized] Error fetching events:', error)
       return []
@@ -221,10 +235,10 @@ export class PolymarketOptimizedClient {
       })
 
       if (!response.ok) return null
-      
+
       const data = await response.json()
       if (!Array.isArray(data) || data.length === 0) return null
-      
+
       return this.transformGammaMarket(data[0])
     } catch (error) {
       console.error('[Polymarket Optimized] Error fetching market by slug:', error)
@@ -247,10 +261,10 @@ export class PolymarketOptimizedClient {
       })
 
       if (!response.ok) return null
-      
+
       const data = await response.json()
       if (!Array.isArray(data) || data.length === 0) return null
-      
+
       return this.transformGammaMarket(data[0])
     } catch (error) {
       console.error('[Polymarket Optimized] Error fetching market by conditionId:', error)
@@ -274,16 +288,16 @@ export class PolymarketOptimizedClient {
       })
 
       if (!response.ok) return {}
-      
+
       const data = await response.json()
       const prices: Record<string, number> = {}
-      
+
       for (const [tokenId, priceData] of Object.entries(data)) {
         if (priceData && typeof (priceData as any).price === 'number') {
           prices[tokenId] = (priceData as any).price
         }
       }
-      
+
       return prices
     } catch (error) {
       console.error('[Polymarket Optimized] Error fetching batch prices:', error)
@@ -307,18 +321,18 @@ export class PolymarketOptimizedClient {
       })
 
       if (!response.ok) return null
-      
+
       const data = await response.json()
-      
+
       const bids = data.bids || []
       const asks = data.asks || []
-      
+
       const bestBid = bids.length > 0 ? parseFloat(bids[0].price) : 0
       const bestAsk = asks.length > 0 ? parseFloat(asks[0].price) : 1
-      
+
       const bidDepth = bids.reduce((sum: number, b: any) => sum + parseFloat(b.size), 0)
       const askDepth = asks.reduce((sum: number, a: any) => sum + parseFloat(a.size), 0)
-      
+
       return {
         spread: bestAsk - bestBid,
         bestBid,
@@ -354,7 +368,7 @@ export class PolymarketOptimizedClient {
         console.error(`[Polymarket Optimized] Comments API error: ${response.status}`)
         return []
       }
-      
+
       const data = await response.json()
       return Array.isArray(data) ? data : []
     } catch (error) {
@@ -374,7 +388,7 @@ export class PolymarketOptimizedClient {
     after?: string
   }): Promise<PolymarketTrade[]> {
     const url = new URL(`${DATA_API}/trades`)
-    
+
     if (options?.market) url.searchParams.set('market', options.market)
     if (options?.maker) url.searchParams.set('maker', options.maker)
     if (options?.limit) url.searchParams.set('limit', String(options.limit))
@@ -388,7 +402,7 @@ export class PolymarketOptimizedClient {
       })
 
       if (!response.ok) return []
-      
+
       const data = await response.json()
       return Array.isArray(data) ? data : []
     } catch (error) {
@@ -408,11 +422,11 @@ export class PolymarketOptimizedClient {
   }): Promise<PricePoint[]> {
     const now = Math.floor(Date.now() / 1000)
     const interval = options?.interval || '1h'
-    
+
     // Calculate time range based on interval
     let startTs = options?.startTs
     let fidelity = options?.fidelity
-    
+
     if (!startTs || !fidelity) {
       switch (interval) {
         case '1m':
@@ -451,9 +465,9 @@ export class PolymarketOptimizedClient {
         console.error(`[Polymarket Optimized] Price history failed: ${response.status} ${response.statusText}`)
         return []
       }
-      
+
       const data = await response.json()
-      
+
       if (data?.history && Array.isArray(data.history)) {
         return data.history.map((point: any) => ({
           timestamp: new Date(point.t * 1000),
@@ -461,7 +475,7 @@ export class PolymarketOptimizedClient {
           volume: point.v || 0
         }))
       }
-      
+
       return []
     } catch (error) {
       console.error('[Polymarket Optimized] Error fetching price history:', error)
@@ -492,7 +506,7 @@ export class PolymarketOptimizedClient {
       })
 
       if (!response.ok) return []
-      
+
       const data = await response.json()
       return Array.isArray(data) ? data.map((p: any) => ({
         address: p.proxyWallet || p.owner,
@@ -558,7 +572,10 @@ export class PolymarketOptimizedClient {
         enableOrderBook: market.enableOrderBook,
         acceptingOrders: market.acceptingOrders,
         negRisk: market.negRisk,
-        negRiskMarketId: market.negRiskMarketId
+        negRiskMarketId: market.negRiskMarketId,
+        // Explicitly preserve image/icon if they exist
+        image: (market as any).image,
+        icon: (market as any).icon
       }
     }
   }
@@ -567,34 +584,73 @@ export class PolymarketOptimizedClient {
    * Index all markets for database storage
    * Fetches markets in batches and yields them for processing
    */
-  async *indexAllMarkets(batchSize = 500): AsyncGenerator<Market[], void, unknown> {
+  /**
+   * Index all markets via Events API to ensure Event grouping
+   * Fetches events, extracts markets, and enriches them with Event Metadata
+   */
+  async *indexAllMarkets(batchSize = 20): AsyncGenerator<Market[], void, unknown> {
     let offset = 0
     let hasMore = true
     let totalFetched = 0
 
-    console.log('[Polymarket Optimized] Starting full market index...')
+    console.log('[Polymarket Optimized] Starting full market index (via Events)...')
 
     while (hasMore) {
-      const result = await this.fetchAllMarkets({
+      // Fetch events instead of flat markets to get grouping data
+      const events = await this.fetchEvents({
         limit: batchSize,
-        offset,
-        closed: false,
-        order: 'volume',
-        ascending: false
+        offset
       })
 
-      if (result.markets.length === 0) {
+      if (events.length === 0) {
         hasMore = false
         break
       }
 
-      totalFetched += result.markets.length
-      console.log(`[Polymarket Optimized] Indexed ${totalFetched} markets so far...`)
+      // Flatten markets from events and attach event metadata
+      const batchMarkets: Market[] = []
 
-      yield result.markets
+      for (const event of events) {
+        if ((event as any).closed || (event as any).archived) continue
+
+        if (!event.markets || !Array.isArray(event.markets)) continue
+
+        for (const gammaMarket of event.markets) {
+          // Skip markets that have already expired
+          if (gammaMarket.endDateIso && new Date(gammaMarket.endDateIso) < new Date()) {
+            continue
+          }
+
+          const market = this.transformGammaMarket(gammaMarket)
+          if (market) {
+            // CRITICAL: Attach Event Metadata to the market
+            // This allows the map/search to group by Event or show Event Title
+            market.rawData = {
+              ...market.rawData,
+              eventId: String(event.id),
+              eventTitle: event.title,
+              eventSlug: event.slug, // Use event slug for navigation if needed
+              eventImage: (event as any).image || (event as any).icon
+            }
+
+            // If the market title is generic (e.g. "Yes"), prepend Event Title?
+            // User said: "It'll be the question... when it should be the event"
+            // We keep the market title as is for search, but having eventTitle in rawData allows specific UI handling.
+
+            batchMarkets.push(market)
+          }
+        }
+      }
+
+      if (batchMarkets.length > 0) {
+        totalFetched += batchMarkets.length
+        console.log(`[Polymarket Optimized] Indexed ${totalFetched} markets (from ${events.length} events)...`)
+        yield batchMarkets
+      }
 
       offset += batchSize
-      hasMore = result.hasMore
+      // Check if we got a full page, otherwise we are done
+      hasMore = events.length === batchSize
 
       // Small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -612,7 +668,7 @@ export class PolymarketOptimizedClient {
 
     // Fetch additional data in parallel
     const tokenId = market.rawData?.clobTokenIds?.[0] || conditionId
-    
+
     const [priceHistory, comments, orderBook] = await Promise.all([
       this.getPriceHistory(tokenId, { interval: '1h' }),
       this.getComments(conditionId, { limit: 10 }),

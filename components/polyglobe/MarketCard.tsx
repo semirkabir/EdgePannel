@@ -55,26 +55,36 @@ export function MarketCard({ market, onClick, className }: MarketCardProps) {
                 className
             )}
         >
-            <div className="flex justify-between items-start gap-2">
-                <h4 className="text-sm font-medium text-white/90 line-clamp-2 leading-snug group-hover:text-white transition-colors">
-                    {market.title}
-                </h4>
-                {(market.slug || market.ticker) && (
-                    <a
-                        href={
-                            market.platform === 'polymarket'
-                                ? `https://polymarket.com/event/${market.slug}`
-                                : `https://kalshi.com/markets/${market.ticker}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-white/40 hover:text-white/80 transition-colors shrink-0 p-1"
-                        onClick={(e) => e.stopPropagation()}
-                        title={`Trade on ${market.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}`}
-                    >
-                        <ExternalLink size={14} />
-                    </a>
+            <div className="flex gap-3 items-start">
+                {(market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage) && (
+                    <img
+                        src={market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage}
+                        alt=""
+                        className="w-10 h-10 rounded shrink-0 object-cover bg-white/5 border border-white/10"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    />
                 )}
+                <div className="flex-1 flex justify-between items-start gap-2 min-w-0">
+                    <h4 className="text-sm font-medium text-white/90 line-clamp-2 leading-snug group-hover:text-white transition-colors">
+                        {market.title}
+                    </h4>
+                    {(market.slug || market.ticker) && (
+                        <a
+                            href={
+                                market.platform === 'polymarket'
+                                    ? `https://polymarket.com/event/${market.slug}`
+                                    : `https://kalshi.com/markets/${market.ticker}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white/40 hover:text-white/80 transition-colors shrink-0 p-1"
+                            onClick={(e) => e.stopPropagation()}
+                            title={`Trade on ${market.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}`}
+                        >
+                            <ExternalLink size={14} />
+                        </a>
+                    )}
+                </div>
             </div>
 
             {/* Multi-outcome markets: show compact list */}

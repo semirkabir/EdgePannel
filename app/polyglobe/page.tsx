@@ -4,7 +4,7 @@ import { MarketCardStack } from '@/components/polyglobe/MarketCardStack';
 import { EnrichedMarket } from '@/lib/markets/enrich';
 import React, { useState, useEffect, useMemo } from 'react';
 import { PolyglobeMap } from '@/components/polyglobe/PolyglobeMap';
-import { PolyglobeUI } from '@/components/polyglobe/PolyglobeUI';
+import { PolyglobeUI, type VisualizationMode } from '@/components/polyglobe/PolyglobeUI';
 import { CountryNewsPanel } from '@/components/polyglobe/CountryNewsPanel';
 import { Starfield } from '@/components/polyglobe/Starfield';
 import { SettingsModal } from '@/components/settings/SettingsModal';
@@ -39,6 +39,7 @@ export default function PolyglobePage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['All']);
   const [sortBy, setSortBy] = useState('volume');
   const [selectedPlatform, setSelectedPlatform] = useState<'kalshi' | 'polymarket' | 'all'>('all');
+  const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('dots');
 
   // View state - tracks both zoom and pan
   const [isZoomedIn, setIsZoomedIn] = useState(false);
@@ -228,6 +229,13 @@ export default function PolyglobePage() {
     setActiveFilters(prev => ({ ...prev, [filter]: active }));
   };
 
+  // Handle visualization mode changes
+  const handleVisualizationModeChange = (mode: VisualizationMode) => {
+    setVisualizationMode(mode);
+    // Sync with old heatmap filter for backward compatibility
+    setActiveFilters(prev => ({ ...prev, heatmap: mode === 'heatmap' }));
+  };
+
   const handleViewToggle = () => {
     setIsTransitioning(true);
     setTimeout(() => {
@@ -318,6 +326,7 @@ export default function PolyglobePage() {
             onZoomChange={setIsZoomedIn}
             onViewChange={setIsViewModified}
             shouldResetZoom={shouldResetZoom}
+            visualizationMode={visualizationMode}
           />
         </div>
       )}
@@ -349,12 +358,17 @@ export default function PolyglobePage() {
         onSortChange={setSortBy}
         selectedPlatform={selectedPlatform}
         onPlatformChange={(platform) => setSelectedPlatform(platform as 'kalshi' | 'polymarket' | 'all')}
+        // Visualization Mode
+        visualizationMode={visualizationMode}
+        onVisualizationModeChange={handleVisualizationModeChange}
         // Notification Props
         onNotificationClick={() => setIsNotificationCenterOpen(true)}
         notificationCount={totalNotificationCount}
         // View Props
         isZoomedIn={isViewModified}
         onResetZoom={handleResetZoom}
+        // Available markets for random selection
+        availableMarkets={liveMapFilteredMarkets as EnrichedMarket[]}
       />
 
       {/* Search results are now handled inside PolyglobeUI */}

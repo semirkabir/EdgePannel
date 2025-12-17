@@ -9,6 +9,8 @@ export interface CountryData {
   lng: number
   demonym?: string
   aliases?: string[]
+  // [minLat, minLng, maxLat, maxLng]
+  bounds?: [number, number, number, number]
 }
 
 export interface CityData {
@@ -25,22 +27,57 @@ export interface StateData {
   lat: number
   lng: number
   abbr: string
+  // [minLat, minLng, maxLat, maxLng]
+  bounds?: [number, number, number, number]
 }
 
 // Major countries with coordinates (capital or geographic center)
 export const COUNTRY_COORDINATES: Record<string, CountryData> = {
-  'usa': { name: 'United States', lat: 39.8283, lng: -98.5795, demonym: 'American', aliases: ['us', 'united states', 'america', 'u.s.', 'u.s.a.'] },
-  'uk': { name: 'United Kingdom', lat: 55.3781, lng: -3.4360, demonym: 'British', aliases: ['britain', 'great britain', 'england', 'u.k.'] },
-  'canada': { name: 'Canada', lat: 56.1304, lng: -106.3468, demonym: 'Canadian' },
-  'china': { name: 'China', lat: 35.8617, lng: 104.1954, demonym: 'Chinese', aliases: ['prc', 'peoples republic of china'] },
-  'japan': { name: 'Japan', lat: 36.2048, lng: 138.2529, demonym: 'Japanese' },
-  'germany': { name: 'Germany', lat: 51.1657, lng: 10.4515, demonym: 'German' },
-  'france': { name: 'France', lat: 46.2276, lng: 2.2137, demonym: 'French' },
-  'italy': { name: 'Italy', lat: 41.8719, lng: 12.5674, demonym: 'Italian' },
-  'spain': { name: 'Spain', lat: 40.4637, lng: -3.7492, demonym: 'Spanish' },
-  'australia': { name: 'Australia', lat: -25.2744, lng: 133.7751, demonym: 'Australian' },
-  'brazil': { name: 'Brazil', lat: -14.2350, lng: -51.9253, demonym: 'Brazilian' },
-  'india': { name: 'India', lat: 20.5937, lng: 78.9629, demonym: 'Indian' },
+  'usa': {
+    name: 'United States',
+    lat: 39.8283,
+    lng: -98.5795,
+    demonym: 'American',
+    aliases: ['us', 'united states', 'america', 'u.s.', 'u.s.a.'],
+    bounds: [24.396308, -125.000000, 49.384358, -66.934570] // Continental US
+  },
+  'uk': {
+    name: 'United Kingdom',
+    lat: 55.3781,
+    lng: -3.4360,
+    demonym: 'British',
+    aliases: ['britain', 'great britain', 'england', 'u.k.'],
+    bounds: [49.9, -8.6, 58.7, 1.8]
+  },
+  'canada': {
+    name: 'Canada',
+    lat: 56.1304,
+    lng: -106.3468,
+    demonym: 'Canadian',
+    bounds: [41.676556, -141.00187, 83.110626, -52.620281]
+  },
+  'china': {
+    name: 'China',
+    lat: 35.8617,
+    lng: 104.1954,
+    demonym: 'Chinese',
+    aliases: ['prc', 'peoples republic of china'],
+    bounds: [18.2, 73.5, 53.6, 134.8]
+  },
+  'japan': {
+    name: 'Japan',
+    lat: 36.2048,
+    lng: 138.2529,
+    demonym: 'Japanese',
+    bounds: [24.4, 122.9, 45.6, 154.0]
+  },
+  'germany': { name: 'Germany', lat: 51.1657, lng: 10.4515, demonym: 'German', bounds: [47.3, 5.9, 55.1, 15.0] },
+  'france': { name: 'France', lat: 46.2276, lng: 2.2137, demonym: 'French', bounds: [41.3, -5.1, 51.1, 9.6] },
+  'italy': { name: 'Italy', lat: 41.8719, lng: 12.5674, demonym: 'Italian', bounds: [36.6, 6.6, 47.1, 18.5] },
+  'spain': { name: 'Spain', lat: 40.4637, lng: -3.7492, demonym: 'Spanish', bounds: [36.0, -9.3, 43.8, 3.3] },
+  'australia': { name: 'Australia', lat: -25.2744, lng: 133.7751, demonym: 'Australian', bounds: [-43.6, 113.3, -10.7, 153.6] },
+  'brazil': { name: 'Brazil', lat: -14.2350, lng: -51.9253, demonym: 'Brazilian', bounds: [-33.7, -73.9, 5.3, -34.8] },
+  'india': { name: 'India', lat: 20.5937, lng: 78.9629, demonym: 'Indian', bounds: [8.4, 68.1, 37.1, 97.4] },
   'russia': { name: 'Russia', lat: 61.5240, lng: 105.3188, demonym: 'Russian', aliases: ['russian federation'] },
   'mexico': { name: 'Mexico', lat: 23.6345, lng: -102.5528, demonym: 'Mexican' },
   'southkorea': { name: 'South Korea', lat: 35.9078, lng: 127.7669, demonym: 'Korean', aliases: ['korea', 's. korea', 'rok'] },
@@ -64,7 +101,7 @@ export const COUNTRY_COORDINATES: Record<string, CountryData> = {
   'philippines': { name: 'Philippines', lat: 12.8797, lng: 121.7740, demonym: 'Filipino' },
   'chile': { name: 'Chile', lat: -35.6751, lng: -71.5430, demonym: 'Chilean' },
   'colombia': { name: 'Colombia', lat: 4.5709, lng: -74.2973, demonym: 'Colombian' },
-  'venezuela': { name: 'Venezuela', lat: 6.4238, lng: -66.5897, demonym: 'Venezuelan' },
+  'venezuela': { name: 'Venezuela', lat: 6.4238, lng: -66.5897, demonym: 'Venezuelan', bounds: [0.635, -73.376, 12.2, -59.8] },
   'peru': { name: 'Peru', lat: -9.1900, lng: -75.0152, demonym: 'Peruvian' },
   'taiwan': { name: 'Taiwan', lat: 23.6978, lng: 120.9605, demonym: 'Taiwanese' },
   'northkorea': { name: 'North Korea', lat: 40.3399, lng: 127.5101, demonym: 'North Korean', aliases: ['dprk', 'north korea', 'n. korea'] },
@@ -155,6 +192,7 @@ export const CITY_COORDINATES: Record<string, CityData> = {
   'san diego': { name: 'San Diego', country: 'United States', region: 'California', lat: 32.7157, lng: -117.1611 },
   'dallas': { name: 'Dallas', country: 'United States', region: 'Texas', lat: 32.7767, lng: -96.7970 },
   'san jose': { name: 'San Jose', country: 'United States', region: 'California', lat: 37.3382, lng: -121.8863 },
+  'cupertino': { name: 'Cupertino', country: 'United States', region: 'California', lat: 37.3346, lng: -122.0090 },
   'austin': { name: 'Austin', country: 'United States', region: 'Texas', lat: 30.2672, lng: -97.7431 },
   'jacksonville': { name: 'Jacksonville', country: 'United States', region: 'Florida', lat: 30.3322, lng: -81.6557 },
   'fort worth': { name: 'Fort Worth', country: 'United States', region: 'Texas', lat: 32.7555, lng: -97.3308 },
@@ -173,6 +211,7 @@ export const CITY_COORDINATES: Record<string, CityData> = {
   'baltimore': { name: 'Baltimore', country: 'United States', region: 'Maryland', lat: 39.2904, lng: -76.6122 },
   'miami': { name: 'Miami', country: 'United States', region: 'Florida', lat: 25.7617, lng: -80.1918 },
   'atlanta': { name: 'Atlanta', country: 'United States', region: 'Georgia', lat: 33.7490, lng: -84.3880 },
+  'redmond': { name: 'Redmond', country: 'United States', region: 'Washington', lat: 47.6740, lng: -122.1215 },
 
   // International
   'london': { name: 'London', country: 'United Kingdom', lat: 51.5074, lng: -0.1278 },
@@ -211,7 +250,7 @@ export const CITY_COORDINATES: Record<string, CityData> = {
   'tel aviv': { name: 'Tel Aviv', country: 'Israel', lat: 32.0853, lng: 34.7818 },
   'jerusalem': { name: 'Jerusalem', country: 'Israel', lat: 31.7683, lng: 35.2137 },
   'dubai': { name: 'Dubai', country: 'United Arab Emirates', lat: 25.2048, lng: 55.2708 },
-  'singapore': { name: 'Singapore', country: 'Singapore', lat: 1.3521, lng: 103.8198 },
+  'singapore city': { name: 'Singapore', country: 'Singapore', lat: 1.3521, lng: 103.8198 },
   'hong kong': { name: 'Hong Kong', country: 'Hong Kong', lat: 22.3193, lng: 114.1694 },
   'seoul': { name: 'Seoul', country: 'South Korea', lat: 37.5665, lng: 126.9780 },
   'mumbai': { name: 'Mumbai', country: 'India', lat: 19.0760, lng: 72.8777 },
@@ -240,7 +279,7 @@ export const CITY_COORDINATES: Record<string, CityData> = {
   'manchester': { name: 'Manchester', country: 'United Kingdom', lat: 53.4808, lng: -2.2426 },
   'liverpool': { name: 'Liverpool', country: 'United Kingdom', lat: 53.4084, lng: -2.9916 },
   'lisbon': { name: 'Lisbon', country: 'Portugal', lat: 38.7223, lng: -9.1393 },
-  'athens': { name: 'Athens', country: 'Greece', lat: 37.9838, lng: 23.7275 },
+
 
   // Middle East
   'beirut': { name: 'Beirut', country: 'Lebanon', lat: 33.8886, lng: 35.4955 },
@@ -283,21 +322,21 @@ export const CITY_COORDINATES: Record<string, CityData> = {
   'brooklyn': { name: 'Brooklyn', country: 'United States', region: 'New York', lat: 40.6782, lng: -73.9442 },
 }
 
-// US States with their centers
+// US States with their centers and bounds for major ones
 export const US_STATES: Record<string, StateData> = {
   'AL': { name: 'Alabama', lat: 32.806671, lng: -86.791130, abbr: 'AL' },
   'AK': { name: 'Alaska', lat: 61.370716, lng: -152.404419, abbr: 'AK' },
-  'AZ': { name: 'Arizona', lat: 33.729759, lng: -111.431221, abbr: 'AZ' },
+  'AZ': { name: 'Arizona', lat: 33.729759, lng: -111.431221, abbr: 'AZ', bounds: [31.332177, -114.816510, 37.004260, -109.045223] },
   'AR': { name: 'Arkansas', lat: 34.969704, lng: -92.373123, abbr: 'AR' },
-  'CA': { name: 'California', lat: 36.116203, lng: -119.681564, abbr: 'CA' },
-  'CO': { name: 'Colorado', lat: 39.059811, lng: -105.311104, abbr: 'CO' },
+  'CA': { name: 'California', lat: 36.116203, lng: -119.681564, abbr: 'CA', bounds: [32.5121, -124.6509, 42.0126, -114.1315] },
+  'CO': { name: 'Colorado', lat: 39.059811, lng: -105.311104, abbr: 'CO', bounds: [36.992426, -109.060253, 41.003444, -102.041524] },
   'CT': { name: 'Connecticut', lat: 41.597782, lng: -72.755371, abbr: 'CT' },
   'DE': { name: 'Delaware', lat: 39.318523, lng: -75.507141, abbr: 'DE' },
-  'FL': { name: 'Florida', lat: 27.766279, lng: -81.686783, abbr: 'FL' },
-  'GA': { name: 'Georgia', lat: 33.040619, lng: -83.643074, abbr: 'GA' },
+  'FL': { name: 'Florida', lat: 27.766279, lng: -81.686783, abbr: 'FL', bounds: [24.396308, -87.868618, 31.000888, -80.031362] },
+  'GA': { name: 'Georgia', lat: 33.040619, lng: -83.643074, abbr: 'GA', bounds: [30.355598, -85.605165, 35.000659, -80.839729] },
   'HI': { name: 'Hawaii', lat: 21.094318, lng: -157.498337, abbr: 'HI' },
   'ID': { name: 'Idaho', lat: 44.240459, lng: -114.478828, abbr: 'ID' },
-  'IL': { name: 'Illinois', lat: 40.349457, lng: -88.986137, abbr: 'IL' },
+  'IL': { name: 'Illinois', lat: 40.349457, lng: -88.986137, abbr: 'IL', bounds: [36.970298, -91.513079, 42.508481, -87.494756] },
   'IN': { name: 'Indiana', lat: 39.849426, lng: -86.258278, abbr: 'IN' },
   'IA': { name: 'Iowa', lat: 42.011539, lng: -93.210526, abbr: 'IA' },
   'KS': { name: 'Kansas', lat: 38.526600, lng: -96.726486, abbr: 'KS' },
@@ -306,7 +345,7 @@ export const US_STATES: Record<string, StateData> = {
   'ME': { name: 'Maine', lat: 44.693947, lng: -69.381927, abbr: 'ME' },
   'MD': { name: 'Maryland', lat: 39.063946, lng: -76.802101, abbr: 'MD' },
   'MA': { name: 'Massachusetts', lat: 42.230171, lng: -71.530106, abbr: 'MA' },
-  'MI': { name: 'Michigan', lat: 43.326618, lng: -84.536095, abbr: 'MI' },
+  'MI': { name: 'Michigan', lat: 43.326618, lng: -84.536095, abbr: 'MI', bounds: [41.696118, -90.418284, 48.262715, -82.419207] },
   'MN': { name: 'Minnesota', lat: 45.694454, lng: -93.900192, abbr: 'MN' },
   'MS': { name: 'Mississippi', lat: 32.741646, lng: -89.678696, abbr: 'MS' },
   'MO': { name: 'Missouri', lat: 38.456085, lng: -92.288368, abbr: 'MO' },
@@ -316,22 +355,22 @@ export const US_STATES: Record<string, StateData> = {
   'NH': { name: 'New Hampshire', lat: 43.452492, lng: -71.563896, abbr: 'NH' },
   'NJ': { name: 'New Jersey', lat: 40.298904, lng: -74.521011, abbr: 'NJ' },
   'NM': { name: 'New Mexico', lat: 34.840515, lng: -106.248482, abbr: 'NM' },
-  'NY': { name: 'New York', lat: 42.165726, lng: -74.948051, abbr: 'NY' },
-  'NC': { name: 'North Carolina', lat: 35.630066, lng: -79.806419, abbr: 'NC' },
+  'NY': { name: 'New York', lat: 42.165726, lng: -74.948051, abbr: 'NY', bounds: [40.496103, -79.761961, 45.01585, -71.856214] },
+  'NC': { name: 'North Carolina', lat: 35.630066, lng: -79.806419, abbr: 'NC', bounds: [33.842316, -84.321869, 36.588117, -75.400119] },
   'ND': { name: 'North Dakota', lat: 47.528912, lng: -99.784012, abbr: 'ND' },
-  'OH': { name: 'Ohio', lat: 40.388783, lng: -82.764915, abbr: 'OH' },
+  'OH': { name: 'Ohio', lat: 40.388783, lng: -82.764915, abbr: 'OH', bounds: [38.403202, -84.820159, 41.977852, -80.518693] },
   'OK': { name: 'Oklahoma', lat: 35.565342, lng: -96.928917, abbr: 'OK' },
   'OR': { name: 'Oregon', lat: 44.572021, lng: -122.070938, abbr: 'OR' },
-  'PA': { name: 'Pennsylvania', lat: 40.590752, lng: -77.209755, abbr: 'PA' },
+  'PA': { name: 'Pennsylvania', lat: 40.590752, lng: -77.209755, abbr: 'PA', bounds: [39.719799, -80.519891, 42.26986, -74.689502] },
   'RI': { name: 'Rhode Island', lat: 41.680893, lng: -71.511780, abbr: 'RI' },
   'SC': { name: 'South Carolina', lat: 33.856892, lng: -80.945007, abbr: 'SC' },
   'SD': { name: 'South Dakota', lat: 44.299782, lng: -99.438828, abbr: 'SD' },
   'TN': { name: 'Tennessee', lat: 35.747845, lng: -86.692345, abbr: 'TN' },
-  'TX': { name: 'Texas', lat: 31.054487, lng: -97.563461, abbr: 'TX' },
+  'TX': { name: 'Texas', lat: 31.054487, lng: -97.563461, abbr: 'TX', bounds: [25.837377, -106.646641, 36.500704, -93.508292] },
   'UT': { name: 'Utah', lat: 40.150032, lng: -111.862434, abbr: 'UT' },
   'VT': { name: 'Vermont', lat: 44.045876, lng: -72.710686, abbr: 'VT' },
   'VA': { name: 'Virginia', lat: 37.769337, lng: -78.169968, abbr: 'VA' },
-  'WA': { name: 'Washington', lat: 47.400902, lng: -121.490494, abbr: 'WA' },
+  'WA': { name: 'Washington', lat: 47.400902, lng: -121.490494, abbr: 'WA', bounds: [45.543541, -124.848974, 49.002494, -116.915580] },
   'WV': { name: 'West Virginia', lat: 38.491226, lng: -80.954453, abbr: 'WV' },
   'WI': { name: 'Wisconsin', lat: 44.268543, lng: -89.616508, abbr: 'WI' },
   'WY': { name: 'Wyoming', lat: 42.755966, lng: -107.302490, abbr: 'WY' },

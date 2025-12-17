@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain } from 'lucide-react';
+import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { SearchResults } from './SearchResults';
 import { EnrichedMarket } from '@/lib/markets/enrich';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
+
+export type VisualizationMode = 'dots' | 'heatmap' | 'cluster' | 'choropleth';
 
 interface PolyglobeUIProps {
   onSearch: (query: string) => void;
@@ -33,6 +35,11 @@ interface PolyglobeUIProps {
   // Zoom control props
   isZoomedIn?: boolean;
   onResetZoom?: () => void;
+  // Visualization mode props
+  visualizationMode?: VisualizationMode;
+  onVisualizationModeChange?: (mode: VisualizationMode) => void;
+  // Available markets for random selection
+  availableMarkets?: EnrichedMarket[];
 }
 
 const CATEGORIES = [
@@ -78,7 +85,10 @@ export function PolyglobeUI({
   selectedPlatform = 'all',
   onPlatformChange,
   isZoomedIn = false,
-  onResetZoom
+  onResetZoom,
+  visualizationMode = 'dots',
+  onVisualizationModeChange,
+  availableMarkets = []
 }: PolyglobeUIProps) {
   const router = useRouter();
   const [internalIsPlaying, setInternalIsPlaying] = useState(true);
@@ -86,6 +96,7 @@ export function PolyglobeUI({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [randomMarkets, setRandomMarkets] = useState<EnrichedMarket[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -108,6 +119,18 @@ export function PolyglobeUI({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [filterRef, profileRef]);
+
+  // Generate random markets when search is focused
+  useEffect(() => {
+    if (isSearchFocused && availableMarkets.length > 0) {
+      // Get 5 random markets every time search is focused
+      const shuffled = [...availableMarkets].sort(() => Math.random() - 0.5);
+      setRandomMarkets(shuffled.slice(0, 5));
+    } else if (!isSearchFocused) {
+      // Clear random markets when search loses focus
+      setRandomMarkets([]);
+    }
+  }, [isSearchFocused, availableMarkets]);
 
   const handlePlayPause = () => {
     const newState = !isPlaying;
@@ -392,6 +415,71 @@ export function PolyglobeUI({
                       </div>
                     </div>
 
+                    {/* Visualization Mode Section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-4 bg-cyan-500 rounded-full" />
+                        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Visualization Mode</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Dots Mode */}
+                        <button
+                          onClick={() => onVisualizationModeChange?.('dots')}
+                          className={cn(
+                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                            visualizationMode === 'dots'
+                              ? "bg-gradient-to-br from-cyan-600 to-cyan-700 border-cyan-500 text-white shadow-lg shadow-cyan-500/30"
+                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                          )}
+                        >
+                          <Circle className="w-3.5 h-3.5 relative z-10" />
+                          <span className="relative z-10">Dots</span>
+                        </button>
+
+                        {/* Heatmap Mode */}
+                        <button
+                          onClick={() => onVisualizationModeChange?.('heatmap')}
+                          className={cn(
+                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                            visualizationMode === 'heatmap'
+                              ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
+                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                          )}
+                        >
+                          <Activity className="w-3.5 h-3.5 relative z-10" />
+                          <span className="relative z-10">Heatmap</span>
+                        </button>
+
+                        {/* Cluster Mode */}
+                        <button
+                          onClick={() => onVisualizationModeChange?.('cluster')}
+                          className={cn(
+                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                            visualizationMode === 'cluster'
+                              ? "bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white shadow-lg shadow-purple-500/30"
+                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                          )}
+                        >
+                          <Layers className="w-3.5 h-3.5 relative z-10" />
+                          <span className="relative z-10">Clusters</span>
+                        </button>
+
+                        {/* Choropleth Mode */}
+                        <button
+                          onClick={() => onVisualizationModeChange?.('choropleth')}
+                          className={cn(
+                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                            visualizationMode === 'choropleth'
+                              ? "bg-gradient-to-br from-indigo-600 to-indigo-700 border-indigo-500 text-white shadow-lg shadow-indigo-500/30"
+                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                          )}
+                        >
+                          <Map className="w-3.5 h-3.5 relative z-10" />
+                          <span className="relative z-10">Choropleth</span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Map Overlays Section */}
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
@@ -441,25 +529,11 @@ export function PolyglobeUI({
                           <span className="relative z-10">Fires</span>
                         </button>
 
-                        {/* Heatmap Toggle */}
-                        <button
-                          onClick={() => onFilterChange('heatmap', !activeFilters.heatmap)}
-                          className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                            activeFilters.heatmap
-                              ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                          )}
-                        >
-                          <Activity className="w-3.5 h-3.5 relative z-10" />
-                          <span className="relative z-10">Heatmap</span>
-                        </button>
-
-                        {/* Frontline Toggle - Full Width */}
+                        {/* Frontline Toggle */}
                         <button
                           onClick={() => onFilterChange('frontline', !activeFilters.frontline)}
                           className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center justify-center gap-2 col-span-2 relative overflow-hidden group",
+                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center justify-center gap-2 relative overflow-hidden group",
                             activeFilters.frontline
                               ? "bg-gradient-to-br from-red-600 to-red-700 border-red-500 text-white shadow-lg shadow-red-500/30"
                               : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
@@ -504,14 +578,15 @@ export function PolyglobeUI({
             <Search className="h-4 w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
           </div>
           {/* Search Results Dropdown */}
-          {isSearchFocused && (searchResults.length > 0 || isSearching) && (
+          {isSearchFocused && (searchResults.length > 0 || isSearching || (inputRef.current?.value === '' && randomMarkets.length > 0)) && (
             <div className="absolute top-full left-0 right-0 mt-2">
               <SearchResults
-                results={searchResults}
+                results={inputRef.current?.value === '' ? randomMarkets : searchResults}
                 onSelect={(market) => {
                   if (onMarketSelect) onMarketSelect(market);
                   onSearch('');
                   if (inputRef.current) inputRef.current.value = '';
+                  setIsSearchFocused(false);
                 }}
                 isLoading={isSearching}
               />

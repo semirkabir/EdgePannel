@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db/client'
 import { PolymarketOptimizedClient } from '@/lib/api/polymarket-optimized'
 import { KalshiClient } from '@/lib/api/kalshi'
 import { enrichMarkets } from '@/lib/markets/enrich'
+import { extractLocation, batchExtractLocationsSmart } from '@/lib/utils/location-extractor-v2'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -22,17 +23,17 @@ async function processMarketsInChunks(
   platform: 'polymarket' | 'kalshi',
   stats: IndexStats['polymarket'] | IndexStats['kalshi']
 ) {
-  const marketsWithLocation = markets.filter(m => m.location?.coordinates)
-  const skipped = markets.length - marketsWithLocation.length
+  // Process all markets, even those without location (for search)
+  // const marketsWithLocation = markets.filter(m => m.location?.coordinates)
+  const marketsToProcess = markets
 
-  stats.skipped += skipped
-
-  if (skipped > 0) {
-    console.log(`[Index All] Skipping ${skipped} markets without location data`)
+  const marketsWithoutLocation = markets.filter(m => !m.location?.coordinates).length
+  if (marketsWithoutLocation > 0) {
+    console.log(`[Index All] Indexing ${marketsWithoutLocation} markets without location data (search only)`)
   }
 
   // Process sequentially to avoid prepared statement cache issues with PgBouncer/Supabase
-  for (const market of marketsWithLocation) {
+  for (const market of marketsToProcess) {
     try {
       const marketId = `${platform}-${market.id}`
       await prisma.geotaggedMarket.upsert({
@@ -46,7 +47,7 @@ async function processMarketsInChunks(
           category: market.category || market.normalizedCategory || null,
           probability: market.price,
           volume24h: market.volume24h,
-          liquidity: market.liquidity,
+          liquidity: typeof market.liquidity === 'string' ? parseFloat(market.liquidity) : (market.liquidity || 0),
           endDate: market.endDate,
           slug: market.slug,
           ticker: market.ticker,
@@ -62,7 +63,7 @@ async function processMarketsInChunks(
           title: market.title,
           probability: market.price,
           volume24h: market.volume24h,
-          liquidity: market.liquidity,
+          liquidity: typeof market.liquidity === 'string' ? parseFloat(market.liquidity) : (market.liquidity || 0),
           updatedAt: new Date()
         }
       })
@@ -97,12 +98,42 @@ export async function POST(request: Request) {
 
     // Index Polymarket
     if (platforms.includes('polymarket')) {
+      console.log('[Index All] Clearing existing Polymarket data (Full Reset)...')
+      await prisma.geotaggedMarket.deleteMany({
+        where: { platform: 'polymarket' }
+      })
+
       const polyClient = new PolymarketOptimizedClient()
-      
+
       try {
         for await (const batch of polyClient.indexAllMarkets(batchSize)) {
           stats.polymarket.fetched += batch.length
           const enriched = enrichMarkets(batch)
+
+          // Enhance with v2 location extraction (LLM/Regex)
+          // Uses batched smart extraction to respect rate limits
+          const batchLocations = await batchExtractLocationsSmart(
+            enriched.map((m, i) => ({
+              id: String(i),
+              title: (m.rawData as any)?.eventTitle || m.title,
+              description: m.description
+            }))
+          )
+
+          enriched.forEach((m, i) => {
+            const loc = batchLocations.get(i)
+            if (loc && loc.coordinates) {
+              // @ts-ignore
+              m.location = {
+                // name: loc.city || loc.country || loc.region || 'Unknown',
+                coordinates: loc.coordinates,
+                country: loc.country,
+                region: loc.region,
+                city: loc.city
+              }
+            }
+          })
+
           await processMarketsInChunks(enriched, 'polymarket', stats.polymarket)
         }
       } catch (error) {
@@ -112,9 +143,13 @@ export async function POST(request: Request) {
 
     // Index Kalshi
     if (platforms.includes('kalshi')) {
+      console.log('[Index All] Clearing existing Kalshi data (Full Reset)...')
+      await prisma.geotaggedMarket.deleteMany({
+        where: { platform: 'kalshi' }
+      })
       const accessKeyId = process.env.KALSHI_API_KEY_ID
       const privateKey = process.env.KALSHI_PRIVATE_KEY
-      
+
       if (accessKeyId && privateKey) {
         try {
           const kalshiClient = new KalshiClient({ accessKeyId, privateKey })
@@ -125,6 +160,27 @@ export async function POST(request: Request) {
             const result = await kalshiClient.getMarkets({ limit: batchSize, cursor })
             stats.kalshi.fetched += result.markets.length
             const enriched = enrichMarkets(result.markets)
+
+            // Enhance with v2 location extraction (LLM/Regex)
+            // Uses batched smart extraction to respect rate limits
+            const batchLocations = await batchExtractLocationsSmart(
+              enriched.map((m, i) => ({ id: String(i), title: m.title, description: m.description }))
+            )
+
+            enriched.forEach((m, i) => {
+              const loc = batchLocations.get(i)
+              if (loc && loc.coordinates) {
+                // @ts-ignore
+                m.location = {
+                  // name: loc.city || loc.country || loc.region || 'Unknown',
+                  coordinates: loc.coordinates,
+                  country: loc.country,
+                  region: loc.region,
+                  city: loc.city
+                }
+              }
+            })
+
             await processMarketsInChunks(enriched, 'kalshi', stats.kalshi)
 
             cursor = result.nextCursor

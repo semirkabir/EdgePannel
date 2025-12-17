@@ -23,6 +23,7 @@ export interface EnrichedMarket extends Market {
   groupId?: string  // ID for grouping related markets
   baseQuestion?: string  // The base question without the specific option
   isGrouped?: boolean  // Whether this market is part of a group
+  image?: string
 }
 
 export interface MarketGroup {
@@ -119,7 +120,7 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
   }
 
   const searchText = `${market.title} ${market.description || ''}`.toLowerCase();
-  
+
   // Tokenize text into words (alphanumeric only for matching)
   const tokens = searchText.split(/[^a-z0-9]+/);
 
@@ -152,10 +153,10 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
     const token = tokens[i];
     if (LOCATION_FIRST_WORD_MAP.has(token)) {
       const candidates = LOCATION_FIRST_WORD_MAP.get(token)!;
-      
+
       for (const candidate of candidates) {
         const candidateWords = candidate.split(/\s+/);
-        
+
         // Check if subsequent tokens match
         let match = true;
         if (candidateWords.length > 1) {
@@ -170,7 +171,7 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
             }
           }
         }
-        
+
         if (match) {
           const coords = LOCATION_COORDINATES[candidate];
           const displayName = candidate.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -191,7 +192,7 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
   if (searchText.includes('movie') || searchText.includes('box office') || searchText.includes('cinema') || searchText.includes('avatar') || searchText.includes('film')) {
     return { name: 'Hollywood', coordinates: LOCATION_COORDINATES['hollywood'] }
   }
-  
+
   // US Politics check
   const hasUS = searchText.includes('us') || searchText.includes('america');
   if ((searchText.includes('senate') || searchText.includes('congress') || searchText.includes('house') || searchText.includes('supreme court') || searchText.includes('biden') || searchText.includes('trump') || searchText.includes('white house')) && hasUS) {
@@ -245,6 +246,7 @@ export function enrichMarket(market: Market, allMarkets: Market[] = []): Enriche
     isBreakingNews,
     isLivePrediction,
     keywords,
+    image: market.rawData?.image || market.rawData?.icon,
   }
 }
 
@@ -310,7 +312,7 @@ export function extractBaseQuestion(title: string): string {
       if (pattern.source.includes('wins?') || pattern.source.includes('winning')) {
         const event = match[3] || match[2] || match[1];
         if (event) {
-        return `Who will win ${event}?`;
+          return `Who will win ${event}?`;
         }
       }
       // For "X to be elected Y" pattern
@@ -359,12 +361,12 @@ export function groupMarketsByEvent(markets: EnrichedMarket[]): MarketGroup[] {
       if (market.rawData?.eventId != null) {
         eventId = String(market.rawData.eventId).trim();
       }
-      
+
       // Fallback to events array
       if (!eventId && market.rawData?.events?.[0]?.id != null) {
         eventId = String(market.rawData.events[0].id).trim();
       }
-      
+
       // Additional fallback: check if rawData itself has an event structure
       if (!eventId && (market.rawData as any)?.event?.id != null) {
         eventId = String((market.rawData as any).event.id).trim();
@@ -394,15 +396,15 @@ export function groupMarketsByEvent(markets: EnrichedMarket[]): MarketGroup[] {
   const ungroupedMarkets = Array.from(eventGroups.entries())
     .filter(([eventId]) => eventId.startsWith('single_'))
     .flatMap(([, markets]) => markets);
-  
+
   // Group ungrouped markets by title similarity if they're from the same platform
   if (ungroupedMarkets.length > 0) {
     const similarityGroups = new Map<string, EnrichedMarket[]>();
-    
+
     // Create buckets based on simplified base question
     // This reduces the comparison space from O(N^2) to O(N) for bucketing + O(K^2) for small buckets
     const buckets = new Map<string, EnrichedMarket[]>();
-    
+
     for (const market of ungroupedMarkets) {
       // Create a simplified key: platform + first 2-3 significant words sorted
       const words = market.title.toLowerCase()
@@ -412,7 +414,7 @@ export function groupMarketsByEvent(markets: EnrichedMarket[]): MarketGroup[] {
         .sort()
         .slice(0, 3)
         .join('_');
-        
+
       const key = `${market.platform}_${words}`;
       if (!buckets.has(key)) {
         buckets.set(key, []);
@@ -427,44 +429,44 @@ export function groupMarketsByEvent(markets: EnrichedMarket[]): MarketGroup[] {
       // Within each bucket, run the more expensive similarity check
       // Since buckets are small, this is fast
       const processedInBucket = new Set<string>();
-      
+
       for (let i = 0; i < bucketMarkets.length; i++) {
         const market = bucketMarkets[i];
         if (processedInBucket.has(market.id)) continue;
-        
+
         const baseQuestion = extractBaseQuestion(market.title);
         const similarMarkets = [market];
         processedInBucket.add(market.id);
-        
+
         for (let j = i + 1; j < bucketMarkets.length; j++) {
           const otherMarket = bucketMarkets[j];
           if (processedInBucket.has(otherMarket.id)) continue;
 
           const otherBaseQuestion = extractBaseQuestion(otherMarket.title);
           const similarity = calculateTitleSimilarity(baseQuestion, otherBaseQuestion);
-          
+
           if (similarity > 0.6) { // Slightly lower threshold since we already bucketed by keywords
             similarMarkets.push(otherMarket);
             processedInBucket.add(otherMarket.id);
           }
         }
-        
+
         if (similarMarkets.length > 1) {
           const groupKey = `similarity_${key}_${Date.now()}_${i}`;
           similarityGroups.set(groupKey, similarMarkets);
         }
       }
     }
-    
+
     // Add similarity-based groups to eventGroups
     for (const [key, similarMarkets] of similarityGroups.entries()) {
       const groupId = key;
       eventGroups.set(groupId, similarMarkets);
     }
-    
+
     // Remove single markets that were grouped
     const allGroupedIds = new Set(Array.from(similarityGroups.values()).flatMap(g => g.map(m => m.id)));
-    
+
     for (const [eventId, markets] of Array.from(eventGroups.entries())) {
       if (eventId.startsWith('single_') && markets.length === 1) {
         if (allGroupedIds.has(markets[0].id)) {
@@ -483,29 +485,32 @@ export function groupMarketsByEvent(markets: EnrichedMarket[]): MarketGroup[] {
 
     // Extract base question from event question (preferred) or first market
     const baseQuestion = primaryMarket.rawData?.eventQuestion
-      || primaryMarket.rawData?.events?.[0]?.question 
+      || primaryMarket.rawData?.events?.[0]?.question
       || extractBaseQuestion(primaryMarket.title)
       || primaryMarket.title;
 
     const totalVolume = eventMarkets.reduce((sum, m) => sum + (m.volume24h || 0), 0);
     const isBreakingNews = eventMarkets.some(m => m.isBreakingNews);
 
-      // Update markets with group info
+    // Update markets with group info
     eventMarkets.forEach(m => {
       m.groupId = eventId;
-        m.baseQuestion = baseQuestion;
-        m.isGrouped = true;
-      });
+      m.baseQuestion = baseQuestion;
+      m.isGrouped = true;
+    });
 
     groups.push({
       groupId: eventId,
-        baseQuestion,
-      location: primaryMarket.location,
+      baseQuestion,
+      location: primaryMarket.location?.coordinates ? {
+        name: primaryMarket.location.city || primaryMarket.location.country || 'Unknown',
+        coordinates: primaryMarket.location.coordinates
+      } : undefined,
       markets: eventMarkets,
       category: primaryMarket.category || 'Other',
-        totalVolume,
-        isBreakingNews,
-      });
+      totalVolume,
+      isBreakingNews,
+    });
   }
 
   return groups;

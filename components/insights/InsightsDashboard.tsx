@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Activity, DollarSign, BarChart3, Clock, Filter, RefreshCw, Zap, Target, Eye, Flame } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { EnrichedMarket } from '@/lib/markets/enrich'
+import { NewsFeed } from './NewsFeed'
 
 interface InsightsDashboardProps {
   onMarketSelect?: (market: any) => void
@@ -53,8 +54,10 @@ interface WhaleActivity {
     polymarketCount: number
     kalshiCount: number
     uniqueMarkets: number
+    uniqueWallets?: number
   }
   trades: WhaleTrade[]
+  note?: string
 }
 
 interface WhaleTrade {
@@ -72,6 +75,9 @@ interface WhaleTrade {
   timestamp: Date
   walletAddress: string | null
   transactionHash: string | null
+  size?: number
+  traderName?: string | null
+  traderProfileImage?: string | null
 }
 
 type TimeframeOption = '1h' | '24h' | '7d' | '30d'
@@ -286,10 +292,10 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
       </div>
 
       {/* Main Content */}
-      <div className="px-6 py-6 space-y-6">
+      <div className="px-6 py-6">
         {/* Summary Stats */}
         {analytics && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard
               title="Market Sentiment"
               value={`${((analytics.summary.gainers / analytics.summary.totalMarkets) * 100).toFixed(0)}%`}
@@ -321,114 +327,126 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
           </div>
         )}
 
-        {/* Whale Activity Summary */}
-        {whaleActivity && whaleActivity.summary.totalTrades > 0 && (
-          <div className="p-5 rounded-xl bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-orange-500/20">
-                <Flame className="w-5 h-5 text-orange-400" />
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Left Column: Activity & Markets */}
+          <div className="xl:col-span-2 space-y-6">
+            {/* Whale Activity Summary */}
+            {whaleActivity && whaleActivity.summary.totalTrades > 0 && (
+              <div className="p-5 rounded-xl bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-orange-500/20">
+                    <Flame className="w-5 h-5 text-orange-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-bold text-white">Whale Activity Detected</h3>
+                    <p className="text-xs text-gray-400">
+                      {whaleActivity.summary.totalTrades} large trades in {timeframeLabel[timeframe].toLowerCase()}
+                    </p>
+                    {whaleActivity.note && (
+                      <p className="text-[10px] text-orange-400/70 mt-1 italic">
+                        ⚠️ {whaleActivity.note}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="text-center">
+                    <div className="text-lg font-black text-orange-400">
+                      ${(whaleActivity.summary.totalAmount / 1000).toFixed(0)}K
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase">Total Volume</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-black text-green-400">
+                      {whaleActivity.summary.buyCount}
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase">Buys</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-black text-red-400">
+                      {whaleActivity.summary.sellCount}
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase">Sells</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-black text-blue-400">
+                      {whaleActivity.summary.uniqueMarkets}
+                    </div>
+                    <div className="text-[10px] text-gray-500 uppercase">Markets</div>
+                  </div>
+                </div>
               </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-bold text-white">Whale Activity Detected</h3>
-                <p className="text-xs text-gray-400">
-                  {whaleActivity.summary.totalTrades} large trades in {timeframeLabel[timeframe].toLowerCase()}
-                </p>
-                {whaleActivity.note && (
-                  <p className="text-[10px] text-orange-400/70 mt-1 italic">
-                    ⚠️ {whaleActivity.note}
-                  </p>
-                )}
-              </div>
+            )}
+
+            {/* Category Tabs */}
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+              {[
+                { id: 'all', label: 'All', icon: Eye },
+                { id: 'topGainers', label: 'Top Gainers', icon: TrendingUp },
+                { id: 'topLosers', label: 'Top Losers', icon: TrendingDown },
+                { id: 'biggestMovers', label: 'Biggest Movers', icon: Activity },
+                { id: 'whaleActivity', label: 'Whale Trades', icon: Flame },
+              ].map((cat) => {
+                const Icon = cat.icon
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id as CategoryFilter)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all",
+                      activeCategory === cat.id
+                        ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20"
+                        : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/10"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {cat.label}
+                  </button>
+                )
+              })}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="text-center">
-                <div className="text-lg font-black text-orange-400">
-                  ${(whaleActivity.summary.totalAmount / 1000).toFixed(0)}K
-                </div>
-                <div className="text-[10px] text-gray-500 uppercase">Total Volume</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-black text-green-400">
-                  {whaleActivity.summary.buyCount}
-                </div>
-                <div className="text-[10px] text-gray-500 uppercase">Buys</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-black text-red-400">
-                  {whaleActivity.summary.sellCount}
-                </div>
-                <div className="text-[10px] text-gray-500 uppercase">Sells</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-black text-blue-400">
-                  {whaleActivity.summary.uniqueMarkets}
-                </div>
-                <div className="text-[10px] text-gray-500 uppercase">Markets</div>
-              </div>
+
+            {/* Markets Grid */}
+            {analytics && (activeCategory === 'all' || activeCategory === 'topGainers') && (
+              <MarketSection
+                title="🚀 Top Gainers"
+                markets={analytics.topGainers}
+                onMarketClick={handleMarketClick}
+                type="gainer"
+              />
+            )}
+
+            {analytics && (activeCategory === 'all' || activeCategory === 'topLosers') && (
+              <MarketSection
+                title="📉 Top Losers"
+                markets={analytics.topLosers}
+                onMarketClick={handleMarketClick}
+                type="loser"
+              />
+            )}
+
+            {analytics && (activeCategory === 'all' || activeCategory === 'biggestMovers') && (
+              <MarketSection
+                title="⚡ Biggest Movers"
+                markets={analytics.biggestMovers}
+                onMarketClick={handleMarketClick}
+                type="mover"
+              />
+            )}
+
+            {/* Whale Trades */}
+            {whaleActivity && whaleActivity.trades.length > 0 && (activeCategory === 'all' || activeCategory === 'whaleActivity') && (
+              <WhaleTradesSection trades={whaleActivity.trades} />
+            )}
+          </div>
+
+          {/* Right Column: News Feed */}
+          <div className="xl:col-span-1 min-h-[500px]">
+            <div className="sticky top-24 h-[calc(100vh-140px)]">
+              <NewsFeed />
             </div>
           </div>
-        )}
-
-        {/* Category Tabs */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-          {[
-            { id: 'all', label: 'All', icon: Eye },
-            { id: 'topGainers', label: 'Top Gainers', icon: TrendingUp },
-            { id: 'topLosers', label: 'Top Losers', icon: TrendingDown },
-            { id: 'biggestMovers', label: 'Biggest Movers', icon: Activity },
-            { id: 'whaleActivity', label: 'Whale Trades', icon: Flame },
-          ].map((cat) => {
-            const Icon = cat.icon
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id as CategoryFilter)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all",
-                  activeCategory === cat.id
-                    ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20"
-                    : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/10"
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                {cat.label}
-              </button>
-            )
-          })}
         </div>
-
-        {/* Markets Grid */}
-        {analytics && (activeCategory === 'all' || activeCategory === 'topGainers') && (
-          <MarketSection
-            title="🚀 Top Gainers"
-            markets={analytics.topGainers}
-            onMarketClick={handleMarketClick}
-            type="gainer"
-          />
-        )}
-
-        {analytics && (activeCategory === 'all' || activeCategory === 'topLosers') && (
-          <MarketSection
-            title="📉 Top Losers"
-            markets={analytics.topLosers}
-            onMarketClick={handleMarketClick}
-            type="loser"
-          />
-        )}
-
-        {analytics && (activeCategory === 'all' || activeCategory === 'biggestMovers') && (
-          <MarketSection
-            title="⚡ Biggest Movers"
-            markets={analytics.biggestMovers}
-            onMarketClick={handleMarketClick}
-            type="mover"
-          />
-        )}
-
-        {/* Whale Trades */}
-        {whaleActivity && whaleActivity.trades.length > 0 && (activeCategory === 'all' || activeCategory === 'whaleActivity') && (
-          <WhaleTradesSection trades={whaleActivity.trades} />
-        )}
       </div>
     </div>
   )

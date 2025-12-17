@@ -13,22 +13,21 @@ export default function IndexMarketsPage() {
 
   const fetchStatus = async () => {
     try {
-      // Just set a placeholder status - we'll populate it after indexing
-      setStatus({
-        total: 6121,
-        byPlatform: {
-          kalshi: 0,
-          polymarket: 6121
-        },
-        byConfidence: {
-          high: 0,
-          medium: 6121,
-          low: 0
-        },
-        topCountries: []
-      })
+      const response = await fetch('/api/admin/stats')
+      if (!response.ok) {
+        throw new Error('Failed to fetch stats')
+      }
+      const data = await response.json()
+      setStatus(data)
     } catch (err: any) {
       console.error('Error fetching status:', err)
+      // Fallback to 0s if fetch fails, but don't show fake 6121
+      setStatus({
+        total: 0,
+        byPlatform: { kalshi: 0, polymarket: 0 },
+        byConfidence: { high: 0, medium: 0, low: 0 },
+        topCountries: []
+      })
     }
   }
 
@@ -83,7 +82,7 @@ export default function IndexMarketsPage() {
     try {
       // Use new optimized indexing endpoint
       const platforms = platform === 'all' ? ['polymarket', 'kalshi'] : [platform]
-      
+
       const response = await fetch('/api/markets/index-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

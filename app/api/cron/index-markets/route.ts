@@ -192,56 +192,44 @@ async function indexMarkets(
 
   for (const market of markets) {
     try {
-      // Extract location from market data
-      const location = extractLocation(market.title, market.description)
-
-      // Enrich location with market context
-      // Even if location is null, we might want to store the market (non-geotagged) 
-      // OR specifically only store geotagged ones. 
-      // The current logic was "if (!location) continue". 
-      // This implies we ONLY want Geotagged markets in the "GeotaggedMarket" table. Valid.
-
-      if (!location) {
-        // No location found, skip
+      // Skip markets that have already expired
+      if (market.endDate && new Date(market.endDate) < new Date()) {
         skipped++
         continue
       }
 
-      const enrichedLocation = enrichLocationData(location, {
-        category: market.category,
-        tags: market.rawData?.tags
-      })
+      // Extract location from market data (optional now)
+      const location = await extractLocation(market.title, market.description)
 
-      // Store or update in database
+      let enrichedLocation: any = {
+        country: null,
+        region: null,
+        city: null,
+        coordinates: null,
+        confidence: null,
+        extractedFrom: null
+      }
+
+      if (location) {
+        enrichedLocation = enrichLocationData(location, {
+          category: market.category,
+          tags: market.rawData?.tags
+        })
+      }
+
+      // Store or update in database - ALWAYS, whether we have location or not
       const marketId = `${platform}-${market.id}`
       const existing = await prisma.geotaggedMarket.findUnique({
         where: { marketId }
       })
 
       // Smart Update Logic:
-      // 1. If forceReindex: Update it.
-      // 2. If not exists: Create it.
-      // 3. If exists AND has NO location but we found one now: Update it.
-      // 4. If exists AND has location but we found a BETTER one (higher confidence): Update it.
+      // Always update if forceReindex is true or if it doesn't exist.
+      // If it exists, we generally still want to update price/volume/prob, so we should arguably always update.
+      // But to be efficient, maybe we only update if data changed? 
+      // For now, let's ALWAYS upsert to ensure data freshness as per user request "everything is on the site".
 
-      let shouldUpdate = false
-      if (forceReindex || !existing) {
-        shouldUpdate = true
-      } else {
-        // Exists. Check if we can improve it.
-        if (existing.latitude === null && enrichedLocation.coordinates) {
-          shouldUpdate = true // Found location for previously unlocated market
-        } else if (existing.confidence !== 'high' && enrichedLocation.confidence === 'high') {
-          shouldUpdate = true // Found high confidence location for previously low confidence market
-        }
-      }
-
-      if (existing && !shouldUpdate) {
-        skipped++
-        continue
-      }
-
-      // Upsert geotagged market
+      // Upsert geotagged market (now includes non-geotagged ones too)
       await prisma.geotaggedMarket.upsert({
         where: { marketId },
         create: {
@@ -257,13 +245,14 @@ async function indexMarkets(
           endDate: market.endDate,
           slug: market.slug,
           ticker: market.ticker,
-          country: enrichedLocation.country,
-          region: enrichedLocation.region,
-          city: enrichedLocation.city,
-          latitude: enrichedLocation.coordinates?.lat,
-          longitude: enrichedLocation.coordinates?.lng,
-          confidence: enrichedLocation.confidence,
-          extractedFrom: enrichedLocation.extractedFrom,
+          // Location fields (nullable)
+          country: enrichedLocation.country || null,
+          region: enrichedLocation.region || null,
+          city: enrichedLocation.city || null,
+          latitude: enrichedLocation.coordinates?.lat || null,
+          longitude: enrichedLocation.coordinates?.lng || null,
+          confidence: enrichedLocation.confidence || null,
+          extractedFrom: enrichedLocation.extractedFrom || null,
           rawData: market.rawData || {},
         },
         update: {
@@ -273,13 +262,16 @@ async function indexMarkets(
           volume24h: market.volume24h,
           liquidity: market.liquidity,
           endDate: market.endDate,
-          country: enrichedLocation.country,
-          region: enrichedLocation.region,
-          city: enrichedLocation.city,
-          latitude: enrichedLocation.coordinates?.lat,
-          longitude: enrichedLocation.coordinates?.lng,
-          confidence: enrichedLocation.confidence,
-          extractedFrom: enrichedLocation.extractedFrom,
+          // Update location only if we actually found one, OR if we want to overwrite with null? 
+          // Let's overwrite with whatever we found (even if null) to keep strictly in sync?
+          // Actually, if we improved logic, we might want to overwrite.
+          country: enrichedLocation.country || null,
+          region: enrichedLocation.region || null,
+          city: enrichedLocation.city || null,
+          latitude: enrichedLocation.coordinates?.lat || null,
+          longitude: enrichedLocation.coordinates?.lng || null,
+          confidence: enrichedLocation.confidence || null,
+          extractedFrom: enrichedLocation.extractedFrom || null,
           updatedAt: new Date(),
         }
       })

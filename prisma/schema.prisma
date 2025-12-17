@@ -170,3 +170,18 @@ model MarketSyncState {
   lastSyncAt  DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model MarketPriceHistory {
+  id          String   @id @default(cuid())
+  marketId    String   // External market ID from platform
+  platform    String   // "polymarket" or "kalshi"
+  price       Float    // Current probability/price
+  volume24h   Float    @default(0)
+  liquidity   Float?
+  metadata    Json     @default("{}")
+  timestamp   DateTime @default(now())
+
+  @@index([marketId, timestamp(sort: Desc)])
+  @@index([platform, timestamp(sort: Desc)])
+  @@index([timestamp(sort: Desc)])
+}
