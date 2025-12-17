@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { EnrichedMarket } from '@/lib/markets/enrich'
-import { X, ExternalLink, TrendingUp, TrendingDown, BarChart2, DollarSign, Calendar, MapPin } from 'lucide-react'
+import { X, ExternalLink, TrendingUp, TrendingDown, BarChart2, DollarSign, Calendar, MapPin, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { useLiveVolume, getEventIdFromMarket } from '@/hooks/use-live-volume'
 
 interface MarketDetailModalProps {
   market: EnrichedMarket | null
@@ -11,6 +12,13 @@ interface MarketDetailModalProps {
 
 export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModalProps) {
   const [mounted, setMounted] = useState(false)
+
+  // Fetch live volume for Polymarket markets
+  const eventId = market?.platform === 'polymarket' ? getEventIdFromMarket(market) : null
+  const { liveVolume, isLoading: isLoadingLiveVolume } = useLiveVolume(eventId, {
+    enabled: !!eventId && !!market && isOpen,
+    refreshInterval: 30000,
+  })
 
   useEffect(() => {
     if (isOpen) {
@@ -226,15 +234,29 @@ export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModal
 
             {/* Market Stats */}
             <div className="grid grid-cols-2 gap-4">
-              {market.volume24h !== undefined && (
+              {(market.volume24h !== undefined || liveVolume !== null) && (
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-white/50 text-sm">
                     <BarChart2 size={16} />
-                    <span>24h Volume</span>
+                    <span>{liveVolume !== null ? 'Live Volume' : '24h Volume'}</span>
+                    {liveVolume !== null && !isLoadingLiveVolume && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Live data" />
+                    )}
+                    {isLoadingLiveVolume && (
+                      <Activity className="w-3.5 h-3.5 animate-spin text-gray-500" />
+                    )}
                   </div>
-                  <div className="text-2xl font-bold text-white">
-                    {formatVolume(market.volume24h)}
+                  <div className={cn(
+                    "text-2xl font-bold",
+                    liveVolume !== null ? "text-emerald-300" : "text-white"
+                  )}>
+                    {isLoadingLiveVolume ? '...' : formatVolume(liveVolume ?? market.volume24h ?? 0)}
                   </div>
+                  {liveVolume !== null && market.volume24h && (
+                    <div className="text-xs text-gray-500">
+                      24h: {formatVolume(market.volume24h)}
+                  </div>
+                  )}
                 </div>
               )}
 

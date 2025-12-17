@@ -71,16 +71,9 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
             return null;
         }
 
-        const hasValidCoords = true; // We know it's valid because we filtered
-
-        // Apply jitter to prevent exact overlaps (only for valid coordinates)
-        if (hasValidCoords) {
-            const marketId = m.externalId || m.id || 'unknown';
-            [lng, lat] = applyJitter(lng, lat, marketId);
-        }
-
-        // Fix URL logic could go here too, but likely handled in map tooltip or type
-        // We assume properties are mostly passed through
+        // Apply jitter to prevent exact overlaps
+        const marketId = m.externalId || m.id || 'unknown';
+        [lng, lat] = applyJitter(lng, lat, marketId);
 
         // Fix Kalshi URL: Prefer series_ticker from rawData
         let marketUrl = m.url;
@@ -143,6 +136,7 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
     const { groups, ungroupedMarkets } = getMarketsWithGroups(markets);
     const features: GeoJSONFeature[] = [];
 
+    // Only show events (groups) on the map, not individual markets
     // Add grouped markets as single features (only if they have valid coordinates)
     groups.forEach((group) => {
         // Use the location from the first market in the group
@@ -188,7 +182,7 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
                 isGroup: true,
                 groupId: group.groupId,
                 marketCount: group.markets.length,
-                // Store all market options
+                // Store all market options - preserve all data for matching
                 markets: group.markets.map(m => ({
                     id: m.id,
                     title: m.title,
@@ -197,97 +191,39 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
                     price: Number(m.price || m.probability || 0),
                     volume24h: Number(m.volume24h || 0),
                     platform: m.platform,
-                    description: m.description,
-                    imageUrl: m.imageUrl,
-                    endDate: m.endDate ? String(m.endDate) : null,
+                    description: m.description || '',
+                    imageUrl: m.imageUrl || null,
+                    endDate: m.endDate ? (typeof m.endDate === 'string' ? m.endDate : String(m.endDate)) : null,
                     url: m.platform === 'polymarket'
                         ? `https://polymarket.com/market/${m.slug || m.id}`
-                        : `https://kalshi.com/markets/${(m.rawData as any)?.series_ticker || m.ticker}`
+                        : `https://kalshi.com/markets/${(m.rawData as any)?.series_ticker || m.ticker}`,
+                    // Preserve rawData for event ID matching
+                    rawData: m.rawData || {},
                 })),
-                // Aggregate properties
+                // Aggregate properties for event display
                 last_price: group.markets[0].price || group.markets[0].probability || 0, // Show first option's price
                 volume: group.totalVolume,
+                volume24h: group.totalVolume, // For compatibility
                 liquidity: group.markets.reduce((sum, m) => sum + (m.liquidity || 0), 0),
                 category: group.category,
                 platform: primaryMarket.platform,
                 isBreakingNews: group.isBreakingNews,
-                is_random_location: !hasValidCoords,
-                image_url: primaryMarket.imageUrl || null,
-            }
-        });
-    });
-
-    // Add ungrouped markets as individual features (only if they have valid coordinates)
-    ungroupedMarkets.forEach((m) => {
-        const hasNestedCoords = m.location?.coordinates;
-        const hasDirectCoords = (m as any).latitude != null && (m as any).longitude != null;
-
-        // Skip markets without valid coordinates
-        if (!hasNestedCoords && !hasDirectCoords) {
-            return;
-        }
-
-        let lng, lat;
-        if (hasNestedCoords) {
-            lng = m.location!.coordinates.lng;
-            lat = m.location!.coordinates.lat;
-        } else if (hasDirectCoords) {
-            lng = (m as any).longitude;
-            lat = (m as any).latitude;
-        } else {
-            return; // Should not happen, but safety check
-        }
-
-        const hasValidCoords = true;
-
-        if (hasValidCoords) {
-            const marketId = (m as any).externalId || m.id || 'unknown';
-            [lng, lat] = applyJitter(lng, lat, marketId);
-        }
-
-        let marketUrl = (m as any).url;
-        if (!marketUrl) {
-            if (m.platform === 'polymarket') {
-                marketUrl = `https://polymarket.com/market/${m.slug || m.id}`;
-            } else {
-                const series = (m.rawData as any)?.series_ticker || (m as any).series_ticker;
-                marketUrl = `https://kalshi.com/markets/${series || m.ticker}`;
-            }
-        }
-
-        const actualId = (m as any).externalId || m.id;
-        const actualSlug = m.slug || actualId;
-
-        features.push({
-            type: 'Feature',
-            geometry: {
-                type: 'Point',
-                coordinates: [lng, lat]
-            },
-            properties: {
-                id: actualId,
-                market_id: actualId,
-                title: m.title || '',
-                slug: actualSlug || '',
-                ticker: m.ticker || '',
-                url: marketUrl || '',
-                last_price: Number(m.price || m.probability || 0),
-                volume: Number(m.volume24h || m.liquidity || 0),
-                liquidity: Number(m.liquidity || 0),
-                image_url: m.imageUrl || null,
-                is_open: true,
-                description: m.description || '',
-                category: m.category || '',
-                price_movement: Number((m as any).price_movement || 0),
-                isBreakingNews: Boolean(m.isBreakingNews),
-                platform: m.platform || '',
-                endDate: m.endDate ? String(m.endDate) : null,
                 is_random_location: false,
-                rawData: m.rawData ? JSON.stringify(m.rawData) : '{}',
-                isGroup: false,
+                image_url: primaryMarket.imageUrl || null,
+                description: primaryMarket.description || group.baseQuestion, // Event description
+                // Event metadata - prefer eventId from rawData (set when fetching from events API)
+                eventId: primaryMarket.rawData?.eventId 
+                  || primaryMarket.rawData?.events?.[0]?.id 
+                  || group.groupId 
+                  || null,
+                eventData: primaryMarket.rawData?.events?.[0] || null,
             }
         });
     });
+
+    // Skip ungrouped markets - we only show events (groups) on the map
+    // Individual markets will be shown in the right panel when an event is clicked
+    // ungroupedMarkets.forEach((m) => { ... }); // Removed - only show events
 
     return {
         type: 'FeatureCollection',

@@ -879,10 +879,135 @@ export class PolymarketClient {
     }
   }
 
+  /**
+   * Fetch events from Polymarket API
+   * Events contain their associated markets nested inside
+   */
+  async getEvents(params?: {
+    limit?: number
+    offset?: number
+    closed?: boolean
+    order?: string
+    ascending?: boolean
+  }): Promise<{ events: any[]; hasMore: boolean; nextOffset?: number }> {
+    try {
+      const limit = params?.limit || 100
+      const offset = params?.offset || 0
+      const closed = params?.closed !== undefined ? params.closed : false
+      const order = params?.order || 'id'
+      const ascending = params?.ascending !== undefined ? params.ascending : false
+
+      const url = new URL('https://gamma-api.polymarket.com/events')
+      url.searchParams.set('limit', String(limit))
+      url.searchParams.set('order', order)
+      url.searchParams.set('ascending', String(ascending))
+      url.searchParams.set('closed', String(closed))
+
+      if (offset > 0) {
+        url.searchParams.set('offset', String(offset))
+      }
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        console.error('[Polymarket] Events API error:', response.status, response.statusText)
+        return { events: [], hasMore: false, nextOffset: undefined }
+      }
+
+      const events = await response.json()
+      
+      if (!Array.isArray(events)) {
+        console.warn('[Polymarket] Events API returned non-array response')
+        return { events: [], hasMore: false, nextOffset: undefined }
+      }
+
+      console.log(`[Polymarket] Fetched ${events.length} events from API`)
+
+      // Check if there are more events (if we got the full limit, there might be more)
+      const hasMore = events.length === limit
+
+      return {
+        events,
+        hasMore,
+        nextOffset: hasMore ? offset + limit : undefined,
+      }
+    } catch (error) {
+      console.error('[Polymarket] Error fetching events:', error)
+      return { events: [], hasMore: false, nextOffset: undefined }
+    }
+  }
+
+  /**
+   * Get a specific event by ID or slug
+   */
+  async getEventByIdOrSlug(idOrSlug: string): Promise<any | null> {
+    try {
+      // Try by slug first
+      const url = new URL(`https://gamma-api.polymarket.com/events/slug/${idOrSlug}`)
+      
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (response.ok) {
+        const event = await response.json()
+        return event
+      }
+
+      // If slug fails, try by ID
+      const idUrl = new URL(`https://gamma-api.polymarket.com/events/${idOrSlug}`)
+      const idResponse = await fetch(idUrl.toString(), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (idResponse.ok) {
+        const event = await idResponse.json()
+        return event
+      }
+
+      return null
+    } catch (error) {
+      console.error('[Polymarket] Error fetching event by ID/slug:', error)
+      return null
+    }
+  }
+
   async getEventDetails(slugOrId: string): Promise<EventData | null> {
     try {
-      // Fetch market details from Gamma API
-      // Gamma API has endpoint: /markets?slug=<slug>
+      // Try to get event directly first (new approach)
+      const event = await this.getEventByIdOrSlug(slugOrId)
+      if (event && event.markets && Array.isArray(event.markets)) {
+        // Use the event's first market for event data
+        const primaryMarket = event.markets[0]
+        if (primaryMarket) {
+          const eventData: EventData = {
+            id: event.id?.toString() || slugOrId,
+            eventId: event.id?.toString() || slugOrId,
+            probability: parseFloat(primaryMarket.outcomePrices?.[0] || '0'),
+            liquidity: parseFloat(primaryMarket.liquidityNum?.toString() || '0'),
+            question: event.question || primaryMarket.question || '',
+            backgroundInfo: event.description || primaryMarket.description || '',
+            resolutionCriteria: event.description || primaryMarket.description || '',
+            dateRangeStart: event.startDate || primaryMarket.startDate || new Date().toISOString(),
+            dateRangeEnd: event.endDate || primaryMarket.endDateIso || new Date().toISOString(),
+            active: event.active !== false,
+            closed: event.closed === true,
+            searchQueries: undefined,
+            rankedArticles: undefined,
+          }
+          return eventData
+        }
+      }
+
+      // Fallback to old method: Fetch market details from Gamma API
       const url = new URL('https://gamma-api.polymarket.com/markets')
       url.searchParams.set('slug', slugOrId)
       url.searchParams.set('limit', '20') // Get related markets in same event

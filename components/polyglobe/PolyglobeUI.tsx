@@ -150,7 +150,12 @@ export function PolyglobeUI({
       {/* Top Left: Control Island */}
       <div className="absolute top-4 left-4 z-[1000] pointer-events-auto flex flex-col gap-3">
         {/* Logo & Main Controls */}
-        <div className="flex items-center gap-2 p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
+        <div 
+          className="flex items-center gap-2 p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl"
+          style={{
+            boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
+          }}
+        >
           {/* Logo */}
           <div className="flex items-center gap-0.5 px-3 py-1.5 bg-white/5 rounded-xl border border-white/5">
             <span className="font-serif text-lg italic font-bold text-white tracking-tight">Edge</span>
@@ -253,6 +258,12 @@ export function PolyglobeUI({
                   ? "bg-red-500/10 border-red-500/50 text-red-400"
                   : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
               )}
+              style={!activeFilters.breaking ? {
+                backgroundImage: "linear-gradient(90deg, rgba(255, 255, 255, 1) 55%, rgba(0, 0, 0, 1) 100%)",
+                backgroundClip: "text",
+                WebkitBackgroundClip: "text",
+                color: "transparent"
+              } : undefined}
             >
               <div className={cn("w-1.5 h-1.5 rounded-full", activeFilters.breaking ? "bg-red-500 animate-pulse" : "bg-gray-600")} />
               BREAKING
@@ -472,19 +483,26 @@ export function PolyglobeUI({
       <div className="absolute top-4 right-4 z-[1000] pointer-events-auto flex items-center gap-3">
         {/* Search Bar - Modernized */}
         <div className="relative group">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
-          </div>
           <input
             ref={inputRef}
             type="text"
-            className="block w-[320px] pl-10 pr-4 py-2.5 bg-[#0e0f11]/80 border border-white/10 rounded-2xl text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-xl transition-all shadow-xl font-sans tracking-tight"
+            className="block w-[320px] pl-10 pr-4 py-2.5 bg-[#0e0f11]/80 border border-white/10 rounded-2xl text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-xl transition-all font-sans tracking-tight"
+            style={{
+              boxShadow: "0px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)",
+              backgroundImage: "linear-gradient(90deg, rgba(255, 255, 255, 1) 55%, rgba(0, 0, 0, 1) 100%)",
+              backgroundClip: "text",
+              WebkitBackgroundClip: "text",
+              color: "transparent"
+            }}
             placeholder="Search markets or paste URL..."
             onChange={(e) => handleSearchInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
           />
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+            <Search className="h-4 w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
+          </div>
           {/* Search Results Dropdown */}
           {isSearchFocused && (searchResults.length > 0 || isSearching) && (
             <div className="absolute top-full left-0 right-0 mt-2">
@@ -502,7 +520,12 @@ export function PolyglobeUI({
         </div>
 
         {/* Action Buttons Group */}
-        <div className="flex items-center p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl gap-1">
+        <div 
+          className="flex items-center p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl gap-1"
+          style={{
+            boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
+          }}
+        >
           {/* Notifications */}
           <button
             onClick={onNotificationClick}
@@ -569,21 +592,11 @@ export function PolyglobeUI({
         </div>
       </div>
 
-      {/* Bottom Center: Ukraine Timeline (Positioned absolutely) - Only show in map/globe view */}
-      {!isInsightsView && (
-        <button
-          className="absolute flex items-center gap-2 px-4 py-2 bg-black/80 backdrop-blur-md border border-gray-700 rounded-full text-white hover:bg-gray-800 hover:border-blue-500/50 transition-all shadow-lg group pointer-events-auto z-40 justify-start flex-wrap"
-          style={{ left: '50%', bottom: '32px', transform: 'translateX(-50%)' }}
-        >
-          <span className="text-xs font-mono text-blue-400 uppercase tracking-wider">Ukraine War</span>
-          <div className="h-3 w-[1px] bg-gray-700"></div>
-          <span className="text-sm font-medium group-hover:text-blue-300">View Timeline</span>
-          <span className="text-gray-500 text-xs">›</span>
-        </button>
-      )}
     </div>
   );
 }
+
+
 
 
 

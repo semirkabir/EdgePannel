@@ -74,7 +74,7 @@ export function RightPanel({
                 )}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 bg-[#0e0f11] shrink-0">
+                <div className="flex items-center justify-between px-4 py-4 border-b border-white/5 bg-[#0e0f11] shrink-0">
                     <div className="flex flex-col min-w-0 mr-4">
                         {title && (
                             <h2 className="text-base font-bold text-gray-100 line-clamp-1">{title}</h2>
@@ -97,9 +97,11 @@ export function RightPanel({
                 </div>
 
                 {/* Main Scrollable Content */}
-                <ScrollArea className="flex-1 bg-[#0e0f11]">
-                    <div className="flex flex-col min-h-full pb-6">
+                <ScrollArea className="flex-1 bg-[#0e0f11] overflow-x-hidden">
+                    <div className="flex flex-col min-h-full pb-6 w-full max-w-full overflow-x-hidden">
+                        <div className="w-full max-w-full overflow-x-hidden">
                         {children}
+                        </div>
                     </div>
                 </ScrollArea>
             </div>

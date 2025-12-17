@@ -24,7 +24,11 @@
       "Bash(timeout /t 5 /nobreak)",
       "Bash(exit 0)",
       "Bash(cmd.exe /c \"del \"\"\\\\?\\C:\\Users\\kabir\\New folder\\nul\"\"\")",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__get_publishable_keys",
+      "mcp__supabase__execute_sql"
     ]
   },
   "enableAllProjectMcpServers": true,

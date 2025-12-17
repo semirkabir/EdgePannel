@@ -197,10 +197,11 @@ export function CandlestickChart({ data }: CandlestickChartProps) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <div className="w-full h-full max-w-full overflow-hidden">
+      <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
         data={chartData}
-        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+        margin={{ top: 10, right: 0, left: 0, bottom: 30 }}
       >
         <defs>
           <linearGradient id="colorUp" x1="0" y1="0" x2="0" y2="1">
@@ -224,11 +225,12 @@ export function CandlestickChart({ data }: CandlestickChartProps) {
         <XAxis
           dataKey="time"
           stroke="rgba(148, 163, 184, 0.3)"
-          style={{ fontSize: '11px' }}
+          style={{ fontSize: '10px' }}
           tick={{ fill: 'rgba(148, 163, 184, 0.6)' }}
           tickLine={false}
           axisLine={false}
-          minTickGap={50}
+          minTickGap={30}
+          interval="preserveStartEnd"
         />
 
         {/* Y Axis */}
@@ -273,5 +275,6 @@ export function CandlestickChart({ data }: CandlestickChartProps) {
         </Bar>
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   )
 }

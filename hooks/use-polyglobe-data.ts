@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useMarkets } from './use-markets';
+import { useEvents } from './use-events';
 import { useMarketWebSocket } from './use-market-websocket';
 import { MOCK_TWEETS } from '@/lib/polyglobe-data';
 import { marketsToGeoJSON, marketsToGeoJSONWithGroups } from '@/lib/utils/market-geojson';
@@ -22,27 +23,34 @@ export interface GeoJSONFeatureCollection {
 }
 
 export function usePolyglobeData() {
-  // 1. Fetch markets from our own internal API
+  // 1. Fetch events from Polymarket (events contain their markets)
+  const { events, markets: eventMarkets, isLoading: eventsLoading } = useEvents({
+    limit: 300,
+    closed: false,
+  });
+
+  // 2. Fetch regular markets from our own internal API (for Kalshi and fallback)
   const { markets: localMarkets, isLoading: marketsLoading } = useMarkets();
 
-  // 2. Construct the market features from our enriched local markets
+  // 3. Construct the market features from events (preferred) or regular markets
   const marketFeatures = useMemo(() => {
-    if (!localMarkets) return [];
+    // Prefer event markets (from Polymarket events API) as they have proper event grouping
+    const marketsToUse = eventMarkets.length > 0 ? eventMarkets : (localMarkets || []);
 
     // Filter for "Trending" markets (volume > 500)
-    const allTrending = localMarkets.filter(m => (m.volume24h || 0) > 500);
+    const allTrending = marketsToUse.filter(m => (m.volume24h || 0) > 500);
 
-    // Get Top 250 from Polymarket
+    // Get Top 500 from Polymarket (from events)
     const polyMarkets = allTrending
       .filter(m => m.platform === 'polymarket')
       .sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
-      .slice(0, 250);
+      .slice(0, 500);
 
-    // Get Top 250 from Kalshi
-    const kalshiMarkets = allTrending
-      .filter(m => m.platform === 'kalshi')
+    // Get Top 500 from Kalshi (from regular markets API)
+    const kalshiMarkets = (localMarkets || [])
+      .filter(m => m.platform === 'kalshi' && (m.volume24h || 0) > 500)
       .sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
-      .slice(0, 250);
+      .slice(0, 500);
 
     // Combine lists
     const mixedMarkets = [...polyMarkets, ...kalshiMarkets];
@@ -52,7 +60,7 @@ export function usePolyglobeData() {
 
     // Convert to GeoJSON with grouping support
     return marketsToGeoJSONWithGroups(enrichedMarkets).features;
-  }, [localMarkets]);
+  }, [eventMarkets, localMarkets]);
 
   // 3. Construct tweet features
   const tweetFeatures = useMemo(() => {
@@ -82,10 +90,15 @@ export function usePolyglobeData() {
       .filter(Boolean);
   }, [marketFeatures]);
 
-  // Pass localMarkets to useMarketWebSocket so it can find the platform for each ID
+  // Combine event markets and local markets for WebSocket
+  const allMarketsForWebSocket = useMemo(() => {
+    return eventMarkets.length > 0 ? eventMarkets : (localMarkets || [])
+  }, [eventMarkets, localMarkets])
+
+  // Pass all markets to useMarketWebSocket so it can find the platform for each ID
   const { getMarketUpdate } = useMarketWebSocket({
     watchlistMarketIds: marketIds,
-    markets: localMarkets
+    markets: allMarketsForWebSocket
   });
 
   // 5. Merge live updates into features and raw markets
@@ -137,16 +150,19 @@ export function usePolyglobeData() {
     }).filter(Boolean) as any[]; // Type assertion for now
 
     return { liveFeatures: features, liveMarkets: markets };
-  }, [marketFeatures, getMarketUpdate, localMarkets]);
+  }, [marketFeatures, getMarketUpdate, eventMarkets, localMarkets]);
 
   return {
     markets: { type: 'FeatureCollection', features: liveFeatures } as GeoJSONFeatureCollection,
     tweets: { type: 'FeatureCollection', features: tweetFeatures } as GeoJSONFeatureCollection,
     rawMarkets: liveMarkets,
-    isLoading: marketsLoading,
+    isLoading: eventsLoading || marketsLoading,
     usingRemote: false
   };
 }
+
+
+
 
 
 

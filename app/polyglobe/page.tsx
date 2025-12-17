@@ -15,6 +15,7 @@ import { useWhaleAlerts } from '@/hooks/use-whale-alerts';
 import { usePriceAlerts } from '@/hooks/use-price-alerts';
 import { marketsToGeoJSON } from '@/lib/utils/market-geojson';
 import { MarketDetails } from '@/components/panels/MarketDetails';
+import { useMarketWebSocket } from '@/hooks/use-market-websocket';
 import { NotificationCenter } from '@/components/panels/NotificationCenter';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
 import { AgentDashboard } from '@/components/agent/AgentDashboard';
@@ -46,11 +47,8 @@ export default function PolyglobePage() {
 
   // Whale Trade Detection Setup
   const { createGlobalAlert, alerts: whaleAlerts, isLoaded: whaleAlertsLoaded } = useWhaleAlerts();
-  const { processTicker, unreadCount: whaleUnreadCount } = useWhaleTrades({ enabled: true });
   const { triggeredAlertCount } = usePriceAlerts();
 
-  // Combined notification count
-  const totalNotificationCount = whaleUnreadCount + triggeredAlertCount;
 
   // Handle view reset (both zoom and pan)
   const handleResetZoom = () => {
@@ -83,7 +81,6 @@ export default function PolyglobePage() {
     q: searchQuery,
     platform: selectedPlatform,
     limit: 10,
-    onTickerUpdate: processTicker,
   });
 
   // 2. Fetch ALL geotagged markets (no more limits!)
@@ -101,7 +98,6 @@ export default function PolyglobePage() {
     platform: selectedPlatform,
     sort: sortBy as 'volume' | 'relevance' | 'liquidity',
     limit: 500, // Fetch more markets as fallback
-    onTickerUpdate: processTicker,
   });
 
   // Use geotagged markets if available AND no error, otherwise fall back to search results
@@ -110,34 +106,54 @@ export default function PolyglobePage() {
   const mapFilteredMarkets = shouldUseFallback ? fallbackMarkets : geotaggedMarkets;
   const isMapFiltering = shouldUseFallback ? isFallbackLoading : isGeotaggedLoading;
 
-  // Process tickers for whale trade detection
-  useEffect(() => {
-    mapFilteredMarkets.forEach(market => {
-      if (market.ticker || market.slug) {
-        const marketId = market.ticker || market.slug || ''
-        const price = market.price || 0
-        const volume = market.volume24h || 0
-        processTicker(market.platform, marketId, price, volume);
+  // Initialize Whale Trades with the currently displayed markets
+  const { processTicker, unreadCount: whaleUnreadCount } = useWhaleTrades({
+    enabled: true,
+    markets: mapFilteredMarkets
+  });
+
+  // Combined notification count
+  const totalNotificationCount = whaleUnreadCount + triggeredAlertCount;
+
+  // Setup WebSocket for live updates on displayed markets
+  const marketIds = useMemo(() => {
+    return mapFilteredMarkets.slice(0, 100).map(m => m.id); // Limit to top 100 for WS performance
+  }, [mapFilteredMarkets]);
+
+  const { getMarketUpdate } = useMarketWebSocket({
+    watchlistMarketIds: marketIds,
+    markets: mapFilteredMarkets,
+    onTickerUpdate: processTicker,
+  });
+
+  // Merge live updates
+  const liveMapFilteredMarkets = useMemo(() => {
+    if (!mapFilteredMarkets.length) return mapFilteredMarkets;
+
+    return mapFilteredMarkets.map(m => {
+      const update = getMarketUpdate(m.id);
+      if (update) {
+        return {
+          ...m,
+          price: update.price ?? m.price,
+          volume24h: update.volume24h ?? m.volume24h,
+          probability: update.price ?? m.probability,
+          // Calculate movement if we have previous price
+          price_movement: (update.price && m.price) ? (update.price - m.price) / m.price : (m.price_movement || 0)
+        };
       }
+      return m;
     });
-  }, [mapFilteredMarkets, processTicker]);
+  }, [mapFilteredMarkets, getMarketUpdate]);
 
   // Convert map filtered markets to GeoJSON features for override
   const overrideMarkets = useMemo(() => {
-    // Always use filtered markets now (since "All" is the default category selection)
-    console.log('[Polyglobe] Filters active:', { selectedCategories, selectedPlatform, isAllCategories });
-    console.log('[Polyglobe] mapFilteredMarkets count:', mapFilteredMarkets.length);
-    console.log('[Polyglobe] mapFilteredMarkets sample:', mapFilteredMarkets.slice(0, 2));
-
-    let features = marketsToGeoJSON(mapFilteredMarkets).features;
+    let features = marketsToGeoJSON(liveMapFilteredMarkets).features;
 
     // Verify features is an array (fix potential upstream issues)
     if (!Array.isArray(features)) {
       features = (features as any)?.features || [];
     }
-
-    console.log('[Polyglobe] Converted to GeoJSON features:', features.length);
-    console.log('[Polyglobe] Sample feature:', features[0]);
 
     // Ensure selectedMarket is included in the filtered view so it can be located
     if (selectedMarket) {
@@ -152,10 +168,8 @@ export default function PolyglobePage() {
         }
       }
     }
-
-    console.log('[Polyglobe] Final overrideMarkets features:', features.length);
     return features;
-  }, [mapFilteredMarkets, selectedCategories, selectedPlatform, selectedMarket, isAllCategories]);
+  }, [liveMapFilteredMarkets, selectedCategories, selectedPlatform, selectedMarket, isAllCategories]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -202,7 +216,6 @@ export default function PolyglobePage() {
 
       const data = await response.json();
       if (data.market) {
-        console.log('[Polyglobe] Market fetched from URL:', data.market);
         setSelectedMarket(data.market);
         setSelectedCountry(null);
       }
@@ -277,7 +290,6 @@ export default function PolyglobePage() {
   };
 
   const handleMarketClick = (market: EnrichedMarket | null) => {
-    console.log('Market selected:', market);
     setSelectedMarket(market);
     if (market) {
       setSelectedCountry(null);
@@ -388,6 +400,10 @@ export default function PolyglobePage() {
     </div>
   );
 }
+
+
+
+
 
 
 

@@ -1,14 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { MarketDetails as MarketDetailsType, Candlestick } from '@/types/market'
 import { Button } from '@/components/ui/button'
 import { MarketChart } from '@/components/charts/MarketChart'
 import { CandlestickChart } from '@/components/charts/CandlestickChart'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TrendingUp, TrendingDown, ExternalLink, Landmark, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid } from 'lucide-react'
+import { TrendingUp, TrendingDown, ExternalLink, Landmark, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid, BarChart2, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { RightPanel } from '@/components/ui/RightPanel'
+import { useLiveVolume, getEventIdFromMarket } from '@/hooks/use-live-volume'
+import { useOpenInterest } from '@/hooks/use-open-interest'
+import { useVirtualizer } from '@tanstack/react-virtual'
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -25,13 +28,19 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 }
 
 interface MarketDetailsProps {
-  market: MarketDetailsType | null
+  market: MarketDetailsType | any | null // Can be a market or an event object
   onClose: () => void
 }
 
 export function MarketDetails({ market, onClose }: MarketDetailsProps) {
-  // Cache the market so we can display it while the panel is animating out
-  const [activeMarket, setActiveMarket] = useState<MarketDetailsType | null>(market)
+  // Check if market is actually an event (has markets array)
+  const isEvent = market && (market as any).isEvent === true && Array.isArray((market as any).markets)
+  
+  // Cache the market/event so we can display it while the panel is animating out
+  const [activeMarket, setActiveMarket] = useState<MarketDetailsType | null>(
+    isEvent ? null : (market as MarketDetailsType | null)
+  )
+  const [activeEvent, setActiveEvent] = useState<any>(isEvent ? market : null)
   const [timeRange, setTimeRange] = useState('1W')
   const [chartType, setChartType] = useState<'line' | 'candle'>('line')
   const [candlesticks, setCandlesticks] = useState<Candlestick[]>([])
@@ -43,10 +52,71 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const [topHolders, setTopHolders] = useState<any[]>([])
   const [isLoadingHolders, setIsLoadingHolders] = useState(false)
   const [commentSort, setCommentSort] = useState<'recent' | 'likes'>('recent')
+  const [expandedMarketIds, setExpandedMarketIds] = useState<Set<string>>(new Set()) // Track which markets are expanded
+  const [relatedMarketsByTags, setRelatedMarketsByTags] = useState<any[]>([])
+  const [isLoadingRelatedByTags, setIsLoadingRelatedByTags] = useState(false)
+
+  // Virtualizer for related markets
+  const relatedParentRef = useRef<HTMLDivElement>(null)
+  const relatedVirtualizer = useVirtualizer({
+    count: relatedMarketsByTags.length,
+    getScrollElement: () => relatedParentRef.current,
+    estimateSize: () => 80, // Height of related market row + padding
+    overscan: 5,
+  })
+
+  // Fetch live volume for Polymarket markets
+  const eventId = activeMarket?.platform === 'polymarket' ? getEventIdFromMarket(activeMarket) : null
+  const { liveVolume, isLoading: isLoadingLiveVolume } = useLiveVolume(eventId, {
+    enabled: !!eventId && !!activeMarket,
+    refreshInterval: 30000,
+  })
+
+  // Fetch Open Interest for Polymarket markets
+  const conditionId = activeMarket?.platform === 'polymarket' 
+    ? (activeMarket.id || activeMarket.rawData?.conditionId) 
+    : null
+  const { openInterest, isLoading: isLoadingOI } = useOpenInterest(conditionId || undefined, {
+    enabled: !!conditionId && !!activeMarket && activeMarket.platform === 'polymarket',
+    refreshInterval: 30000,
+  })
 
   useEffect(() => {
     if (market) {
-      setActiveMarket(market)
+      const isEventData = (market as any).isEvent === true && Array.isArray((market as any).markets)
+      if (isEventData) {
+        setActiveEvent(market)
+        // Set the first market as active by default
+        const firstMarket = (market as any).markets[0]
+        if (firstMarket) {
+          // Preserve more data from the original market object
+          const fullMarket = {
+            id: firstMarket.id,
+            title: firstMarket.title,
+            description: firstMarket.description || '',
+            platform: (market as any).platform,
+            volume24h: firstMarket.volume24h || 0,
+            price: firstMarket.price || 0,
+            probability: firstMarket.price || 0,
+            slug: firstMarket.slug || firstMarket.id,
+            ticker: firstMarket.ticker || '',
+            category: (market as any).category,
+            imageUrl: firstMarket.imageUrl,
+            endDate: firstMarket.endDate ? (typeof firstMarket.endDate === 'string' ? new Date(firstMarket.endDate) : firstMarket.endDate) : undefined,
+            rawData: firstMarket.rawData || {},
+            tags: firstMarket.tags || firstMarket.rawData?.tags || (market as any).tags || [],
+          }
+          setActiveMarket(fullMarket as MarketDetailsType)
+        } else {
+          setActiveMarket(null)
+        }
+      } else {
+        setActiveMarket(market as MarketDetailsType)
+        setActiveEvent(null)
+      }
+    } else {
+      setActiveMarket(null)
+      setActiveEvent(null)
     }
   }, [market])
 
@@ -130,12 +200,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
           }
         }
 
-        console.log('[MarketDetails] Fetching history:', url)
         const response = await fetch(url)
         if (response.ok) {
           const data = await response.json()
           if (data.history && Array.isArray(data.history)) {
-            console.log('[MarketDetails] Received history points:', data.history.length)
             setActiveMarket(prev => prev ? ({
               ...prev,
               priceHistory: data.history
@@ -274,12 +342,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
           params.set('conditionId', conditionId)
         }
 
-        console.log('[MarketDetails] Fetching comments with params:', params.toString())
         const response = await fetch(`/api/markets/comments?${params.toString()}`)
 
         if (response.ok) {
           const data = await response.json()
-          console.log('[MarketDetails] Received comments:', data.comments?.length || 0, 'source:', data.source || 'unknown')
           // Sort by reaction count (highest to lowest)
           const sortedComments = (data.comments || []).sort((a: any, b: any) => {
             return (b.likes || 0) - (a.likes || 0)
@@ -298,9 +364,16 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     fetchComments()
   }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeMarket?.slug])
 
-  // Fetch related markets from the same event
+  // Fetch related markets from the same event (only for non-event markets)
+  // When we have an activeEvent, we already have all markets, so skip this fetch
   useEffect(() => {
     const fetchRelatedMarkets = async () => {
+      // Skip if we already have event data with markets
+      if (activeEvent && activeEvent.markets && Array.isArray(activeEvent.markets)) {
+        setRelatedMarkets([])
+        return
+      }
+
       if (!activeMarket || activeMarket.platform !== 'polymarket') {
         setRelatedMarkets([])
         return
@@ -314,12 +387,13 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
       setIsLoadingRelated(true)
       try {
-        console.log('[MarketDetails] Fetching related markets for event:', eventId)
-        const response = await fetch(`https://gamma-api.polymarket.com/events/${eventId}`)
+        // Use our API route instead of direct fetch to avoid CORS
+        const response = await fetch(`/api/markets/event-details?platform=polymarket&eventId=${eventId}`)
 
         if (response.ok) {
-          const eventData = await response.json()
-          const markets = eventData.markets || []
+          const data = await response.json()
+          const eventData = data.eventData
+          const markets = eventData?.markets || []
 
           // Filter out the current market and sort by volume
           const otherMarkets = markets
@@ -366,13 +440,135 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         }
       } catch (error) {
         console.error('[MarketDetails] Error fetching related markets:', error)
+        setRelatedMarkets([]) // Set empty on error
       } finally {
         setIsLoadingRelated(false)
       }
     }
 
     fetchRelatedMarkets()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeEvent])
+
+  // Fetch related markets by tags
+  useEffect(() => {
+    // Reset related markets when market changes
+    setRelatedMarketsByTags([])
+    setIsLoadingRelatedByTags(false)
+    
+    const fetchRelatedByTags = async () => {
+      if (!activeMarket || activeMarket.platform !== 'polymarket') {
+        setRelatedMarketsByTags([])
+        setIsLoadingRelatedByTags(false)
+        return
+      }
+
+      // Get tags from market - try multiple sources
+      // Polymarket API returns tags as objects with {id, slug, label} or as strings
+      let tagObjects: any[] = []
+      
+      // Try to get tag objects from rawData (from events API or market details)
+      if (activeMarket.rawData?.tags && Array.isArray(activeMarket.rawData.tags)) {
+        tagObjects = activeMarket.rawData.tags.filter((t: any) => 
+          typeof t === 'object' && (t.slug || t.id || t.label)
+        )
+      }
+      
+      // If no tag objects, try to get from market.tags (might be strings or objects)
+      if (tagObjects.length === 0 && activeMarket.tags) {
+        tagObjects = activeMarket.tags
+          .filter((t: any) => typeof t === 'object' && (t.slug || t.id || t.label))
+          .map((t: any) => typeof t === 'object' ? t : null)
+          .filter(Boolean)
+      }
+      
+      // If still no tag objects, try to fetch tags from API using market ID
+      if (tagObjects.length === 0 && activeMarket.id) {
+        try {
+          const tagsResponse = await fetch(`/api/markets/${activeMarket.id}/tags`, {
+            cache: 'no-store' // Prevent caching
+          })
+          if (tagsResponse.ok) {
+            const tagsData = await tagsResponse.json()
+            if (tagsData.tags && Array.isArray(tagsData.tags) && tagsData.tags.length > 0) {
+              tagObjects = tagsData.tags.filter((t: any) => typeof t === 'object' && (t.slug || t.id))
+            }
+          }
+        } catch (e) {
+          // Fallback to category if tag fetch fails
+        }
+      }
+      
+      // Fallback: use category as tag name if no tag objects found
+      if (tagObjects.length === 0 && activeMarket.category) {
+        // We'll need to convert category to slug, but this is less ideal
+        const categorySlug = activeMarket.category
+          .toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-]/g, '')
+        
+        if (categorySlug) {
+          tagObjects = [{ slug: categorySlug, label: activeMarket.category }]
+        }
+      }
+      
+      if (tagObjects.length === 0) {
+        setRelatedMarketsByTags([])
+        setIsLoadingRelatedByTags(false)
+        return
+      }
+
+      // Use the first tag's slug (preferred) or ID
+      const primaryTag = tagObjects[0]
+      const tagSlug = primaryTag.slug || primaryTag.label?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      const tagId = primaryTag.id
+
+      if (!tagSlug && !tagId) {
+        setRelatedMarketsByTags([])
+        setIsLoadingRelatedByTags(false)
+        return
+      }
+
+      setIsLoadingRelatedByTags(true)
+      try {
+        const params = new URLSearchParams({
+          limit: '20',
+        })
+        
+        // Prefer tagId over tagSlug for more accurate results
+        if (tagId) {
+          params.set('tagId', String(tagId))
+        } else if (tagSlug) {
+          params.set('tagSlug', tagSlug)
+        }
+        
+        if (activeMarket.id) {
+          params.set('marketId', activeMarket.id)
+        }
+
+        // Add cache-busting parameter to ensure fresh data
+        params.set('_t', Date.now().toString())
+
+        const response = await fetch(`/api/markets/related-by-tags?${params.toString()}`, {
+          cache: 'no-store' // Prevent browser caching
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setRelatedMarketsByTags(data.markets || [])
+        } else {
+          console.error('[MarketDetails] Related markets API error:', response.status, response.statusText)
+          setRelatedMarketsByTags([])
+        }
+      } catch (error) {
+        console.error('[MarketDetails] Error fetching related markets by tags:', error)
+        setRelatedMarketsByTags([])
+      } finally {
+        setIsLoadingRelatedByTags(false)
+      }
+    }
+
+    fetchRelatedByTags()
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.tags, activeMarket?.tags, activeMarket?.category])
 
   // Fetch top holders for Polymarket markets
   useEffect(() => {
@@ -431,11 +627,36 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
   const category = getCategory()
 
+  // Debug: Log event markets
+  useEffect(() => {
+    if (activeEvent) {
+      console.log('[MarketDetails] ActiveEvent:', {
+        id: activeEvent.id,
+        title: activeEvent.title,
+        marketsCount: activeEvent.markets?.length || 0,
+        hasMarkets: Array.isArray(activeEvent.markets),
+        markets: activeEvent.markets?.map((m: any) => ({ 
+          id: m.id, 
+          title: m.title,
+          price: m.price,
+          volume24h: m.volume24h 
+        })) || []
+      })
+      console.log('[MarketDetails] Active market:', { 
+        id: activeMarket?.id, 
+        slug: activeMarket?.slug,
+        ticker: activeMarket?.ticker 
+      })
+    } else {
+      console.log('[MarketDetails] No activeEvent')
+    }
+  }, [activeEvent, activeMarket])
+
   return (
     <RightPanel
       isOpen={!!market}
       onClose={onClose}
-      title={activeMarket?.title || 'Market'}
+      title={activeEvent ? activeEvent.title : (activeMarket?.title || 'Market')}
       subtitle={
         <div className="flex items-center gap-2 flex-wrap">
           <span className={cn(
@@ -450,14 +671,19 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               {category}
             </span>
           )}
+          {activeEvent && activeEvent.markets && (
+            <span className="text-[10px] text-gray-400">
+              {activeEvent.markets.length} {activeEvent.markets.length === 1 ? 'market' : 'markets'} in event
+            </span>
+          )}
         </div>
       }
     >
       {/* 1. Hero / Price Section (Gamified) */}
       {activeMarket && (
-        <div className="px-5 pt-8 pb-4 relative overflow-hidden">
+        <div className="px-4 pt-8 pb-4 relative overflow-hidden w-full max-w-full">
           {/* Compact Layout with Image on Side */}
-          <div className="flex items-start gap-4 mb-4">
+          <div className="flex items-start gap-4 mb-4 w-full max-w-full">
             {/* Left: Price Section */}
             <div className="flex-1 text-center">
               {/* Show specific option if this is part of a multi-option event */}
@@ -521,7 +747,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
       {/* Multi-Outcome Display */}
       {activeMarket && Array.isArray(activeMarket.outcomes) && Array.isArray(activeMarket.outcomePrices) && activeMarket.outcomes.length > 2 && (
-        <div className="px-5 mb-6 overflow-hidden">
+        <div className="px-4 mb-6 overflow-hidden">
           <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wide">All Outcomes</h3>
           <div className="space-y-2">
             {activeMarket.outcomes.map((outcome, index) => {
@@ -573,9 +799,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
       )}
 
       {/* 2. Chart Section */}
-      <div className="w-full h-[280px] mb-4 relative group overflow-hidden">
-        {/* Controls Bubble */}
-        <div className="absolute top-2 right-4 flex gap-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="px-4 mb-4 relative group overflow-hidden w-full max-w-full">
+        <div className="w-full h-[280px] relative overflow-hidden max-w-full">
+          {/* Controls Bubble */}
+          <div className="absolute top-2 right-2 flex gap-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex-wrap">
           {/* Chart Type Toggle - show for both platforms */}
           <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg border border-white/5 backdrop-blur-sm">
             <button
@@ -614,31 +841,36 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
           </div>
         </div>
 
-        {chartType === 'candle' && candlesticks.length > 0 ? (
-          <CandlestickChart data={candlesticks} />
-        ) : activeMarket?.priceHistory && activeMarket.priceHistory.length > 0 ? (
-          <MarketChart data={activeMarket.priceHistory} />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs tracking-wider">
-            {isLoadingHistory || isLoadingCandlesticks ? (
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            ) : (
-              'No chart data available'
-            )}
-          </div>
-        )}
+          {chartType === 'candle' && candlesticks.length > 0 ? (
+            <div className="w-full h-full max-w-full overflow-hidden">
+              <CandlestickChart data={candlesticks} />
+            </div>
+          ) : activeMarket?.priceHistory && activeMarket.priceHistory.length > 0 ? (
+            <div className="w-full h-full max-w-full overflow-hidden">
+              <MarketChart data={activeMarket.priceHistory} />
+            </div>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs tracking-wider">
+              {isLoadingHistory || isLoadingCandlesticks ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              ) : (
+                'No chart data available'
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 3. Action Buttons (Gamified) */}
       {activeMarket && (
-        <div className="px-5 mb-8 overflow-hidden">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="px-4 mb-8 overflow-hidden w-full max-w-full">
+          <div className="grid grid-cols-2 gap-3 w-full max-w-full">
             <Button
-              className="h-12 bg-[#00ff7f] hover:bg-[#00cc66] text-black font-bold text-base rounded-xl shadow-[0_0_20px_rgba(0,255,127,0.2)] border-0"
+              className="h-12 bg-[#00ff7f] hover:bg-[#00cc66] text-black font-bold text-sm rounded-xl shadow-[0_0_20px_rgba(0,255,127,0.2)] border-0 min-w-0 w-full"
               onClick={() => {
                 const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.slug || activeMarket.ticker || activeMarket.id}`);
                 window.open(url, '_blank');
@@ -647,7 +879,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               BUY YES
             </Button>
             <Button
-              className="h-12 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-base rounded-xl shadow-[0_0_20px_rgba(255,77,77,0.2)] border-0"
+              className="h-12 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-sm rounded-xl shadow-[0_0_20px_rgba(255,77,77,0.2)] border-0 min-w-0 w-full"
               onClick={() => {
                 const url = activeMarket.rawData?.url || (activeMarket.platform === 'polymarket' ? `https://polymarket.com/market/${activeMarket.slug || activeMarket.id}` : `https://kalshi.com/markets/${activeMarket.slug || activeMarket.ticker || activeMarket.id}`);
                 window.open(url, '_blank');
@@ -656,19 +888,58 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               BUY NO
             </Button>
           </div>
-          <div className="flex items-center justify-center gap-6 mt-4 text-xs font-mono text-gray-500">
-            <div className="flex flex-col items-center">
-              <span className="text-gray-300 font-bold mb-0.5">${(activeMarket.volume24h || 0).toLocaleString(undefined, { notation: 'compact' })}</span>
-              <span>VOL</span>
+          <div className="flex items-center justify-center gap-3 mt-4 text-xs font-mono text-gray-500 w-full max-w-full overflow-hidden px-1 flex-wrap">
+            <div className="flex flex-col items-center min-w-0">
+              {isLoadingLiveVolume ? (
+                <span className="text-gray-500 font-bold mb-0.5">...</span>
+              ) : (
+                <>
+                  <span className={cn(
+                    "font-bold mb-0.5 flex items-center gap-1 truncate",
+                    liveVolume !== null ? "text-emerald-300" : "text-gray-300"
+                  )}>
+                    ${((liveVolume ?? activeMarket.volume24h) || 0).toLocaleString(undefined, { notation: 'compact' })}
+                    {liveVolume !== null && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" title="Live volume" />
+                    )}
+                  </span>
+                  {liveVolume !== null && activeMarket.volume24h && (
+                    <span className="text-[10px] text-gray-600 truncate">24h: ${activeMarket.volume24h.toLocaleString(undefined, { notation: 'compact' })}</span>
+                  )}
+                </>
+              )}
+              <span className="truncate">{liveVolume !== null ? 'LIVE VOL' : 'VOL'}</span>
             </div>
-            <div className="w-px h-6 bg-white/10" />
-            <div className="flex flex-col items-center">
-              <span className="text-gray-300 font-bold mb-0.5">${(activeMarket.liquidity || 0).toLocaleString(undefined, { notation: 'compact' })}</span>
+            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+            <div className="flex flex-col items-center min-w-0">
+              <span className="text-gray-300 font-bold mb-0.5 truncate">${(activeMarket.liquidity || 0).toLocaleString(undefined, { notation: 'compact' })}</span>
               <span>LIQ</span>
             </div>
-            <div className="w-px h-6 bg-white/10" />
-            <div className="flex flex-col items-center">
-              <span className="text-gray-300 font-bold mb-0.5">
+            {activeMarket.platform === 'polymarket' && (openInterest || isLoadingOI) && (
+              <>
+                <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+                <div className="flex flex-col items-center min-w-0">
+                  {isLoadingOI ? (
+                    <span className="text-gray-500 font-bold mb-0.5">...</span>
+                  ) : openInterest ? (
+                    <>
+                      <span className="text-blue-300 font-bold mb-0.5 flex items-center gap-1 truncate">
+                        ${openInterest.totalOI.toLocaleString(undefined, { notation: 'compact' })}
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse flex-shrink-0" title="Open Interest" />
+                      </span>
+                      <span className="text-[10px] text-gray-600 truncate">
+                        Y: ${openInterest.yesOI.toLocaleString(undefined, { notation: 'compact' })} | 
+                        N: ${openInterest.noOI.toLocaleString(undefined, { notation: 'compact' })}
+                      </span>
+                    </>
+                  ) : null}
+                  <span>OI</span>
+                </div>
+              </>
+            )}
+            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+            <div className="flex flex-col items-center min-w-0">
+              <span className="text-gray-300 font-bold mb-0.5 truncate">
                 {getEndDateString()}
               </span>
               <span>ENDS</span>
@@ -677,9 +948,132 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         </div>
       )}
 
-      {/* 3.5. Related Markets in Same Event */}
-      {activeMarket && relatedMarkets.length > 0 && (
-        <div className="px-5 mb-6 overflow-hidden">
+      {/* 3.5. Market Outcomes List (Polymarket-style) - Show ALL markets in event */}
+      {activeMarket && activeEvent && activeEvent.markets && Array.isArray(activeEvent.markets) && activeEvent.markets.length > 0 && (
+        <div className="px-4 mb-6 overflow-hidden">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide">OUTCOME</h3>
+            <span className="text-xs text-gray-500 font-mono">% CHANCE</span>
+          </div>
+          
+          <div className="space-y-2">
+            {activeEvent.markets
+              .filter((m: any) => {
+                // Filter out the currently active market - only show other markets
+                const marketId = m.id || m.slug || m.ticker || ''
+                const marketIds = [m.id, m.slug, m.ticker].filter(Boolean).map(id => String(id).toLowerCase())
+              const activeMarketIds = [
+                activeMarket.id, 
+                activeMarket.slug, 
+                activeMarket.ticker,
+              ].filter(Boolean).map(id => String(id).toLowerCase())
+                return !marketIds.some(mid => activeMarketIds.includes(mid))
+              })
+              .map((m: any, idx: number) => {
+              const marketId = m.id || m.slug || m.ticker || String(idx)
+              const isExpanded = expandedMarketIds.has(marketId)
+              
+              const marketPrice = m.price || 0
+              const marketVolume = m.volume24h || 0
+              const buyYesPrice = marketPrice
+              const buyNoPrice = 1 - marketPrice
+              
+              return (
+                <div
+                  key={marketId}
+                  className="bg-gray-800/40 rounded-lg border border-gray-700/30 transition-all hover:border-gray-600/50"
+                >
+                  {/* Compact Market Row */}
+                  <div className="p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      {/* Left: Market Name and Volume */}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-white line-clamp-1 mb-1">
+                          {m.title || m.question}
+                        </h4>
+                        <div className="text-xs text-gray-400 font-mono">
+                          ${marketVolume.toLocaleString(undefined, { notation: 'compact' })} Vol.
+                        </div>
+                      </div>
+                      
+                      {/* Right: Probability and Buy Buttons */}
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="text-right">
+                          <div className={cn(
+                            "text-lg font-black tabular-nums",
+                            marketPrice >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]"
+                          )}>
+                            {Math.round(marketPrice * 100)}%
+                          </div>
+                        </div>
+                        
+                        {/* Buy Buttons */}
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="h-8 px-3 bg-[#00ff7f] hover:bg-[#00cc66] text-black font-bold text-xs rounded-lg"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const url = m.url || (m.platform === 'polymarket' ? `https://polymarket.com/market/${m.slug || m.id}` : `https://kalshi.com/markets/${m.ticker}`)
+                              window.open(url, '_blank')
+                            }}
+                          >
+                            Buy Yes {Math.round(buyYesPrice * 100)}¢
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8 px-3 bg-[#ff4d4d] hover:bg-[#cc0000] text-white font-bold text-xs rounded-lg"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const url = m.url || (m.platform === 'polymarket' ? `https://polymarket.com/market/${m.slug || m.id}` : `https://kalshi.com/markets/${m.ticker}`)
+                              window.open(url, '_blank')
+                            }}
+                          >
+                            Buy No {Math.round(buyNoPrice * 100)}¢
+                          </Button>
+                        </div>
+                        
+                        {/* Expand/Collapse Button */}
+                        <button
+                          onClick={() => {
+                            setExpandedMarketIds(prev => {
+                              const next = new Set(prev)
+                              if (next.has(marketId)) {
+                                next.delete(marketId)
+                              } else {
+                                next.add(marketId)
+                              }
+                              return next
+                            })
+                          }}
+                          className="p-1.5 hover:bg-gray-700/50 rounded transition-colors"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Expanded Content - This should not show since expanding switches active market */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-0 border-t border-gray-700/30">
+                      <p className="text-xs text-gray-400">Switching to this market...</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 3.6. Related Markets in Same Event (fallback for non-event markets) */}
+      {activeMarket && !activeEvent && relatedMarkets.length > 0 && (
+        <div className="px-4 mb-6 overflow-hidden">
           <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wide">Other Options</h3>
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
             {relatedMarkets.map((relMarket: any) => (
@@ -715,18 +1109,21 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
       {/* 4. Details / Tweets Tabs */}
       {activeMarket && (
-        <div className="px-5 w-full overflow-hidden">
-          <Tabs defaultValue="comments" className="w-full">
-            <TabsList className="w-full bg-white/5 p-1 rounded-xl mb-4 border border-white/5 shrink-0">
-              <TabsTrigger value="comments" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
+        <div className="px-4 w-full max-w-full overflow-hidden">
+          <Tabs defaultValue="comments" className="w-full max-w-full">
+            <TabsList className="w-full max-w-full bg-white/5 p-1 rounded-xl mb-4 border border-white/5 shrink-0 overflow-hidden">
+              <TabsTrigger value="comments" className="flex-1 rounded-lg text-[10px] font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500 min-w-0 px-1 text-center break-words">
                 {activeMarket.platform === 'polymarket' ? 'COMMENTS' : 'LATEST NEWS'}
               </TabsTrigger>
               {activeMarket.platform === 'polymarket' && (
-                <TabsTrigger value="holders" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
+                <TabsTrigger value="holders" className="flex-1 rounded-lg text-[10px] font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500 min-w-0 px-1 text-center break-words">
                   TOP HOLDERS
                 </TabsTrigger>
               )}
-              <TabsTrigger value="info" className="flex-1 rounded-lg text-xs font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500">
+              <TabsTrigger value="related" className="flex-1 rounded-lg text-[10px] font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500 min-w-0 px-1 text-center break-words">
+                RELATED
+              </TabsTrigger>
+              <TabsTrigger value="info" className="flex-1 rounded-lg text-[10px] font-bold data-[state=active]:bg-white/10 data-[state=active]:text-white text-gray-500 min-w-0 px-1 text-center break-words">
                 MARKET INFO
               </TabsTrigger>
             </TabsList>
@@ -938,21 +1335,110 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               </TabsContent>
             )}
 
+            <TabsContent value="related" className="mt-0 w-full overflow-hidden">
+              {isLoadingRelatedByTags ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              ) : relatedMarketsByTags.length > 0 ? (
+                <div 
+                  ref={relatedParentRef}
+                  className="max-h-[500px] overflow-y-auto scrollbar-hide w-full"
+                >
+                  <div
+                    style={{
+                      height: `${relatedVirtualizer.getTotalSize()}px`,
+                      width: '100%',
+                      position: 'relative',
+                    }}
+                  >
+                    {relatedVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const market = relatedMarketsByTags[virtualRow.index]
+                      return (
+                        <div
+                          key={market.id}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                            paddingBottom: '8px', // Space between items
+                          }}
+                        >
+                          <button
+                            onClick={() => {
+                              // Convert to full market format and select it
+                              const fullMarket = {
+                                id: market.id || market.conditionId,
+                                title: market.title,
+                                description: market.description || '',
+                                platform: 'polymarket',
+                                volume24h: market.volume24h || 0,
+                                price: market.price || 0,
+                                probability: market.price || 0,
+                                slug: market.slug,
+                                category: activeMarket?.category,
+                                imageUrl: market.imageUrl,
+                                endDate: market.endDate ? new Date(market.endDate) : undefined,
+                                rawData: market,
+                              }
+                              setActiveMarket(fullMarket as MarketDetailsType)
+                              setActiveEvent(null)
+                            }}
+                            className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 hover:border-white/10 transition-all group h-full"
+                          >
+                            <div className="flex-1 text-left min-w-0">
+                              <div className="text-sm font-medium text-white mb-1 group-hover:text-blue-400 transition-colors line-clamp-2">
+                                {market.title}
+                              </div>
+                              <div className="text-xs text-gray-500 font-mono">
+                                ${(market.volume24h || 0).toLocaleString(undefined, { notation: 'compact' })} vol
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                              <div className={cn(
+                                "text-2xl font-black tabular-nums",
+                                (market.price || 0) >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]"
+                              )}>
+                                {Math.round((market.price || 0) * 100)}%
+                              </div>
+                              <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors" />
+                            </div>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  No related markets found
+                </div>
+              )}
+            </TabsContent>
+
             <TabsContent value="info" className="mt-0 w-full overflow-hidden">
-              <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+              <div className="p-4 rounded-xl bg-white/5 border border-white/5 w-full max-w-full overflow-hidden">
                 <h4 className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">Description</h4>
-                <p className="text-xs text-gray-400 leading-relaxed mb-4">
+                <p className="text-xs text-gray-400 leading-relaxed mb-4 break-words overflow-wrap-anywhere max-w-full">
                   {activeMarket.description || 'No description available for this market.'}
                 </p>
 
-                <h4 className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide">Resolution Source</h4>
+                <h4 className="text-xs font-bold text-gray-300 mb-2 uppercase tracking-wide mt-4">Resolution Source</h4>
                 <a
                   href={activeMarket.rawData?.url || '#'}
                   target="_blank"
-                  className="flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors w-fit"
                 >
-                  <ExternalLink className="w-3 h-3" />
-                  {activeMarket.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'} Source
+                  <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">{activeMarket.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'} Source</span>
                 </a>
               </div>
             </TabsContent>

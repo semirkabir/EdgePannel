@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils/cn';
 import { loadGeoJSON } from '@/lib/geojson-loader';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { Landmark, TrendingUp, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid } from 'lucide-react';
+import { MarketPopupVolume } from './MarketPopup';
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -188,7 +189,6 @@ function InnerMap({
     const isInGracePeriod = Date.now() - lastSelectionTimeRef.current < 2000;
 
     if (selectedMarket && isUserInteracting && viewState.zoom < 3.5 && !isInGracePeriod) {
-      console.log('[InnerMap] Users zoomed out, deselecting market');
       if (onMarketSelect) {
         onMarketSelect(null);
       }
@@ -264,10 +264,6 @@ function InnerMap({
   const onHover = useCallback((event: MapLayerMouseEvent) => {
     const feature = event.features && event.features[0];
 
-    if (feature) {
-      console.log('[InnerMap] Hover detected on layer:', feature.layer.id);
-    }
-
     setHoverInfo(
       feature
         ? {
@@ -290,11 +286,7 @@ function InnerMap({
   };
 
   const onClick = useCallback(async (event: MapLayerMouseEvent) => {
-    console.log('[InnerMap] onClick triggered, isDragging:', isDraggingRef.current, 'features:', event.features?.length);
-    console.log('[InnerMap] event.features:', event.features);
-
     if (isDraggingRef.current) {
-      console.log('[InnerMap] Ignoring click because isDragging is true');
       return;
     }
 
@@ -302,23 +294,51 @@ function InnerMap({
     const feature = event.features && event.features.length > 0 ? event.features[0] : null;
 
     if (feature) {
-      console.log('[InnerMap] Feature detected, layer:', feature.layer.id);
-      console.log('[InnerMap] Feature properties:', feature.properties);
-
       if (feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer') {
-        const marketId = feature.properties?.id;
-        console.log('[InnerMap] Market clicked, ID:', marketId);
+        const props = feature.properties;
+        const isGroup = props.isGroup === true;
+        
+        // If it's a group (event), pass the event data with markets array
+        if (isGroup && props.markets && Array.isArray(props.markets)) {
+          // Parse markets if they're stored as JSON strings
+          let marketsArray = props.markets;
+          if (typeof marketsArray[0] === 'string') {
+            try {
+              marketsArray = marketsArray.map((m: string) => JSON.parse(m));
+            } catch (e) {
+              console.warn('[InnerMap] Failed to parse markets array:', e);
+            }
+          }
+          
+          // Create an event object that contains all markets
+          const eventData = {
+            id: props.id || props.groupId,
+            title: props.title || props.baseQuestion,
+            isEvent: true,
+            markets: marketsArray, // Array of market objects
+            platform: props.platform,
+            category: props.category,
+            totalVolume: props.volume || props.volume24h,
+            liquidity: props.liquidity,
+            imageUrl: props.image_url,
+            description: props.description || '',
+          };
+          
+          if (onMarketSelect) {
+            onMarketSelect(eventData);
+          }
+          setSelectedFeature(null);
+          return;
+        }
 
-        // Try to find full market data in rawMarkets (default view) OR from the feature properties itself (search view)
+        // Otherwise, it's a single market (shouldn't happen now, but keep for safety)
+        const marketId = props?.id;
         let market = rawMarkets?.find((m: any) => m.id === marketId);
 
         // If market not found in rawMarkets, reconstruct from feature properties
-        // This happens when using override markets (database/geotagged markets)
         if (!market) {
-          console.log('[InnerMap] Market not found in rawMarkets, reconstructing from feature properties');
-
           // Parse rawData if it's a JSON string
-          let rawData = feature.properties.rawData;
+          let rawData = props.rawData;
           if (typeof rawData === 'string') {
             try {
               rawData = JSON.parse(rawData);
@@ -329,25 +349,23 @@ function InnerMap({
           }
 
           market = {
-            id: feature.properties.id || feature.properties.market_id,
-            title: feature.properties.title,
-            description: feature.properties.description || '',
-            platform: feature.properties.platform,
-            volume24h: feature.properties.volume || feature.properties.volume24h,
-            price: feature.properties.last_price || feature.properties.price,
-            probability: feature.properties.last_price || feature.properties.price,
-            liquidity: feature.properties.liquidity,
-            endDate: feature.properties.endDate,
-            slug: feature.properties.slug,
-            ticker: feature.properties.ticker,
-            category: feature.properties.category,
+            id: props.id || props.market_id,
+            title: props.title,
+            description: props.description || '',
+            platform: props.platform,
+            volume24h: props.volume || props.volume24h,
+            price: props.last_price || props.price,
+            probability: props.last_price || props.price,
+            liquidity: props.liquidity,
+            endDate: props.endDate,
+            slug: props.slug,
+            ticker: props.ticker,
+            category: props.category,
             rawData: rawData || {},
           };
-          console.log('[InnerMap] Reconstructed market:', market);
         }
 
         if (market) {
-          console.log('[InnerMap] Calling handleCardClick');
           handleCardClick(market);
           setSelectedFeature(null);
         }
@@ -387,43 +405,31 @@ function InnerMap({
     // Handle both direct array of features and FeatureCollection object
     let features = Array.isArray(markets) ? markets : (markets?.features || []);
 
-    console.log('[InnerMap] Initial features count:', features.length);
-    console.log('[InnerMap] isUsingOverride:', isUsingOverride);
-    console.log('[InnerMap] activeFilters:', activeFilters);
-
     // IMPORTANT: When using override markets (category/platform filters active),
     // we should always show them regardless of "live" toggle state
     // The "live" toggle only affects the default global view
     if (!isUsingOverride) {
       // Only apply live filter when NOT using category/platform overrides
       if (!activeFilters.live && !activeFilters.heatmap) {
-        console.log('[InnerMap] Clearing features because live is off and not using override');
         features = [];
       }
-    } else {
-      console.log('[InnerMap] Using override, keeping all features regardless of live toggle');
     }
 
     // Filter for active/breaking - apply to all cases
     if (activeFilters.breaking) {
-      const beforeCount = features.length;
       features = features.filter((f: any) =>
         (f.properties.volume > 50000) || f.properties.price_movement > 0.05
       );
-      console.log('[InnerMap] Breaking filter applied:', beforeCount, '->', features.length);
     }
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      const beforeCount = features.length;
       features = features.filter((f: any) =>
         (f.properties.title || '').toLowerCase().includes(q) ||
         (f.properties.description || '').toLowerCase().includes(q)
       );
-      console.log('[InnerMap] Search filter applied:', beforeCount, '->', features.length);
     }
 
-    console.log('[InnerMap] Final filtered features:', features.length);
     return { type: 'FeatureCollection', features };
   }, [markets, activeFilters, searchQuery, isUsingOverride]);
 
@@ -622,10 +628,18 @@ function InnerMap({
                 ))}
               </div>
 
-              {/* Total Volume */}
-              <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30 mb-2">
-                <div className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">Total Volume 24h</div>
-                <div className="text-xs font-bold text-white">${(props.volume / 1000).toFixed(1)}k</div>
+              {/* Event Stats - Volume and OI */}
+              <div className="flex gap-1.5 mb-2">
+                <MarketPopupVolume
+                  market={{
+                    id: props.id || props.groupId,
+                    rawData: props.rawData ? (typeof props.rawData === 'string' ? JSON.parse(props.rawData) : props.rawData) : {},
+                    eventData: props.eventData,
+                    eventId: props.eventId,
+                  }}
+                  volume24h={props.volume || props.volume24h}
+                  platform={props.platform}
+                />
               </div>
             </div>
           ) : isMarket ? (
@@ -676,14 +690,20 @@ function InnerMap({
                 )}
               </div>
 
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 gap-1.5 mb-2">
-                <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30">
-                  <div className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">Volume 24h</div>
-                  <div className="text-xs font-bold text-white">${(props.volume / 1000).toFixed(1)}k</div>
-                </div>
+              {/* Stats Grid - Volume and OI side by side */}
+              <div className="flex gap-1.5 mb-2">
+                <MarketPopupVolume
+                  market={{
+                    id: props.id || props.market_id,
+                    rawData: props.rawData ? (typeof props.rawData === 'string' ? JSON.parse(props.rawData) : props.rawData) : {},
+                    eventData: props.eventData,
+                    eventId: props.eventId,
+                  }}
+                  volume24h={props.volume || props.volume24h}
+                  platform={props.platform}
+                />
                 {props.price_movement !== undefined && props.price_movement !== 0 && (
-                  <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30">
+                  <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30 flex-1">
                     <div className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">24h Change</div>
                     <div className={cn(
                       "text-xs font-bold",
@@ -875,15 +895,13 @@ function InnerMap({
 
   // Only log on mount or when interactive IDs change
   useEffect(() => {
-    console.log('[InnerMap] interactiveLayerIds updated:', interactiveIds);
+    // console.log('[InnerMap] interactiveLayerIds updated:', interactiveIds);
   }, [interactiveIds]);
 
   return (
     <div
       className="w-full h-full relative"
       style={{ backgroundColor: projection === 'globe' ? 'transparent' : '#030712' }}
-      onMouseMove={() => console.log('[Container] Mouse moved over map container')}
-      onClick={() => console.log('[Container] Click detected on map container')}
     >
       <Map
         ref={mapRef}
@@ -907,13 +925,11 @@ function InnerMap({
         onPitchStart={handleInteractionStart}
         onPitchEnd={handleInteractionEnd}
         onMouseDown={(e) => {
-          console.log('[InnerMap] onMouseDown fired');
           handleInteractionStart(e);
         }}
         onTouchStart={handleInteractionStart}
         onMouseMove={onHover}
         onClick={(e) => {
-          console.log('[InnerMap] onClick PROP FIRED');
           onClick(e);
         }}
         style={{ width: '100%', height: '100%' }}
@@ -995,10 +1011,6 @@ export function PolyglobeMap({
   const displayMarkets = useMemo(() => {
     const base = overrideMarkets || markets;
 
-    console.log('[PolyglobeMap] overrideMarkets provided:', !!overrideMarkets);
-    console.log('[PolyglobeMap] overrideMarkets count:', overrideMarkets ? (Array.isArray(overrideMarkets) ? overrideMarkets.length : overrideMarkets?.features?.length) : 0);
-    console.log('[PolyglobeMap] Using displayMarkets source:', overrideMarkets ? 'override' : 'default');
-
     if (!selectedMarket) return base;
 
     // Check if selectedMarket is already in base list
@@ -1051,6 +1063,9 @@ export function PolyglobeMap({
     />
   );
 }
+
+
+
 
 
 
