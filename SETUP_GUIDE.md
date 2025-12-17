@@ -1,42 +1,35 @@
 # Complete Setup Guide
 
-This guide will walk you through setting up Supabase, Polymarket, and Kalshi for the Prediction Markets Map Platform.
+This guide will walk you through setting up your database, Polymarket, and Kalshi for the Prediction Markets Map Platform.
 
-## 1. Supabase Setup (Database)
+## 1. Database Setup
 
-### Step 1: Create a Supabase Account
-1. Go to [https://supabase.com](https://supabase.com)
-2. Click "Start your project" or "Sign up"
-3. Sign up with GitHub, Google, or email
+### Step 1: Set Up PostgreSQL Database
 
-### Step 2: Create a New Project
-1. Click "New Project" in your dashboard
-2. Fill in the project details:
-   - **Name**: prediction-markets-platform (or any name you prefer)
-   - **Database Password**: Create a strong password (save this!)
-   - **Region**: Choose the closest region to you
-   - **Pricing Plan**: Free tier is fine for development
-3. Click "Create new project"
-4. Wait 2-3 minutes for the project to be created
+You can use any PostgreSQL database. Options include:
+- **Local PostgreSQL**: Install PostgreSQL locally
+- **Docker**: Use the provided `docker-compose.yml` to run PostgreSQL in a container
+- **Cloud Providers**: Use services like Supabase, Neon, Railway, Render, or AWS RDS
 
-### Step 3: Get Your Database URL
-1. Once your project is ready, go to **Settings** → **Database**
-2. Scroll down to **Connection string** section
-3. Under **Connection pooling**, select **Transaction** mode
-4. Copy the **Connection string** (URI) - it looks like:
-   ```
-   postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
-   ```
-5. Replace `[YOUR-PASSWORD]` with the database password you created
-6. This is your `DATABASE_URL`
+### Step 2: Get Your Database URL
 
-### Step 4: Run Database Migrations
+Your `DATABASE_URL` should be in the format:
+```
+postgresql://username:password@host:port/database
+```
+
+Examples:
+- Local: `postgresql://postgres:password@localhost:5432/webapp`
+- Docker: `postgresql://postgres:password@localhost:5432/webapp`
+- Cloud: `postgresql://user:pass@host.example.com:5432/dbname`
+
+### Step 3: Run Database Migrations
 1. Add the `DATABASE_URL` to your `.env` file
 2. Run the Prisma migration:
    ```bash
    npx prisma db push
    ```
-3. This will create all the necessary tables in your Supabase database
+3. This will create all the necessary tables in your database
 
 ---
 
@@ -113,14 +106,8 @@ The current implementation uses Polymarket's public GraphQL Subgraph API, which 
 Here's what your complete `.env` file should look like:
 
 ```env
-# Database (Supabase)
-DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
-
-# Supabase Auth (Required for user authentication)
-# Get these from Supabase Dashboard → Settings → API
-NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+# Database
+DATABASE_URL=postgresql://postgres:password@localhost:5432/webapp
 
 # NextAuth
 NEXTAUTH_SECRET=/Wt0c99yHOikOTn83+72eFiJI4320bqBYL2jIajAxWg=
@@ -141,21 +128,13 @@ GITHUB_CLIENT_SECRET=
 
 ### Getting Supabase Auth Keys
 
-1. Go to your Supabase Dashboard: https://supabase.com/dashboard
-2. Select your project
-3. Go to **Settings** → **API**
-4. Copy the following:
-   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon/public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - **service_role key** → `SUPABASE_SERVICE_ROLE_KEY` (⚠️ Keep this secret - never expose in client code!)
-
 ---
 
 ## 5. Verification Steps
 
-### Verify Supabase Connection
+### Verify Database Connection
 1. Run: `npx prisma db push`
-2. Check Supabase dashboard → **Table Editor** - you should see tables created
+2. Run: `npx prisma studio` to view your database tables
 3. If successful, you'll see: `✔ Generated Prisma Client`
 
 ### Verify Polymarket
@@ -172,7 +151,7 @@ GITHUB_CLIENT_SECRET=
 
 ## 6. Troubleshooting
 
-### Supabase Issues
+### Database Connection Issues
 - **Connection refused**: Check your `DATABASE_URL` format
 - **Password incorrect**: Make sure you replaced `[YOUR-PASSWORD]` in the connection string
 - **Tables not created**: Run `npx prisma generate` then `npx prisma db push`
@@ -193,8 +172,8 @@ GITHUB_CLIENT_SECRET=
 1. **Never commit `.env` file** - It's already in `.gitignore`
 2. **Use different secrets for production** - Generate new secrets for production
 3. **Rotate API keys periodically** - Especially if compromised
-4. **Use strong database passwords** - Supabase will enforce this
-5. **Enable 2FA** on all accounts (Supabase, Polymarket, Kalshi)
+4. **Use strong database passwords**
+5. **Enable 2FA** on all accounts (Polymarket, Kalshi)
 
 ---
 
@@ -212,7 +191,6 @@ After completing setup:
 
 ## Need Help?
 
-- **Supabase Docs**: https://supabase.com/docs
 - **Kalshi API Docs**: https://docs.kalshi.com
 - **Polymarket Docs**: https://docs.polymarket.com
 

@@ -53,8 +53,8 @@ Visualize real-world data directly on the globe to enhance market intelligence:
 
 - **Frontend**: Next.js 14 (App Router) with TypeScript, Tailwind CSS
 - **Backend**: Next.js API routes
-- **Database**: PostgreSQL (via Prisma ORM) on Supabase
-- **Authentication**: NextAuth.js with Supabase Auth
+- **Database**: PostgreSQL (via Prisma ORM)
+- **Authentication**: NextAuth.js
 - **Map Visualization**: react-globe.gl
 - **Charts**: Recharts
 - **Real-time**: WebSocket connections for live market data
@@ -78,14 +78,8 @@ npm install
 2. Set up your environment variables in `.env`:
 
 ```env
-# Database (Supabase)
+# Database
 DATABASE_URL=your_postgresql_connection_string
-
-# Supabase Auth (Required for user authentication)
-# Get these from Supabase Dashboard → Settings → API
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # NextAuth
 NEXTAUTH_SECRET=your_secret_key
@@ -101,7 +95,7 @@ GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
 ```
 
-**Note**: User authentication now goes through Supabase Auth. All registered users will appear in your Supabase Dashboard under **Authentication > Users**.
+**Note**: User authentication uses NextAuth.js with Prisma for user management.
 
 3. Set up the database:
 

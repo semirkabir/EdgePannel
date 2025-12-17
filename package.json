@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "next lint",
     "generate-secrets": "node scripts/generate-secrets.js",
-    "create-test-user": "node scripts/create-test-user-supabase.js",
     "cron:start": "npx tsx scripts/local-cron-scheduler.ts",
     "cron:test": "npx tsx scripts/test-cron.ts"
   },
@@ -24,7 +23,6 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
-    "@supabase/supabase-js": "^2.86.2",
     "@tanstack/react-virtual": "^3.13.12",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",

@@ -34,7 +34,7 @@ export function PortfolioChart({
   const [selectedRange, setSelectedRange] = useState(timeRange)
   const [snapshots, setSnapshots] = useState<PortfolioSnapshot[]>([])
 
-  // Fetch real data from Supabase
+  // Fetch real data from database
   const { data, error, isLoading } = useSWR(
     useMockData ? null : `/api/analytics/portfolio-history?userId=${userId}&platform=${platform}&timeRange=${selectedRange}`,
     fetcher,
@@ -80,7 +80,7 @@ export function PortfolioChart({
 
       setSnapshots(generateMockData())
     } else if (data.snapshots) {
-      // Use real data from Supabase
+      // Use real data from database
       setSnapshots(data.snapshots.map((s: any) => ({
         ...s,
         timestamp: new Date(s.timestamp)

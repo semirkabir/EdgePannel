@@ -32,7 +32,7 @@ async function processMarketsInChunks(
     console.log(`[Index All] Indexing ${marketsWithoutLocation} markets without location data (search only)`)
   }
 
-  // Process sequentially to avoid prepared statement cache issues with PgBouncer/Supabase
+  // Process sequentially to avoid prepared statement cache issues
   for (const market of marketsToProcess) {
     try {
       const marketId = `${platform}-${market.id}`

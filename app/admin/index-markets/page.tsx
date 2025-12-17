@@ -41,8 +41,8 @@ export default function IndexMarketsPage() {
     setIndexResults(null)
 
     try {
-      // Step 1: Clear existing data using Supabase REST API endpoint
-      const clearResponse = await fetch('/api/admin/clear-geotagged-supabase', { method: 'POST' })
+      // Step 1: Clear existing data using Prisma
+      const clearResponse = await fetch('/api/admin/clear-geotagged', { method: 'POST' })
       if (!clearResponse.ok) {
         throw new Error(`Failed to clear data: ${clearResponse.statusText}`)
       }

@@ -5,7 +5,6 @@ import GitHubProvider from "next-auth/providers/github"
 import TwitterProvider from "next-auth/providers/twitter"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from "@/lib/db/client"
-// Supabase import removed
 import bcrypt from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {

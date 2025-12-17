@@ -62,7 +62,7 @@ export function DatabaseSetupNotice() {
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-white mb-2">Database Setup Required</h2>
               <p className="text-gray-400">
-                The GeotaggedMarket table needs to be created in your Supabase database before you can use the geocoded markets feature.
+                The GeotaggedMarket table needs to be created in your database before you can use the geocoded markets feature.
               </p>
             </div>
           </div>
@@ -104,17 +104,20 @@ export function DatabaseSetupNotice() {
                   2
                 </div>
                 <div className="flex-1">
-                  <p className="text-white font-semibold">Open Supabase SQL Editor</p>
-                  <p className="text-sm text-gray-400">Go to your project&apos;s SQL editor</p>
+                  <p className="text-white font-semibold">Run SQL Migration</p>
+                  <p className="text-sm text-gray-400">Use Prisma to apply the migration or run SQL directly in your database</p>
                 </div>
               </div>
 
               <Button
-                onClick={() => window.open('https://app.supabase.com/project/_/sql/new', '_blank')}
+                onClick={() => {
+                  // Run Prisma migration
+                  window.open('https://www.prisma.io/docs/concepts/components/prisma-migrate', '_blank')
+                }}
                 className="w-full bg-gray-700 hover:bg-gray-600 text-white gap-2"
               >
                 <ExternalLink className="w-4 h-4" />
-                Open Supabase SQL Editor
+                View Prisma Migration Docs
               </Button>
             </div>
 

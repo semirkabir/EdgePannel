@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+import { prisma } from '@/lib/db/client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,64 +17,52 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json(
-        { error: 'Supabase configuration missing' },
-        { status: 500 }
-      )
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
     // Build query
-    let query = supabase
-      .from('trade_history')
-      .select('*')
-      .eq('user_id', userId)
-      .order('executed_at', { ascending: false })
-      .limit(limit)
+    const whereClause: any = {
+      userId
+    }
 
     // Filter by platform
     if (platform !== 'combined') {
-      query = query.eq('platform', platform)
+      whereClause.platform = platform
     }
 
     // Filter by date range
-    if (startDate) {
-      query = query.gte('executed_at', startDate)
-    }
-    if (endDate) {
-      query = query.lte('executed_at', endDate)
+    if (startDate || endDate) {
+      whereClause.executedAt = {}
+      if (startDate) {
+        whereClause.executedAt.gte = new Date(startDate)
+      }
+      if (endDate) {
+        whereClause.executedAt.lte = new Date(endDate)
+      }
     }
 
-    const { data: trades, error } = await query
-
-    if (error) {
-      console.error('[Trade History] Supabase error:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch trade history', details: error.message },
-        { status: 500 }
-      )
-    }
+    const trades = await prisma.trade.findMany({
+      where: whereClause,
+      orderBy: {
+        executedAt: 'desc'
+      },
+      take: limit
+    })
 
     // Format trades for response
-    const formattedTrades = (trades || []).map(trade => ({
+    const formattedTrades = trades.map(trade => ({
       id: trade.id,
-      userId: trade.user_id,
+      userId: trade.userId,
       platform: trade.platform,
-      marketId: trade.market_id,
-      ticker: trade.ticker,
-      orderId: trade.order_id,
-      tradeId: trade.trade_id,
+      marketId: trade.marketId,
+      marketTitle: trade.marketTitle,
+      orderId: trade.orderId,
       side: trade.side,
-      action: trade.action,
-      quantity: parseFloat(trade.quantity),
-      price: parseFloat(trade.price),
-      value: parseFloat(trade.value),
-      fees: parseFloat(trade.fees),
-      isTaker: trade.is_taker,
-      executedAt: trade.executed_at,
-      tradeData: trade.trade_data
+      action: trade.side, // Use side as action
+      quantity: trade.quantity,
+      price: trade.price,
+      value: trade.totalAmount,
+      fees: 0, // Not stored in Trade model
+      isTaker: true, // Default
+      executedAt: trade.executedAt?.toISOString() || trade.createdAt.toISOString(),
+      tradeData: {}
     }))
 
     // Calculate aggregate statistics

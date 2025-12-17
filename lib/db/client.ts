@@ -26,7 +26,7 @@ if (typeof window === 'undefined') {
 
 /**
  * Wrapper function to handle prepared statement errors with retry logic
- * This helps with Supabase connection pooling issues
+ * This helps with connection pooling issues
  */
 export async function withRetry<T>(
   operation: () => Promise<T>,

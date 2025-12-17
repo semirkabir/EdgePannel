@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+import { prisma } from '@/lib/db/client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,15 +15,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json(
-        { error: 'Supabase configuration missing' },
-        { status: 500 }
-      )
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
     // Calculate date range
     const now = new Date()
     const ranges: Record<string, number> = {
@@ -40,30 +28,27 @@ export async function GET(request: NextRequest) {
     const daysBack = ranges[timeRange] || 30
     const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000)
 
-    // Query portfolio snapshots
-    const query = supabase
-      .from('portfolio_snapshots')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('created_at', startDate.toISOString())
-      .order('created_at', { ascending: true })
+    // Query trades from Prisma
+    const whereClause: any = {
+      userId,
+      createdAt: {
+        gte: startDate
+      }
+    }
 
     if (platform !== 'combined') {
-      query.eq('platform', platform)
+      whereClause.platform = platform
     }
 
-    const { data: snapshots, error } = await query
-
-    if (error) {
-      console.error('[Portfolio History] Supabase error:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch portfolio history', details: error.message },
-        { status: 500 }
-      )
-    }
+    const trades = await prisma.trade.findMany({
+      where: whereClause,
+      orderBy: {
+        createdAt: 'asc'
+      }
+    })
 
     // If no data exists, return empty array (frontend will show mock data)
-    if (!snapshots || snapshots.length === 0) {
+    if (!trades || trades.length === 0) {
       return NextResponse.json({
         snapshots: [],
         hasData: false,
@@ -71,15 +56,47 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Format snapshots for the chart
-    const formattedSnapshots = snapshots.map(snapshot => ({
-      timestamp: snapshot.created_at,
-      totalValue: parseFloat(snapshot.total_value),
-      totalPnl: parseFloat(snapshot.total_pnl),
-      positionCount: snapshot.position_count,
-      exposure: snapshot.total_exposure ? parseFloat(snapshot.total_exposure) : 0,
-      platform: snapshot.platform
-    }))
+    // Calculate portfolio snapshots from trades
+    // Group by date and calculate totals
+    const snapshotsByDate = new Map<string, {
+      timestamp: string
+      totalValue: number
+      totalPnl: number
+      positionCount: number
+      exposure: number
+      platform: string
+    }>()
+
+    trades.forEach(trade => {
+      const date = trade.createdAt.toISOString().split('T')[0]
+      const existing = snapshotsByDate.get(date) || {
+        timestamp: date,
+        totalValue: 0,
+        totalPnl: 0,
+        positionCount: 0,
+        exposure: 0,
+        platform: platform === 'combined' ? 'combined' : trade.platform
+      }
+
+      existing.totalValue += trade.totalAmount
+      existing.totalPnl += (trade.side === 'buy' ? trade.totalAmount : -trade.totalAmount)
+      existing.positionCount += 1
+      existing.exposure += trade.totalAmount
+
+      snapshotsByDate.set(date, existing)
+    })
+
+    const formattedSnapshots = Array.from(snapshotsByDate.values()).sort((a, b) => 
+      a.timestamp.localeCompare(b.timestamp)
+    )
+
+    if (formattedSnapshots.length === 0) {
+      return NextResponse.json({
+        snapshots: [],
+        hasData: false,
+        message: 'No portfolio history found. Start tracking your portfolio to see data here.'
+      })
+    }
 
     // Calculate aggregated stats
     const latestSnapshot = formattedSnapshots[formattedSnapshots.length - 1]
