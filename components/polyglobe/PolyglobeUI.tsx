@@ -6,7 +6,7 @@ import { SearchResults } from './SearchResults';
 import { EnrichedMarket } from '@/lib/markets/enrich';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
 
-export type VisualizationMode = 'dots' | 'heatmap' | 'cluster' | 'choropleth';
+export type VisualizationMode = 'dots' | 'heatmap' | 'cluster';
 
 interface PolyglobeUIProps {
   onSearch: (query: string) => void;
@@ -50,17 +50,6 @@ const CATEGORIES = [
   "Science", "Business", "News"
 ];
 
-const SORT_OPTIONS = [
-  { label: "24hr Volume", value: "volume" },
-  { label: "Liquidity", value: "liquidity" },
-  { label: "Newest", value: "newest" },
-];
-
-const PLATFORM_OPTIONS = [
-  { label: "All Platforms", value: "all" },
-  { label: "Polymarket", value: "polymarket" },
-  { label: "Kalshi", value: "kalshi" },
-];
 
 export function PolyglobeUI({
   onSearch,
@@ -80,10 +69,6 @@ export function PolyglobeUI({
   onNotificationClick,
   notificationCount = 0,
   onCategorySelect,
-  sortBy = 'volume',
-  onSortChange,
-  selectedPlatform = 'all',
-  onPlatformChange,
   isZoomedIn = false,
   onResetZoom,
   visualizationMode = 'dots',
@@ -93,13 +78,17 @@ export function PolyglobeUI({
   const router = useRouter();
   const [internalIsPlaying, setInternalIsPlaying] = useState(true);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [randomMarkets, setRandomMarkets] = useState<EnrichedMarket[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-  const filterRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const categoriesRef = useRef<HTMLDivElement>(null);
+  const visualizationRef = useRef<HTMLDivElement>(null);
+  const overlaysRef = useRef<HTMLDivElement>(null);
+  const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
+  const [isVisualizationOpen, setIsVisualizationOpen] = useState(false);
+  const [isOverlaysOpen, setIsOverlaysOpen] = useState(false);
   const isPlaying = externalIsPlaying !== undefined ? externalIsPlaying : internalIsPlaying;
   const isMapView = currentView === 'map';
   const isInsightsView = currentView === 'insights';
@@ -107,18 +96,24 @@ export function PolyglobeUI({
   // Click-outside handling for dropdowns
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
-        setIsFilterOpen(false);
-      }
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
+      }
+      if (categoriesRef.current && !categoriesRef.current.contains(event.target as Node)) {
+        setIsCategoriesOpen(false);
+      }
+      if (visualizationRef.current && !visualizationRef.current.contains(event.target as Node)) {
+        setIsVisualizationOpen(false);
+      }
+      if (overlaysRef.current && !overlaysRef.current.contains(event.target as Node)) {
+        setIsOverlaysOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [filterRef, profileRef]);
+  }, [profileRef, categoriesRef, visualizationRef, overlaysRef]);
 
   // Generate random markets when search is focused
   useEffect(() => {
@@ -269,285 +264,246 @@ export function PolyglobeUI({
           )}
         </div>
 
-        {/* Filters Row - Hide when in insights view */}
+        {/* Control Buttons Row - Hide when in insights view */}
         {!isInsightsView && (
           <div className="flex items-center gap-2">
-            {/* Breaking Toggle */}
-            <button
-              onClick={() => onFilterChange('breaking', !activeFilters.breaking)}
-              className={cn(
-                "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
-                activeFilters.breaking
-                  ? "bg-red-500/10 border-red-500/50 text-red-400"
-                  : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
-              )}
-              style={!activeFilters.breaking ? {
-                backgroundImage: "linear-gradient(90deg, rgba(255, 255, 255, 1) 55%, rgba(0, 0, 0, 1) 100%)",
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                color: "transparent"
-              } : undefined}
-            >
-              <div className={cn("w-1.5 h-1.5 rounded-full", activeFilters.breaking ? "bg-red-500 animate-pulse" : "bg-gray-600")} />
-              BREAKING
-            </button>
-
-            {/* Filter Menu Trigger */}
-            <div className="relative" ref={filterRef}>
+            {/* Categories Dropdown */}
+            <div className="relative" ref={categoriesRef}>
               <button
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
                 className={cn(
                   "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
-                  isFilterOpen || selectedCategories.length > 0
-                    ? "bg-blue-500/10 border-blue-500/50 text-blue-400"
+                  isCategoriesOpen || (selectedCategories.length > 0 && !selectedCategories.includes('All'))
+                    ? "bg-purple-500/10 border-purple-500/50 text-purple-400"
                     : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
                 )}
               >
                 <Filter className="w-3.5 h-3.5" />
-                FILTERS
+                TAGS
                 {(selectedCategories.length > 0 && !selectedCategories.includes('All')) && (
-                  <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white rounded-full text-[9px] font-bold">
+                  <span className="ml-1 px-1.5 py-0.5 bg-purple-500 text-white rounded-full text-[9px] font-bold">
                     {selectedCategories.length}
                   </span>
                 )}
+                <ChevronDown className="w-3 h-3" />
               </button>
 
-            {/* Filter Popover */}
-            {isFilterOpen && (
-              <div className="absolute top-full left-0 mt-2 w-[420px] bg-[#0e0f11]/98 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* Header */}
-                <div className="px-5 py-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-b border-white/5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                        <Filter className="w-4 h-4 text-blue-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-white">Filters</h3>
-                        <p className="text-[10px] text-gray-400">Customize your view</p>
-                      </div>
-                    </div>
+              {/* Categories Popover */}
+              {isCategoriesOpen && (
+                <div className="absolute top-full left-0 mt-2 w-[320px] bg-[#0e0f11]/98 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-white">Categories</h3>
                     {!selectedCategories.includes('All') && selectedCategories.length > 0 && (
                       <button
                         onClick={() => {
                           if (onCategorySelect) onCategorySelect(['All']);
                         }}
-                        className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                        className="text-xs text-purple-400 hover:text-purple-300 font-medium transition-colors"
                       >
                         Reset
                       </button>
                     )}
                   </div>
-                </div>
-
-                {/* Scrollable Content */}
-                <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
-                  <div className="p-5 space-y-6">
-                    {/* Sort & Platform Options */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-4 bg-blue-500 rounded-full" />
-                        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Sorting & Platform</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="relative">
-                          <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 block font-medium">Sort By</label>
-                          <select
-                            className="w-full bg-white/5 text-gray-200 text-xs rounded-lg px-3 py-2.5 border border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none transition-all hover:bg-white/10"
-                            value={sortBy}
-                            onChange={(e) => onSortChange?.(e.target.value)}
-                          >
-                            {SORT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-8 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                        </div>
-                        <div className="relative">
-                          <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 block font-medium">Platform</label>
-                          <select
-                            className="w-full bg-white/5 text-gray-200 text-xs rounded-lg px-3 py-2.5 border border-white/10 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none transition-all hover:bg-white/10"
-                            value={selectedPlatform}
-                            onChange={(e) => onPlatformChange?.(e.target.value)}
-                          >
-                            {PLATFORM_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-8 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Categories Grid */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-4 bg-purple-500 rounded-full" />
-                        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Categories</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {CATEGORIES.map(cat => {
-                          const isSelected = selectedCategories.includes(cat);
-                          return (
-                            <button
-                              key={cat}
-                              onClick={() => {
-                                if (!onCategorySelect) return;
-                                if (cat === 'All') {
-                                  onCategorySelect(['All']);
-                                } else {
-                                  const newCats = isSelected
-                                    ? selectedCategories.filter(c => c !== cat)
-                                    : [...selectedCategories.filter(c => c !== 'All'), cat];
-                                  onCategorySelect(newCats.length === 0 ? ['All'] : newCats);
-                                }
-                              }}
-                              className={cn(
-                                "px-3 py-2 rounded-lg text-xs font-medium transition-all border relative overflow-hidden group",
-                                isSelected
-                                  ? "bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-500/30"
-                                  : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                              )}
-                            >
-                              {isSelected && (
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                              )}
-                              <span className="relative z-10">{cat}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Visualization Mode Section */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-4 bg-cyan-500 rounded-full" />
-                        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Visualization Mode</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Dots Mode */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {CATEGORIES.map(cat => {
+                      const isSelected = selectedCategories.includes(cat);
+                      return (
                         <button
-                          onClick={() => onVisualizationModeChange?.('dots')}
+                          key={cat}
+                          onClick={() => {
+                            if (!onCategorySelect) return;
+                            if (cat === 'All') {
+                              onCategorySelect(['All']);
+                            } else {
+                              const newCats = isSelected
+                                ? selectedCategories.filter(c => c !== cat)
+                                : [...selectedCategories.filter(c => c !== 'All'), cat];
+                              onCategorySelect(newCats.length === 0 ? ['All'] : newCats);
+                            }
+                          }}
                           className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                            visualizationMode === 'dots'
-                              ? "bg-gradient-to-br from-cyan-600 to-cyan-700 border-cyan-500 text-white shadow-lg shadow-cyan-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                          )}
-                        >
-                          <Circle className="w-3.5 h-3.5 relative z-10" />
-                          <span className="relative z-10">Dots</span>
-                        </button>
-
-                        {/* Heatmap Mode */}
-                        <button
-                          onClick={() => onVisualizationModeChange?.('heatmap')}
-                          className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                            visualizationMode === 'heatmap'
-                              ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                          )}
-                        >
-                          <Activity className="w-3.5 h-3.5 relative z-10" />
-                          <span className="relative z-10">Heatmap</span>
-                        </button>
-
-                        {/* Cluster Mode */}
-                        <button
-                          onClick={() => onVisualizationModeChange?.('cluster')}
-                          className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                            visualizationMode === 'cluster'
+                            "px-3 py-2 rounded-lg text-xs font-medium transition-all border relative overflow-hidden group",
+                            isSelected
                               ? "bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white shadow-lg shadow-purple-500/30"
                               : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
                           )}
                         >
-                          <Layers className="w-3.5 h-3.5 relative z-10" />
-                          <span className="relative z-10">Clusters</span>
-                        </button>
-
-                        {/* Choropleth Mode */}
-                        <button
-                          onClick={() => onVisualizationModeChange?.('choropleth')}
-                          className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                            visualizationMode === 'choropleth'
-                              ? "bg-gradient-to-br from-indigo-600 to-indigo-700 border-indigo-500 text-white shadow-lg shadow-indigo-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                           )}
-                        >
-                          <Map className="w-3.5 h-3.5 relative z-10" />
-                          <span className="relative z-10">Choropleth</span>
+                          <span className="relative z-10">{cat}</span>
                         </button>
-                      </div>
-                    </div>
-
-                    {/* Map Overlays Section */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">Map Overlays</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* OSINT Toggle */}
-                        <button
-                          onClick={() => onFilterChange('osint', !activeFilters.osint)}
-                          className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                            activeFilters.osint
-                              ? "bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                          )}
-                        >
-                          <Radio className="w-3.5 h-3.5 relative z-10" />
-                          <span className="relative z-10">OSINT</span>
-                        </button>
-
-                        {/* LIVE Toggle */}
-                        <button
-                          onClick={() => onFilterChange('live', !activeFilters.live)}
-                          className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                            activeFilters.live
-                              ? "bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                          )}
-                        >
-                          <span className={cn("w-1.5 h-1.5 rounded-full relative z-10", activeFilters.live ? "bg-white animate-pulse" : "bg-gray-500")} />
-                          <span className="relative z-10">LIVE</span>
-                        </button>
-
-                        {/* Fires Toggle */}
-                        <button
-                          onClick={() => onFilterChange('fires', !activeFilters.fires)}
-                          className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                            activeFilters.fires
-                              ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                          )}
-                        >
-                          <Flame className={cn("w-3.5 h-3.5 relative z-10", activeFilters.fires ? "fill-white" : "")} />
-                          <span className="relative z-10">Fires</span>
-                        </button>
-
-                        {/* Frontline Toggle */}
-                        <button
-                          onClick={() => onFilterChange('frontline', !activeFilters.frontline)}
-                          className={cn(
-                            "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center justify-center gap-2 relative overflow-hidden group",
-                            activeFilters.frontline
-                              ? "bg-gradient-to-br from-red-600 to-red-700 border-red-500 text-white shadow-lg shadow-red-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                          )}
-                        >
-                          <Shield className="w-3.5 h-3.5 relative z-10" />
-                          <span className="relative z-10">Frontline</span>
-                        </button>
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Visualization Mode Dropdown */}
+            <div className="relative" ref={visualizationRef}>
+              <button
+                onClick={() => setIsVisualizationOpen(!isVisualizationOpen)}
+                className={cn(
+                  "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
+                  isVisualizationOpen || visualizationMode !== 'dots'
+                    ? "bg-cyan-500/10 border-cyan-500/50 text-cyan-400"
+                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                )}
+              >
+                <Circle className="w-3.5 h-3.5" />
+                VISUALIZATION
+                <ChevronDown className="w-3 h-3" />
+              </button>
+
+              {/* Visualization Popover */}
+              {isVisualizationOpen && (
+                <div className="absolute top-full left-0 mt-2 w-[280px] bg-[#0e0f11]/98 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-4">
+                  <h3 className="text-sm font-semibold text-white mb-3">Mode</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Dots Mode */}
+                    <button
+                      onClick={() => {
+                        onVisualizationModeChange?.('dots');
+                        setIsVisualizationOpen(false);
+                      }}
+                      className={cn(
+                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                        visualizationMode === 'dots'
+                          ? "bg-gradient-to-br from-cyan-600 to-cyan-700 border-cyan-500 text-white shadow-lg shadow-cyan-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                      )}
+                    >
+                      <Circle className="w-3.5 h-3.5 relative z-10" />
+                      <span className="relative z-10">Dots</span>
+                    </button>
+
+                    {/* Heatmap Mode */}
+                    <button
+                      onClick={() => {
+                        onVisualizationModeChange?.('heatmap');
+                        setIsVisualizationOpen(false);
+                      }}
+                      className={cn(
+                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                        visualizationMode === 'heatmap'
+                          ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                      )}
+                    >
+                      <Activity className="w-3.5 h-3.5 relative z-10" />
+                      <span className="relative z-10">Heatmap</span>
+                    </button>
+
+                    {/* Cluster Mode */}
+                    <button
+                      onClick={() => {
+                        onVisualizationModeChange?.('cluster');
+                        setIsVisualizationOpen(false);
+                      }}
+                      className={cn(
+                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                        visualizationMode === 'cluster'
+                          ? "bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white shadow-lg shadow-purple-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                      )}
+                    >
+                      <Layers className="w-3.5 h-3.5 relative z-10" />
+                      <span className="relative z-10">Clusters</span>
+                    </button>
+
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Map Overlays Dropdown */}
+            <div className="relative" ref={overlaysRef}>
+              <button
+                onClick={() => setIsOverlaysOpen(!isOverlaysOpen)}
+                className={cn(
+                  "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
+                  isOverlaysOpen || activeFilters.osint || activeFilters.live || activeFilters.fires || activeFilters.frontline
+                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400"
+                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                )}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                OVERLAYS
+                {(() => {
+                  const activeOverlayCount = [activeFilters.osint, activeFilters.live, activeFilters.fires, activeFilters.frontline].filter(Boolean).length;
+                  return activeOverlayCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-emerald-500 text-white rounded-full text-[9px] font-bold">
+                      {activeOverlayCount}
+                    </span>
+                  );
+                })()}
+                <ChevronDown className="w-3 h-3" />
+              </button>
+
+              {/* Overlays Popover */}
+              {isOverlaysOpen && (
+                <div className="absolute top-full left-0 mt-2 w-[260px] bg-[#0e0f11]/98 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-4">
+                  <h3 className="text-sm font-semibold text-white mb-3">Map Overlays</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* OSINT Toggle */}
+                    <button
+                      onClick={() => onFilterChange('osint', !activeFilters.osint)}
+                      className={cn(
+                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                        activeFilters.osint
+                          ? "bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                      )}
+                    >
+                      <Radio className="w-3.5 h-3.5 relative z-10" />
+                      <span className="relative z-10">OSINT</span>
+                    </button>
+
+                    {/* LIVE Toggle */}
+                    <button
+                      onClick={() => onFilterChange('live', !activeFilters.live)}
+                      className={cn(
+                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                        activeFilters.live
+                          ? "bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                      )}
+                    >
+                      <span className={cn("w-1.5 h-1.5 rounded-full relative z-10", activeFilters.live ? "bg-white animate-pulse" : "bg-gray-500")} />
+                      <span className="relative z-10">LIVE</span>
+                    </button>
+
+                    {/* Fires Toggle */}
+                    <button
+                      onClick={() => onFilterChange('fires', !activeFilters.fires)}
+                      className={cn(
+                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                        activeFilters.fires
+                          ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                      )}
+                    >
+                      <Flame className={cn("w-3.5 h-3.5 relative z-10", activeFilters.fires ? "fill-white" : "")} />
+                      <span className="relative z-10">Fires</span>
+                    </button>
+
+                    {/* Frontline Toggle */}
+                    <button
+                      onClick={() => onFilterChange('frontline', !activeFilters.frontline)}
+                      className={cn(
+                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center justify-center gap-2 relative overflow-hidden group",
+                        activeFilters.frontline
+                          ? "bg-gradient-to-br from-red-600 to-red-700 border-red-500 text-white shadow-lg shadow-red-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                      )}
+                    >
+                      <Shield className="w-3.5 h-3.5 relative z-10" />
+                      <span className="relative z-10">Frontline</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

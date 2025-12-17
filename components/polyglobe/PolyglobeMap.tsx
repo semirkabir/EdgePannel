@@ -684,40 +684,65 @@ function InnerMap({
 
               {/* Market Options List */}
               <div className="space-y-1.5 mb-2 max-h-64 overflow-y-auto">
-                {props.markets && JSON.parse(JSON.stringify(props.markets)).map((market: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className="bg-gray-800/40 rounded p-2 border border-gray-700/30 hover:bg-gray-800/60 transition-colors cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Reconstruct market for selection
-                      const fullMarket = {
-                        id: market.id,
-                        title: market.title,
-                        description: market.description || '',
-                        platform: market.platform,
-                        volume24h: market.volume24h,
-                        price: market.price,
-                        probability: market.price,
-                        slug: market.slug,
-                        ticker: market.ticker,
-                        imageUrl: market.imageUrl,
-                        endDate: market.endDate,
-                        rawData: {},
-                      };
-                      handleCardClick(fullMarket);
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-white line-clamp-2">{market.title}</div>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <span className="text-sm font-bold text-blue-300">{Math.round(market.price * 100)}¢</span>
+                {props.markets && JSON.parse(JSON.stringify(props.markets)).map((market: any, idx: number) => {
+                  const marketImageUrl = market.imageUrl || market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage;
+                  return (
+                    <div
+                      key={idx}
+                      className="bg-gray-800/40 rounded p-2 border border-gray-700/30 hover:bg-gray-800/60 transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Reconstruct market for selection
+                        const fullMarket = {
+                          id: market.id,
+                          title: market.title,
+                          description: market.description || '',
+                          platform: market.platform,
+                          volume24h: market.volume24h,
+                          price: market.price,
+                          probability: market.price,
+                          slug: market.slug,
+                          ticker: market.ticker,
+                          imageUrl: market.imageUrl,
+                          endDate: market.endDate,
+                          rawData: {},
+                        };
+                        handleCardClick(fullMarket);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        {/* Image Thumbnail */}
+                        <div className="shrink-0 w-10 h-10 rounded overflow-hidden border border-gray-600/30 bg-gray-700 flex items-center justify-center">
+                          {marketImageUrl ? (
+                            <img
+                              src={marketImageUrl}
+                              alt={market.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.nextElementSibling;
+                                if (fallback) fallback.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <span className={`text-[8px] font-black ${marketImageUrl ? 'hidden' : ''} ${market.platform === 'polymarket' ? 'text-blue-400' : 'text-green-400'}`}>
+                            {market.platform === 'polymarket' ? 'POLY' : 'KALS'}
+                          </span>
+                        </div>
+
+                        {/* Title and Price */}
+                        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-white line-clamp-2">{market.title}</div>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <span className="text-sm font-bold text-blue-300">{Math.round(market.price * 100)}¢</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Event Stats - Volume and OI */}
@@ -956,11 +981,9 @@ function InnerMap({
   // Compute interactive layers - memoize to prevent re-renders
   const interactiveIds = useMemo(() => {
     if (visualizationMode === 'heatmap') {
-      return []; // Heatmap is not interactive
+      return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
     } else if (visualizationMode === 'cluster') {
       return ['markets-clusters', 'markets-unclustered', 'tweets-layer'];
-    } else if (visualizationMode === 'choropleth') {
-      return ['country-choropleth', 'markets-layer', 'tweets-layer'];
     } else {
       // Default dots mode
       return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
@@ -1049,57 +1072,23 @@ function InnerMap({
           clusterRadius={50}
         >
           {visualizationMode === 'heatmap' ? (
-            <Layer {...heatmapLayer as any} source="markets" />
+            <>
+              <Layer {...heatmapLayer as any} source="markets" />
+              {/* Overlay individual market dots on top of heatmap for interactivity */}
+              <Layer {...marketGlowLayer as any} source="markets" paint={{
+                ...marketGlowLayer.paint,
+                'circle-opacity': 0.4
+              }} />
+              <Layer {...marketLayer as any} source="markets" paint={{
+                ...marketLayer.paint,
+                'circle-opacity': 0.8
+              }} />
+            </>
           ) : visualizationMode === 'cluster' ? (
             <>
               <Layer {...clusterLayer as any} source="markets" />
               <Layer {...clusterCountLayer as any} source="markets" />
               <Layer {...unclusteredPointLayer as any} source="markets" />
-            </>
-          ) : visualizationMode === 'choropleth' ? (
-            <>
-              {/* Choropleth mode - will color countries based on market data */}
-              {countryBorders && (
-                <Source id="country-fills" type="geojson" data={countryBorders as any}>
-                  <Layer
-                    id="country-choropleth"
-                    type="fill"
-                    paint={{
-                      'fill-color': [
-                        'case',
-                        ['has', 'marketCount'],
-                        [
-                          'interpolate',
-                          ['linear'],
-                          ['get', 'marketCount'],
-                          0, 'rgba(59, 130, 246, 0.1)',
-                          5, 'rgba(59, 130, 246, 0.3)',
-                          10, 'rgba(99, 102, 241, 0.5)',
-                          20, 'rgba(168, 85, 247, 0.6)',
-                          50, 'rgba(236, 72, 153, 0.7)'
-                        ],
-                        'rgba(255, 255, 255, 0.05)'
-                      ],
-                      'fill-opacity': 0.7
-                    }}
-                  />
-                  <Layer
-                    id="country-borders-choropleth"
-                    type="line"
-                    paint={{
-                      'line-color': '#ffffff',
-                      'line-width': 1,
-                      'line-opacity': 0.3
-                    }}
-                  />
-                </Source>
-              )}
-              {/* Still show small dots for individual markets */}
-              <Layer {...marketLayer as any} source="markets" paint={{
-                ...marketLayer.paint,
-                'circle-radius': 3,
-                'circle-opacity': 0.6
-              }} />
             </>
           ) : (
             // Default dots mode
