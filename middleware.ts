@@ -29,19 +29,19 @@ const authMiddleware = AUTH_ENABLED ? withAuth({
   },
 }) : undefined
 
-// Main middleware - applies auth and security headers
-export default function middleware(req: NextRequest, event: NextFetchEvent) {
-  let response: NextResponse
+export default async function middleware(req: NextRequest, event: NextFetchEvent) {
+  let response: NextResponse | undefined
 
   if (authMiddleware) {
     // Apply authentication
-    response = authMiddleware(req as NextRequestWithAuth, event) as NextResponse
-  } else {
-    // Development fallback - log warning
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('⚠️  Auth middleware disabled - all routes accessible')
+    // @ts-ignore - NextAuth middleware typing can be tricky
+    const authResult = await authMiddleware(req as NextRequestWithAuth, event)
+    if (authResult instanceof NextResponse) {
+      response = authResult
     }
-    // Redirect to /edge when auth is disabled in development
+  }
+
+  if (!response) {
     response = NextResponse.next()
   }
 
