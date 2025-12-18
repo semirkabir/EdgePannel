@@ -1101,7 +1101,7 @@ function InnerMap({
           }
         }}
         style={{ width: '100%', height: '100%' }}
-        mapStyle="https://api.maptiler.com/maps/darkmatter/style.json?key=35TZqSTSBjgDvsawKAK9"
+        mapStyle={`https://api.maptiler.com/maps/darkmatter/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY || '35TZqSTSBjgDvsawKAK9'}`}
         attributionControl={false}
         interactiveLayerIds={interactiveIds}
         touchZoomRotate={true}
