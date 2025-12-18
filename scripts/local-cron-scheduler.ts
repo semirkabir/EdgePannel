@@ -21,58 +21,54 @@ if (!CRON_SECRET) {
 
 const BASE_URL = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
 
-async function runIndexing() {
-  console.log(`\n[${new Date().toISOString()}] 🔄 Starting automatic market indexing...`)
-
+async function triggerTask(endpoint: string, name: string) {
+  console.log(`[${new Date().toISOString()}] 🔄 Starting: ${name}...`)
   try {
-    const response = await fetch(`${BASE_URL}/api/cron/index-markets`, {
-      headers: {
-        'Authorization': `Bearer ${CRON_SECRET}`
-      }
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      headers: { 'Authorization': `Bearer ${CRON_SECRET}` }
     })
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const data = await response.json()
-
-    console.log('✅ Indexing complete!')
-    console.log(`   Total markets: ${data.results.total}`)
-    console.log(`   Indexed: ${data.results.indexed}`)
-    console.log(`   Skipped: ${data.results.skipped}`)
-    console.log(`   Failed: ${data.results.failed}`)
-
-    if (data.results.platforms) {
-      console.log('\n   By Platform:')
-      Object.entries(data.results.platforms).forEach(([platform, stats]: [string, any]) => {
-        console.log(`   - ${platform}: ${stats.indexed} indexed, ${stats.skipped} skipped, ${stats.failed} failed`)
-      })
-    }
+    console.log(`✅ ${name} complete!`)
+    return data
   } catch (error: any) {
-    console.error('❌ Indexing failed:', error.message)
+    console.error(`❌ ${name} failed:`, error.message)
+    return null
   }
 }
 
-// Run immediately on startup
-console.log('🚀 Market Indexing Scheduler Started')
-console.log('⏰ Schedule: Every hour (0 * * * *)')
+async function runFullMaintenance() {
+  console.log('\n--- Scheduled Maintenance Start ---')
+  await triggerTask('/api/cron/index-markets', 'Market Indexing')
+  await triggerTask('/api/cron/cleanup-expired', 'Cleanup Expired')
+  await triggerTask('/api/cron/snapshot-prices', 'Price Snapshots')
+  console.log('--- Scheduled Maintenance End ---\n')
+}
+
+// Startup logic
+console.log('🚀 VPS Background Scheduler Started')
+console.log('⏰ Schedule: Top of every hour (0 * * * *)')
 console.log('🌐 Target: ' + BASE_URL)
-console.log('\nRunning initial indexing...')
 
-runIndexing()
+// Wait 15 seconds for Next.js to fully boot before initial run
+console.log('⏳ Waiting for server to boot...')
+setTimeout(() => {
+  runFullMaintenance()
+}, 15000)
 
-// Schedule to run every hour at minute 0
+// Schedule: Every hour
 cron.schedule('0 * * * *', () => {
-  runIndexing()
-}, {
-  timezone: 'UTC'
-})
+  runFullMaintenance()
+}, { timezone: 'UTC' })
 
-// Keep the process running
+// Optional: Every 5 minutes incremental sync for new markets
+cron.schedule('*/5 * * * *', () => {
+  triggerTask('/api/cron/sync-new-markets', 'Incremental Sync')
+}, { timezone: 'UTC' })
+
 process.on('SIGINT', () => {
-  console.log('\n\n👋 Scheduler stopped')
+  console.log('\n👋 Scheduler stopped')
   process.exit(0)
 })
 
-console.log('\n✅ Scheduler is running. Press Ctrl+C to stop.')

@@ -47,10 +47,10 @@ interface Pulsar {
   color: string;
 }
 
-export function Starfield({ 
-  starCount = 400, 
+export function Starfield({
+  starCount = 400,
   speedFactor = 0.05,
-  backgroundColor = 'rgb(3, 7, 18)' 
+  backgroundColor = 'rgb(3, 7, 18)'
 }: StarfieldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -164,13 +164,8 @@ export function Starfield({
       ctx.fillStyle = backgroundColor;
       ctx.fillRect(0, 0, width, height);
 
-      // Optional: Add a subtle radial gradient for "deep space" feel
-      // Center of the screen can be slightly lighter/bluer
-      const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width);
-      gradient.addColorStop(0, 'rgba(10, 20, 40, 0.3)'); // Very subtle blue tint in center
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, width, height);
+      // Radial gradient removed to prevent "circle" effect around globe
+
 
       // Draw Stars
       stars.forEach(star => {
