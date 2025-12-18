@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useWhaleData } from '@/hooks/use-whale-data'
+import { useWhaleData, WhaleHolder, WhaleTrade, WhaleAlert } from '@/hooks/use-whale-data'
 import { Bell, TrendingUp, Users, DollarSign, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -129,7 +129,7 @@ export function WhaleTracker({
           <CardContent>
             <div className="text-2xl font-bold">{holders.length}</div>
             <p className="text-xs text-gray-500">
-              {holders.filter(h => h.percentage >= holderThreshold).length} whales (&gt;{holderThreshold}%)
+              {holders.filter((h: WhaleHolder) => h.percentage >= holderThreshold).length} whales (&gt;{holderThreshold}%)
             </p>
           </CardContent>
         </Card>
@@ -154,7 +154,7 @@ export function WhaleTracker({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${(trades.reduce((sum, t) => sum + t.value, 0) / 1000).toFixed(0)}k
+              ${(trades.reduce((sum: number, t: WhaleTrade) => sum + t.value, 0) / 1000).toFixed(0)}k
             </div>
             <p className="text-xs text-gray-500">
               Whale trade volume
@@ -184,12 +184,11 @@ export function WhaleTracker({
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {topHolders.map((holder, i) => (
+                {topHolders.map((holder: WhaleHolder, i: number) => (
                   <div
                     key={holder.address}
-                    className={`flex items-center justify-between p-3 border rounded ${
-                      holder.percentage >= holderThreshold ? 'bg-orange-50 border-orange-200' : 'hover:bg-gray-50'
-                    } transition-colors`}
+                    className={`flex items-center justify-between p-3 border rounded ${holder.percentage >= holderThreshold ? 'bg-orange-50 border-orange-200' : 'hover:bg-gray-50'
+                      } transition-colors`}
                   >
                     <div className="flex items-center gap-3 flex-1">
                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-sm font-semibold">
@@ -236,7 +235,7 @@ export function WhaleTracker({
                     <p>No large trades detected yet</p>
                   </div>
                 ) : (
-                  recentTrades.map((trade) => (
+                  recentTrades.map((trade: WhaleTrade) => (
                     <div
                       key={trade.id}
                       className="flex items-center justify-between p-3 border rounded hover:bg-gray-50 transition-colors"
@@ -294,7 +293,7 @@ export function WhaleTracker({
                     <p>No recent alerts</p>
                   </div>
                 ) : (
-                  recentAlerts.map((alert, i) => {
+                  recentAlerts.map((alert: WhaleAlert, i: number) => {
                     const isNew = i >= recentAlerts.length - newAlertCount
 
                     if (alert.type === 'trade') {
@@ -302,9 +301,8 @@ export function WhaleTracker({
                       return (
                         <div
                           key={i}
-                          className={`flex items-center gap-3 p-3 border rounded ${
-                            isNew ? 'bg-yellow-50 border-yellow-200 animate-pulse' : 'hover:bg-gray-50'
-                          } transition-colors`}
+                          className={`flex items-center gap-3 p-3 border rounded ${isNew ? 'bg-yellow-50 border-yellow-200 animate-pulse' : 'hover:bg-gray-50'
+                            } transition-colors`}
                         >
                           <div className="flex-shrink-0 text-2xl">🐋</div>
                           <div className="flex-1">
@@ -323,9 +321,8 @@ export function WhaleTracker({
                       return (
                         <div
                           key={i}
-                          className={`flex items-center gap-3 p-3 border rounded ${
-                            isNew ? 'bg-yellow-50 border-yellow-200 animate-pulse' : 'hover:bg-gray-50'
-                          } transition-colors`}
+                          className={`flex items-center gap-3 p-3 border rounded ${isNew ? 'bg-yellow-50 border-yellow-200 animate-pulse' : 'hover:bg-gray-50'
+                            } transition-colors`}
                         >
                           <div className="flex-shrink-0 text-2xl">🏛️</div>
                           <div className="flex-1">

@@ -26,16 +26,14 @@ import { KeyboardShortcutsDialog } from '@/components/ui/keyboard-shortcuts-dial
 export default function PolyglobePage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
     breaking: false,
-    osint: true,
     live: true,
     fires: false,
-    frontline: false,
     heatmap: false,
     noiseFilter: false // Hide low liquidity markets
   });
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights'>('globe');
+  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent'>('globe');
   const [selectedMarket, setSelectedMarket] = useState<EnrichedMarket | null>(null);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
@@ -143,7 +141,7 @@ export default function PolyglobePage() {
           volume24h: update.volume24h ?? m.volume24h,
           probability: update.price ?? m.probability,
           // Calculate movement if we have previous price
-          price_movement: (update.price && m.price) ? (update.price - m.price) / m.price : (m.price_movement || 0)
+          price_movement: (update.price && m.price) ? (update.price - m.price) / m.price : ((m as any).price_movement || 0)
         };
       }
       return m;
@@ -173,7 +171,7 @@ export default function PolyglobePage() {
       }
     }
     return features;
-  }, [liveMapFilteredMarkets, selectedCategories, selectedPlatform, selectedMarket, isAllCategories]);
+  }, [liveMapFilteredMarkets, selectedMarket]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -369,8 +367,8 @@ export default function PolyglobePage() {
           const currentIndex = selectedMarket
             ? liveMapFilteredMarkets.findIndex(m => m.id === selectedMarket.id)
             : -1;
-          const prevIndex = currentIndex <= 0 
-            ? liveMapFilteredMarkets.length - 1 
+          const prevIndex = currentIndex <= 0
+            ? liveMapFilteredMarkets.length - 1
             : currentIndex - 1;
           setSelectedMarket(liveMapFilteredMarkets[prevIndex] as EnrichedMarket);
         }

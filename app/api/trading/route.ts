@@ -16,14 +16,19 @@ export const POST = withErrorHandler(
       const body = await request.json()
       const order = validateBody(TradeOrderSchema, body)
 
-      logger.logRequest('POST', '/api/trading', userId, { platform: order.platform })
+      // Ensure orderType has a default value if not provided
+      // The schema validation might already handle this if a default is set there,
+      // but this ensures it explicitly before platform-specific logic.
+      const orderWithDefault = { ...order, orderType: order.orderType || 'market' };
+
+      logger.logRequest('POST', '/api/trading', userId, { platform: orderWithDefault.platform })
 
       // Get user's API keys for the platform
       const apiKeyRecord = await prisma.apiKey.findUnique({
         where: {
           userId_platform: {
             userId: userId,
-            platform: order.platform,
+            platform: orderWithDefault.platform,
           },
         },
       })
@@ -31,14 +36,14 @@ export const POST = withErrorHandler(
       if (!apiKeyRecord) {
         throw new ApiError(
           400,
-          `${order.platform} API keys not configured`,
+          `${orderWithDefault.platform} API keys not configured`,
           ErrorCodes.API_KEYS_NOT_CONFIGURED
         )
       }
 
       let result: { order_id?: string; id?: string }
 
-      if (order.platform === 'kalshi') {
+      if (orderWithDefault.platform === 'kalshi') {
         if (!apiKeyRecord.encryptedKeyData) {
           throw new ApiError(
             400,
@@ -47,76 +52,76 @@ export const POST = withErrorHandler(
           )
         }
 
-      const accessKeyId = decrypt(apiKeyRecord.encryptedKey)
-      const privateKey = decrypt(apiKeyRecord.encryptedKeyData)
-      const client = new KalshiClient({ accessKeyId, privateKey })
+        const accessKeyId = decrypt(apiKeyRecord.encryptedKey)
+        const privateKey = decrypt(apiKeyRecord.encryptedKeyData)
+        const client = new KalshiClient({ accessKeyId, privateKey })
 
-      result = await client.createOrder({
-        ticker: order.marketId,
-        side: order.side === 'buy' ? 'yes' : 'no',
-        action: order.side,
-        count: order.quantity,
-        type: order.orderType,
-        price: order.price ? Math.round(order.price * 100) : undefined,
+        result = await client.createOrder({
+          ticker: orderWithDefault.marketId,
+          side: orderWithDefault.side === 'buy' ? 'yes' : 'no',
+          action: orderWithDefault.side,
+          count: orderWithDefault.quantity,
+          type: orderWithDefault.orderType || 'market', // Already defaults here, but orderWithDefault ensures it's set
+          price: orderWithDefault.price ? Math.round(orderWithDefault.price * 100) : undefined,
+        })
+      } else if (orderWithDefault.platform === 'polymarket') {
+        const apiKey = decrypt(apiKeyRecord.encryptedKey)
+        const client = new PolymarketClient({ apiKey })
+
+        result = await client.createOrder({
+          market: orderWithDefault.marketId,
+          side: orderWithDefault.side,
+          size: orderWithDefault.quantity.toString(),
+          price: orderWithDefault.price?.toString() || '0',
+          type: orderWithDefault.orderType === 'limit' ? 'LIMIT' : 'MARKET', // Already defaults here, but orderWithDefault ensures it's set
+        })
+      } else {
+        throw new ApiError(400, 'Invalid platform', ErrorCodes.INVALID_PLATFORM)
+      }
+
+      // Save trade to database
+      const trade = await prisma.trade.create({
+        data: {
+          userId: userId,
+          platform: orderWithDefault.platform,
+          marketId: orderWithDefault.marketId,
+          marketTitle: orderWithDefault.marketId, // Will be updated with actual title
+          side: orderWithDefault.side,
+          quantity: orderWithDefault.quantity,
+          price: orderWithDefault.price || 0,
+          totalAmount: orderWithDefault.quantity * (orderWithDefault.price || 0),
+          status: 'pending',
+          orderId: result.order_id || result.id || null,
+        },
       })
-    } else if (order.platform === 'polymarket') {
-      const apiKey = decrypt(apiKeyRecord.encryptedKey)
-      const client = new PolymarketClient({ apiKey })
 
-      result = await client.createOrder({
-        market: order.marketId,
-        side: order.side,
-        size: order.quantity.toString(),
-        price: order.price?.toString() || '0',
-        type: order.orderType === 'limit' ? 'LIMIT' : 'MARKET',
+      logger.info('Trade executed', {
+        userId: userId.substring(0, 8) + '...',
+        platform: order.platform,
+        orderId: result.order_id || result.id
       })
-    } else {
-      throw new ApiError(400, 'Invalid platform', ErrorCodes.INVALID_PLATFORM)
-    }
 
-    // Save trade to database
-    const trade = await prisma.trade.create({
-      data: {
-        userId: userId,
-        platform: order.platform,
-        marketId: order.marketId,
-        marketTitle: order.marketId, // Will be updated with actual title
-        side: order.side,
-        quantity: order.quantity,
-        price: order.price || 0,
-        totalAmount: order.quantity * (order.price || 0),
-        status: 'pending',
-        orderId: result.order_id || result.id || null,
-      },
-    })
+      // Audit log
+      await auditLogFromRequest(request, {
+        userId,
+        action: 'TRADE_EXECUTED',
+        resource: 'trade',
+        resourceId: trade.id,
+        details: {
+          platform: order.platform,
+          marketId: order.marketId,
+          side: order.side,
+          quantity: order.quantity,
+          price: order.price,
+          orderId: result.order_id || result.id,
+        },
+        status: 'SUCCESS',
+      })
 
-    logger.info('Trade executed', { 
-      userId: userId.substring(0, 8) + '...',
-      platform: order.platform,
-      orderId: result.order_id || result.id 
-    })
-
-    // Audit log
-    await auditLogFromRequest(request, {
-      userId,
-      action: 'TRADE_EXECUTED',
-      resource: 'trade',
-      resourceId: trade.id,
-      details: {
-        platform: order.platform,
-        marketId: order.marketId,
-        side: order.side,
-        quantity: order.quantity,
-        price: order.price,
-        orderId: result.order_id || result.id,
-      },
-      status: 'SUCCESS',
-    })
-
-    return NextResponse.json({ 
-      success: true, 
-      data: { order: result } 
-    })
+      return NextResponse.json({
+        success: true,
+        data: { order: result }
+      })
     },
     getRateLimitConfig('/api/trading')
   )

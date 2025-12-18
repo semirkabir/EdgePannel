@@ -88,7 +88,6 @@ export class BrowserNotificationManager {
         tag: `whale-${trade.id}`, // Prevents duplicate notifications
         requireInteraction: false,
         silent: !(options?.soundEnabled ?? true),
-        timestamp: trade.timestamp,
         data: {
           trade,
           type: 'whale_trade',

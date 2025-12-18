@@ -5,6 +5,7 @@ import { PasswordUpdateSchema } from '@/lib/api/schemas'
 import { verifyPassword, hashPassword } from '@/lib/auth/security'
 import { ErrorCodes } from '@/lib/api/error-codes'
 import { logger } from '@/lib/utils/logger'
+import { auditLogFromRequest } from '@/lib/audit/audit-logger'
 
 export const POST = withErrorHandler(
   withAuth(async (userId: string, request: NextRequest) => {

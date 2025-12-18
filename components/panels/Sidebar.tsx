@@ -33,11 +33,11 @@ interface FilterState {
   sortBy: SortOption
 }
 
-export function Sidebar({ 
-  markets, 
-  onMarketSelect, 
-  selectedMarket, 
-  categories = [], 
+export function Sidebar({
+  markets,
+  onMarketSelect,
+  selectedMarket,
+  categories = [],
   isLoading = false,
   isCollapsed = false,
   onToggleCollapse
@@ -56,7 +56,7 @@ export function Sidebar({
   const [showSearchHistory, setShowSearchHistory] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [useServerSearch, setUseServerSearch] = useState(false)
-  
+
   const { history, addSearch, removeSearch, getRecentSearches, clearHistory } = useSearchHistory()
 
   // Memoize search params to avoid recreating object on every render
@@ -84,18 +84,18 @@ export function Sidebar({
   // Group markets by category
   const marketsByCategory = useMemo(() => {
     const grouped: Record<string, Market[]> = { All: markets }
-    
+
     categories.forEach(cat => {
       grouped[cat] = markets.filter(m => m.normalizedCategory === cat || m.category === cat)
     })
-    
+
     return grouped
   }, [markets, categories])
 
   // Use ref to track previous search results and only update when IDs actually change
   const prevSearchResultsIdsRef = useRef<string>('')
   const stableSearchResultsRef = useRef<Market[]>([])
-  
+
   // Update stable search results only when the actual market IDs change
   useEffect(() => {
     if (!useServerSearch || searchResults.length === 0) {
@@ -105,9 +105,9 @@ export function Sidebar({
       }
       return
     }
-    
+
     const currentIds = searchResults.map(m => `${m.id}-${m.platform}`).sort().join(',')
-    
+
     if (currentIds !== prevSearchResultsIdsRef.current) {
       stableSearchResultsRef.current = searchResults
       prevSearchResultsIdsRef.current = currentIds
@@ -118,7 +118,7 @@ export function Sidebar({
   const filteredMarkets = useMemo(() => {
     // Use server search results if available and search query is long enough
     let sourceMarkets = useServerSearch && stableSearchResultsRef.current.length > 0
-      ? stableSearchResultsRef.current 
+      ? stableSearchResultsRef.current
       : marketsByCategory[activeCategory] || []
 
     let filtered = sourceMarkets
@@ -126,7 +126,7 @@ export function Sidebar({
     // Client-side search filter (only if not using server search)
     if (filters.search && !useServerSearch) {
       const searchLower = filters.search.toLowerCase()
-      filtered = filtered.filter(m => 
+      filtered = filtered.filter(m =>
         m.title.toLowerCase().includes(searchLower) ||
         m.description?.toLowerCase().includes(searchLower) ||
         m.keywords?.some(k => k.includes(searchLower))
@@ -193,21 +193,21 @@ export function Sidebar({
   const prevFilteredLengthRef = useRef<number>(0)
   const prevFilteredIdsRef = useRef<string>('')
   const isInitializingRef = useRef<boolean>(false)
-  
+
   useEffect(() => {
     // Prevent running if we're already initializing or loading more
     if (isInitializingRef.current || isLoadingMore) {
       return
     }
-    
+
     // Create a stable ID string from filtered markets to detect actual changes
     const currentIds = filteredMarkets.map(m => `${m.id}-${m.platform}`).join(',')
     const currentLength = filteredMarkets.length
-    
+
     // Only update if the markets actually changed (not just reference)
     if (currentIds !== prevFilteredIdsRef.current || currentLength !== prevFilteredLengthRef.current) {
       isInitializingRef.current = true
-      
+
       if (filteredMarkets.length > 0) {
         setLoadedMarkets(filteredMarkets.slice(0, 50)) // Initial load of 50
         setHasMore(filteredMarkets.length > 50)
@@ -215,10 +215,10 @@ export function Sidebar({
         setLoadedMarkets([])
         setHasMore(false)
       }
-      
+
       prevFilteredLengthRef.current = currentLength
       prevFilteredIdsRef.current = currentIds
-      
+
       // Reset initialization flag after state update
       setTimeout(() => {
         isInitializingRef.current = false
@@ -229,7 +229,7 @@ export function Sidebar({
   // Infinite scroll handler
   const loadMore = useCallback(() => {
     if (isLoadingMore || !hasMore) return
-    
+
     setIsLoadingMore(true)
     // Simulate loading delay
     setTimeout(() => {
@@ -277,11 +277,11 @@ export function Sidebar({
   }, [])
 
   // Check if any filters are active
-  const hasActiveFilters = filters.search || 
-    filters.platform !== 'all' || 
-    filters.probabilityMin > 0 || 
-    filters.probabilityMax < 100 || 
-    filters.showExpiringSoon
+  const hasActiveFilters = !!(filters.search ||
+    filters.platform !== 'all' ||
+    filters.probabilityMin > 0 ||
+    filters.probabilityMax < 100 ||
+    filters.showExpiringSoon)
 
   // Handle market selection and close mobile sidebar
   const handleMarketSelect = (market: Market) => {
@@ -338,7 +338,7 @@ export function Sidebar({
                 <X className="w-4 h-4" />
               </button>
             )}
-            
+
             {/* Search History Dropdown */}
             {showSearchHistory && recentSearches.length > 0 && !filters.search && (
               <div className="absolute left-0 right-0 top-full mt-1 bg-background border border-border rounded-md shadow-lg z-50 overflow-hidden">
@@ -347,7 +347,7 @@ export function Sidebar({
                     <Clock className="w-3 h-3" />
                     Recent Searches
                   </span>
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.preventDefault()
                       clearHistory()
@@ -492,10 +492,10 @@ export function Sidebar({
 
         <div className="mt-3 text-xs text-muted-foreground flex items-center justify-between">
           <span>
-            {useServerSearch && isSearching 
-              ? 'Searching...' 
-              : useServerSearch 
-                ? `Found ${searchTotal} markets` 
+            {useServerSearch && isSearching
+              ? 'Searching...'
+              : useServerSearch
+                ? `Found ${searchTotal} markets`
                 : `Showing ${filteredMarkets.length} of ${markets.length} markets`}
           </span>
           {hasActiveFilters && (
@@ -547,8 +547,8 @@ export function Sidebar({
                 <p className="text-sm text-muted-foreground">Please wait</p>
               </div>
             ) : loadedMarkets.length === 0 ? (
-              <EmptyState 
-                hasFilters={hasActiveFilters} 
+              <EmptyState
+                hasFilters={hasActiveFilters}
                 onClearFilters={clearFilters}
                 totalMarkets={markets.length}
               />
@@ -596,7 +596,7 @@ export function Sidebar({
                             <div className="flex items-center gap-2">
                               <span className={cn(
                                 "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase",
-                                market.platform === 'polymarket' 
+                                market.platform === 'polymarket'
                                   ? "bg-blue-500/20 text-blue-400"
                                   : "bg-green-500/20 text-green-400"
                               )}>
@@ -617,7 +617,7 @@ export function Sidebar({
                               <span className={cn(
                                 "font-semibold text-sm",
                                 market.price > 0.7 ? "text-green-400" :
-                                market.price < 0.3 ? "text-red-400" : "text-foreground"
+                                  market.price < 0.3 ? "text-red-400" : "text-foreground"
                               )}>
                                 {(market.price * 100).toFixed(1)}%
                               </span>
@@ -628,7 +628,7 @@ export function Sidebar({
                     </div>
                   )
                 })}
-                
+
                 {/* Loading more indicator */}
                 {isLoadingMore && (
                   <div className="p-4 text-center">
@@ -638,7 +638,7 @@ export function Sidebar({
                     </div>
                   </div>
                 )}
-                
+
                 {/* Load more button (fallback if scroll doesn't trigger) */}
                 {hasMore && !isLoadingMore && (
                   <div className="p-4 text-center">
@@ -671,7 +671,7 @@ export function Sidebar({
       </Button>
 
       {/* Mobile backdrop */}
-      <div 
+      <div
         className={cn(
           "fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300",
           mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -710,11 +710,11 @@ export function Sidebar({
 }
 
 // Empty state component
-function EmptyState({ 
-  hasFilters, 
+function EmptyState({
+  hasFilters,
   onClearFilters,
-  totalMarkets 
-}: { 
+  totalMarkets
+}: {
   hasFilters: boolean
   onClearFilters: () => void
   totalMarkets: number

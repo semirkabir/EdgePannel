@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,11 +21,7 @@ import { cn } from '@/lib/utils/cn'
 import { Starfield } from '@/components/polyglobe/Starfield'
 import dynamic from 'next/dynamic'
 
-// Dynamically import the globe preview (client-side only)
-const PolyglobePreview = dynamic(
-  () => import('@/components/landing/PolyglobePreview').then(mod => mod.PolyglobePreview),
-  { ssr: false }
-)
+// Video Preview replaced dynamic globe preview
 
 // Feature cards data
 const features = [
@@ -214,9 +210,34 @@ function FeatureDemoCard({ feature, index }: { feature: typeof features[0]; inde
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false)
 
+  const videoRef = useRef<HTMLVideoElement>(null)
+
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            videoRef.current?.play().catch(() => { })
+          } else {
+            videoRef.current?.pause()
+          }
+        })
+      },
+      { threshold: 0.3 }
+    )
+
+    if (videoRef.current) {
+      observer.observe(videoRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [mounted])
 
   return (
     <div className="min-h-screen bg-gray-950 overflow-hidden relative">
@@ -331,7 +352,7 @@ export default function LandingPage() {
                     <div className="w-3 h-3 rounded-full bg-yellow-400" />
                     <div className="w-3 h-3 rounded-full bg-[#00ff7f]" />
                   </div>
-                  <span className="text-xs font-mono text-gray-500 uppercase tracking-wider">EdgePannel Terminal</span>
+                  <span className="text-xs font-mono text-gray-400 uppercase tracking-widest px-4 py-1 bg-white/5 rounded-full border border-white/10">Intelligence Platform</span>
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-dot" />
                     <span className="text-xs text-emerald-400 font-mono uppercase tracking-wider">Live</span>
@@ -340,14 +361,16 @@ export default function LandingPage() {
 
                 {/* Globe embed area - 16:9 aspect ratio */}
                 <div className="relative aspect-[16/9] bg-gray-950 overflow-hidden">
-                  {/* Interactive Globe Preview */}
-                  {mounted && (
-                    <PolyglobePreview className="absolute inset-0" />
-                  )}
+                  {/* Hero Video Preview */}
+                  <video
+                    ref={videoRef}
+                    src="/cursorful-video-1766031504324.mp4"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    muted
+                    loop
+                    playsInline
+                  />
 
-                  {/* Floating stat cards */}
-                  <FloatingStatCard position="top-left" delay="0s" />
-                  <FloatingStatCard position="bottom-right" delay="1.5s" />
                 </div>
               </div>
 

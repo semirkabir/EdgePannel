@@ -121,7 +121,7 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
                 rawData: m.rawData ? JSON.stringify(m.rawData) : '{}'
             }
         };
-    }).filter(Boolean); // Filter out any null entries
+    }).filter((f): f is GeoJSONFeature => f !== null); // Filter out any null entries and narrow type
 
     return {
         type: 'FeatureCollection',
@@ -153,8 +153,8 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
 
         let lng, lat;
         if (hasNestedCoords) {
-            lng = primaryMarket.location!.coordinates.lng;
-            lat = primaryMarket.location!.coordinates.lat;
+            lng = hasNestedCoords.lng;
+            lat = hasNestedCoords.lat;
         } else if (hasDirectCoords) {
             lng = (primaryMarket as any).longitude;
             lat = (primaryMarket as any).latitude;
@@ -213,10 +213,10 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
                 image_url: primaryMarket.imageUrl || (primaryMarket as any).image || primaryMarket.rawData?.image || primaryMarket.rawData?.icon || primaryMarket.rawData?.eventImage || null,
                 description: primaryMarket.description || group.baseQuestion, // Event description
                 // Event metadata - prefer eventId from rawData (set when fetching from events API)
-                eventId: primaryMarket.rawData?.eventId 
-                  || primaryMarket.rawData?.events?.[0]?.id 
-                  || group.groupId 
-                  || null,
+                eventId: primaryMarket.rawData?.eventId
+                    || primaryMarket.rawData?.events?.[0]?.id
+                    || group.groupId
+                    || null,
                 eventData: primaryMarket.rawData?.events?.[0] || null,
                 updatedAt: (primaryMarket as any).updatedAt ? String((primaryMarket as any).updatedAt) : null,
             }

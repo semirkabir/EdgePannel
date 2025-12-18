@@ -13,6 +13,7 @@ interface Event {
   endDate?: string
   markets?: any[] // Markets nested in the event
   imageUrl?: string
+  tags?: string[]
 }
 
 interface UseEventsOptions {
@@ -48,51 +49,51 @@ export function useEvents(options: UseEventsOptions = {}) {
   const markets: Market[] = useMemo(() => {
     return events
       ? events.flatMap((event) => {
-          if (!event.markets || !Array.isArray(event.markets)) {
-            return []
+        if (!event.markets || !Array.isArray(event.markets)) {
+          return []
+        }
+
+        // Transform each market in the event to Market format
+        return event.markets.map((market: any) => {
+          // Parse outcome prices
+          let price = 0
+          let probability = 0
+          try {
+            const prices = typeof market.outcomePrices === 'string'
+              ? JSON.parse(market.outcomePrices)
+              : market.outcomePrices
+            if (Array.isArray(prices) && prices.length > 0) {
+              price = parseFloat(prices[0].toString())
+              probability = price
+            }
+          } catch (e) {
+            // Use default price if parsing fails
           }
 
-          // Transform each market in the event to Market format
-          return event.markets.map((market: any) => {
-            // Parse outcome prices
-            let price = 0
-            let probability = 0
-            try {
-              const prices = typeof market.outcomePrices === 'string'
-                ? JSON.parse(market.outcomePrices)
-                : market.outcomePrices
-              if (Array.isArray(prices) && prices.length > 0) {
-                price = parseFloat(prices[0].toString())
-                probability = price
-              }
-            } catch (e) {
-              // Use default price if parsing fails
-            }
-
-            return {
-              id: market.conditionId || market.id?.toString() || '',
-              platform: 'polymarket' as const,
-              title: market.question || event.question || '',
-              description: market.description || event.description || '',
-              category: market.tags?.[0] || event.tags?.[0] || undefined,
-              tags: market.tags || event.tags || [],
-              probability,
-              price,
-              volume24h: parseFloat(market.volume24hr?.toString() || '0'),
-              liquidity: parseFloat(market.liquidityNum?.toString() || '0'),
-              endDate: market.endDateIso ? new Date(market.endDateIso) : (event.endDate ? new Date(event.endDate) : undefined),
-              slug: market.slug || event.slug,
-              imageUrl: market.image || market.image || undefined,
-              rawData: {
-                ...market,
-                // Normalize eventId to string for consistent grouping
-                eventId: String(event.id),
-                eventQuestion: event.question,
-                events: [{ id: String(event.id), question: event.question }],
-              },
-            } as Market
-          })
+          return {
+            id: market.conditionId || market.id?.toString() || '',
+            platform: 'polymarket' as const,
+            title: market.question || event.question || '',
+            description: market.description || event.description || '',
+            category: market.tags?.[0] || event.tags?.[0] || undefined,
+            tags: market.tags || event.tags || [],
+            probability,
+            price,
+            volume24h: parseFloat(market.volume24hr?.toString() || '0'),
+            liquidity: parseFloat(market.liquidityNum?.toString() || '0'),
+            endDate: market.endDateIso ? new Date(market.endDateIso) : (event.endDate ? new Date(event.endDate) : undefined),
+            slug: market.slug || event.slug,
+            imageUrl: market.image || market.image || undefined,
+            rawData: {
+              ...market,
+              // Normalize eventId to string for consistent grouping
+              eventId: String(event.id),
+              eventQuestion: event.question,
+              events: [{ id: String(event.id), question: event.question }],
+            },
+          } as Market
         })
+      })
       : []
   }, [events]);
 

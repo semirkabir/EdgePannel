@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { extractLocation, enrichLocationData } from '@/lib/utils/location-extractor-v2'
 import { prisma } from '@/lib/db/client'
@@ -165,7 +166,6 @@ export async function GET(request: Request) {
             longitude: enrichedLocation.coordinates?.lng,
             confidence: enrichedLocation.confidence,
             extractedFrom: enrichedLocation.extractedFrom,
-            active: true, // New markets are active by default
             rawData: market.rawData || {},
           },
           update: {
@@ -182,25 +182,15 @@ export async function GET(request: Request) {
             longitude: enrichedLocation.coordinates?.lng,
             confidence: enrichedLocation.confidence,
             extractedFrom: enrichedLocation.extractedFrom,
-            active: true,
             updatedAt: new Date(),
           }
         })
 
         results.indexed++
 
-        // Track highest ID and timestamp
+        // Track highest ID
         if (market.id > highestId) {
           highestId = market.id
-        }
-
-        // Track timestamp if available
-        const marketTimestamp = market.createdAt || market.rawData?.created_at
-        if (marketTimestamp) {
-          const ts = new Date(marketTimestamp)
-          if (!highestTimestamp || ts > highestTimestamp) {
-            highestTimestamp = ts
-          }
         }
 
       } catch (error) {

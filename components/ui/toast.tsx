@@ -15,7 +15,7 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      'absolute top-16 right-4 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:top-16 sm:right-4 sm:bottom-auto sm:flex-col md:max-w-[420px] justify-start items-end',
+      'fixed top-4 right-4 z-[9999] flex max-h-screen w-full flex-col gap-2 p-0 sm:max-w-[380px]',
       className
     )}
     {...props}
@@ -24,15 +24,15 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
 const toastVariants = cva(
-  'group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-lg border p-4 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full',
+  'group pointer-events-auto relative flex w-full items-stretch justify-between overflow-hidden rounded-2xl border bg-[#0e0f11]/90 backdrop-blur-2xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full duration-500',
   {
     variants: {
       variant: {
-        default: 'border-border bg-card text-card-foreground',
-        success: 'border-green-500/50 bg-green-500/10 text-green-400',
-        error: 'border-red-500/50 bg-red-500/10 text-red-400',
-        warning: 'border-yellow-500/50 bg-yellow-500/10 text-yellow-400',
-        info: 'border-blue-500/50 bg-blue-500/10 text-blue-400',
+        default: 'border-white/10 text-white',
+        success: 'border-emerald-500/40 shadow-emerald-500/10',
+        error: 'border-red-500/40 shadow-red-500/10',
+        warning: 'border-amber-500/40 shadow-amber-500/10',
+        info: 'border-blue-500/40 shadow-blue-500/10',
       },
     },
     defaultVariants: {
@@ -44,14 +44,44 @@ const toastVariants = cva(
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
-    VariantProps<typeof toastVariants>
->(({ className, variant, ...props }, ref) => {
+  VariantProps<typeof toastVariants>
+>(({ className, variant = 'default', children, ...props }, ref) => {
+  const Icon = variantIcons[variant || 'default'];
+
   return (
     <ToastPrimitives.Root
       ref={ref}
       className={cn(toastVariants({ variant }), className)}
       {...props}
-    />
+    >
+      {/* Icon/Accent Strip */}
+      <div className={cn(
+        "w-12 flex items-center justify-center shrink-0 border-r border-white/5",
+        variant === 'success' ? "bg-emerald-500/20" :
+          variant === 'error' ? "bg-red-500/20" :
+            variant === 'warning' ? "bg-amber-500/20" :
+              variant === 'info' ? "bg-blue-500/20" :
+                "bg-white/5"
+      )}>
+        {Icon && React.createElement(Icon, {
+          className: cn(
+            "w-5 h-5",
+            variant === 'success' ? "text-emerald-400" :
+              variant === 'error' ? "text-red-400" :
+                variant === 'warning' ? "text-amber-400" :
+                  variant === 'info' ? "text-blue-400" :
+                    "text-gray-400"
+          )
+        })}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 p-4 pr-10">
+        {children}
+      </div>
+
+      <ToastClose />
+    </ToastPrimitives.Root>
   )
 })
 Toast.displayName = ToastPrimitives.Root.displayName
@@ -63,7 +93,7 @@ const ToastAction = React.forwardRef<
   <ToastPrimitives.Action
     ref={ref}
     className={cn(
-      'inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+      'inline-flex h-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-bold ring-offset-background transition-all hover:bg-white/10 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-white',
       className
     )}
     {...props}
@@ -78,7 +108,7 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      'absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100',
+      'absolute right-2 top-2 rounded-lg p-1.5 text-white/30 opacity-0 transition-all hover:text-white hover:bg-white/5 focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100',
       className
     )}
     toast-close=""
@@ -95,7 +125,7 @@ const ToastTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Title
     ref={ref}
-    className={cn('text-sm font-semibold', className)}
+    className={cn('text-sm font-bold tracking-tight text-white mb-0.5', className)}
     {...props}
   />
 ))
@@ -107,7 +137,7 @@ const ToastDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Description
     ref={ref}
-    className={cn('text-sm opacity-90', className)}
+    className={cn('text-xs font-medium text-gray-400 leading-relaxed', className)}
     {...props}
   />
 ))
@@ -119,7 +149,7 @@ type ToastActionElement = React.ReactElement<typeof ToastAction>
 
 // Icon mapping for variants
 const variantIcons = {
-  default: null,
+  default: Info,
   success: CheckCircle,
   error: AlertCircle,
   warning: AlertTriangle,

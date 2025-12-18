@@ -14,9 +14,10 @@ export type AuditAction =
   | 'ACCOUNT_LOCKED'
   | 'PASSWORD_CHANGED'
   | 'PASSWORD_RESET_REQUESTED'
+  | 'PASSWORD_RESET'
   | 'EMAIL_CHANGED'
   | 'EMAIL_VERIFIED'
-  
+
   // API Keys
   | 'API_KEY_CREATED'
   | 'API_KEY_UPDATED'
@@ -24,21 +25,21 @@ export type AuditAction =
   | 'API_KEY_ROTATED'
   | 'API_KEY_EXPIRED'
   | 'API_KEY_ACCESSED'
-  
+
   // Trading
   | 'TRADE_EXECUTED'
   | 'TRADE_CANCELLED'
   | 'TRADE_FAILED'
-  
+
   // Settings
   | 'SETTINGS_UPDATED'
   | 'PROFILE_UPDATED'
-  
+
   // Security
   | 'RATE_LIMIT_EXCEEDED'
   | 'UNAUTHORIZED_ACCESS'
   | 'SUSPICIOUS_ACTIVITY'
-  
+
   // System
   | 'SYSTEM_EVENT'
 
@@ -77,7 +78,7 @@ export async function auditLog(data: AuditLogData): Promise<void> {
         action: data.action,
         resource: data.resource,
         resourceId: data.resourceId || null,
-        details: data.details || {},
+        details: (data.details as any) || {},
         ipAddress: data.ipAddress || null,
         userAgent: data.userAgent || null,
         status: data.status || 'SUCCESS',
@@ -108,7 +109,7 @@ export function extractRequestMetadata(request: Request): {
   userAgent: string | undefined
 } {
   const headers = request.headers || (request as any).headers || {}
-  
+
   // Get IP address (check various headers for proxies/load balancers)
   const ipAddress =
     headers.get?.('x-forwarded-for')?.split(',')[0]?.trim() ||

@@ -245,13 +245,13 @@ export async function GET(request: Request) {
               }
 
               // Combine and deduplicate (prefer Polymarket API results)
-              const polymarketIds = new Set(polymarkets.map(m => m.id))
-              const kalshiIds = new Set(filteredKalshiMarkets.map(m => m.id))
+              const polymarketIds = new Set(polymarkets.map((m: any) => m.id))
+              const kalshiIds = new Set(filteredKalshiMarkets.map((m: any) => m.id))
 
               // Combine all markets
               const combined = [
                 ...polymarkets,
-                ...filteredKalshiMarkets.filter(m => !polymarketIds.has(m.id))
+                ...filteredKalshiMarkets.filter((m: any) => !polymarketIds.has(m.id))
               ]
 
               searchResults = {

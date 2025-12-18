@@ -277,7 +277,7 @@ export function PolyglobePreview({ className }: PolyglobePreviewProps) {
         onMove={evt => setViewState(evt.viewState)}
         onLoad={() => setIsLoaded(true)}
         mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-        projection={{ name: 'globe' }}
+        projection={{ type: 'globe' }}
         style={{ width: '100%', height: '100%' }}
         dragPan={false}
         dragRotate={false}
@@ -399,9 +399,8 @@ export function PolyglobePreview({ className }: PolyglobePreviewProps) {
             <div className="bg-[#0e0f11]/95 backdrop-blur-xl border border-white/10 rounded-lg p-3 min-w-[240px] animate-in fade-in duration-300">
               {/* Platform badge */}
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-[10px] font-mono uppercase tracking-wider ${
-                  hoveredMarket.platform === 'polymarket' ? 'text-blue-400' : 'text-[#00ff7f]'
-                }`}>
+                <span className={`text-[10px] font-mono uppercase tracking-wider ${hoveredMarket.platform === 'polymarket' ? 'text-blue-400' : 'text-[#00ff7f]'
+                  }`}>
                   {hoveredMarket.platform}
                 </span>
                 <span className="text-[10px] text-gray-500 uppercase tracking-wider">
@@ -422,15 +421,13 @@ export function PolyglobePreview({ className }: PolyglobePreviewProps) {
               {/* Price and stats */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className={`text-lg font-mono font-bold tabular-nums ${
-                    hoveredMarket.price >= 0.5 ? 'text-[#00ff7f]' : 'text-[#ff4d4d]'
-                  }`}>
+                  <span className={`text-lg font-mono font-bold tabular-nums ${hoveredMarket.price >= 0.5 ? 'text-[#00ff7f]' : 'text-[#ff4d4d]'
+                    }`}>
                     {Math.round(hoveredMarket.price * 100)}%
                   </span>
                   {hoveredMarket.change !== 0 && (
-                    <span className={`flex items-center text-[10px] font-medium ${
-                      hoveredMarket.change > 0 ? 'text-emerald-400' : 'text-rose-400'
-                    }`}>
+                    <span className={`flex items-center text-[10px] font-medium ${hoveredMarket.change > 0 ? 'text-emerald-400' : 'text-rose-400'
+                      }`}>
                       {hoveredMarket.change > 0 ? (
                         <TrendingUp className="w-2.5 h-2.5" />
                       ) : (

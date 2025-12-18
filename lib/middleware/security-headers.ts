@@ -20,11 +20,12 @@ const securityHeaders = {
   // Content Security Policy - adjust based on your needs
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Adjust for production
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:",
+    "style-src 'self' 'unsafe-inline' https://api.maptiler.com",
+    "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://api.polymarket.com https://api.cf.kalshi.com wss://",
+    "connect-src 'self' https://*.polymarket.com https://*.kalshi.com https://*.kalshi.co https://raw.githubusercontent.com https://api.maptiler.com https://nominatim.openstreetmap.org wss://ws-subscriptions-clob.polymarket.com wss://*.kalshi.co wss://*.kalshi.com",
+    "worker-src 'self' blob:",
     "frame-ancestors 'self'",
   ].join('; '),
 }

@@ -59,7 +59,7 @@ export class KalshiWebSocketClient {
 
           // Resubscribe to all previous subscriptions
           if (this.subscriptions.size > 0) {
-            this.sendSubscribe(Array.from(this.subscriptions))
+            this.sendSubscribe(Array.from(this.subscriptions), ['ticker', 'orderbook_delta'])
           }
           resolve()
         }

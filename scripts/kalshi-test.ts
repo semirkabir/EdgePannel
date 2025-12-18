@@ -13,7 +13,7 @@ const portfolioApi = new PortfolioApi(config);
 async function getPortfolio() {
   console.log('Fetching your Kalshi portfolio...');
   try {
-    const { status, data } = await portfolioApi.getPortfolio();
+    const { status, data } = await (portfolioApi as any).getBalance();
     console.log('Portfolio Status:', status);
     console.log('Portfolio Data:', JSON.stringify(data, null, 2));
   } catch (error) {

@@ -1,13 +1,14 @@
 import { withAuth } from "next-auth/middleware"
+import type { NextRequestWithAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import type { NextRequest, NextFetchEvent } from "next/server"
 import { applySecurityHeaders } from "@/lib/middleware/security-headers"
 
 // Authentication middleware configuration
 // In production, authentication should always be enabled
 // Can be disabled in development via AUTH_ENABLED=false env var
-const AUTH_ENABLED = process.env.NODE_ENV === 'production' 
-  ? true 
+const AUTH_ENABLED = process.env.NODE_ENV === 'production'
+  ? true
   : (process.env.AUTH_ENABLED === 'true' || false)
 
 // Warn if auth is disabled in production (should never happen)
@@ -29,12 +30,12 @@ const authMiddleware = AUTH_ENABLED ? withAuth({
 }) : undefined
 
 // Main middleware - applies auth and security headers
-export default function middleware(req: NextRequest) {
+export default function middleware(req: NextRequest, event: NextFetchEvent) {
   let response: NextResponse
-  
+
   if (authMiddleware) {
     // Apply authentication
-    response = authMiddleware(req) as NextResponse
+    response = authMiddleware(req as NextRequestWithAuth, event) as NextResponse
   } else {
     // Development fallback - log warning
     if (process.env.NODE_ENV === 'development') {
@@ -42,7 +43,7 @@ export default function middleware(req: NextRequest) {
     }
     response = NextResponse.next()
   }
-  
+
   // Apply security headers to all responses
   return applySecurityHeaders(response)
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { TrendingUp, TrendingDown, Activity, DollarSign, BarChart3, Clock, Filter, RefreshCw, Zap, Target, Eye, Flame } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { EnrichedMarket } from '@/lib/markets/enrich'
@@ -95,7 +95,7 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
   const [showFilters, setShowFilters] = useState(false)
 
   // Fetch analytics data
-  const fetchAnalytics = async (refresh = false) => {
+  const fetchAnalytics = useCallback(async (refresh = false) => {
     if (refresh) setIsRefreshing(true)
     else setIsLoading(true)
 
@@ -120,11 +120,11 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }
+  }, [timeframe, platform, whaleThreshold])
 
   useEffect(() => {
     fetchAnalytics()
-  }, [timeframe, platform, whaleThreshold])
+  }, [fetchAnalytics])
 
   const handleRefresh = () => {
     fetchAnalytics(true)

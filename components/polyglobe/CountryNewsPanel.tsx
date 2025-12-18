@@ -225,15 +225,49 @@ export function CountryNewsPanel({ country, onClose, onMarketSelect }: CountryNe
                     className="w-full text-left p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-blue-500/50 transition-all group"
                   >
                     <div className="flex items-start gap-3">
-                      {/* Rank Badge */}
-                      <div className={cn(
-                        "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
-                        index === 0 ? "bg-yellow-500/20 text-yellow-400" :
-                        index === 1 ? "bg-gray-400/20 text-gray-300" :
-                        index === 2 ? "bg-orange-500/20 text-orange-400" :
-                        "bg-white/5 text-gray-500"
-                      )}>
-                        {index + 1}
+                      {/* Event Image or Rank Badge */}
+                      <div className="relative flex-shrink-0">
+                        <div className={cn(
+                          "w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center border-2 shadow-inner group-hover:scale-105 transition-transform duration-300",
+                          index === 0 ? "border-yellow-500/50" :
+                            index === 1 ? "border-gray-400/50" :
+                              index === 2 ? "border-orange-500/50" :
+                                "border-white/10"
+                        )}>
+                          {(() => {
+                            const marketImg = market.imageUrl || (market as any).image || (market as any).rawData?.image || (market as any).rawData?.icon || (market as any).rawData?.eventImage;
+                            if (marketImg) {
+                              return (
+                                <img
+                                  src={marketImg}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                  }}
+                                />
+                              );
+                            }
+                            return null;
+                          })()}
+                          <div className={cn(
+                            "absolute inset-0 flex items-center justify-center text-xs font-bold bg-gray-800",
+                            market.imageUrl || (market as any).image ? "hidden" : ""
+                          )}>
+                            {index + 1}
+                          </div>
+                        </div>
+                        {/* Small rank overlay */}
+                        <div className={cn(
+                          "absolute -top-1.5 -left-1.5 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black z-10 shadow-lg border border-white/10",
+                          index === 0 ? "bg-yellow-500 text-black" :
+                            index === 1 ? "bg-gray-400 text-black" :
+                              index === 2 ? "bg-orange-500 text-black" :
+                                "bg-gray-700 text-white"
+                        )}>
+                          {index + 1}
+                        </div>
                       </div>
 
                       <div className="flex-1 min-w-0">

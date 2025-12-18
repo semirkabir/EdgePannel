@@ -1,7 +1,7 @@
 import { Resend } from 'resend'
 
 // Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 // Email configuration
 export const EMAIL_CONFIG = {
@@ -25,7 +25,7 @@ export async function sendEmail({
   text?: string
 }) {
   try {
-    if (!process.env.RESEND_API_KEY) {
+    if (!resend) {
       console.warn('[Email] RESEND_API_KEY not configured. Email not sent.')
       console.log('[Email] Would send:', { to, subject })
       return { success: false, error: 'Email service not configured' }

@@ -27,8 +27,8 @@ export class ApiError extends Error {
       {
         error: this.message,
         code: this.code,
-        ...(this.retryAfter && { retryAfter: this.retryAfter }),
-        ...(process.env.NODE_ENV === 'development' && this.details && { details: this.details }),
+        ...(this.retryAfter ? { retryAfter: this.retryAfter } : {}),
+        ...(process.env.NODE_ENV === 'development' && this.details ? { details: this.details } : {}),
       },
       { status: this.statusCode }
     )
@@ -148,15 +148,15 @@ export function withAuth<T extends (userId: string, request: NextRequest, ...arg
 ) {
   const wrappedHandler = withErrorHandler(async (request: NextRequest, ...args: any[]) => {
     const userId = await getUserId(request)
-    
+
     // Apply rate limiting if configured
     if (rateLimitConfig) {
       const identifier = rateLimitConfig.perUser
         ? userId
         : request.headers.get('x-forwarded-for')?.split(',')[0] ||
-          request.headers.get('x-real-ip') ||
-          'unknown'
-      
+        request.headers.get('x-real-ip') ||
+        'unknown'
+
       if (!rateLimit(identifier, rateLimitConfig.maxRequests, rateLimitConfig.windowMs)) {
         throw new ApiError(
           429,
@@ -167,10 +167,10 @@ export function withAuth<T extends (userId: string, request: NextRequest, ...arg
         )
       }
     }
-    
+
     return handler(userId, request, ...args)
   })
-  
+
   return wrappedHandler
 }
 
@@ -247,8 +247,8 @@ export function withRateLimit(
       const identifier = perUser
         ? userId
         : request.headers.get('x-forwarded-for')?.split(',')[0] ||
-          request.headers.get('x-real-ip') ||
-          'unknown'
+        request.headers.get('x-real-ip') ||
+        'unknown'
 
       if (!rateLimit(identifier, maxRequests, windowMs)) {
         throw new ApiError(

@@ -24,9 +24,9 @@ export const POST = withErrorHandler(
         : null
 
       // Log only non-sensitive information
-      logger.info(`Saving ${platform} API keys`, { 
+      logger.info(`Saving ${platform} API keys`, {
         userId: userId.substring(0, 8) + '...',
-        platform 
+        platform
       })
 
       // Check if this is an update or create
@@ -41,7 +41,7 @@ export const POST = withErrorHandler(
 
       const isUpdate = !!existing
 
-      const apiKey = await prisma.apiKey.upsert({
+      const savedApiKey = await prisma.apiKey.upsert({
         where: {
           userId_platform: {
             userId: userId,
@@ -72,7 +72,7 @@ export const POST = withErrorHandler(
         userId,
         action: isUpdate ? 'API_KEY_UPDATED' : 'API_KEY_CREATED',
         resource: 'api_key',
-        resourceId: apiKey.id,
+        resourceId: savedApiKey.id,
         details: {
           platform,
         },

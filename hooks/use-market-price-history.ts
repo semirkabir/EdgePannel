@@ -64,7 +64,7 @@ export function useMarketPriceHistory(
         try {
           // Build URL with assetId if available (for Polymarket)
           let url = `/api/markets/history?id=${encodeURIComponent(marketId)}&platform=${platform}&interval=${interval}`
-          
+
           if (assetId && platform === 'polymarket') {
             url += `&assetId=${encodeURIComponent(assetId)}`
           }
@@ -83,8 +83,8 @@ export function useMarketPriceHistory(
           if (data.history && Array.isArray(data.history)) {
             // Convert timestamps to Date objects if needed
             const history = data.history.map((point: any) => ({
-              timestamp: point.timestamp instanceof Date 
-                ? point.timestamp 
+              timestamp: point.timestamp instanceof Date
+                ? point.timestamp
                 : new Date(point.timestamp),
               price: point.price,
               volume: point.volume || 0,
@@ -112,9 +112,7 @@ export function useMarketPriceHistory(
 
     // Include assetId in dependency array
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marketId, platform, enabled, interval, debounceMs, options.assetId])
-
-  return () => {
+    return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current)
       }

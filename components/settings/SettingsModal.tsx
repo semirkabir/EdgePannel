@@ -22,17 +22,17 @@ interface SettingsModalProps {
 // Google Logo SVG Component
 const GoogleIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" width="18" height="18">
-        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
     </svg>
 )
 
 // X (Twitter) Logo SVG Component
 const XIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
     </svg>
 )
 
@@ -47,6 +47,7 @@ export function SettingsModal({
     onAutoRotateChange
 }: SettingsModalProps) {
     const { data: session } = useSession()
+    const { toast } = useToast()
     const [activeTab, setActiveTab] = useState<'profile' | 'api' | 'map'>('profile')
     const [isLoading, setIsLoading] = useState(false)
     const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({})
@@ -137,7 +138,7 @@ export function SettingsModal({
 
     const handleUpdateEmail = async () => {
         if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-            toast({ title: 'Please enter a valid email address', variant: 'destructive' })
+            toast({ title: 'Please enter a valid email address', variant: 'error' })
             return
         }
 
@@ -161,7 +162,7 @@ export function SettingsModal({
                 setAuthInfo({ ...authInfo, user: { ...authInfo.user!, email: newEmail } })
             }
         } catch (error: any) {
-            toast({ title: error.message || 'Failed to update email', variant: 'destructive' })
+            toast({ title: error.message || 'Failed to update email', variant: 'error' })
         } finally {
             setEmailLoading(false)
         }
@@ -229,12 +230,12 @@ export function SettingsModal({
                             <h2 className="text-2xl font-black text-white tracking-tight mb-1">Settings</h2>
                             <p className="text-sm text-gray-400">Manage your account and preferences</p>
                         </div>
-                    <button
-                        onClick={onClose}
+                        <button
+                            onClick={onClose}
                             className="p-2.5 hover:bg-white/10 rounded-xl transition-all text-gray-400 hover:text-white group"
-                    >
+                        >
                             <X className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                    </button>
+                        </button>
                     </div>
                 </div>
 
@@ -312,12 +313,12 @@ export function SettingsModal({
                                     {!isEditingEmail ? (
                                         <div className="flex items-center justify-between">
                                             <div className="flex-1">
-                                        <input
-                                            type="email"
+                                                <input
+                                                    type="email"
                                                     value={displayedEmail}
-                                            disabled
+                                                    disabled
                                                     className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-300 cursor-not-allowed"
-                                        />
+                                                />
                                             </div>
                                             <Button
                                                 variant="outline"
@@ -361,7 +362,7 @@ export function SettingsModal({
                                             </div>
                                         </div>
                                     )}
-                                    </div>
+                                </div>
 
                                 {/* Password Section */}
                                 <div className="p-6 rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-xl">
@@ -418,7 +419,7 @@ export function SettingsModal({
                                                 </button>
                                             </div>
                                             <div className="relative">
-                                        <input
+                                                <input
                                                     type={showSecrets.confirmPassword ? "text" : "password"}
                                                     value={passwordData.confirm}
                                                     onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })}
@@ -431,7 +432,7 @@ export function SettingsModal({
                                                 >
                                                     {showSecrets.confirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                                 </button>
-                                    </div>
+                                            </div>
                                             <div className="flex gap-2">
                                                 <Button
                                                     onClick={handleUpdatePassword}
@@ -453,8 +454,8 @@ export function SettingsModal({
                                                     disabled={passwordLoading}
                                                 >
                                                     Cancel
-                                        </Button>
-                                    </div>
+                                                </Button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -568,21 +569,21 @@ export function SettingsModal({
                                             <p className="text-xs text-gray-400">Polygon Wallet Proxy</p>
                                         </div>
                                     </div>
-                                        <div className="relative">
-                                            <input
-                                                type={showSecrets.poly ? "text" : "password"}
-                                                placeholder="0x..."
+                                    <div className="relative">
+                                        <input
+                                            type={showSecrets.poly ? "text" : "password"}
+                                            placeholder="0x..."
                                             className="w-full bg-black/40 border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50"
-                                                value={keys.polymarket}
-                                                onChange={e => setKeys(prev => ({ ...prev, polymarket: e.target.value }))}
-                                            />
-                                            <button
-                                                onClick={() => toggleSecret('poly')}
+                                            value={keys.polymarket}
+                                            onChange={e => setKeys(prev => ({ ...prev, polymarket: e.target.value }))}
+                                        />
+                                        <button
+                                            onClick={() => toggleSecret('poly')}
                                             className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-300"
-                                            >
-                                                {showSecrets.poly ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
+                                        >
+                                            {showSecrets.poly ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
                                     <p className="text-xs text-gray-500 mt-2">Encrypted and stored securely</p>
                                 </div>
 
@@ -641,29 +642,29 @@ export function SettingsModal({
                                 {/* Auto Rotate */}
                                 <div className="p-6 rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-xl">
                                     <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
                                                 {autoRotate ? <Play className="w-5 h-5 text-blue-400" /> : <Pause className="w-5 h-5 text-gray-400" />}
-                                        </div>
-                                        <div>
+                                            </div>
+                                            <div>
                                                 <label className="text-sm font-semibold text-white">Auto Rotate</label>
-                                            <p className="text-xs text-gray-400">Enable automatic globe rotation</p>
+                                                <p className="text-xs text-gray-400">Enable automatic globe rotation</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <button
-                                        onClick={() => onAutoRotateChange?.(!autoRotate)}
-                                        className={cn(
-                                                "relative inline-flex h-7 w-12 items-center rounded-full transition-colors shadow-inner",
-                                            autoRotate ? "bg-blue-500" : "bg-gray-700"
-                                        )}
-                                    >
-                                        <span
+                                        <button
+                                            onClick={() => onAutoRotateChange?.(!autoRotate)}
                                             className={cn(
-                                                    "inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-lg",
-                                                autoRotate ? "translate-x-6" : "translate-x-1"
+                                                "relative inline-flex h-7 w-12 items-center rounded-full transition-colors shadow-inner",
+                                                autoRotate ? "bg-blue-500" : "bg-gray-700"
                                             )}
-                                        />
-                                    </button>
+                                        >
+                                            <span
+                                                className={cn(
+                                                    "inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-lg",
+                                                    autoRotate ? "translate-x-6" : "translate-x-1"
+                                                )}
+                                            />
+                                        </button>
                                     </div>
                                 </div>
 
@@ -672,65 +673,65 @@ export function SettingsModal({
                                     <div className="p-6 rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-xl">
                                         <div className="flex items-center gap-3 mb-4">
                                             <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                                            <Gauge className="w-5 h-5 text-blue-400" />
-                                        </div>
-                                        <div className="flex-1">
+                                                <Gauge className="w-5 h-5 text-blue-400" />
+                                            </div>
+                                            <div className="flex-1">
                                                 <label className="text-sm font-semibold text-white block mb-1">
-                                                Rotation Speed
-                                            </label>
+                                                    Rotation Speed
+                                                </label>
                                                 <div className="flex items-center gap-4">
-                                                <input
-                                                    type="range"
-                                                    min="0.01"
-                                                    max="0.5"
-                                                    step="0.01"
-                                                    value={rotationSpeed}
-                                                    onChange={(e) => onRotationSpeedChange?.(parseFloat(e.target.value))}
-                                                    className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                                />
+                                                    <input
+                                                        type="range"
+                                                        min="0.01"
+                                                        max="0.5"
+                                                        step="0.01"
+                                                        value={rotationSpeed}
+                                                        onChange={(e) => onRotationSpeedChange?.(parseFloat(e.target.value))}
+                                                        className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                                    />
                                                     <span className="text-sm font-semibold text-gray-300 w-16 text-right">
                                                         {Math.round(rotationSpeed * 100)}%
-                                                </span>
-                                            </div>
+                                                    </span>
+                                                </div>
                                                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                                                <span>Slow</span>
-                                                <span>Fast</span>
+                                                    <span>Slow</span>
+                                                    <span>Fast</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
                                 )}
 
                                 {/* Pause on Hover */}
                                 <div className="p-6 rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-xl">
                                     <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                                            <MousePointer2 className="w-5 h-5 text-blue-400" />
-                                        </div>
-                                        <div>
+                                                <MousePointer2 className="w-5 h-5 text-blue-400" />
+                                            </div>
+                                            <div>
                                                 <label className="text-sm font-semibold text-white">Pause on Hover</label>
                                                 <p className="text-xs text-gray-400">Pause rotation when hovering</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <button
-                                        onClick={() => onPauseOnHoverChange?.(!pauseOnHover)}
-                                        className={cn(
+                                        <button
+                                            onClick={() => onPauseOnHoverChange?.(!pauseOnHover)}
+                                            className={cn(
                                                 "relative inline-flex h-7 w-12 items-center rounded-full transition-colors shadow-inner",
                                                 pauseOnHover ? "bg-blue-500" : "bg-gray-700",
                                                 !autoRotate && "opacity-50 cursor-not-allowed"
-                                        )}
-                                        disabled={!autoRotate}
-                                    >
-                                        <span
-                                            className={cn(
-                                                    "inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-lg",
-                                                pauseOnHover ? "translate-x-6" : "translate-x-1"
                                             )}
-                                        />
-                                    </button>
+                                            disabled={!autoRotate}
+                                        >
+                                            <span
+                                                className={cn(
+                                                    "inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-lg",
+                                                    pauseOnHover ? "translate-x-6" : "translate-x-1"
+                                                )}
+                                            />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
 
                                 {/* Additional Map Settings */}
                                 <div className="p-6 rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-xl">
@@ -843,7 +844,7 @@ export function SettingsModal({
                 <div className="px-8 py-4 border-t border-white/10 bg-white/[0.01] flex justify-end gap-3">
                     <Button variant="ghost" onClick={onClose} className="text-gray-400 hover:text-white hover:bg-white/10">
                         {activeTab === 'map' ? 'Done' : 'Close'}
-                        </Button>
+                    </Button>
                 </div>
             </div>
         </div>

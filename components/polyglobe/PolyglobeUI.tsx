@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers, VolumeX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils/cn';
 import { SearchResults } from './SearchResults';
 import { EnrichedMarket } from '@/lib/markets/enrich';
@@ -15,7 +16,7 @@ interface PolyglobeUIProps {
   activeFilters: Record<string, boolean>;
   onViewToggle?: () => void;
   onMapGlobeToggle?: () => void;
-  currentView?: 'map' | 'globe' | 'insights';
+  currentView?: 'map' | 'globe' | 'insights' | 'agent';
   isPlaying?: boolean;
   onPlayPause?: (playing: boolean) => void;
   onSettingsOpen?: () => void;
@@ -45,13 +46,16 @@ interface PolyglobeUIProps {
 }
 
 const CATEGORIES = [
-  "All", // Default - shows all categories
-  "Politics", "Sports", "Finance", "Crypto",
-  "Geopolitics", "Earnings", "Tech", "Culture",
-  "World", "Economy", "Elections", "Mentions",
-  "Science", "Business", "News"
+  "All",
+  "Politics",
+  "Economics",
+  "Sports",
+  "Technology",
+  "International",
+  "Weather",
+  "Health",
+  "Entertainment"
 ];
-
 
 export function PolyglobeUI({
   onSearch,
@@ -173,7 +177,7 @@ export function PolyglobeUI({
       {/* Top Left: Control Island */}
       <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-[1000] pointer-events-auto flex flex-col gap-2 sm:gap-3">
         {/* Logo & Main Controls */}
-        <div 
+        <div
           className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl"
           style={{
             boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
@@ -297,7 +301,7 @@ export function PolyglobeUI({
 
               {/* Categories Popover */}
               {isCategoriesOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[280px] sm:w-[320px] bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 sm:p-4">
+                <div className="absolute top-full left-0 mt-2 w-64 bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-white">Categories</h3>
                     {!selectedCategories.includes('All') && selectedCategories.length > 0 && (
@@ -311,7 +315,7 @@ export function PolyglobeUI({
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {CATEGORIES.map(cat => {
                       const isSelected = selectedCategories.includes(cat);
                       return (
@@ -430,7 +434,7 @@ export function PolyglobeUI({
                 onClick={() => setIsOverlaysOpen(!isOverlaysOpen)}
                 className={cn(
                   "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
-                  isOverlaysOpen || activeFilters.osint || activeFilters.live || activeFilters.fires || activeFilters.frontline || activeFilters.noiseFilter
+                  isOverlaysOpen || activeFilters.live || activeFilters.fires || activeFilters.noiseFilter
                     ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400"
                     : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
                 )}
@@ -438,7 +442,7 @@ export function PolyglobeUI({
                 <Globe className="w-3.5 h-3.5" />
                 OVERLAYS
                 {(() => {
-                  const activeOverlayCount = [activeFilters.osint, activeFilters.live, activeFilters.fires, activeFilters.frontline, activeFilters.noiseFilter].filter(Boolean).length;
+                  const activeOverlayCount = [activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length;
                   return activeOverlayCount > 0 && (
                     <span className="ml-1 px-1.5 py-0.5 bg-emerald-500 text-white rounded-full text-[9px] font-bold">
                       {activeOverlayCount}
@@ -453,20 +457,6 @@ export function PolyglobeUI({
                 <div className="absolute top-full left-0 mt-2 w-[240px] sm:w-[260px] bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 sm:p-4">
                   <h3 className="text-sm font-semibold text-white mb-3">Map Overlays</h3>
                   <div className="grid grid-cols-2 gap-2 mb-2">
-                    {/* OSINT Toggle */}
-                    <button
-                      onClick={() => onFilterChange('osint', !activeFilters.osint)}
-                      className={cn(
-                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                        activeFilters.osint
-                          ? "bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                      )}
-                    >
-                      <Radio className="w-3.5 h-3.5 relative z-10" />
-                      <span className="relative z-10">OSINT</span>
-                    </button>
-
                     {/* LIVE Toggle */}
                     <button
                       onClick={() => onFilterChange('live', !activeFilters.live)}
@@ -495,19 +485,6 @@ export function PolyglobeUI({
                       <span className="relative z-10">Fires</span>
                     </button>
 
-                    {/* Frontline Toggle */}
-                    <button
-                      onClick={() => onFilterChange('frontline', !activeFilters.frontline)}
-                      className={cn(
-                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center justify-center gap-2 relative overflow-hidden group",
-                        activeFilters.frontline
-                          ? "bg-gradient-to-br from-red-600 to-red-700 border-red-500 text-white shadow-lg shadow-red-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                      )}
-                    >
-                      <Shield className="w-3.5 h-3.5 relative z-10" />
-                      <span className="relative z-10">Frontline</span>
-                    </button>
                   </div>
 
                   {/* Noise Filter - Full Width */}
@@ -575,7 +552,7 @@ export function PolyglobeUI({
         </div>
 
         {/* Action Buttons Group */}
-        <div 
+        <div
           className="flex items-center p-1 sm:p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl gap-0.5 sm:gap-1"
           style={{
             boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
@@ -633,7 +610,7 @@ export function PolyglobeUI({
                   <button
                     onClick={() => {
                       setIsProfileOpen(false);
-                      console.log('Logout');
+                      signOut({ callbackUrl: '/login' });
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-red-500/10 text-red-400 transition-colors text-left"
                   >

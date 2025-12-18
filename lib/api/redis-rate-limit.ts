@@ -14,6 +14,7 @@ interface RedisClient {
   set(key: string, value: string, mode: string, duration: number): Promise<string | null>
   incr(key: string): Promise<number>
   expire(key: string, seconds: number): Promise<number>
+  del(key: string): Promise<number>
 }
 
 export class RedisRateLimiter {
@@ -27,7 +28,7 @@ export class RedisRateLimiter {
       try {
         // Dynamic import to avoid breaking if Redis not installed
         import('ioredis').then((Redis) => {
-          this.redis = new Redis.default(process.env.REDIS_URL) as unknown as RedisClient
+          this.redis = new Redis.default(process.env.REDIS_URL as string) as unknown as RedisClient
         }).catch(() => {
           // Redis not installed, use in-memory fallback
         })
@@ -58,10 +59,10 @@ export class RedisRateLimiter {
 
     const key = `rate_limit:${identifier}`
     const windowSeconds = Math.ceil(windowMs / 1000)
-    
+
     try {
       const current = await this.redis.incr(key)
-      
+
       if (current === 1) {
         // First request, set expiration
         await this.redis.expire(key, windowSeconds)
@@ -91,7 +92,7 @@ export class RedisRateLimiter {
    */
   async resetLimit(identifier: string): Promise<void> {
     if (!this.redis) return
-    
+
     const key = `rate_limit:${identifier}`
     await this.redis.del(key)
   }

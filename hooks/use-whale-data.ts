@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import useSWR from 'swr'
 
-interface WhaleHolder {
+export interface WhaleHolder {
   address: string
   amount: number
   outcome: string
   percentage: number
 }
 
-interface WhaleTrade {
+export interface WhaleTrade {
   id: string
   market: string
   asset: string
@@ -20,7 +20,7 @@ interface WhaleTrade {
   trader: string
 }
 
-interface WhaleAlert {
+export interface WhaleAlert {
   type: 'holder' | 'trade'
   timestamp: Date
   data: WhaleHolder | WhaleTrade
@@ -55,14 +55,14 @@ export function useWhaleData(options: UseWhaleDataOptions = {}) {
 
   // Fetch top holders
   const { data: holdersData, error: holdersError } = useSWR(
-    market ? `/api/whales/holders?market=${market}&limit=100` : null,
+    market ? `/ api / whales / holders ? market = ${market}& limit=100` : null,
     fetcher,
     { refreshInterval }
   )
 
   // Fetch whale trades
   const { data: tradesData, error: tradesError } = useSWR(
-    market ? `/api/whales/trades?market=${market}&minSize=${minTradeSize}&limit=50` : null,
+    market ? `/ api / whales / trades ? market = ${market}& minSize=${minTradeSize}& limit=50` : null,
     fetcher,
     { refreshInterval }
   )

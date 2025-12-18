@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Twitter, RefreshCw, Heart, Repeat, Share2, ExternalLink, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
@@ -25,7 +25,7 @@ export function NewsFeed() {
     const [newAccount, setNewAccount] = useState('');
     const [showInput, setShowInput] = useState(false);
 
-    const fetchTweets = async (refresh = false) => {
+    const fetchTweets = useCallback(async (refresh = false) => {
         if (refresh) setIsRefreshing(true);
         try {
             const accountsParam = trackedAccounts.map(a => a.replace('@', '')).join(',');
@@ -38,13 +38,13 @@ export function NewsFeed() {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    };
+    }, [trackedAccounts]);
 
     useEffect(() => {
         fetchTweets();
         const interval = setInterval(() => fetchTweets(true), 60000);
         return () => clearInterval(interval);
-    }, [trackedAccounts]); // Refetch when accounts change
+    }, [fetchTweets]); // Refetch when fetchTweets changes (which happens when trackedAccounts change)
 
     const handleAddAccount = (e: React.FormEvent) => {
         e.preventDefault();

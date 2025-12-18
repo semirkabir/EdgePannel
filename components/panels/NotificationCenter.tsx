@@ -143,41 +143,39 @@ export function NotificationCenter({
     >
 
       {/* Enhanced Tab Navigation */}
-      <div className="flex gap-2 p-4 bg-[#0e0f11]/80 border-b border-white/10">
+      <div className="flex gap-1.5 p-3 bg-[#0e0f11]/80 border-b border-white/5 mx-2 my-2 rounded-2xl border">
         <button
           onClick={() => setActiveTab('all')}
           className={cn(
-            "flex-1 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all",
+            "flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300",
             activeTab === 'all'
-              ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg"
-              : "bg-white/5 text-gray-400 hover:bg-white/10"
+              ? "bg-white/10 text-white shadow-[0_0_20px_rgba(255,255,255,0.05)] border border-white/10"
+              : "text-white/40 hover:text-white/60 hover:bg-white/5"
           )}
         >
-          All ({unifiedNotifications.length})
+          All
         </button>
         <button
           onClick={() => setActiveTab('price')}
           className={cn(
-            "flex-1 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all",
+            "flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300",
             activeTab === 'price'
-              ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg"
-              : "bg-white/5 text-gray-400 hover:bg-white/10"
+              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+              : "text-white/40 hover:text-white/60 hover:bg-white/5"
           )}
         >
-          <TrendingUp className="w-3.5 h-3.5 inline mr-1" />
-          Prices ({alerts.length})
+          Prices
         </button>
         <button
           onClick={() => setActiveTab('whale')}
           className={cn(
-            "flex-1 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all",
+            "flex-1 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300",
             activeTab === 'whale'
-              ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg"
-              : "bg-white/5 text-gray-400 hover:bg-white/10"
+              ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+              : "text-white/40 hover:text-white/60 hover:bg-white/5"
           )}
         >
-          <Crown className="w-3.5 h-3.5 inline mr-1" />
-          Whales ({whaleNotifications.length})
+          Whales
         </button>
       </div>
 
@@ -258,34 +256,34 @@ export function NotificationCenter({
         ) : (
           <div className="divide-y divide-white/5">
             {filteredNotifications.map(notification => {
-                if (notification.type === 'price_alert') {
-                  const alert = notification.data as PriceAlert
-                  return (
-                    <NotificationItem
-                      key={notification.id}
-                      alert={alert}
-                      onRemove={() => removeAlert(alert.id)}
-                      onClick={() => {
-                        onMarketSelect?.(alert.marketId, alert.platform)
-                        onClose()
-                      }}
-                    />
-                  )
-                } else {
-                  const whaleNotif = notification.data as WhaleNotification
-                  return (
-                    <WhaleTradeNotificationItem
-                      key={notification.id}
-                      notification={whaleNotif}
-                      onDismiss={() => dismissNotification(whaleNotif.id)}
-                      onClick={() => {
-                        onMarketSelect?.(whaleNotif.trade.marketId, whaleNotif.trade.platform)
-                        onClose()
-                      }}
-                    />
-                  )
-                }
-              })}
+              if (notification.type === 'price_alert') {
+                const alert = notification.data as PriceAlert
+                return (
+                  <NotificationItem
+                    key={notification.id}
+                    alert={alert}
+                    onRemove={() => removeAlert(alert.id)}
+                    onClick={() => {
+                      onMarketSelect?.(alert.marketId, alert.platform)
+                      onClose()
+                    }}
+                  />
+                )
+              } else {
+                const whaleNotif = notification.data as WhaleNotification
+                return (
+                  <WhaleTradeNotificationItem
+                    key={notification.id}
+                    notification={whaleNotif}
+                    onDismiss={() => dismissNotification(whaleNotif.id)}
+                    onClick={() => {
+                      onMarketSelect?.(whaleNotif.trade.marketId, whaleNotif.trade.platform)
+                      onClose()
+                    }}
+                  />
+                )
+              }
+            })}
           </div>
         )}
       </div>
@@ -309,85 +307,101 @@ export function NotificationCenter({
 }
 
 // Individual notification item
-function NotificationItem({ 
-  alert, 
+function NotificationItem({
+  alert,
   onRemove,
-  onClick 
-}: { 
+  onClick
+}: {
   alert: PriceAlert
   onRemove: () => void
   onClick: () => void
 }) {
-  const conditionIcon = alert.condition === 'above' 
-    ? <TrendingUp className="h-4 w-4 text-green-400" />
+  const conditionIcon = alert.condition === 'above'
+    ? <TrendingUp className="h-4 w-4 text-emerald-400" />
     : alert.condition === 'below'
       ? <TrendingDown className="h-4 w-4 text-red-400" />
       : <TrendingUp className="h-4 w-4 text-blue-400" />
 
   const conditionText = {
-    above: 'goes above',
-    below: 'goes below',
-    crosses: 'crosses',
+    above: 'broke above',
+    below: 'dropped below',
+    crosses: 'crossed',
   }[alert.condition]
 
   return (
-    <div 
+    <div
       className={cn(
-        "p-4 hover:bg-accent/50 transition-colors cursor-pointer group",
-        alert.triggered && "bg-green-500/5"
+        "p-4 transition-all duration-300 cursor-pointer group relative overflow-hidden border-b border-white/5",
+        "hover:bg-white/[0.03] hover:translate-x-1",
+        alert.triggered && "bg-emerald-500/[0.03] border-l-2 border-l-emerald-500"
       )}
       onClick={onClick}
     >
-      <div className="flex items-start gap-3">
-        <div className={cn(
-          "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-          alert.triggered 
-            ? "bg-green-500/20" 
-            : "bg-primary/10"
-        )}>
-          {alert.triggered ? (
-            <CheckCheck className="h-5 w-5 text-green-400" />
-          ) : (
-            <Bell className="h-5 w-5 text-primary" />
-          )}
+      <div className="flex items-start gap-4">
+        {/* Status Icon */}
+        <div className="relative shrink-0 mt-1">
+          <div className={cn(
+            "w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-500",
+            alert.triggered
+              ? "bg-emerald-500/10 border border-emerald-500/30"
+              : "bg-white/5 border border-white/10"
+          )}>
+            {alert.triggered ? (
+              <Bell className="h-5 w-5 text-emerald-400 animate-bounce" />
+            ) : (
+              <BellOff className="h-5 w-5 text-white/30" />
+            )}
+          </div>
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium line-clamp-2 mb-1">
+          <p className="text-sm font-semibold text-white/90 line-clamp-2 mb-2 leading-snug group-hover:text-white transition-colors">
             {alert.marketTitle}
           </p>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {conditionIcon}
-            <span>
-              Alert when price {conditionText}{' '}
-              <strong className="text-foreground">{alert.targetPrice}%</strong>
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            <span>
-              {alert.triggered && alert.triggeredAt
-                ? `Triggered ${formatDistanceToNow(alert.triggeredAt)}`
-                : `Created ${formatDistanceToNow(alert.createdAt)}`}
-            </span>
+
+          <div className="flex items-center gap-2 mb-3">
+            <div className={cn(
+              "px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border",
+              alert.condition === 'above' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" :
+                alert.condition === 'below' ? "bg-red-500/10 border-red-500/20 text-red-400" :
+                  "bg-blue-500/10 border-blue-500/20 text-blue-400"
+            )}>
+              {alert.condition} {alert.targetPrice}%
+            </div>
             {alert.triggered && (
-              <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-[10px]">
+              <div className="px-1.5 py-0.5 bg-emerald-500 text-black rounded text-[9px] font-black tracking-widest">
                 TRIGGERED
-              </span>
+              </div>
             )}
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px] font-bold text-white/40">
+            <span className="flex items-center gap-1.5">
+              {conditionIcon}
+              <span className="uppercase tracking-wider">Level: {alert.targetPrice}%</span>
+            </span>
+
+            <span className="flex items-center gap-1.5 ml-auto">
+              <Clock className="h-3 w-3" />
+              <span className="uppercase tracking-wider">
+                {alert.triggered && alert.triggeredAt
+                  ? formatDistanceToNow(alert.triggeredAt)
+                  : formatDistanceToNow(alert.createdAt)}
+              </span>
+            </span>
           </div>
         </div>
 
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          className="h-8 w-8 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/10 hover:text-red-400 shrink-0 mt-1"
           onClick={(e) => {
             e.stopPropagation()
             onRemove()
           }}
         >
-          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-400" />
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
     </div>

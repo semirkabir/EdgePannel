@@ -15,8 +15,8 @@ class Logger {
 
   constructor() {
     // Set log level from environment (default: 'info' in production, 'debug' in development)
-    this.logLevel = (process.env.LOG_LEVEL as LogLevel) || 
-                    (process.env.NODE_ENV === 'production' ? 'info' : 'debug')
+    this.logLevel = (process.env.LOG_LEVEL as LogLevel) ||
+      (process.env.NODE_ENV === 'production' ? 'info' : 'debug')
   }
 
   /**
@@ -61,7 +61,7 @@ class Logger {
     if (this.shouldLog('error')) {
       const errorObj = error instanceof Error ? error : new Error(String(error))
       console.error(this.formatMessage('error', message, context), errorObj)
-      
+
       // Send to error tracking service if configured
       if (this.errorTracker) {
         this.errorTracker(errorObj, context)
@@ -98,14 +98,16 @@ export const logger = new Logger()
 if (typeof window === 'undefined' && process.env.SENTRY_DSN) {
   // Server-side error tracking
   try {
-    // Dynamic import to avoid breaking if Sentry not installed
+    // Standard dynamic import, but we wrap it to ensure it doesn't crash the build if resolution is tricky
     import('@sentry/nextjs').then((Sentry) => {
-      logger.setErrorTracker((error, context) => {
-        Sentry.captureException(error, { extra: context })
-      })
-      logger.info('Error tracking initialized (Sentry)')
+      if (Sentry && Sentry.captureException) {
+        logger.setErrorTracker((error, context) => {
+          Sentry.captureException(error, { extra: context })
+        })
+        logger.info('Error tracking initialized (Sentry)')
+      }
     }).catch(() => {
-      // Sentry not installed, that's okay
+      // Sentry not installed or failed to load, that's okay
     })
   } catch {
     // Ignore

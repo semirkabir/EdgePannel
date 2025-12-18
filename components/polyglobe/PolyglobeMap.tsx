@@ -95,6 +95,16 @@ function InnerMap({
   const interactionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rotationAnimationRef = useRef<number | null>(null);
   const mapRef = useRef<MapRef>(null);
+  const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+
+  // Helper to safely get map instance and check if style is loaded
+  const getMapIfReady = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (map && map.isStyleLoaded()) {
+      return map;
+    }
+    return null;
+  }, []);
 
   // Detect zoom level changes and pan changes
   const DEFAULT_ZOOM = 2.5;
@@ -119,8 +129,8 @@ function InnerMap({
 
   // Handle reset zoom request
   useEffect(() => {
-    if (shouldResetZoom && mapRef.current) {
-      const map = mapRef.current.getMap();
+    if (shouldResetZoom) {
+      const map = getMapIfReady();
       if (map) {
         map.flyTo({
           center: [0, projection === 'mercator' ? 20 : 0],
@@ -131,7 +141,7 @@ function InnerMap({
         });
       }
     }
-  }, [shouldResetZoom, projection]);
+  }, [shouldResetZoom, projection, getMapIfReady, isStyleLoaded]);
 
   // Auto-rotate globe - stops on interaction and only resumes when user clicks play
   useEffect(() => {
@@ -294,7 +304,7 @@ function InnerMap({
       // Handle cluster clicks - zoom in
       if (feature.layer.id === 'markets-clusters') {
         const clusterId = feature.properties.cluster_id;
-        const mapInstance = mapRef.current?.getMap();
+        const mapInstance = getMapIfReady();
         const source = mapInstance?.getSource('markets') as any;
 
         if (source && source.getClusterExpansionZoom) {
@@ -661,9 +671,9 @@ function InnerMap({
         onClose={() => setSelectedFeature(null)}
         anchor="top"
         className="polyglobe-popup z-50"
-        maxWidth={isGroup ? "320px" : "240px"}
+        maxWidth={isGroup ? "280px" : "210px"}
       >
-        <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden">
+        <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden max-w-[280px]">
           {/* Gradient overlay for modern effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
 
@@ -781,7 +791,7 @@ function InnerMap({
                 {/* Left: Title and Badges */}
                 <div className="flex-1 min-w-0">
                   {/* Title */}
-                  <h3 className="font-semibold text-sm leading-tight text-white line-clamp-2 mb-1.5 pr-14">{props.title}</h3>
+                  <h3 className="font-semibold text-sm leading-tight text-white line-clamp-3 mb-1.5 pr-10">{props.title}</h3>
 
                   {/* Platform & Category Badge Row */}
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -940,31 +950,28 @@ function InnerMap({
 
   // Handle selectedMarket padding
   useEffect(() => {
+    const map = getMapIfReady();
+    if (!map) return;
+
     if (selectedMarket && selectedMarket.location && selectedMarket.location.coordinates) {
       const { lat, lng } = selectedMarket.location.coordinates;
-      const map = mapRef.current?.getMap();
-      if (map) {
-        map.flyTo({
-          center: [lng, lat],
-          zoom: 6,
-          duration: 2000,
-          padding: { right: 400, top: 0, bottom: 0, left: 0 }
-        });
-      }
+      map.flyTo({
+        center: [lng, lat],
+        zoom: 6,
+        duration: 2000,
+        padding: { right: 400, top: 0, bottom: 0, left: 0 }
+      });
     } else if (!selectedMarket) {
-      const map = mapRef.current?.getMap();
-      if (map) {
-        map.easeTo({
-          padding: { right: 0, top: 0, bottom: 0, left: 0 },
-          duration: 1000
-        });
-      }
+      map.easeTo({
+        padding: { right: 0, top: 0, bottom: 0, left: 0 },
+        duration: 1000
+      });
     }
-  }, [selectedMarket]);
+  }, [selectedMarket, getMapIfReady, isStyleLoaded]);
 
   // Handle projection change
   useEffect(() => {
-    const map = mapRef.current?.getMap();
+    const map = getMapIfReady();
     if (map && map.setProjection) {
       map.setProjection(projection === 'globe' ? { type: 'globe' } : { type: 'mercator' });
 
@@ -990,7 +997,7 @@ function InnerMap({
         });
       }
     }
-  }, [projection]);
+  }, [projection, getMapIfReady, isStyleLoaded]);
 
   // Compute interactive layers - memoize to prevent re-renders
   const interactiveIds = useMemo(() => {
@@ -1008,25 +1015,40 @@ function InnerMap({
   useEffect(() => {
     const map = mapRef.current?.getMap();
     if (map) {
-      map.on('load', () => {
-        console.log('[InnerMap] Map loaded');
+      const logState = () => {
+        console.log('[InnerMap] Map style loaded');
         console.log('[InnerMap] Available layers:', map.getStyle()?.layers?.map((l: any) => l.id));
-      });
+      };
 
-      // Add direct map click listener as backup
-      map.on('click', 'markets-layer', (e: any) => {
-        console.log('[MapLibre Direct] markets-layer clicked!', e);
-      });
+      if (map.isStyleLoaded()) {
+        logState();
+      } else {
+        map.once('idle', logState);
+      }
 
-      map.on('click', 'markets-glow-layer', (e: any) => {
-        console.log('[MapLibre Direct] markets-glow-layer clicked!', e);
-      });
+      // Add direct map click listener as backup (safest after load)
+      const setupClickListeners = () => {
+        try {
+          if (map.getLayer('markets-layer')) {
+            map.on('click', 'markets-layer', (e: any) => {
+              console.log('[MapLibre Direct] markets-layer clicked!', e);
+            });
+          }
+          if (map.getLayer('markets-glow-layer')) {
+            map.on('click', 'markets-glow-layer', (e: any) => {
+              console.log('[MapLibre Direct] markets-glow-layer clicked!', e);
+            });
+          }
+        } catch (e) {
+          console.warn('[InnerMap] Failed to attach direct click listeners:', e);
+        }
+      };
 
-      // Also check layers after a delay to ensure they're rendered
-      setTimeout(() => {
-        console.log('[InnerMap] Layers after timeout:', map.getStyle()?.layers?.map((l: any) => l.id));
-        console.log('[InnerMap] interactiveLayerIds:', interactiveIds);
-      }, 2000);
+      if (map.isStyleLoaded()) {
+        setupClickListeners();
+      } else {
+        map.once('load', setupClickListeners);
+      }
     }
   }, [mapRef.current, interactiveIds, visualizationMode]);
 
@@ -1068,6 +1090,13 @@ function InnerMap({
         onMouseMove={onHover}
         onClick={(e) => {
           onClick(e);
+        }}
+        onLoad={() => setIsStyleLoaded(true)}
+        onStyleData={() => {
+          const map = mapRef.current?.getMap();
+          if (map && map.isStyleLoaded()) {
+            setIsStyleLoaded(true);
+          }
         }}
         style={{ width: '100%', height: '100%' }}
         mapStyle="https://api.maptiler.com/maps/darkmatter/style.json?key=35TZqSTSBjgDvsawKAK9"
