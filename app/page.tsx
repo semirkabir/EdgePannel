@@ -306,6 +306,8 @@ export default function LandingPage() {
               </div>
 
               <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6">
+                <span className="text-white">EdgePannel:</span>
+                <br />
                 <span className="text-white">One Platform.</span>
                 <br />
                 <span className="text-white">Every </span>
@@ -318,8 +320,8 @@ export default function LandingPage() {
               </h1>
 
               <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-8">
-                The unified intelligence platform for prediction markets. Trade across any broker,
-                overlay real-world data, and discover insights through geospatial visualization.
+                <strong className="text-white">EdgePannel</strong> is the unified intelligence platform for prediction markets. Trade across any broker,
+                overlay real-world data, and discover insights through geospatial visualization on EdgePannel's interactive 3D globe.
               </p>
 
               {/* CTA Buttons */}
