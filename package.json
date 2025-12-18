@@ -23,7 +23,7 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
-    "@sentry/nextjs": "^10.31.0",
+    "@sentry/nextjs": "^7.100.0",
     "@tanstack/react-virtual": "^3.13.12",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",

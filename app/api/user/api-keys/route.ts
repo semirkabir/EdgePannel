@@ -41,7 +41,7 @@ export const POST = withErrorHandler(
 
       const isUpdate = !!existing
 
-      const savedApiKey = await prisma.apiKey.upsert({
+      const resolvedApiKey = await prisma.apiKey.upsert({
         where: {
           userId_platform: {
             userId: userId,
@@ -72,7 +72,7 @@ export const POST = withErrorHandler(
         userId,
         action: isUpdate ? 'API_KEY_UPDATED' : 'API_KEY_CREATED',
         resource: 'api_key',
-        resourceId: savedApiKey.id,
+        resourceId: resolvedApiKey.id,
         details: {
           platform,
         },
