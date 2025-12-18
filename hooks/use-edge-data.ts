@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useMarkets } from './use-markets';
 import { useEvents } from './use-events';
 import { useMarketWebSocket } from './use-market-websocket';
-import { MOCK_TWEETS } from '@/lib/polyglobe-data';
+import { MOCK_TWEETS } from '@/lib/edge-data';
 import { marketsToGeoJSON, marketsToGeoJSONWithGroups } from '@/lib/utils/market-geojson';
 import { enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich';
 import type { Market } from '@/types/market';
@@ -22,7 +22,7 @@ export interface GeoJSONFeatureCollection {
   features: GeoJSONFeature[];
 }
 
-export function usePolyglobeData() {
+export function useEdgeData() {
   // 1. Fetch events from Polymarket (events contain their markets)
   const { events, markets: eventMarkets, isLoading: eventsLoading } = useEvents({
     limit: 300,

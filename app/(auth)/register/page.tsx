@@ -65,7 +65,7 @@ export default function RegisterPage() {
       })
 
       if (result?.ok) {
-        router.push('/polyglobe')
+        router.push('/edge')
       } else {
         router.push('/login')
       }
@@ -231,8 +231,8 @@ export default function RegisterPage() {
                   required
                   placeholder="••••••••"
                   className={`w-full pl-10 pr-4 py-2.5 bg-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${confirmPassword && confirmPassword !== password
-                      ? 'border-red-500'
-                      : 'border-input'
+                    ? 'border-red-500'
+                    : 'border-input'
                     }`}
                 />
               </div>
@@ -276,8 +276,8 @@ export default function RegisterPage() {
               variant="outline"
               onClick={async () => {
                 try {
-                  await signIn('google', { 
-                    callbackUrl: '/polyglobe',
+                  await signIn('google', {
+                    callbackUrl: '/edge',
                     redirect: true,
                   })
                 } catch (error) {
@@ -300,8 +300,8 @@ export default function RegisterPage() {
               variant="outline"
               onClick={async () => {
                 try {
-                  await signIn('twitter', { 
-                    callbackUrl: '/polyglobe',
+                  await signIn('twitter', {
+                    callbackUrl: '/edge',
                     redirect: true,
                   })
                 } catch (error) {

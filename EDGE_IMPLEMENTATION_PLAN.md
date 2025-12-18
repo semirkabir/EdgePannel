@@ -1,4 +1,4 @@
-# Polyglobe Polymarket Data Implementation Plan
+# Edge Polymarket Data Implementation Plan
 
 ## Executive Summary
 
@@ -8,17 +8,17 @@ This document outlines how [pizzint.watch/polyglobe](https://www.pizzint.watch/p
 
 ### Technology Stack (pizzint.watch/polyglobe)
 
-1. **Map Library**: MapLibre GL (via `react-map-gl/maplibre`)
-2. **Map Tiles**: Protomaps (dark theme)
-3. **Data Format**: GeoJSON FeatureCollection
-4. **Data Source**: Polymarket markets with location inference
-5. **Real-time Updates**: WebSocket or polling for live price updates
-6. **UI Components**:
-   - Market markers as circles on map
-   - Popups on hover/click
-   - Market cards in bottom-right corner
-   - Search functionality
-   - Filter toggles (Breaking, OSINT, Live, Fires, Frontline)
+1.  **Map Library**: MapLibre GL (via `react-map-gl/maplibre`)
+2.  **Map Tiles**: Protomaps (dark theme)
+3.  **Data Format**: GeoJSON FeatureCollection
+4.  **Data Source**: Polymarket markets with location inference
+5.  **Real-time Updates**: WebSocket or polling for live price updates
+6.  **UI Components**:
+    *   Market markers as circles on map
+    *   Popups on hover/click
+    *   Market cards in bottom-right corner
+    *   Search functionality
+    *   Filter toggles (Breaking, OSINT, Live, Fires, Frontline)
 
 ### Key Implementation Details
 
@@ -127,56 +127,56 @@ Each market is converted to a GeoJSON Point feature:
 
 ### ✅ Already Implemented
 
-1. **Map Infrastructure**:
-   - MapLibre GL integration (`react-map-gl/maplibre`)
-   - Globe and Mercator projections
-   - GeoJSON source/layer support
-   - Popup components
+1.  **Map Infrastructure**:
+    *   MapLibre GL integration (`react-map-gl/maplibre`)
+    *   Globe and Mercator projections
+    *   GeoJSON source/layer support
+    *   Popup components
 
-2. **Data Fetching**:
-   - Polymarket CLOB API client (`lib/api/polymarket.ts`)
-   - Market aggregator (`lib/api/market-aggregator.ts`)
-   - API routes (`app/api/markets/all/route.ts`)
+2.  **Data Fetching**:
+    *   Polymarket CLOB API client (`lib/api/polymarket.ts`)
+    *   Market aggregator (`lib/api/market-aggregator.ts`)
+    *   API routes (`app/api/markets/all/route.ts`)
 
-3. **Location Inference**:
-   - Keyword-based location matching (`lib/markets/enrich.ts`)
-   - Location coordinates database (`lib/locations.ts`)
-   - Location extraction from market titles/descriptions
+3.  **Location Inference**:
+    *   Keyword-based location matching (`lib/markets/enrich.ts`)
+    *   Location coordinates database (`lib/locations.ts`)
+    *   Location extraction from market titles/descriptions
 
-4. **Data Transformation**:
-   - Market enrichment pipeline
-   - GeoJSON feature creation (`hooks/use-polyglobe-data.ts`)
-   - WebSocket support for live updates
+4.  **Data Transformation**:
+    *   Market enrichment pipeline
+    *   GeoJSON feature creation (`hooks/use-edge-data.ts`)
+    *   WebSocket support for live updates
 
-5. **UI Components**:
-   - PolyglobeMap component
-   - Filter controls
-   - Search functionality
-   - Market popups
+5.  **UI Components**:
+    *   EdgeMap component
+    *   Filter controls
+    *   Search functionality
+    *   Market popups
 
 ### 🔄 Needs Enhancement
 
-1. **Location Extraction**:
-   - Expand location database
-   - Improve keyword matching (fuzzy matching, synonyms)
-   - Add geocoding fallback for unmatched locations
-   - Consider NER for better accuracy
+1.  **Location Extraction**:
+    *   Expand location database
+    *   Improve keyword matching (fuzzy matching, synonyms)
+    *   Add geocoding fallback for unmatched locations
+    *   Consider NER for better accuracy
 
-2. **Market Display**:
-   - Add market cards in bottom-right corner
-   - Improve popup styling to match reference
-   - Add price movement indicators
-   - Better visual hierarchy
+2.  **Market Display**:
+    *   Add market cards in bottom-right corner
+    *   Improve popup styling to match reference
+    *   Add price movement indicators
+    *   Better visual hierarchy
 
-3. **Real-time Updates**:
-   - Optimize WebSocket connection
-   - Add price change animations
-   - Visual indicators for updated markets
+3.  **Real-time Updates**:
+    *   Optimize WebSocket connection
+    *   Add price change animations
+    *   Visual indicators for updated markets
 
-4. **Data Quality**:
-   - Filter markets without valid locations
-   - Handle edge cases (markets with multiple locations)
-   - Improve location accuracy
+4.  **Data Quality**:
+    *   Filter markets without valid locations
+    *   Handle edge cases (markets with multiple locations)
+    *   Improve location accuracy
 
 ## Implementation Plan
 
@@ -250,7 +250,7 @@ async function geocodeLocation(locationName: string): Promise<Coordinates | null
 
 #### 2.1 Create Market Card Component
 
-**New File**: `components/polyglobe/MarketCard.tsx`
+**New File**: `components/edge/MarketCard.tsx`
 
 **Features**:
 - Compact card design
@@ -269,7 +269,7 @@ async function geocodeLocation(locationName: string): Promise<Coordinates | null
 
 #### 2.2 Market Card Container
 
-**New File**: `components/polyglobe/MarketCardStack.tsx`
+**New File**: `components/edge/MarketCardStack.tsx`
 
 **Features**:
 - Stacked layout (newest on top)
@@ -282,7 +282,7 @@ async function geocodeLocation(locationName: string): Promise<Coordinates | null
 
 #### 2.3 Integration with Map
 
-**File**: `components/polyglobe/PolyglobeMap.tsx`
+**File**: `components/edge/EdgeMap.tsx`
 
 **Changes**:
 - Add MarketCardStack component
@@ -293,7 +293,7 @@ async function geocodeLocation(locationName: string): Promise<Coordinates | null
 
 #### 3.1 Improve Market Markers
 
-**File**: `components/polyglobe/PolyglobeMap.tsx`
+**File**: `components/edge/EdgeMap.tsx`
 
 **Enhancements**:
 - Size based on volume (larger = more volume)
@@ -324,7 +324,7 @@ const marketLayer = {
 
 #### 3.2 Enhanced Popups
 
-**File**: `components/polyglobe/PolyglobeMap.tsx`
+**File**: `components/edge/EdgeMap.tsx`
 
 **Improvements**:
 - Better typography
@@ -368,18 +368,18 @@ const marketLayer = {
 #### 4.3 Update Strategy
 
 **Implementation**:
-1. Receive WebSocket update
-2. Find matching market in GeoJSON features
-3. Calculate price movement
-4. Update feature properties
-5. Trigger re-render with animation
-6. Update market cards if visible
+1.  Receive WebSocket update
+2.  Find matching market in GeoJSON features
+3.  Calculate price movement
+4.  Update feature properties
+5.  Trigger re-render with animation
+6.  Update market cards if visible
 
 ### Phase 5: Data Quality Improvements
 
 #### 5.1 Market Filtering
 
-**File**: `hooks/use-polyglobe-data.ts`
+**File**: `hooks/use-edge-data.ts`
 
 **Filters**:
 - Only show markets with valid locations
@@ -418,21 +418,21 @@ Enrich Markets (add location, category)
     ↓
 Convert to GeoJSON Features
     ↓
-usePolyglobeData Hook
+useEdgeData Hook
     ↓
-PolyglobeMap Component
+EdgeMap Component
     ↓
 MapLibre GL Rendering
 ```
 
 ### Key Files to Modify
 
-1. **`lib/locations.ts`**: Expand location database
-2. **`lib/markets/enrich.ts`**: Improve location inference
-3. **`hooks/use-polyglobe-data.ts`**: Enhance GeoJSON feature creation
-4. **`components/polyglobe/PolyglobeMap.tsx`**: Update map styling and add cards
-5. **`components/polyglobe/MarketCard.tsx`**: New component
-6. **`components/polyglobe/MarketCardStack.tsx`**: New component
+1.  **`lib/locations.ts`**: Expand location database
+2.  **`lib/markets/enrich.ts`**: Improve location inference
+3.  **`hooks/use-edge-data.ts`**: Enhance GeoJSON feature creation
+4.  **`components/edge/EdgeMap.tsx`**: Update map styling and add cards
+5.  **`components/edge/MarketCard.tsx`**: New component
+6.  **`components/edge/MarketCardStack.tsx`**: New component
 
 ### New Dependencies (if needed)
 

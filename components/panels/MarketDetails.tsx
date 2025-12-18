@@ -12,7 +12,7 @@ import { RightPanel } from '@/components/ui/RightPanel'
 import { useLiveVolume, getEventIdFromMarket } from '@/hooks/use-live-volume'
 import { useOpenInterest } from '@/hooks/use-open-interest'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { LatencyTag } from '@/components/polyglobe/LatencyTag'
+import { LatencyTag } from '@/components/edge/LatencyTag'
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {

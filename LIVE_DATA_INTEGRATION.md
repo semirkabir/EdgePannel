@@ -156,9 +156,9 @@ Existing implementation remains unchanged - requires authentication with access 
 ## Data Flow
 
 ```
-User opens /polyglobe
+User opens /edge
     ↓
-usePolyglobeData() hook
+useEdgeData() hook
     ↓
 useMarkets() (SWR - 60s refresh)
     ↓
@@ -291,7 +291,7 @@ curl -X POST http://localhost:3000/api/markets/fetch-url \
 
 ### 3. Check Browser Console
 
-Open `/polyglobe` and check console:
+Open `/edge` and check console:
 
 ```
 [Polymarket Client] Transformed and sorted 500 markets by volume

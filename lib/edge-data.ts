@@ -1,5 +1,5 @@
 
-export interface PolyglobeMarket {
+export interface EdgeMarket {
   id: string;
   title: string;
   price: number;
@@ -11,7 +11,7 @@ export interface PolyglobeMarket {
   category: 'politics' | 'conflict' | 'economics';
 }
 
-export interface PolyglobeTweet {
+export interface EdgeTweet {
   id: string;
   user: string;
   handle: string;
@@ -24,7 +24,7 @@ export interface PolyglobeTweet {
   tag?: string;
 }
 
-export const MOCK_MARKETS: PolyglobeMarket[] = [
+export const MOCK_MARKETS: EdgeMarket[] = [
   {
     id: 'm1',
     title: 'Xi Jinping out in 2025?',
@@ -71,7 +71,7 @@ export const MOCK_MARKETS: PolyglobeMarket[] = [
   }
 ];
 
-export const MOCK_TWEETS: PolyglobeTweet[] = [
+export const MOCK_TWEETS: EdgeTweet[] = [
   {
     id: 't1',
     user: 'OSINTtechnical',

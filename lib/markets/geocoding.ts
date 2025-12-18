@@ -28,7 +28,7 @@ export async function geocodeLocation(locationName: string): Promise<GeocodingRe
             `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
             {
                 headers: {
-                    'User-Agent': 'Polyglobe/1.0'
+                    'User-Agent': 'Edge/1.0'
                 }
             }
         );

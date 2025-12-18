@@ -18,7 +18,7 @@ import {
   Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import { Starfield } from '@/components/polyglobe/Starfield'
+import { Starfield } from '@/components/edge/Starfield'
 import dynamic from 'next/dynamic'
 
 // Video Preview replaced dynamic globe preview
@@ -324,7 +324,7 @@ export default function LandingPage() {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link href="/polyglobe">
+                <Link href="/edge">
                   <Button size="lg" className="bg-[#00ff7f] hover:bg-[#00cc66] text-black font-bold px-8 h-14 text-lg shadow-[0_0_30px_rgba(0,255,127,0.3)] rounded-xl">
                     Launch Command Center
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -448,7 +448,7 @@ export default function LandingPage() {
             </div>
 
             <div className="text-center">
-              <Link href="/polyglobe">
+              <Link href="/edge">
                 <Button size="lg" variant="outline" className="border-white/20 bg-white/5 hover:bg-white/10 text-white rounded-xl">
                   Explore All Markets
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -490,7 +490,7 @@ export default function LandingPage() {
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                   </Link>
-                  <Link href="/polyglobe">
+                  <Link href="/edge">
                     <Button size="lg" variant="outline" className="border-white/20 bg-white/5 hover:bg-white/10 text-white h-14 px-8 text-lg rounded-xl">
                       Try Demo First
                     </Button>

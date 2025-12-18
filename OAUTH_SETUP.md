@@ -90,14 +90,14 @@ npm run dev
 1. Go to `/login` or `/register`
 2. Click the **Google** button
 3. You should be redirected to Google's sign-in page
-4. After signing in, you'll be redirected back to `/polyglobe`
+4. After signing in, you'll be redirected back to `/edge`
 
 ### Test X Sign-In
 
 1. Go to `/login` or `/register`
 2. Click the **X** button
 3. You should be redirected to X's authorization page
-4. After authorizing, you'll be redirected back to `/polyglobe`
+4. After authorizing, you'll be redirected back to `/edge`
 
 ## Troubleshooting
 

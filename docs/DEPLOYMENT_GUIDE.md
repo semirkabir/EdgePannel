@@ -150,7 +150,7 @@ GROUP BY platform;
 
 **C. Check Map**
 ```
-1. Go to: https://your-app.com/polyglobe
+1. Go to: https://your-app.com/edge
 2. Markets should appear on globe
 3. Click a country → should show relevant markets
 4. New markets should appear within 60 seconds

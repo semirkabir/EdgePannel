@@ -6,7 +6,7 @@ The portfolio is now fully integrated into your EdgePanel UI! Here's how to acce
 
 ### Step 1: Navigate from the Globe View
 
-1. **Open EdgePanel** - Go to `/polyglobe` (this is your main dashboard)
+1. **Open EdgePanel** - Go to `/edge` (this is your main dashboard)
 2. **Click the Profile Icon** - Located in the top-right corner (User icon)
 3. **Select "Portfolio"** - The first option in the dropdown menu (highlighted in blue with a Wallet icon 💼)
 
@@ -252,7 +252,7 @@ export default function PortfolioPage() {
    ```
 
 2. ✅ **Navigate to the globe**
-   - Go to `http://localhost:3000/polyglobe`
+   - Go to `http://localhost:3000/edge`
 
 3. ✅ **Access portfolio**
    - Click Profile icon (top-right)

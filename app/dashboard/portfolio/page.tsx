@@ -36,7 +36,7 @@ export default function PortfolioPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push('/polyglobe')}
+                onClick={() => router.push('/edge')}
                 className="text-gray-300 hover:text-white hover:bg-white/5"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />

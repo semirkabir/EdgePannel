@@ -320,7 +320,7 @@ export default function IndexMarketsPage() {
             <p><strong className="text-white">1. Location Extraction:</strong> Parses market titles for countries, cities, and regions</p>
             <p><strong className="text-white">2. Geocoding:</strong> Converts locations to GPS coordinates using built-in database</p>
             <p><strong className="text-white">3. Storage:</strong> Saves to database with confidence scores</p>
-            <p><strong className="text-white">4. Map Display:</strong> Geotagged markets appear on the Polyglobe map</p>
+            <p><strong className="text-white">4. Map Display:</strong> Geotagged markets appear on the Edge map</p>
           </div>
           <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded">
             <p className="text-blue-300 text-sm">

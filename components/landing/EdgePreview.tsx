@@ -154,11 +154,11 @@ const MOCK_MARKETS = [
   }
 ];
 
-interface PolyglobePreviewProps {
+interface EdgePreviewProps {
   className?: string;
 }
 
-export function PolyglobePreview({ className }: PolyglobePreviewProps) {
+export function EdgePreview({ className }: EdgePreviewProps) {
   const [viewState, setViewState] = useState({
     longitude: 0,
     latitude: 20,

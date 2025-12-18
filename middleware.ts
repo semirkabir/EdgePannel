@@ -41,6 +41,7 @@ export default function middleware(req: NextRequest, event: NextFetchEvent) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('⚠️  Auth middleware disabled - all routes accessible')
     }
+    // Redirect to /edge when auth is disabled in development
     response = NextResponse.next()
   }
 
@@ -49,7 +50,7 @@ export default function middleware(req: NextRequest, event: NextFetchEvent) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/polyglobe/:path*", "/api/trading/:path*", "/api/user/:path*"],
+  matcher: ["/dashboard/:path*", "/edge/:path*", "/api/trading/:path*", "/api/user/:path*"],
 }
 
 

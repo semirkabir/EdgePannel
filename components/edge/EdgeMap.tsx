@@ -4,7 +4,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import Map, { Source, Layer, Popup, NavigationControl, FullscreenControl, MapLayerMouseEvent } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { usePolyglobeData } from '@/hooks/use-polyglobe-data';
+import { useEdgeData } from '@/hooks/use-edge-data';
 import { cn } from '@/lib/utils/cn';
 import { loadGeoJSON } from '@/lib/geojson-loader';
 import { Sparkline } from '@/components/ui/Sparkline';
@@ -29,7 +29,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 export type VisualizationMode = 'dots' | 'heatmap' | 'cluster' | 'choropleth';
 
-interface PolyglobeMapProps {
+interface EdgeMapProps {
   activeFilters: Record<string, boolean>;
   searchQuery?: string;
   projection?: 'globe' | 'mercator';
@@ -42,6 +42,8 @@ interface PolyglobeMapProps {
   onViewChange?: (isModified: boolean) => void;
   shouldResetZoom?: boolean;
   visualizationMode?: VisualizationMode;
+  selectedMarket?: any;
+  onMarketSelect?: (market: any) => void;
 }
 
 // Inner component to isolate Map state from Data updates
@@ -670,7 +672,7 @@ function InnerMap({
         closeOnClick={false}
         onClose={() => setSelectedFeature(null)}
         anchor="top"
-        className="polyglobe-popup z-50"
+        className="edge-popup z-50"
         maxWidth={isGroup ? "280px" : "210px"}
       >
         <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden max-w-[280px]">
@@ -1180,7 +1182,7 @@ function InnerMap({
   );
 }
 
-export function PolyglobeMap({
+export function EdgeMap({
   activeFilters,
   searchQuery = '',
   projection = 'mercator',
@@ -1195,11 +1197,8 @@ export function PolyglobeMap({
   onViewChange,
   shouldResetZoom,
   visualizationMode = 'dots'
-}: PolyglobeMapProps & {
-  selectedMarket?: any;
-  onMarketSelect?: (market: any) => void;
-}) {
-  const { markets, tweets, rawMarkets } = usePolyglobeData();
+}: EdgeMapProps) {
+  const { markets, tweets, rawMarkets, isLoading } = useEdgeData();
   const [mounted, setMounted] = useState(false);
 
   // If overrideMarkets is provided, use it, otherwise default.

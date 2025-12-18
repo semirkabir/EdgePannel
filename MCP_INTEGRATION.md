@@ -21,9 +21,9 @@ MarketAggregator (lib/api/market-aggregator.ts)
     ↓
 useMarkets() hook (SWR caching)
     ↓
-usePolyglobeData() hook
+useEdgeData() hook
     ↓
-PolyglobeMap component (3D Globe visualization)
+EdgeMap component (3D Globe visualization)
 ```
 
 ## Key Components
@@ -286,7 +286,7 @@ Open the site and check console logs:
 
 ### 5. Verify on Globe
 
-1. Navigate to `/polyglobe` or `/dashboard`
+1. Navigate to `/edge` or `/dashboard`
 2. Globe should display markets
 3. Some markets will have `rawData.source === 'mcp'`
 4. Check market card tooltips/details
@@ -394,6 +394,6 @@ All correlated markets are automatically enriched with location data and display
 
 ### Unchanged (already working):
 - `hooks/use-markets.ts` - Consumes `/api/markets/all`
-- `hooks/use-polyglobe-data.ts` - Uses `useMarkets()`
-- `components/polyglobe/PolyglobeMap.tsx` - Displays markets
+- `hooks/use-edge-data.ts` - Uses `useMarkets()`
+- `components/edge/EdgeMap.tsx` - Displays markets
 - All WebSocket infrastructure

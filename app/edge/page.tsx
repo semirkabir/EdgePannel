@@ -1,12 +1,12 @@
 'use client';
 
-import { MarketCardStack } from '@/components/polyglobe/MarketCardStack';
+import { MarketCardStack } from '@/components/edge/MarketCardStack';
 import { EnrichedMarket } from '@/lib/markets/enrich';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PolyglobeMap } from '@/components/polyglobe/PolyglobeMap';
-import { PolyglobeUI, type VisualizationMode } from '@/components/polyglobe/PolyglobeUI';
-import { CountryNewsPanel } from '@/components/polyglobe/CountryNewsPanel';
-import { Starfield } from '@/components/polyglobe/Starfield';
+import { EdgeMap } from '@/components/edge/EdgeMap';
+import { EdgeUI, type VisualizationMode } from '@/components/edge/EdgeUI';
+import { CountryNewsPanel } from '@/components/edge/CountryNewsPanel';
+import { Starfield } from '@/components/edge/Starfield';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { useSearch } from '@/hooks/use-search';
 import { useGeotaggedMarkets } from '@/hooks/use-geotagged-markets';
@@ -23,7 +23,7 @@ import { InsightsDashboard } from '@/components/insights/InsightsDashboard';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { KeyboardShortcutsDialog } from '@/components/ui/keyboard-shortcuts-dialog';
 
-export default function PolyglobePage() {
+export default function EdgePage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
     breaking: false,
     live: true,
@@ -74,7 +74,7 @@ export default function PolyglobePage() {
         platforms: ['polymarket', 'kalshi'],
         tradeDirection: 'both',
       });
-      console.log('[Polyglobe] Created default whale alert for $5000+ trades');
+      console.log('[Edge] Created default whale alert for $5000+ trades');
     }
   }, [whaleAlertsLoaded, whaleAlerts.length, createGlobalAlert]);
 
@@ -175,7 +175,7 @@ export default function PolyglobePage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('polyglobe-view-mode');
+      const saved = localStorage.getItem('edge-view-mode');
       if (saved === 'globe' || saved === 'map' || saved === 'agent') {
         setViewMode(saved);
       }
@@ -193,7 +193,7 @@ export default function PolyglobePage() {
   // Persist view mode to localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('polyglobe-view-mode', viewMode);
+      localStorage.setItem('edge-view-mode', viewMode);
     }
   }, [viewMode]);
 
@@ -206,7 +206,7 @@ export default function PolyglobePage() {
     const parsed = parseMarketUrl(url);
     if (!parsed) return;
 
-    console.log('[Polyglobe] Fetching market from URL:', parsed);
+    console.log('[Edge] Fetching market from URL:', parsed);
 
     try {
       const response = await fetch(
@@ -214,7 +214,7 @@ export default function PolyglobePage() {
       );
 
       if (!response.ok) {
-        console.error('[Polyglobe] Failed to fetch market from URL:', response.statusText);
+        console.error('[Edge] Failed to fetch market from URL:', response.statusText);
         return;
       }
 
@@ -224,7 +224,7 @@ export default function PolyglobePage() {
         setSelectedCountry(null);
       }
     } catch (error) {
-      console.error('[Polyglobe] Error fetching market from URL:', error);
+      console.error('[Edge] Error fetching market from URL:', error);
     }
   };
 
@@ -251,12 +251,12 @@ export default function PolyglobePage() {
           newView = lastView as 'map' | 'globe';
         } else if (prev === 'map') {
           // Map -> Globe
-          localStorage.setItem('polyglobe-last-map-view', 'globe');
+          localStorage.setItem('edge-last-map-view', 'globe');
           newView = 'globe';
         } else {
           // Globe -> Map or to Agent mode
           // This will be handled by the individual buttons
-          localStorage.setItem('polyglobe-last-map-view', 'map');
+          localStorage.setItem('edge-last-map-view', 'map');
           newView = 'map';
         }
 
@@ -280,7 +280,7 @@ export default function PolyglobePage() {
           newView = lastView as 'map' | 'globe';
         } else {
           // Save current view and switch to insights
-          localStorage.setItem('polyglobe-last-map-view', prev);
+          localStorage.setItem('edge-last-map-view', prev);
           newView = 'insights';
         }
 
@@ -393,7 +393,7 @@ export default function PolyglobePage() {
       {/* Map/Globe View */}
       {viewMode !== 'insights' && (
         <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
-          <PolyglobeMap
+          <EdgeMap
             activeFilters={activeFilters}
             searchQuery={searchQuery}
             projection={viewMode === 'globe' ? 'globe' : 'mercator'}
@@ -418,7 +418,7 @@ export default function PolyglobePage() {
           <InsightsDashboard onMarketSelect={handleMarketClick} />
         </div>
       )}
-      <PolyglobeUI
+      <EdgeUI
         onSearch={handleSearch}
         onUrlSearch={handleUrlSearch}
         onFilterChange={handleFilterChange}

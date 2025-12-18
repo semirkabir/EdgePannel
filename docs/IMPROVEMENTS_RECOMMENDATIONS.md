@@ -94,7 +94,7 @@ const markets: Market[] = useMemo(() => {
 
 **Files to update**:
 - `components/panels/MarketDetails.tsx` - Wrap in error boundary
-- `components/polyglobe/PolyglobeMap.tsx` - Add error boundary
+- `components/edge/EdgeMap.tsx` - Add error boundary
 
 **Impact**: Better user experience when errors occur, prevents full app crashes
 

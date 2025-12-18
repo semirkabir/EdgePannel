@@ -9,7 +9,7 @@ import { parseMarketUrl } from '@/lib/utils/market-url-parser';
 
 export type VisualizationMode = 'dots' | 'heatmap' | 'cluster';
 
-interface PolyglobeUIProps {
+interface EdgeUIProps {
   onSearch: (query: string) => void;
   onUrlSearch?: (url: string) => void;
   onFilterChange: (filter: string, active: boolean) => void;
@@ -57,7 +57,7 @@ const CATEGORIES = [
   "Entertainment"
 ];
 
-export function PolyglobeUI({
+export function EdgeUI({
   onSearch,
   onUrlSearch,
   onFilterChange,
@@ -81,7 +81,7 @@ export function PolyglobeUI({
   onVisualizationModeChange,
   availableMarkets = [],
   searchInputRef: externalSearchInputRef
-}: PolyglobeUIProps) {
+}: EdgeUIProps) {
   const router = useRouter();
   const [internalIsPlaying, setInternalIsPlaying] = useState(true);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -157,7 +157,7 @@ export function PolyglobeUI({
 
       if (parsedUrl && onUrlSearch) {
         // It's a valid market URL - fetch and display it
-        console.log('[PolyglobeUI] Detected market URL on Enter:', parsedUrl);
+        console.log('[EdgeUI] Detected market URL on Enter:', parsedUrl);
         onUrlSearch(value);
 
         // Clear the input and search query

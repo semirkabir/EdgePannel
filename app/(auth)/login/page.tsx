@@ -42,7 +42,7 @@ function LoginForm() {
         toast.error('Invalid credentials', 'Please check your email and password')
       } else {
         toast.success('Welcome back!', 'Redirecting...')
-        router.push('/polyglobe')
+        router.push('/edge')
       }
     } catch (err) {
       toast.error('An error occurred', 'Please try again')
@@ -209,7 +209,7 @@ function LoginForm() {
               onClick={async () => {
                 try {
                   await signIn('google', {
-                    callbackUrl: '/polyglobe',
+                    callbackUrl: '/edge',
                     redirect: true,
                   })
                 } catch (error) {
@@ -233,7 +233,7 @@ function LoginForm() {
               onClick={async () => {
                 try {
                   await signIn('twitter', {
-                    callbackUrl: '/polyglobe',
+                    callbackUrl: '/edge',
                     redirect: true,
                   })
                 } catch (error) {
