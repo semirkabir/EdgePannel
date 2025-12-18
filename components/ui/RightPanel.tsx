@@ -65,7 +65,7 @@ export function RightPanel({
             {/* Panel */}
             <div
                 className={cn(
-                    "fixed right-4 top-[88px] bottom-6 z-[2000] rounded-2xl overflow-hidden",
+                    "fixed right-2 sm:right-4 top-16 sm:top-[88px] bottom-2 sm:bottom-6 z-[2000] rounded-xl sm:rounded-2xl overflow-hidden",
                     "bg-[#0e0f11] border border-white/10 shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] flex flex-col",
                     "transform transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1)", // Smooth easeOutExpoish
                     widthClass,
@@ -74,10 +74,10 @@ export function RightPanel({
                 )}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-4 py-4 border-b border-white/5 bg-[#0e0f11] shrink-0">
-                    <div className="flex flex-col min-w-0 mr-4">
+                <div className="flex items-center justify-between px-3 sm:px-4 py-3 sm:py-4 border-b border-white/5 bg-[#0e0f11] shrink-0">
+                    <div className="flex flex-col min-w-0 mr-2 sm:mr-4 flex-1">
                         {title && (
-                            <h2 className="text-base font-bold text-gray-100 leading-tight">{title}</h2>
+                            <h2 className="text-sm sm:text-base font-bold text-gray-100 leading-tight line-clamp-2">{title}</h2>
                         )}
                         {subtitle && (
                             <div className="mt-0.5">{subtitle}</div>
@@ -89,9 +89,9 @@ export function RightPanel({
                             variant="ghost"
                             size="icon"
                             onClick={onClose}
-                            className="h-8 w-8 text-gray-400 hover:text-white hover:bg-white/5 rounded-full"
+                            className="h-7 w-7 sm:h-8 sm:w-8 text-gray-400 hover:text-white hover:bg-white/5 rounded-full touch-manipulation"
                         >
-                            <X className="h-4 w-4" />
+                            <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
                     </div>
                 </div>

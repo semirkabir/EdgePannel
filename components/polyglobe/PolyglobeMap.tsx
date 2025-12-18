@@ -10,6 +10,8 @@ import { loadGeoJSON } from '@/lib/geojson-loader';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { Landmark, TrendingUp, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid } from 'lucide-react';
 import { MarketPopupVolume } from './MarketPopup';
+import { MarketHoverChart } from './MarketHoverChart';
+import { LatencyTag } from './LatencyTag';
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -437,6 +439,14 @@ function InnerMap({
       );
     }
 
+    // Noise filter: Hide low liquidity markets (volume < $100)
+    if (activeFilters.noiseFilter) {
+      features = features.filter((f: any) => {
+        const volume = f.properties.volume || f.properties.volume24h || 0;
+        return volume >= 100; // Only show markets with at least $100 volume
+      });
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       features = features.filter((f: any) =>
@@ -832,6 +842,13 @@ function InnerMap({
                 )}
               </div>
 
+              {/* Latency Tag */}
+              {props.updatedAt && (
+                <div className="mb-2">
+                  <LatencyTag updatedAt={props.updatedAt} size="sm" />
+                </div>
+              )}
+
               {/* End Date */}
               {props.endDate && (
                 <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-2">
@@ -846,19 +863,16 @@ function InnerMap({
                 </div>
               )}
 
-              {/* Chart */}
-              {JSON.parse(props.priceHistory || '[]').length > 0 && (
-                <div className="mb-2">
-                  <div className="bg-black/30 rounded p-1.5 border border-gray-700/20">
-                    <Sparkline
-                      data={JSON.parse(props.priceHistory || '[]').map((p: any) => p.price)}
-                      width={220}
-                      height={32}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-              )}
+              {/* Mini Chart - Fetches on hover (only for single markets, not groups) */}
+              <div className="mb-2">
+                <MarketHoverChart
+                  marketId={props.id || props.market_id}
+                  platform={props.platform}
+                  currentPrice={props.last_price || props.price}
+                  priceChange={props.price_movement}
+                  enabled={true}
+                />
+              </div>
 
               {/* CTA Button */}
               <button
@@ -1059,6 +1073,10 @@ function InnerMap({
         mapStyle="https://api.maptiler.com/maps/darkmatter/style.json?key=35TZqSTSBjgDvsawKAK9"
         attributionControl={false}
         interactiveLayerIds={interactiveIds}
+        touchZoomRotate={true}
+        touchPitch={true}
+        doubleClickZoom={true}
+        dragRotate={false}
       >
         <NavigationControl position="bottom-right" />
         <FullscreenControl position="bottom-right" />

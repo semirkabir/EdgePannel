@@ -1,18 +1,50 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { applySecurityHeaders } from "@/lib/middleware/security-headers"
 
-// TEMPORARILY DISABLED: Set to false to disable authentication
-const AUTH_ENABLED = false
+// Authentication middleware configuration
+// In production, authentication should always be enabled
+// Can be disabled in development via AUTH_ENABLED=false env var
+const AUTH_ENABLED = process.env.NODE_ENV === 'production' 
+  ? true 
+  : (process.env.AUTH_ENABLED === 'true' || false)
 
-// Bypass middleware when auth is disabled
-export default AUTH_ENABLED ? withAuth({
+// Warn if auth is disabled in production (should never happen)
+if (process.env.NODE_ENV === 'production' && !AUTH_ENABLED) {
+  console.error('⚠️  SECURITY WARNING: Authentication middleware is DISABLED in production!')
+}
+
+// Create auth middleware
+const authMiddleware = AUTH_ENABLED ? withAuth({
   pages: {
     signIn: "/login",
   },
-}) : (req: NextRequest) => {
-  // No-op middleware - allows all requests through
-  return NextResponse.next()
+  callbacks: {
+    authorized: ({ token }) => {
+      // Additional authorization checks can be added here
+      return !!token
+    },
+  },
+}) : undefined
+
+// Main middleware - applies auth and security headers
+export default function middleware(req: NextRequest) {
+  let response: NextResponse
+  
+  if (authMiddleware) {
+    // Apply authentication
+    response = authMiddleware(req) as NextResponse
+  } else {
+    // Development fallback - log warning
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('⚠️  Auth middleware disabled - all routes accessible')
+    }
+    response = NextResponse.next()
+  }
+  
+  // Apply security headers to all responses
+  return applySecurityHeaders(response)
 }
 
 export const config = {

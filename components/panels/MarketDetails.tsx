@@ -12,6 +12,7 @@ import { RightPanel } from '@/components/ui/RightPanel'
 import { useLiveVolume, getEventIdFromMarket } from '@/hooks/use-live-volume'
 import { useOpenInterest } from '@/hooks/use-open-interest'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { LatencyTag } from '@/components/polyglobe/LatencyTag'
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -672,6 +673,9 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               {CATEGORY_ICONS[category] || <LayoutGrid className="w-2.5 h-2.5" />}
               {category}
             </span>
+          )}
+          {(activeMarket as any)?.updatedAt && (
+            <LatencyTag updatedAt={(activeMarket as any).updatedAt} size="sm" />
           )}
           {activeEvent && activeEvent.markets && (
             <span className="text-[10px] text-gray-400">

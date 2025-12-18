@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers } from 'lucide-react';
+import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers, VolumeX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { SearchResults } from './SearchResults';
@@ -40,6 +40,8 @@ interface PolyglobeUIProps {
   onVisualizationModeChange?: (mode: VisualizationMode) => void;
   // Available markets for random selection
   availableMarkets?: EnrichedMarket[];
+  // Search input ref for keyboard shortcuts
+  searchInputRef?: React.RefObject<HTMLInputElement>;
 }
 
 const CATEGORIES = [
@@ -73,7 +75,8 @@ export function PolyglobeUI({
   onResetZoom,
   visualizationMode = 'dots',
   onVisualizationModeChange,
-  availableMarkets = []
+  availableMarkets = [],
+  searchInputRef: externalSearchInputRef
 }: PolyglobeUIProps) {
   const router = useRouter();
   const [internalIsPlaying, setInternalIsPlaying] = useState(true);
@@ -81,7 +84,9 @@ export function PolyglobeUI({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [randomMarkets, setRandomMarkets] = useState<EnrichedMarket[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalInputRef = useRef<HTMLInputElement>(null);
+  // Use external ref if provided, otherwise use internal
+  const inputRef = externalSearchInputRef || internalInputRef;
   const profileRef = useRef<HTMLDivElement>(null);
   const categoriesRef = useRef<HTMLDivElement>(null);
   const visualizationRef = useRef<HTMLDivElement>(null);
@@ -166,38 +171,40 @@ export function PolyglobeUI({
     <div className="absolute inset-0 pointer-events-none">
 
       {/* Top Left: Control Island */}
-      <div className="absolute top-4 left-4 z-[1000] pointer-events-auto flex flex-col gap-3">
+      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-[1000] pointer-events-auto flex flex-col gap-2 sm:gap-3">
         {/* Logo & Main Controls */}
         <div 
-          className="flex items-center gap-2 p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl"
+          className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl"
           style={{
             boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
           }}
         >
           {/* Logo */}
-          <div className="flex items-center gap-0.5 px-3 py-1.5 bg-white/5 rounded-xl border border-white/5">
-            <span className="font-serif text-lg italic font-bold text-white tracking-tight">Edge</span>
-            <span className="font-sans text-lg font-bold text-white tracking-tighter">Pannel</span>
+          <div className="flex items-center gap-0.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/5 rounded-lg sm:rounded-xl border border-white/5">
+            <span className="font-serif text-sm sm:text-lg italic font-bold text-white tracking-tight">Edge</span>
+            <span className="font-sans text-sm sm:text-lg font-bold text-white tracking-tighter">Pannel</span>
           </div>
 
-          <div className="w-px h-6 bg-white/10 mx-1" />
+          <div className="w-px h-5 sm:h-6 bg-white/10 mx-0.5 sm:mx-1" />
 
           {/* Play/Pause Rotation - Only show in map/globe view */}
           {!isInsightsView && (
             <button
               onClick={handlePlayPause}
-              className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
+              className="h-7 sm:h-8 px-2 sm:px-3 flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
               title={isPlaying ? "Pause Rotation" : "Resume Rotation"}
             >
               {isPlaying ? (
                 <>
-                  <Pause className="w-3.5 h-3.5" />
-                  <span>Pause Rotation</span>
+                  <Pause className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden sm:inline">Pause Rotation</span>
+                  <span className="sm:hidden">Pause</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-3.5 h-3.5 ml-0.5" />
-                  <span>Resume Rotation</span>
+                  <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 ml-0.5" />
+                  <span className="hidden sm:inline">Resume Rotation</span>
+                  <span className="sm:hidden">Resume</span>
                 </>
               )}
             </button>
@@ -266,13 +273,13 @@ export function PolyglobeUI({
 
         {/* Control Buttons Row - Hide when in insights view */}
         {!isInsightsView && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             {/* Categories Dropdown */}
             <div className="relative" ref={categoriesRef}>
               <button
                 onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
                 className={cn(
-                  "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
+                  "px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl backdrop-blur-xl border text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 shadow-lg",
                   isCategoriesOpen || (selectedCategories.length > 0 && !selectedCategories.includes('All'))
                     ? "bg-purple-500/10 border-purple-500/50 text-purple-400"
                     : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
@@ -290,7 +297,7 @@ export function PolyglobeUI({
 
               {/* Categories Popover */}
               {isCategoriesOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[320px] bg-[#0e0f11]/98 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-4">
+                <div className="absolute top-full left-0 mt-2 w-[280px] sm:w-[320px] bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 sm:p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-white">Categories</h3>
                     {!selectedCategories.includes('All') && selectedCategories.length > 0 && (
@@ -358,7 +365,7 @@ export function PolyglobeUI({
 
               {/* Visualization Popover */}
               {isVisualizationOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[280px] bg-[#0e0f11]/98 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-4">
+                <div className="absolute top-full left-0 mt-2 w-[260px] sm:w-[280px] bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 sm:p-4">
                   <h3 className="text-sm font-semibold text-white mb-3">Mode</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {/* Dots Mode */}
@@ -423,7 +430,7 @@ export function PolyglobeUI({
                 onClick={() => setIsOverlaysOpen(!isOverlaysOpen)}
                 className={cn(
                   "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
-                  isOverlaysOpen || activeFilters.osint || activeFilters.live || activeFilters.fires || activeFilters.frontline
+                  isOverlaysOpen || activeFilters.osint || activeFilters.live || activeFilters.fires || activeFilters.frontline || activeFilters.noiseFilter
                     ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400"
                     : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
                 )}
@@ -431,7 +438,7 @@ export function PolyglobeUI({
                 <Globe className="w-3.5 h-3.5" />
                 OVERLAYS
                 {(() => {
-                  const activeOverlayCount = [activeFilters.osint, activeFilters.live, activeFilters.fires, activeFilters.frontline].filter(Boolean).length;
+                  const activeOverlayCount = [activeFilters.osint, activeFilters.live, activeFilters.fires, activeFilters.frontline, activeFilters.noiseFilter].filter(Boolean).length;
                   return activeOverlayCount > 0 && (
                     <span className="ml-1 px-1.5 py-0.5 bg-emerald-500 text-white rounded-full text-[9px] font-bold">
                       {activeOverlayCount}
@@ -443,9 +450,9 @@ export function PolyglobeUI({
 
               {/* Overlays Popover */}
               {isOverlaysOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[260px] bg-[#0e0f11]/98 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-4">
+                <div className="absolute top-full left-0 mt-2 w-[240px] sm:w-[260px] bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 sm:p-4">
                   <h3 className="text-sm font-semibold text-white mb-3">Map Overlays</h3>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 mb-2">
                     {/* OSINT Toggle */}
                     <button
                       onClick={() => onFilterChange('osint', !activeFilters.osint)}
@@ -502,6 +509,23 @@ export function PolyglobeUI({
                       <span className="relative z-10">Frontline</span>
                     </button>
                   </div>
+
+                  {/* Noise Filter - Full Width */}
+                  <div className="pt-2 border-t border-white/10 mt-2">
+                    <button
+                      onClick={() => onFilterChange('noiseFilter', !activeFilters.noiseFilter)}
+                      className={cn(
+                        "w-full px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
+                        activeFilters.noiseFilter
+                          ? "bg-gradient-to-br from-amber-600 to-amber-700 border-amber-500 text-white shadow-lg shadow-amber-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                      )}
+                    >
+                      <VolumeX className="w-3.5 h-3.5 relative z-10" />
+                      <span className="relative z-10">Hide Low Liquidity</span>
+                      <span className="ml-auto text-[10px] text-gray-400 relative z-10">$100+</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -510,13 +534,13 @@ export function PolyglobeUI({
       </div>
 
       {/* Top Right: User Island */}
-      <div className="absolute top-4 right-4 z-[1000] pointer-events-auto flex items-center gap-3">
+      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-[1000] pointer-events-auto flex items-center gap-2 sm:gap-3">
         {/* Search Bar - Modernized */}
         <div className="relative group">
           <input
             ref={inputRef}
             type="text"
-            className="block w-[320px] pl-10 pr-4 py-2.5 bg-[#0e0f11]/80 border border-white/10 rounded-2xl text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-xl transition-all font-sans tracking-tight"
+            className="block w-[200px] sm:w-[280px] md:w-[320px] pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-[#0e0f11]/80 border border-white/10 rounded-xl sm:rounded-2xl text-xs sm:text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-xl transition-all font-sans tracking-tight"
             style={{
               boxShadow: "0px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)",
               backgroundImage: "linear-gradient(90deg, rgba(255, 255, 255, 1) 55%, rgba(0, 0, 0, 1) 100%)",
@@ -530,8 +554,8 @@ export function PolyglobeUI({
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
           />
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-            <Search className="h-4 w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
+          <div className="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center pointer-events-none z-10">
+            <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
           </div>
           {/* Search Results Dropdown */}
           {isSearchFocused && (searchResults.length > 0 || isSearching || (inputRef.current?.value === '' && randomMarkets.length > 0)) && (
@@ -552,7 +576,7 @@ export function PolyglobeUI({
 
         {/* Action Buttons Group */}
         <div 
-          className="flex items-center p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl gap-1"
+          className="flex items-center p-1 sm:p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl gap-0.5 sm:gap-1"
           style={{
             boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
           }}
@@ -560,23 +584,23 @@ export function PolyglobeUI({
           {/* Notifications */}
           <button
             onClick={onNotificationClick}
-            className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all"
+            className="relative w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all touch-manipulation"
           >
-            <Bell className="w-4 h-4" />
+            <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             {notificationCount > 0 && (
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-[#0e0f11]" />
             )}
           </button>
 
-          <div className="w-px h-5 bg-white/10" />
+          <div className="w-px h-4 sm:h-5 bg-white/10" />
 
           {/* Profile */}
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all"
+              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all touch-manipulation"
             >
-              <User className="w-4 h-4" />
+              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
             {/* Profile Dropdown Menu */}
             {isProfileOpen && (

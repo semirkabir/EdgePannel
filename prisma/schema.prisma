@@ -22,6 +22,7 @@ model User {
   apiKeys       ApiKey[]
   trades        Trade[]
   watchlists    Watchlist[]
+  auditLogs     AuditLog[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -70,12 +71,22 @@ model ApiKey {
   encryptedKey      String   @db.Text
   encryptedKeyData  String?  @db.Text // Additional encrypted data (e.g., Kalshi private key)
   isActive          Boolean  @default(true)
+  
+  // Rotation fields
+  expiresAt         DateTime? // When this key expires (null = no expiration)
+  rotationDate      DateTime? // When key was last rotated
+  previousKeyHash   String? // Hash of previous key for transition period
+  rotationReminderSent Boolean @default(false) // Whether reminder email was sent
+  nextRotationDate  DateTime? // When key should be rotated next
+  
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([userId, platform])
+  @@index([expiresAt])
+  @@index([nextRotationDate])
 }
 
 model MarketCache {
@@ -184,4 +195,26 @@ model MarketPriceHistory {
   @@index([marketId, timestamp(sort: Desc)])
   @@index([platform, timestamp(sort: Desc)])
   @@index([timestamp(sort: Desc)])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?  // User who performed the action (null for system actions)
+  action      String   // Action type: "LOGIN", "LOGOUT", "API_KEY_CREATED", "API_KEY_UPDATED", "API_KEY_DELETED", "API_KEY_ROTATED", "TRADE_EXECUTED", "PASSWORD_CHANGED", "EMAIL_CHANGED", etc.
+  resource    String   // Resource type: "user", "api_key", "trade", "settings", etc.
+  resourceId  String?  // ID of the affected resource
+  details     Json?    // Additional context (IP, user agent, changes made, etc.)
+  ipAddress   String?  // IP address of the request
+  userAgent   String?  // User agent string
+  status      String   @default("SUCCESS") // "SUCCESS", "FAILURE", "ERROR"
+  errorMessage String? // Error message if status is FAILURE or ERROR
+  timestamp   DateTime @default(now())
+  
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId, timestamp(sort: Desc)])
+  @@index([action, timestamp(sort: Desc)])
+  @@index([resource, timestamp(sort: Desc)])
+  @@index([timestamp(sort: Desc)])
+  @@index([status, timestamp(sort: Desc)])
 }

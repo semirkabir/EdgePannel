@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { KalshiClient } from '@/lib/api/kalshi'
+import { withAuth, withErrorHandler, ApiError } from '@/lib/api/middleware'
+import { ErrorCodes } from '@/lib/api/error-codes'
+import { prisma } from '@/lib/db/client'
+import { decrypt } from '@/lib/utils/encryption'
 
-export async function GET(request: NextRequest) {
-  try {
+export const GET = withErrorHandler(
+  withAuth(async (userId: string, request: NextRequest) => {
     const searchParams = request.nextUrl.searchParams
     const ticker = searchParams.get('ticker') || undefined
     const orderId = searchParams.get('orderId') || undefined
@@ -11,16 +15,26 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100')
     const cursor = searchParams.get('cursor') || undefined
 
-    const accessKeyId = process.env.KALSHI_API_KEY_ID
-    const privateKey = process.env.KALSHI_PRIVATE_KEY
+    // Get user's API keys from database
+    const apiKeyRecord = await prisma.apiKey.findUnique({
+      where: {
+        userId_platform: {
+          userId: userId,
+          platform: 'kalshi',
+        },
+      },
+    })
 
-    if (!accessKeyId || !privateKey) {
-      return NextResponse.json(
-        { error: 'Kalshi API credentials not configured' },
-        { status: 401 }
+    if (!apiKeyRecord || !apiKeyRecord.encryptedKeyData) {
+      throw new ApiError(
+        400,
+        'Kalshi API keys not configured. Please add your API keys in Settings.',
+        ErrorCodes.API_KEYS_NOT_CONFIGURED
       )
     }
 
+    const accessKeyId = decrypt(apiKeyRecord.encryptedKey)
+    const privateKey = decrypt(apiKeyRecord.encryptedKeyData)
     const kalshi = new KalshiClient({
       accessKeyId,
       privateKey,
@@ -36,11 +50,5 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json(data)
-  } catch (error: any) {
-    console.error('[API] Error fetching Kalshi fills:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch fills' },
-      { status: 500 }
-    )
-  }
-}
+  })
+)

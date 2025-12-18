@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PolymarketClient } from '@/lib/api/polymarket';
 import { KalshiClient } from '@/lib/api/kalshi';
 import { enrichMarket } from '@/lib/markets/enrich';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db/client';
+import { decrypt } from '@/lib/utils/encryption';
 
 /**
  * GET /api/markets/by-url
@@ -170,14 +174,32 @@ export async function GET(request: NextRequest) {
         }
       }
     } else if (platform === 'kalshi') {
-      const accessKeyId = process.env.KALSHI_API_KEY_ID || '';
-      const privateKey = process.env.KALSHI_PRIVATE_KEY || '';
+      // Try to get user's API keys if authenticated, otherwise return error
+      const session = await getServerSession(authOptions);
+      let accessKeyId: string | undefined;
+      let privateKey: string | undefined;
+
+      if (session?.user?.id) {
+        const apiKeyRecord = await prisma.apiKey.findUnique({
+          where: {
+            userId_platform: {
+              userId: session.user.id,
+              platform: 'kalshi',
+            },
+          },
+        });
+
+        if (apiKeyRecord?.encryptedKeyData) {
+          accessKeyId = decrypt(apiKeyRecord.encryptedKey);
+          privateKey = decrypt(apiKeyRecord.encryptedKeyData);
+        }
+      }
 
       if (!accessKeyId || !privateKey) {
-        console.warn('[Markets By URL API] Kalshi credentials not configured');
+        console.warn('[Markets By URL API] Kalshi credentials not configured. User must be authenticated and have API keys set up.');
         return NextResponse.json(
-          { error: 'Kalshi not configured' },
-          { status: 503 }
+          { error: 'Kalshi API keys not configured. Please log in and add your API keys in Settings.' },
+          { status: 401 }
         );
       }
 

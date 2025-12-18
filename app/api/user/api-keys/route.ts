@@ -1,110 +1,92 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/client'
 import { encrypt } from '@/lib/utils/encryption'
-import { AUTH_ENABLED, MOCK_USER_ID } from '@/lib/auth-config'
+import { withAuth, withErrorHandler, validateBody, ApiError } from '@/lib/api/middleware'
+import { ApiKeySchema } from '@/lib/api/schemas'
+import { ErrorCodes } from '@/lib/api/error-codes'
+import { logger } from '@/lib/utils/logger'
+import { getRateLimitConfig } from '@/lib/api/rate-limit-config'
+import { auditLogFromRequest } from '@/lib/audit/audit-logger'
+import { calculateNextRotationDate, calculateExpirationDate, checkKeyRotationStatus } from '@/lib/api-key/rotation'
 
-export async function POST(request: Request) {
-  try {
-    // Get user ID - use mock if auth is disabled
-    let userId: string
-    if (AUTH_ENABLED) {
-      const session = await getServerSession(authOptions)
-      if (!session?.user?.id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      userId = session.user.id
-    } else {
-      userId = MOCK_USER_ID
-    }
+export const POST = withErrorHandler(
+  withAuth(
+    async (userId: string, request: NextRequest) => {
+      const body = await request.json()
+      const { platform, apiKey, accessKeyId, privateKey } = validateBody(ApiKeySchema, body)
 
-    const { platform, apiKey, accessKeyId, privateKey } = await request.json()
+      const encryptedKey = platform === 'polymarket'
+        ? encrypt(apiKey!)
+        : encrypt(accessKeyId!)
 
-    if (platform !== 'polymarket' && platform !== 'kalshi') {
-      return NextResponse.json(
-        { error: 'Invalid platform' },
-        { status: 400 }
-      )
-    }
+      const encryptedKeyData = platform === 'kalshi'
+        ? encrypt(privateKey!)
+        : null
 
-    if (platform === 'polymarket' && !apiKey) {
-      return NextResponse.json(
-        { error: 'API key is required for Polymarket' },
-        { status: 400 }
-      )
-    }
+      // Log only non-sensitive information
+      logger.info(`Saving ${platform} API keys`, { 
+        userId: userId.substring(0, 8) + '...',
+        platform 
+      })
 
-    if (platform === 'kalshi' && (!accessKeyId || !privateKey)) {
-      return NextResponse.json(
-        { error: 'Access Key ID and Private Key are required for Kalshi' },
-        { status: 400 }
-      )
-    }
+      // Check if this is an update or create
+      const existing = await prisma.apiKey.findUnique({
+        where: {
+          userId_platform: {
+            userId: userId,
+            platform,
+          },
+        },
+      })
 
-    const encryptedKey = platform === 'polymarket'
-      ? encrypt(apiKey)
-      : encrypt(accessKeyId)
+      const isUpdate = !!existing
 
-    const encryptedKeyData = platform === 'kalshi'
-      ? encrypt(privateKey)
-      : null
-
-    console.log(`[API Keys] Saving ${platform} keys for user:`, {
-      userId,
-      platform,
-      hasEncryptedKey: !!encryptedKey,
-      hasEncryptedKeyData: !!encryptedKeyData,
-      encryptedKeyLength: encryptedKey?.length,
-      encryptedKeyDataLength: encryptedKeyData?.length,
-    })
-
-    await prisma.apiKey.upsert({
-      where: {
-        userId_platform: {
+      const apiKey = await prisma.apiKey.upsert({
+        where: {
+          userId_platform: {
+            userId: userId,
+            platform,
+          },
+        },
+        update: {
+          encryptedKey,
+          encryptedKeyData,
+          isActive: true,
+          // Set rotation dates if not already set
+          nextRotationDate: existing?.nextRotationDate || calculateNextRotationDate(),
+          expiresAt: existing?.expiresAt || calculateExpirationDate(),
+          updatedAt: new Date(),
+        },
+        create: {
           userId: userId,
           platform,
+          encryptedKey,
+          encryptedKeyData,
+          nextRotationDate: calculateNextRotationDate(),
+          expiresAt: calculateExpirationDate(),
         },
-      },
-      update: {
-        encryptedKey,
-        encryptedKeyData,
-        isActive: true,
-        updatedAt: new Date(),
-      },
-      create: {
-        userId: userId,
-        platform,
-        encryptedKey,
-        encryptedKeyData,
-      },
-    })
+      })
 
-    console.log(`[API Keys] Successfully saved ${platform} keys for user:`, userId)
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('Error saving API keys:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to save API keys' },
-      { status: 500 }
-    )
-  }
-}
+      // Audit log
+      await auditLogFromRequest(request, {
+        userId,
+        action: isUpdate ? 'API_KEY_UPDATED' : 'API_KEY_CREATED',
+        resource: 'api_key',
+        resourceId: apiKey.id,
+        details: {
+          platform,
+        },
+      })
 
-export async function GET(request: Request) {
-  try {
-    // Get user ID - use mock if auth is disabled
-    let userId: string
-    if (AUTH_ENABLED) {
-      const session = await getServerSession(authOptions)
-      if (!session?.user?.id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      userId = session.user.id
-    } else {
-      userId = MOCK_USER_ID
-    }
+      logger.info(`Successfully saved ${platform} keys`)
+      return NextResponse.json({ success: true })
+    },
+    getRateLimitConfig('/api/user/api-keys')
+  )
+)
 
+export const GET = withErrorHandler(
+  withAuth(async (userId: string) => {
     const apiKeys = await prisma.apiKey.findMany({
       where: {
         userId: userId,
@@ -115,65 +97,76 @@ export async function GET(request: Request) {
         isActive: true,
         createdAt: true,
         updatedAt: true,
+        expiresAt: true,
+        nextRotationDate: true,
+        rotationDate: true,
       },
     })
 
-    return NextResponse.json({ apiKeys })
-  } catch (error: any) {
-    console.error('Error fetching API keys:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch API keys' },
-      { status: 500 }
+    // Add rotation status for each key
+    const keysWithStatus = await Promise.all(
+      apiKeys.map(async (key) => {
+        const status = await checkKeyRotationStatus(key.id)
+        return {
+          ...key,
+          rotationStatus: status,
+        }
+      })
     )
-  }
-}
 
-export async function DELETE(request: Request) {
-  try {
-    // Get user ID - use mock if auth is disabled
-    let userId: string
-    if (AUTH_ENABLED) {
-      const session = await getServerSession(authOptions)
-      if (!session?.user?.id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      userId = session.user.id
-    } else {
-      userId = MOCK_USER_ID
-    }
+    return NextResponse.json({ apiKeys: keysWithStatus })
+  })
+)
 
+export const DELETE = withErrorHandler(
+  withAuth(async (userId: string, request: NextRequest) => {
     const { searchParams } = new URL(request.url)
     const platform = searchParams.get('platform')
 
     if (!platform || (platform !== 'polymarket' && platform !== 'kalshi')) {
-      return NextResponse.json(
-        { error: 'Invalid platform. Must be "polymarket" or "kalshi"' },
-        { status: 400 }
-      )
+      throw new ApiError(400, 'Invalid platform. Must be "polymarket" or "kalshi"', ErrorCodes.INVALID_PLATFORM)
     }
 
-    await prisma.apiKey.delete({
-      where: {
-        userId_platform: {
-          userId: userId,
-          platform: platform as 'polymarket' | 'kalshi',
+    try {
+      const apiKey = await prisma.apiKey.findUnique({
+        where: {
+          userId_platform: {
+            userId: userId,
+            platform: platform as 'polymarket' | 'kalshi',
+          },
         },
-      },
-    })
+      })
 
-    return NextResponse.json({ success: true, message: 'API key deleted successfully' })
-  } catch (error: any) {
-    console.error('Error deleting API key:', error)
-    
-    // If key doesn't exist, that's okay - return success
-    if (error.code === 'P2025') {
-      return NextResponse.json({ success: true, message: 'API key not found (already deleted)' })
+      if (apiKey) {
+        await prisma.apiKey.delete({
+          where: {
+            userId_platform: {
+              userId: userId,
+              platform: platform as 'polymarket' | 'kalshi',
+            },
+          },
+        })
+
+        // Audit log
+        await auditLogFromRequest(request, {
+          userId,
+          action: 'API_KEY_DELETED',
+          resource: 'api_key',
+          resourceId: apiKey.id,
+          details: {
+            platform,
+          },
+        })
+      }
+
+      return NextResponse.json({ success: true, message: 'API key deleted successfully' })
+    } catch (error: unknown) {
+      // If key doesn't exist, that's okay - return success
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+        return NextResponse.json({ success: true, message: 'API key not found (already deleted)' })
+      }
+      throw error
     }
-    
-    return NextResponse.json(
-      { error: error.message || 'Failed to delete API key' },
-      { status: 500 }
-    )
-  }
-}
+  })
+)
 

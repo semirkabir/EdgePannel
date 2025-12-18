@@ -147,8 +147,10 @@ export async function POST(request: Request) {
       await prisma.geotaggedMarket.deleteMany({
         where: { platform: 'kalshi' }
       })
-      const accessKeyId = process.env.KALSHI_API_KEY_ID
-      const privateKey = process.env.KALSHI_PRIVATE_KEY
+      // Use system API keys from environment variables (for admin operations)
+      // Fallback to legacy env vars for backward compatibility
+      const accessKeyId = process.env.KALSHI_SYSTEM_API_KEY_ID || process.env.KALSHI_API_KEY_ID
+      const privateKey = process.env.KALSHI_SYSTEM_PRIVATE_KEY || process.env.KALSHI_PRIVATE_KEY
 
       if (accessKeyId && privateKey) {
         try {

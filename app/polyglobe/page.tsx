@@ -2,7 +2,7 @@
 
 import { MarketCardStack } from '@/components/polyglobe/MarketCardStack';
 import { EnrichedMarket } from '@/lib/markets/enrich';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PolyglobeMap } from '@/components/polyglobe/PolyglobeMap';
 import { PolyglobeUI, type VisualizationMode } from '@/components/polyglobe/PolyglobeUI';
 import { CountryNewsPanel } from '@/components/polyglobe/CountryNewsPanel';
@@ -20,6 +20,8 @@ import { NotificationCenter } from '@/components/panels/NotificationCenter';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
 import { AgentDashboard } from '@/components/agent/AgentDashboard';
 import { InsightsDashboard } from '@/components/insights/InsightsDashboard';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { KeyboardShortcutsDialog } from '@/components/ui/keyboard-shortcuts-dialog';
 
 export default function PolyglobePage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
@@ -28,7 +30,8 @@ export default function PolyglobePage() {
     live: true,
     fires: false,
     frontline: false,
-    heatmap: false
+    heatmap: false,
+    noiseFilter: false // Hide low liquidity markets
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -186,6 +189,8 @@ export default function PolyglobePage() {
   const [rotationSpeed, setRotationSpeed] = useState(0.05);
   const [pauseOnHover, setPauseOnHover] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Persist view mode to localStorage
   useEffect(() => {
@@ -304,8 +309,86 @@ export default function PolyglobePage() {
     }
   };
 
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: '/',
+      callback: () => {
+        // Focus search input
+        searchInputRef.current?.focus();
+      },
+      description: 'Focus search',
+    },
+    {
+      key: 'Escape',
+      callback: () => {
+        // Close any open panels/modals
+        if (selectedMarket) setSelectedMarket(null);
+        if (selectedCountry) setSelectedCountry(null);
+        if (isNotificationCenterOpen) setIsNotificationCenterOpen(false);
+        if (isSettingsOpen) setIsSettingsOpen(false);
+        if (isShortcutsOpen) setIsShortcutsOpen(false);
+      },
+      description: 'Close panel',
+    },
+    {
+      key: ',',
+      ctrl: true,
+      callback: () => {
+        setIsSettingsOpen(true);
+      },
+      description: 'Open settings',
+    },
+    {
+      key: '?',
+      shift: true,
+      callback: () => {
+        setIsShortcutsOpen(!isShortcutsOpen);
+      },
+      description: 'Show shortcuts',
+    },
+    {
+      key: 'j',
+      callback: () => {
+        // Navigate to next market in list
+        if (liveMapFilteredMarkets.length > 0) {
+          const currentIndex = selectedMarket
+            ? liveMapFilteredMarkets.findIndex(m => m.id === selectedMarket.id)
+            : -1;
+          const nextIndex = (currentIndex + 1) % liveMapFilteredMarkets.length;
+          setSelectedMarket(liveMapFilteredMarkets[nextIndex] as EnrichedMarket);
+        }
+      },
+      description: 'Next market',
+    },
+    {
+      key: 'k',
+      callback: () => {
+        // Navigate to previous market in list
+        if (liveMapFilteredMarkets.length > 0) {
+          const currentIndex = selectedMarket
+            ? liveMapFilteredMarkets.findIndex(m => m.id === selectedMarket.id)
+            : -1;
+          const prevIndex = currentIndex <= 0 
+            ? liveMapFilteredMarkets.length - 1 
+            : currentIndex - 1;
+          setSelectedMarket(liveMapFilteredMarkets[prevIndex] as EnrichedMarket);
+        }
+      },
+      description: 'Previous market',
+    },
+    {
+      key: 'r',
+      callback: () => {
+        // Refresh - reload the page or refetch data
+        window.location.reload();
+      },
+      description: 'Refresh',
+    },
+  ]);
+
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-gray-950">
+    <div className="relative w-screen h-screen overflow-hidden bg-gray-950 touch-pan-y touch-pan-x">
       {/* Starfield background - only in globe mode */}
       {viewMode === 'globe' && <Starfield starCount={300} />}
 
@@ -369,6 +452,8 @@ export default function PolyglobePage() {
         onResetZoom={handleResetZoom}
         // Available markets for random selection
         availableMarkets={liveMapFilteredMarkets as EnrichedMarket[]}
+        // Search input ref for keyboard shortcuts
+        searchInputRef={searchInputRef}
       />
 
       {/* Search results are now handled inside PolyglobeUI */}
@@ -411,9 +496,16 @@ export default function PolyglobePage() {
           }
         }}
       />
+
+      {/* Keyboard Shortcuts Dialog */}
+      <KeyboardShortcutsDialog
+        open={isShortcutsOpen}
+        onOpenChange={setIsShortcutsOpen}
+      />
     </div>
   );
 }
+
 
 
 

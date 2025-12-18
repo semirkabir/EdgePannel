@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile optimizations */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Prevent text selection on mobile for better touch experience */
+  @media (max-width: 640px) {
+    .no-select {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+  }
+}
+
 @layer base {
   /* Dark theme (default) */
   :root,

@@ -20,9 +20,16 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
+  TWITTER_CLIENT_ID: z.string().optional(),
+  TWITTER_CLIENT_SECRET: z.string().optional(),
   
   // Optional: API Keys
   POLYMARKET_API_KEY: z.string().optional(),
+  
+  // Optional: Email Service (Resend)
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().email().optional(),
+  EMAIL_FROM_NAME: z.string().optional(),
   
   // Node Environment
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -54,3 +61,4 @@ export const env = (() => {
  * Type-safe environment variable access
  */
 export type Env = z.infer<typeof envSchema>
+

@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { KalshiClient } from '@/lib/api/kalshi'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db/client'
+import { decrypt } from '@/lib/utils/encryption'
 
 export async function GET(request: Request) {
     try {
@@ -114,12 +118,29 @@ export async function GET(request: Request) {
 
         if (platform === 'kalshi') {
             try {
-                // Initialize Kalshi client with credentials from env
-                const accessKeyId = process.env.KALSHI_API_KEY_ID || ''
-                const privateKey = process.env.KALSHI_PRIVATE_KEY || ''
+                // Try to get user's API keys if authenticated
+                const session = await getServerSession(authOptions)
+                let accessKeyId: string | undefined
+                let privateKey: string | undefined
+
+                if (session?.user?.id) {
+                    const apiKeyRecord = await prisma.apiKey.findUnique({
+                        where: {
+                            userId_platform: {
+                                userId: session.user.id,
+                                platform: 'kalshi',
+                            },
+                        },
+                    })
+
+                    if (apiKeyRecord?.encryptedKeyData) {
+                        accessKeyId = decrypt(apiKeyRecord.encryptedKey)
+                        privateKey = decrypt(apiKeyRecord.encryptedKeyData)
+                    }
+                }
 
                 if (!accessKeyId || !privateKey) {
-                    console.warn('[History API] Kalshi credentials not configured')
+                    console.warn('[History API] Kalshi credentials not configured. User must be authenticated and have API keys set up.')
                     return NextResponse.json({ history: [] })
                 }
 

@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/client'
+import { withAuth, withErrorHandler, validateQuery } from '@/lib/api/middleware'
+import { z } from 'zod'
+import { logger } from '@/lib/utils/logger'
+import { ErrorCodes } from '@/lib/api/error-codes'
 
-export async function GET(request: NextRequest) {
-  try {
+const PortfolioHistoryQuerySchema = z.object({
+  platform: z.enum(['kalshi', 'polymarket', 'combined']).default('combined'),
+  timeRange: z.enum(['24h', '7d', '30d', '90d', 'all']).default('30d'),
+})
+
+export const GET = withErrorHandler(
+  withAuth(async (userId: string, request: NextRequest) => {
     const searchParams = request.nextUrl.searchParams
-    const userId = searchParams.get('userId')
-    const platform = searchParams.get('platform') || 'combined'
-    const timeRange = searchParams.get('timeRange') || '30d'
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      )
-    }
+    const params = validateQuery(PortfolioHistoryQuerySchema, searchParams)
 
     // Calculate date range
     const now = new Date()
@@ -25,19 +25,23 @@ export async function GET(request: NextRequest) {
       'all': 365 * 10 // 10 years
     }
 
-    const daysBack = ranges[timeRange] || 30
+    const daysBack = ranges[params.timeRange] || 30
     const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000)
 
     // Query trades from Prisma
-    const whereClause: any = {
+    const whereClause: {
+      userId: string
+      platform?: string
+      createdAt: { gte: Date }
+    } = {
       userId,
       createdAt: {
         gte: startDate
       }
     }
 
-    if (platform !== 'combined') {
-      whereClause.platform = platform
+    if (params.platform !== 'combined') {
+      whereClause.platform = params.platform
     }
 
     const trades = await prisma.trade.findMany({
@@ -50,9 +54,12 @@ export async function GET(request: NextRequest) {
     // If no data exists, return empty array (frontend will show mock data)
     if (!trades || trades.length === 0) {
       return NextResponse.json({
-        snapshots: [],
-        hasData: false,
-        message: 'No portfolio history found. Start tracking your portfolio to see data here.'
+        success: true,
+        data: {
+          snapshots: [],
+          hasData: false,
+          message: 'No portfolio history found. Start tracking your portfolio to see data here.'
+        }
       })
     }
 
@@ -75,7 +82,7 @@ export async function GET(request: NextRequest) {
         totalPnl: 0,
         positionCount: 0,
         exposure: 0,
-        platform: platform === 'combined' ? 'combined' : trade.platform
+        platform: params.platform === 'combined' ? 'combined' : trade.platform
       }
 
       existing.totalValue += trade.totalAmount
@@ -92,9 +99,12 @@ export async function GET(request: NextRequest) {
 
     if (formattedSnapshots.length === 0) {
       return NextResponse.json({
-        snapshots: [],
-        hasData: false,
-        message: 'No portfolio history found. Start tracking your portfolio to see data here.'
+        success: true,
+        data: {
+          snapshots: [],
+          hasData: false,
+          message: 'No portfolio history found. Start tracking your portfolio to see data here.'
+        }
       })
     }
 
@@ -113,27 +123,24 @@ export async function GET(request: NextRequest) {
     const minPnl = Math.min(...formattedSnapshots.map(s => s.totalPnl))
 
     return NextResponse.json({
-      snapshots: formattedSnapshots,
-      hasData: true,
-      stats: {
-        currentValue: latestSnapshot.totalValue,
-        currentPnl: latestSnapshot.totalPnl,
-        changeAmount,
-        changePercent,
-        maxValue,
-        minValue,
-        maxPnl,
-        minPnl,
-        snapshotCount: formattedSnapshots.length,
-        firstSnapshot: oldestSnapshot.timestamp,
-        latestSnapshot: latestSnapshot.timestamp
+      success: true,
+      data: {
+        snapshots: formattedSnapshots,
+        hasData: true,
+        stats: {
+          currentValue: latestSnapshot.totalValue,
+          currentPnl: latestSnapshot.totalPnl,
+          changeAmount,
+          changePercent,
+          maxValue,
+          minValue,
+          maxPnl,
+          minPnl,
+          snapshotCount: formattedSnapshots.length,
+          firstSnapshot: oldestSnapshot.timestamp,
+          latestSnapshot: latestSnapshot.timestamp
+        }
       }
     })
-  } catch (error: any) {
-    console.error('[Portfolio History] Error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
-      { status: 500 }
-    )
-  }
-}
+  })
+)

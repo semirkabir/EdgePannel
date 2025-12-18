@@ -41,15 +41,14 @@ export async function GET(request: Request) {
       platforms: {} as Record<string, { indexed: number; failed: number; skipped: number }>
     }
 
-    // Index Kalshi markets (using first available API key)
+    // Index Kalshi markets (using system API keys from environment)
     try {
-      const apiKeyRecord = await prisma.apiKey.findFirst({
-        where: { platform: 'kalshi' }
-      })
+      // Use system API keys from environment variables (for background jobs)
+      // Fallback to legacy env vars for backward compatibility
+      const accessKeyId = process.env.KALSHI_SYSTEM_API_KEY_ID || process.env.KALSHI_API_KEY_ID
+      const privateKey = process.env.KALSHI_SYSTEM_PRIVATE_KEY || process.env.KALSHI_PRIVATE_KEY
 
-      if (apiKeyRecord?.encryptedKey && apiKeyRecord?.encryptedKeyData) {
-        const accessKeyId = decrypt(apiKeyRecord.encryptedKey)
-        const privateKey = decrypt(apiKeyRecord.encryptedKeyData)
+      if (accessKeyId && privateKey) {
         const client = new KalshiClient({ accessKeyId, privateKey })
 
         console.log('[Cron] Fetching ALL Kalshi markets with pagination...')
@@ -102,7 +101,7 @@ export async function GET(request: Request) {
         console.log(`[Cron] Finished fetching Kalshi markets. Total: ${totalFetched}`)
 
       } else {
-        console.log('[Cron] No Kalshi API keys found')
+        console.log('[Cron] No Kalshi system API keys found in environment variables')
       }
     } catch (error) {
       console.error('[Cron] Error indexing Kalshi markets:', error)

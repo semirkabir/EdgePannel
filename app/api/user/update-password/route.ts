@@ -1,32 +1,15 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/client'
-import { AUTH_ENABLED, MOCK_USER_ID } from '@/lib/auth-config'
-import bcrypt from 'bcryptjs'
+import { withAuth, withErrorHandler, validateBody, ApiError } from '@/lib/api/middleware'
+import { PasswordUpdateSchema } from '@/lib/api/schemas'
+import { verifyPassword, hashPassword } from '@/lib/auth/security'
+import { ErrorCodes } from '@/lib/api/error-codes'
+import { logger } from '@/lib/utils/logger'
 
-export async function POST(request: Request) {
-  try {
-    let userId: string | null = null
-
-    if (AUTH_ENABLED) {
-      const session = await getServerSession(authOptions)
-      userId = session?.user?.id ?? null
-      if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    } else {
-      userId = MOCK_USER_ID
-    }
-
-    const { currentPassword, newPassword } = await request.json()
-
-    if (!newPassword || newPassword.length < 8) {
-      return NextResponse.json(
-        { error: 'New password must be at least 8 characters long' },
-        { status: 400 }
-      )
-    }
+export const POST = withErrorHandler(
+  withAuth(async (userId: string, request: NextRequest) => {
+    const body = await request.json()
+    const { currentPassword, newPassword } = validateBody(PasswordUpdateSchema, body)
 
     // Get user to verify current password
     const user = await prisma.user.findUnique({
@@ -35,29 +18,19 @@ export async function POST(request: Request) {
     })
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      throw new ApiError(404, 'User not found', ErrorCodes.USER_NOT_FOUND)
     }
 
     // If user has a password, verify current password
     if (user.password) {
-      if (!currentPassword) {
-        return NextResponse.json(
-          { error: 'Current password is required' },
-          { status: 400 }
-        )
-      }
-
-      const isPasswordValid = await bcrypt.compare(currentPassword, user.password)
+      const isPasswordValid = await verifyPassword(currentPassword, user.password)
       if (!isPasswordValid) {
-        return NextResponse.json(
-          { error: 'Current password is incorrect' },
-          { status: 401 }
-        )
+        throw new ApiError(401, 'Current password is incorrect', ErrorCodes.INVALID_PASSWORD)
       }
     }
 
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10)
+    // Hash new password with secure rounds
+    const hashedPassword = await hashPassword(newPassword)
 
     // Update password
     await prisma.user.update({
@@ -65,13 +38,18 @@ export async function POST(request: Request) {
       data: { password: hashedPassword },
     })
 
+    logger.info('Password updated', { userId: userId.substring(0, 8) + '...' })
+
+    // Audit log
+    await auditLogFromRequest(request, {
+      userId,
+      action: 'PASSWORD_CHANGED',
+      resource: 'user',
+      resourceId: userId,
+      status: 'SUCCESS',
+    })
+
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('[update-password] Error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'Failed to update password' },
-      { status: 500 }
-    )
-  }
-}
+  })
+)
 

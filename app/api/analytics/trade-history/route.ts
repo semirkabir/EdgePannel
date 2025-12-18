@@ -1,40 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/client'
+import { withAuth, withErrorHandler, validateQuery } from '@/lib/api/middleware'
+import { z } from 'zod'
 
-export async function GET(request: NextRequest) {
-  try {
+const TradeHistoryQuerySchema = z.object({
+  platform: z.enum(['kalshi', 'polymarket', 'combined']).default('combined'),
+  limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().min(1).max(1000)).default('1000'),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+})
+
+export const GET = withErrorHandler(
+  withAuth(async (userId: string, request: NextRequest) => {
     const searchParams = request.nextUrl.searchParams
-    const userId = searchParams.get('userId')
-    const platform = searchParams.get('platform') || 'combined'
-    const limit = parseInt(searchParams.get('limit') || '1000')
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      )
-    }
+    const params = validateQuery(TradeHistoryQuerySchema, searchParams)
 
     // Build query
-    const whereClause: any = {
+    const whereClause: {
+      userId: string
+      platform?: string
+      executedAt?: { gte?: Date; lte?: Date }
+    } = {
       userId
     }
 
     // Filter by platform
-    if (platform !== 'combined') {
-      whereClause.platform = platform
+    if (params.platform !== 'combined') {
+      whereClause.platform = params.platform
     }
 
     // Filter by date range
-    if (startDate || endDate) {
+    if (params.startDate || params.endDate) {
       whereClause.executedAt = {}
-      if (startDate) {
-        whereClause.executedAt.gte = new Date(startDate)
+      if (params.startDate) {
+        whereClause.executedAt.gte = new Date(params.startDate)
       }
-      if (endDate) {
-        whereClause.executedAt.lte = new Date(endDate)
+      if (params.endDate) {
+        whereClause.executedAt.lte = new Date(params.endDate)
       }
     }
 
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         executedAt: 'desc'
       },
-      take: limit
+      take: params.limit
     })
 
     // Format trades for response
@@ -86,11 +88,5 @@ export async function GET(request: NextRequest) {
       stats,
       hasData: formattedTrades.length > 0
     })
-  } catch (error: any) {
-    console.error('[Trade History] Error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
-      { status: 500 }
-    )
-  }
-}
+  })
+)
