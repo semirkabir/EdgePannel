@@ -50,7 +50,7 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/edge/:path*", "/api/trading/:path*", "/api/user/:path*"],
+  matcher: ["/dashboard/:path*", "/edge/:path*", "/admin/:path*", "/api/trading/:path*", "/api/user/:path*"],
 }
 
 

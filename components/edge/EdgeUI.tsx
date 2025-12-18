@@ -214,19 +214,18 @@ export function EdgeUI({
             </button>
           )}
 
-          {/* View Toggle / Reset */}
-          {isZoomedIn ? (
-            <button
-              onClick={onResetZoom}
-              className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset View</span>
-            </button>
-          ) : (
+          {/* Map/Globe Toggle or Reset View - Only show when not in insights view */}
+          {!isInsightsView && (
             <>
-              {/* Map/Globe Toggle - Only show when not in insights view */}
-              {!isInsightsView && (
+              {isZoomedIn ? (
+                <button
+                  onClick={onResetZoom}
+                  className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset View</span>
+                </button>
+              ) : (
                 <button
                   onClick={onMapGlobeToggle}
                   className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
@@ -244,35 +243,35 @@ export function EdgeUI({
                   )}
                 </button>
               )}
-
-              {/* Insights Mode Toggle */}
-              <button
-                onClick={onViewToggle}
-                className={cn(
-                  "h-8 px-3 flex items-center gap-2 rounded-xl transition-all duration-300 border shadow-sm",
-                  isInsightsView
-                    ? "bg-gradient-to-r from-blue-500/20 via-blue-600/15 to-blue-500/20 border-blue-400/50 shadow-blue-500/20"
-                    : "bg-gradient-to-r from-amber-900/20 via-yellow-900/15 to-amber-900/20 border-amber-700/30 hover:border-amber-500/40 hover:shadow-amber-500/10"
-                )}
-              >
-                {isInsightsView ? (
-                  <>
-                    <Globe className="w-3.5 h-3.5 text-blue-300" />
-                    <span className="font-sans tracking-tight font-bold text-white text-xs">
-                      Back to Map
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-3.5 h-3.5 text-amber-400/70" />
-                    <span className="font-serif italic tracking-tight font-bold text-white/90 text-xs">
-                      Insights
-                    </span>
-                  </>
-                )}
-              </button>
             </>
           )}
+
+          {/* Insights Mode Toggle - Always visible */}
+          <button
+            onClick={onViewToggle}
+            className={cn(
+              "h-8 px-3 flex items-center gap-2 rounded-xl transition-all duration-300 border shadow-sm",
+              isInsightsView
+                ? "bg-gradient-to-r from-blue-500/20 via-blue-600/15 to-blue-500/20 border-blue-400/50 shadow-blue-500/20"
+                : "bg-gradient-to-r from-amber-900/20 via-yellow-900/15 to-amber-900/20 border-amber-700/30 hover:border-amber-500/40 hover:shadow-amber-500/10"
+            )}
+          >
+            {isInsightsView ? (
+              <>
+                <Globe className="w-3.5 h-3.5 text-blue-300" />
+                <span className="font-sans tracking-tight font-bold text-white text-xs">
+                  Back to Map
+                </span>
+              </>
+            ) : (
+              <>
+                <Brain className="w-3.5 h-3.5 text-amber-400/70" />
+                <span className="font-serif italic tracking-tight font-bold text-white/90 text-xs">
+                  Insights
+                </span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Control Buttons Row - Hide when in insights view */}

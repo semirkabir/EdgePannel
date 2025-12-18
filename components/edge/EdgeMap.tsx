@@ -1004,6 +1004,7 @@ function InnerMap({
   // Compute interactive layers - memoize to prevent re-renders
   const interactiveIds = useMemo(() => {
     if (visualizationMode === 'heatmap') {
+      // In heatmap mode, keep dots invisible but interactive for clicks
       return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
     } else if (visualizationMode === 'cluster') {
       return ['markets-clusters', 'markets-unclustered', 'tweets-layer'];
@@ -1113,6 +1114,7 @@ function InnerMap({
         <FullscreenControl position="bottom-right" />
 
         <Source
+          key={`markets-${visualizationMode}`}
           id="markets"
           type="geojson"
           data={filteredMarkets as any}
@@ -1122,28 +1124,28 @@ function InnerMap({
         >
           {visualizationMode === 'heatmap' ? (
             <>
-              <Layer {...heatmapLayer as any} source="markets" />
-              {/* Overlay individual market dots on top of heatmap for interactivity */}
-              <Layer {...marketGlowLayer as any} source="markets" paint={{
+              <Layer {...heatmapLayer as any} />
+              {/* Overlay individual market dots on top of heatmap for interactivity - very low opacity */}
+              <Layer {...marketGlowLayer as any} paint={{
                 ...marketGlowLayer.paint,
-                'circle-opacity': 0.4
+                'circle-opacity': 0.1
               }} />
-              <Layer {...marketLayer as any} source="markets" paint={{
+              <Layer {...marketLayer as any} paint={{
                 ...marketLayer.paint,
-                'circle-opacity': 0.8
+                'circle-opacity': 0.15
               }} />
             </>
           ) : visualizationMode === 'cluster' ? (
             <>
-              <Layer {...clusterLayer as any} source="markets" />
-              <Layer {...clusterCountLayer as any} source="markets" />
-              <Layer {...unclusteredPointLayer as any} source="markets" />
+              <Layer {...clusterLayer as any} />
+              <Layer {...clusterCountLayer as any} />
+              <Layer {...unclusteredPointLayer as any} />
             </>
           ) : (
             // Default dots mode
             <>
-              <Layer {...marketGlowLayer as any} source="markets" />
-              <Layer {...marketLayer as any} source="markets" />
+              <Layer {...marketGlowLayer as any} />
+              <Layer {...marketLayer as any} />
             </>
           )}
         </Source>
