@@ -321,7 +321,7 @@ export default function LandingPage() {
 
               <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-8">
                 <strong className="text-white">EdgePannel</strong> is the unified intelligence platform for prediction markets. Trade across any broker,
-                overlay real-world data, and discover insights through geospatial visualization on EdgePannel's interactive 3D globe.
+                overlay real-world data, and discover insights through geospatial visualization on EdgePannel&apos;s interactive 3D globe.
               </p>
 
               {/* CTA Buttons */}
