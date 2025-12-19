@@ -822,7 +822,6 @@ function InnerMap({
                                 alt={market.title}
                                 fill
                                 className="object-cover"
-                                unoptimized
                                 onError={(e) => {
                                   // Fallback handled by parent CSS logic or hidden element
                                   const target = e.currentTarget as HTMLImageElement;

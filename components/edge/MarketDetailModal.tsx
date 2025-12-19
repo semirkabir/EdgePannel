@@ -131,7 +131,6 @@ export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModal
                     alt={market.title}
                     fill
                     className="object-cover"
-                    unoptimized
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                   />
                 </div>

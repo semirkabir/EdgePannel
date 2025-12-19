@@ -64,7 +64,6 @@ export function MarketCard({ market, onClick, className }: MarketCardProps) {
                             alt=""
                             fill
                             className="object-cover"
-                            unoptimized
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                         />
                     </div>
