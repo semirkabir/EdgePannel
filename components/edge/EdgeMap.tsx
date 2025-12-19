@@ -156,6 +156,11 @@ function InnerMap({
   // Track previous zoom state for hysteresis
   const [wasZoomedIn, setWasZoomedIn] = useState(false);
 
+  // Reset zoom state when projection changes to prevent stuttering during mode switches
+  useEffect(() => {
+    setWasZoomedIn(false);
+  }, [projection]);
+
   useEffect(() => {
     // Apply hysteresis: when zoomed, need to zoom out below threshold - hysteresis
     // When not zoomed, need to zoom in above threshold + hysteresis
@@ -184,7 +189,7 @@ function InnerMap({
     if (onViewChange) {
       onViewChange(isViewModified);
     }
-  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, projection, DEFAULT_LATITUDE, DEFAULT_LONGITUDE, DEFAULT_ZOOM, PAN_THRESHOLD, ZOOM_THRESHOLD, wasZoomedIn, ZOOM_HYSTERESIS]);
+  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, DEFAULT_LATITUDE, DEFAULT_LONGITUDE, DEFAULT_ZOOM, PAN_THRESHOLD, ZOOM_THRESHOLD, wasZoomedIn, ZOOM_HYSTERESIS]);
 
 
   // Handle reset zoom request
@@ -297,8 +302,17 @@ function InnerMap({
   const handleDragStart = useCallback(() => {
     isDraggingRef.current = true;
     setCursor('grabbing');
-    handleInteractionStart();
-  }, [handleInteractionStart]);
+    // Immediately cancel rotation and mark as interacting
+    setIsUserInteracting(true);
+    if (rotationAnimationRef.current) {
+      cancelAnimationFrame(rotationAnimationRef.current);
+      rotationAnimationRef.current = null;
+    }
+    if (interactionTimeoutRef.current) {
+      clearTimeout(interactionTimeoutRef.current);
+      interactionTimeoutRef.current = null;
+    }
+  }, []);
 
   const handleDragEnd = useCallback(() => {
     setTimeout(() => {
