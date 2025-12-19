@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
+import Image from 'next/image'
 import { EnrichedMarket } from '@/lib/markets/enrich'
 import { cn } from '@/lib/utils/cn'
 import {
@@ -132,20 +133,23 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
                                         {(() => {
                                             // Check multiple possible image sources
                                             const imageUrl = market.imageUrl ||
-                                                           (market as any).image ||
-                                                           (market as any).rawData?.image ||
-                                                           (market as any).rawData?.icon ||
-                                                           (market as any).rawData?.eventImage;
+                                                (market as any).image ||
+                                                (market as any).rawData?.image ||
+                                                (market as any).rawData?.icon ||
+                                                (market as any).rawData?.eventImage;
 
                                             return imageUrl ? (
-                                                <img
+                                                <Image
                                                     src={imageUrl}
                                                     alt={market.title}
-                                                    className="w-full h-full object-cover"
+                                                    fill
+                                                    className="object-cover"
+                                                    unoptimized
                                                     onError={(e) => {
                                                         // Hide image and show fallback
-                                                        e.currentTarget.style.display = 'none';
-                                                        const fallback = e.currentTarget.nextElementSibling;
+                                                        const target = e.currentTarget as HTMLImageElement;
+                                                        target.style.display = 'none';
+                                                        const fallback = target.nextElementSibling;
                                                         if (fallback) {
                                                             fallback.classList.remove('hidden');
                                                         }
@@ -155,13 +159,12 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
                                         })()}
 
                                         {/* Fallback content - hidden by default, shown if image fails or missing */}
-                                        <div className={`w-full h-full flex items-center justify-center bg-gray-800 ${
-                                            !(market.imageUrl ||
-                                              (market as any).image ||
-                                              (market as any).rawData?.image ||
-                                              (market as any).rawData?.icon ||
-                                              (market as any).rawData?.eventImage) ? '' : 'hidden'
-                                        }`}>
+                                        <div className={`w - full h - full flex items - center justify - center bg - gray - 800 ${!(market.imageUrl ||
+                                                (market as any).image ||
+                                                (market as any).rawData?.image ||
+                                                (market as any).rawData?.icon ||
+                                                (market as any).rawData?.eventImage) ? '' : 'hidden'
+                                            } `}>
                                             {market.platform === 'polymarket' ? (
                                                 <span className="text-[8px] font-black text-blue-400">POLY</span>
                                             ) : (

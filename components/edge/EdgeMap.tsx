@@ -479,6 +479,7 @@ function InnerMap({
   // Layers
   const marketLayer = {
     id: 'markets-layer',
+    source: 'markets',
     type: 'circle',
     paint: {
       'circle-color': [
@@ -503,6 +504,7 @@ function InnerMap({
 
   const marketGlowLayer = {
     id: 'markets-glow-layer',
+    source: 'markets',
     type: 'circle',
     paint: {
       'circle-radius': [
@@ -526,6 +528,7 @@ function InnerMap({
 
   const heatmapLayer = {
     id: 'markets-heatmap',
+    source: 'markets',
     type: 'heatmap',
     paint: {
       'heatmap-weight': [
@@ -569,6 +572,7 @@ function InnerMap({
   // Cluster layers - shows aggregated circles with count
   const clusterLayer = {
     id: 'markets-clusters',
+    source: 'markets',
     type: 'circle',
     filter: ['has', 'point_count'],
     paint: {
@@ -600,6 +604,7 @@ function InnerMap({
 
   const clusterCountLayer = {
     id: 'markets-cluster-count',
+    source: 'markets',
     type: 'symbol',
     filter: ['has', 'point_count'],
     layout: {
@@ -614,6 +619,7 @@ function InnerMap({
 
   const unclusteredPointLayer = {
     id: 'markets-unclustered',
+    source: 'markets',
     type: 'circle',
     filter: ['!', ['has', 'point_count']],
     paint: {
@@ -638,6 +644,7 @@ function InnerMap({
 
   const tweetLayer = {
     id: 'tweets-layer',
+    source: 'tweets',
     type: 'circle',
     paint: {
       'circle-radius': 5,
