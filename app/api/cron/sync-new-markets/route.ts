@@ -24,11 +24,16 @@ export async function GET(request: Request) {
   const startTime = Date.now()
 
   try {
-    // Verify authorization (Vercel Cron Secret)
+    // Always verify authorization (Vercel Cron Secret)
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET || process.env.VERCEL_CRON_SECRET
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret) {
+      console.error('[NewMarketSync] CRON_SECRET or VERCEL_CRON_SECRET environment variable not set')
+      return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 })
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
       console.error('[NewMarketSync] Unauthorized: Invalid or missing authorization header')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

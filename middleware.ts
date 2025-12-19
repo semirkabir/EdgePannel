@@ -65,18 +65,48 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
     response = NextResponse.next()
   }
 
-  // 5. CSRF / Referrer protection for APIs
-  if (req.nextUrl.pathname.startsWith('/api/') && process.env.NODE_ENV === 'production') {
+  // 5. CSRF / Origin validation for APIs
+  if (req.nextUrl.pathname.startsWith('/api/')) {
     const origin = req.headers.get('origin')
-    const referer = req.headers.get('referer')
     const host = req.headers.get('host')
 
-    // Block if origin is specified but doesn't match our host
-    if (origin && !origin.includes(host || '')) {
-      return applySecurityHeaders(new NextResponse(
-        JSON.stringify({ error: 'CORS policy violation. Access from this origin is not permitted.', code: 403 }),
-        { status: 403, headers: { 'content-type': 'application/json' } }
-      ))
+    // Validate origin if present (proper CORS check)
+    if (origin && host) {
+      try {
+        const originUrl = new URL(origin)
+        const expectedOrigins = [
+          `https://${host}`,
+          `http://${host}`, // Allow HTTP for local development
+        ]
+
+        // In development, also allow localhost variations
+        if (process.env.NODE_ENV !== 'production') {
+          expectedOrigins.push('http://localhost:3000', 'http://127.0.0.1:3000')
+        }
+
+        const isAllowedOrigin = expectedOrigins.some(allowed => {
+          try {
+            const allowedUrl = new URL(allowed)
+            return originUrl.protocol === allowedUrl.protocol &&
+                   originUrl.host === allowedUrl.host
+          } catch {
+            return false
+          }
+        })
+
+        if (!isAllowedOrigin) {
+          return applySecurityHeaders(new NextResponse(
+            JSON.stringify({ error: 'CORS policy violation. Access from this origin is not permitted.', code: 403 }),
+            { status: 403, headers: { 'content-type': 'application/json' } }
+          ))
+        }
+      } catch (error) {
+        // Invalid origin URL format
+        return applySecurityHeaders(new NextResponse(
+          JSON.stringify({ error: 'Invalid origin header', code: 400 }),
+          { status: 400, headers: { 'content-type': 'application/json' } }
+        ))
+      }
     }
   }
 

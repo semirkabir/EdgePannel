@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db/client'
+import { UserPreferencesSchema } from '@/lib/api/schemas'
 
 export async function GET() {
     try {
@@ -38,10 +39,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing preferences' }, { status: 400 })
         }
 
+        // Validate preferences against schema
+        const validationResult = UserPreferencesSchema.safeParse(preferences)
+
+        if (!validationResult.success) {
+            return NextResponse.json({
+                error: 'Invalid preferences format',
+                details: validationResult.error.issues.map(issue => ({
+                    path: issue.path.join('.'),
+                    message: issue.message
+                }))
+            }, { status: 400 })
+        }
+
         const updatedUser = await prisma.user.update({
             where: { id: session.user.id },
             data: {
-                preferences: preferences
+                preferences: validationResult.data
             } as any,
             select: { preferences: true } as any
         })

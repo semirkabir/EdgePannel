@@ -1,13 +1,16 @@
 // Authentication configuration
-// Set to false to temporarily disable authentication checks (development only)
-// In production, authentication should always be enabled
-export const AUTH_ENABLED = process.env.NODE_ENV === 'production' ? true : (process.env.AUTH_ENABLED === 'true' || false)
+// Authentication is ALWAYS enabled in production (cannot be disabled)
+// In development, can be disabled via AUTH_ENABLED=true env var for testing purposes only
+export const AUTH_ENABLED = process.env.NODE_ENV === 'production'
+  ? true // Always true in production - no exceptions
+  : (process.env.AUTH_ENABLED !== 'false') // Default to true in dev, must explicitly disable
 
-// Mock user ID to use when auth is disabled (for testing only)
+// Mock user ID to use when auth is disabled (development only)
 export const MOCK_USER_ID = 'test-user-001'
 
-if (process.env.NODE_ENV === 'production' && !AUTH_ENABLED) {
-  console.warn('⚠️  WARNING: Authentication is disabled in production! This is a security risk.')
+// Fail fast if someone tries to disable auth in production
+if (process.env.NODE_ENV === 'production' && process.env.AUTH_ENABLED === 'false') {
+  throw new Error('FATAL: Cannot disable authentication in production. Remove AUTH_ENABLED=false from environment.')
 }
 
 

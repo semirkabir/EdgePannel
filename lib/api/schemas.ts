@@ -119,3 +119,29 @@ export const EmailUpdateSchema = z.object({
   newEmail: z.string().email('Invalid email format'),
 })
 
+// User preferences schema
+export const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'system']).optional(),
+  notifications: z.object({
+    email: z.boolean().optional(),
+    push: z.boolean().optional(),
+    sms: z.boolean().optional(),
+  }).optional(),
+  defaultPlatform: z.enum(['kalshi', 'polymarket', 'all']).optional(),
+  defaultCurrency: z.string().length(3).optional(), // ISO 4217 currency code
+  riskTolerance: z.enum(['low', 'medium', 'high']).optional(),
+  autoRefresh: z.boolean().optional(),
+  refreshInterval: z.number().int().min(5).max(300).optional(), // 5-300 seconds
+  displaySettings: z.object({
+    showProbabilities: z.boolean().optional(),
+    showVolume: z.boolean().optional(),
+    showLiquidity: z.boolean().optional(),
+    compactMode: z.boolean().optional(),
+  }).optional(),
+  tradingPreferences: z.object({
+    defaultOrderType: z.enum(['market', 'limit']).optional(),
+    confirmTrades: z.boolean().optional(),
+    slippageTolerance: z.number().min(0).max(100).optional(), // percentage
+  }).optional(),
+}).strict() // Reject unknown keys to prevent injection
+

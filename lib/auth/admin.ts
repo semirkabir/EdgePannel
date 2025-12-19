@@ -15,13 +15,13 @@ export async function getAdminEmail(): Promise<string | null> {
     return null
   }
 
-  if (!AUTH_ENABLED) {
-    // In development mode without auth, still require email to be set
-    console.warn('[Admin] Access check skipped (AUTH_ENABLED=false)')
-    return null
-  }
-
+  // Always check session, even if AUTH_ENABLED is false in development
+  // This ensures admin checks are never bypassed
   const session = await getServerSession(authOptions)
+
+  if (!AUTH_ENABLED) {
+    console.warn('[Admin] Auth is disabled but admin checks still enforced')
+  }
   
   if (!session?.user?.email) {
     return null

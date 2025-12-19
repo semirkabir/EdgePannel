@@ -22,29 +22,6 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // AUTO-CREATE TEST USER CHECK
-        // If logging in with test credentials, ensure the user exists
-        if (credentials.email === 'test@example.com' && credentials.password === 'testpassword123') {
-          try {
-            const exists = await prisma.user.findUnique({ where: { email: credentials.email } })
-            if (!exists) {
-              console.log('[Auth] Auto-creating test user...')
-              const hashedPassword = await import('@/lib/auth/security').then(m => m.hashPassword(credentials.password))
-              await prisma.user.create({
-                data: {
-                  email: credentials.email,
-                  name: 'Test User',
-                  password: hashedPassword,
-                  emailVerified: new Date(),
-                }
-              })
-              console.log('[Auth] Test user created')
-            }
-          } catch (error) {
-            console.error('[Auth] Failed to auto-create test user:', error)
-          }
-        }
-
         try {
           // Check for account lockout (use email as identifier)
           if (isAccountLocked(credentials.email)) {
@@ -125,7 +102,6 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      allowDangerousEmailAccountLinking: true, // Allow linking accounts with same email
     }),
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID || "",
@@ -135,7 +111,6 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.TWITTER_CLIENT_ID || "",
       clientSecret: process.env.TWITTER_CLIENT_SECRET || "",
       version: "2.0", // Use OAuth 2.0 (X's current standard)
-      allowDangerousEmailAccountLinking: true, // Allow linking accounts with same email
     }),
   ],
   session: {

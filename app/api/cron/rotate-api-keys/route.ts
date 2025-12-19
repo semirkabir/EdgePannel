@@ -13,9 +13,17 @@ import { auditLog } from '@/lib/audit/audit-logger'
  * Protect this endpoint with a secret token in production
  */
 export async function GET(request: NextRequest) {
-  // In production, verify cron secret token
-  const cronSecret = request.headers.get('x-cron-secret')
-  if (process.env.NODE_ENV === 'production' && cronSecret !== process.env.CRON_SECRET) {
+  // Always verify cron secret token
+  const authHeader = request.headers.get('authorization')
+  const expectedSecret = process.env.CRON_SECRET || process.env.VERCEL_CRON_SECRET
+
+  if (!expectedSecret) {
+    logger.error('[Cron] CRON_SECRET or VERCEL_CRON_SECRET environment variable not set')
+    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 })
+  }
+
+  if (authHeader !== `Bearer ${expectedSecret}`) {
+    logger.error('[Cron] Unauthorized: Invalid or missing authorization header')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
