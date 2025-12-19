@@ -17,13 +17,14 @@ const securityHeaders = {
   'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  // Content Security Policy - Strict security configuration
-  // Note: If you encounter CSP violations, use nonces for inline scripts instead of loosening these rules
+  // Content Security Policy - Balanced security configuration for Next.js
+  // Note: 'unsafe-inline' is required for Next.js hydration scripts
+  // TODO: Implement CSP nonces in next.config.js for better security
   'Content-Security-Policy': [
     "default-src 'self'",
-    // Removed 'unsafe-eval' and 'unsafe-inline' for better security
-    // If Next.js requires inline scripts, consider using nonces
-    "script-src 'self' blob:",
+    // 'unsafe-inline' required for Next.js inline scripts (hydration, etc.)
+    // 'unsafe-eval' is NOT included (still blocked for security)
+    "script-src 'self' 'unsafe-inline' blob:",
     // Keep 'unsafe-inline' for styles only (less risky than scripts)
     // Consider migrating to CSS modules or styled-components to remove this
     "style-src 'self' 'unsafe-inline' https://api.maptiler.com",
