@@ -84,12 +84,13 @@ export default function EdgePage() {
     setShouldResetZoom(true);
     setSelectedMarket(null);
     setSelectedCountry(null);
-    // Reset the trigger after a short delay
+    // Reset the trigger after the animation completes (1000ms + buffer)
+    // Must wait for flyTo animation to complete before clearing the trigger
     setTimeout(() => {
       setShouldResetZoom(false);
       setIsZoomedIn(false);
       setIsViewModified(false);
-    }, 100);
+    }, 1100);
   };
 
   // Create default whale alert on first load (for testing)
