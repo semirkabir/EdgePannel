@@ -17,7 +17,12 @@ interface SettingsModalProps {
     onPauseOnHoverChange?: (pause: boolean) => void
     autoRotate?: boolean
     onAutoRotateChange?: (rotate: boolean) => void
+    showLabels?: boolean
+    onShowLabelsChange?: (show: boolean) => void
+    showGrid?: boolean
+    onShowGridChange?: (show: boolean) => void
 }
+
 
 // Google Logo SVG Component
 const GoogleIcon = ({ className }: { className?: string }) => (
@@ -44,8 +49,14 @@ export function SettingsModal({
     pauseOnHover = false,
     onPauseOnHoverChange,
     autoRotate = true,
-    onAutoRotateChange
+    onAutoRotateChange,
+    showLabels = true,
+    onShowLabelsChange,
+    showGrid = false,
+    onShowGridChange
 }: SettingsModalProps) {
+
+
     const { data: session } = useSession()
     const { toast } = useToast()
     const [activeTab, setActiveTab] = useState<'profile' | 'api' | 'map'>('profile')
@@ -751,19 +762,20 @@ export function SettingsModal({
                                                 <span className="text-sm text-gray-300">Show Labels</span>
                                             </div>
                                             <button
-                                                onClick={() => setMapSettings({ ...mapSettings, showLabels: !mapSettings.showLabels })}
+                                                onClick={() => onShowLabelsChange?.(!showLabels)}
                                                 className={cn(
                                                     "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                                                    mapSettings.showLabels ? "bg-blue-500" : "bg-gray-700"
+                                                    showLabels ? "bg-blue-500" : "bg-gray-700"
                                                 )}
                                             >
                                                 <span
                                                     className={cn(
                                                         "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                                                        mapSettings.showLabels ? "translate-x-6" : "translate-x-1"
+                                                        showLabels ? "translate-x-6" : "translate-x-1"
                                                     )}
                                                 />
                                             </button>
+
                                         </div>
                                         <div className="flex items-center justify-between p-3 rounded-lg bg-black/20">
                                             <div className="flex items-center gap-2">
@@ -771,19 +783,20 @@ export function SettingsModal({
                                                 <span className="text-sm text-gray-300">Show Grid</span>
                                             </div>
                                             <button
-                                                onClick={() => setMapSettings({ ...mapSettings, showGrid: !mapSettings.showGrid })}
+                                                onClick={() => onShowGridChange?.(!showGrid)}
                                                 className={cn(
                                                     "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                                                    mapSettings.showGrid ? "bg-blue-500" : "bg-gray-700"
+                                                    showGrid ? "bg-blue-500" : "bg-gray-700"
                                                 )}
                                             >
                                                 <span
                                                     className={cn(
                                                         "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                                                        mapSettings.showGrid ? "translate-x-6" : "translate-x-1"
+                                                        showGrid ? "translate-x-6" : "translate-x-1"
                                                     )}
                                                 />
                                             </button>
+
                                         </div>
                                     </div>
                                 </div>

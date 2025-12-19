@@ -22,6 +22,8 @@ import { AgentDashboard } from '@/components/agent/AgentDashboard';
 import { InsightsDashboard } from '@/components/insights/InsightsDashboard';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { KeyboardShortcutsDialog } from '@/components/ui/keyboard-shortcuts-dialog';
+import { useUserSettings } from '@/hooks/use-user-settings';
+
 
 export default function EdgePage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
@@ -33,9 +35,34 @@ export default function EdgePage() {
   });
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent'>('globe');
   const [selectedMarket, setSelectedMarket] = useState<EnrichedMarket | null>(null);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+
+  // User Preferences
+  const { preferences, updatePreferences } = useUserSettings();
+
+  // Use preferences with local fallback/sync
+  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent'>(preferences.viewMode || 'globe');
+  const [isPlaying, setIsPlaying] = useState(preferences.autoRotate);
+  const [rotationSpeed, setRotationSpeed] = useState(preferences.rotationSpeed);
+  const [pauseOnHover, setPauseOnHover] = useState(preferences.pauseOnHover);
+  const [showLabels, setShowLabels] = useState(preferences.showLabels);
+  const [showGrid, setShowGrid] = useState(preferences.showGrid);
+
+
+  // Sync state when preferences load
+  useEffect(() => {
+    if (preferences) {
+      if (preferences.viewMode) setViewMode(preferences.viewMode);
+      setIsPlaying(preferences.autoRotate);
+      setRotationSpeed(preferences.rotationSpeed);
+      setPauseOnHover(preferences.pauseOnHover);
+      setShowLabels(preferences.showLabels);
+      setShowGrid(preferences.showGrid);
+    }
+
+  }, [preferences]);
+
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['All']);
   const [sortBy, setSortBy] = useState('volume');
@@ -173,29 +200,45 @@ export default function EdgePage() {
     return features;
   }, [liveMapFilteredMarkets, selectedMarket]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('edge-view-mode');
-      if (saved === 'globe' || saved === 'map' || saved === 'agent') {
-        setViewMode(saved);
-      }
-    }
-  }, []);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [rotationSpeed, setRotationSpeed] = useState(0.05);
-  const [pauseOnHover, setPauseOnHover] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Persist view mode to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('edge-view-mode', viewMode);
-    }
-  }, [viewMode]);
+
+  // Sync settings when they change
+  const handleSetIsPlaying = (playing: boolean) => {
+    setIsPlaying(playing);
+    updatePreferences({ autoRotate: playing });
+  };
+
+  const handleSetRotationSpeed = (speed: number) => {
+    setRotationSpeed(speed);
+    updatePreferences({ rotationSpeed: speed });
+  };
+
+  const handleSetPauseOnHover = (pause: boolean) => {
+    setPauseOnHover(pause);
+    updatePreferences({ pauseOnHover: pause });
+  };
+
+  const handleSetViewMode = (mode: 'map' | 'globe' | 'insights' | 'agent') => {
+    setViewMode(mode);
+    updatePreferences({ viewMode: mode });
+  };
+
+  const handleSetShowLabels = (show: boolean) => {
+    setShowLabels(show);
+    updatePreferences({ showLabels: show });
+  };
+
+  const handleSetShowGrid = (show: boolean) => {
+    setShowGrid(show);
+    updatePreferences({ showGrid: show });
+  };
+
+
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -261,7 +304,9 @@ export default function EdgePage() {
         }
 
         localStorage.setItem('polyglobe-view-mode', newView);
+        updatePreferences({ viewMode: newView });
         return newView;
+
       });
       setIsTransitioning(false);
     }, 150);
@@ -285,7 +330,9 @@ export default function EdgePage() {
         }
 
         localStorage.setItem('polyglobe-view-mode', newView);
+        updatePreferences({ viewMode: newView });
         return newView;
+
       });
       setIsTransitioning(false);
     }, 150);
@@ -476,11 +523,15 @@ export default function EdgePage() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         rotationSpeed={rotationSpeed}
-        onRotationSpeedChange={setRotationSpeed}
+        onRotationSpeedChange={handleSetRotationSpeed}
         pauseOnHover={pauseOnHover}
-        onPauseOnHoverChange={setPauseOnHover}
+        onPauseOnHoverChange={handleSetPauseOnHover}
         autoRotate={isPlaying}
-        onAutoRotateChange={setIsPlaying}
+        onAutoRotateChange={handleSetIsPlaying}
+        showLabels={showLabels}
+        onShowLabelsChange={handleSetShowLabels}
+        showGrid={showGrid}
+        onShowGridChange={handleSetShowGrid}
       />
 
       <NotificationCenter

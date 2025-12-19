@@ -17,6 +17,7 @@ model User {
   name          String?
   password      String? // Hashed password for email/password auth
   image         String?
+  preferences   Json      @default("{\"rotationSpeed\": 0.05, \"autoRotate\": true, \"pauseOnHover\": false, \"viewMode\": \"globe\"}")
   accounts      Account[]
   sessions      Session[]
   apiKeys       ApiKey[]

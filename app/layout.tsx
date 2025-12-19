@@ -48,6 +48,9 @@ export const metadata: Metadata = {
   verification: {
     google: 'ObN742tW-piNhuuHUdNvXCly9NqAXWITtB1Aoy3hBxU',
   },
+  icons: {
+    icon: '/favicon.png',
+  },
 }
 
 export const viewport: Viewport = {
@@ -68,7 +71,7 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <meta name="google-site-verification" content="ObN742tW-piNhuuHUdNvXCly9NqAXWITtB1Aoy3hBxU" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon.png" sizes="any" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <script

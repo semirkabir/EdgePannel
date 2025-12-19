@@ -45,7 +45,10 @@ interface EdgeMapProps {
   visualizationMode?: VisualizationMode;
   selectedMarket?: any;
   onMarketSelect?: (market: any) => void;
+  showLabels?: boolean;
+  showGrid?: boolean;
 }
+
 
 // Inner component to isolate Map state from Data updates
 function InnerMap({
@@ -65,8 +68,11 @@ function InnerMap({
   onZoomChange,
   onViewChange,
   shouldResetZoom = false,
-  visualizationMode = 'dots'
+  visualizationMode = 'dots',
+  showLabels = true,
+  showGrid = false
 }: {
+
   markets: any;
   rawMarkets?: any[];
   tweets: any;
@@ -84,7 +90,10 @@ function InnerMap({
   onViewChange?: (isModified: boolean) => void;
   shouldResetZoom?: boolean;
   visualizationMode?: VisualizationMode;
+  showLabels?: boolean;
+  showGrid?: boolean;
 }) {
+
   const [viewState, setViewState] = useState({
     longitude: 0,
     latitude: projection === 'mercator' ? 20 : 0,
@@ -99,6 +108,33 @@ function InnerMap({
   const rotationAnimationRef = useRef<number | null>(null);
   const mapRef = useRef<MapRef>(null);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+
+  // Toggle label visibility
+  useEffect(() => {
+    if (!isStyleLoaded) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+
+    try {
+      const style = map.getStyle();
+      if (!style || !style.layers) return;
+
+      style.layers.forEach(layer => {
+        // Check for common label layer indicators
+        const isLabel = layer.id.includes('label') ||
+          layer.id.includes('place') ||
+          layer.id.includes('poi') ||
+          layer.type === 'symbol';
+
+        if (isLabel) {
+          map.setLayoutProperty(layer.id, 'visibility', showLabels ? 'visible' : 'none');
+        }
+      });
+    } catch (e) {
+      console.warn('Could not toggle labels:', e);
+    }
+  }, [showLabels, isStyleLoaded]);
+
 
   // Helper to safely get map instance and check if style is loaded
   const getMapIfReady = useCallback(() => {
@@ -1171,7 +1207,42 @@ function InnerMap({
           <Layer {...tweetLayer as any} />
         </Source>
 
+        {showGrid && (
+          <Source id="grid" type="geojson" data={{
+            type: 'FeatureCollection',
+            features: (() => {
+              const features = [];
+              for (let lng = -180; lng <= 180; lng += 30) {
+                features.push({
+                  type: 'Feature',
+                  geometry: { type: 'LineString', coordinates: [[lng, -90], [lng, 90]] },
+                  properties: {}
+                });
+              }
+              for (let lat = -90; lat <= 90; lat += 30) {
+                features.push({
+                  type: 'Feature',
+                  geometry: { type: 'LineString', coordinates: [[-180, lat], [180, lat]] },
+                  properties: {}
+                });
+              }
+              return features;
+            })()
+          } as any}>
+            <Layer
+              id="grid-layer"
+              type="line"
+              paint={{
+                'line-color': '#ffffff',
+                'line-width': 0.5,
+                'line-opacity': 0.1
+              }}
+            />
+          </Source>
+        )}
+
         {countryBorders && (
+
           <Source id="country-borders" type="geojson" data={countryBorders as any}>
             <Layer
               id="country-borders-layer"
@@ -1215,7 +1286,9 @@ export function EdgeMap({
   onZoomChange,
   onViewChange,
   shouldResetZoom,
-  visualizationMode = 'dots'
+  visualizationMode = 'dots',
+  showLabels = true,
+  showGrid = false
 }: EdgeMapProps) {
   const { markets, tweets, rawMarkets, isLoading } = useEdgeData();
   const [mounted, setMounted] = useState(false);
@@ -1275,12 +1348,8 @@ export function EdgeMap({
       onViewChange={onViewChange}
       shouldResetZoom={shouldResetZoom}
       visualizationMode={visualizationMode}
+      showLabels={showLabels}
+      showGrid={showGrid}
     />
   );
 }
-
-
-
-
-
-

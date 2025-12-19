@@ -29,7 +29,8 @@
       "mcp__supabase__get_project_url",
       "mcp__supabase__get_publishable_keys",
       "mcp__supabase__execute_sql",
-      "Bash(cmd.exe /c \"timeout /t 5 /nobreak\")"
+      "Bash(cmd.exe /c \"timeout /t 5 /nobreak\")",
+      "Skill(frontend-design:frontend-design)"
     ]
   },
   "enableAllProjectMcpServers": true,
