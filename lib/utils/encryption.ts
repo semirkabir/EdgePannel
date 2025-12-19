@@ -1,11 +1,14 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto'
 
 // Encryption key must be set in environment variables
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY
+const ENCRYPTION_KEY_RAW = process.env.ENCRYPTION_KEY
 
-if (!ENCRYPTION_KEY) {
+if (!ENCRYPTION_KEY_RAW) {
   throw new Error('FATAL: ENCRYPTION_KEY environment variable must be set')
 }
+
+// TypeScript now knows this is a string
+const ENCRYPTION_KEY: string = ENCRYPTION_KEY_RAW
 
 // Derive a 32-byte key from the encryption key using scrypt
 // This ensures consistent key length and adds key strengthening
