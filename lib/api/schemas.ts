@@ -121,12 +121,18 @@ export const EmailUpdateSchema = z.object({
 
 // User preferences schema
 export const UserPreferencesSchema = z.object({
+  viewMode: z.enum(['map', 'globe', 'insights', 'agent']).optional(),
+  autoRotate: z.boolean().optional(),
+  rotationSpeed: z.number().optional(),
+  pauseOnHover: z.boolean().optional(),
+  showLabels: z.boolean().optional(),
+  showGrid: z.boolean().optional(),
   theme: z.enum(['light', 'dark', 'system']).optional(),
   notifications: z.object({
     email: z.boolean().optional(),
     push: z.boolean().optional(),
     sms: z.boolean().optional(),
-  }).optional(),
+  }).passthrough().optional(),
   defaultPlatform: z.enum(['kalshi', 'polymarket', 'all']).optional(),
   defaultCurrency: z.string().length(3).optional(), // ISO 4217 currency code
   riskTolerance: z.enum(['low', 'medium', 'high']).optional(),
@@ -137,11 +143,11 @@ export const UserPreferencesSchema = z.object({
     showVolume: z.boolean().optional(),
     showLiquidity: z.boolean().optional(),
     compactMode: z.boolean().optional(),
-  }).optional(),
+  }).passthrough().optional(),
   tradingPreferences: z.object({
     defaultOrderType: z.enum(['market', 'limit']).optional(),
     confirmTrades: z.boolean().optional(),
     slippageTolerance: z.number().min(0).max(100).optional(), // percentage
-  }).optional(),
+  }).passthrough().optional(),
 }).passthrough() // Allow unknown fields to pass through without rejection
 
