@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Proxy endpoint to fetch market images from Polymarket API
  * Avoids CORS issues by making requests server-side

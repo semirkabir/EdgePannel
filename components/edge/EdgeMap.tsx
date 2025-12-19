@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import Map, { Source, Layer, Popup, NavigationControl, FullscreenControl, MapLayerMouseEvent } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -427,7 +428,7 @@ function InnerMap({
         console.error('Error detecting country:', error);
       }
     }
-  }, [onCountryClick, rawMarkets]);
+  }, [onCountryClick, rawMarkets, getMapIfReady, handleCardClick, onMarketSelect]);
 
   // Filter data
   const filteredMarkets = useMemo(() => {
@@ -736,16 +737,22 @@ function InnerMap({
                         {/* Image Thumbnail */}
                         <div className="shrink-0 w-10 h-10 rounded overflow-hidden border border-gray-600/30 bg-gray-700 flex items-center justify-center">
                           {marketImageUrl ? (
-                            <img
-                              src={marketImageUrl}
-                              alt={market.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.nextElementSibling;
-                                if (fallback) fallback.classList.remove('hidden');
-                              }}
-                            />
+                            <div className="relative w-full h-full">
+                              <Image
+                                src={marketImageUrl}
+                                alt={market.title}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                                onError={(e) => {
+                                  // Fallback handled by parent CSS logic or hidden element
+                                  const target = e.currentTarget as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const fallback = target.nextElementSibling;
+                                  if (fallback) fallback.classList.remove('hidden');
+                                }}
+                              />
+                            </div>
                           ) : null}
                           <span className={`text-[8px] font-black ${marketImageUrl ? 'hidden' : ''} ${market.platform === 'polymarket' ? 'text-blue-400' : 'text-green-400'}`}>
                             {market.platform === 'polymarket' ? 'POLY' : 'KALS'}
@@ -815,14 +822,17 @@ function InnerMap({
 
                 {/* Right: Compact Image */}
                 {props.image_url && (
-                  <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-700/30">
-                    <img
+                  <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-700/30 relative">
+                    <Image
                       src={props.image_url}
                       alt={props.title}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
+                      unoptimized
                       onError={(e) => {
                         // Hide parent container if image fails to load
-                        e.currentTarget.parentElement!.style.display = 'none';
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (target.parentElement) target.parentElement.style.display = 'none';
                       }}
                     />
                   </div>
@@ -1053,7 +1063,7 @@ function InnerMap({
         map.once('load', setupClickListeners);
       }
     }
-  }, [mapRef.current, interactiveIds, visualizationMode]);
+  }, [interactiveIds, visualizationMode]);
 
   // Only log on mount or when interactive IDs change
   useEffect(() => {

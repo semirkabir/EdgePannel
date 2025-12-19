@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/whale-activity
  * Get recent whale trades (large trades) from Polymarket using real orderbook data

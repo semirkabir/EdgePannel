@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import { EnrichedMarket } from '@/lib/markets/enrich'
 import { ExternalLink, TrendingUp, TrendingDown, DollarSign, BarChart2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
@@ -57,12 +58,16 @@ export function MarketCard({ market, onClick, className }: MarketCardProps) {
         >
             <div className="flex gap-3 items-start">
                 {(market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage) && (
-                    <img
-                        src={market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage}
-                        alt=""
-                        className="w-10 h-10 rounded shrink-0 object-cover bg-white/5 border border-white/10"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                    />
+                    <div className="relative w-10 h-10 rounded shrink-0 overflow-hidden bg-white/5 border border-white/10">
+                        <Image
+                            src={market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            unoptimized
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                        />
+                    </div>
                 )}
                 <div className="flex-1 flex justify-between items-start gap-2 min-w-0">
                     <h4 className="text-sm font-medium text-white/90 line-clamp-2 leading-snug group-hover:text-white transition-colors">

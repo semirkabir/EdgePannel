@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -18,12 +19,12 @@ export async function GET(request: Request) {
     // Fetch related tags first, and also get the primary tag ID
     let relatedTagIds: number[] = []
     let primaryTagId: number | null = null
-    
+
     try {
       if (tagId) {
         // We already have the primary tag ID
         primaryTagId = parseInt(tagId, 10)
-        
+
         // Get related tags by tag ID
         const relatedTagsUrl = `https://gamma-api.polymarket.com/tags/${tagId}/related-tags/tags`
         const relatedTagsResponse = await fetch(relatedTagsUrl, {
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
             headers: { 'Content-Type': 'application/json' },
             cache: 'no-store',
           })
-          
+
           if (tagResponse.ok) {
             const tag = await tagResponse.json()
             primaryTagId = tag.id
@@ -81,15 +82,15 @@ export async function GET(request: Request) {
     } catch (error) {
       console.error('[Related Markets API] Error fetching related tags:', error)
     }
-    
+
     // Combine primary tag with related tags (but exclude primary from related list to avoid duplicates)
     // This ensures we get markets from both the primary tag AND related tags
-    const tagsToSearch = primaryTagId 
+    const tagsToSearch = primaryTagId
       ? [primaryTagId, ...relatedTagIds.filter(id => id !== primaryTagId)]
-      : relatedTagIds.length > 0 
-        ? relatedTagIds 
+      : relatedTagIds.length > 0
+        ? relatedTagIds
         : []
-    
+
     // Fetch markets for each related tag
     const allMarkets: any[] = []
     const seenMarketIds = new Set<string>()
@@ -112,7 +113,7 @@ export async function GET(request: Request) {
               // Exclude the current market and avoid duplicates
               if (marketId && marketId !== excludeMarketId && !seenMarketIds.has(marketId)) {
                 seenMarketIds.add(marketId)
-                
+
                 // Parse outcome prices
                 let price = 0
                 try {
