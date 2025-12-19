@@ -148,12 +148,32 @@ function InnerMap({
   // Detect zoom level changes and pan changes
   const DEFAULT_ZOOM = 2.5;
   const ZOOM_THRESHOLD = 0.3; // Consider zoomed if zoom > DEFAULT_ZOOM + THRESHOLD
+  const ZOOM_HYSTERESIS = 0.15; // Add hysteresis to prevent flickering near threshold
   const DEFAULT_LONGITUDE = 0;
   const DEFAULT_LATITUDE = projection === 'mercator' ? 20 : 0;
   const PAN_THRESHOLD = 10; // Consider panned if moved more than 10 degrees
 
+  // Track previous zoom state for hysteresis
+  const [wasZoomedIn, setWasZoomedIn] = useState(false);
+
   useEffect(() => {
-    const isZoomed = viewState.zoom > DEFAULT_ZOOM + ZOOM_THRESHOLD;
+    // Apply hysteresis: when zoomed, need to zoom out below threshold - hysteresis
+    // When not zoomed, need to zoom in above threshold + hysteresis
+    const zoomThresholdIn = DEFAULT_ZOOM + ZOOM_THRESHOLD + ZOOM_HYSTERESIS;
+    const zoomThresholdOut = DEFAULT_ZOOM + ZOOM_THRESHOLD - ZOOM_HYSTERESIS;
+
+    let isZoomed: boolean;
+    if (wasZoomedIn) {
+      // Already zoomed: need to zoom out below lower threshold to un-zoom
+      isZoomed = viewState.zoom > zoomThresholdOut;
+    } else {
+      // Not zoomed: need to zoom in above higher threshold to zoom
+      isZoomed = viewState.zoom > zoomThresholdIn;
+    }
+
+    // Update the tracking state
+    setWasZoomedIn(isZoomed);
+
     const isPanned = Math.abs(viewState.longitude - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
       Math.abs(viewState.latitude - DEFAULT_LATITUDE) > PAN_THRESHOLD;
     const isViewModified = isZoomed || isPanned;
@@ -164,7 +184,7 @@ function InnerMap({
     if (onViewChange) {
       onViewChange(isViewModified);
     }
-  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, projection, DEFAULT_LATITUDE, DEFAULT_LONGITUDE, DEFAULT_ZOOM, PAN_THRESHOLD, ZOOM_THRESHOLD]);
+  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, projection, DEFAULT_LATITUDE, DEFAULT_LONGITUDE, DEFAULT_ZOOM, PAN_THRESHOLD, ZOOM_THRESHOLD, wasZoomedIn, ZOOM_HYSTERESIS]);
 
 
   // Handle reset zoom request
