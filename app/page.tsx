@@ -327,7 +327,7 @@ export default function LandingPage() {
                 {/* Terminal footer */}
                 <div className="px-4 py-2 border-t border-white/10 bg-black/40">
                   <div className="text-xs font-mono text-white/40">
-                    [{new Date().toLocaleTimeString()}] Ready for input | Press '/' to search
+                    [{new Date().toLocaleTimeString()}] Ready for input | Press &apos;/&apos; to search
                   </div>
                 </div>
               </div>

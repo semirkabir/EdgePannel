@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Twitter, RefreshCw, Heart, Repeat, Share2, ExternalLink, MessageCircle } from 'lucide-react';
+import Image from 'next/image';
+
 import { cn } from '@/lib/utils/cn';
 
 interface Tweet {
@@ -178,8 +180,15 @@ function TweetCard({ tweet }: { tweet: Tweet }) {
                 <div className="flex-shrink-0">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-[1px]">
                         {tweet.avatar ? (
-                            <img src={tweet.avatar} alt={tweet.author} className="w-full h-full rounded-full object-cover border-2 border-[#0a0b0d]" />
+                            <Image
+                                src={tweet.avatar}
+                                alt={tweet.author}
+                                width={40}
+                                height={40}
+                                className="w-full h-full rounded-full object-cover border-2 border-[#0a0b0d]"
+                            />
                         ) : (
+
                             <div className="w-full h-full rounded-full bg-[#0a0b0d] flex items-center justify-center border-2 border-[#0a0b0d]">
                                 <span className="text-xs font-bold text-white">{tweet.author[0]}</span>
                             </div>

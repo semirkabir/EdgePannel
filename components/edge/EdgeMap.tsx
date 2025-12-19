@@ -164,7 +164,8 @@ function InnerMap({
     if (onViewChange) {
       onViewChange(isViewModified);
     }
-  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, projection]);
+  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, projection, DEFAULT_LATITUDE, DEFAULT_LONGITUDE, DEFAULT_ZOOM, PAN_THRESHOLD, ZOOM_THRESHOLD]);
+
 
   // Handle reset zoom request
   useEffect(() => {
@@ -325,11 +326,12 @@ function InnerMap({
   }, []);
 
   // Handle card click (internal or from map marker)
-  const handleCardClick = (market: any) => {
+  const handleCardClick = useCallback((market: any) => {
     if (onMarketSelect) {
       onMarketSelect(market);
     }
-  };
+  }, [onMarketSelect]);
+
 
   const onClick = useCallback(async (event: MapLayerMouseEvent) => {
     if (isDraggingRef.current) {
@@ -1052,7 +1054,8 @@ function InnerMap({
         });
       }
     }
-  }, [projection, getMapIfReady, isStyleLoaded]);
+  }, [projection, getMapIfReady, isStyleLoaded, viewState.longitude]);
+
 
   // Compute interactive layers - memoize to prevent re-renders
   const interactiveIds = useMemo(() => {

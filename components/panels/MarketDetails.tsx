@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+import Image from 'next/image'
+
 import { MarketDetails as MarketDetailsType, Candlestick } from '@/types/market'
 import { Button } from '@/components/ui/button'
 import { MarketChart } from '@/components/charts/MarketChart'
@@ -225,7 +227,8 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchHistory()
-  }, [activeMarket?.id, activeMarket?.platform, timeRange])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.clobTokenIds, activeMarket?.slug, timeRange])
+
 
   // Fetch candlestick data
   useEffect(() => {
@@ -279,7 +282,8 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchCandlesticks()
-  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform, timeRange])
+  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform, timeRange, activeMarket])
+
 
   // Fetch event details with articles
   useEffect(() => {
@@ -313,7 +317,8 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchEventDetails()
-  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform])
+  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform, activeMarket])
+
 
   // Fetch Polymarket comments
   useEffect(() => {
@@ -365,7 +370,8 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchComments()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeMarket?.slug])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeMarket?.slug, activeMarket])
+
 
   // Fetch related markets from the same event (only for non-event markets)
   // When we have an activeEvent, we already have all markets, so skip this fetch
@@ -450,7 +456,8 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchRelatedMarkets()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeEvent])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeEvent, activeMarket])
+
 
   // Fetch related markets by tags
   useEffect(() => {
@@ -571,7 +578,8 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchRelatedByTags()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.tags, activeMarket?.tags, activeMarket?.category])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.tags, activeMarket?.tags, activeMarket?.category, activeMarket])
+
 
   // Fetch top holders for Polymarket markets
   useEffect(() => {
@@ -607,7 +615,8 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchTopHolders()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeMarket])
+
 
   // Get articles from event data or use mock tweets
   const articles = activeMarket?.eventData?.rankedArticles || []
@@ -737,19 +746,15 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             </div>
 
             {/* Right: Compact Market Image */}
-            {(activeMarket.imageUrl || (activeMarket as any).image || activeMarket.rawData?.image || activeMarket.rawData?.icon || activeMarket.rawData?.eventImage) && (
-              <div className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-700/50 shadow-lg">
-                <img
-                  src={activeMarket.imageUrl || (activeMarket as any).image || activeMarket.rawData?.image || activeMarket.rawData?.icon || activeMarket.rawData?.eventImage}
-                  alt={activeMarket.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Hide parent container if image fails to load
-                    e.currentTarget.parentElement!.style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
+            <div className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-700/50 shadow-lg relative">
+              <Image
+                src={activeMarket.imageUrl || (activeMarket as any).image || activeMarket.rawData?.image || activeMarket.rawData?.icon || activeMarket.rawData?.eventImage}
+                alt={activeMarket.title}
+                fill
+                className="object-cover"
+              />
+            </div>
+
           </div>
         </div>
       )}
@@ -1072,12 +1077,16 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                         <div key={comment.id} className="p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors w-full overflow-hidden">
                           <div className="flex items-center gap-2 mb-2">
                             {comment.user?.profile_image ? (
-                              <img
-                                src={comment.user.profile_image}
-                                alt={comment.user.username}
-                                className="w-5 h-5 rounded-full flex-shrink-0"
-                              />
+                              <div className="w-5 h-5 relative flex-shrink-0">
+                                <Image
+                                  src={comment.user.profile_image}
+                                  alt={comment.user.username}
+                                  fill
+                                  className="rounded-full object-cover"
+                                />
+                              </div>
                             ) : (
+
                               <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] text-white font-black flex-shrink-0">
                                 {comment.user?.username?.[0]?.toUpperCase() || '?'}
                               </div>
@@ -1167,12 +1176,16 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               {profileImage ? (
-                                <img
-                                  src={profileImage}
-                                  alt={username}
-                                  className="w-7 h-7 rounded-full object-cover"
-                                />
+                                <div className="w-7 h-7 relative flex-shrink-0">
+                                  <Image
+                                    src={profileImage}
+                                    alt={username}
+                                    fill
+                                    className="rounded-full object-cover"
+                                  />
+                                </div>
                               ) : (
+
                                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xs text-white font-black">
                                   {username.charAt(0).toUpperCase()}
                                 </div>
