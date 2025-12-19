@@ -112,12 +112,12 @@ export default function EdgePage() {
     limit: 10,
   });
 
-  // 2. Fetch ALL geotagged markets (no more limits!)
+  // 2. Fetch geotagged markets (only what's needed for display + WebSocket performance)
   const isAllCategories = selectedCategories.includes('All') || selectedCategories.length === 0;
   const { markets: geotaggedMarkets, isLoading: isGeotaggedLoading, error: geotaggedError, total: geotaggedTotal } = useGeotaggedMarkets({
     category: !isAllCategories && selectedCategories.length > 0 ? selectedCategories[0] : undefined,
     platform: selectedPlatform === 'all' ? undefined : selectedPlatform,
-    limit: 2000, // Fetch up to 2000 geotagged markets
+    limit: 500, // Reduced from 2000 to improve performance and prevent WebSocket issues
     enabled: true,
   });
 
