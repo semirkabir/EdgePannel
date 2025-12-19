@@ -143,5 +143,5 @@ export const UserPreferencesSchema = z.object({
     confirmTrades: z.boolean().optional(),
     slippageTolerance: z.number().min(0).max(100).optional(), // percentage
   }).optional(),
-}).strict() // Reject unknown keys to prevent injection
+}).passthrough() // Allow unknown fields to pass through without rejection
 
