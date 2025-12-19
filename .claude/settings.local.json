@@ -33,7 +33,8 @@
       "Skill(frontend-design:frontend-design)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: add ''unsafe-inline'' to CSP script-src for Next.js compatibility\n\nNext.js requires ''unsafe-inline'' for its hydration scripts and inline code\nto function properly. Without it, the application fails to load with CSP\nviolations blocking all inline scripts.\n\nThis commit restores ''unsafe-inline'' to script-src while still maintaining\nthe removal of ''unsafe-eval'' which provides a security improvement.\n\nNote: ''unsafe-eval'' remains blocked \\(more dangerous than ''unsafe-inline''\\)\nTODO: Implement CSP nonces in next.config.js for stricter security\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: add ''unsafe-inline'' to CSP script-src for Next.js compatibility\n\nNext.js requires ''unsafe-inline'' for its hydration scripts and inline code\nto function properly. Without it, the application fails to load with CSP\nviolations blocking all inline scripts.\n\nThis commit restores ''unsafe-inline'' to script-src while still maintaining\nthe removal of ''unsafe-eval'' which provides a security improvement.\n\nNote: ''unsafe-eval'' remains blocked \\(more dangerous than ''unsafe-inline''\\)\nTODO: Implement CSP nonces in next.config.js for stricter security\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
