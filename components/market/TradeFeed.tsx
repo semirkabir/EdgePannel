@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Activity, TrendingUp, TrendingDown, DollarSign, Clock } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -40,7 +40,7 @@ export function TradeFeed({
   })
   const tradesEndRef = useRef<HTMLDivElement>(null)
 
-  const fetchTrades = async () => {
+  const fetchTrades = useCallback(async () => {
     if (paused) return
 
     try {
@@ -61,13 +61,14 @@ export function TradeFeed({
     } finally {
       setLoading(false)
     }
-  }
+  }, [ticker, platform, maxTrades, paused, stats])
 
   useEffect(() => {
     fetchTrades()
     const interval = setInterval(fetchTrades, 3000) // Update every 3 seconds
     return () => clearInterval(interval)
-  }, [ticker, platform, maxTrades, paused])
+  }, [fetchTrades])
+
 
   useEffect(() => {
     if (autoScroll && !paused && tradesEndRef.current) {
@@ -182,9 +183,8 @@ export function TradeFeed({
               return (
                 <div
                   key={i}
-                  className={`flex items-center justify-between p-2 rounded text-sm ${
-                    isBuy ? 'bg-green-50' : 'bg-red-50'
-                  } hover:opacity-75 transition-opacity`}
+                  className={`flex items-center justify-between p-2 rounded text-sm ${isBuy ? 'bg-green-50' : 'bg-red-50'
+                    } hover:opacity-75 transition-opacity`}
                 >
                   <div className="flex items-center gap-2 flex-1">
                     {isBuy ? (
@@ -237,9 +237,8 @@ export function TradeFeed({
               return (
                 <div
                   key={i}
-                  className={`flex-1 rounded-t transition-all duration-300 ${
-                    isBuy ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
-                  }`}
+                  className={`flex-1 rounded-t transition-all duration-300 ${isBuy ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
+                    }`}
                   style={{ height: `${height}%`, minHeight: '4px' }}
                   title={`${trade.ticker}: $${value.toFixed(2)}`}
                 />

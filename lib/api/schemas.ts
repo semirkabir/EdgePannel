@@ -119,3 +119,35 @@ export const EmailUpdateSchema = z.object({
   newEmail: z.string().email('Invalid email format'),
 })
 
+// User preferences schema
+export const UserPreferencesSchema = z.object({
+  viewMode: z.enum(['map', 'globe', 'insights', 'agent']).optional(),
+  autoRotate: z.boolean().optional(),
+  rotationSpeed: z.number().optional(),
+  pauseOnHover: z.boolean().optional(),
+  showLabels: z.boolean().optional(),
+  showGrid: z.boolean().optional(),
+  theme: z.enum(['light', 'dark', 'system']).optional(),
+  notifications: z.object({
+    email: z.boolean().optional(),
+    push: z.boolean().optional(),
+    sms: z.boolean().optional(),
+  }).passthrough().optional(),
+  defaultPlatform: z.enum(['kalshi', 'polymarket', 'all']).optional(),
+  defaultCurrency: z.string().length(3).optional(), // ISO 4217 currency code
+  riskTolerance: z.enum(['low', 'medium', 'high']).optional(),
+  autoRefresh: z.boolean().optional(),
+  refreshInterval: z.number().int().min(5).max(300).optional(), // 5-300 seconds
+  displaySettings: z.object({
+    showProbabilities: z.boolean().optional(),
+    showVolume: z.boolean().optional(),
+    showLiquidity: z.boolean().optional(),
+    compactMode: z.boolean().optional(),
+  }).passthrough().optional(),
+  tradingPreferences: z.object({
+    defaultOrderType: z.enum(['market', 'limit']).optional(),
+    confirmTrades: z.boolean().optional(),
+    slippageTolerance: z.number().min(0).max(100).optional(), // percentage
+  }).passthrough().optional(),
+}).passthrough() // Allow unknown fields to pass through without rejection
+

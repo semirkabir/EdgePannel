@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { TrendingUp, TrendingDown, BarChart3, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -40,7 +40,7 @@ export function MarketDepth({ ticker, platform = 'kalshi', refreshInterval = 500
   const [error, setError] = useState<string | null>(null)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
 
-  const fetchOrderbook = async () => {
+  const fetchOrderbook = useCallback(async () => {
     try {
       const res = await fetch(`/api/market-data/orderbook?ticker=${ticker}&platform=${platform}`)
       if (!res.ok) {
@@ -56,13 +56,14 @@ export function MarketDepth({ ticker, platform = 'kalshi', refreshInterval = 500
     } finally {
       setLoading(false)
     }
-  }
+  }, [ticker, platform])
 
   useEffect(() => {
     fetchOrderbook()
     const interval = setInterval(fetchOrderbook, refreshInterval)
     return () => clearInterval(interval)
-  }, [ticker, platform, refreshInterval])
+  }, [fetchOrderbook, refreshInterval])
+
 
   if (loading) {
     return (

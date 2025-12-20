@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { EnrichedMarket } from '@/lib/markets/enrich'
 import { X, ExternalLink, TrendingUp, TrendingDown, BarChart2, DollarSign, Calendar, MapPin, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
@@ -124,12 +125,15 @@ export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModal
           <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-md border-b border-white/10 p-6">
             <div className="flex items-start justify-between gap-4">
               {(market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage) && (
-                <img
-                  src={market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage}
-                  alt={market.title}
-                  className="w-16 h-16 rounded-md object-cover bg-gray-800 border border-white/10 flex-shrink-0"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
+                <div className="relative w-16 h-16 rounded-md overflow-hidden bg-gray-800 border border-white/10 flex-shrink-0">
+                  <Image
+                    src={market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage}
+                    alt={market.title}
+                    fill
+                    className="object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                </div>
               )}
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">

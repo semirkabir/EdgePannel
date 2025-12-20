@@ -17,16 +17,24 @@ const securityHeaders = {
   'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  // Content Security Policy - adjust based on your needs
+  // Content Security Policy - Balanced security configuration for Next.js
+  // Note: 'unsafe-inline' is required for Next.js hydration scripts
+  // TODO: Implement CSP nonces in next.config.js for better security
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:",
+    // 'unsafe-inline' required for Next.js inline scripts (hydration, etc.)
+    // 'unsafe-eval' is NOT included (still blocked for security)
+    "script-src 'self' 'unsafe-inline' blob:",
+    // Keep 'unsafe-inline' for styles only (less risky than scripts)
+    // Consider migrating to CSS modules or styled-components to remove this
     "style-src 'self' 'unsafe-inline' https://api.maptiler.com",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' https://*.polymarket.com https://*.kalshi.com https://*.kalshi.co https://raw.githubusercontent.com https://api.maptiler.com https://nominatim.openstreetmap.org wss://ws-subscriptions-clob.polymarket.com wss://*.kalshi.co wss://*.kalshi.com",
     "worker-src 'self' blob:",
     "frame-ancestors 'self'",
+    "object-src 'none'", // Prevent plugin execution
+    "base-uri 'self'", // Prevent base tag injection
   ].join('; '),
 }
 

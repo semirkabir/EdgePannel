@@ -78,9 +78,11 @@ export class PolymarketUserWebSocketClient {
 
         this.ws.onmessage = (event) => {
           try {
-            // Handle PONG responses
-            if (typeof event.data === 'string' && event.data === 'PONG') {
-              return
+            // Handle plain text responses (not JSON)
+            if (typeof event.data === 'string') {
+              if (event.data === 'PONG' || event.data === 'INVALID OPERATION') {
+                return
+              }
             }
 
             const message: PolymarketUserWebSocketMessage = JSON.parse(event.data)

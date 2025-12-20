@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: [],
+    domains: ['polymarket-upload.s3.us-east-2.amazonaws.com'],
   },
   // Suppress hydration warnings from browser extensions
   onDemandEntries: {

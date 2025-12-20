@@ -27,9 +27,13 @@ export async function GET(
     })
 
     if (!response.ok) {
+      // Return graceful response for invalid marketIds (422) instead of propagating error
+      if (response.status === 422) {
+        return NextResponse.json({ tags: [] })
+      }
       return NextResponse.json(
         { error: 'Failed to fetch tags from Polymarket' },
-        { status: response.status }
+        { status: 400 }
       )
     }
 

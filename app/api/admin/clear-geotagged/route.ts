@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db/client'
+import { requireAdmin } from '@/lib/auth/admin'
 
 /**
  * Clear all geotagged markets (admin only)
  */
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Check admin authorization
+    await requireAdmin()
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: 'Unauthorized: Admin access required' },
+      { status: 403 }
+    )
+  }
+
+  try {
 
     console.log('[Clear Geotagged] Deleting all geotagged markets...')
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { ExternalLink, Loader2, ArrowUpDown, Filter, TrendingUp, DollarSign, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { RightPanel } from '@/components/ui/RightPanel';
@@ -238,10 +239,12 @@ export function CountryNewsPanel({ country, onClose, onMarketSelect }: CountryNe
                             const marketImg = market.imageUrl || (market as any).image || (market as any).rawData?.image || (market as any).rawData?.icon || (market as any).rawData?.eventImage;
                             if (marketImg) {
                               return (
-                                <img
+                                <Image
                                   src={marketImg}
                                   alt=""
-                                  className="w-full h-full object-cover"
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
                                   onError={(e) => {
                                     (e.target as HTMLImageElement).style.display = 'none';
                                     (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
@@ -380,10 +383,12 @@ export function CountryNewsPanel({ country, onClose, onMarketSelect }: CountryNe
                     <div className="flex items-start gap-3">
                       {article.socialimage && (
                         <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-800">
-                          <img
+                          <Image
                             src={article.socialimage}
                             alt=""
-                            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                            fill
+                            className="object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                            unoptimized
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}

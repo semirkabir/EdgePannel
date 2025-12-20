@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { KalshiClient } from '@/lib/api/kalshi'
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
 
         if (platform === 'polymarket') {
             const client = new PolymarketClient({ apiKey: '' })
-            
+
             console.log('[History API] Polymarket request:', { id, interval, assetId })
 
             let tokenId = assetId
@@ -36,15 +37,15 @@ export async function GET(request: Request) {
                             const markets = await gammaResponse.json()
                             if (Array.isArray(markets) && markets.length > 0) {
                                 const market = markets[0]
-                                console.log('[History API] Market data:', { 
-                                    clobTokenIds: market.clobTokenIds, 
-                                    outcomes: market.outcomes 
+                                console.log('[History API] Market data:', {
+                                    clobTokenIds: market.clobTokenIds,
+                                    outcomes: market.outcomes
                                 })
-                                
+
                                 // Try to find "Yes" token or default to first
                                 if (market.clobTokenIds) {
                                     let tokenIds = market.clobTokenIds
-                                    
+
                                     // Parse if it's a string
                                     if (typeof tokenIds === 'string') {
                                         try {
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
                                             console.error('[History API] Failed to parse clobTokenIds:', e)
                                         }
                                     }
-                                    
+
                                     if (Array.isArray(tokenIds) && tokenIds.length > 0) {
                                         let outcomes = market.outcomes || []
                                         if (typeof outcomes === 'string') {

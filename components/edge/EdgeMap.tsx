@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import Map, { Source, Layer, Popup, NavigationControl, FullscreenControl, MapLayerMouseEvent } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -44,7 +45,10 @@ interface EdgeMapProps {
   visualizationMode?: VisualizationMode;
   selectedMarket?: any;
   onMarketSelect?: (market: any) => void;
+  showLabels?: boolean;
+  showGrid?: boolean;
 }
+
 
 // Inner component to isolate Map state from Data updates
 function InnerMap({
@@ -64,8 +68,11 @@ function InnerMap({
   onZoomChange,
   onViewChange,
   shouldResetZoom = false,
-  visualizationMode = 'dots'
+  visualizationMode = 'dots',
+  showLabels = true,
+  showGrid = false
 }: {
+
   markets: any;
   rawMarkets?: any[];
   tweets: any;
@@ -83,7 +90,10 @@ function InnerMap({
   onViewChange?: (isModified: boolean) => void;
   shouldResetZoom?: boolean;
   visualizationMode?: VisualizationMode;
+  showLabels?: boolean;
+  showGrid?: boolean;
 }) {
+
   const [viewState, setViewState] = useState({
     longitude: 0,
     latitude: projection === 'mercator' ? 20 : 0,
@@ -99,6 +109,33 @@ function InnerMap({
   const mapRef = useRef<MapRef>(null);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
 
+  // Toggle label visibility
+  useEffect(() => {
+    if (!isStyleLoaded) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+
+    try {
+      const style = map.getStyle();
+      if (!style || !style.layers) return;
+
+      style.layers.forEach(layer => {
+        // Check for common label layer indicators
+        const isLabel = layer.id.includes('label') ||
+          layer.id.includes('place') ||
+          layer.id.includes('poi') ||
+          layer.type === 'symbol';
+
+        if (isLabel) {
+          map.setLayoutProperty(layer.id, 'visibility', showLabels ? 'visible' : 'none');
+        }
+      });
+    } catch (e) {
+      console.warn('Could not toggle labels:', e);
+    }
+  }, [showLabels, isStyleLoaded]);
+
+
   // Helper to safely get map instance and check if style is loaded
   const getMapIfReady = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -111,12 +148,37 @@ function InnerMap({
   // Detect zoom level changes and pan changes
   const DEFAULT_ZOOM = 2.5;
   const ZOOM_THRESHOLD = 0.3; // Consider zoomed if zoom > DEFAULT_ZOOM + THRESHOLD
+  const ZOOM_HYSTERESIS = 0.15; // Add hysteresis to prevent flickering near threshold
   const DEFAULT_LONGITUDE = 0;
   const DEFAULT_LATITUDE = projection === 'mercator' ? 20 : 0;
   const PAN_THRESHOLD = 10; // Consider panned if moved more than 10 degrees
 
+  // Track previous zoom state for hysteresis
+  const [wasZoomedIn, setWasZoomedIn] = useState(false);
+
+  // Reset zoom state when projection changes to prevent stuttering during mode switches
   useEffect(() => {
-    const isZoomed = viewState.zoom > DEFAULT_ZOOM + ZOOM_THRESHOLD;
+    setWasZoomedIn(false);
+  }, [projection]);
+
+  useEffect(() => {
+    // Apply hysteresis: when zoomed, need to zoom out below threshold - hysteresis
+    // When not zoomed, need to zoom in above threshold + hysteresis
+    const zoomThresholdIn = DEFAULT_ZOOM + ZOOM_THRESHOLD + ZOOM_HYSTERESIS;
+    const zoomThresholdOut = DEFAULT_ZOOM + ZOOM_THRESHOLD - ZOOM_HYSTERESIS;
+
+    let isZoomed: boolean;
+    if (wasZoomedIn) {
+      // Already zoomed: need to zoom out below lower threshold to un-zoom
+      isZoomed = viewState.zoom > zoomThresholdOut;
+    } else {
+      // Not zoomed: need to zoom in above higher threshold to zoom
+      isZoomed = viewState.zoom > zoomThresholdIn;
+    }
+
+    // Update the tracking state
+    setWasZoomedIn(isZoomed);
+
     const isPanned = Math.abs(viewState.longitude - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
       Math.abs(viewState.latitude - DEFAULT_LATITUDE) > PAN_THRESHOLD;
     const isViewModified = isZoomed || isPanned;
@@ -127,7 +189,8 @@ function InnerMap({
     if (onViewChange) {
       onViewChange(isViewModified);
     }
-  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, projection]);
+  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, DEFAULT_LATITUDE, DEFAULT_LONGITUDE, DEFAULT_ZOOM, PAN_THRESHOLD, ZOOM_THRESHOLD, wasZoomedIn, ZOOM_HYSTERESIS]);
+
 
   // Handle reset zoom request
   useEffect(() => {
@@ -239,8 +302,17 @@ function InnerMap({
   const handleDragStart = useCallback(() => {
     isDraggingRef.current = true;
     setCursor('grabbing');
-    handleInteractionStart();
-  }, [handleInteractionStart]);
+    // Immediately cancel rotation and mark as interacting
+    setIsUserInteracting(true);
+    if (rotationAnimationRef.current) {
+      cancelAnimationFrame(rotationAnimationRef.current);
+      rotationAnimationRef.current = null;
+    }
+    if (interactionTimeoutRef.current) {
+      clearTimeout(interactionTimeoutRef.current);
+      interactionTimeoutRef.current = null;
+    }
+  }, []);
 
   const handleDragEnd = useCallback(() => {
     setTimeout(() => {
@@ -288,11 +360,12 @@ function InnerMap({
   }, []);
 
   // Handle card click (internal or from map marker)
-  const handleCardClick = (market: any) => {
+  const handleCardClick = useCallback((market: any) => {
     if (onMarketSelect) {
       onMarketSelect(market);
     }
-  };
+  }, [onMarketSelect]);
+
 
   const onClick = useCallback(async (event: MapLayerMouseEvent) => {
     if (isDraggingRef.current) {
@@ -427,7 +500,7 @@ function InnerMap({
         console.error('Error detecting country:', error);
       }
     }
-  }, [onCountryClick, rawMarkets]);
+  }, [onCountryClick, rawMarkets, getMapIfReady, handleCardClick, onMarketSelect]);
 
   // Filter data
   const filteredMarkets = useMemo(() => {
@@ -478,6 +551,7 @@ function InnerMap({
   // Layers
   const marketLayer = {
     id: 'markets-layer',
+    source: 'markets',
     type: 'circle',
     paint: {
       'circle-color': [
@@ -502,6 +576,7 @@ function InnerMap({
 
   const marketGlowLayer = {
     id: 'markets-glow-layer',
+    source: 'markets',
     type: 'circle',
     paint: {
       'circle-radius': [
@@ -525,6 +600,7 @@ function InnerMap({
 
   const heatmapLayer = {
     id: 'markets-heatmap',
+    source: 'markets',
     type: 'heatmap',
     paint: {
       'heatmap-weight': [
@@ -568,6 +644,7 @@ function InnerMap({
   // Cluster layers - shows aggregated circles with count
   const clusterLayer = {
     id: 'markets-clusters',
+    source: 'markets',
     type: 'circle',
     filter: ['has', 'point_count'],
     paint: {
@@ -599,6 +676,7 @@ function InnerMap({
 
   const clusterCountLayer = {
     id: 'markets-cluster-count',
+    source: 'markets',
     type: 'symbol',
     filter: ['has', 'point_count'],
     layout: {
@@ -613,6 +691,7 @@ function InnerMap({
 
   const unclusteredPointLayer = {
     id: 'markets-unclustered',
+    source: 'markets',
     type: 'circle',
     filter: ['!', ['has', 'point_count']],
     paint: {
@@ -637,6 +716,7 @@ function InnerMap({
 
   const tweetLayer = {
     id: 'tweets-layer',
+    source: 'tweets',
     type: 'circle',
     paint: {
       'circle-radius': 5,
@@ -736,16 +816,21 @@ function InnerMap({
                         {/* Image Thumbnail */}
                         <div className="shrink-0 w-10 h-10 rounded overflow-hidden border border-gray-600/30 bg-gray-700 flex items-center justify-center">
                           {marketImageUrl ? (
-                            <img
-                              src={marketImageUrl}
-                              alt={market.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.nextElementSibling;
-                                if (fallback) fallback.classList.remove('hidden');
-                              }}
-                            />
+                            <div className="relative w-full h-full">
+                              <Image
+                                src={marketImageUrl}
+                                alt={market.title}
+                                fill
+                                className="object-cover"
+                                onError={(e) => {
+                                  // Fallback handled by parent CSS logic or hidden element
+                                  const target = e.currentTarget as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const fallback = target.nextElementSibling;
+                                  if (fallback) fallback.classList.remove('hidden');
+                                }}
+                              />
+                            </div>
                           ) : null}
                           <span className={`text-[8px] font-black ${marketImageUrl ? 'hidden' : ''} ${market.platform === 'polymarket' ? 'text-blue-400' : 'text-green-400'}`}>
                             {market.platform === 'polymarket' ? 'POLY' : 'KALS'}
@@ -815,14 +900,17 @@ function InnerMap({
 
                 {/* Right: Compact Image */}
                 {props.image_url && (
-                  <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-700/30">
-                    <img
+                  <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-700/30 relative">
+                    <Image
                       src={props.image_url}
                       alt={props.title}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
+                      unoptimized
                       onError={(e) => {
                         // Hide parent container if image fails to load
-                        e.currentTarget.parentElement!.style.display = 'none';
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (target.parentElement) target.parentElement.style.display = 'none';
                       }}
                     />
                   </div>
@@ -999,11 +1087,13 @@ function InnerMap({
         });
       }
     }
-  }, [projection, getMapIfReady, isStyleLoaded]);
+  }, [projection, getMapIfReady, isStyleLoaded, viewState.longitude]);
+
 
   // Compute interactive layers - memoize to prevent re-renders
   const interactiveIds = useMemo(() => {
     if (visualizationMode === 'heatmap') {
+      // In heatmap mode, keep dots invisible but interactive for clicks
       return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
     } else if (visualizationMode === 'cluster') {
       return ['markets-clusters', 'markets-unclustered', 'tweets-layer'];
@@ -1052,7 +1142,7 @@ function InnerMap({
         map.once('load', setupClickListeners);
       }
     }
-  }, [mapRef.current, interactiveIds, visualizationMode]);
+  }, [interactiveIds, visualizationMode]);
 
   // Only log on mount or when interactive IDs change
   useEffect(() => {
@@ -1113,6 +1203,7 @@ function InnerMap({
         <FullscreenControl position="bottom-right" />
 
         <Source
+          key={`markets-${visualizationMode}`}
           id="markets"
           type="geojson"
           data={filteredMarkets as any}
@@ -1122,28 +1213,28 @@ function InnerMap({
         >
           {visualizationMode === 'heatmap' ? (
             <>
-              <Layer {...heatmapLayer as any} source="markets" />
-              {/* Overlay individual market dots on top of heatmap for interactivity */}
-              <Layer {...marketGlowLayer as any} source="markets" paint={{
+              <Layer {...heatmapLayer as any} />
+              {/* Overlay individual market dots on top of heatmap for interactivity - very low opacity */}
+              <Layer {...marketGlowLayer as any} paint={{
                 ...marketGlowLayer.paint,
-                'circle-opacity': 0.4
+                'circle-opacity': 0.1
               }} />
-              <Layer {...marketLayer as any} source="markets" paint={{
+              <Layer {...marketLayer as any} paint={{
                 ...marketLayer.paint,
-                'circle-opacity': 0.8
+                'circle-opacity': 0.15
               }} />
             </>
           ) : visualizationMode === 'cluster' ? (
             <>
-              <Layer {...clusterLayer as any} source="markets" />
-              <Layer {...clusterCountLayer as any} source="markets" />
-              <Layer {...unclusteredPointLayer as any} source="markets" />
+              <Layer {...clusterLayer as any} />
+              <Layer {...clusterCountLayer as any} />
+              <Layer {...unclusteredPointLayer as any} />
             </>
           ) : (
             // Default dots mode
             <>
-              <Layer {...marketGlowLayer as any} source="markets" />
-              <Layer {...marketLayer as any} source="markets" />
+              <Layer {...marketGlowLayer as any} />
+              <Layer {...marketLayer as any} />
             </>
           )}
         </Source>
@@ -1152,7 +1243,42 @@ function InnerMap({
           <Layer {...tweetLayer as any} />
         </Source>
 
+        {showGrid && (
+          <Source id="grid" type="geojson" data={{
+            type: 'FeatureCollection',
+            features: (() => {
+              const features = [];
+              for (let lng = -180; lng <= 180; lng += 30) {
+                features.push({
+                  type: 'Feature',
+                  geometry: { type: 'LineString', coordinates: [[lng, -90], [lng, 90]] },
+                  properties: {}
+                });
+              }
+              for (let lat = -90; lat <= 90; lat += 30) {
+                features.push({
+                  type: 'Feature',
+                  geometry: { type: 'LineString', coordinates: [[-180, lat], [180, lat]] },
+                  properties: {}
+                });
+              }
+              return features;
+            })()
+          } as any}>
+            <Layer
+              id="grid-layer"
+              type="line"
+              paint={{
+                'line-color': '#ffffff',
+                'line-width': 0.5,
+                'line-opacity': 0.1
+              }}
+            />
+          </Source>
+        )}
+
         {countryBorders && (
+
           <Source id="country-borders" type="geojson" data={countryBorders as any}>
             <Layer
               id="country-borders-layer"
@@ -1196,7 +1322,9 @@ export function EdgeMap({
   onZoomChange,
   onViewChange,
   shouldResetZoom,
-  visualizationMode = 'dots'
+  visualizationMode = 'dots',
+  showLabels = true,
+  showGrid = false
 }: EdgeMapProps) {
   const { markets, tweets, rawMarkets, isLoading } = useEdgeData();
   const [mounted, setMounted] = useState(false);
@@ -1256,12 +1384,8 @@ export function EdgeMap({
       onViewChange={onViewChange}
       shouldResetZoom={shouldResetZoom}
       visualizationMode={visualizationMode}
+      showLabels={showLabels}
+      showGrid={showGrid}
     />
   );
 }
-
-
-
-
-
-

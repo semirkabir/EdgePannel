@@ -12,9 +12,17 @@ import { prisma } from '@/lib/prisma'
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify authorization (optional but recommended for cron endpoints)
+    // Always verify authorization
     const authHeader = request.headers.get('authorization')
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const cronSecret = process.env.CRON_SECRET || process.env.VERCEL_CRON_SECRET
+
+    if (!cronSecret) {
+      console.error('[Price Snapshot Cron] CRON_SECRET or VERCEL_CRON_SECRET environment variable not set')
+      return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 })
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      console.error('[Price Snapshot Cron] Unauthorized: Invalid or missing authorization header')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

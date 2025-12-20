@@ -1,6 +1,8 @@
+export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, withErrorHandler, validateQuery } from '@/lib/api/middleware'
 import { queryAuditLogs } from '@/lib/audit/audit-logger'
+import { requireAdmin } from '@/lib/auth/admin'
 import { z } from 'zod'
 import { prisma } from '@/lib/db/client'
 
@@ -18,21 +20,22 @@ const AuditLogQuerySchema = z.object({
 
 export const GET = withErrorHandler(
   withAuth(async (userId: string, request: NextRequest) => {
-    // Check if user is admin (you can add admin check here)
-    // For now, users can only see their own audit logs
+    // Require admin access for audit logs
+    try {
+      await requireAdmin()
+    } catch (error: any) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Admin access required' },
+        { status: 403 }
+      )
+    }
+
     const params = validateQuery(AuditLogQuerySchema, request.nextUrl.searchParams)
 
     // If userId is not specified, default to current user
     const queryUserId = params.userId || userId
 
-    // Users can only query their own logs unless they're admin
-    // TODO: Add admin check
-    if (queryUserId !== userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized: Can only view own audit logs' },
-        { status: 403 }
-      )
-    }
+    // Admin can query any user's logs
 
     const result = await queryAuditLogs({
       userId: queryUserId,

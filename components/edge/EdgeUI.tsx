@@ -174,59 +174,397 @@ export function EdgeUI({
   return (
     <div className="absolute inset-0 pointer-events-none">
 
-      {/* Top Left: Control Island */}
-      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-[1000] pointer-events-auto flex flex-col gap-2 sm:gap-3">
-        {/* Logo & Main Controls */}
+      {/* Mobile Header - Single stacked layout for small screens */}
+      <div className="md:hidden absolute top-2 left-2 right-2 z-[1000] pointer-events-auto flex flex-col gap-2">
+        {/* Row 1: Logo + Icons */}
         <div
-          className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl"
+          className="flex items-center justify-between p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-xl"
           style={{
             boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
           }}
         >
           {/* Logo */}
-          <div className="flex items-center gap-0.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/5 rounded-lg sm:rounded-xl border border-white/5">
-            <span className="font-serif text-sm sm:text-lg italic font-bold text-white tracking-tight">Edge</span>
-            <span className="font-sans text-sm sm:text-lg font-bold text-white tracking-tighter">Pannel</span>
+          <div className="flex items-center gap-0.5 px-2 py-1 bg-white/5 rounded-lg border border-white/5">
+            <span className="font-serif text-sm italic font-bold text-white tracking-tight">Edge</span>
+            <span className="font-sans text-sm font-bold text-white tracking-tighter">Pannel</span>
           </div>
 
-          <div className="w-px h-5 sm:h-6 bg-white/10 mx-0.5 sm:mx-1" />
+          {/* Search Bar - Mobile */}
+          <div className="relative group flex-1 mx-2">
+            <input
+              ref={inputRef}
+              type="text"
+              className="block w-full pl-8 pr-3 py-2 bg-[#0e0f11]/80 border border-white/10 rounded-xl text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-xl transition-all font-sans tracking-tight"
+              style={{
+                boxShadow: "0px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)",
+                backgroundImage: "linear-gradient(90deg, rgba(255, 255, 255, 1) 55%, rgba(0, 0, 0, 1) 100%)",
+                backgroundClip: "text",
+                WebkitBackgroundClip: "text",
+                color: "transparent"
+              }}
+              placeholder="Search markets or paste URL..."
+              onChange={(e) => handleSearchInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+            />
+            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none z-10">
+              <Search className="h-3.5 w-3.5 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
+            </div>
+            {/* Search Results Dropdown - Mobile */}
+            {isSearchFocused && (searchResults.length > 0 || isSearching || (inputRef.current?.value === '' && randomMarkets.length > 0)) && (
+              <div className="absolute top-full left-0 right-0 mt-2">
+                <SearchResults
+                  results={inputRef.current?.value === '' ? randomMarkets : searchResults}
+                  onSelect={(market) => {
+                    if (onMarketSelect) onMarketSelect(market);
+                    onSearch('');
+                    if (inputRef.current) inputRef.current.value = '';
+                    setIsSearchFocused(false);
+                  }}
+                  isLoading={isSearching}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Icons Group */}
+          <div className="flex items-center gap-0.5">
+            {/* Notifications */}
+            <button
+              onClick={onNotificationClick}
+              className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all touch-manipulation"
+            >
+              <Bell className="w-3.5 h-3.5" />
+              {notificationCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-[#0e0f11]" />
+              )}
+            </button>
+
+            {/* Profile */}
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-all touch-manipulation"
+              >
+                <User className="w-3.5 h-3.5" />
+              </button>
+              {/* Profile Dropdown Menu - Mobile */}
+              {isProfileOpen && (
+                <div className="absolute top-full right-0 mt-2 w-56 bg-[#0e0f11]/95 border border-white/10 rounded-lg shadow-2xl backdrop-blur-xl overflow-hidden z-50">
+                  <div className="p-2">
+                    <button
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        router.push('/dashboard/portfolio');
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-blue-500/10 text-blue-400 transition-colors text-left"
+                    >
+                      <Wallet className="w-4 h-4" />
+                      <span className="text-sm font-medium">Portfolio</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        onSettingsOpen?.();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-white/5 text-gray-200 transition-colors text-left"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span className="text-sm font-medium">Settings</span>
+                    </button>
+
+                    <div className="my-1 border-t border-white/10" />
+
+                    <button
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        signOut({ callbackUrl: '/login' });
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-red-500/10 text-red-400 transition-colors text-left"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span className="text-sm font-medium">Logout</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Filter Buttons - Mobile (only when not in insights view) */}
+        {!isInsightsView && (
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+            {/* Categories Dropdown */}
+            <div className="relative flex-shrink-0" ref={categoriesRef}>
+              <button
+                onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg backdrop-blur-xl border text-[10px] font-bold transition-all flex items-center gap-1.5 shadow-lg whitespace-nowrap",
+                  isCategoriesOpen || (selectedCategories.length > 0 && !selectedCategories.includes('All'))
+                    ? "bg-purple-500/10 border-purple-500/50 text-purple-400"
+                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                )}
+              >
+                <Filter className="w-3 h-3" />
+                TAGS
+                {(selectedCategories.length > 0 && !selectedCategories.includes('All')) && (
+                  <span className="px-1 py-0.5 bg-purple-500 text-white rounded-full text-[8px] font-bold">
+                    {selectedCategories.length}
+                  </span>
+                )}
+                <ChevronDown className="w-2.5 h-2.5" />
+              </button>
+
+              {/* Categories Popover - Mobile */}
+              {isCategoriesOpen && (
+                <div className="absolute top-full left-0 mt-2 w-56 bg-[#0e0f11]/98 border border-white/10 rounded-xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 z-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-semibold text-white">Categories</h3>
+                    {!selectedCategories.includes('All') && selectedCategories.length > 0 && (
+                      <button
+                        onClick={() => {
+                          if (onCategorySelect) onCategorySelect(['All']);
+                        }}
+                        className="text-[10px] text-purple-400 hover:text-purple-300 font-medium transition-colors"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {CATEGORIES.map(cat => {
+                      const isSelected = selectedCategories.includes(cat);
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            if (!onCategorySelect) return;
+                            if (cat === 'All') {
+                              onCategorySelect(['All']);
+                            } else {
+                              const newCats = isSelected
+                                ? selectedCategories.filter(c => c !== cat)
+                                : [...selectedCategories.filter(c => c !== 'All'), cat];
+                              onCategorySelect(newCats.length === 0 ? ['All'] : newCats);
+                            }
+                          }}
+                          className={cn(
+                            "px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all border relative overflow-hidden group",
+                            isSelected
+                              ? "bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white shadow-lg shadow-purple-500/30"
+                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
+                          )}
+                        >
+                          <span className="relative z-10">{cat}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Visualization Mode Dropdown - Mobile */}
+            <div className="relative flex-shrink-0" ref={visualizationRef}>
+              <button
+                onClick={() => setIsVisualizationOpen(!isVisualizationOpen)}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg backdrop-blur-xl border text-[10px] font-bold transition-all flex items-center gap-1.5 shadow-lg whitespace-nowrap",
+                  isVisualizationOpen || visualizationMode !== 'dots'
+                    ? "bg-cyan-500/10 border-cyan-500/50 text-cyan-400"
+                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                )}
+              >
+                <Circle className="w-3 h-3" />
+                VISUALIZATION
+                <ChevronDown className="w-2.5 h-2.5" />
+              </button>
+
+              {/* Visualization Popover - Mobile */}
+              {isVisualizationOpen && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-[#0e0f11]/98 border border-white/10 rounded-xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 z-50">
+                  <h3 className="text-xs font-semibold text-white mb-2">Mode</h3>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => {
+                        onVisualizationModeChange?.('dots');
+                        setIsVisualizationOpen(false);
+                      }}
+                      className={cn(
+                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
+                        visualizationMode === 'dots'
+                          ? "bg-gradient-to-br from-cyan-600 to-cyan-700 border-cyan-500 text-white shadow-lg shadow-cyan-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                      )}
+                    >
+                      <Circle className="w-3 h-3" />
+                      <span>Dots</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onVisualizationModeChange?.('heatmap');
+                        setIsVisualizationOpen(false);
+                      }}
+                      className={cn(
+                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
+                        visualizationMode === 'heatmap'
+                          ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                      )}
+                    >
+                      <Activity className="w-3 h-3" />
+                      <span>Heatmap</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onVisualizationModeChange?.('cluster');
+                        setIsVisualizationOpen(false);
+                      }}
+                      className={cn(
+                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
+                        visualizationMode === 'cluster'
+                          ? "bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white shadow-lg shadow-purple-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                      )}
+                    >
+                      <Layers className="w-3 h-3" />
+                      <span>Clusters</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Map Overlays Dropdown - Mobile */}
+            <div className="relative flex-shrink-0" ref={overlaysRef}>
+              <button
+                onClick={() => setIsOverlaysOpen(!isOverlaysOpen)}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg backdrop-blur-xl border text-[10px] font-bold transition-all flex items-center gap-1.5 shadow-lg whitespace-nowrap",
+                  isOverlaysOpen || activeFilters.live || activeFilters.fires || activeFilters.noiseFilter
+                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400"
+                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                )}
+              >
+                <Globe className="w-3 h-3" />
+                OVERLAYS
+                {(() => {
+                  const activeOverlayCount = [activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length;
+                  return activeOverlayCount > 0 && (
+                    <span className="px-1 py-0.5 bg-emerald-500 text-white rounded-full text-[8px] font-bold">
+                      {activeOverlayCount}
+                    </span>
+                  );
+                })()}
+                <ChevronDown className="w-2.5 h-2.5" />
+              </button>
+
+              {/* Overlays Popover - Mobile */}
+              {isOverlaysOpen && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-[#0e0f11]/98 border border-white/10 rounded-xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 z-50">
+                  <h3 className="text-xs font-semibold text-white mb-2">Map Overlays</h3>
+                  <div className="grid grid-cols-2 gap-1.5 mb-2">
+                    <button
+                      onClick={() => onFilterChange('live', !activeFilters.live)}
+                      className={cn(
+                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
+                        activeFilters.live
+                          ? "bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                      )}
+                    >
+                      <span className={cn("w-1.5 h-1.5 rounded-full", activeFilters.live ? "bg-white animate-pulse" : "bg-gray-500")} />
+                      <span>LIVE</span>
+                    </button>
+                    <button
+                      onClick={() => onFilterChange('fires', !activeFilters.fires)}
+                      className={cn(
+                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
+                        activeFilters.fires
+                          ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                      )}
+                    >
+                      <Flame className={cn("w-3 h-3", activeFilters.fires ? "fill-white" : "")} />
+                      <span>Fires</span>
+                    </button>
+                  </div>
+                  <div className="pt-2 border-t border-white/10">
+                    <button
+                      onClick={() => onFilterChange('noiseFilter', !activeFilters.noiseFilter)}
+                      className={cn(
+                        "w-full px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
+                        activeFilters.noiseFilter
+                          ? "bg-gradient-to-br from-amber-600 to-amber-700 border-amber-500 text-white shadow-lg shadow-amber-500/30"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                      )}
+                    >
+                      <VolumeX className="w-3 h-3" />
+                      <span>Hide Low Liquidity</span>
+                      <span className="ml-auto text-[9px] text-gray-400">$100+</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Header - Original layout for md and above */}
+      {/* Top Left: Control Island */}
+      <div className="hidden md:flex absolute top-4 left-4 z-[1000] pointer-events-auto flex-col gap-3">
+        {/* Logo & Main Controls */}
+        <div
+          className="flex items-center gap-2 p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl"
+          style={{
+            boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
+          }}
+        >
+          {/* Logo */}
+          <div className="flex items-center gap-0.5 px-3 py-1.5 bg-white/5 rounded-xl border border-white/5">
+            <span className="font-serif text-lg italic font-bold text-white tracking-tight">Edge</span>
+            <span className="font-sans text-lg font-bold text-white tracking-tighter">Pannel</span>
+          </div>
+
+          <div className="w-px h-6 bg-white/10 mx-1" />
 
           {/* Play/Pause Rotation - Only show in map/globe view */}
           {!isInsightsView && (
             <button
               onClick={handlePlayPause}
-              className="h-7 sm:h-8 px-2 sm:px-3 flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
+              className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
               title={isPlaying ? "Pause Rotation" : "Resume Rotation"}
             >
               {isPlaying ? (
                 <>
-                  <Pause className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  <span className="hidden sm:inline">Pause Rotation</span>
-                  <span className="sm:hidden">Pause</span>
+                  <Pause className="w-3.5 h-3.5" />
+                  <span>Pause Rotation</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 ml-0.5" />
-                  <span className="hidden sm:inline">Resume Rotation</span>
-                  <span className="sm:hidden">Resume</span>
+                  <Play className="w-3.5 h-3.5 ml-0.5" />
+                  <span>Resume Rotation</span>
                 </>
               )}
             </button>
           )}
 
-          {/* View Toggle / Reset */}
-          {isZoomedIn ? (
-            <button
-              onClick={onResetZoom}
-              className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset View</span>
-            </button>
-          ) : (
+          {/* Map/Globe Toggle or Reset View - Only show when not in insights view */}
+          {!isInsightsView && (
             <>
-              {/* Map/Globe Toggle - Only show when not in insights view */}
-              {!isInsightsView && (
+              {isZoomedIn ? (
+                <button
+                  onClick={onResetZoom}
+                  className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset View</span>
+                </button>
+              ) : (
                 <button
                   onClick={onMapGlobeToggle}
                   className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
@@ -244,40 +582,40 @@ export function EdgeUI({
                   )}
                 </button>
               )}
-
-              {/* Insights Mode Toggle */}
-              <button
-                onClick={onViewToggle}
-                className={cn(
-                  "h-8 px-3 flex items-center gap-2 rounded-xl transition-all duration-300 border shadow-sm",
-                  isInsightsView
-                    ? "bg-gradient-to-r from-blue-500/20 via-blue-600/15 to-blue-500/20 border-blue-400/50 shadow-blue-500/20"
-                    : "bg-gradient-to-r from-amber-900/20 via-yellow-900/15 to-amber-900/20 border-amber-700/30 hover:border-amber-500/40 hover:shadow-amber-500/10"
-                )}
-              >
-                {isInsightsView ? (
-                  <>
-                    <Globe className="w-3.5 h-3.5 text-blue-300" />
-                    <span className="font-sans tracking-tight font-bold text-white text-xs">
-                      Back to Map
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-3.5 h-3.5 text-amber-400/70" />
-                    <span className="font-serif italic tracking-tight font-bold text-white/90 text-xs">
-                      Insights
-                    </span>
-                  </>
-                )}
-              </button>
             </>
           )}
+
+          {/* Insights Mode Toggle - Always visible */}
+          <button
+            onClick={onViewToggle}
+            className={cn(
+              "h-8 px-3 flex items-center gap-2 rounded-xl transition-all duration-300 border shadow-sm",
+              isInsightsView
+                ? "bg-gradient-to-r from-blue-500/20 via-blue-600/15 to-blue-500/20 border-blue-400/50 shadow-blue-500/20"
+                : "bg-gradient-to-r from-amber-900/20 via-yellow-900/15 to-amber-900/20 border-amber-700/30 hover:border-amber-500/40 hover:shadow-amber-500/10"
+            )}
+          >
+            {isInsightsView ? (
+              <>
+                <Globe className="w-3.5 h-3.5 text-blue-300" />
+                <span className="font-sans tracking-tight font-bold text-white text-xs">
+                  Back to Map
+                </span>
+              </>
+            ) : (
+              <>
+                <Brain className="w-3.5 h-3.5 text-amber-400/70" />
+                <span className="font-serif italic tracking-tight font-bold text-white/90 text-xs">
+                  Insights
+                </span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Control Buttons Row - Hide when in insights view */}
         {!isInsightsView && (
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Categories Dropdown */}
             <div className="relative" ref={categoriesRef}>
               <button
@@ -510,14 +848,14 @@ export function EdgeUI({
         )}
       </div>
 
-      {/* Top Right: User Island */}
-      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-[1000] pointer-events-auto flex items-center gap-2 sm:gap-3">
+      {/* Top Right: User Island - Desktop only */}
+      <div className="hidden md:flex absolute top-4 right-4 z-[1000] pointer-events-auto items-center gap-3">
         {/* Search Bar - Modernized */}
         <div className="relative group">
           <input
             ref={inputRef}
             type="text"
-            className="block w-[200px] sm:w-[280px] md:w-[320px] pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-[#0e0f11]/80 border border-white/10 rounded-xl sm:rounded-2xl text-xs sm:text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-xl transition-all font-sans tracking-tight"
+            className="block w-[320px] pl-10 pr-4 py-2.5 bg-[#0e0f11]/80 border border-white/10 rounded-2xl text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 backdrop-blur-xl transition-all font-sans tracking-tight"
             style={{
               boxShadow: "0px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)",
               backgroundImage: "linear-gradient(90deg, rgba(255, 255, 255, 1) 55%, rgba(0, 0, 0, 1) 100%)",
@@ -531,8 +869,8 @@ export function EdgeUI({
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
           />
-          <div className="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center pointer-events-none z-10">
-            <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+            <Search className="h-4 w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
           </div>
           {/* Search Results Dropdown */}
           {isSearchFocused && (searchResults.length > 0 || isSearching || (inputRef.current?.value === '' && randomMarkets.length > 0)) && (
@@ -553,7 +891,7 @@ export function EdgeUI({
 
         {/* Action Buttons Group */}
         <div
-          className="flex items-center p-1 sm:p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl gap-0.5 sm:gap-1"
+          className="flex items-center p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl gap-1"
           style={{
             boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
           }}
@@ -561,23 +899,23 @@ export function EdgeUI({
           {/* Notifications */}
           <button
             onClick={onNotificationClick}
-            className="relative w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all touch-manipulation"
+            className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all touch-manipulation"
           >
-            <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Bell className="w-4 h-4" />
             {notificationCount > 0 && (
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-[#0e0f11]" />
             )}
           </button>
 
-          <div className="w-px h-4 sm:h-5 bg-white/10" />
+          <div className="w-px h-5 bg-white/10" />
 
           {/* Profile */}
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all touch-manipulation"
+              className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-all touch-manipulation"
             >
-              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <User className="w-4 h-4" />
             </button>
             {/* Profile Dropdown Menu */}
             {isProfileOpen && (

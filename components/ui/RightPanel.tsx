@@ -53,14 +53,13 @@ export function RightPanel({
 
     return (
         <>
-            {/* Backdrop for mobile */}
-            <div
-                className={cn(
-                    "fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300",
-                    isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-                )}
-                onClick={onClose}
-            />
+            {/* Backdrop for visual feedback only - doesn't block interactions */}
+            {isVisible && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden pointer-events-none"
+                    aria-hidden="true"
+                />
+            )}
 
             {/* Panel */}
             <div
@@ -68,6 +67,7 @@ export function RightPanel({
                     "fixed right-2 sm:right-4 top-16 sm:top-[88px] bottom-2 sm:bottom-6 z-[2000] rounded-xl sm:rounded-2xl overflow-hidden",
                     "bg-[#0e0f11] border border-white/10 shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] flex flex-col",
                     "transform transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1)", // Smooth easeOutExpoish
+                    "pointer-events-auto", // Ensure panel receives events
                     widthClass,
                     isVisible ? "translate-x-0" : "translate-x-[120%]",
                     className

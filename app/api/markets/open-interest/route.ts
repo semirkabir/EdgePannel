@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 
 /**
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
 
     // Polymarket Data API endpoint
     const apiUrl = 'https://data-api.polymarket.com/oi'
-    
+
     if (marketIds && marketIds.length > 0) {
       // Batch fetch for multiple markets
       // API accepts multiple market query parameters
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
       marketIds.forEach(id => {
         params.append('market', id.toLowerCase())
       })
-      
+
       const response = await fetch(`${apiUrl}?${params.toString()}`, {
         next: { revalidate: 30 }, // Cache for 30 seconds
       })
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       }
 
       const data: Array<{ market: string; value: number }> = await response.json()
-      
+
       // Convert array to object keyed by market ID
       const result: Record<string, { yesOI: number; noOI: number; totalOI: number }> = {}
       for (const item of data) {
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
       // Single market
       const normalizedMarketId = marketId.toLowerCase()
       const params = new URLSearchParams({ market: normalizedMarketId })
-      
+
       const response = await fetch(`${apiUrl}?${params.toString()}`, {
         next: { revalidate: 30 }, // Cache for 30 seconds
       })
@@ -82,7 +83,7 @@ export async function GET(request: Request) {
       }
 
       const data: Array<{ market: string; value: number }> = await response.json()
-      
+
       if (!data || data.length === 0) {
         return NextResponse.json({
           success: true,
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
 
       const oiData = data[0]
       const totalOI = oiData.value || 0
-      
+
       // The API only returns total value, so we split it evenly for Yes/No
       // (This is a limitation - the API doesn't provide Yes/No breakdown)
       return NextResponse.json({
