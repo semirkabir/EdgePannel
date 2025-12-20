@@ -490,26 +490,6 @@ export default function LandingPage() {
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                   </Link>
-                  <Link href="/edge">
-                    <Button size="lg" variant="outline" className="border-white/20 bg-white/5 hover:bg-white/10 text-white h-14 px-8 text-lg rounded-xl">
-                      Try Demo First
-                    </Button>
-                  </Link>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span>Free forever</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span>No credit card</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span>Your own API keys</span>
-                  </div>
                 </div>
               </div>
             </div>
