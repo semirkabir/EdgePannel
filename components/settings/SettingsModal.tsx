@@ -75,15 +75,6 @@ export function SettingsModal({
     const [newEmail, setNewEmail] = useState('')
     const [emailLoading, setEmailLoading] = useState(false)
 
-    // Password change state
-    const [isChangingPassword, setIsChangingPassword] = useState(false)
-    const [passwordData, setPasswordData] = useState({
-        current: '',
-        new: '',
-        confirm: ''
-    })
-    const [passwordLoading, setPasswordLoading] = useState(false)
-
     // API Key States
     const [keys, setKeys] = useState({
         polymarket: '',
@@ -179,43 +170,6 @@ export function SettingsModal({
         }
     }
 
-    const handleUpdatePassword = async () => {
-        if (passwordData.new.length < 8) {
-            toast({ title: 'Password must be at least 8 characters', variant: 'error' })
-            return
-        }
-
-        if (passwordData.new !== passwordData.confirm) {
-            toast({ title: 'Passwords do not match', variant: 'error' })
-            return
-        }
-
-        setPasswordLoading(true)
-        try {
-            const response = await fetch('/api/user/update-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    currentPassword: passwordData.current,
-                    newPassword: passwordData.new
-                })
-            })
-
-            if (!response.ok) {
-                const data = await response.json()
-                throw new Error(data.error || 'Failed to update password')
-            }
-
-            toast({ title: 'Password updated successfully', variant: 'default' })
-            setIsChangingPassword(false)
-            setPasswordData({ current: '', new: '', confirm: '' })
-        } catch (error: any) {
-            toast({ title: error.message || 'Failed to update password', variant: 'error' })
-        } finally {
-            setPasswordLoading(false)
-        }
-    }
-
     const toggleSecret = (field: string) => {
         setShowSecrets(prev => ({ ...prev, [field]: !prev[field] }))
     }
@@ -301,7 +255,7 @@ export function SettingsModal({
                     </div>
 
                     {/* Content Area */}
-                    <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
+                    <div className="flex-1 p-8 overflow-y-auto scrollbar-hide">
                         {/* PROFILE TAB */}
                         {activeTab === 'profile' && (
                             <div className="space-y-8 max-w-2xl">
@@ -375,102 +329,6 @@ export function SettingsModal({
                                     )}
                                 </div>
 
-                                {/* Password Section */}
-                                <div className="p-6 rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-xl">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                                            <Lock className="w-5 h-5 text-emerald-400" />
-                                        </div>
-                                        <div>
-                                            <h4 className="font-semibold text-white">Password</h4>
-                                            <p className="text-xs text-gray-500">Change your account password</p>
-                                        </div>
-                                    </div>
-                                    {!isChangingPassword ? (
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => setIsChangingPassword(true)}
-                                            className="w-full border-white/10 hover:bg-white/10"
-                                        >
-                                            <Lock className="w-4 h-4 mr-2" />
-                                            {hasPassword ? 'Change Password' : 'Set Password'}
-                                        </Button>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {hasPassword && (
-                                                <div className="relative">
-                                                    <input
-                                                        type={showSecrets.currentPassword ? "text" : "password"}
-                                                        value={passwordData.current}
-                                                        onChange={(e) => setPasswordData({ ...passwordData, current: e.target.value })}
-                                                        placeholder="Current password"
-                                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 pr-10 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                                                    />
-                                                    <button
-                                                        onClick={() => toggleSecret('currentPassword')}
-                                                        className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-300"
-                                                    >
-                                                        {showSecrets.currentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                                    </button>
-                                                </div>
-                                            )}
-                                            <div className="relative">
-                                                <input
-                                                    type={showSecrets.newPassword ? "text" : "password"}
-                                                    value={passwordData.new}
-                                                    onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })}
-                                                    placeholder="New password (min 8 characters)"
-                                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 pr-10 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                                                />
-                                                <button
-                                                    onClick={() => toggleSecret('newPassword')}
-                                                    className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-300"
-                                                >
-                                                    {showSecrets.newPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                                </button>
-                                            </div>
-                                            <div className="relative">
-                                                <input
-                                                    type={showSecrets.confirmPassword ? "text" : "password"}
-                                                    value={passwordData.confirm}
-                                                    onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })}
-                                                    placeholder="Confirm new password"
-                                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 pr-10 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                                                />
-                                                <button
-                                                    onClick={() => toggleSecret('confirmPassword')}
-                                                    className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-300"
-                                                >
-                                                    {showSecrets.confirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                                </button>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    onClick={handleUpdatePassword}
-                                                    disabled={passwordLoading}
-                                                    className="bg-emerald-600 hover:bg-emerald-500 text-white"
-                                                >
-                                                    {passwordLoading ? (
-                                                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Updating...</>
-                                                    ) : (
-                                                        <><Check className="w-4 h-4 mr-2" /> Update Password</>
-                                                    )}
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    onClick={() => {
-                                                        setIsChangingPassword(false)
-                                                        setPasswordData({ current: '', new: '', confirm: '' })
-                                                    }}
-                                                    disabled={passwordLoading}
-                                                >
-                                                    Cancel
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
                                 {/* Social Connections */}
                                 <div className="p-6 rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-xl">
                                     <div className="flex items-center gap-3 mb-4">
@@ -490,12 +348,6 @@ export function SettingsModal({
                                     ) : (
                                         <>
                                             <div className="flex flex-wrap gap-2 mb-4">
-                                                {hasPassword && (
-                                                    <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-2">
-                                                        <Lock className="w-3 h-3" />
-                                                        Email + Password
-                                                    </span>
-                                                )}
                                                 {hasGoogle && (
                                                     <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/30 flex items-center gap-2">
                                                         <GoogleIcon className="w-3 h-3" />

@@ -15,10 +15,10 @@ import { ArrowLeft, Trash2, Loader2 } from 'lucide-react'
 export default function SettingsPage() {
   const { data: session } = useSession()
   const router = useRouter()
-  
+
   // Use SWR for API keys fetching with caching
   const { apiKeys, isLoading: loading, refresh: refreshApiKeys } = useUserApiKeys()
-  
+
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
 
@@ -108,7 +108,7 @@ export default function SettingsPage() {
 
     const platform = deleteTarget
     setDeleting(platform)
-    
+
     try {
       const response = await fetch(`/api/user/api-keys?platform=${platform}`, {
         method: 'DELETE',
@@ -168,7 +168,7 @@ export default function SettingsPage() {
   const hasKalshi = apiKeys.some(k => k.platform === 'kalshi' && k.isActive)
 
   return (
-    <div className="min-h-screen bg-gray-950 p-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gray-950 p-8 relative overflow-y-auto scrollbar-hide">
       {/* Futuristic Grid Background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:2rem_2rem] pointer-events-none" />
 
