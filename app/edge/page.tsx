@@ -43,22 +43,22 @@ export default function EdgePage() {
 
   // Use preferences with local fallback/sync
   const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent'>(preferences.viewMode || 'globe');
-  const [isPlaying, setIsPlaying] = useState(preferences.autoRotate);
-  const [rotationSpeed, setRotationSpeed] = useState(preferences.rotationSpeed);
-  const [pauseOnHover, setPauseOnHover] = useState(preferences.pauseOnHover);
-  const [showLabels, setShowLabels] = useState(preferences.showLabels);
-  const [showGrid, setShowGrid] = useState(preferences.showGrid);
+  const [isPlaying, setIsPlaying] = useState(preferences.autoRotate ?? true);
+  const [rotationSpeed, setRotationSpeed] = useState(preferences.rotationSpeed ?? 0.05);
+  const [pauseOnHover, setPauseOnHover] = useState(preferences.pauseOnHover ?? false);
+  const [showLabels, setShowLabels] = useState(preferences.showLabels ?? true);
+  const [showGrid, setShowGrid] = useState(preferences.showGrid ?? false);
 
 
   // Sync state when preferences load
   useEffect(() => {
     if (preferences) {
       if (preferences.viewMode) setViewMode(preferences.viewMode);
-      setIsPlaying(preferences.autoRotate);
-      setRotationSpeed(preferences.rotationSpeed);
-      setPauseOnHover(preferences.pauseOnHover);
-      setShowLabels(preferences.showLabels);
-      setShowGrid(preferences.showGrid);
+      setIsPlaying(preferences.autoRotate ?? true);
+      setRotationSpeed(preferences.rotationSpeed ?? 0.05);
+      setPauseOnHover(preferences.pauseOnHover ?? false);
+      setShowLabels(preferences.showLabels ?? true);
+      setShowGrid(preferences.showGrid ?? false);
     }
 
   }, [preferences]);

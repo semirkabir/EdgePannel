@@ -94,9 +94,14 @@ function LoginForm() {
             <span className="font-sans text-2xl font-bold text-foreground tracking-tighter">Pannel</span>
           </div>
 
-          <div className="text-center lg:text-left">
-            <h2 className="text-2xl font-bold">Welcome back</h2>
-            <p className="text-muted-foreground mt-2">Sign in with your preferred social account</p>
+          <div>
+            <Link href="/" className="text-primary hover:underline text-sm mb-4 inline-block">
+              ← Back to home
+            </Link>
+            <div className="text-center lg:text-left mt-4">
+              <h2 className="text-2xl font-bold">Welcome back</h2>
+              <p className="text-muted-foreground mt-2">Sign in with your preferred social account</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4">

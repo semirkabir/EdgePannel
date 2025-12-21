@@ -243,7 +243,7 @@ function InnerMap({
     }
 
     let lastTime = performance.now();
-    const rotationSpeedVal = 0.05;
+    const rotationSpeedVal = rotationSpeed || 0.15;
 
     const rotate = (currentTime: number) => {
       // Pause if:
@@ -1178,11 +1178,6 @@ function InnerMap({
         cursor={cursor}
         onMove={evt => {
           setViewState(evt.viewState);
-          // Ensure interaction state is active during movement
-          // This creates a fallback in case onMoveStart was missed or state was cleared prematurely
-          if (!isUserInteracting) {
-            handleInteractionStart();
-          }
         }}
         onMoveStart={handleInteractionStart}
         onMoveEnd={handleInteractionEnd}

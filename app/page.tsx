@@ -10,6 +10,8 @@ import {
   ArrowRight,
   Bell,
   CheckCircle2,
+  Search,
+  Loader,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Starfield } from '@/components/edge/Starfield'
@@ -160,6 +162,12 @@ function CapabilityCard({ capability, index }: { capability: typeof capabilities
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false)
   const [activeLiveMarket, setActiveLiveMarket] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -198,6 +206,58 @@ export default function LandingPage() {
     }, 3000)
     return () => clearInterval(interval)
   }, [mounted])
+
+  // Handle search API calls with debouncing
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const response = await fetch(`/api/markets/search?q=${encodeURIComponent(query)}&limit=8`)
+      if (!response.ok) throw new Error('Search failed')
+      const data = await response.json()
+      setSearchResults(data.markets || [])
+    } catch (error) {
+      console.error('Search error:', error)
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  // Handle search input change with debouncing
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value
+    setSearchQuery(query)
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(query)
+    }, 300)
+  }
+
+  // Handle keyboard shortcut for search (/)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '/' && !showSearch) {
+        e.preventDefault()
+        setShowSearch(true)
+        setTimeout(() => searchInputRef.current?.focus(), 0)
+      }
+      if (e.key === 'Escape' && showSearch) {
+        setShowSearch(false)
+        setSearchQuery('')
+        setSearchResults([])
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showSearch])
 
   return (
     <div className="min-h-screen bg-black overflow-hidden relative font-mono">
@@ -325,11 +385,72 @@ export default function LandingPage() {
                   ))}
                 </div>
 
-                {/* Terminal footer */}
-                <div className="px-4 py-2 border-t border-white/10 bg-black/40">
-                  <div className="text-xs font-mono text-white/40">
-                    [{new Date().toLocaleTimeString()}] Ready for input | Press &apos;/&apos; to search
-                  </div>
+                {/* Terminal footer with search */}
+                <div className="px-4 py-3 border-t border-white/10 bg-black/40">
+                  {!showSearch ? (
+                    <div className="text-xs font-mono text-white/40 cursor-pointer hover:text-white/60 transition-colors" onClick={() => {
+                      setShowSearch(true)
+                      setTimeout(() => searchInputRef.current?.focus(), 0)
+                    }}>
+                      [{new Date().toLocaleTimeString()}] Ready for input | Press &apos;/&apos; to search
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Search input row */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-[#00ff7f]">$</span>
+                        <Search className="w-3 h-3 text-white/50" />
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          placeholder="search markets..."
+                          value={searchQuery}
+                          onChange={handleSearchChange}
+                          className="flex-1 bg-transparent border-none outline-none text-xs font-mono text-white placeholder-white/30"
+                          autoFocus
+                        />
+                        {isSearching && <Loader className="w-3 h-3 text-[#00ff7f] animate-spin" />}
+                      </div>
+
+                      {/* Search results */}
+                      {(searchResults.length > 0 || isSearching || searchQuery.trim()) && (
+                        <div className="max-h-64 overflow-y-auto space-y-1 border-t border-white/10 pt-2">
+                          {isSearching && !searchResults.length ? (
+                            <div className="text-xs font-mono text-white/50 py-2">searching...</div>
+                          ) : searchResults.length > 0 ? (
+                            searchResults.map((market) => (
+                              <Link key={market.id} href={`/edge?market=${market.id}`}>
+                                <div className="p-2 hover:bg-white/5 transition-colors cursor-pointer group">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-mono text-[#00ff7f] truncate group-hover:text-white">
+                                        {market.question || market.title}
+                                      </div>
+                                      <div className="text-xs text-white/40 mt-1 flex gap-2">
+                                        <span>{market.price?.toFixed(1)}%</span>
+                                        <span className="text-white/25">•</span>
+                                        <span>{market.platform || 'polymarket'}</span>
+                                      </div>
+                                    </div>
+                                    {market.image && (
+                                      <img src={market.image} alt="" className="w-6 h-6 rounded flex-shrink-0" />
+                                    )}
+                                  </div>
+                                </div>
+                              </Link>
+                            ))
+                          ) : (
+                            <div className="text-xs font-mono text-white/50 py-2">no markets found</div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Help text */}
+                      <div className="text-xs font-mono text-white/30 pt-1">
+                        press <span className="text-[#00ff7f]">esc</span> to close
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
