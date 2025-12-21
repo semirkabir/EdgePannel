@@ -8,7 +8,32 @@ export async function GET() {
         // Check admin authorization
         await requireAdmin()
 
-        const total = await prisma.geotaggedMarket.count()
+        const [totalMarkets, totalUsers, providerStats, recentUsers] = await Promise.all([
+            prisma.geotaggedMarket.count(),
+            prisma.user.count(),
+            prisma.account.groupBy({
+                by: ['provider'],
+                _count: {
+                    _all: true
+                }
+            }),
+            prisma.user.findMany({
+                take: 20,
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    createdAt: true,
+                    image: true,
+                    accounts: {
+                        select: {
+                            provider: true
+                        }
+                    }
+                }
+            })
+        ])
 
         const byPlatform = await prisma.geotaggedMarket.groupBy({
             by: ['platform'],
@@ -55,8 +80,16 @@ export async function GET() {
                 count: c._count._all
             }))
 
+        const usersByProvider: Record<string, number> = {}
+        providerStats.forEach(p => {
+            usersByProvider[p.provider] = p._count._all
+        })
+
         return NextResponse.json({
-            total,
+            totalMarkets,
+            totalUsers,
+            usersByProvider,
+            recentUsers,
             byPlatform: platformStats,
             byConfidence: confidenceStats,
             topCountries: countryStats

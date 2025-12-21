@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth/admin'
 import { prisma } from '@/lib/db/client'
 import { PolymarketOptimizedClient } from '@/lib/api/polymarket-optimized'
 import { KalshiClient } from '@/lib/api/kalshi'
@@ -77,11 +76,12 @@ async function processMarketsInChunks(
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    await requireAdmin()
+  } catch (e) {
+    return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 })
+  }
 
+  try {
     const startTime = Date.now()
     const stats: IndexStats = {
       polymarket: { fetched: 0, indexed: 0, skipped: 0, errors: 0 },
