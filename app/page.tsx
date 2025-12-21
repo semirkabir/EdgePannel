@@ -9,6 +9,7 @@ import {
   BarChart3,
   ArrowRight,
   Bell,
+  CheckCircle2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Starfield } from '@/components/edge/Starfield'
