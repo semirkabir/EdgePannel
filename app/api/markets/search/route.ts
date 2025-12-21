@@ -52,16 +52,14 @@ export async function GET(request: Request) {
       }
     }
 
-    // Get user ID - use mock if auth is disabled
+    // Get user ID - use mock if auth is disabled or user is not authenticated
     let userId: string
     const { AUTH_ENABLED, MOCK_USER_ID } = await import('@/lib/auth-config')
 
     if (AUTH_ENABLED) {
       const session = await getServerSession(authOptions)
-      if (!session?.user?.id) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      userId = session.user.id
+      // Use mock user ID if no session (allows unauthenticated search)
+      userId = session?.user?.id || MOCK_USER_ID
     } else {
       userId = MOCK_USER_ID
     }
