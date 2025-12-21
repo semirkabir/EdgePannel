@@ -227,7 +227,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchHistory()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.clobTokenIds, activeMarket?.slug, timeRange])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.slug, timeRange, JSON.stringify(activeMarket?.rawData?.clobTokenIds)])
 
 
   // Fetch candlestick data
@@ -370,7 +370,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchComments()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeMarket?.slug])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.slug, activeMarket?.rawData?.numericId])
 
 
   // Fetch related markets from the same event (only for non-event markets)
@@ -456,7 +456,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchRelatedMarkets()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeEvent])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.events, activeEvent?.id])
 
 
   // Fetch related markets by tags
@@ -578,7 +578,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchRelatedByTags()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.tags, activeMarket?.tags, activeMarket?.category])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.category, JSON.stringify(activeMarket?.tags), JSON.stringify(activeMarket?.rawData?.tags)])
 
 
   // Fetch top holders for Polymarket markets
@@ -615,7 +615,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchTopHolders()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.conditionId])
 
 
   // Get articles from event data or use mock tweets

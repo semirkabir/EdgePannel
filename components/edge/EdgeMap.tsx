@@ -110,6 +110,17 @@ function InnerMap({
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const prevViewModifiedRef = useRef<boolean>(false);
   const prevIsZoomedRef = useRef<boolean>(false);
+  const lastIsZoomedInRef = useRef<boolean>(false);
+
+  // Debug interaction state
+  useEffect(() => {
+    console.log('[DEBUG] Interaction State:', {
+      isPlaying,
+      isUserInteracting,
+      isHovering,
+      zoom: viewState.zoom
+    });
+  }, [isPlaying, isUserInteracting, isHovering, viewState.zoom]);
 
   // Toggle label visibility
   useEffect(() => {
@@ -155,65 +166,51 @@ function InnerMap({
   const DEFAULT_LATITUDE = projection === 'mercator' ? 20 : 0;
   const PAN_THRESHOLD = 10; // Consider panned if moved more than 10 degrees
 
-  // Track previous zoom state for hysteresis
-  const [wasZoomedIn, setWasZoomedIn] = useState(false);
+  // Track previous zoom state for hysteresis using a ref to avoid re-render loops
+  const wasZoomedInRef = useRef(false);
 
-  // Reset zoom state when projection changes to prevent stuttering during mode switches
+  // Reset zoom state when projection changes
   useEffect(() => {
-    setWasZoomedIn(false);
+    wasZoomedInRef.current = false;
   }, [projection]);
 
   useEffect(() => {
-    // Only check zoom state - don't track pan during every frame
-    // This prevents callbacks from firing repeatedly during drag/rotation
     const zoomThresholdIn = DEFAULT_ZOOM + ZOOM_THRESHOLD + ZOOM_HYSTERESIS;
     const zoomThresholdOut = DEFAULT_ZOOM + ZOOM_THRESHOLD - ZOOM_HYSTERESIS;
 
-    let isZoomed: boolean;
-    if (wasZoomedIn) {
-      isZoomed = viewState.zoom > zoomThresholdOut;
-    } else {
-      isZoomed = viewState.zoom > zoomThresholdIn;
+    const isZoomed = wasZoomedInRef.current
+      ? viewState.zoom > zoomThresholdOut
+      : viewState.zoom > zoomThresholdIn;
+
+    if (isZoomed !== wasZoomedInRef.current) {
+      wasZoomedInRef.current = isZoomed;
     }
 
-    setWasZoomedIn(isZoomed);
+    // Capture current values for the closure
+    const currentZoom = viewState.zoom;
+    const currentLng = viewState.longitude;
+    const currentLat = viewState.latitude;
 
-    // Only call onZoomChange if zoom state actually changed
+    // View modified logic (Zoomed or Panned)
+    const isPanned = (
+      Math.abs(currentLng - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
+      Math.abs(currentLat - DEFAULT_LATITUDE) > PAN_THRESHOLD
+    );
+    const isViewModified = isZoomed || isPanned;
+
+    // Only notify parent when values actually change
+    // and use a small timeout or guard to prevent rapid firing during interaction
     if (onZoomChange && isZoomed !== prevIsZoomedRef.current) {
       prevIsZoomedRef.current = isZoomed;
       onZoomChange(isZoomed);
     }
-  }, [viewState.zoom, DEFAULT_ZOOM, ZOOM_THRESHOLD, ZOOM_HYSTERESIS, wasZoomedIn, onZoomChange]);
-
-
-  // Track view modifications only when user stops interacting
-  // This prevents callbacks from firing every frame during rotation/pan
-  useEffect(() => {
-    if (isUserInteracting) return;
-
-    const DEFAULT_LONGITUDE = 0;
-    const DEFAULT_LATITUDE = projection === 'mercator' ? 20 : 0;
-    const PAN_THRESHOLD = 10;
-
-    const zoomThresholdIn = DEFAULT_ZOOM + ZOOM_THRESHOLD + ZOOM_HYSTERESIS;
-    const zoomThresholdOut = DEFAULT_ZOOM + ZOOM_THRESHOLD - ZOOM_HYSTERESIS;
-
-    let isZoomed = wasZoomedIn
-      ? viewState.zoom > zoomThresholdOut
-      : viewState.zoom > zoomThresholdIn;
-
-    const isPanned = (
-      Math.abs(viewState.longitude - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
-      Math.abs(viewState.latitude - DEFAULT_LATITUDE) > PAN_THRESHOLD
-    );
-
-    const isViewModified = isZoomed || isPanned;
 
     if (onViewChange && isViewModified !== prevViewModifiedRef.current) {
       prevViewModifiedRef.current = isViewModified;
       onViewChange(isViewModified);
     }
-  }, [isUserInteracting, viewState.zoom, viewState.longitude, viewState.latitude, projection, onViewChange, wasZoomedIn, DEFAULT_ZOOM, ZOOM_THRESHOLD, ZOOM_HYSTERESIS]);
+
+  }, [viewState.zoom, viewState.longitude, viewState.latitude, projection, onZoomChange, onViewChange, DEFAULT_ZOOM, ZOOM_THRESHOLD, ZOOM_HYSTERESIS, DEFAULT_LONGITUDE, DEFAULT_LATITUDE, PAN_THRESHOLD]);
 
   // Handle reset zoom request
   useEffect(() => {
@@ -1105,7 +1102,7 @@ function InnerMap({
         });
       }
     }
-  }, [projection, getMapIfReady, isStyleLoaded, viewState.longitude]);
+  }, [projection, getMapIfReady, isStyleLoaded]);
 
 
   // Compute interactive layers - memoize to prevent re-renders
