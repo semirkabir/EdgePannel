@@ -1,6 +1,6 @@
 import { FeatureCollection, Geometry } from 'geojson'
 
-const GEOJSON_URL = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson'
+const GEOJSON_URL = '/data/countries.geojson'
 
 export async function loadGeoJSON(): Promise<FeatureCollection> {
     try {

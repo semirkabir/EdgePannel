@@ -639,11 +639,12 @@ function InnerMap({
         ['linear'],
         ['heatmap-density'],
         0, 'rgba(0,0,0,0)',
-        0.2, '#3b82f6',
-        0.4, '#06b6d4',
-        0.6, '#10b981',
-        0.8, '#f59e0b',
-        1, '#ef4444'
+        0.1, 'rgba(37, 99, 235, 0.1)',
+        0.3, 'rgba(59, 130, 246, 0.4)',
+        0.5, 'rgba(6, 182, 212, 0.7)',
+        0.7, 'rgba(16, 185, 129, 0.85)',
+        0.9, 'rgba(245, 158, 11, 0.95)',
+        1, 'rgba(239, 68, 68, 1)'
       ],
       'heatmap-radius': [
         'interpolate',
@@ -713,21 +714,49 @@ function InnerMap({
       'circle-color': [
         'case',
         ['==', ['get', 'platform'], 'kalshi'], '#00d26a',
-        '#2563eb'
+        '#2b7fff'
       ],
       'circle-radius': [
         'interpolate',
-        ['exponential', 1.2],
-        ['zoom'],
-        2, ['*', ['sqrt', ['/', ['coalesce', ['get', 'volume'], 0], 10000]], 3],
-        10, ['*', ['sqrt', ['/', ['coalesce', ['get', 'volume'], 0], 10000]], 8]
+        ['linear'],
+        ['get', 'volume'],
+        0, 4,
+        100000, 8,
+        1000000, 15,
+        10000000, 25
       ],
-      'circle-opacity': 0.85,
-      'circle-stroke-width': 2,
+      'circle-opacity': 0.9,
+      'circle-stroke-width': 1.5,
       'circle-stroke-color': '#ffffff',
-      'circle-stroke-opacity': 0.8
+      'circle-stroke-opacity': 0.6
     }
   };
+
+  const unclusteredGlowLayer = {
+    id: 'markets-unclustered-glow',
+    source: 'markets',
+    type: 'circle',
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['get', 'volume'],
+        0, 8,
+        100000, 18,
+        1000000, 30,
+        10000000, 50
+      ],
+      'circle-color': [
+        'case',
+        ['==', ['get', 'platform'], 'kalshi'], '#00d26a',
+        '#2b7fff'
+      ],
+      'circle-opacity': 0.2,
+      'circle-blur': 0.8
+    }
+  };
+
 
   const tweetLayer = {
     id: 'tweets-layer',
@@ -756,7 +785,7 @@ function InnerMap({
       return null;
     }
 
-    const isMarket = feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer';
+    const isMarket = feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer' || feature.layer.id === 'markets-unclustered' || feature.layer.id === 'markets-unclustered-glow';
     const isGroup = props.isGroup === true;
 
     return (
@@ -1111,7 +1140,7 @@ function InnerMap({
       // In heatmap mode, keep dots invisible but interactive for clicks
       return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
     } else if (visualizationMode === 'cluster') {
-      return ['markets-clusters', 'markets-unclustered', 'tweets-layer'];
+      return ['markets-clusters', 'markets-unclustered', 'markets-unclustered-glow', 'tweets-layer'];
     } else {
       // Default dots mode
       return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
@@ -1229,18 +1258,21 @@ function InnerMap({
           {visualizationMode === 'heatmap' ? (
             <>
               <Layer {...heatmapLayer as any} />
-              {/* Overlay individual market dots on top of heatmap for interactivity - very low opacity */}
+              {/* Overlay individual market dots on top of heatmap for interactivity but keep them invisible */}
               <Layer {...marketGlowLayer as any} paint={{
                 ...marketGlowLayer.paint,
-                'circle-opacity': 0.1
+                'circle-opacity': 0,
+                'circle-stroke-opacity': 0
               }} />
               <Layer {...marketLayer as any} paint={{
                 ...marketLayer.paint,
-                'circle-opacity': 0.15
+                'circle-opacity': 0,
+                'circle-stroke-opacity': 0
               }} />
             </>
           ) : visualizationMode === 'cluster' ? (
             <>
+              <Layer {...unclusteredGlowLayer as any} />
               <Layer {...clusterLayer as any} />
               <Layer {...clusterCountLayer as any} />
               <Layer {...unclusteredPointLayer as any} />
