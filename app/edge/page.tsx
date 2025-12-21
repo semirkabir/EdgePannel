@@ -436,7 +436,7 @@ export default function EdgePage() {
   ]);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-gray-950 touch-none">
+    <div className="relative w-screen h-screen overflow-hidden bg-gray-950">
       {/* Starfield background - only in globe mode */}
       {viewMode === 'globe' && <Starfield starCount={300} />}
 

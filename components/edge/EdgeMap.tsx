@@ -1178,6 +1178,11 @@ function InnerMap({
         cursor={cursor}
         onMove={evt => {
           setViewState(evt.viewState);
+          // Ensure interaction state is active during movement
+          // This creates a fallback in case onMoveStart was missed or state was cleared prematurely
+          if (!isUserInteracting) {
+            handleInteractionStart();
+          }
         }}
         onMoveStart={handleInteractionStart}
         onMoveEnd={handleInteractionEnd}
