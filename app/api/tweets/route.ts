@@ -20,7 +20,7 @@ const MOCK_TWEETS: Tweet[] = [
         id: '1',
         author: 'Polymarket',
         handle: '@Polymarket',
-        avatar: 'https://pbs.twimg.com/profile_images/1802872365287518208/KiL-dD5Z_400x400.jpg',
+        avatar: 'https://avatars.githubusercontent.com/u/76251995', // Reliable logo from Polymarket GitHub
         content: '🚨 NEW MARKET: Will the FED cut rates in December? Traders are pricing in a 75% chance of a cut.',
         timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
         platform: 'twitter',

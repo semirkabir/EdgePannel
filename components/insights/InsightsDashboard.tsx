@@ -172,9 +172,9 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
   }
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-gradient-to-br from-[#0a0b0d] via-[#0e0f11] to-[#0a0b0d] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+    <div className="w-full h-full overflow-y-auto bg-black scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
       {/* Header - with top padding to avoid overlap with EdgePannel controls */}
-      <div className="sticky top-0 z-20 backdrop-blur-xl bg-gradient-to-r from-[#0a0b0d]/95 via-[#0e0f11]/95 to-[#0a0b0d]/95 border-b border-white/10 mt-20 shadow-lg shadow-blue-500/5">
+      <div className="sticky top-0 z-20 backdrop-blur-xl bg-black/80 border-b border-white/10 mt-20 shadow-lg shadow-blue-500/5">
         <div className="px-6 py-5">
           <div className="flex items-center justify-between mb-5">
             <div className="space-y-1">
@@ -192,7 +192,7 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
               onClick={handleRefresh}
               disabled={isRefreshing}
               className={cn(
-                "p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30 text-blue-400 hover:from-blue-500/30 hover:to-blue-600/20 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20",
+                "p-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all duration-300",
                 isRefreshing && "animate-spin"
               )}
               title="Refresh insights"
@@ -204,7 +204,7 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
           {/* Controls */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Timeframe Selector */}
-            <div className="flex gap-1 p-1.5 bg-gradient-to-r from-white/5 to-white/10 rounded-xl border border-white/10 shadow-lg shadow-black/20">
+            <div className="flex gap-1 p-1.5 bg-white/5 rounded-xl border border-white/10">
               {(['1h', '24h', '7d', '30d'] as TimeframeOption[]).map((tf) => (
                 <button
                   key={tf}
@@ -212,7 +212,7 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
                   className={cn(
                     "px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200",
                     timeframe === tf
-                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 scale-105"
+                      ? "bg-white text-black shadow-lg shadow-white/10"
                       : "text-gray-400 hover:text-white hover:bg-white/10 active:scale-95"
                   )}
                 >
@@ -225,7 +225,7 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
             <select
               value={platform}
               onChange={(e) => setPlatform(e.target.value as any)}
-              className="px-4 py-2 bg-gradient-to-r from-white/5 to-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500/50 transition-all duration-200 cursor-pointer"
+              className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-300 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 transition-all duration-200 cursor-pointer"
             >
               <option value="all">All Platforms</option>
               <option value="polymarket">Polymarket</option>
@@ -238,8 +238,8 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
               className={cn(
                 "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 active:scale-95",
                 showFilters
-                  ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/30 border border-purple-500/50"
-                  : "bg-gradient-to-r from-white/5 to-white/10 border border-white/10 text-gray-300 hover:from-white/10 hover:to-white/15"
+                  ? "bg-white text-black shadow-lg shadow-white/10"
+                  : "bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10"
               )}
             >
               <Filter className="w-3.5 h-3.5" />
@@ -249,13 +249,13 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
 
           {/* Advanced Filters */}
           {showFilters && (
-            <div className="mt-4 p-5 bg-gradient-to-r from-white/5 to-white/10 rounded-xl border border-white/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="mt-4 p-5 bg-white/5 rounded-xl border border-white/20 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
               <div>
                 <label className="block text-xs font-bold text-gray-300 mb-3 uppercase tracking-widest">
                   Minimum Buy Amount (Whale Threshold)
                 </label>
                 <div className="relative group">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold group-focus-within:text-blue-400 transition-colors">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold group-focus-within:text-white transition-colors">$</span>
                   <input
                     type="number"
                     min="100"
@@ -266,7 +266,7 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
                       const val = parseInt(e.target.value) || 1000
                       setWhaleThreshold(Math.max(100, Math.min(1000000, val)))
                     }}
-                    className="w-full pl-8 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white/20 transition-all duration-200"
+                    className="w-full pl-8 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-lg text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent transition-all duration-200"
                     placeholder="5000"
                   />
                 </div>
@@ -284,8 +284,8 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
                     className={cn(
                       "flex-1 px-2 py-2 rounded-lg text-[10px] font-bold transition-all duration-200 active:scale-95",
                       whaleThreshold === preset
-                        ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30"
-                        : "bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white border border-white/10"
+                        ? "bg-white text-black shadow-lg"
+                        : "bg-black/40 text-gray-400 hover:bg-white/10 hover:text-white border border-white/10"
                     )}
                   >
                     ${(preset / 1000).toFixed(0)}K
@@ -338,7 +338,7 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
           <div className="xl:col-span-2 space-y-6">
             {/* Whale Activity Summary */}
             {whaleActivity && whaleActivity.summary.totalTrades > 0 && (
-              <div className="p-6 rounded-xl bg-gradient-to-r from-orange-500/15 to-red-500/15 border border-orange-500/30 shadow-lg shadow-orange-500/10 hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-300">
+              <div className="p-6 rounded-xl bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 shadow-lg shadow-orange-500/5 hover:shadow-lg hover:shadow-orange-500/10 transition-all duration-300">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="p-2.5 rounded-lg bg-gradient-to-br from-orange-500/30 to-red-500/20 border border-orange-500/30">
                     <Flame className="w-5 h-5 text-orange-400" />
@@ -401,8 +401,8 @@ export function InsightsDashboard({ onMarketSelect }: InsightsDashboardProps) {
                     className={cn(
                       "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-300 active:scale-95",
                       activeCategory === cat.id
-                        ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 border border-blue-500/50"
-                        : "bg-gradient-to-r from-white/5 to-white/10 text-gray-400 hover:text-white hover:from-white/10 hover:to-white/20 border border-white/10"
+                        ? "bg-white text-black shadow-lg"
+                        : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/10"
                     )}
                   >
                     <Icon className="w-4 h-4" />
