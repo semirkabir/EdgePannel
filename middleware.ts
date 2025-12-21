@@ -46,6 +46,7 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
     req.nextUrl.pathname.startsWith('/api/cron') ||
     req.nextUrl.pathname.startsWith('/api/public') ||
     req.nextUrl.pathname.startsWith('/api/markets/search') ||
+    req.nextUrl.pathname.startsWith('/api/markets/analytics') ||
     req.nextUrl.pathname === '/login' ||
     req.nextUrl.pathname === '/register'
 

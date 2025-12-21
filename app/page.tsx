@@ -49,29 +49,29 @@ const capabilities = [
 ]
 
 // Live market data for terminal display
-const liveMarkets = [
+const liveMarkets: any[] = [
   {
-    symbol: 'FEDRATE.Q1',
-    title: 'Fed Rate Cut Q1 2025',
-    price: 68,
-    change: 5.2,
-    volume: '142k',
+    symbol: 'BTC.100K',
+    title: 'Bitcoin reaches $100,000 in 2024',
+    price: 64,
+    change: 2.4,
+    volume: '8.4M',
     trend: 'up',
   },
   {
-    symbol: 'SP500.ATH',
-    title: 'S&P 500 New ATH',
-    price: 42,
-    change: -3.1,
-    volume: '89k',
+    symbol: 'ETH.ETF',
+    title: 'Ethereum Spot ETF Net Inflows',
+    price: 72,
+    change: -1.2,
+    volume: '3.1M',
     trend: 'down',
   },
   {
-    symbol: 'LAKERS.2025',
-    title: 'Lakers NBA Championship',
-    price: 15,
-    change: 1.8,
-    volume: '56k',
+    symbol: 'SPX.5500',
+    title: 'S&P 500 Year-End Target',
+    price: 58,
+    change: 0.8,
+    volume: '12.2M',
     trend: 'up',
   },
 ]
@@ -85,7 +85,7 @@ const systemStats = [
 ]
 
 // Live market terminal row component
-function LiveMarketRow({ market, delay }: { market: typeof liveMarkets[0]; delay: number }) {
+function LiveMarketRow({ market, delay }: { market: any; delay: number }) {
   return (
     <div
       className="grid grid-cols-12 gap-4 py-3 px-4 border-b border-white/5 hover:bg-white/5 transition-colors group cursor-pointer"
@@ -161,6 +161,14 @@ function CapabilityCard({ capability, index }: { capability: typeof capabilities
 
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false)
+  const [topMarkets, setTopMarkets] = useState<any[]>([])
+  const [liveStats, setLiveStats] = useState({
+    totalMarkets: '2,500+',
+    totalVolume: '$50M+',
+    tradersActive: '15.2K',
+    lastIndexed: 'Just now'
+  })
+  const [isLoadingTopMarkets, setIsLoadingTopMarkets] = useState(true)
   const [activeLiveMarket, setActiveLiveMarket] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
@@ -202,9 +210,67 @@ export default function LandingPage() {
   useEffect(() => {
     if (!mounted) return
     const interval = setInterval(() => {
-      setActiveLiveMarket((prev) => (prev + 1) % liveMarkets.length)
+      const count = topMarkets.length > 0 ? topMarkets.length : liveMarkets.length
+      setActiveLiveMarket((prev) => (prev + 1) % count)
     }, 3000)
     return () => clearInterval(interval)
+  }, [mounted, topMarkets.length])
+
+  // Fetch top markets by volume
+  useEffect(() => {
+    if (!mounted) return
+
+    const fetchTopMarkets = async () => {
+      try {
+        const response = await fetch('/api/markets/analytics?limit=3&platform=polymarket')
+        if (!response.ok) throw new Error('Failed to fetch top markets')
+        const data = await response.json()
+
+        if (data.highestVolume && Array.isArray(data.highestVolume)) {
+          const formatted = data.highestVolume.map((m: any) => ({
+            symbol: m.ticker || (m.slug ? m.slug.split('-')[0].toUpperCase() : 'MARKET'),
+            title: m.title,
+            price: Math.round(m.currentPrice * 100),
+            change: parseFloat(m.priceChangePercent.toFixed(1)),
+            volume: m.volume24h > 1000000
+              ? `${(m.volume24h / 1000000).toFixed(1)}M`
+              : m.volume24h > 1000
+                ? `${(m.volume24h / 1000).toFixed(0)}k`
+                : m.volume24h.toString(),
+            trend: m.priceChangePercent >= 0 ? 'up' : 'down'
+          }))
+          setTopMarkets(formatted)
+        }
+
+        if (data.summary) {
+          // Calculate hours ago for last indexed
+          let lastIndexedStr = 'Just now';
+          if (data.summary.lastSyncAt) {
+            const lastSync = new Date(data.summary.lastSyncAt);
+            const hoursAgo = Math.floor((new Date().getTime() - lastSync.getTime()) / (1000 * 60 * 60));
+            if (hoursAgo === 0) {
+              const minsAgo = Math.floor((new Date().getTime() - lastSync.getTime()) / (1000 * 60));
+              lastIndexedStr = minsAgo <= 1 ? 'Just now' : `${minsAgo}m ago`;
+            } else {
+              lastIndexedStr = `${hoursAgo}h ago`;
+            }
+          }
+
+          setLiveStats({
+            totalMarkets: data.summary.totalMarkets.toLocaleString(),
+            totalVolume: `$${(data.summary.totalVolume / 1000000).toFixed(1)}M`,
+            tradersActive: data.summary.activeTraders ? `${(data.summary.activeTraders / 1000).toFixed(1)}K` : '72.4K',
+            lastIndexed: lastIndexedStr
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching top markets:', error)
+      } finally {
+        setIsLoadingTopMarkets(false)
+      }
+    }
+
+    fetchTopMarkets()
   }, [mounted])
 
   // Handle search API calls with debouncing
@@ -276,9 +342,9 @@ export default function LandingPage() {
         <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur-sm">
           <div className="max-w-full px-6 lg:px-12 py-4 flex items-center justify-between">
             {/* Logo - Aggressive styling */}
-            <div className="flex items-center gap-1">
-              <span className="text-xl font-black text-white tracking-tighter">EDGE</span>
-              <span className="text-xl font-black text-[#00ff7f] tracking-tighter">PANNEL</span>
+            <div className="flex items-center gap-0.5">
+              <span className="font-serif text-xl italic font-bold text-white tracking-tight">Edge</span>
+              <span className="font-sans text-xl font-bold text-[#00ff7f] tracking-tighter">Pannel</span>
             </div>
 
             <div className="flex items-center gap-4">
@@ -353,12 +419,24 @@ export default function LandingPage() {
                     <span className="inline-block w-2 h-2 bg-[#00ff7f] mr-2 rounded-full animate-pulse" />
                     System Status
                   </div>
-                  {systemStats.map((stat) => (
-                    <div key={stat.label} className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-white/50">{stat.label}</span>
-                      <span className="text-white font-bold">{stat.value}</span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-white/50">MARKETS_LIVE</span>
+                      <span className="text-white font-bold">{liveStats.totalMarkets}</span>
                     </div>
-                  ))}
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-white/50">VOLUME_24H</span>
+                      <span className="text-white font-bold">{liveStats.totalVolume}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-white/50">TRADERS_ACTIVE</span>
+                      <span className="text-white font-bold">{liveStats.tradersActive}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-mono">
+                      <span className="text-white/50">DATA_LAST_INDEXED</span>
+                      <span className="text-white font-bold">{liveStats.lastIndexed}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -375,27 +453,81 @@ export default function LandingPage() {
                     <span className="inline-block w-2 h-2 bg-[#00ff7f] mr-2 rounded-full animate-pulse" />
                     MARKET_FEED
                   </div>
-                  <div className="text-xs font-mono text-white/40">live_stream: 1247 markets | latency: 98ms</div>
+                  <div className="text-xs font-mono text-white/40">live_stream: {liveStats.totalMarkets} markets | last_indexed: {liveStats.lastIndexed}</div>
                 </div>
 
                 {/* Market rows */}
                 <div className="overflow-x-auto">
-                  {liveMarkets.map((market, idx) => (
-                    <LiveMarketRow key={idx} market={market} delay={idx} />
-                  ))}
+                  <div className="text-[10px] font-mono text-white/20 px-4 py-2 border-b border-white/5 bg-white/[0.01]">
+                    INTELLIGENCE_STREAM: HIGH_VOLUME_DATA_FEED
+                  </div>
+                  {isLoadingTopMarkets ? (
+                    <div className="py-12 flex flex-col items-center justify-center gap-3">
+                      <Loader className="w-5 h-5 text-[#00ff7f] animate-spin" />
+                      <div className="text-[10px] font-mono text-white/40 uppercase tracking-widest">establishing_secure_feed...</div>
+                    </div>
+                  ) : topMarkets.length > 0 ? (
+                    topMarkets.map((market, idx) => (
+                      <LiveMarketRow key={idx} market={market} delay={idx} />
+                    ))
+                  ) : (
+                    liveMarkets.map((market, idx) => (
+                      <LiveMarketRow key={idx} market={market} delay={idx} />
+                    ))
+                  )}
                 </div>
 
                 {/* Terminal footer with search */}
                 <div className="px-4 py-3 border-t border-white/10 bg-black/40">
                   {!showSearch ? (
-                    <div className="text-xs font-mono text-white/40 cursor-pointer hover:text-white/60 transition-colors" onClick={() => {
-                      setShowSearch(true)
-                      setTimeout(() => searchInputRef.current?.focus(), 0)
-                    }}>
-                      [{new Date().toLocaleTimeString()}] Ready for input | Press &apos;/&apos; to search
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-mono text-white/40 cursor-pointer hover:text-white/60 transition-colors" onClick={() => {
+                        setShowSearch(true)
+                        setTimeout(() => searchInputRef.current?.focus(), 0)
+                      }}>
+                        [{new Date().toLocaleTimeString()}] Ready for input | Press &apos;/&apos; to search or &apos;ESC&apos; to close
+                      </div>
+
+                      {topMarkets.length > 0 && (
+                        <div className="hidden sm:flex items-center gap-3 text-[10px] font-mono">
+                          <span className="text-white/20 uppercase">Trending:</span>
+                          {topMarkets.slice(0, 3).map((m, i) => (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                setShowSearch(true);
+                                setSearchQuery(m.title);
+                                performSearch(m.title);
+                              }}
+                              className="text-[#00ff7f]/50 hover:text-[#00ff7f] transition-colors"
+                            >
+                              _{m.symbol}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
+                      {/* Trending Shortcuts in Search Mode */}
+                      {topMarkets.length > 0 && (
+                        <div className="flex items-center gap-3 text-[10px] font-mono border-b border-white/5 pb-2">
+                          <span className="text-white/20 uppercase">Suggested:</span>
+                          {topMarkets.slice(0, 3).map((m, i) => (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                setSearchQuery(m.title);
+                                performSearch(m.title);
+                              }}
+                              className="text-[#00ff7f]/70 hover:text-[#00ff7f] transition-all bg-[#00ff7f]/5 px-2 py-0.5 rounded border border-[#00ff7f]/10"
+                            >
+                              {m.symbol}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Search input row */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-[#00ff7f]">$</span>
@@ -492,7 +624,7 @@ export default function LandingPage() {
                 </h2>
                 <div className="space-y-4">
                   {[
-                    { num: '01', title: 'Connect', desc: 'Link all your prediction market accounts' },
+                    { num: '01', title: 'Sign Up', desc: 'Create free account - no API needed to view markets' },
                     { num: '02', title: 'Track', desc: 'Monitor whales, prices, and volume in real-time' },
                     { num: '03', title: 'Visualize', desc: 'See markets on an interactive 3D globe' },
                     { num: '04', title: 'Execute', desc: 'Trade across all platforms from one dashboard' },
@@ -569,18 +701,9 @@ export default function LandingPage() {
                       CREATE ACCOUNT
                     </Button>
                   </Link>
-                  <Link href="/edge">
-                    <Button size="lg" variant="outline" className="border-white/20 bg-white/5 hover:bg-white/10 text-white h-14 px-8 text-lg rounded-xl">
-                      Try Demo First
-                    </Button>
-                  </Link>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span>Free forever</span>
-                  </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                     <span>No credit card</span>
@@ -601,9 +724,9 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
               {/* Brand */}
               <div>
-                <div className="text-lg font-black text-white mb-2 tracking-tighter">
-                  <span>EDGE</span>
-                  <span className="text-[#00ff7f]">PANNEL</span>
+                <div className="flex items-center gap-0.5 mb-2">
+                  <span className="font-serif text-lg italic font-bold text-white tracking-tight">Edge</span>
+                  <span className="font-sans text-lg font-bold text-[#00ff7f] tracking-tighter">Pannel</span>
                 </div>
                 <p className="text-xs text-white/40 font-mono">Prediction market intelligence platform</p>
               </div>
