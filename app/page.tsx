@@ -448,16 +448,25 @@ export default function LandingPage() {
                     </Button>
                   </Link>
                   <Link href="/edge">
-                    <Button variant="outline" className="text-xs font-black border-2 border-white/50 text-white hover:border-[#00ff7f] hover:text-[#00ff7f] bg-transparent px-8 py-4 transition-all">
-                      VIEW DEMO
+                    <Button size="lg" variant="outline" className="border-white/20 bg-white/5 hover:bg-white/10 text-white h-14 px-8 text-lg rounded-xl">
+                      Try Demo First
                     </Button>
                   </Link>
                 </div>
 
-                <div className="mt-8 pt-8 border-t border-white/10 space-y-2 text-xs font-mono text-white/40">
-                  <div>✓ Free forever • No credit card required</div>
-                  <div>✓ Your own API keys • Full data control</div>
-                  <div>✓ Real-time market data • 98ms latency</div>
+                <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    <span>Free forever</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    <span>No credit card</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    <span>Your own API keys</span>
+                  </div>
                 </div>
               </div>
             </div>
