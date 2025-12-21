@@ -292,7 +292,6 @@ function InnerMap({
 
   // Interaction Handlers
   const handleInteractionStart = useCallback(() => {
-    console.log('[EdgeMap] Interaction started');
     setIsUserInteracting(true);
     if (rotationAnimationRef.current) {
       cancelAnimationFrame(rotationAnimationRef.current);
@@ -1178,7 +1177,6 @@ function InnerMap({
         {...viewState}
         cursor={cursor}
         onMove={evt => {
-          console.log('[EdgeMap] Map moved - zoom:', evt.viewState.zoom, 'lng:', evt.viewState.longitude);
           setViewState(evt.viewState);
         }}
         onMoveStart={handleInteractionStart}
