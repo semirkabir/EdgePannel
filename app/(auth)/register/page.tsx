@@ -6,11 +6,7 @@ import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/hooks/use-toast'
-<<<<<<< HEAD
-import { Globe, Check } from 'lucide-react'
-=======
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Check } from 'lucide-react'
->>>>>>> 9532797ba42f0277ee94b4759acdbad08287132c
+import { Globe, Check, Eye, EyeOff, Mail, Lock, User, ArrowRight } from 'lucide-react'
 
 export default function RegisterPage() {
   const router = useRouter()

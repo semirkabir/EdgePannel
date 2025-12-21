@@ -1178,9 +1178,6 @@ function InnerMap({
         cursor={cursor}
         onMove={evt => {
           setViewState(evt.viewState);
-          if (evt.viewState.longitude !== viewState.longitude && isUserInteracting) {
-            handleInteractionStart();
-          }
         }}
         onMoveStart={handleInteractionStart}
         onMoveEnd={handleInteractionEnd}
