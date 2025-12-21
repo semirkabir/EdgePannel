@@ -43,6 +43,22 @@ export function extractLocationRegex(title: string, description?: string): Locat
   }
 
   // Priority 1: Explicit location patterns ("in [Location]", "at [Location]")
+  if (/\b(biggest company|largest company|most valuable company|market cap|valuable world company)\b/i.test(text)) {
+    const sfData = CITY_COORDINATES['san francisco']
+    if (sfData) {
+      console.log(`[Location] ✓ Special Topic (Company Value) → San Francisco`)
+      return {
+        city: sfData.name,
+        country: sfData.country,
+        region: sfData.region,
+        coordinates: { lat: sfData.lat, lng: sfData.lng },
+        confidence: 'high',
+        extractedFrom: 'pattern',
+        matchedText: 'Company Value Context'
+      }
+    }
+  }
+
   const patternMatch = extractExplicitPattern(text)
   if (patternMatch) {
     console.log(`[Location] ✓ Pattern → ${patternMatch.matchedText}`)

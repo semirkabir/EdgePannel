@@ -25,7 +25,7 @@ export interface GeoJSONFeatureCollection {
 export function useEdgeData() {
   // 1. Fetch events from Polymarket (events contain their markets)
   const { events, markets: eventMarkets, isLoading: eventsLoading } = useEvents({
-    limit: 300,
+    limit: 1000,
     closed: false,
   });
 
@@ -37,23 +37,14 @@ export function useEdgeData() {
     // Prefer event markets (from Polymarket events API) as they have proper event grouping
     const marketsToUse = eventMarkets.length > 0 ? eventMarkets : (localMarkets || []);
 
-    // Filter for "Trending" markets (volume > 500)
-    const allTrending = marketsToUse.filter(m => (m.volume24h || 0) > 500);
+    // Filter for Active markets (Volume > 0)
+    const allSignificant = marketsToUse.filter((m: any) => (m.volume24h || 0) > 0);
 
-    // Get Top 500 from Polymarket (from events)
-    const polyMarkets = allTrending
-      .filter(m => m.platform === 'polymarket')
-      .sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
-      .slice(0, 500);
-
-    // Get Top 500 from Kalshi (from regular markets API)
-    const kalshiMarkets = (localMarkets || [])
-      .filter(m => m.platform === 'kalshi' && (m.volume24h || 0) > 500)
-      .sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
-      .slice(0, 500);
-
-    // Combine lists
-    const mixedMarkets = [...polyMarkets, ...kalshiMarkets];
+    // Get Top markets from combined pool by Volume
+    // We take up to 1000 total across platforms
+    const mixedMarkets = allSignificant
+      .sort((a: any, b: any) => (b.volume24h || 0) - (a.volume24h || 0))
+      .slice(0, 1000);
 
     // Enrich markets to ensure they have location data and grouping info
     const enrichedMarkets = enrichMarkets(mixedMarkets);
@@ -85,7 +76,7 @@ export function useEdgeData() {
   // 4. Setup WebSocket for live updates
   const marketIds = useMemo(() => {
     return marketFeatures
-      .slice(0, 500)
+      .slice(0, 1000)
       .map((f: any) => f.properties.market_id)
       .filter(Boolean);
   }, [marketFeatures]);

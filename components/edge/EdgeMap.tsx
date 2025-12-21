@@ -539,7 +539,7 @@ function InnerMap({
       );
     }
 
-    // Noise filter: Hide low liquidity markets (volume < $100)
+    // Noise filter: Hide low volume markets (Volume < $100)
     if (activeFilters.noiseFilter) {
       features = features.filter((f: any) => {
         const volume = f.properties.volume || f.properties.volume24h || 0;

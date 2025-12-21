@@ -182,6 +182,14 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
   }
 
   // 3. Topic-based overrides
+  if (searchText.includes('will be the biggest company') ||
+    searchText.includes('largest company') ||
+    searchText.includes('most valuable company') ||
+    searchText.includes('world\'s largest company') ||
+    searchText.includes('biggest market cap')) {
+    return { name: 'San Francisco', coordinates: LOCATION_COORDINATES['san francisco'] }
+  }
+
   // We can optimize this by checking for key tokens instead of regexes
   if (searchText.includes('musk') || searchText.includes('tesla') || searchText.includes('xai') || searchText.includes('cybertruck')) {
     return { name: 'Austin', coordinates: LOCATION_COORDINATES['austin'] }
@@ -502,10 +510,20 @@ export function groupMarketsByEvent(markets: EnrichedMarket[]): MarketGroup[] {
     groups.push({
       groupId: eventId,
       baseQuestion,
-      location: primaryMarket.location?.coordinates ? {
-        name: primaryMarket.location.city || primaryMarket.location.country || 'Unknown',
-        coordinates: primaryMarket.location.coordinates
-      } : undefined,
+      location: (() => {
+        const searchText = baseQuestion.toLowerCase();
+        if (searchText.includes('will be the biggest company') ||
+          searchText.includes('largest company') ||
+          searchText.includes('most valuable company') ||
+          searchText.includes('world\'s largest company') ||
+          searchText.includes('biggest market cap')) {
+          return { name: 'San Francisco', coordinates: LOCATION_COORDINATES['san francisco'] };
+        }
+        return primaryMarket.location?.coordinates ? {
+          name: primaryMarket.location.city || primaryMarket.location.country || 'Unknown',
+          coordinates: primaryMarket.location.coordinates
+        } : undefined;
+      })(),
       markets: eventMarkets,
       category: primaryMarket.category || 'Other',
       totalVolume,
