@@ -292,6 +292,7 @@ function InnerMap({
 
   // Interaction Handlers
   const handleInteractionStart = useCallback(() => {
+    console.log('[EdgeMap] Interaction started');
     setIsUserInteracting(true);
     if (rotationAnimationRef.current) {
       cancelAnimationFrame(rotationAnimationRef.current);
@@ -1177,6 +1178,7 @@ function InnerMap({
         {...viewState}
         cursor={cursor}
         onMove={evt => {
+          console.log('[EdgeMap] Map moved - zoom:', evt.viewState.zoom, 'lng:', evt.viewState.longitude);
           setViewState(evt.viewState);
         }}
         onMoveStart={handleInteractionStart}
@@ -1209,6 +1211,8 @@ function InnerMap({
         mapStyle={`https://api.maptiler.com/maps/darkmatter/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY || '35TZqSTSBjgDvsawKAK9'}`}
         attributionControl={false}
         interactiveLayerIds={interactiveIds}
+        scrollZoom={true}
+        boxZoom={true}
         touchZoomRotate={true}
         touchPitch={true}
         doubleClickZoom={true}
