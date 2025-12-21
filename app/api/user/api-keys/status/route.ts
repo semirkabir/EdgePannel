@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, withErrorHandler, validateQuery, ApiError } from '@/lib/api/middleware'
 import { ErrorCodes } from '@/lib/api/error-codes'

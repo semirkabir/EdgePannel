@@ -9,6 +9,23 @@
 
 import { Market } from '@/types/market'
 
+interface KalshiRawMarket {
+  ticker: string
+  title: string
+  status: string
+  last_price?: number
+  yes_bid?: number
+  yes_ask?: number
+  volume?: number
+  close_time?: string
+  expiration_time?: string
+  category?: string
+  series_ticker?: string
+  subtitle?: string
+  liquidity?: number
+  open_interest?: number
+}
+
 export class KalshiOptimizedClient {
   private baseUrl: string = 'https://api.elections.kalshi.com/trade-api/v2'
 
@@ -68,26 +85,13 @@ export class KalshiOptimizedClient {
         return { markets: [], hasMore: false, nextOffset: undefined }
       }
 
-      // Log sample market structure for debugging (matching Polymarket)
-      if (markets.length > 0) {
-        const sample = markets[0]
-        console.log('[Kalshi Optimized] Sample market structure:', {
-          ticker: sample.ticker?.substring(0, 50),
-          title: sample.title?.substring(0, 50),
-          status: sample.status,
-          last_price: sample.last_price,
-          volume: sample.volume,
-          close_time: sample.close_time,
-          category: sample.category,
-          allKeys: Object.keys(sample),
-        })
-      }
+
 
       const now = new Date()
 
       // Transform markets (matching Polymarket's filtering logic)
       const transformed = markets
-        .filter((m: any) => {
+        .filter((m: KalshiRawMarket) => {
           // Basic sanity checks: must have ticker and title
           if (!m || !m.ticker || !m.title) {
             return false
@@ -108,7 +112,7 @@ export class KalshiOptimizedClient {
 
           return true
         })
-        .map((m: any) => this.transformMarket(m))
+        .map((m: KalshiRawMarket) => this.transformMarket(m))
         .filter((m: Market | null) => {
           if (!m) {
             return false
@@ -160,9 +164,7 @@ export class KalshiOptimizedClient {
       const finalMarkets = filtered.slice(0, params?.limit || 500)
 
       console.log(`[Kalshi Optimized] Transformed and sorted ${finalMarkets.length} markets by volume (filtered from ${markets.length})`)
-      if (finalMarkets.length > 0) {
-        console.log(`[Kalshi Optimized] Top market: ${finalMarkets[0].title} (volume: ${finalMarkets[0].volume24h}, category: ${finalMarkets[0].category})`)
-      }
+
 
       // Determine if there are more results (matching Polymarket)
       const hasMore = filtered.length > finalMarkets.length
@@ -182,7 +184,7 @@ export class KalshiOptimizedClient {
   /**
    * Transform a single Kalshi market to app format (matching Polymarket structure)
    */
-  private transformMarket(market: any): Market | null {
+  private transformMarket(market: KalshiRawMarket): Market | null {
     const ticker = market.ticker
     if (!ticker || !market.title) {
       return null

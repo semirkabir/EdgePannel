@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
+
 import { prisma } from '@/lib/db/client'
 import { withAuth, withErrorHandler, validateQuery } from '@/lib/api/middleware'
 import { z } from 'zod'

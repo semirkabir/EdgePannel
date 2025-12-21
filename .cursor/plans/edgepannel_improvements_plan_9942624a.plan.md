@@ -1,0 +1,328 @@
+---
+name: EdgePannel Improvements Plan
+overview: Comprehensive improvements plan covering testing infrastructure, type safety, performance, monitoring, and developer experience enhancements for EdgePannel
+todos:
+  - id: testing-infrastructure
+    content: Set up Jest + React Testing Library + Playwright testing infrastructure with CI/CD pipeline
+    status: pending
+  - id: type-safety
+    content: Remove all `any` types, create proper Event/Market types, add type guards
+    status: pending
+  - id: performance-optimization
+    content: Memoize expensive transformations, add virtual scrolling, optimize globe rendering
+    status: pending
+  - id: code-deduplication
+    content: Create centralized market transformation utilities to eliminate duplication
+    status: pending
+  - id: error-boundaries
+    content: Add comprehensive error boundaries around all critical components and data-fetching hooks
+    status: pending
+  - id: api-documentation
+    content: Add JSDoc comments to all API routes and create OpenAPI specification
+    status: pending
+  - id: monitoring
+    content: Configure Sentry for production, add performance monitoring and custom metrics
+    status: pending
+  - id: caching-strategy
+    content: Evaluate and implement Redis for distributed caching with invalidation strategies
+    status: pending
+  - id: accessibility
+    content: Add ARIA labels, ensure keyboard navigation, test with screen readers
+    status: pending
+  - id: bundle-optimization
+    content: Analyze bundle size, remove unused dependencies, implement code splitting
+    status: pending
+---
+
+# EdgePannel Comprehensive Improvements Plan
+
+## Overview
+
+This plan outlines strategic improvements to enhance code quality, reliability, performance, and developer experience for EdgePannel. The improvements are organized by priority and impact.
+
+## Phase 1: Foundation & Quality (High Priority)
+
+### 1.1 Testing Infrastructure
+
+**Current State**: No test files exist (0 test files found)**Implementation**:
+
+- Set up Jest + React Testing Library for unit/integration tests
+- Add Playwright for E2E tests
+- Create test utilities and mocks
+- Add CI/CD test pipeline
+
+**Files to Create**:
+
+- `jest.config.js` - Jest configuration
+- `tests/setup.ts` - Test setup utilities
+- `tests/utils/test-utils.tsx` - React Testing Library helpers
+- `tests/mocks/` - API and service mocks
+- `playwright.config.ts` - E2E test configuration
+
+**Priority Tests**:
+
+- API route handlers (`app/api/markets/*`)
+- Market transformation utilities (`lib/markets/enrich.ts`)
+- Authentication flows
+- Critical user journeys (market search, portfolio view)
+
+**Impact**: Prevents regressions, enables confident refactoring, improves code quality---
+
+### 1.2 Type Safety Improvements
+
+**Current State**: 16+ `any` types in `MarketDetails.tsx`, many untyped API responses**Implementation**:
+
+- Create proper `Event` and `EventMarket` types in `types/market.ts`
+- Replace all `(market as any)` casts with type guards
+- Add discriminated unions for event vs market distinction
+- Type all API response interfaces
+- Enable stricter TypeScript settings
+
+**Files to Update**:
+
+- `types/market.ts` - Add missing interfaces
+- `components/panels/MarketDetails.tsx` - Remove all `any` types
+- `hooks/use-events.ts` - Properly type event transformations
+- `lib/api/*` - Type all API client responses
+
+**Impact**: Prevents runtime errors, improves IDE autocomplete, safer refactoring---
+
+### 1.3 Performance Optimizations
+
+**Current State**: Large data transformations not memoized, potential re-render issues**Implementation**:
+
+- Memoize expensive transformations in `hooks/use-events.ts`
+- Add `useDeferredValue` for non-critical updates
+- Implement virtual scrolling for large market lists
+- Optimize globe rendering with LOD (Level of Detail)
+- Add React.memo to expensive components
+
+**Files to Update**:
+
+- `hooks/use-events.ts` - Add useMemo for transformations
+- `components/edge/EdgeMap.tsx` - Optimize rendering
+- `components/panels/MarketDetails.tsx` - Memoize expensive computations
+
+**Impact**: Better UX with large datasets, smoother interactions---
+
+## Phase 2: Developer Experience & Maintainability (Medium Priority)
+
+### 2.1 Code Organization & Deduplication
+
+**Current State**: Market transformation logic duplicated across files**Implementation**:
+
+- Create centralized `lib/markets/transform.ts` utility
+- Extract common transformation patterns
+- Consolidate API client logic where possible
+- Create shared type definitions
+
+**Files to Create**:
+
+- `lib/markets/transform.ts` - Centralized transformation utilities
+- `lib/markets/normalize.ts` - Market normalization functions
+
+**Files to Update**:
+
+- `hooks/use-events.ts` - Use shared utilities
+- `lib/api/kalshi-optimized.ts` - Use shared utilities
+- `lib/api/polymarket-optimized.ts` - Use shared utilities
+
+**Impact**: Easier maintenance, consistent data structure, fewer bugs---
+
+### 2.2 Enhanced Error Handling
+
+**Current State**: Error boundaries exist but may not cover all critical paths**Implementation**:
+
+- Wrap `MarketDetails` component in error boundary
+- Add error boundaries around data-fetching hooks
+- Create specialized error boundaries for API failures
+- Improve error messages with actionable guidance
+
+**Files to Update**:
+
+- `components/panels/MarketDetails.tsx` - Wrap in error boundary
+- `components/edge/EdgeMap.tsx` - Add error boundary
+- `components/error-boundary.tsx` - Enhance with better UX
+
+**Impact**: Better user experience when errors occur, prevents full app crashes---
+
+### 2.3 API Documentation & Type Safety
+
+**Current State**: API routes lack comprehensive documentation**Implementation**:
+
+- Add JSDoc comments to all API route handlers
+- Create OpenAPI/Swagger specification
+- Generate TypeScript types from API schemas
+- Document request/response formats
+
+**Files to Create**:
+
+- `docs/API.md` - API documentation
+- `openapi.yaml` - OpenAPI specification
+
+**Files to Update**:
+
+- `app/api/**/*.ts` - Add JSDoc comments
+- `lib/api/response-types.ts` - Enhance with examples
+
+**Impact**: Better developer experience, easier integration, fewer API errors---
+
+## Phase 3: Monitoring & Observability (Medium Priority)
+
+### 3.1 Enhanced Monitoring
+
+**Current State**: Sentry integration exists but may not be fully configured**Implementation**:
+
+- Configure Sentry for production error tracking
+- Add performance monitoring (APM)
+- Set up custom metrics and dashboards
+- Add request tracing for API routes
+- Implement health check endpoints
+
+**Files to Create**:
+
+- `lib/monitoring/metrics.ts` - Custom metrics
+- `app/api/health/route.ts` - Health check endpoint
+
+**Files to Update**:
+
+- `next.config.js` - Configure Sentry
+- `lib/utils/logger.ts` - Enhance with metrics
+
+**Impact**: Better production visibility, faster issue detection---
+
+### 3.2 Caching Strategy Enhancement
+
+**Current State**: In-memory caching exists, but no Redis/distributed cache**Implementation**:
+
+- Evaluate Redis for distributed caching
+- Implement cache invalidation strategies
+- Add cache warming for frequently accessed data
+- Monitor cache hit rates
+
+**Files to Update**:
+
+- `lib/api/polymarket-optimized.ts` - Enhance caching
+- `lib/api/kalshi-optimized.ts` - Add caching layer
+
+**Impact**: Better performance, reduced API costs, improved scalability---
+
+## Phase 4: User Experience & Accessibility (Lower Priority)
+
+### 4.1 Accessibility Improvements
+
+**Current State**: No accessibility audit performed**Implementation**:
+
+- Add ARIA labels to interactive elements
+- Ensure keyboard navigation works
+- Test with screen readers
+- Add focus indicators
+- Run accessibility audit (axe-core)
+
+**Files to Update**:
+
+- `components/ui/*` - Add ARIA attributes
+- `app/page.tsx` - Improve semantic HTML
+- `components/edge/EdgeMap.tsx` - Add keyboard navigation
+
+**Impact**: Better accessibility, compliance, wider user base---
+
+### 4.2 Bundle Size Optimization
+
+**Current State**: Bundle size not analyzed**Implementation**:
+
+- Run bundle analyzer
+- Identify and remove unused dependencies
+- Implement code splitting for large components
+- Lazy load heavy dependencies
+
+**Files to Create**:
+
+- `scripts/analyze-bundle.js` - Bundle analysis script
+
+**Files to Update**:
+
+- `next.config.js` - Add bundle analyzer
+- Large components - Implement code splitting
+
+**Impact**: Faster page loads, better performance---
+
+## Phase 5: Advanced Features (Future)
+
+### 5.1 Pluggable Broker Architecture
+
+**Current State**: Architecture planned but not implemented**Implementation**:
+
+- Implement `Broker` interface as per `docs/ARCHITECTURE.md`
+- Create broker registry system
+- Refactor existing brokers to use new interface
+- Add support for new brokers (Cowswap, Augur, etc.)
+
+**Files to Create**:
+
+- `lib/brokers/types.ts` - Core interfaces
+- `lib/brokers/registry.ts` - Broker registry
+- `lib/brokers/base-broker.ts` - Abstract base class
+
+**Impact**: Easier to add new brokers, better code organization---
+
+### 5.2 Data Source Plugin System
+
+**Current State**: Planned but not implemented**Implementation**:
+
+- Implement `DataSource` interface
+- Create data source registry
+- Add weather data integration (NASA)
+- Add economic indicators
+
+**Files to Create**:
+
+- `lib/data-sources/types.ts` - Core interfaces
+- `lib/data-sources/registry.ts` - Data source registry
+- `lib/data-sources/nasa-weather.ts` - Weather integration
+
+**Impact**: Enhanced market intelligence, unique value proposition---
+
+## Quick Wins (Can Implement Immediately)
+
+1. **Remove Stale TODOs** (5 min)
+
+- Review and complete/remove TODOs in codebase
+
+2. **Console.log Cleanup** (1-2 hours)
+
+- Replace remaining console.logs with logger utility
+- Remove debug logs from production paths
+
+3. **Add Health Check Endpoint** (15 min)
+
+- Create `/api/health` endpoint for monitoring
+
+4. **TypeScript Strict Mode** (30 min)
+
+- Enable stricter TypeScript settings gradually
+
+---
+
+## Success Metrics
+
+- **Code Quality**: 
+- Test coverage > 80%
+- Zero `any` types in critical paths
+- All API routes documented
+- **Performance**:
+- Page load time < 2s
+- Bundle size < 500KB (gzipped)
+- Smooth 60fps globe rendering
+- **Reliability**:
+- Error rate < 0.1%
+- Uptime > 99.9%
+- All critical paths have error boundaries
+
+---
+
+## Implementation Timeline
+
+**Week 1-2**: Testing infrastructure + Type safety**Week 3-4**: Performance optimizations + Code deduplication**Week 5-6**: Monitoring + Caching enhancements**Week 7-8**: Accessibility + Bundle optimization**Ongoing**: Advanced features as per roadmap---
+
+## Notes

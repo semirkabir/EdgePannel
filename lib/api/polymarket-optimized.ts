@@ -47,6 +47,8 @@ interface GammaMarket {
   negRisk: boolean
   negRiskMarketId?: string
   negRiskRequestId?: string
+  image?: string
+  icon?: string
 }
 
 interface GammaEvent {
@@ -60,6 +62,10 @@ interface GammaEvent {
   category?: string
   volume: number
   liquidity: number
+  closed?: boolean
+  archived?: boolean
+  image?: string
+  icon?: string
 }
 
 export interface PolymarketComment {
@@ -628,8 +634,8 @@ export class PolymarketOptimizedClient {
         negRisk: market.negRisk,
         negRiskMarketId: market.negRiskMarketId,
         // Explicitly preserve image/icon if they exist
-        image: (market as any).image,
-        icon: (market as any).icon
+        image: market.image,
+        icon: market.icon
       }
     }
   }
@@ -665,7 +671,7 @@ export class PolymarketOptimizedClient {
       const batchMarkets: Market[] = []
 
       for (const event of events) {
-        if ((event as any).closed || (event as any).archived) continue
+        if (event.closed || event.archived) continue
 
         if (!event.markets || !Array.isArray(event.markets)) continue
 
@@ -684,7 +690,7 @@ export class PolymarketOptimizedClient {
               eventId: String(event.id),
               eventTitle: event.title,
               eventSlug: event.slug, // Use event slug for navigation if needed
-              eventImage: (event as any).image || (event as any).icon
+              eventImage: event.image || event.icon
             }
 
             // If the market title is generic (e.g. "Yes"), prepend Event Title?

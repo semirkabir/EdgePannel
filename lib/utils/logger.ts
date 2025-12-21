@@ -97,20 +97,26 @@ export const logger = new Logger()
 // Initialize error tracking if available (e.g., Sentry)
 if (typeof window === 'undefined' && process.env.SENTRY_DSN) {
   // Server-side error tracking
-  try {
-    // Standard dynamic import, but we wrap it to ensure it doesn't crash the build if resolution is tricky
-    import('@sentry/nextjs').then((Sentry) => {
+  // Use a function to defer the import evaluation until runtime
+  const initializeSentry = async () => {
+    try {
+      // Dynamic import that's only evaluated at runtime
+      const Sentry = await import('@sentry/nextjs')
       if (Sentry && Sentry.captureException) {
         logger.setErrorTracker((error, context) => {
           Sentry.captureException(error, { extra: context })
         })
         logger.info('Error tracking initialized (Sentry)')
       }
-    }).catch(() => {
+    } catch (error) {
       // Sentry not installed or failed to load, that's okay
-    })
-  } catch {
-    // Ignore
+      // Silently fail - error tracking is optional
+    }
   }
+  
+  // Initialize asynchronously without blocking
+  initializeSentry().catch(() => {
+    // Ignore initialization errors
+  })
 }
 

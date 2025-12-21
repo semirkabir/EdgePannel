@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from 'next/server'
 import { KalshiClient } from '@/lib/api/kalshi'
 import { PolymarketClient } from '@/lib/api/polymarket'

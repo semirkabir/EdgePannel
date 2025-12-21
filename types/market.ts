@@ -32,7 +32,34 @@ export interface Market {
   isBreakingNews?: boolean
   isLivePrediction?: boolean
   keywords?: string[]
+  updatedAt?: string
+  // Validation fields
+  isEvent?: boolean
+  eventId?: string
 }
+
+export interface MarketEvent {
+  id: string
+  title: string
+  description?: string
+  slug?: string
+  ticker?: string
+  platform: Platform
+  category?: string
+  tags?: any[]
+  markets: Market[]
+  volume24h?: number
+  liquidity?: number
+  startDate?: Date
+  endDate?: Date
+  imageUrl?: string
+  isEvent: true
+  updatedAt?: string
+  rawData?: any
+}
+
+// Union type for components that can handle either
+export type MarketOrEvent = Market | MarketEvent
 
 export interface MarketComparison {
   markets: Market[]

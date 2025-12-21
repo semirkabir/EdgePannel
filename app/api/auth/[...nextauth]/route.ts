@@ -3,6 +3,8 @@ import { authOptions } from "@/lib/auth"
 import { rateLimit } from "@/lib/api/middleware"
 import { NextRequest, NextResponse } from "next/server"
 
+export const dynamic = 'force-dynamic'
+
 const handler = NextAuth(authOptions)
 
 // Rate limiting wrapper for NextAuth
@@ -13,9 +15,9 @@ async function rateLimitedHandler(
   context: { params: { nextauth: string[] } }
 ) {
   // Only rate limit on signin attempts (not callbacks, etc.)
-  const isSignIn = request.url.includes('/signin') || 
-                   request.method === 'POST' && 
-                   (await request.clone().json().catch(() => ({}))).email
+  const isSignIn = request.url.includes('/signin') ||
+    request.method === 'POST' &&
+    (await request.clone().json().catch(() => ({}))).email
 
   if (isSignIn) {
     // Get client identifier for rate limiting

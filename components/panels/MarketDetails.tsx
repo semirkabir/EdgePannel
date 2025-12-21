@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Image from 'next/image'
 
-import { MarketDetails as MarketDetailsType, Candlestick } from '@/types/market'
+import { MarketDetails as MarketDetailsType, Candlestick, MarketOrEvent, MarketEvent, Market } from '@/types/market'
 import { Button } from '@/components/ui/button'
 import { MarketChart } from '@/components/charts/MarketChart'
 import { CandlestickChart } from '@/components/charts/CandlestickChart'
@@ -31,19 +31,24 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 }
 
 interface MarketDetailsProps {
-  market: MarketDetailsType | any | null // Can be a market or an event object
+  market: MarketOrEvent | null
   onClose: () => void
+}
+
+// Type guard
+function isMarketEvent(item: MarketOrEvent | null): item is MarketEvent {
+  return !!item && 'isEvent' in item && item.isEvent === true && 'markets' in item && Array.isArray((item as MarketEvent).markets)
 }
 
 export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   // Check if market is actually an event (has markets array)
-  const isEvent = market && (market as any).isEvent === true && Array.isArray((market as any).markets)
+  const isEvent = isMarketEvent(market)
 
   // Cache the market/event so we can display it while the panel is animating out
   const [activeMarket, setActiveMarket] = useState<MarketDetailsType | null>(
     isEvent ? null : (market as MarketDetailsType | null)
   )
-  const [activeEvent, setActiveEvent] = useState<any>(isEvent ? market : null)
+  const [activeEvent, setActiveEvent] = useState<MarketEvent | null>(isEvent ? (market as MarketEvent) : null)
   const [timeRange, setTimeRange] = useState('1W')
   const [chartType, setChartType] = useState<'line' | 'candle'>('line')
   const [candlesticks, setCandlesticks] = useState<Candlestick[]>([])
@@ -88,30 +93,29 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
   useEffect(() => {
     if (market) {
-      const isEventData = (market as any).isEvent === true && Array.isArray((market as any).markets)
-      if (isEventData) {
+      if (isMarketEvent(market)) {
         setActiveEvent(market)
         // Set the first market as active by default
-        const firstMarket = (market as any).markets[0]
+        const firstMarket = market.markets[0]
         if (firstMarket) {
           // Preserve more data from the original market object
-          const fullMarket = {
-            id: firstMarket.id,
-            title: firstMarket.title,
+          const fullMarket: MarketDetailsType = {
+            ...firstMarket,
             description: firstMarket.description || '',
-            platform: (market as any).platform,
+            platform: market.platform || firstMarket.platform,
+            // Fallback values
             volume24h: firstMarket.volume24h || 0,
             price: firstMarket.price || 0,
-            probability: firstMarket.price || 0,
+            probability: firstMarket.probability || firstMarket.price || 0,
             slug: firstMarket.slug || firstMarket.id,
             ticker: firstMarket.ticker || '',
-            category: (market as any).category,
-            imageUrl: firstMarket.imageUrl,
-            endDate: firstMarket.endDate ? (typeof firstMarket.endDate === 'string' ? new Date(firstMarket.endDate) : firstMarket.endDate) : undefined,
-            rawData: firstMarket.rawData || {},
-            tags: firstMarket.tags || firstMarket.rawData?.tags || (market as any).tags || [],
-          }
-          setActiveMarket(fullMarket as MarketDetailsType)
+            category: market.category || firstMarket.category,
+            imageUrl: firstMarket.imageUrl || market.imageUrl,
+            tags: firstMarket.tags || market.tags || [],
+            rawData: firstMarket.rawData || market.rawData || {},
+          } as MarketDetailsType
+
+          setActiveMarket(fullMarket)
         } else {
           setActiveMarket(null)
         }
@@ -227,7 +231,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchHistory()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.slug, timeRange, JSON.stringify(activeMarket?.rawData?.clobTokenIds)])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.slug, timeRange, activeMarket?.rawData?.clobTokenIds])
 
 
   // Fetch candlestick data
@@ -282,7 +286,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchCandlesticks()
-  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform, timeRange])
+  }, [activeMarket, timeRange])
 
 
   // Fetch event details with articles
@@ -317,7 +321,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchEventDetails()
-  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform])
+  }, [activeMarket])
 
 
   // Fetch Polymarket comments
@@ -370,7 +374,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchComments()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.slug, activeMarket?.rawData?.numericId])
+  }, [activeMarket])
 
 
   // Fetch related markets from the same event (only for non-event markets)
@@ -456,7 +460,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchRelatedMarkets()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.events, activeEvent?.id])
+  }, [activeMarket, activeEvent])
 
 
   // Fetch related markets by tags
@@ -578,7 +582,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchRelatedByTags()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.category, JSON.stringify(activeMarket?.tags), JSON.stringify(activeMarket?.rawData?.tags)])
+  }, [activeMarket])
 
 
   // Fetch top holders for Polymarket markets
@@ -615,7 +619,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchTopHolders()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.conditionId])
+  }, [activeMarket])
 
 
   // Get articles from event data or use mock tweets
@@ -647,7 +651,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         title: activeEvent.title,
         marketsCount: activeEvent.markets?.length || 0,
         hasMarkets: Array.isArray(activeEvent.markets),
-        markets: activeEvent.markets?.map((m: any) => ({
+        markets: activeEvent.markets?.map((m) => ({
           id: m.id,
           title: m.title,
           price: m.price,
@@ -683,8 +687,8 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               {category}
             </span>
           )}
-          {(activeMarket as any)?.updatedAt && (
-            <LatencyTag updatedAt={(activeMarket as any).updatedAt} size="sm" />
+          {activeMarket?.updatedAt && (
+            <LatencyTag updatedAt={activeMarket.updatedAt} size="sm" />
           )}
           {activeEvent && activeEvent.markets && (
             <span className="text-[10px] text-gray-400">
@@ -748,7 +752,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             {/* Right: Compact Market Image */}
             <div className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-700/50 shadow-lg relative">
               <Image
-                src={activeMarket.imageUrl || (activeMarket as any).image || activeMarket.rawData?.image || activeMarket.rawData?.icon || activeMarket.rawData?.eventImage}
+                src={activeMarket.imageUrl || activeMarket.rawData?.image || activeMarket.rawData?.icon || activeMarket.rawData?.eventImage || '/placeholder.png'}
                 alt={activeMarket.title}
                 fill
                 className="object-cover"

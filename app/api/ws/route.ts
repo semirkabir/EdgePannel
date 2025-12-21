@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest } from 'next/server'
 
 // WebSocket route handler for Next.js

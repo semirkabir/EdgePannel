@@ -1,0 +1,56 @@
+
+openapi: 3.0.0
+info:
+  title: EdgePannel API
+  description: Aggregated Prediction Markets Data API
+  version: 1.0.0
+servers:
+  - url: https://edgepannel.com/api
+paths:
+  /markets:
+    get:
+      summary: List markets
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: platform
+          in: query
+          schema:
+            type: string
+            enum: [polymarket, kalshi]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  markets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Market'
+components:
+  schemas:
+    Market:
+      type: object
+      properties:
+        id:
+          type: string
+        platform:
+          type: string
+          enum: [polymarket, kalshi]
+        title:
+          type: string
+        price:
+          type: number
+        volume24h:
+          type: number

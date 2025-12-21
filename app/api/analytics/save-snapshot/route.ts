@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/client'
 import { withAuth, withErrorHandler, validateBody, validateQuery } from '@/lib/api/middleware'

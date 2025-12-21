@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, withErrorHandler, validateBody, ApiError } from '@/lib/api/middleware'
 import { ApiKeySchema } from '@/lib/api/schemas'

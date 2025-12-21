@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from 'next/server'
 import { KalshiClient } from '@/lib/api/kalshi'
 import { withAuth, withErrorHandler, ApiError } from '@/lib/api/middleware'

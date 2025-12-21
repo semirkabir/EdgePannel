@@ -31,6 +31,7 @@ export default function AdminDashboard() {
     const [isIndexing, setIsIndexing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [indexResponse, setIndexResponse] = useState<any>(null)
+    const [currentTime, setCurrentTime] = useState('')
 
     const fetchStats = async () => {
         try {
@@ -50,6 +51,18 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         fetchStats()
+    }, [])
+
+    useEffect(() => {
+        // Set initial time on client side only
+        setCurrentTime(new Date().toLocaleTimeString())
+        
+        // Update time every second
+        const interval = setInterval(() => {
+            setCurrentTime(new Date().toLocaleTimeString())
+        }, 1000)
+        
+        return () => clearInterval(interval)
     }, [])
 
     const runIndex = async (platforms: string[] = ['polymarket', 'kalshi']) => {
@@ -355,14 +368,14 @@ export default function AdminDashboard() {
                             <div className="bg-black/40 border border-white/10 p-6 font-mono">
                                 <h3 className="text-xs font-black text-white/40 uppercase mb-4 tracking-tighter">System_Log_Output</h3>
                                 <div className="h-[250px] overflow-y-auto space-y-2 bg-black/60 p-4 border border-white/5 text-[10px]">
-                                    <div className="text-white/40">[{new Date().toLocaleTimeString()}] ADMIN_AUTH_GRANTED // ID: {Math.random().toString(36).substr(2, 9)}</div>
-                                    <div className="text-[#00ff7f]">[{new Date().toLocaleTimeString()}] STATUS: READY_FOR_COMMAND</div>
+                                    <div className="text-white/40">[{currentTime || '--:--:--'}] ADMIN_AUTH_GRANTED // ID: {Math.random().toString(36).substr(2, 9)}</div>
+                                    <div className="text-[#00ff7f]">[{currentTime || '--:--:--'}] STATUS: READY_FOR_COMMAND</div>
                                     {isIndexing && (
-                                        <div className="text-yellow-400 animate-pulse">[{new Date().toLocaleTimeString()}] PROCESS: Indexing_Job_Started... (Limit: 500)</div>
+                                        <div className="text-yellow-400 animate-pulse">[{currentTime || '--:--:--'}] PROCESS: Indexing_Job_Started... (Limit: 500)</div>
                                     )}
                                     {indexResponse && (
                                         <div className="space-y-1">
-                                            <div className="text-[#00ff7f]">[{new Date().toLocaleTimeString()}] COMPLETED: {indexResponse.message}</div>
+                                            <div className="text-[#00ff7f]">[{currentTime || '--:--:--'}] COMPLETED: {indexResponse.message}</div>
                                             <div className="text-white/30 pl-4 transition-all">
                                                 &gt; Polymarket: {indexResponse.stats.polymarket.indexed} indexed, {indexResponse.stats.polymarket.errors} errors<br />
                                                 &gt; Kalshi: {indexResponse.stats.kalshi.indexed} indexed, {indexResponse.stats.kalshi.errors} errors

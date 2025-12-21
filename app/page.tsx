@@ -174,6 +174,7 @@ export default function LandingPage() {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [currentTime, setCurrentTime] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
@@ -181,6 +182,15 @@ export default function LandingPage() {
 
   useEffect(() => {
     setMounted(true)
+    // Set initial time on client side only
+    setCurrentTime(new Date().toLocaleTimeString())
+    
+    // Update time every second
+    const interval = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString())
+    }, 1000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -485,7 +495,7 @@ export default function LandingPage() {
                         setShowSearch(true)
                         setTimeout(() => searchInputRef.current?.focus(), 0)
                       }}>
-                        [{new Date().toLocaleTimeString()}] Ready for input | Press &apos;/&apos; to search or &apos;ESC&apos; to close
+                        [{currentTime || '--:--:--'}] Ready for input | Press &apos;/&apos; to search or &apos;ESC&apos; to close
                       </div>
 
                       {topMarkets.length > 0 && (

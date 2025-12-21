@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect, memo, useDeferredValue } from 'react';
 import Image from 'next/image';
 import Map, { Source, Layer, Popup, NavigationControl, FullscreenControl, MapLayerMouseEvent } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
@@ -94,16 +94,24 @@ function InnerMap({
   showGrid?: boolean;
 }) {
 
-  const [viewState, setViewState] = useState({
+  // Uncontrolled map state initialization
+  const initialViewState = useMemo(() => ({
     longitude: 0,
     latitude: projection === 'mercator' ? 20 : 0,
     zoom: 2.5,
     pitch: 0,
     bearing: 0
-  });
+  }), [projection]);
 
-  const [isUserInteracting, setIsUserInteracting] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
+  // We don't track viewState in React state anymore to avoid re-render loops and interaction lag
+  // const [viewState, setViewState] = useState({...});
+
+  // Interaction state refs (no re-renders)
+  const isUserInteractingRef = useRef(false);
+  const isHoveringRef = useRef(false);
+  // const [isHovering, setIsHovering] = useState(false); // Removed state
+  // const [isUserInteracting, setIsUserInteracting] = useState(false); // Removed state
+
   const interactionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rotationAnimationRef = useRef<number | null>(null);
   const mapRef = useRef<MapRef>(null);
@@ -112,15 +120,8 @@ function InnerMap({
   const prevIsZoomedRef = useRef<boolean>(false);
   const lastIsZoomedInRef = useRef<boolean>(false);
 
-  // Debug interaction state
-  useEffect(() => {
-    console.log('[DEBUG] Interaction State:', {
-      isPlaying,
-      isUserInteracting,
-      isHovering,
-      zoom: viewState.zoom
-    });
-  }, [isPlaying, isUserInteracting, isHovering, viewState.zoom]);
+  // Debug interaction state removed
+
 
   // Toggle label visibility
   useEffect(() => {
@@ -149,6 +150,8 @@ function InnerMap({
   }, [showLabels, isStyleLoaded]);
 
 
+
+
   // Helper to safely get map instance and check if style is loaded
   const getMapIfReady = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -169,48 +172,17 @@ function InnerMap({
   // Track previous zoom state for hysteresis using a ref to avoid re-render loops
   const wasZoomedInRef = useRef(false);
 
+  // Ref to track dragging state immediately (for animation loop)
+  const isDraggingRef = useRef(false);
+
   // Reset zoom state when projection changes
   useEffect(() => {
     wasZoomedInRef.current = false;
   }, [projection]);
 
-  useEffect(() => {
-    const zoomThresholdIn = DEFAULT_ZOOM + ZOOM_THRESHOLD + ZOOM_HYSTERESIS;
-    const zoomThresholdOut = DEFAULT_ZOOM + ZOOM_THRESHOLD - ZOOM_HYSTERESIS;
 
-    const isZoomed = wasZoomedInRef.current
-      ? viewState.zoom > zoomThresholdOut
-      : viewState.zoom > zoomThresholdIn;
 
-    if (isZoomed !== wasZoomedInRef.current) {
-      wasZoomedInRef.current = isZoomed;
-    }
 
-    // Capture current values for the closure
-    const currentZoom = viewState.zoom;
-    const currentLng = viewState.longitude;
-    const currentLat = viewState.latitude;
-
-    // View modified logic (Zoomed or Panned)
-    const isPanned = (
-      Math.abs(currentLng - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
-      Math.abs(currentLat - DEFAULT_LATITUDE) > PAN_THRESHOLD
-    );
-    const isViewModified = isZoomed || isPanned;
-
-    // Only notify parent when values actually change
-    // and use a small timeout or guard to prevent rapid firing during interaction
-    if (onZoomChange && isZoomed !== prevIsZoomedRef.current) {
-      prevIsZoomedRef.current = isZoomed;
-      onZoomChange(isZoomed);
-    }
-
-    if (onViewChange && isViewModified !== prevViewModifiedRef.current) {
-      prevViewModifiedRef.current = isViewModified;
-      onViewChange(isViewModified);
-    }
-
-  }, [viewState.zoom, viewState.longitude, viewState.latitude, projection, onZoomChange, onViewChange, DEFAULT_ZOOM, ZOOM_THRESHOLD, ZOOM_HYSTERESIS, DEFAULT_LONGITUDE, DEFAULT_LATITUDE, PAN_THRESHOLD]);
 
   // Handle reset zoom request
   useEffect(() => {
@@ -228,10 +200,10 @@ function InnerMap({
     }
   }, [shouldResetZoom, projection, getMapIfReady, isStyleLoaded]);
 
-  // Auto-rotate globe - stops on interaction and only resumes when user clicks play
+  // Auto-rotate globe using imperative API
   useEffect(() => {
-    // Return early if paused or user is interacting
-    if (!isPlaying || isUserInteracting) {
+    // Return early if paused
+    if (!isPlaying) {
       if (rotationAnimationRef.current) {
         cancelAnimationFrame(rotationAnimationRef.current);
         rotationAnimationRef.current = null;
@@ -239,28 +211,37 @@ function InnerMap({
       return;
     }
 
+    // We don't check isUserInteractingRef here for early return because
+    // we want the loop to start/run, but just skip updates if interacting.
+    // This avoids needing to restart the loop on interaction end.
+
     let lastTime = performance.now();
-    const rotationSpeedVal = rotationSpeed || 0.15;
+    const rotationSpeedVal = rotationSpeed ?? 0.15;
 
     const rotate = (currentTime: number) => {
-      // Pause if:
-      // 1. User is interacting (dragging/zooming) - rotation stops and won't resume until user clicks play
-      // 2. A market is selected (we are focused on it) - rotation stops
-      // 3. Pause on Hover is enabled AND mouse is hovering
-      const shouldPause = isUserInteracting || !!selectedMarket || (pauseOnHover && isHovering);
-
-      if (!isPlaying || shouldPause) {
-        rotationAnimationRef.current = null;
-        return;
-      }
+      const map = mapRef.current?.getMap();
 
       const deltaTime = currentTime - lastTime;
       lastTime = currentTime;
 
-      setViewState(prev => ({
-        ...prev,
-        longitude: (prev.longitude + rotationSpeedVal * (deltaTime / 16.67)) % 360,
-      }));
+      if (!map) {
+        rotationAnimationRef.current = requestAnimationFrame(rotate);
+        return;
+      }
+
+      // Pause checks
+      const shouldPause = isUserInteractingRef.current || !!selectedMarket || (pauseOnHover && isHoveringRef.current) || isDraggingRef.current;
+
+      if (isPlaying && !shouldPause) {
+        const currentLng = map.getCenter().lng;
+        // deltaTime / 16.67 normalized to 60fps
+        const newLng = currentLng + rotationSpeedVal * (deltaTime / 16.67);
+
+        // Use jumpTo for smooth frame-by-frame updates without inertia
+        map.jumpTo({
+          center: [newLng, map.getCenter().lat]
+        });
+      }
 
       rotationAnimationRef.current = requestAnimationFrame(rotate);
     };
@@ -273,7 +254,7 @@ function InnerMap({
         rotationAnimationRef.current = null;
       }
     };
-  }, [isPlaying, isUserInteracting, isHovering, pauseOnHover, rotationSpeed, selectedMarket]);
+  }, [isPlaying, pauseOnHover, rotationSpeed, selectedMarket, projection]);
 
   // Track when selection changes to prevent immediate closure during fly-in
   const lastSelectionTimeRef = useRef(0);
@@ -288,39 +269,35 @@ function InnerMap({
 
 
   // Interaction Handlers
-  const handleInteractionStart = useCallback(() => {
-    setIsUserInteracting(true);
-    if (rotationAnimationRef.current) {
-      cancelAnimationFrame(rotationAnimationRef.current);
-      rotationAnimationRef.current = null;
-    }
+  const handleInteractionStart = useCallback((e?: any) => {
+    // console.log('[DEBUG] Interaction START', e?.type);
+    isUserInteractingRef.current = true; // Use ref instead of state to avoid re-renders
     if (interactionTimeoutRef.current) {
       clearTimeout(interactionTimeoutRef.current);
       interactionTimeoutRef.current = null;
     }
   }, []);
 
-  const handleInteractionEnd = useCallback(() => {
+  const handleInteractionEnd = useCallback((e?: any) => {
+    // console.log('[DEBUG] Interaction END', e?.type);
     if (interactionTimeoutRef.current) {
       clearTimeout(interactionTimeoutRef.current);
     }
     interactionTimeoutRef.current = setTimeout(() => {
-      setIsUserInteracting(false);
+      // console.log('[DEBUG] Setting isUserInteractingRef = false');
+      isUserInteractingRef.current = false;
     }, 1000);
   }, []);
 
   const [cursor, setCursor] = useState<string>('grab');
-  const isDraggingRef = useRef(false);
+  // isDraggingRef is now defined above for access in effects
 
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = useCallback((e?: any) => {
+    // console.log('[DEBUG] Drag START', e?.type);
     isDraggingRef.current = true;
     setCursor('grabbing');
-    // Immediately cancel rotation and mark as interacting
-    setIsUserInteracting(true);
-    if (rotationAnimationRef.current) {
-      cancelAnimationFrame(rotationAnimationRef.current);
-      rotationAnimationRef.current = null;
-    }
+    // Immediately mark as interacting
+    isUserInteractingRef.current = true;
     if (interactionTimeoutRef.current) {
       clearTimeout(interactionTimeoutRef.current);
       interactionTimeoutRef.current = null;
@@ -357,6 +334,7 @@ function InnerMap({
   }, []);
 
   const onHover = useCallback((event: MapLayerMouseEvent) => {
+    if (isDraggingRef.current) return;
     const feature = event.features && event.features[0];
 
     setHoverInfo(
@@ -368,7 +346,7 @@ function InnerMap({
         }
         : null
     );
-    setIsHovering(!!feature);
+    isHoveringRef.current = !!feature;
     if (!isDraggingRef.current) {
       setCursor(feature ? 'pointer' : 'grab');
     }
@@ -1111,10 +1089,12 @@ function InnerMap({
 
       // Reset viewState to appropriate values for the new projection
       // Use flyTo for smooth transition
+      const currentLng = map.getCenter().lng;
+
       if (projection === 'globe') {
         // For globe: reset to world view
         map.flyTo({
-          center: [viewState.longitude, 0],
+          center: [currentLng, 0],
           zoom: 2.5,
           pitch: 0,
           bearing: 0,
@@ -1123,7 +1103,7 @@ function InnerMap({
       } else {
         // For mercator: reset to slightly higher latitude
         map.flyTo({
-          center: [viewState.longitude, 20],
+          center: [currentLng, 20],
           zoom: 2.5,
           pitch: 0,
           bearing: 0,
@@ -1200,13 +1180,43 @@ function InnerMap({
     >
       <Map
         ref={mapRef}
-        {...viewState}
+        initialViewState={initialViewState}
         cursor={cursor}
         onMove={evt => {
-          setViewState(evt.viewState);
+          // Call the check logic directly inside onMove since we don't have viewState tracking anymore
+          const currentZoom = evt.viewState.zoom;
+          const currentLng = evt.viewState.longitude;
+          const currentLat = evt.viewState.latitude;
+
+          const zoomThresholdIn = DEFAULT_ZOOM + ZOOM_THRESHOLD + ZOOM_HYSTERESIS;
+          const zoomThresholdOut = DEFAULT_ZOOM + ZOOM_THRESHOLD - ZOOM_HYSTERESIS;
+
+          const isZoomed = wasZoomedInRef.current
+            ? currentZoom > zoomThresholdOut
+            : currentZoom > zoomThresholdIn;
+
+          if (isZoomed !== wasZoomedInRef.current) {
+            wasZoomedInRef.current = isZoomed;
+          }
+
+          // View modified logic (Zoomed or Panned)
+          const isPanned = (
+            Math.abs(currentLng - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
+            Math.abs(currentLat - DEFAULT_LATITUDE) > PAN_THRESHOLD
+          );
+          const isViewModified = isZoomed || isPanned;
+
+          // Only notify parent when values actually change
+          if (onZoomChange && isZoomed !== prevIsZoomedRef.current) {
+            prevIsZoomedRef.current = isZoomed;
+            onZoomChange(isZoomed);
+          }
+
+          if (onViewChange && isViewModified !== prevViewModifiedRef.current) {
+            prevViewModifiedRef.current = isViewModified;
+            onViewChange(isViewModified);
+          }
         }}
-        onMoveStart={handleInteractionStart}
-        onMoveEnd={handleInteractionEnd}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDrag={handleInteractionStart}
@@ -1355,6 +1365,8 @@ function InnerMap({
   );
 }
 
+const MemoInnerMap = memo(InnerMap);
+
 export function EdgeMap({
   activeFilters,
   searchQuery = '',
@@ -1410,11 +1422,13 @@ export function EdgeMap({
     setMounted(true);
   }, []);
 
+  const deferredMarkets = useDeferredValue(displayMarkets);
+
   if (!mounted) return null;
 
   return (
-    <InnerMap
-      markets={displayMarkets}
+    <MemoInnerMap
+      markets={deferredMarkets}
       rawMarkets={rawMarkets}
       tweets={tweets}
       activeFilters={activeFilters}

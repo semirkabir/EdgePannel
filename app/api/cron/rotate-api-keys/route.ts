@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from 'next/server'
 import { getKeysNeedingReminders, getExpiredKeys, deactivateExpiredKeys, markReminderSent } from '@/lib/api-key/rotation'
 import { logger } from '@/lib/utils/logger'
