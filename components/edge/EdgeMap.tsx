@@ -108,6 +108,8 @@ function InnerMap({
   const rotationAnimationRef = useRef<number | null>(null);
   const mapRef = useRef<MapRef>(null);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+  const prevViewModifiedRef = useRef<boolean>(false);
+  const prevIsZoomedRef = useRef<boolean>(false);
 
   // Toggle label visibility
   useEffect(() => {
@@ -162,35 +164,56 @@ function InnerMap({
   }, [projection]);
 
   useEffect(() => {
-    // Apply hysteresis: when zoomed, need to zoom out below threshold - hysteresis
-    // When not zoomed, need to zoom in above threshold + hysteresis
+    // Only check zoom state - don't track pan during every frame
+    // This prevents callbacks from firing repeatedly during drag/rotation
     const zoomThresholdIn = DEFAULT_ZOOM + ZOOM_THRESHOLD + ZOOM_HYSTERESIS;
     const zoomThresholdOut = DEFAULT_ZOOM + ZOOM_THRESHOLD - ZOOM_HYSTERESIS;
 
     let isZoomed: boolean;
     if (wasZoomedIn) {
-      // Already zoomed: need to zoom out below lower threshold to un-zoom
       isZoomed = viewState.zoom > zoomThresholdOut;
     } else {
-      // Not zoomed: need to zoom in above higher threshold to zoom
       isZoomed = viewState.zoom > zoomThresholdIn;
     }
 
-    // Update the tracking state
     setWasZoomedIn(isZoomed);
 
-    const isPanned = Math.abs(viewState.longitude - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
-      Math.abs(viewState.latitude - DEFAULT_LATITUDE) > PAN_THRESHOLD;
-    const isViewModified = isZoomed || isPanned;
-
-    if (onZoomChange) {
+    // Only call onZoomChange if zoom state actually changed
+    if (onZoomChange && isZoomed !== prevIsZoomedRef.current) {
+      prevIsZoomedRef.current = isZoomed;
       onZoomChange(isZoomed);
     }
-    if (onViewChange) {
+  }, [viewState.zoom, DEFAULT_ZOOM, ZOOM_THRESHOLD, ZOOM_HYSTERESIS, wasZoomedIn, onZoomChange]);
+
+
+  // Track view modifications only when user stops interacting
+  // This prevents callbacks from firing every frame during rotation/pan
+  useEffect(() => {
+    if (isUserInteracting) return;
+
+    const DEFAULT_LONGITUDE = 0;
+    const DEFAULT_LATITUDE = projection === 'mercator' ? 20 : 0;
+    const PAN_THRESHOLD = 10;
+
+    const zoomThresholdIn = DEFAULT_ZOOM + ZOOM_THRESHOLD + ZOOM_HYSTERESIS;
+    const zoomThresholdOut = DEFAULT_ZOOM + ZOOM_THRESHOLD - ZOOM_HYSTERESIS;
+
+    let isZoomed = wasZoomedIn
+      ? viewState.zoom > zoomThresholdOut
+      : viewState.zoom > zoomThresholdIn;
+
+    const isPanned = (
+      Math.abs(viewState.longitude - DEFAULT_LONGITUDE) > PAN_THRESHOLD ||
+      Math.abs(viewState.latitude - DEFAULT_LATITUDE) > PAN_THRESHOLD
+    );
+
+    const isViewModified = isZoomed || isPanned;
+
+    if (onViewChange && isViewModified !== prevViewModifiedRef.current) {
+      prevViewModifiedRef.current = isViewModified;
       onViewChange(isViewModified);
     }
-  }, [viewState.zoom, viewState.longitude, viewState.latitude, onZoomChange, onViewChange, DEFAULT_LATITUDE, DEFAULT_LONGITUDE, DEFAULT_ZOOM, PAN_THRESHOLD, ZOOM_THRESHOLD, wasZoomedIn, ZOOM_HYSTERESIS]);
-
+  }, [isUserInteracting, viewState.zoom, viewState.longitude, viewState.latitude, projection, onViewChange, wasZoomedIn, DEFAULT_ZOOM, ZOOM_THRESHOLD, ZOOM_HYSTERESIS]);
 
   // Handle reset zoom request
   useEffect(() => {
@@ -268,12 +291,7 @@ function InnerMap({
 
 
   // Interaction Handlers
-  const handleInteractionStart = useCallback((e?: any) => {
-    // If event is provided and has no originalEvent, it's likely programmatic (flyTo) - ignore
-    if (e && typeof e === 'object' && 'originalEvent' in e && !e.originalEvent) {
-      return;
-    }
-
+  const handleInteractionStart = useCallback(() => {
     setIsUserInteracting(true);
     if (rotationAnimationRef.current) {
       cancelAnimationFrame(rotationAnimationRef.current);
@@ -291,9 +309,7 @@ function InnerMap({
     }
     interactionTimeoutRef.current = setTimeout(() => {
       setIsUserInteracting(false);
-      // Stop rotation when user finishes interacting
-      // They must click play button to resume rotation
-    }, 3000);
+    }, 1000);
   }, []);
 
   const [cursor, setCursor] = useState<string>('grab');
@@ -334,6 +350,7 @@ function InnerMap({
   const [selectedFeature, setSelectedFeature] = useState<any | null>(null);
   const [countryBorders, setCountryBorders] = useState<any>(null);
 
+
   useEffect(() => {
     loadGeoJSON().then(data => {
       setCountryBorders(data);
@@ -354,6 +371,7 @@ function InnerMap({
         }
         : null
     );
+    setIsHovering(!!feature);
     if (!isDraggingRef.current) {
       setCursor(feature ? 'pointer' : 'grab');
     }
@@ -1175,8 +1193,8 @@ function InnerMap({
         onRotateEnd={handleInteractionEnd}
         onPitchStart={handleInteractionStart}
         onPitchEnd={handleInteractionEnd}
-        onMouseDown={(e) => {
-          handleInteractionStart(e);
+        onMouseDown={() => {
+          handleInteractionStart();
         }}
         onTouchStart={handleInteractionStart}
         onMouseMove={onHover}
@@ -1197,7 +1215,8 @@ function InnerMap({
         touchZoomRotate={true}
         touchPitch={true}
         doubleClickZoom={true}
-        dragRotate={false}
+        dragPan={true}
+        dragRotate={true}
       >
         <NavigationControl position="bottom-right" />
         <FullscreenControl position="bottom-right" />

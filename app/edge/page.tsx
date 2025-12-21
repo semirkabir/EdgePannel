@@ -84,12 +84,14 @@ export default function EdgePage() {
     setShouldResetZoom(true);
     setSelectedMarket(null);
     setSelectedCountry(null);
+    // Immediately clear the view modified state so reset button disappears
+    // The shouldResetZoom flag will be cleared after animation completes
+    setIsZoomedIn(false);
+    setIsViewModified(false);
     // Reset the trigger after the animation completes (1000ms + buffer)
     // Must wait for flyTo animation to complete before clearing the trigger
     setTimeout(() => {
       setShouldResetZoom(false);
-      setIsZoomedIn(false);
-      setIsViewModified(false);
     }, 1100);
   };
 
@@ -434,13 +436,13 @@ export default function EdgePage() {
   ]);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-gray-950 touch-pan-y touch-pan-x">
+    <div className="relative w-screen h-screen overflow-hidden bg-gray-950 touch-none">
       {/* Starfield background - only in globe mode */}
       {viewMode === 'globe' && <Starfield starCount={300} />}
 
       {/* Map/Globe View */}
       {viewMode !== 'insights' && (
-        <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
+        <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 10 }}>
           <EdgeMap
             activeFilters={activeFilters}
             searchQuery={searchQuery}
@@ -466,41 +468,43 @@ export default function EdgePage() {
           <InsightsDashboard onMarketSelect={handleMarketClick} />
         </div>
       )}
-      <EdgeUI
-        onSearch={handleSearch}
-        onUrlSearch={handleUrlSearch}
-        onFilterChange={handleFilterChange}
-        activeFilters={activeFilters}
-        onViewToggle={handleInsightsToggle}
-        onMapGlobeToggle={handleViewToggle}
-        currentView={viewMode}
-        isPlaying={isPlaying}
-        onPlayPause={setIsPlaying}
-        onSettingsOpen={() => setIsSettingsOpen(true)}
-        searchResults={searchResults}
-        onMarketSelect={handleMarketClick}
-        isSearching={isSearching}
-        // Pass Filter Props
-        selectedCategories={selectedCategories}
-        onCategorySelect={setSelectedCategories}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
-        selectedPlatform={selectedPlatform}
-        onPlatformChange={(platform) => setSelectedPlatform(platform as 'kalshi' | 'polymarket' | 'all')}
-        // Visualization Mode
-        visualizationMode={visualizationMode}
-        onVisualizationModeChange={handleVisualizationModeChange}
-        // Notification Props
-        onNotificationClick={() => setIsNotificationCenterOpen(true)}
-        notificationCount={totalNotificationCount}
-        // View Props
-        isZoomedIn={isViewModified}
-        onResetZoom={handleResetZoom}
-        // Available markets for random selection
-        availableMarkets={liveMapFilteredMarkets as EnrichedMarket[]}
-        // Search input ref for keyboard shortcuts
-        searchInputRef={searchInputRef}
-      />
+      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
+        <EdgeUI
+          onSearch={handleSearch}
+          onUrlSearch={handleUrlSearch}
+          onFilterChange={handleFilterChange}
+          activeFilters={activeFilters}
+          onViewToggle={handleInsightsToggle}
+          onMapGlobeToggle={handleViewToggle}
+          currentView={viewMode}
+          isPlaying={isPlaying}
+          onPlayPause={setIsPlaying}
+          onSettingsOpen={() => setIsSettingsOpen(true)}
+          searchResults={searchResults}
+          onMarketSelect={handleMarketClick}
+          isSearching={isSearching}
+          // Pass Filter Props
+          selectedCategories={selectedCategories}
+          onCategorySelect={setSelectedCategories}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          selectedPlatform={selectedPlatform}
+          onPlatformChange={(platform) => setSelectedPlatform(platform as 'kalshi' | 'polymarket' | 'all')}
+          // Visualization Mode
+          visualizationMode={visualizationMode}
+          onVisualizationModeChange={handleVisualizationModeChange}
+          // Notification Props
+          onNotificationClick={() => setIsNotificationCenterOpen(true)}
+          notificationCount={totalNotificationCount}
+          // View Props
+          isZoomedIn={isViewModified}
+          onResetZoom={handleResetZoom}
+          // Available markets for random selection
+          availableMarkets={liveMapFilteredMarkets as EnrichedMarket[]}
+          // Search input ref for keyboard shortcuts
+          searchInputRef={searchInputRef}
+        />
+      </div>
 
       {/* Search results are now handled inside PolyglobeUI */}
 

@@ -37,7 +37,8 @@ export async function GET(request: Request) {
 
         console.log('[Comments API] Fetching market data from:', marketUrl)
         const marketResponse = await fetch(marketUrl, {
-          headers: { 'Accept': 'application/json' }
+          headers: { 'Accept': 'application/json' },
+          next: { revalidate: 300 } // Cache market metadata for 5 minutes
         })
 
         if (marketResponse.ok) {
@@ -65,7 +66,8 @@ export async function GET(request: Request) {
         console.log('[Comments API] Fetching comments from:', commentsUrl)
 
         const commentsResponse = await fetch(commentsUrl, {
-          headers: { 'Accept': 'application/json' }
+          headers: { 'Accept': 'application/json' },
+          next: { revalidate: 60 } // Cache for 60 seconds
         })
 
         if (commentsResponse.ok) {

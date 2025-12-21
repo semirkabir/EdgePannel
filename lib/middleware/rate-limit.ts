@@ -11,6 +11,20 @@ const WINDOW = 60 * 1000 // 1 minute in milliseconds
  * Basic rate limiting middleware
  */
 export async function rateLimit(req: NextRequest) {
+    // 1. Skip rate limiting in development or for specific routes if needed
+    // However, it's better to keep it on but with higher limits to test the logic.
+
+    // 2. EXEMPT: Auth routes and static files should never be rate limited by this middleware
+    const pathname = req.nextUrl.pathname
+    if (
+        pathname.startsWith('/api/auth') ||
+        pathname.startsWith('/_next') ||
+        pathname.includes('/favicon') ||
+        pathname.startsWith('/public')
+    ) {
+        return null
+    }
+
     // Use IP address as the key
     const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown'
     const now = Date.now()
@@ -26,8 +40,9 @@ export async function rateLimit(req: NextRequest) {
     record.count++
     rateLimitMap.set(ip, record)
 
-    // If limit exceeded
-    if (record.count > LIMIT) {
+    // Higher limit in development to prevent issues during HMR/Refresh
+    const limit = process.env.NODE_ENV === 'development' ? 1000 : LIMIT
+    if (record.count > limit) {
         return new NextResponse(
             JSON.stringify({
                 error: 'Too many requests. Please try again later.',

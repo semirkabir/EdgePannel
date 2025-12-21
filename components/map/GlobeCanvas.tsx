@@ -92,7 +92,7 @@ export function GlobeCanvas({
         <pointLight position={[0, 10, 0]} intensity={0.5} color="#ffffff" />
 
         <OrbitControls
-          enablePan={false}
+          enablePan={true}
           enableZoom={true}
           enableRotate={true}
           minDistance={3}

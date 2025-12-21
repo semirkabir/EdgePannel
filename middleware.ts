@@ -6,11 +6,7 @@ import { applySecurityHeaders } from "@/lib/middleware/security-headers"
 import { antiScrapeMiddleware } from "@/lib/middleware/bot-detection"
 import { rateLimit } from "@/lib/middleware/rate-limit"
 
-// Authentication middleware configuration
-// In production, authentication should always be enabled
-const AUTH_ENABLED = process.env.NODE_ENV === 'production'
-  ? true
-  : (process.env.AUTH_ENABLED === 'true' || false)
+import { AUTH_ENABLED } from "@/lib/auth-config"
 
 // Create auth middleware
 const authMiddleware = AUTH_ENABLED ? withAuth({
@@ -18,7 +14,17 @@ const authMiddleware = AUTH_ENABLED ? withAuth({
     signIn: "/login",
   },
   callbacks: {
-    authorized: ({ token }) => {
+    authorized: ({ token, req }) => {
+      // Always authorized for root path and other public paths
+      const { pathname } = req.nextUrl
+      if (
+        pathname === '/' ||
+        pathname.startsWith('/api/auth') ||
+        pathname === '/login' ||
+        pathname === '/register'
+      ) {
+        return true
+      }
       return !!token
     },
   },
@@ -35,11 +41,14 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
 
   // 3. Exemption check
   const isPublicPath =
+    req.nextUrl.pathname === '/' ||
     req.nextUrl.pathname.startsWith('/api/auth') ||
     req.nextUrl.pathname.startsWith('/api/cron') ||
     req.nextUrl.pathname.startsWith('/api/public') ||
     req.nextUrl.pathname === '/login' ||
     req.nextUrl.pathname === '/register'
+
+  console.log(`[Middleware] ${req.nextUrl.pathname} - isPublic: ${isPublicPath} - AUTH_ENABLED: ${AUTH_ENABLED}`)
 
   // 4. Authentication
   let response: NextResponse | undefined
@@ -59,6 +68,9 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
       }
       response = authResult
     }
+  } else if (!AUTH_ENABLED && (req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/register')) {
+    // If auth is disabled and we're on login/register, go home
+    return NextResponse.redirect(new URL('/', req.url))
   }
 
   if (!response) {
@@ -88,7 +100,7 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
           try {
             const allowedUrl = new URL(allowed)
             return originUrl.protocol === allowedUrl.protocol &&
-                   originUrl.host === allowedUrl.host
+              originUrl.host === allowedUrl.host
           } catch {
             return false
           }
@@ -116,10 +128,14 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/edge/:path*",
-    "/admin/:path*",
-    "/api/:path*" // Apply to ALL api routes now
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public (public files)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|public).*)",
   ],
 }
 

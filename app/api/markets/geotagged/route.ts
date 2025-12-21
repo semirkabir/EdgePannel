@@ -1,19 +1,15 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db/client'
+import { withErrorHandler, getUserId } from '@/lib/api/middleware'
 
 /**
  * Get geotagged markets for map display
  * Supports filtering by country, region, category, platform, etc.
  */
-export async function GET(request: Request) {
+export const GET = withErrorHandler(async (request: Request) => {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const userId = await getUserId()
 
     const { searchParams } = new URL(request.url)
 
@@ -176,4 +172,4 @@ export async function GET(request: Request) {
       { status: 500 }
     )
   }
-}
+})

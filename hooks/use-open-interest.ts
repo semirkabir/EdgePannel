@@ -38,7 +38,9 @@ export function useOpenInterest(
           }
           const errorData = await response.json().catch(() => ({}))
           console.warn('[useOpenInterest] API error:', response.status, errorData)
-          throw new Error(errorData.error || 'Failed to fetch open interest')
+          const error: any = new Error(errorData.error || 'Failed to fetch open interest')
+          error.status = response.status
+          throw error
         }
         const json = await response.json()
         // Handle case where openInterest is null (market not found in subgraph)
@@ -56,6 +58,23 @@ export function useOpenInterest(
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       dedupingInterval: 10000,
+      shouldRetryOnError: true,
+      errorRetryCount: 3,
+      onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
+        // Don't retry on 404s
+        if (error.status === 404) return
+
+        // If 429 (Too Many Requests), wait longer
+        if (error.status === 429) {
+          console.log('[useOpenInterest] Rate limited, backing off 60s...')
+          setTimeout(() => revalidate({ retryCount }), 60000)
+          return
+        }
+
+        // Standard backoff for other errors
+        const timeout = Math.min(5000 * 2 ** retryCount, 30000)
+        setTimeout(() => revalidate({ retryCount }), timeout)
+      }
     }
   )
 

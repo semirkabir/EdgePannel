@@ -282,7 +282,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchCandlesticks()
-  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform, timeRange, activeMarket])
+  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform, timeRange])
 
 
   // Fetch event details with articles
@@ -317,7 +317,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchEventDetails()
-  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform, activeMarket])
+  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform])
 
 
   // Fetch Polymarket comments
@@ -370,7 +370,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchComments()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeMarket?.slug, activeMarket])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeMarket?.slug])
 
 
   // Fetch related markets from the same event (only for non-event markets)
@@ -456,7 +456,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchRelatedMarkets()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeEvent, activeMarket])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeEvent])
 
 
   // Fetch related markets by tags
@@ -556,10 +556,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         }
 
         // Add cache-busting parameter to ensure fresh data
-        params.set('_t', Date.now().toString())
+        // params.set('_t', Date.now().toString())
 
         const response = await fetch(`/api/markets/related-by-tags?${params.toString()}`, {
-          cache: 'no-store' // Prevent browser caching
+          // cache: 'no-store' // Allow default caching
         })
 
         if (response.ok) {
@@ -578,7 +578,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchRelatedByTags()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.tags, activeMarket?.tags, activeMarket?.category, activeMarket])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.tags, activeMarket?.tags, activeMarket?.category])
 
 
   // Fetch top holders for Polymarket markets
@@ -615,7 +615,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchTopHolders()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData, activeMarket])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData])
 
 
   // Get articles from event data or use mock tweets

@@ -1,37 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db/client'
 import { UserPreferencesSchema } from '@/lib/api/schemas'
+import { withAuth, withErrorHandler } from '@/lib/api/middleware'
 
-export async function GET() {
-    try {
-        const session = await getServerSession(authOptions)
-
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
+export const GET = withErrorHandler(
+    withAuth(async (userId: string) => {
         const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
+            where: { id: userId },
             select: { preferences: true } as any
         })
 
         return NextResponse.json({ preferences: (user as any)?.preferences || {} })
-    } catch (error) {
-        console.error('Error fetching preferences:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-    }
-}
+    })
+)
 
-export async function POST(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions)
-
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
+export const POST = withErrorHandler(
+    withAuth(async (userId: string, request: NextRequest) => {
         const body = await request.json()
         const { preferences } = body
 
@@ -53,7 +37,7 @@ export async function POST(request: NextRequest) {
         }
 
         const updatedUser = await prisma.user.update({
-            where: { id: session.user.id },
+            where: { id: userId },
             data: {
                 preferences: validationResult.data
             } as any,
@@ -61,9 +45,5 @@ export async function POST(request: NextRequest) {
         })
 
         return NextResponse.json({ success: true, preferences: (updatedUser as any).preferences })
-
-    } catch (error) {
-        console.error('Error updating preferences:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-    }
-}
+    })
+)

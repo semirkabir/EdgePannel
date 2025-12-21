@@ -101,6 +101,27 @@ export class PolymarketOptimizedClient {
   private cacheTTL = 30000 // 30 seconds default cache
 
   /**
+   * Helper to fetch with in-memory caching
+   */
+  private async fetchWithCache<T>(key: string, fetchFn: () => Promise<T>, ttl: number = this.cacheTTL): Promise<T> {
+    const cached = this.cache.get(key)
+    const now = Date.now()
+
+    if (cached && (now - cached.timestamp < ttl)) {
+      return cached.data
+    }
+
+    const data = await fetchFn()
+
+    // Only cache if data is valid (checked by caller mostly, but strictly non-null here)
+    if (data !== null && data !== undefined) {
+      this.cache.set(key, { data, timestamp: now })
+    }
+
+    return data
+  }
+
+  /**
    * Fetch ALL markets from Gamma API with pagination
    * This is the most efficient way to get market metadata
    */
@@ -133,42 +154,46 @@ export class PolymarketOptimizedClient {
       url.searchParams.set('slug', options.slug)
     }
 
-    console.log(`[Polymarket Optimized] Fetching markets: ${url.toString()}`)
+    const cacheKey = `markets:${url.toString()}`
 
-    try {
-      const response = await fetch(url.toString(), {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
-      })
+    return this.fetchWithCache(cacheKey, async () => {
+      console.log(`[Polymarket Optimized] Fetching markets: ${url.toString()}`)
 
-      if (!response.ok) {
-        console.error(`[Polymarket Optimized] API error: ${response.status}`)
+      try {
+        const response = await fetch(url.toString(), {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        })
+
+        if (!response.ok) {
+          console.error(`[Polymarket Optimized] API error: ${response.status}`)
+          return { markets: [], total: 0, hasMore: false }
+        }
+
+        const data: GammaMarket[] = await response.json()
+
+        if (!Array.isArray(data)) {
+          return { markets: [], total: 0, hasMore: false }
+        }
+
+        const markets = data
+          .filter(m => m.conditionId && m.question && !m.archived)
+          .filter(m => !m.endDateIso || new Date(m.endDateIso) >= new Date()) // Skip expired markets
+          .map(m => this.transformGammaMarket(m))
+          .filter((m): m is Market => m !== null)
+
+        console.log(`[Polymarket Optimized] Fetched ${markets.length} markets`)
+
+        return {
+          markets,
+          total: markets.length,
+          hasMore: data.length === (options?.limit || 500)
+        }
+      } catch (error) {
+        console.error('[Polymarket Optimized] Error fetching markets:', error)
         return { markets: [], total: 0, hasMore: false }
       }
-
-      const data: GammaMarket[] = await response.json()
-
-      if (!Array.isArray(data)) {
-        return { markets: [], total: 0, hasMore: false }
-      }
-
-      const markets = data
-        .filter(m => m.conditionId && m.question && !m.archived)
-        .filter(m => !m.endDateIso || new Date(m.endDateIso) >= new Date()) // Skip expired markets
-        .map(m => this.transformGammaMarket(m))
-        .filter((m): m is Market => m !== null)
-
-      console.log(`[Polymarket Optimized] Fetched ${markets.length} markets`)
-
-      return {
-        markets,
-        total: markets.length,
-        hasMore: data.length === (options?.limit || 500)
-      }
-    } catch (error) {
-      console.error('[Polymarket Optimized] Error fetching markets:', error)
-      return { markets: [], total: 0, hasMore: false }
-    }
+    }, 10000) // 10s cache for lists
   }
 
   /**
@@ -193,83 +218,90 @@ export class PolymarketOptimizedClient {
       url.searchParams.set('active', String(options.active))
     }
 
-    try {
-      const response = await fetch(url.toString(), {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
-      })
+    const cacheKey = `events:${url.toString()}`
 
-      if (!response.ok) return []
-      const data = await response.json()
+    return this.fetchWithCache(cacheKey, async () => {
+      try {
+        const response = await fetch(url.toString(), {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        })
 
-      if (!Array.isArray(data)) return []
+        if (!response.ok) return []
+        const data = await response.json()
 
-      // DEBUG LOG
-      if (data.length > 0 && options?.offset === 0) {
-        console.log('[Polymarket Debug] Raw Event Sample:', JSON.stringify(data[0], null, 2))
+        if (!Array.isArray(data)) return []
+
+        if (options?.active) {
+          return data.filter((e: any) => !e.closed && !e.archived)
+        }
+
+        return data
+      } catch (error) {
+        console.error('[Polymarket Optimized] Error fetching events:', error)
+        return []
       }
-
-      if (options?.active) {
-        return data.filter((e: any) => !e.closed && !e.archived)
-      }
-
-      return data
-    } catch (error) {
-      console.error('[Polymarket Optimized] Error fetching events:', error)
-      return []
-    }
+    }, 10000)
   }
 
   /**
    * Get market by slug - efficient single market lookup
    */
   async getMarketBySlug(slug: string): Promise<Market | null> {
-    const url = new URL(`${GAMMA_API}/markets`)
-    url.searchParams.set('slug', slug)
-    url.searchParams.set('limit', '1')
+    const cacheKey = `market:slug:${slug}`
 
-    try {
-      const response = await fetch(url.toString(), {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
-      })
+    return this.fetchWithCache(cacheKey, async () => {
+      const url = new URL(`${GAMMA_API}/markets`)
+      url.searchParams.set('slug', slug)
+      url.searchParams.set('limit', '1')
 
-      if (!response.ok) return null
+      try {
+        const response = await fetch(url.toString(), {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        })
 
-      const data = await response.json()
-      if (!Array.isArray(data) || data.length === 0) return null
+        if (!response.ok) return null
 
-      return this.transformGammaMarket(data[0])
-    } catch (error) {
-      console.error('[Polymarket Optimized] Error fetching market by slug:', error)
-      return null
-    }
+        const data = await response.json()
+        if (!Array.isArray(data) || data.length === 0) return null
+
+        return this.transformGammaMarket(data[0])
+      } catch (error) {
+        console.error('[Polymarket Optimized] Error fetching market by slug:', error)
+        return null
+      }
+    })
   }
 
   /**
    * Get market by condition ID
    */
   async getMarketByConditionId(conditionId: string): Promise<Market | null> {
-    const url = new URL(`${GAMMA_API}/markets`)
-    url.searchParams.set('conditionId', conditionId)
-    url.searchParams.set('limit', '1')
+    const cacheKey = `market:id:${conditionId}`
 
-    try {
-      const response = await fetch(url.toString(), {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
-      })
+    return this.fetchWithCache(cacheKey, async () => {
+      const url = new URL(`${GAMMA_API}/markets`)
+      url.searchParams.set('conditionId', conditionId)
+      url.searchParams.set('limit', '1')
 
-      if (!response.ok) return null
+      try {
+        const response = await fetch(url.toString(), {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        })
 
-      const data = await response.json()
-      if (!Array.isArray(data) || data.length === 0) return null
+        if (!response.ok) return null
 
-      return this.transformGammaMarket(data[0])
-    } catch (error) {
-      console.error('[Polymarket Optimized] Error fetching market by conditionId:', error)
-      return null
-    }
+        const data = await response.json()
+        if (!Array.isArray(data) || data.length === 0) return null
+
+        return this.transformGammaMarket(data[0])
+      } catch (error) {
+        console.error('[Polymarket Optimized] Error fetching market by conditionId:', error)
+        return null
+      }
+    })
   }
 
 
@@ -279,30 +311,35 @@ export class PolymarketOptimizedClient {
    */
   async getBatchPrices(tokenIds: string[]): Promise<Record<string, number>> {
     if (tokenIds.length === 0) return {}
+    // Prices change fast, short cache or no cache? 
+    // Let's do very short cache (2s) to deduplicate simultaneous requests
+    const cacheKey = `prices:${tokenIds.sort().join(',')}`
 
-    try {
-      const response = await fetch(`${CLOB_API}/prices`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tokenIds)
-      })
+    return this.fetchWithCache(cacheKey, async () => {
+      try {
+        const response = await fetch(`${CLOB_API}/prices`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(tokenIds)
+        })
 
-      if (!response.ok) return {}
+        if (!response.ok) return {}
 
-      const data = await response.json()
-      const prices: Record<string, number> = {}
+        const data = await response.json()
+        const prices: Record<string, number> = {}
 
-      for (const [tokenId, priceData] of Object.entries(data)) {
-        if (priceData && typeof (priceData as any).price === 'number') {
-          prices[tokenId] = (priceData as any).price
+        for (const [tokenId, priceData] of Object.entries(data)) {
+          if (priceData && typeof (priceData as any).price === 'number') {
+            prices[tokenId] = (priceData as any).price
+          }
         }
-      }
 
-      return prices
-    } catch (error) {
-      console.error('[Polymarket Optimized] Error fetching batch prices:', error)
-      return {}
-    }
+        return prices
+      } catch (error) {
+        console.error('[Polymarket Optimized] Error fetching batch prices:', error)
+        return {}
+      }
+    }, 2000) // 2s cache
   }
 
   /**
@@ -315,35 +352,39 @@ export class PolymarketOptimizedClient {
     bidDepth: number
     askDepth: number
   } | null> {
-    try {
-      const response = await fetch(`${CLOB_API}/book?token_id=${tokenId}`, {
-        headers: { 'Accept': 'application/json' }
-      })
+    const cacheKey = `orderbook:${tokenId}`
 
-      if (!response.ok) return null
+    return this.fetchWithCache(cacheKey, async () => {
+      try {
+        const response = await fetch(`${CLOB_API}/book?token_id=${tokenId}`, {
+          headers: { 'Accept': 'application/json' }
+        })
 
-      const data = await response.json()
+        if (!response.ok) return null
 
-      const bids = data.bids || []
-      const asks = data.asks || []
+        const data = await response.json()
 
-      const bestBid = bids.length > 0 ? parseFloat(bids[0].price) : 0
-      const bestAsk = asks.length > 0 ? parseFloat(asks[0].price) : 1
+        const bids = data.bids || []
+        const asks = data.asks || []
 
-      const bidDepth = bids.reduce((sum: number, b: any) => sum + parseFloat(b.size), 0)
-      const askDepth = asks.reduce((sum: number, a: any) => sum + parseFloat(a.size), 0)
+        const bestBid = bids.length > 0 ? parseFloat(bids[0].price) : 0
+        const bestAsk = asks.length > 0 ? parseFloat(asks[0].price) : 1
 
-      return {
-        spread: bestAsk - bestBid,
-        bestBid,
-        bestAsk,
-        bidDepth,
-        askDepth
+        const bidDepth = bids.reduce((sum: number, b: any) => sum + parseFloat(b.size), 0)
+        const askDepth = asks.reduce((sum: number, a: any) => sum + parseFloat(a.size), 0)
+
+        return {
+          spread: bestAsk - bestBid,
+          bestBid,
+          bestAsk,
+          bidDepth,
+          askDepth
+        }
+      } catch (error) {
+        console.error('[Polymarket Optimized] Error fetching order book:', error)
+        return null
       }
-    } catch (error) {
-      console.error('[Polymarket Optimized] Error fetching order book:', error)
-      return null
-    }
+    }, 5000) // 5s cache
   }
 
   /**
@@ -358,23 +399,27 @@ export class PolymarketOptimizedClient {
     url.searchParams.set('limit', String(options?.limit || 20))
     url.searchParams.set('offset', String(options?.offset || 0))
 
-    try {
-      const response = await fetch(url.toString(), {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
-      })
+    const cacheKey = `comments:${url.toString()}`
 
-      if (!response.ok) {
-        console.error(`[Polymarket Optimized] Comments API error: ${response.status}`)
+    return this.fetchWithCache(cacheKey, async () => {
+      try {
+        const response = await fetch(url.toString(), {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        })
+
+        if (!response.ok) {
+          console.error(`[Polymarket Optimized] Comments API error: ${response.status}`)
+          return []
+        }
+
+        const data = await response.json()
+        return Array.isArray(data) ? data : []
+      } catch (error) {
+        console.error('[Polymarket Optimized] Error fetching comments:', error)
         return []
       }
-
-      const data = await response.json()
-      return Array.isArray(data) ? data : []
-    } catch (error) {
-      console.error('[Polymarket Optimized] Error fetching comments:', error)
-      return []
-    }
+    })
   }
 
   /**
@@ -387,6 +432,8 @@ export class PolymarketOptimizedClient {
     before?: string
     after?: string
   }): Promise<PolymarketTrade[]> {
+    // Trades are realtime, maybe no cache or very short?
+    // Let's skip cache for trades unless we want to dedupe rapid calls.
     const url = new URL(`${DATA_API}/trades`)
 
     if (options?.market) url.searchParams.set('market', options.market)
@@ -454,33 +501,36 @@ export class PolymarketOptimizedClient {
     }
 
     const url = `${DATA_API}/prices-history?market=${tokenId}&startTs=${startTs}&endTs=${options?.endTs || now}&fidelity=${fidelity}`
+    const cacheKey = `history:${url}`
 
-    try {
-      const response = await fetch(url, {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
-      })
+    return this.fetchWithCache(cacheKey, async () => {
+      try {
+        const response = await fetch(url, {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        })
 
-      if (!response.ok) {
-        console.error(`[Polymarket Optimized] Price history failed: ${response.status} ${response.statusText}`)
+        if (!response.ok) {
+          console.error(`[Polymarket Optimized] Price history failed: ${response.status} ${response.statusText}`)
+          return []
+        }
+
+        const data = await response.json()
+
+        if (data?.history && Array.isArray(data.history)) {
+          return data.history.map((point: any) => ({
+            timestamp: new Date(point.t * 1000),
+            price: point.p,
+            volume: point.v || 0
+          }))
+        }
+
+        return []
+      } catch (error) {
+        console.error('[Polymarket Optimized] Error fetching price history:', error)
         return []
       }
-
-      const data = await response.json()
-
-      if (data?.history && Array.isArray(data.history)) {
-        return data.history.map((point: any) => ({
-          timestamp: new Date(point.t * 1000),
-          price: point.p,
-          volume: point.v || 0
-        }))
-      }
-
-      return []
-    } catch (error) {
-      console.error('[Polymarket Optimized] Error fetching price history:', error)
-      return []
-    }
+    }, 60000) // 1 minute cache for history
   }
 
 
@@ -493,31 +543,35 @@ export class PolymarketOptimizedClient {
     outcome: string
     value: number
   }>> {
-    const url = new URL(`${DATA_API}/positions`)
-    url.searchParams.set('market', conditionId)
-    url.searchParams.set('limit', String(limit))
-    url.searchParams.set('sortBy', 'SIZE')
-    url.searchParams.set('sortDirection', 'DESC')
+    const cacheKey = `holders:${conditionId}:${limit}`
 
-    try {
-      const response = await fetch(url.toString(), {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
-      })
+    return this.fetchWithCache(cacheKey, async () => {
+      const url = new URL(`${DATA_API}/positions`)
+      url.searchParams.set('market', conditionId)
+      url.searchParams.set('limit', String(limit))
+      url.searchParams.set('sortBy', 'SIZE')
+      url.searchParams.set('sortDirection', 'DESC')
 
-      if (!response.ok) return []
+      try {
+        const response = await fetch(url.toString(), {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        })
 
-      const data = await response.json()
-      return Array.isArray(data) ? data.map((p: any) => ({
-        address: p.proxyWallet || p.owner,
-        position: parseFloat(p.size || '0'),
-        outcome: p.outcome,
-        value: parseFloat(p.currentValue || '0')
-      })) : []
-    } catch (error) {
-      console.error('[Polymarket Optimized] Error fetching holders:', error)
-      return []
-    }
+        if (!response.ok) return []
+
+        const data = await response.json()
+        return Array.isArray(data) ? data.map((p: any) => ({
+          address: p.proxyWallet || p.owner,
+          position: parseFloat(p.size || '0'),
+          outcome: p.outcome,
+          value: parseFloat(p.currentValue || '0')
+        })) : []
+      } catch (error) {
+        console.error('[Polymarket Optimized] Error fetching holders:', error)
+        return []
+      }
+    })
   }
 
   /**
