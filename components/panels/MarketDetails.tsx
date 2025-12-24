@@ -15,6 +15,7 @@ import { useLiveVolume, getEventIdFromMarket } from '@/hooks/use-live-volume'
 import { useOpenInterest } from '@/hooks/use-open-interest'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { LatencyTag } from '@/components/edge/LatencyTag'
+import { useExchangeMovers } from '@/hooks/use-exchange-movers'
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -38,12 +39,14 @@ interface MarketDetailsProps {
 export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   // Check if market is actually an event (has markets array)
   const isEvent = market && (market as any).isEvent === true && Array.isArray((market as any).markets)
+  const isExchange = market && (market as any).isExchange === true
 
   // Cache the market/event so we can display it while the panel is animating out
   const [activeMarket, setActiveMarket] = useState<MarketDetailsType | null>(
-    isEvent ? null : (market as MarketDetailsType | null)
+    isEvent || isExchange ? null : (market as MarketDetailsType | null)
   )
   const [activeEvent, setActiveEvent] = useState<any>(isEvent ? market : null)
+  const [activeExchange, setActiveExchange] = useState<any>(isExchange ? market : null)
   const [timeRange, setTimeRange] = useState('1W')
   const [chartType, setChartType] = useState<'line' | 'candle'>('line')
   const [candlesticks, setCandlesticks] = useState<Candlestick[]>([])
@@ -86,11 +89,24 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     refreshInterval: 30000,
   })
 
+  // Fetch exchange movers for stock exchanges
+  const { gainers, losers, mostActive, isLoading: isLoadingMovers } = useExchangeMovers(
+    activeExchange?.id || null,
+    !!activeExchange
+  )
+
   useEffect(() => {
     if (market) {
       const isEventData = (market as any).isEvent === true && Array.isArray((market as any).markets)
-      if (isEventData) {
+      const isExchangeData = (market as any).isExchange === true
+
+      if (isExchangeData) {
+        setActiveExchange(market)
+        setActiveEvent(null)
+        setActiveMarket(null)
+      } else if (isEventData) {
         setActiveEvent(market)
+        setActiveExchange(null)
         // Set the first market as active by default
         const firstMarket = (market as any).markets[0]
         if (firstMarket) {
@@ -118,10 +134,12 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
       } else {
         setActiveMarket(market as MarketDetailsType)
         setActiveEvent(null)
+        setActiveExchange(null)
       }
     } else {
       setActiveMarket(null)
       setActiveEvent(null)
+      setActiveExchange(null)
     }
   }, [market])
 
@@ -668,34 +686,211 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     <RightPanel
       isOpen={!!market}
       onClose={onClose}
-      title={activeEvent ? activeEvent.title : (activeMarket?.title || 'Market')}
+      title={activeExchange ? activeExchange.name : (activeEvent ? activeEvent.title : (activeMarket?.title || 'Market'))}
       subtitle={
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={cn(
-            "text-[10px] font-mono uppercase tracking-wider",
-            activeMarket?.platform === 'polymarket' ? "text-blue-400" : "text-green-400"
-          )}>
-            {activeMarket?.platform}
-          </span>
-          {category && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-md text-[10px] font-medium text-purple-300">
-              {CATEGORY_ICONS[category] || <LayoutGrid className="w-2.5 h-2.5" />}
-              {category}
+        activeExchange ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={cn(
+              "text-[10px] font-mono uppercase tracking-wider",
+              activeExchange.isOpen ? "text-emerald-400" : "text-gray-400"
+            )}>
+              {activeExchange.isOpen ? '● OPEN' : '● CLOSED'}
             </span>
-          )}
-          {(activeMarket as any)?.updatedAt && (
-            <LatencyTag updatedAt={(activeMarket as any).updatedAt} size="sm" />
-          )}
-          {activeEvent && activeEvent.markets && (
             <span className="text-[10px] text-gray-400">
-              {activeEvent.markets.length} {activeEvent.markets.length === 1 ? 'market' : 'markets'} in event
+              {activeExchange.city}, {activeExchange.country}
             </span>
-          )}
-        </div>
+            <span className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-md text-[10px] font-medium text-purple-300">
+              {activeExchange.shortName}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={cn(
+              "text-[10px] font-mono uppercase tracking-wider",
+              activeMarket?.platform === 'polymarket' ? "text-blue-400" : "text-green-400"
+            )}>
+              {activeMarket?.platform}
+            </span>
+            {category && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-md text-[10px] font-medium text-purple-300">
+                {CATEGORY_ICONS[category] || <LayoutGrid className="w-2.5 h-2.5" />}
+                {category}
+              </span>
+            )}
+            {(activeMarket as any)?.updatedAt && (
+              <LatencyTag updatedAt={(activeMarket as any).updatedAt} size="sm" />
+            )}
+            {activeEvent && activeEvent.markets && (
+              <span className="text-[10px] text-gray-400">
+                {activeEvent.markets.length} {activeEvent.markets.length === 1 ? 'market' : 'markets'} in event
+              </span>
+            )}
+          </div>
+        )
       }
     >
       {/* Scroll anchor for when switching markets */}
       <div ref={panelTopRef} className="h-0" />
+
+      {/* Exchange Details View */}
+      {activeExchange && (
+        <div className="px-4 pt-8 pb-4">
+          {/* Exchange Header */}
+          <div className="mb-6 text-center">
+            <h2 className="text-3xl font-bold text-white mb-2">{activeExchange.name}</h2>
+            <div className="text-sm text-gray-400 mb-4">
+              {activeExchange.city}, {activeExchange.country}
+            </div>
+            <div className={cn(
+              "inline-block px-4 py-2 rounded-lg text-sm font-bold",
+              activeExchange.isOpen
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50"
+                : "bg-gray-500/20 text-gray-300 border border-gray-500/50"
+            )}>
+              {activeExchange.isOpen ? 'Market Open' : 'Market Closed'}
+            </div>
+          </div>
+
+          {/* Trading Information */}
+          <div className="space-y-4 mb-6">
+            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/30">
+              <h3 className="text-sm font-semibold text-white mb-3">Exchange Information</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Currency</span>
+                  <span className="text-white font-semibold">{activeExchange.currency}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Timezone</span>
+                  <span className="text-white font-semibold">{activeExchange.timezone}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Region</span>
+                  <span className="text-white font-semibold capitalize">{activeExchange.region?.replace('_', ' ')}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Major Indices */}
+            {activeExchange.indices && Array.isArray(activeExchange.indices) && activeExchange.indices.length > 0 && (
+              <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/30">
+                <h3 className="text-sm font-semibold text-white mb-3">Major Indices</h3>
+                <div className="space-y-2">
+                  {activeExchange.indices.map((index: string, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-700/20 last:border-0">
+                      <span className="text-sm text-gray-300">{index}</span>
+                      <span className="text-sm text-gray-500">–</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* External Link */}
+            <a
+              href={activeExchange.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-500/50 rounded-lg text-emerald-300 font-semibold transition-all"
+            >
+              Visit Exchange Website
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+
+          {/* Top Movers Sections */}
+          <div className="space-y-4">
+            {/* Gainers */}
+            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/30">
+              <h3 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Top Gainers
+              </h3>
+              {isLoadingMovers ? (
+                <div className="text-center py-4 text-xs text-gray-400">Loading...</div>
+              ) : gainers.length === 0 ? (
+                <div className="text-center py-4 text-xs text-gray-400">No data available</div>
+              ) : (
+                <div className="space-y-2">
+                  {gainers.map((stock, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-700/20 last:border-0">
+                      <div>
+                        <div className="font-bold text-sm text-white">{stock.ticker}</div>
+                        <div className="text-[10px] text-gray-400 truncate max-w-[150px]">{stock.name}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-white">${stock.price.toFixed(2)}</div>
+                        <div className="text-xs font-bold text-emerald-400">+{stock.changePercent.toFixed(2)}%</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Losers */}
+            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/30">
+              <h3 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-2">
+                <TrendingDown className="w-4 h-4" />
+                Top Losers
+              </h3>
+              {isLoadingMovers ? (
+                <div className="text-center py-4 text-xs text-gray-400">Loading...</div>
+              ) : losers.length === 0 ? (
+                <div className="text-center py-4 text-xs text-gray-400">No data available</div>
+              ) : (
+                <div className="space-y-2">
+                  {losers.map((stock, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-700/20 last:border-0">
+                      <div>
+                        <div className="font-bold text-sm text-white">{stock.ticker}</div>
+                        <div className="text-[10px] text-gray-400 truncate max-w-[150px]">{stock.name}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-white">${stock.price.toFixed(2)}</div>
+                        <div className="text-xs font-bold text-red-400">{stock.changePercent.toFixed(2)}%</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Most Active */}
+            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/30">
+              <h3 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Most Active
+              </h3>
+              {isLoadingMovers ? (
+                <div className="text-center py-4 text-xs text-gray-400">Loading...</div>
+              ) : mostActive.length === 0 ? (
+                <div className="text-center py-4 text-xs text-gray-400">No data available</div>
+              ) : (
+                <div className="space-y-2">
+                  {mostActive.map((stock, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-700/20 last:border-0">
+                      <div>
+                        <div className="font-bold text-sm text-white">{stock.ticker}</div>
+                        <div className="text-[10px] text-gray-400 truncate max-w-[150px]">{stock.name}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-white">${stock.price.toFixed(2)}</div>
+                        <div className={cn(
+                          "text-xs font-bold",
+                          stock.changePercent >= 0 ? "text-emerald-400" : "text-red-400"
+                        )}>
+                          {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent.toFixed(2)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 1. Hero / Price Section (Gamified) */}
       {activeMarket && (

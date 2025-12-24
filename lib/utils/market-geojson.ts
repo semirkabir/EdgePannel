@@ -116,7 +116,6 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
                 isBreakingNews: Boolean(m.isBreakingNews),
                 platform: m.platform || '',
                 endDate: m.endDate ? String(m.endDate) : null,
-                updatedAt: (m as any).updatedAt ? String((m as any).updatedAt) : null,
                 is_random_location: false,
                 rawData: m.rawData ? JSON.stringify(m.rawData) : '{}'
             }
@@ -218,7 +217,6 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
                     || group.groupId
                     || null,
                 eventData: primaryMarket.rawData?.events?.[0] || null,
-                updatedAt: (primaryMarket as any).updatedAt ? String((primaryMarket as any).updatedAt) : null,
             }
         });
     });

@@ -9,10 +9,14 @@ import { useEdgeData } from '@/hooks/use-edge-data';
 import { cn } from '@/lib/utils/cn';
 import { loadGeoJSON } from '@/lib/geojson-loader';
 import { Sparkline } from '@/components/ui/Sparkline';
-import { Landmark, TrendingUp, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid } from 'lucide-react';
+import { Landmark, TrendingUp, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid, MapPin, Clock } from 'lucide-react';
 import { MarketPopupVolume } from './MarketPopup';
 import { MarketHoverChart } from './MarketHoverChart';
-import { LatencyTag } from './LatencyTag';
+import { MarketType } from '@/types/exchange';
+import { useExchanges } from '@/hooks/use-exchanges';
+import { getExchangeById } from '@/lib/data/exchanges';
+import { getDetailedMarketStatus } from '@/lib/utils/exchange-geojson';
+import { ExchangePopup } from './ExchangePopup';
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -47,6 +51,7 @@ interface EdgeMapProps {
   onMarketSelect?: (market: any) => void;
   showLabels?: boolean;
   showGrid?: boolean;
+  marketType?: MarketType;
 }
 
 
@@ -70,7 +75,8 @@ function InnerMap({
   shouldResetZoom = false,
   visualizationMode = 'dots',
   showLabels = true,
-  showGrid = false
+  showGrid = false,
+  marketType = 'prediction'
 }: {
 
   markets: any;
@@ -92,6 +98,7 @@ function InnerMap({
   visualizationMode?: VisualizationMode;
   showLabels?: boolean;
   showGrid?: boolean;
+  marketType?: MarketType;
 }) {
 
   const [viewState, setViewState] = useState({
@@ -408,6 +415,32 @@ function InnerMap({
             });
           });
         }
+        return;
+      }
+
+      // Handle exchange clicks
+      if (feature.layer.id === 'exchanges-layer' || feature.layer.id === 'exchanges-glow-layer') {
+        const props = feature.properties;
+
+        const exchangeData = {
+          id: props.id,
+          name: props.name,
+          shortName: props.shortName,
+          country: props.country,
+          city: props.city,
+          region: props.region,
+          isOpen: props.isOpen,
+          currency: props.currency,
+          indices: props.indices,
+          website: props.website,
+          timezone: props.timezone,
+          isExchange: true, // Flag to identify this as an exchange
+        };
+
+        if (onMarketSelect) {
+          onMarketSelect(exchangeData);
+        }
+        setSelectedFeature(null);
         return;
       }
 
@@ -772,6 +805,56 @@ function InnerMap({
     }
   };
 
+  // Exchange layers - for financial markets
+  const exchangeLayer = {
+    id: 'exchanges-layer',
+    source: 'exchanges',
+    type: 'circle',
+    paint: {
+      'circle-color': [
+        'case',
+        ['get', 'isOpen'], '#10b981',  // Emerald for open
+        '#6b7280'                       // Gray for closed
+      ],
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['coalesce', ['get', 'totalMarketCap'], 0],
+        0, 10,
+        1000000000000, 14,    // $1T
+        10000000000000, 20,   // $10T
+        50000000000000, 28    // $50T
+      ],
+      'circle-stroke-width': 2.5,
+      'circle-stroke-color': '#ffffff',
+      'circle-opacity': 0.9
+    }
+  };
+
+  const exchangeGlowLayer = {
+    id: 'exchanges-glow-layer',
+    source: 'exchanges',
+    type: 'circle',
+    paint: {
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['coalesce', ['get', 'totalMarketCap'], 0],
+        0, 16,
+        1000000000000, 24,
+        10000000000000, 35,
+        50000000000000, 50
+      ],
+      'circle-color': [
+        'case',
+        ['get', 'isOpen'], '#10b981',
+        '#6b7280'
+      ],
+      'circle-opacity': 0.25,
+      'circle-blur': 0.6
+    }
+  };
+
   const renderPopup = () => {
     const feature = selectedFeature || (hoverInfo && hoverInfo.feature);
     if (!feature) return null;
@@ -786,6 +869,7 @@ function InnerMap({
     }
 
     const isMarket = feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer' || feature.layer.id === 'markets-unclustered' || feature.layer.id === 'markets-unclustered-glow';
+    const isExchange = feature.layer.id === 'exchanges-layer' || feature.layer.id === 'exchanges-glow-layer';
     const isGroup = props.isGroup === true;
 
     return (
@@ -799,11 +883,38 @@ function InnerMap({
         className="edge-popup z-50"
         maxWidth={isGroup ? "280px" : "210px"}
       >
-        <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden max-w-[280px]">
-          {/* Gradient overlay for modern effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
+        {isExchange ? (
+          <ExchangePopup
+            exchangeId={props.id}
+            exchangeName={props.name}
+            shortName={props.shortName}
+            isOpen={props.isOpen}
+            city={props.city}
+            country={props.country}
+            onViewDetails={() => {
+              const exchangeData = {
+                id: props.id,
+                name: props.name,
+                shortName: props.shortName,
+                country: props.country,
+                city: props.city,
+                region: props.region,
+                isOpen: props.isOpen,
+                currency: props.currency,
+                indices: props.indices,
+                website: props.website,
+                timezone: props.timezone,
+                isExchange: true,
+              };
+              handleCardClick(exchangeData);
+            }}
+          />
+        ) : (
+          <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden max-w-[280px]">
+            {/* Gradient overlay for modern effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
 
-          {isMarket && isGroup ? (
+            {isMarket && isGroup ? (
             <div className="relative z-10">
               {/* Group Header */}
               <div className="mb-2">
@@ -986,13 +1097,6 @@ function InnerMap({
                 )}
               </div>
 
-              {/* Latency Tag */}
-              {props.updatedAt && (
-                <div className="mb-2">
-                  <LatencyTag updatedAt={props.updatedAt} size="sm" />
-                </div>
-              )}
-
               {/* End Date */}
               {props.endDate && (
                 <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-2">
@@ -1077,7 +1181,8 @@ function InnerMap({
               </p>
             </>
           )}
-        </div>
+          </div>
+        )}
       </Popup>
     );
   };
@@ -1136,7 +1241,9 @@ function InnerMap({
 
   // Compute interactive layers - memoize to prevent re-renders
   const interactiveIds = useMemo(() => {
-    if (visualizationMode === 'heatmap') {
+    if (marketType === 'financial') {
+      return ['exchanges-layer', 'exchanges-glow-layer'];
+    } else if (visualizationMode === 'heatmap') {
       // In heatmap mode, keep dots invisible but interactive for clicks
       return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
     } else if (visualizationMode === 'cluster') {
@@ -1145,7 +1252,7 @@ function InnerMap({
       // Default dots mode
       return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
     }
-  }, [visualizationMode]);
+  }, [marketType, visualizationMode]);
 
   // Debug: Log map and layer state on load
   useEffect(() => {
@@ -1246,45 +1353,56 @@ function InnerMap({
         <NavigationControl position="bottom-right" />
         <FullscreenControl position="bottom-right" />
 
-        <Source
-          key={`markets-${visualizationMode}`}
-          id="markets"
-          type="geojson"
-          data={filteredMarkets as any}
-          cluster={visualizationMode === 'cluster'}
-          clusterMaxZoom={14}
-          clusterRadius={50}
-        >
-          {visualizationMode === 'heatmap' ? (
-            <>
-              <Layer {...heatmapLayer as any} />
-              {/* Overlay individual market dots on top of heatmap for interactivity but keep them invisible */}
-              <Layer {...marketGlowLayer as any} paint={{
-                ...marketGlowLayer.paint,
-                'circle-opacity': 0,
-                'circle-stroke-opacity': 0
-              }} />
-              <Layer {...marketLayer as any} paint={{
-                ...marketLayer.paint,
-                'circle-opacity': 0,
-                'circle-stroke-opacity': 0
-              }} />
-            </>
-          ) : visualizationMode === 'cluster' ? (
-            <>
-              <Layer {...unclusteredGlowLayer as any} />
-              <Layer {...clusterLayer as any} />
-              <Layer {...clusterCountLayer as any} />
-              <Layer {...unclusteredPointLayer as any} />
-            </>
-          ) : (
-            // Default dots mode
-            <>
-              <Layer {...marketGlowLayer as any} />
-              <Layer {...marketLayer as any} />
-            </>
-          )}
-        </Source>
+        {marketType === 'financial' ? (
+          <Source
+            id="exchanges"
+            type="geojson"
+            data={filteredMarkets as any}
+          >
+            <Layer {...exchangeGlowLayer as any} />
+            <Layer {...exchangeLayer as any} />
+          </Source>
+        ) : (
+          <Source
+            key={`markets-${visualizationMode}`}
+            id="markets"
+            type="geojson"
+            data={filteredMarkets as any}
+            cluster={visualizationMode === 'cluster'}
+            clusterMaxZoom={14}
+            clusterRadius={50}
+          >
+            {visualizationMode === 'heatmap' ? (
+              <>
+                <Layer {...heatmapLayer as any} />
+                {/* Overlay individual market dots on top of heatmap for interactivity but keep them invisible */}
+                <Layer {...marketGlowLayer as any} paint={{
+                  ...marketGlowLayer.paint,
+                  'circle-opacity': 0,
+                  'circle-stroke-opacity': 0
+                }} />
+                <Layer {...marketLayer as any} paint={{
+                  ...marketLayer.paint,
+                  'circle-opacity': 0,
+                  'circle-stroke-opacity': 0
+                }} />
+              </>
+            ) : visualizationMode === 'cluster' ? (
+              <>
+                <Layer {...unclusteredGlowLayer as any} />
+                <Layer {...clusterLayer as any} />
+                <Layer {...clusterCountLayer as any} />
+                <Layer {...unclusteredPointLayer as any} />
+              </>
+            ) : (
+              // Default dots mode
+              <>
+                <Layer {...marketGlowLayer as any} />
+                <Layer {...marketLayer as any} />
+              </>
+            )}
+          </Source>
+        )}
 
         <Source id="tweets" type="geojson" data={filteredTweets as any}>
           <Layer {...tweetLayer as any} />
@@ -1371,14 +1489,23 @@ export function EdgeMap({
   shouldResetZoom,
   visualizationMode = 'dots',
   showLabels = true,
-  showGrid = false
+  showGrid = false,
+  marketType = 'prediction'
 }: EdgeMapProps) {
   const { markets, tweets, rawMarkets, isLoading } = useEdgeData();
+  const { geoJSON: exchangeGeoJSON } = useExchanges();
   const [mounted, setMounted] = useState(false);
 
   // If overrideMarkets is provided, use it, otherwise default.
+  // When marketType is 'financial', show exchanges instead of prediction markets
   // ALSO, if a market is selected, ensure it's included in the display list so it can be seen/focused.
   const displayMarkets = useMemo(() => {
+    // If financial mode, use exchanges
+    if (marketType === 'financial') {
+      return exchangeGeoJSON;
+    }
+
+    // Otherwise use prediction markets
     const base = overrideMarkets || markets;
 
     if (!selectedMarket) return base;
@@ -1404,7 +1531,7 @@ export function EdgeMap({
     // Let's just trust the parent for now, OR better:
     // Page.tsx should handle this logic.
     return base;
-  }, [overrideMarkets, markets, selectedMarket]);
+  }, [marketType, exchangeGeoJSON, overrideMarkets, markets, selectedMarket]);
 
   useEffect(() => {
     setMounted(true);
@@ -1433,6 +1560,7 @@ export function EdgeMap({
       visualizationMode={visualizationMode}
       showLabels={showLabels}
       showGrid={showGrid}
+      marketType={marketType}
     />
   );
 }

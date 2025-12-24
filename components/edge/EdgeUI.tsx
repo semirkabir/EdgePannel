@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers, VolumeX } from 'lucide-react';
+import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers, VolumeX, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils/cn';
 import { SearchResults } from './SearchResults';
 import { EnrichedMarket } from '@/lib/markets/enrich';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
+import { MarketTypeToggle } from './MarketTypeToggle';
+import { MarketType } from '@/types/exchange';
 
 export type VisualizationMode = 'dots' | 'heatmap' | 'cluster';
 
@@ -43,6 +45,9 @@ interface EdgeUIProps {
   availableMarkets?: EnrichedMarket[];
   // Search input ref for keyboard shortcuts
   searchInputRef?: React.RefObject<HTMLInputElement>;
+  // Market type toggle props
+  marketType?: MarketType;
+  onMarketTypeChange?: (type: MarketType) => void;
 }
 
 const CATEGORIES = [
@@ -80,7 +85,9 @@ export function EdgeUI({
   visualizationMode = 'dots',
   onVisualizationModeChange,
   availableMarkets = [],
-  searchInputRef: externalSearchInputRef
+  searchInputRef: externalSearchInputRef,
+  marketType = 'prediction',
+  onMarketTypeChange
 }: EdgeUIProps) {
   const router = useRouter();
   const [internalIsPlaying, setInternalIsPlaying] = useState(true);
@@ -378,7 +385,7 @@ export function EdgeUI({
                     : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
                 )}
               >
-                <Circle className="w-3 h-3" />
+                <Eye className="w-3 h-3" />
                 VISUALIZATION
                 <ChevronDown className="w-2.5 h-2.5" />
               </button>
@@ -400,7 +407,7 @@ export function EdgeUI({
                           : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
                       )}
                     >
-                      <Circle className="w-3 h-3" />
+                      <Eye className="w-3 h-3" />
                       <span>Dots</span>
                     </button>
                     <button
@@ -449,7 +456,7 @@ export function EdgeUI({
                     : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
                 )}
               >
-                <Globe className="w-3 h-3" />
+                <Layers className="w-3 h-3" />
                 OVERLAYS
                 {(() => {
                   const activeOverlayCount = [activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length;
@@ -615,16 +622,21 @@ export function EdgeUI({
 
         {/* Control Buttons Row - Hide when in insights view */}
         {!isInsightsView && (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className="flex items-center gap-1.5 p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl"
+            style={{
+              boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
+            }}
+          >
             {/* Categories Dropdown */}
             <div className="relative" ref={categoriesRef}>
               <button
                 onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
                 className={cn(
-                  "px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl backdrop-blur-xl border text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 shadow-lg",
+                  "h-7 px-2 flex items-center gap-1 rounded-xl text-[10px] font-bold transition-all border",
                   isCategoriesOpen || (selectedCategories.length > 0 && !selectedCategories.includes('All'))
                     ? "bg-purple-500/10 border-purple-500/50 text-purple-400"
-                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                    : "bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
                 )}
               >
                 <Filter className="w-3.5 h-3.5" />
@@ -694,13 +706,13 @@ export function EdgeUI({
               <button
                 onClick={() => setIsVisualizationOpen(!isVisualizationOpen)}
                 className={cn(
-                  "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
+                  "h-7 px-2 flex items-center gap-1 rounded-xl text-[10px] font-bold transition-all border",
                   isVisualizationOpen || visualizationMode !== 'dots'
                     ? "bg-cyan-500/10 border-cyan-500/50 text-cyan-400"
-                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                    : "bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
                 )}
               >
-                <Circle className="w-3.5 h-3.5" />
+                <Eye className="w-3.5 h-3.5" />
                 VISUALIZATION
                 <ChevronDown className="w-3 h-3" />
               </button>
@@ -723,7 +735,7 @@ export function EdgeUI({
                           : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
                       )}
                     >
-                      <Circle className="w-3.5 h-3.5 relative z-10" />
+                      <Eye className="w-3.5 h-3.5 relative z-10" />
                       <span className="relative z-10">Dots</span>
                     </button>
 
@@ -771,13 +783,13 @@ export function EdgeUI({
               <button
                 onClick={() => setIsOverlaysOpen(!isOverlaysOpen)}
                 className={cn(
-                  "px-3 py-2 rounded-xl backdrop-blur-xl border text-xs font-bold transition-all flex items-center gap-2 shadow-lg",
+                  "h-7 px-2 flex items-center gap-1 rounded-xl text-[10px] font-bold transition-all border",
                   isOverlaysOpen || activeFilters.live || activeFilters.fires || activeFilters.noiseFilter
                     ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400"
-                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                    : "bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
                 )}
               >
-                <Globe className="w-3.5 h-3.5" />
+                <Layers className="w-3.5 h-3.5" />
                 OVERLAYS
                 {(() => {
                   const activeOverlayCount = [activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length;
@@ -844,6 +856,14 @@ export function EdgeUI({
                 </div>
               )}
             </div>
+
+            {/* Market Type Toggle */}
+            {onMarketTypeChange && (
+              <MarketTypeToggle
+                value={marketType}
+                onChange={onMarketTypeChange}
+              />
+            )}
           </div>
         )}
       </div>

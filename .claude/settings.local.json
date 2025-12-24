@@ -37,7 +37,9 @@
       "Bash(git commit:*)",
       "Bash(cd:*)",
       "Bash(powershell:*)",
-      "Bash(timeout 15 bash:*)"
+      "Bash(timeout 15 bash:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -23,6 +23,7 @@ import { InsightsDashboard } from '@/components/insights/InsightsDashboard';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { KeyboardShortcutsDialog } from '@/components/ui/keyboard-shortcuts-dialog';
 import { useUserSettings } from '@/hooks/use-user-settings';
+import { MarketType } from '@/types/exchange';
 
 
 export default function EdgePage() {
@@ -68,6 +69,7 @@ export default function EdgePage() {
   const [sortBy, setSortBy] = useState('volume');
   const [selectedPlatform, setSelectedPlatform] = useState<'kalshi' | 'polymarket' | 'all'>('all');
   const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('dots');
+  const [marketType, setMarketType] = useState<MarketType>('prediction');
 
   // View state - tracks both zoom and pan
   const [isZoomedIn, setIsZoomedIn] = useState(false);
@@ -458,6 +460,7 @@ export default function EdgePage() {
             onViewChange={setIsViewModified}
             shouldResetZoom={shouldResetZoom}
             visualizationMode={visualizationMode}
+            marketType={marketType}
           />
         </div>
       )}
@@ -503,6 +506,9 @@ export default function EdgePage() {
           availableMarkets={liveMapFilteredMarkets as EnrichedMarket[]}
           // Search input ref for keyboard shortcuts
           searchInputRef={searchInputRef}
+          // Market type toggle
+          marketType={marketType}
+          onMarketTypeChange={setMarketType}
         />
       </div>
 
