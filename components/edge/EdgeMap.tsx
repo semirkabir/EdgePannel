@@ -915,127 +915,10 @@ function InnerMap({
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
 
             {isMarket && isGroup ? (
-            <div className="relative z-10">
-              {/* Group Header */}
-              <div className="mb-2">
-                <h3 className="font-semibold text-sm leading-tight text-white mb-1.5">{props.title}</h3>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className={cn(
-                    "px-2 py-0.5 rounded text-[10px] font-semibold shadow-sm",
-                    props.platform === 'polymarket'
-                      ? "bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-400/30"
-                      : "bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border border-green-400/30"
-                  )}>
-                    {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
-                  </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-purple-700/40 text-purple-300 border border-purple-600/30">
-                    {props.marketCount} Options
-                  </span>
-                  {props.category && (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-700/40 text-gray-300 border border-gray-600/30">
-                      {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Market Options List */}
-              <div className="space-y-1.5 mb-2 max-h-64 overflow-y-auto">
-                {props.markets && JSON.parse(JSON.stringify(props.markets)).map((market: any, idx: number) => {
-                  const marketImageUrl = market.imageUrl || market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage;
-                  return (
-                    <div
-                      key={idx}
-                      className="bg-gray-800/40 rounded p-2 border border-gray-700/30 hover:bg-gray-800/60 transition-colors cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Reconstruct market for selection
-                        const fullMarket = {
-                          id: market.id,
-                          title: market.title,
-                          description: market.description || '',
-                          platform: market.platform,
-                          volume24h: market.volume24h,
-                          price: market.price,
-                          probability: market.price,
-                          slug: market.slug,
-                          ticker: market.ticker,
-                          imageUrl: market.imageUrl,
-                          endDate: market.endDate,
-                          rawData: {},
-                        };
-                        handleCardClick(fullMarket);
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        {/* Image Thumbnail */}
-                        <div className="shrink-0 w-10 h-10 rounded overflow-hidden border border-gray-600/30 bg-gray-700 flex items-center justify-center">
-                          {marketImageUrl ? (
-                            <div className="relative w-full h-full">
-                              <Image
-                                src={marketImageUrl}
-                                alt={market.title}
-                                fill
-                                className="object-cover"
-                                onError={(e) => {
-                                  // Fallback handled by parent CSS logic or hidden element
-                                  const target = e.currentTarget as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  const fallback = target.nextElementSibling;
-                                  if (fallback) fallback.classList.remove('hidden');
-                                }}
-                              />
-                            </div>
-                          ) : null}
-                          <span className={`text-[8px] font-black ${marketImageUrl ? 'hidden' : ''} ${market.platform === 'polymarket' ? 'text-blue-400' : 'text-green-400'}`}>
-                            {market.platform === 'polymarket' ? 'POLY' : 'KALS'}
-                          </span>
-                        </div>
-
-                        {/* Title and Price */}
-                        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs text-white line-clamp-2">{market.title}</div>
-                          </div>
-                          <div className="flex-shrink-0">
-                            <span className="text-sm font-bold text-blue-300">{Math.round(market.price * 100)}¢</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Event Stats - Volume and OI */}
-              <div className="flex gap-1.5 mb-2">
-                <MarketPopupVolume
-                  market={{
-                    id: props.id || props.groupId,
-                    rawData: props.rawData ? (typeof props.rawData === 'string' ? JSON.parse(props.rawData) : props.rawData) : {},
-                    eventData: props.eventData,
-                    eventId: props.eventId,
-                  }}
-                  volume24h={props.volume || props.volume24h}
-                  platform={props.platform}
-                />
-              </div>
-            </div>
-          ) : isMarket ? (
-            <div className="relative z-10">
-              {/* Price Badge - Floating top right */}
-              <div className="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-2.5 py-1 rounded-lg shadow-lg z-10">
-                <span className="text-lg font-bold tabular-nums">{Math.round(props.last_price * 100)}¢</span>
-              </div>
-
-              {/* Compact Layout with Image Float */}
-              <div className="flex gap-2.5 mb-2.5">
-                {/* Left: Title and Badges */}
-                <div className="flex-1 min-w-0">
-                  {/* Title */}
-                  <h3 className="font-semibold text-sm leading-tight text-white line-clamp-3 mb-1.5 pr-10">{props.title}</h3>
-
-                  {/* Platform & Category Badge Row */}
+              <div className="relative z-10">
+                {/* Group Header */}
+                <div className="mb-2">
+                  <h3 className="font-semibold text-sm leading-tight text-white mb-1.5">{props.title}</h3>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={cn(
                       "px-2 py-0.5 rounded text-[10px] font-semibold shadow-sm",
@@ -1045,6 +928,9 @@ function InnerMap({
                     )}>
                       {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
                     </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-purple-700/40 text-purple-300 border border-purple-600/30">
+                      {props.marketCount} Options
+                    </span>
                     {props.category && (
                       <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-700/40 text-gray-300 border border-gray-600/30">
                         {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
@@ -1053,134 +939,276 @@ function InnerMap({
                   </div>
                 </div>
 
-                {/* Right: Compact Image */}
-                {props.image_url && (
-                  <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-700/30 relative">
-                    <Image
-                      src={props.image_url}
-                      alt={props.title}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                      onError={(e) => {
-                        // Hide parent container if image fails to load
-                        const target = e.currentTarget as HTMLImageElement;
-                        if (target.parentElement) target.parentElement.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
+                {/* Market Options List */}
+                <div className="space-y-1.5 mb-2 max-h-64 overflow-y-auto">
+                  {props.markets && JSON.parse(JSON.stringify(props.markets)).map((market: any, idx: number) => {
+                    const marketImageUrl = market.imageUrl || market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage;
+                    return (
+                      <div
+                        key={idx}
+                        className="bg-gray-800/40 rounded p-2 border border-gray-700/30 hover:bg-gray-800/60 transition-colors cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Reconstruct market for selection
+                          const fullMarket = {
+                            id: market.id,
+                            title: market.title,
+                            description: market.description || '',
+                            platform: market.platform,
+                            volume24h: market.volume24h,
+                            price: market.price,
+                            probability: market.price,
+                            slug: market.slug,
+                            ticker: market.ticker,
+                            imageUrl: market.imageUrl,
+                            endDate: market.endDate,
+                            rawData: {},
+                          };
+                          handleCardClick(fullMarket);
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          {/* Image Thumbnail */}
+                          <div className="shrink-0 w-10 h-10 rounded overflow-hidden border border-gray-600/30 bg-gray-700/50 flex items-center justify-center relative group-hover:border-blue-500/50 transition-colors">
+                            {marketImageUrl ? (
+                              <div className="relative w-full h-full">
+                                <Image
+                                  src={marketImageUrl}
+                                  alt={market.title}
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                  onError={(e) => {
+                                    // Fallback handled by parent CSS logic or hidden element
+                                    const target = e.currentTarget as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const fallback = target.nextElementSibling;
+                                    if (fallback) fallback.classList.remove('hidden');
+                                  }}
+                                />
+                              </div>
+                            ) : market.ticker ? (
+                              <div className="relative w-full h-full bg-white/5 flex items-center justify-center">
+                                <img
+                                  src={`https://images.financialmodelingprep.com/symbol/${market.ticker.toUpperCase()}.png`}
+                                  alt={market.ticker}
+                                  className="w-full h-full object-contain p-1.5"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).classList.add('hidden');
+                                    (e.currentTarget.nextElementSibling as HTMLSpanElement)?.classList.remove('hidden');
+                                  }}
+                                />
+                                <span className="text-[10px] font-bold text-blue-400 hidden">
+                                  {market.ticker.substring(0, 2)}
+                                </span>
+                              </div>
+                            ) : null}
+                            <span className={`text-[8px] font-black ${marketImageUrl ? 'hidden' : ''} ${market.platform === 'polymarket' ? 'text-blue-400' : 'text-green-400'}`}>
+                              {market.platform === 'polymarket' ? 'POLY' : 'KALS'}
+                            </span>
+                          </div>
 
-              {/* Stats Grid - Volume and OI side by side */}
-              <div className="flex gap-1.5 mb-2">
-                <MarketPopupVolume
-                  market={{
-                    id: props.id || props.market_id,
-                    rawData: props.rawData ? (typeof props.rawData === 'string' ? JSON.parse(props.rawData) : props.rawData) : {},
-                    eventData: props.eventData,
-                    eventId: props.eventId,
-                  }}
-                  volume24h={props.volume || props.volume24h}
-                  platform={props.platform}
-                />
-                {props.price_movement !== undefined && props.price_movement !== 0 && (
-                  <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30 flex-1">
-                    <div className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">24h Change</div>
-                    <div className={cn(
-                      "text-xs font-bold",
-                      props.price_movement >= 0 ? "text-emerald-400" : "text-red-400"
-                    )}>
-                      {props.price_movement > 0 ? '+' : ''}{Math.round(props.price_movement * 100)}%
+                          {/* Title and Price */}
+                          <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs text-white line-clamp-2">{market.title}</div>
+                            </div>
+                            <div className="flex-shrink-0">
+                              <span className="text-sm font-bold text-blue-300">{Math.round(market.price * 100)}¢</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Event Stats - Volume and OI */}
+                <div className="flex gap-1.5 mb-2">
+                  <MarketPopupVolume
+                    market={{
+                      id: props.id || props.groupId,
+                      rawData: props.rawData ? (typeof props.rawData === 'string' ? JSON.parse(props.rawData) : props.rawData) : {},
+                      eventData: props.eventData,
+                      eventId: props.eventId,
+                    }}
+                    volume24h={props.volume || props.volume24h}
+                    platform={props.platform}
+                  />
+                </div>
+              </div>
+            ) : isMarket ? (
+              <div className="relative z-10">
+                {/* Price Badge - Floating top right */}
+                <div className="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-2.5 py-1 rounded-lg shadow-lg z-10">
+                  <span className="text-lg font-bold tabular-nums">{Math.round(props.last_price * 100)}¢</span>
+                </div>
+
+                {/* Compact Layout with Image Float */}
+                <div className="flex gap-2.5 mb-2.5">
+                  {/* Left: Title and Badges */}
+                  <div className="flex-1 min-w-0">
+                    {/* Title */}
+                    <h3 className="font-semibold text-sm leading-tight text-white line-clamp-3 mb-1.5 pr-10">{props.title}</h3>
+
+                    {/* Platform & Category Badge Row */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[10px] font-semibold shadow-sm",
+                        props.platform === 'polymarket'
+                          ? "bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-400/30"
+                          : "bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border border-green-400/30"
+                      )}>
+                        {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
+                      </span>
+                      {props.category && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-700/40 text-gray-300 border border-gray-600/30">
+                          {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* End Date */}
-              {props.endDate && (
-                <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-2">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span>Ends {new Date(props.endDate).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}</span>
+                  {/* Right: Compact Image */}
+                  {(props.image_url || props.ticker) && (
+                    <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-gray-700/30 relative bg-gray-800/50 flex items-center justify-center group">
+                      {props.image_url ? (
+                        <Image
+                          src={props.image_url}
+                          alt={props.title}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                          onError={(e) => {
+                            // Hide parent container if image fails to load
+                            const target = e.currentTarget as HTMLImageElement;
+                            if (target.parentElement) target.parentElement.style.display = 'none';
+                          }}
+                        />
+                      ) : props.ticker ? (
+                        <img
+                          src={`https://images.financialmodelingprep.com/symbol/${props.ticker.toUpperCase()}.png`}
+                          alt={props.ticker}
+                          className="w-full h-full object-contain p-2"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).classList.add('hidden');
+                            if (e.currentTarget.parentElement) e.currentTarget.parentElement.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                  )}
                 </div>
-              )}
 
-              {/* Mini Chart - Fetches on hover (only for single markets, not groups) */}
-              <div className="mb-2">
-                <MarketHoverChart
-                  marketId={props.id || props.market_id}
-                  platform={props.platform}
-                  currentPrice={props.last_price || props.price}
-                  priceChange={props.price_movement}
-                  enabled={true}
-                />
-              </div>
+                {/* Stats Grid - Volume and OI side by side */}
+                <div className="flex gap-1.5 mb-2">
+                  <MarketPopupVolume
+                    market={{
+                      id: props.id || props.market_id,
+                      rawData: props.rawData ? (typeof props.rawData === 'string' ? JSON.parse(props.rawData) : props.rawData) : {},
+                      eventData: props.eventData,
+                      eventId: props.eventId,
+                    }}
+                    volume24h={props.volume || props.volume24h}
+                    platform={props.platform}
+                  />
+                  {props.price_movement !== undefined && props.price_movement !== 0 && (
+                    <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30 flex-1">
+                      <div className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">24h Change</div>
+                      <div className={cn(
+                        "text-xs font-bold",
+                        props.price_movement >= 0 ? "text-emerald-400" : "text-red-400"
+                      )}>
+                        {props.price_movement > 0 ? '+' : ''}{Math.round(props.price_movement * 100)}%
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-              {/* CTA Button */}
-              <button
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98]"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Find full market data or reconstruct from properties
-                  const marketId = props.id || props.market_id;
-                  let market = rawMarkets?.find((m: any) => m.id === marketId);
+                {/* End Date */}
+                {props.endDate && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-2">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Ends {new Date(props.endDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}</span>
+                  </div>
+                )}
 
-                  // If not found, reconstruct from feature properties (for geotagged markets)
-                  if (!market) {
-                    let rawData = props.rawData;
-                    if (typeof rawData === 'string') {
-                      try {
-                        rawData = JSON.parse(rawData);
-                      } catch (e) {
-                        rawData = {};
+                {/* Mini Chart - Fetches on hover (only for single markets, not groups) */}
+                <div className="mb-2">
+                  <MarketHoverChart
+                    marketId={props.id || props.market_id}
+                    platform={props.platform}
+                    currentPrice={props.last_price || props.price}
+                    priceChange={props.price_movement}
+                    enabled={true}
+                  />
+                </div>
+
+                {/* CTA Button */}
+                <button
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Find full market data or reconstruct from properties
+                    const marketId = props.id || props.market_id;
+                    let market = rawMarkets?.find((m: any) => m.id === marketId);
+
+                    // If not found, reconstruct from feature properties (for geotagged markets)
+                    if (!market) {
+                      let rawData = props.rawData;
+                      if (typeof rawData === 'string') {
+                        try {
+                          rawData = JSON.parse(rawData);
+                        } catch (e) {
+                          rawData = {};
+                        }
                       }
+
+                      market = {
+                        id: props.id || props.market_id,
+                        title: props.title,
+                        description: props.description || '',
+                        platform: props.platform,
+                        volume24h: props.volume || props.volume24h,
+                        price: props.last_price || props.price,
+                        probability: props.last_price || props.price,
+                        liquidity: props.liquidity,
+                        endDate: props.endDate,
+                        slug: props.slug,
+                        ticker: props.ticker,
+                        category: props.category,
+                        imageUrl: props.image_url,
+                        rawData: rawData || {},
+                      };
                     }
 
-                    market = {
-                      id: props.id || props.market_id,
-                      title: props.title,
-                      description: props.description || '',
-                      platform: props.platform,
-                      volume24h: props.volume || props.volume24h,
-                      price: props.last_price || props.price,
-                      probability: props.last_price || props.price,
-                      liquidity: props.liquidity,
-                      endDate: props.endDate,
-                      slug: props.slug,
-                      ticker: props.ticker,
-                      category: props.category,
-                      imageUrl: props.image_url,
-                      rawData: rawData || {},
-                    };
-                  }
-
-                  if (market) {
-                    handleCardClick(market);
-                  }
-                }}
-              >
-                VIEW DETAILS →
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-sm truncate">{props.handle}</div>
-                  <div className="text-[10px] text-gray-400">{props.timestamp}</div>
-                </div>
+                    if (market) {
+                      handleCardClick(market);
+                    }
+                  }}
+                >
+                  VIEW DETAILS →
+                </button>
               </div>
-              <p className="text-xs text-gray-200 leading-relaxed font-sans border-t border-gray-800 pt-2 mt-2">
-                {props.text}
-              </p>
-            </>
-          )}
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-sm truncate">{props.handle}</div>
+                    <div className="text-[10px] text-gray-400">{props.timestamp}</div>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-200 leading-relaxed font-sans border-t border-gray-800 pt-2 mt-2">
+                  {props.text}
+                </p>
+              </>
+            )}
           </div>
         )}
       </Popup>

@@ -62,7 +62,7 @@ export function ExchangePopup({
       <div className="mb-3">
         <div className="flex items-start gap-3 mb-2">
           {/* Exchange Logo */}
-          <div className="w-12 h-12 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center shrink-0 p-1.5">
+          <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shrink-0 p-1.5 shadow-[0_0_15px_rgba(255,255,255,0.1)] border border-white/20">
             {logoUrl && !logoError ? (
               <img
                 src={logoUrl}
@@ -71,7 +71,7 @@ export function ExchangePopup({
                 onError={() => setLogoError(true)}
               />
             ) : (
-              <div className="text-base font-black text-emerald-400/90">{shortName.substring(0, 3)}</div>
+              <div className="text-base font-black text-emerald-600">{shortName.substring(0, 3)}</div>
             )}
           </div>
 
@@ -164,12 +164,52 @@ export function ExchangePopup({
 
 function StockMoverRow({ stock, rank }: { stock: StockMover; rank: number }) {
   const isPositive = stock.changePercent >= 0;
+  const [imgError, setImgError] = useState(false);
+
+  // Common ticker to domain mapping for better logo fetching via Clearbit
+  const tickerDomains: Record<string, string> = {
+    'AAPL': 'apple.com',
+    'MSFT': 'microsoft.com',
+    'GOOGL': 'google.com',
+    'GOOG': 'google.com',
+    'AMZN': 'amazon.com',
+    'META': 'meta.com',
+    'TSLA': 'tesla.com',
+    'NVDA': 'nvidia.com',
+    'NFLX': 'netflix.com',
+    'DIS': 'disney.com',
+    'BABA': 'alibaba.com',
+    'TCEHY': 'tencent.com',
+    'V': 'visa.com',
+    'MA': 'mastercard.com',
+    'JPM': 'jpmorganchase.com',
+    'WMT': 'walmart.com',
+    'KO': 'cocacola.com',
+    'PEP': 'pepsico.com',
+    'BAC': 'bankofamerica.com',
+    'XOM': 'exxonmobil.com',
+    'CVX': 'chevron.com',
+  };
+
+  const domain = tickerDomains[stock.ticker.toUpperCase()];
+  const logoUrl = domain
+    ? `https://logo.clearbit.com/${domain}`
+    : `https://images.financialmodelingprep.com/symbol/${stock.ticker.toUpperCase()}.png`;
 
   return (
-    <div className="flex items-center gap-2 bg-gray-800/30 rounded-lg p-2 border border-gray-700/20">
-      {/* Rank */}
-      <div className="w-5 h-5 flex items-center justify-center bg-gray-700/40 rounded text-[9px] font-bold text-gray-400 shrink-0">
-        {rank}
+    <div className="flex items-center gap-2 bg-gray-800/30 rounded-lg p-2 border border-gray-700/20 hover:bg-gray-800/50 transition-colors group">
+      {/* Rank or Logo */}
+      <div className="w-8 h-8 flex items-center justify-center bg-gray-700/40 rounded overflow-hidden shrink-0 border border-gray-700/30">
+        {!imgError ? (
+          <img
+            src={logoUrl}
+            alt={stock.ticker}
+            className="w-full h-full object-contain p-1"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="text-[10px] font-bold text-gray-500">{stock.ticker.substring(0, 2)}</div>
+        )}
       </div>
 
       {/* Stock Info */}
@@ -179,14 +219,14 @@ function StockMoverRow({ stock, rank }: { stock: StockMover; rank: number }) {
           <span
             className={cn(
               'text-[10px] font-bold',
-              isPositive ? 'text-emerald-400' : 'text-red-400'
+              isPositive ? 'text-emerald-400' : 'text-rose-400'
             )}
           >
             {isPositive ? '+' : ''}
             {stock.changePercent.toFixed(2)}%
           </span>
         </div>
-        <div className="text-[9px] text-gray-400 truncate">{stock.name}</div>
+        <div className="text-[9px] text-gray-400 truncate group-hover:text-gray-200 transition-colors">{stock.name}</div>
       </div>
 
       {/* Price */}
