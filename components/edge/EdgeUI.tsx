@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers, VolumeX, Eye } from 'lucide-react';
+import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers, VolumeX, Eye, ArrowRightLeft, SlidersHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils/cn';
@@ -17,8 +17,9 @@ interface EdgeUIProps {
   onFilterChange: (filter: string, active: boolean) => void;
   activeFilters: Record<string, boolean>;
   onViewToggle?: () => void;
+  onFinancialsToggle?: () => void;
   onMapGlobeToggle?: () => void;
-  currentView?: 'map' | 'globe' | 'insights' | 'agent';
+  currentView?: 'map' | 'globe' | 'insights' | 'agent' | 'financials';
   isPlaying?: boolean;
   onPlayPause?: (playing: boolean) => void;
   onSettingsOpen?: () => void;
@@ -68,6 +69,7 @@ export function EdgeUI({
   onFilterChange,
   activeFilters,
   onViewToggle,
+  onFinancialsToggle,
   onMapGlobeToggle,
   currentView = 'map',
   isPlaying: externalIsPlaying,
@@ -99,15 +101,12 @@ export function EdgeUI({
   // Use external ref if provided, otherwise use internal
   const inputRef = externalSearchInputRef || internalInputRef;
   const profileRef = useRef<HTMLDivElement>(null);
-  const categoriesRef = useRef<HTMLDivElement>(null);
-  const visualizationRef = useRef<HTMLDivElement>(null);
-  const overlaysRef = useRef<HTMLDivElement>(null);
-  const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
-  const [isVisualizationOpen, setIsVisualizationOpen] = useState(false);
-  const [isOverlaysOpen, setIsOverlaysOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const [isViewSettingsOpen, setIsViewSettingsOpen] = useState(false);
   const isPlaying = externalIsPlaying !== undefined ? externalIsPlaying : internalIsPlaying;
   const isMapView = currentView === 'map';
   const isInsightsView = currentView === 'insights';
+  const isFinancialsView = currentView === 'financials';
 
   // Click-outside handling for dropdowns
   useEffect(() => {
@@ -115,21 +114,15 @@ export function EdgeUI({
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
       }
-      if (categoriesRef.current && !categoriesRef.current.contains(event.target as Node)) {
-        setIsCategoriesOpen(false);
-      }
-      if (visualizationRef.current && !visualizationRef.current.contains(event.target as Node)) {
-        setIsVisualizationOpen(false);
-      }
-      if (overlaysRef.current && !overlaysRef.current.contains(event.target as Node)) {
-        setIsOverlaysOpen(false);
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setIsViewSettingsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [profileRef, categoriesRef, visualizationRef, overlaysRef]);
+  }, [profileRef, settingsRef]);
 
   // Generate random markets when search is focused
   useEffect(() => {
@@ -182,7 +175,7 @@ export function EdgeUI({
     <div className="absolute inset-0 pointer-events-none">
 
       {/* Mobile Header - Single stacked layout for small screens */}
-      <div className="md:hidden absolute top-2 left-2 right-2 z-[1000] pointer-events-auto flex flex-col gap-2">
+      <div className="md:hidden absolute top-2 left-2 right-2 z-[1000] pointer-events-auto flex flex-col gap-1.5">
         {/* Row 1: Logo + Icons */}
         <div
           className="flex items-center justify-between p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-xl"
@@ -301,218 +294,212 @@ export function EdgeUI({
           </div>
         </div>
 
-        {/* Row 2: Filter Buttons - Mobile (only when not in insights view) */}
-        {!isInsightsView && (
+        {/* Row 2: Filter Buttons - Mobile (only when not in insights/financials view) */}
+        {!isInsightsView && !isFinancialsView && (
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-            {/* Categories Dropdown */}
-            <div className="relative flex-shrink-0" ref={categoriesRef}>
+            {/* Consolidated View Settings - Mobile */}
+            <div className="relative flex-shrink-0" ref={settingsRef}>
               <button
-                onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
+                onClick={() => setIsViewSettingsOpen(!isViewSettingsOpen)}
                 className={cn(
                   "px-2.5 py-1.5 rounded-lg backdrop-blur-xl border text-[10px] font-bold transition-all flex items-center gap-1.5 shadow-lg whitespace-nowrap",
-                  isCategoriesOpen || (selectedCategories.length > 0 && !selectedCategories.includes('All'))
-                    ? "bg-purple-500/10 border-purple-500/50 text-purple-400"
-                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
+                  isViewSettingsOpen
+                    ? "bg-white/20 border-white/30 text-white"
+                    : "bg-[#0e0f11]/90 border-white/20 text-gray-200 hover:bg-[#0e0f11]/80"
                 )}
               >
-                <Filter className="w-3 h-3" />
-                TAGS
-                {(selectedCategories.length > 0 && !selectedCategories.includes('All')) && (
-                  <span className="px-1 py-0.5 bg-purple-500 text-white rounded-full text-[8px] font-bold">
-                    {selectedCategories.length}
-                  </span>
-                )}
-                <ChevronDown className="w-2.5 h-2.5" />
-              </button>
-
-              {/* Categories Popover - Mobile */}
-              {isCategoriesOpen && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-[#0e0f11]/98 border border-white/10 rounded-xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 z-50">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold text-white">Categories</h3>
-                    {!selectedCategories.includes('All') && selectedCategories.length > 0 && (
-                      <button
-                        onClick={() => {
-                          if (onCategorySelect) onCategorySelect(['All']);
-                        }}
-                        className="text-[10px] text-purple-400 hover:text-purple-300 font-medium transition-colors"
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {CATEGORIES.map(cat => {
-                      const isSelected = selectedCategories.includes(cat);
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => {
-                            if (!onCategorySelect) return;
-                            if (cat === 'All') {
-                              onCategorySelect(['All']);
-                            } else {
-                              const newCats = isSelected
-                                ? selectedCategories.filter(c => c !== cat)
-                                : [...selectedCategories.filter(c => c !== 'All'), cat];
-                              onCategorySelect(newCats.length === 0 ? ['All'] : newCats);
-                            }
-                          }}
-                          className={cn(
-                            "px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all border relative overflow-hidden group",
-                            isSelected
-                              ? "bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white shadow-lg shadow-purple-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                          )}
-                        >
-                          <span className="relative z-10">{cat}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Visualization Mode Dropdown - Mobile */}
-            <div className="relative flex-shrink-0" ref={visualizationRef}>
-              <button
-                onClick={() => setIsVisualizationOpen(!isVisualizationOpen)}
-                className={cn(
-                  "px-2.5 py-1.5 rounded-lg backdrop-blur-xl border text-[10px] font-bold transition-all flex items-center gap-1.5 shadow-lg whitespace-nowrap",
-                  isVisualizationOpen || visualizationMode !== 'dots'
-                    ? "bg-cyan-500/10 border-cyan-500/50 text-cyan-400"
-                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
-                )}
-              >
-                <Eye className="w-3 h-3" />
-                VISUALIZATION
-                <ChevronDown className="w-2.5 h-2.5" />
-              </button>
-
-              {/* Visualization Popover - Mobile */}
-              {isVisualizationOpen && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-[#0e0f11]/98 border border-white/10 rounded-xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 z-50">
-                  <h3 className="text-xs font-semibold text-white mb-2">Mode</h3>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() => {
-                        onVisualizationModeChange?.('dots');
-                        setIsVisualizationOpen(false);
-                      }}
-                      className={cn(
-                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
-                        visualizationMode === 'dots'
-                          ? "bg-gradient-to-br from-cyan-600 to-cyan-700 border-cyan-500 text-white shadow-lg shadow-cyan-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
-                      )}
-                    >
-                      <Eye className="w-3 h-3" />
-                      <span>Dots</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        onVisualizationModeChange?.('heatmap');
-                        setIsVisualizationOpen(false);
-                      }}
-                      className={cn(
-                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
-                        visualizationMode === 'heatmap'
-                          ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
-                      )}
-                    >
-                      <Activity className="w-3 h-3" />
-                      <span>Heatmap</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        onVisualizationModeChange?.('cluster');
-                        setIsVisualizationOpen(false);
-                      }}
-                      className={cn(
-                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
-                        visualizationMode === 'cluster'
-                          ? "bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white shadow-lg shadow-purple-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
-                      )}
-                    >
-                      <Layers className="w-3 h-3" />
-                      <span>Clusters</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Map Overlays Dropdown - Mobile */}
-            <div className="relative flex-shrink-0" ref={overlaysRef}>
-              <button
-                onClick={() => setIsOverlaysOpen(!isOverlaysOpen)}
-                className={cn(
-                  "px-2.5 py-1.5 rounded-lg backdrop-blur-xl border text-[10px] font-bold transition-all flex items-center gap-1.5 shadow-lg whitespace-nowrap",
-                  isOverlaysOpen || activeFilters.live || activeFilters.fires || activeFilters.noiseFilter
-                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400"
-                    : "bg-[#0e0f11]/80 border-white/10 text-gray-400 hover:bg-[#0e0f11]/60"
-                )}
-              >
-                <Layers className="w-3 h-3" />
-                OVERLAYS
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>OPTIONS</span>
                 {(() => {
-                  const activeOverlayCount = [activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length;
-                  return activeOverlayCount > 0 && (
-                    <span className="px-1 py-0.5 bg-emerald-500 text-white rounded-full text-[8px] font-bold">
-                      {activeOverlayCount}
+                  const activeCount =
+                    (selectedCategories.length > 0 && !selectedCategories.includes('All') ? 1 : 0) +
+                    ([activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length > 0 ? 1 : 0);
+
+                  return activeCount > 0 && (
+                    <span className="w-3.5 h-3.5 flex items-center justify-center bg-purple-500 text-white rounded-full text-[8px] font-bold">
+                      {activeCount}
                     </span>
                   );
                 })()}
                 <ChevronDown className="w-2.5 h-2.5" />
               </button>
 
-              {/* Overlays Popover - Mobile */}
-              {isOverlaysOpen && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-[#0e0f11]/98 border border-white/10 rounded-xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 z-50">
-                  <h3 className="text-xs font-semibold text-white mb-2">Map Overlays</h3>
-                  <div className="grid grid-cols-2 gap-1.5 mb-2">
-                    <button
-                      onClick={() => onFilterChange('live', !activeFilters.live)}
-                      className={cn(
-                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
-                        activeFilters.live
-                          ? "bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
-                      )}
-                    >
-                      <span className={cn("w-1.5 h-1.5 rounded-full", activeFilters.live ? "bg-white animate-pulse" : "bg-gray-500")} />
-                      <span>LIVE</span>
-                    </button>
-                    <button
-                      onClick={() => onFilterChange('fires', !activeFilters.fires)}
-                      className={cn(
-                        "px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
-                        activeFilters.fires
-                          ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
-                      )}
-                    >
-                      <Flame className={cn("w-3 h-3", activeFilters.fires ? "fill-white" : "")} />
-                      <span>Fires</span>
-                    </button>
-                  </div>
-                  <div className="pt-2 border-t border-white/10">
-                    <button
-                      onClick={() => onFilterChange('noiseFilter', !activeFilters.noiseFilter)}
-                      className={cn(
-                        "w-full px-2 py-2 rounded-lg text-[10px] font-medium transition-all border flex items-center gap-1.5",
-                        activeFilters.noiseFilter
-                          ? "bg-gradient-to-br from-amber-600 to-amber-700 border-amber-500 text-white shadow-lg shadow-amber-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
-                      )}
-                    >
-                      <VolumeX className="w-3 h-3" />
-                      <span>Hide Low Liquidity</span>
-                      <span className="ml-auto text-[9px] text-gray-400">$100+</span>
-                    </button>
+              {/* View Settings Popover - Mobile */}
+              {isViewSettingsOpen && (
+                <div className="absolute top-full left-0 mt-2 w-[280px] bg-[#0e0f11]/98 border border-white/10 rounded-xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+                  <div className="p-3 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+
+                    {/* Section 1: Data Source (Tags) */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-white/90">
+                          <Filter className="w-3 h-3 text-purple-400" />
+                          <h3 className="text-[10px] font-bold uppercase tracking-wider">Data Source</h3>
+                        </div>
+                        {!selectedCategories.includes('All') && selectedCategories.length > 0 && (
+                          <button
+                            onClick={() => onCategorySelect && onCategorySelect(['All'])}
+                            className="text-[9px] text-purple-400 hover:text-purple-300 font-medium transition-colors"
+                          >
+                            RESET
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {CATEGORIES.map(cat => {
+                          const isSelected = selectedCategories.includes(cat);
+                          return (
+                            <button
+                              key={cat}
+                              onClick={() => {
+                                if (!onCategorySelect) return;
+                                if (cat === 'All') {
+                                  onCategorySelect(['All']);
+                                } else {
+                                  const newCats = isSelected
+                                    ? selectedCategories.filter(c => c !== cat)
+                                    : [...selectedCategories.filter(c => c !== 'All'), cat];
+                                  onCategorySelect(newCats.length === 0 ? ['All'] : newCats);
+                                }
+                              }}
+                              className={cn(
+                                "px-2 py-1 rounded-md text-[10px] font-medium transition-all border relative overflow-hidden group",
+                                isSelected
+                                  ? "bg-purple-600 border-purple-400 text-white shadow-lg"
+                                  : "bg-white/15 border-white/20 text-gray-300 hover:bg-white/25 hover:border-white/30 hover:text-white"
+                              )}
+                            >
+                              {cat}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-white/5 w-full" />
+
+                    {/* Section 2: Visualization Mode */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 text-white/90">
+                        <Eye className="w-3 h-3 text-cyan-400" />
+                        <h3 className="text-[10px] font-bold uppercase tracking-wider">Visual Style</h3>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          onClick={() => onVisualizationModeChange?.('dots')}
+                          className={cn(
+                            "px-2 py-1.5 rounded-lg flex flex-col items-center gap-1 transition-all border",
+                            visualizationMode === 'dots'
+                              ? "bg-cyan-600 border-cyan-400 text-white shadow-lg"
+                              : "bg-white/15 border-white/20 text-gray-300 hover:bg-white/25"
+                          )}
+                        >
+                          <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                          <span className="text-[9px] font-bold">Points</span>
+                        </button>
+
+                        <button
+                          onClick={() => onVisualizationModeChange?.('heatmap')}
+                          className={cn(
+                            "px-2 py-1.5 rounded-lg flex flex-col items-center gap-1 transition-all border",
+                            visualizationMode === 'heatmap'
+                              ? "bg-orange-600 border-orange-400 text-white shadow-lg"
+                              : "bg-white/15 border-white/20 text-gray-300 hover:bg-white/25"
+                          )}
+                        >
+                          <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60 blur-[1px]" />
+                          <span className="text-[9px] font-bold">Heat</span>
+                        </button>
+
+                        <button
+                          onClick={() => onVisualizationModeChange?.('cluster')}
+                          className={cn(
+                            "px-2 py-1.5 rounded-lg flex flex-col items-center gap-1 transition-all border",
+                            visualizationMode === 'cluster'
+                              ? "bg-purple-600 border-purple-400 text-white shadow-lg"
+                              : "bg-white/15 border-white/20 text-gray-300 hover:bg-white/25"
+                          )}
+                        >
+                          <div className="w-1.5 h-1.5 rounded-full border-2 border-current" />
+                          <span className="text-[9px] font-bold">Group</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-white/5 w-full" />
+
+                    {/* Section 3: Overlays */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 text-white/90">
+                        <Layers className="w-3 h-3 text-emerald-400" />
+                        <h3 className="text-[10px] font-bold uppercase tracking-wider">Overlays</h3>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {/* Live Updates */}
+                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/15 border border-white/20">
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn("w-1.5 h-1.5 rounded-full", activeFilters.live ? "bg-emerald-400 animate-pulse" : "bg-gray-500")} />
+                            <span className="text-[10px] text-gray-300">Live Updates</span>
+                          </div>
+                          <button
+                            onClick={() => onFilterChange('live', !activeFilters.live)}
+                            className={cn(
+                              "w-6 h-3.5 rounded-full relative transition-colors",
+                              activeFilters.live ? "bg-emerald-500" : "bg-white/20"
+                            )}
+                          >
+                            <div className={cn(
+                              "absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all shadow-sm",
+                              activeFilters.live ? "left-[13px]" : "left-0.5"
+                            )} />
+                          </button>
+                        </div>
+
+                        {/* Fires */}
+                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/15 border border-white/20">
+                          <div className="flex items-center gap-1.5">
+                            <Flame className={cn("w-2.5 h-2.5", activeFilters.fires ? "text-orange-400" : "text-gray-500")} />
+                            <span className="text-[10px] text-gray-300">Viral / Fires</span>
+                          </div>
+                          <button
+                            onClick={() => onFilterChange('fires', !activeFilters.fires)}
+                            className={cn(
+                              "w-6 h-3.5 rounded-full relative transition-colors",
+                              activeFilters.fires ? "bg-orange-600" : "bg-white/20"
+                            )}
+                          >
+                            <div className={cn(
+                              "absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all shadow-sm",
+                              activeFilters.fires ? "left-[13px]" : "left-0.5"
+                            )} />
+                          </button>
+                        </div>
+
+                        {/* Low Liquidity Filter */}
+                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/15 border border-white/20">
+                          <div className="flex items-center gap-1.5">
+                            <VolumeX className={cn("w-2.5 h-2.5", activeFilters.noiseFilter ? "text-amber-400" : "text-gray-500")} />
+                            <span className="text-[10px] text-gray-300">Hide Low Liquidity</span>
+                          </div>
+                          <button
+                            onClick={() => onFilterChange('noiseFilter', !activeFilters.noiseFilter)}
+                            className={cn(
+                              "w-6 h-3.5 rounded-full relative transition-colors",
+                              activeFilters.noiseFilter ? "bg-amber-600" : "bg-white/20"
+                            )}
+                          >
+                            <div className={cn(
+                              "absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all shadow-sm",
+                              activeFilters.noiseFilter ? "left-[13px]" : "left-0.5"
+                            )} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               )}
@@ -523,7 +510,7 @@ export function EdgeUI({
 
       {/* Desktop Header - Original layout for md and above */}
       {/* Top Left: Control Island */}
-      <div className="hidden md:flex absolute top-4 left-4 z-[1000] pointer-events-auto flex-col gap-3">
+      <div className="hidden md:flex absolute top-4 left-4 z-[1000] pointer-events-auto flex-col items-start gap-1.5">
         {/* Logo & Main Controls */}
         <div
           className="flex items-center gap-2 p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl"
@@ -539,323 +526,306 @@ export function EdgeUI({
 
           <div className="w-px h-6 bg-white/10 mx-1" />
 
-          {/* Play/Pause Rotation - Only show in map/globe view */}
-          {!isInsightsView && (
-            <button
-              onClick={handlePlayPause}
-              className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
-              title={isPlaying ? "Pause Rotation" : "Resume Rotation"}
-            >
-              {isPlaying ? (
-                <>
-                  <Pause className="w-3.5 h-3.5" />
-                  <span>Pause Rotation</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5 ml-0.5" />
-                  <span>Resume Rotation</span>
-                </>
-              )}
-            </button>
-          )}
-
-          {/* Map/Globe Toggle or Reset View - Only show when not in insights view */}
-          {!isInsightsView && (
-            <>
-              {isZoomedIn ? (
-                <button
-                  onClick={onResetZoom}
-                  className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset View</span>
-                </button>
-              ) : (
-                <button
-                  onClick={onMapGlobeToggle}
-                  className="h-8 px-3 flex items-center gap-2 rounded-xl text-xs font-bold transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
-                >
-                  {isMapView ? (
-                    <>
-                      <Globe className="w-3.5 h-3.5" />
-                      <span>Switch to Globe</span>
-                    </>
-                  ) : (
-                    <>
-                      <Map className="w-3.5 h-3.5" />
-                      <span>Switch to Map</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </>
-          )}
-
-          {/* Insights Mode Toggle - Always visible */}
-          <button
-            onClick={onViewToggle}
-            className={cn(
-              "h-8 px-3 flex items-center gap-2 rounded-xl transition-all duration-300 border shadow-sm",
-              isInsightsView
-                ? "bg-gradient-to-r from-blue-500/20 via-blue-600/15 to-blue-500/20 border-blue-400/50 shadow-blue-500/20"
-                : "bg-gradient-to-r from-amber-900/20 via-yellow-900/15 to-amber-900/20 border-amber-700/30 hover:border-amber-500/40 hover:shadow-amber-500/10"
+          {/* Unified View Controller */}
+          <div className="flex items-center gap-1">
+            {/* Play/Pause Rotation - Only show in map/globe view */}
+            {!isInsightsView && !isFinancialsView && (
+              <button
+                onClick={handlePlayPause}
+                className="w-8 h-8 flex items-center justify-center rounded-xl transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
+                title={isPlaying ? "Pause Rotation" : "Resume Rotation"}
+              >
+                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+              </button>
             )}
-          >
-            {isInsightsView ? (
-              <>
-                <Globe className="w-3.5 h-3.5 text-blue-300" />
-                <span className="font-sans tracking-tight font-bold text-white text-xs">
-                  Back to Map
-                </span>
-              </>
-            ) : (
-              <>
-                <Brain className="w-3.5 h-3.5 text-amber-400/70" />
-                <span className="font-serif italic tracking-tight font-bold text-white/90 text-xs">
-                  Insights
-                </span>
-              </>
+
+            {/* Reset View - Only show when zoomed in and not in insights/financials */}
+            {!isInsightsView && !isFinancialsView && isZoomedIn && (
+              <button
+                onClick={onResetZoom}
+                className="w-8 h-8 flex items-center justify-center rounded-xl transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
+                title="Reset View"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
             )}
-          </button>
+
+            <div className="w-px h-4 bg-white/10 mx-1" />
+
+            {/* Navigation Tabs */}
+            <div className="flex p-0.5 bg-black/40 border border-white/10 rounded-xl">
+              <button
+                onClick={onMapGlobeToggle} // This toggles between map/globe
+                className={cn(
+                  "group px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 relative",
+                  !isInsightsView && !isFinancialsView
+                    ? "bg-white/20 text-white shadow-md border border-white/10"
+                    : "text-gray-300 hover:text-white hover:bg-white/15"
+                )}
+              >
+                {/* Main Icon */}
+                <div className="relative w-3.5 h-3.5">
+                  <div className={cn("absolute inset-0 transition-all duration-300", !isInsightsView && !isFinancialsView ? "opacity-100 group-hover:opacity-0 group-hover:scale-75" : "opacity-100")}>
+                    {isMapView ? <Map className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
+                  </div>
+                  <div className={cn("absolute inset-0 transition-all duration-300 opacity-0 scale-75 rotate-90", !isInsightsView && !isFinancialsView ? "group-hover:opacity-100 group-hover:scale-100 group-hover:rotate-0" : "hidden")}>
+                    <ArrowRightLeft className="w-3.5 h-3.5 text-white/80" />
+                  </div>
+                </div>
+
+                {/* Text Label */}
+                <span>{isMapView ? 'Map' : 'Globe'}</span>
+              </button>
+
+              <button
+                onClick={onViewToggle}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+                  isInsightsView
+                    ? "bg-amber-600/90 text-white shadow-md border border-amber-500/50"
+                    : "text-gray-300 hover:text-white hover:bg-white/15"
+                )}
+              >
+                <Brain className="w-3.5 h-3.5" />
+                <span>Insights</span>
+              </button>
+
+              <button
+                onClick={onFinancialsToggle}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+                  isFinancialsView
+                    ? "bg-emerald-600/90 text-white shadow-md border border-emerald-500/50"
+                    : "text-gray-300 hover:text-white hover:bg-white/15"
+                )}
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Financials</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Control Buttons Row - Hide when in insights view */}
-        {!isInsightsView && (
+        {/* Control Buttons Row - Hide when in insights/financials view */}
+        {!isInsightsView && !isFinancialsView && (
           <div
             className="flex items-center gap-1.5 p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl"
             style={{
               boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
             }}
           >
-            {/* Categories Dropdown */}
-            <div className="relative" ref={categoriesRef}>
+            {/* Consolidated View Settings Dropdown */}
+            <div className="relative" ref={settingsRef}>
               <button
-                onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
+                onClick={() => setIsViewSettingsOpen(!isViewSettingsOpen)}
                 className={cn(
-                  "h-7 px-2 flex items-center gap-1 rounded-xl text-[10px] font-bold transition-all border",
-                  isCategoriesOpen || (selectedCategories.length > 0 && !selectedCategories.includes('All'))
-                    ? "bg-purple-500/10 border-purple-500/50 text-purple-400"
-                    : "bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
+                  "h-7 px-2.5 flex items-center gap-1.5 rounded-xl text-[10px] uppercase font-bold transition-all border shadow-sm",
+                  isViewSettingsOpen
+                    ? "bg-white/20 border-white/30 text-white shadow-lg"
+                    : "bg-[#0e0f11]/90 border-white/20 text-gray-200 hover:text-white hover:bg-white/10"
                 )}
               >
-                <Filter className="w-3.5 h-3.5" />
-                TAGS
-                {(selectedCategories.length > 0 && !selectedCategories.includes('All')) && (
-                  <span className="ml-1 px-1.5 py-0.5 bg-purple-500 text-white rounded-full text-[9px] font-bold">
-                    {selectedCategories.length}
-                  </span>
-                )}
-                <ChevronDown className="w-3 h-3" />
-              </button>
-
-              {/* Categories Popover */}
-              {isCategoriesOpen && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-white">Categories</h3>
-                    {!selectedCategories.includes('All') && selectedCategories.length > 0 && (
-                      <button
-                        onClick={() => {
-                          if (onCategorySelect) onCategorySelect(['All']);
-                        }}
-                        className="text-xs text-purple-400 hover:text-purple-300 font-medium transition-colors"
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CATEGORIES.map(cat => {
-                      const isSelected = selectedCategories.includes(cat);
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => {
-                            if (!onCategorySelect) return;
-                            if (cat === 'All') {
-                              onCategorySelect(['All']);
-                            } else {
-                              const newCats = isSelected
-                                ? selectedCategories.filter(c => c !== cat)
-                                : [...selectedCategories.filter(c => c !== 'All'), cat];
-                              onCategorySelect(newCats.length === 0 ? ['All'] : newCats);
-                            }
-                          }}
-                          className={cn(
-                            "px-3 py-2 rounded-lg text-xs font-medium transition-all border relative overflow-hidden group",
-                            isSelected
-                              ? "bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white shadow-lg shadow-purple-500/30"
-                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                          )}
-                        >
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          )}
-                          <span className="relative z-10">{cat}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Visualization Mode Dropdown */}
-            <div className="relative" ref={visualizationRef}>
-              <button
-                onClick={() => setIsVisualizationOpen(!isVisualizationOpen)}
-                className={cn(
-                  "h-7 px-2 flex items-center gap-1 rounded-xl text-[10px] font-bold transition-all border",
-                  isVisualizationOpen || visualizationMode !== 'dots'
-                    ? "bg-cyan-500/10 border-cyan-500/50 text-cyan-400"
-                    : "bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
-                )}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                VISUALIZATION
-                <ChevronDown className="w-3 h-3" />
-              </button>
-
-              {/* Visualization Popover */}
-              {isVisualizationOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[260px] sm:w-[280px] bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 sm:p-4">
-                  <h3 className="text-sm font-semibold text-white mb-3">Mode</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* Dots Mode */}
-                    <button
-                      onClick={() => {
-                        onVisualizationModeChange?.('dots');
-                        setIsVisualizationOpen(false);
-                      }}
-                      className={cn(
-                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                        visualizationMode === 'dots'
-                          ? "bg-gradient-to-br from-cyan-600 to-cyan-700 border-cyan-500 text-white shadow-lg shadow-cyan-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                      )}
-                    >
-                      <Eye className="w-3.5 h-3.5 relative z-10" />
-                      <span className="relative z-10">Dots</span>
-                    </button>
-
-                    {/* Heatmap Mode */}
-                    <button
-                      onClick={() => {
-                        onVisualizationModeChange?.('heatmap');
-                        setIsVisualizationOpen(false);
-                      }}
-                      className={cn(
-                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                        visualizationMode === 'heatmap'
-                          ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                      )}
-                    >
-                      <Activity className="w-3.5 h-3.5 relative z-10" />
-                      <span className="relative z-10">Heatmap</span>
-                    </button>
-
-                    {/* Cluster Mode */}
-                    <button
-                      onClick={() => {
-                        onVisualizationModeChange?.('cluster');
-                        setIsVisualizationOpen(false);
-                      }}
-                      className={cn(
-                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                        visualizationMode === 'cluster'
-                          ? "bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white shadow-lg shadow-purple-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                      )}
-                    >
-                      <Layers className="w-3.5 h-3.5 relative z-10" />
-                      <span className="relative z-10">Clusters</span>
-                    </button>
-
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Map Overlays Dropdown */}
-            <div className="relative" ref={overlaysRef}>
-              <button
-                onClick={() => setIsOverlaysOpen(!isOverlaysOpen)}
-                className={cn(
-                  "h-7 px-2 flex items-center gap-1 rounded-xl text-[10px] font-bold transition-all border",
-                  isOverlaysOpen || activeFilters.live || activeFilters.fires || activeFilters.noiseFilter
-                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400"
-                    : "bg-white/5 border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
-                )}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                OVERLAYS
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Options</span>
                 {(() => {
-                  const activeOverlayCount = [activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length;
-                  return activeOverlayCount > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-emerald-500 text-white rounded-full text-[9px] font-bold">
-                      {activeOverlayCount}
+                  const activeCount =
+                    (selectedCategories.length > 0 && !selectedCategories.includes('All') ? 1 : 0) +
+                    ([activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length > 0 ? 1 : 0);
+
+                  return activeCount > 0 && (
+                    <span className="ml-1 flex items-center justify-center w-4 h-4 bg-purple-500 text-white rounded-full text-[9px] font-bold">
+                      {activeCount}
                     </span>
                   );
                 })()}
-                <ChevronDown className="w-3 h-3" />
+                <ChevronDown className="w-3 h-3 text-white/50" />
               </button>
 
-              {/* Overlays Popover */}
-              {isOverlaysOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[240px] sm:w-[260px] bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 sm:p-4">
-                  <h3 className="text-sm font-semibold text-white mb-3">Map Overlays</h3>
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    {/* LIVE Toggle */}
-                    <button
-                      onClick={() => onFilterChange('live', !activeFilters.live)}
-                      className={cn(
-                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                        activeFilters.live
-                          ? "bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                      )}
-                    >
-                      <span className={cn("w-1.5 h-1.5 rounded-full relative z-10", activeFilters.live ? "bg-white animate-pulse" : "bg-gray-500")} />
-                      <span className="relative z-10">LIVE</span>
-                    </button>
+              {/* View Settings Popover */}
+              {isViewSettingsOpen && (
+                <div className="absolute top-full left-0 mt-2 w-[320px] bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-4 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
 
-                    {/* Fires Toggle */}
-                    <button
-                      onClick={() => onFilterChange('fires', !activeFilters.fires)}
-                      className={cn(
-                        "px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                        activeFilters.fires
-                          ? "bg-gradient-to-br from-orange-600 to-orange-700 border-orange-500 text-white shadow-lg shadow-orange-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                      )}
-                    >
-                      <Flame className={cn("w-3.5 h-3.5 relative z-10", activeFilters.fires ? "fill-white" : "")} />
-                      <span className="relative z-10">Fires</span>
-                    </button>
+                    {/* Section 1: Data Source (Tags) */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-white/90">
+                          <Filter className="w-3.5 h-3.5 text-purple-400" />
+                          <h3 className="text-xs font-bold uppercase tracking-wider">Data Source</h3>
+                        </div>
+                        {!selectedCategories.includes('All') && selectedCategories.length > 0 && (
+                          <button
+                            onClick={() => onCategorySelect && onCategorySelect(['All'])}
+                            className="text-[10px] text-purple-400 hover:text-purple-300 font-medium transition-colors"
+                          >
+                            RESET
+                          </button>
+                        )}
+                      </div>
 
-                  </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {CATEGORIES.map(cat => {
+                          const isSelected = selectedCategories.includes(cat);
+                          return (
+                            <button
+                              key={cat}
+                              onClick={() => {
+                                if (!onCategorySelect) return;
+                                if (cat === 'All') {
+                                  onCategorySelect(['All']);
+                                } else {
+                                  const newCats = isSelected
+                                    ? selectedCategories.filter(c => c !== cat)
+                                    : [...selectedCategories.filter(c => c !== 'All'), cat];
+                                  onCategorySelect(newCats.length === 0 ? ['All'] : newCats);
+                                }
+                              }}
+                              className={cn(
+                                "px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all border relative overflow-hidden group",
+                                isSelected
+                                  ? "bg-purple-600 border-purple-400 text-white shadow-lg"
+                                  : "bg-white/15 border-white/20 text-gray-300 hover:bg-white/25 hover:border-white/30 hover:text-white"
+                              )}
+                            >
+                              {cat}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                  {/* Noise Filter - Full Width */}
-                  <div className="pt-2 border-t border-white/10 mt-2">
-                    <button
-                      onClick={() => onFilterChange('noiseFilter', !activeFilters.noiseFilter)}
-                      className={cn(
-                        "w-full px-3 py-2.5 rounded-lg text-xs font-medium transition-all border flex items-center gap-2 relative overflow-hidden group",
-                        activeFilters.noiseFilter
-                          ? "bg-gradient-to-br from-amber-600 to-amber-700 border-amber-500 text-white shadow-lg shadow-amber-500/30"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 hover:text-gray-200"
-                      )}
-                    >
-                      <VolumeX className="w-3.5 h-3.5 relative z-10" />
-                      <span className="relative z-10">Hide Low Liquidity</span>
-                      <span className="ml-auto text-[10px] text-gray-400 relative z-10">$100+</span>
-                    </button>
+                    <div className="h-px bg-white/5 w-full" />
+
+                    {/* Section 2: Visualization Mode */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-white/90">
+                        <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider">Visual Style</h3>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          onClick={() => onVisualizationModeChange?.('dots')}
+                          className={cn(
+                            "px-2 py-2 rounded-lg flex flex-col items-center gap-1.5 transition-all border",
+                            visualizationMode === 'dots'
+                              ? "bg-cyan-600 border-cyan-400 text-white shadow-lg"
+                              : "bg-white/15 border-white/20 text-gray-300 hover:bg-white/25"
+                          )}
+                        >
+                          <div className="w-2 h-2 rounded-full bg-current" />
+                          <span className="text-[10px] font-bold">Points</span>
+                        </button>
+
+                        <button
+                          onClick={() => onVisualizationModeChange?.('heatmap')}
+                          className={cn(
+                            "px-2 py-2 rounded-lg flex flex-col items-center gap-1.5 transition-all border",
+                            visualizationMode === 'heatmap'
+                              ? "bg-orange-600 border-orange-400 text-white shadow-lg"
+                              : "bg-white/15 border-white/20 text-gray-300 hover:bg-white/25"
+                          )}
+                        >
+                          <div className="w-2 h-2 rounded-full bg-current opacity-60 blur-[1px]" />
+                          <span className="text-[10px] font-bold">Heatmap</span>
+                        </button>
+
+                        <button
+                          onClick={() => onVisualizationModeChange?.('cluster')}
+                          className={cn(
+                            "px-2 py-2 rounded-lg flex flex-col items-center gap-1.5 transition-all border",
+                            visualizationMode === 'cluster'
+                              ? "bg-purple-600 border-purple-400 text-white shadow-lg"
+                              : "bg-white/15 border-white/20 text-gray-300 hover:bg-white/25"
+                          )}
+                        >
+                          <div className="w-2 h-2 rounded-full border-2 border-current" />
+                          <span className="text-[10px] font-bold">Clusters</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-white/5 w-full" />
+
+                    {/* Section 3: Overlays */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-white/90">
+                        <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider">Overlays</h3>
+                      </div>
+
+                      <div className="space-y-2">
+                        {/* Live Updates */}
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-white/15 border border-white/20">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("w-1.5 h-1.5 rounded-full", activeFilters.live ? "bg-emerald-400 animate-pulse" : "bg-gray-500")} />
+                            <span className="text-xs text-gray-300">Live Updates</span>
+                          </div>
+                          <button
+                            onClick={() => onFilterChange('live', !activeFilters.live)}
+                            className={cn(
+                              "w-8 h-4 rounded-full relative transition-colors",
+                              activeFilters.live ? "bg-emerald-500" : "bg-white/20"
+                            )}
+                          >
+                            <div className={cn(
+                              "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm",
+                              activeFilters.live ? "left-[18px]" : "left-0.5"
+                            )} />
+                          </button>
+                        </div>
+
+                        {/* Fires */}
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-white/15 border border-white/20">
+                          <div className="flex items-center gap-2">
+                            <Flame className={cn("w-3 h-3", activeFilters.fires ? "text-orange-400" : "text-gray-500")} />
+                            <span className="text-xs text-gray-300">Viral / Fires</span>
+                          </div>
+                          <button
+                            onClick={() => onFilterChange('fires', !activeFilters.fires)}
+                            className={cn(
+                              "w-8 h-4 rounded-full relative transition-colors",
+                              activeFilters.fires ? "bg-orange-600" : "bg-white/20"
+                            )}
+                          >
+                            <div className={cn(
+                              "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm",
+                              activeFilters.fires ? "left-[18px]" : "left-0.5"
+                            )} />
+                          </button>
+                        </div>
+
+                        {/* Low Liquidity Filter */}
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-white/15 border border-white/20">
+                          <div className="flex items-center gap-2">
+                            <VolumeX className={cn("w-3 h-3", activeFilters.noiseFilter ? "text-amber-400" : "text-gray-500")} />
+                            <div className="flex flex-col">
+                              <span className="text-xs text-gray-300">Hide Low Liquidity</span>
+                              <span className="text-[9px] text-gray-500">Under $100 Vol</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => onFilterChange('noiseFilter', !activeFilters.noiseFilter)}
+                            className={cn(
+                              "w-8 h-4 rounded-full relative transition-colors",
+                              activeFilters.noiseFilter ? "bg-amber-600" : "bg-white/20"
+                            )}
+                          >
+                            <div className={cn(
+                              "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm",
+                              activeFilters.noiseFilter ? "left-[18px]" : "left-0.5"
+                            )} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               )}
             </div>
+
+
 
             {/* Market Type Toggle */}
             {onMarketTypeChange && (
@@ -982,7 +952,7 @@ export function EdgeUI({
         </div>
       </div>
 
-    </div>
+    </div >
   );
 }
 

@@ -7,6 +7,7 @@ import { EdgeMap } from '@/components/edge/EdgeMap';
 import { EdgeUI, type VisualizationMode } from '@/components/edge/EdgeUI';
 import { CountryNewsPanel } from '@/components/edge/CountryNewsPanel';
 import { Starfield } from '@/components/edge/Starfield';
+import { MarketRelator } from '@/components/financials/MarketRelator';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { useSearch } from '@/hooks/use-search';
 import { useGeotaggedMarkets } from '@/hooks/use-geotagged-markets';
@@ -43,7 +44,7 @@ export default function EdgePage() {
   const { preferences, updatePreferences } = useUserSettings();
 
   // Use preferences with local fallback/sync
-  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent'>(preferences.viewMode || 'globe');
+  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent' | 'financials'>(preferences.viewMode as any || 'globe');
   const [isPlaying, setIsPlaying] = useState(preferences.autoRotate ?? true);
   const [rotationSpeed, setRotationSpeed] = useState(preferences.rotationSpeed ?? 0.05);
   const [pauseOnHover, setPauseOnHover] = useState(preferences.pauseOnHover ?? false);
@@ -228,7 +229,7 @@ export default function EdgePage() {
     updatePreferences({ pauseOnHover: pause });
   };
 
-  const handleSetViewMode = (mode: 'map' | 'globe' | 'insights' | 'agent') => {
+  const handleSetViewMode = (mode: 'map' | 'globe' | 'insights' | 'agent' | 'financials') => {
     setViewMode(mode);
     updatePreferences({ viewMode: mode });
   };
@@ -343,6 +344,31 @@ export default function EdgePage() {
     }, 150);
   };
 
+  const handleFinancialsToggle = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setViewMode(prev => {
+        let newView: 'map' | 'globe' | 'financials';
+
+        if (prev === 'financials') {
+          // Return to last map/globe view
+          const lastView = localStorage.getItem('polyglobe-last-map-view') || 'globe';
+          newView = lastView as 'map' | 'globe';
+        } else {
+          // Save current view and switch to financials
+          localStorage.setItem('edge-last-map-view', prev);
+          newView = 'financials';
+        }
+
+        localStorage.setItem('polyglobe-view-mode', newView);
+        updatePreferences({ viewMode: newView });
+        return newView;
+
+      });
+      setIsTransitioning(false);
+    }, 150);
+  };
+
   const handleCountryClick = (countryName: string) => {
     setSelectedCountry(countryName);
     setSelectedMarket(null);
@@ -443,7 +469,7 @@ export default function EdgePage() {
       {viewMode === 'globe' && <Starfield starCount={300} />}
 
       {/* Map/Globe View */}
-      {viewMode !== 'insights' && (
+      {viewMode !== 'insights' && viewMode !== 'financials' && (
         <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 10 }}>
           <EdgeMap
             activeFilters={activeFilters}
@@ -471,6 +497,19 @@ export default function EdgePage() {
           <InsightsDashboard onMarketSelect={handleMarketClick} />
         </div>
       )}
+
+      {/* Financials View */}
+      {viewMode === 'financials' && (
+        <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
+          <div className="w-full h-full p-4 pt-20">
+            <MarketRelator initialMarket={selectedMarket ? {
+              title: selectedMarket.title,
+              id: selectedMarket.id,
+              currentPrice: (selectedMarket as any).price || (selectedMarket as any).probability || 0.5
+            } : null} />
+          </div>
+        </div>
+      )}
       <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
         <EdgeUI
           onSearch={handleSearch}
@@ -478,6 +517,7 @@ export default function EdgePage() {
           onFilterChange={handleFilterChange}
           activeFilters={activeFilters}
           onViewToggle={handleInsightsToggle}
+          onFinancialsToggle={handleFinancialsToggle}
           onMapGlobeToggle={handleViewToggle}
           currentView={viewMode}
           isPlaying={isPlaying}
@@ -515,7 +555,7 @@ export default function EdgePage() {
       {/* Search results are now handled inside PolyglobeUI */}
 
       {/* Only show MarketDetails and CountryNewsPanel in map/globe view */}
-      {viewMode !== 'insights' && (
+      {viewMode !== 'insights' && viewMode !== 'financials' && (
         <>
           <MarketDetails
             market={selectedMarket as any}

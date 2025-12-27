@@ -7,7 +7,7 @@ export interface UserPreferences {
     rotationSpeed: number
     autoRotate: boolean
     pauseOnHover: boolean
-    viewMode: 'globe' | 'map' | 'insights' | 'agent'
+    viewMode: 'globe' | 'map' | 'insights' | 'agent' | 'financials'
     showLabels: boolean
     showGrid: boolean
     [key: string]: any
