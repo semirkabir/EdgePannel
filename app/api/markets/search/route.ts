@@ -215,6 +215,7 @@ export async function GET(request: Request) {
                 slug: m.slug,
                 outcomes: m.outcomes,
                 outcomePrices: m.outcome_prices ? m.outcome_prices.map((p: string) => parseFloat(p)) : undefined,
+                image: m.image || m.icon,
                 rawData: m
               }
             })

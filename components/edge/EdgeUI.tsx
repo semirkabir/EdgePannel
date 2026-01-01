@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers, VolumeX, Eye, ArrowRightLeft, SlidersHorizontal } from 'lucide-react';
+import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers, VolumeX, Eye, ArrowRightLeft, SlidersHorizontal, BookOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils/cn';
@@ -18,8 +18,9 @@ interface EdgeUIProps {
   activeFilters: Record<string, boolean>;
   onViewToggle?: () => void;
   onFinancialsToggle?: () => void;
+  onHubToggle?: () => void;
   onMapGlobeToggle?: () => void;
-  currentView?: 'map' | 'globe' | 'insights' | 'agent' | 'financials';
+  currentView?: 'map' | 'globe' | 'insights' | 'agent' | 'financials' | 'hub';
   isPlaying?: boolean;
   onPlayPause?: (playing: boolean) => void;
   onSettingsOpen?: () => void;
@@ -49,6 +50,13 @@ interface EdgeUIProps {
   // Market type toggle props
   marketType?: MarketType;
   onMarketTypeChange?: (type: MarketType) => void;
+  // Navigation
+  onSetView?: (view: 'map' | 'globe' | 'insights' | 'agent' | 'financials' | 'hub') => void;
+  // Research Notebook
+  isResearchOpen?: boolean;
+  setIsResearchOpen?: (open: boolean) => void;
+  isNotificationCenterOpen?: boolean;
+  setIsNotificationCenterOpen?: (open: boolean) => void;
 }
 
 const CATEGORIES = [
@@ -70,6 +78,7 @@ export function EdgeUI({
   activeFilters,
   onViewToggle,
   onFinancialsToggle,
+  onHubToggle,
   onMapGlobeToggle,
   currentView = 'map',
   isPlaying: externalIsPlaying,
@@ -89,7 +98,12 @@ export function EdgeUI({
   availableMarkets = [],
   searchInputRef: externalSearchInputRef,
   marketType = 'prediction',
-  onMarketTypeChange
+  onMarketTypeChange,
+  onSetView,
+  isResearchOpen,
+  setIsResearchOpen,
+  isNotificationCenterOpen,
+  setIsNotificationCenterOpen
 }: EdgeUIProps) {
   const router = useRouter();
   const [internalIsPlaying, setInternalIsPlaying] = useState(true);
@@ -779,7 +793,10 @@ export function EdgeUI({
                         <div className="flex items-center justify-between p-2 rounded-lg bg-white/15 border border-white/20">
                           <div className="flex items-center gap-2">
                             <Flame className={cn("w-3 h-3", activeFilters.fires ? "text-orange-400" : "text-gray-500")} />
-                            <span className="text-xs text-gray-300">Viral / Fires</span>
+                            <div className="flex flex-col">
+                              <span className="text-xs text-gray-300">OSINT / Thermal</span>
+                              <span className="text-[9px] text-gray-500">NASA FIRMS Data</span>
+                            </div>
                           </div>
                           <button
                             onClick={() => onFilterChange('fires', !activeFilters.fires)}
@@ -886,6 +903,20 @@ export function EdgeUI({
             boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
           }}
         >
+          {/* Research Notebook */}
+          <button
+            onClick={() => setIsResearchOpen?.(!isResearchOpen)}
+            className={cn(
+              "relative w-9 h-9 flex items-center justify-center rounded-xl transition-all touch-manipulation",
+              isResearchOpen ? "bg-purple-500/20 text-purple-400" : "hover:bg-white/10 text-gray-400 hover:text-white"
+            )}
+            title="Research Notebook"
+          >
+            <BookOpen className="w-4 h-4" />
+          </button>
+
+          <div className="w-px h-5 bg-white/10" />
+
           {/* Notifications */}
           <button
             onClick={onNotificationClick}

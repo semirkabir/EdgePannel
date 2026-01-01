@@ -402,7 +402,14 @@ export function CountryNewsPanel({ country, onClose, onMarketSelect }: CountryNe
                         <div className="flex items-center gap-2 text-[10px] text-gray-500 font-mono uppercase tracking-wide">
                           <span className="truncate max-w-[100px]">{article.domain}</span>
                           <span>•</span>
-                          <span>{new Date(article.seendate).toLocaleDateString()}</span>
+                          <span>{(() => {
+                            try {
+                              const d = new Date(article.seendate);
+                              return isNaN(d.getTime()) ? 'Recent' : d.toLocaleDateString();
+                            } catch (e) {
+                              return 'Recent';
+                            }
+                          })()}</span>
                         </div>
                       </div>
                       <ExternalLink className="w-3.5 h-3.5 text-gray-600 group-hover:text-blue-400 transition-colors flex-shrink-0 mt-0.5" />

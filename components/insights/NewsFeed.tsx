@@ -172,14 +172,20 @@ export function NewsFeed() {
 
 function TweetCard({ tweet }: { tweet: Tweet }) {
     const formatTime = (dateStr: string) => {
-        const date = new Date(dateStr);
-        const now = new Date();
-        const diff = (now.getTime() - date.getTime()) / 1000; // seconds
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return 'Recent';
 
-        if (diff < 60) return 'Just now';
-        if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-        if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-        return date.toLocaleDateString();
+            const now = new Date();
+            const diff = (now.getTime() - date.getTime()) / 1000; // seconds
+
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+            return date.toLocaleDateString();
+        } catch (e) {
+            return 'Recent';
+        }
     };
 
     return (

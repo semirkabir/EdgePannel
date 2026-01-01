@@ -5,6 +5,7 @@ import { withErrorHandler, getUserId } from '@/lib/api/middleware'
 
 /**
  * Get geotagged markets for map display
+ * Groups markets by eventId so each event appears as a single marker
  * Supports filtering by country, region, category, platform, etc.
  */
 export const GET = withErrorHandler(async (request: Request) => {
@@ -21,6 +22,7 @@ export const GET = withErrorHandler(async (request: Request) => {
     const tag = searchParams.get('tag') // Filter by specific tag
     const confidence = searchParams.get('confidence') // 'high', 'medium', 'low'
     const search = searchParams.get('search')
+    const groupByEvent = searchParams.get('groupByEvent') !== 'false' // Default to true
 
     // Bounding box for map viewport
     const minLat = searchParams.get('minLat') ? parseFloat(searchParams.get('minLat')!) : undefined
@@ -125,7 +127,7 @@ export const GET = withErrorHandler(async (request: Request) => {
       prisma.geotaggedMarket.count({ where })
     ])
 
-    console.log(`[Geotagged Markets] Returned ${markets.length} of ${total} markets`)
+    console.log(`[Geotagged Markets] Fetched ${markets.length} of ${total} markets`)
 
     // Transform markets to include outcomes and outcomePrices from rawData
     const transformedMarkets = markets.map((market: any) => {
@@ -154,16 +156,153 @@ export const GET = withErrorHandler(async (request: Request) => {
         image: rawData.image || rawData.icon || rawData.eventImage,
         outcomes,
         outcomePrices,
-        price: market.probability
+        price: market.probability,
+        // Preserve eventId for grouping
+        eventId: rawData.eventId || null,
+        eventTitle: rawData.eventTitle || null,
       }
     })
 
+    // Group markets by eventId if requested (default behavior)
+    if (groupByEvent) {
+      const eventGroups = new Map<string, any[]>()
+      const ungroupedMarkets: any[] = []
+
+      // Group markets by eventId
+      for (const market of transformedMarkets) {
+        const eventId = market.eventId || market.rawData?.eventId
+        
+        if (eventId) {
+          if (!eventGroups.has(eventId)) {
+            eventGroups.set(eventId, [])
+          }
+          eventGroups.get(eventId)!.push(market)
+        } else {
+          // Markets without eventId are treated as single-market events
+          ungroupedMarkets.push(market)
+        }
+      }
+
+      // Convert groups to event objects
+      const events: any[] = []
+
+      for (const [eventId, eventMarkets] of eventGroups.entries()) {
+        // Use the first market as the primary (usually highest volume)
+        const primaryMarket = eventMarkets[0]
+        const rawData = primaryMarket.rawData || {}
+
+        // Calculate aggregate stats
+        const totalVolume = eventMarkets.reduce((sum, m) => sum + (m.volume24h || 0), 0)
+        const totalLiquidity = eventMarkets.reduce((sum, m) => sum + (m.liquidity || 0), 0)
+
+        events.push({
+          id: eventId,
+          eventId: eventId,
+          isEvent: true,
+          marketCount: eventMarkets.length,
+          // Use event title if available, otherwise use first market's title
+          title: rawData.eventTitle || primaryMarket.title,
+          description: primaryMarket.description,
+          category: primaryMarket.category,
+          tags: primaryMarket.tags,
+          platform: primaryMarket.platform,
+          // Location from primary market
+          country: primaryMarket.country,
+          region: primaryMarket.region,
+          city: primaryMarket.city,
+          latitude: primaryMarket.latitude,
+          longitude: primaryMarket.longitude,
+          confidence: primaryMarket.confidence,
+          // Aggregate stats
+          volume24h: totalVolume,
+          liquidity: totalLiquidity,
+          // Use highest probability market's price for display
+          probability: Math.max(...eventMarkets.map(m => m.probability || 0)),
+          price: Math.max(...eventMarkets.map(m => m.price || 0)),
+          // End date from earliest expiring market
+          endDate: eventMarkets
+            .filter(m => m.endDate)
+            .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())[0]?.endDate,
+          // Image from event or first market
+          image: rawData.eventImage || rawData.image || rawData.icon || primaryMarket.image,
+          // Include all markets in this event for the details panel
+          markets: eventMarkets.map(m => ({
+            id: m.externalId || m.id,
+            marketId: m.marketId,
+            title: m.title,
+            slug: m.slug,
+            ticker: m.ticker,
+            probability: m.probability,
+            price: m.price,
+            volume24h: m.volume24h,
+            liquidity: m.liquidity,
+            outcomes: m.outcomes,
+            outcomePrices: m.outcomePrices,
+            endDate: m.endDate,
+            platform: m.platform,
+            image: m.image,
+            rawData: m.rawData,
+          })),
+          // Raw data for compatibility
+          rawData: {
+            ...rawData,
+            eventId,
+            markets: eventMarkets.map(m => m.rawData),
+          },
+        })
+      }
+
+      // Add ungrouped markets as single-market events
+      for (const market of ungroupedMarkets) {
+        events.push({
+          ...market,
+          id: market.externalId || market.id,
+          eventId: `single_${market.platform}_${market.externalId || market.id}`,
+          isEvent: true,
+          marketCount: 1,
+          markets: [{
+            id: market.externalId || market.id,
+            marketId: market.marketId,
+            title: market.title,
+            slug: market.slug,
+            ticker: market.ticker,
+            probability: market.probability,
+            price: market.price,
+            volume24h: market.volume24h,
+            liquidity: market.liquidity,
+            outcomes: market.outcomes,
+            outcomePrices: market.outcomePrices,
+            endDate: market.endDate,
+            platform: market.platform,
+            image: market.image,
+            rawData: market.rawData,
+          }],
+        })
+      }
+
+      // Sort events by volume
+      events.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
+
+      console.log(`[Geotagged Markets] Grouped into ${events.length} events (${eventGroups.size} multi-market, ${ungroupedMarkets.length} single-market)`)
+
+      return NextResponse.json({
+        markets: events,
+        total: events.length,
+        limit,
+        offset,
+        hasMore: offset + markets.length < total,
+        grouped: true,
+      })
+    }
+
+    // Return ungrouped markets if groupByEvent=false
     return NextResponse.json({
       markets: transformedMarkets,
       total,
       limit,
       offset,
-      hasMore: offset + markets.length < total
+      hasMore: offset + markets.length < total,
+      grouped: false,
     })
   } catch (error: any) {
     console.error('[Geotagged Markets] Error:', error)

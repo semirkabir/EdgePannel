@@ -12,6 +12,8 @@ import { TrendingUp, TrendingDown, ExternalLink, Landmark, CloudRain, Trophy, Cp
 import { cn } from '@/lib/utils/cn'
 import { RightPanel } from '@/components/ui/RightPanel'
 import { useLiveVolume, getEventIdFromMarket } from '@/hooks/use-live-volume'
+import { Pin } from 'lucide-react'
+import { useResearchStore } from '@/hooks/use-research-store'
 import { useOpenInterest } from '@/hooks/use-open-interest'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { LatencyTag } from '@/components/edge/LatencyTag'
@@ -60,6 +62,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const [commentSort, setCommentSort] = useState<'recent' | 'likes'>('recent')
   const [relatedMarketsByTags, setRelatedMarketsByTags] = useState<any[]>([])
   const [isLoadingRelatedByTags, setIsLoadingRelatedByTags] = useState(false)
+
+  // Research Store
+  const { pinnedMarkets, pinMarket, unpinMarket } = useResearchStore()
+  const isPinned = activeMarket ? pinnedMarkets.some(m => m.id === activeMarket.id) : false
 
   // Ref to scroll container for scrolling to top when switching markets
   const panelTopRef = useRef<HTMLDivElement>(null)
@@ -907,7 +913,21 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                   </span>
                 </div>
               )}
-              <span className="text-sm font-medium text-gray-400 mb-1 tracking-wide block">CHANCE</span>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <span className="text-sm font-medium text-gray-400 tracking-wide">CHANCE</span>
+                {activeMarket && (
+                  <button
+                    onClick={() => isPinned ? unpinMarket(activeMarket.id) : pinMarket(activeMarket as any)}
+                    className={cn(
+                      "p-1.5 rounded-lg transition-all",
+                      isPinned ? "bg-purple-500/20 text-purple-400" : "text-gray-600 hover:text-gray-400 hover:bg-white/5"
+                    )}
+                    title={isPinned ? "Unpin from Research" : "Pin to Research"}
+                  >
+                    <Pin className={cn("w-3.5 h-3.5", isPinned && "fill-current")} />
+                  </button>
+                )}
+              </div>
               <div className={cn(
                 "text-6xl font-black tracking-tighter tabular-nums mb-2",
                 currentPrice >= 0.5 ? "text-[#00ff7f]" : "text-[#ff4d4d]" // Neon Green / Red

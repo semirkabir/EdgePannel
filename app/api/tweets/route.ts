@@ -80,12 +80,20 @@ export async function GET(request: Request) {
                 // Clean up title (remove " - Source Name" suffix if present)
                 const cleanTitle = title.replace(new RegExp(` - ${source}$`), '');
 
+                let isoTimestamp = new Date().toISOString();
+                if (pubDate) {
+                    const parsed = new Date(pubDate);
+                    if (!isNaN(parsed.getTime())) {
+                        isoTimestamp = parsed.toISOString();
+                    }
+                }
+
                 newsItems.push({
                     id: Math.random().toString(36).substring(7),
                     author: source,
                     handle: '@' + source.replace(/\s+/g, ''),
                     content: cleanTitle,
-                    timestamp: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+                    timestamp: isoTimestamp,
                     platform: 'news',
                     likes: Math.floor(Math.random() * 50) + 10, // Simulated engagement
                     retweets: Math.floor(Math.random() * 20) + 1,

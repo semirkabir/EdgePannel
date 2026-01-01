@@ -559,7 +559,7 @@ export default function LandingPage() {
                                         {market.question || market.title}
                                       </div>
                                       <div className="text-xs text-white/40 mt-1 flex gap-2">
-                                        <span>{market.price?.toFixed(1)}%</span>
+                                        <span>{market.price ? (market.price * 100).toFixed(0) : '—'}%</span>
                                         <span className="text-white/25">•</span>
                                         <span>{market.platform || 'polymarket'}</span>
                                       </div>

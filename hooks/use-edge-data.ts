@@ -3,7 +3,7 @@ import { useMarkets } from './use-markets';
 import { useEvents } from './use-events';
 import { useMarketWebSocket } from './use-market-websocket';
 import { MOCK_TWEETS } from '@/lib/edge-data';
-import { marketsToGeoJSON, marketsToGeoJSONWithGroups } from '@/lib/utils/market-geojson';
+import { marketsToGeoJSON, marketsToGeoJSONWithGroups, eventsToGeoJSON } from '@/lib/utils/market-geojson';
 import { enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich';
 import type { Market } from '@/types/market';
 
@@ -36,6 +36,13 @@ export function useEdgeData() {
   const marketFeatures = useMemo(() => {
     // Prefer event markets (from Polymarket events API) as they have proper event grouping
     const marketsToUse = eventMarkets.length > 0 ? eventMarkets : (localMarkets || []);
+
+    // Check if markets are already grouped (from geotagged API)
+    const firstMarket = marketsToUse[0] as any;
+    if (firstMarket?.isEvent && firstMarket?.markets) {
+      // Markets are already grouped as events, use eventsToGeoJSON directly
+      return eventsToGeoJSON(marketsToUse).features;
+    }
 
     // Filter for Active markets (Volume > 0)
     const allSignificant = marketsToUse.filter((m: any) => (m.volume24h || 0) > 0);

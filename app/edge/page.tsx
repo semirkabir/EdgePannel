@@ -14,7 +14,11 @@ import { useGeotaggedMarkets } from '@/hooks/use-geotagged-markets';
 import { useWhaleTrades } from '@/hooks/use-whale-trades';
 import { useWhaleAlerts } from '@/hooks/use-whale-alerts';
 import { usePriceAlerts } from '@/hooks/use-price-alerts';
-import { marketsToGeoJSON } from '@/lib/utils/market-geojson';
+import { useCommandCenter } from '@/hooks/use-command-center';
+import { CommandCenter } from '@/components/edge/CommandCenter';
+import { ResearchNotebook } from '@/components/edge/ResearchNotebook';
+import { HubWorkspace } from '@/components/edge/HubWorkspace';
+import { marketsToGeoJSON, eventsToGeoJSON } from '@/lib/utils/market-geojson';
 import { MarketDetails } from '@/components/panels/MarketDetails';
 import { useMarketWebSocket } from '@/hooks/use-market-websocket';
 import { NotificationCenter } from '@/components/panels/NotificationCenter';
@@ -40,11 +44,17 @@ export default function EdgePage() {
   const [selectedMarket, setSelectedMarket] = useState<EnrichedMarket | null>(null);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
+  // Command Center state
+  const { isOpen: isCommandCenterOpen, close: closeCommandCenter, toggle: toggleCommandCenter } = useCommandCenter();
+
+  // Research Notebook state
+  const [isResearchOpen, setIsResearchOpen] = useState(false);
+
   // User Preferences
   const { preferences, updatePreferences } = useUserSettings();
 
   // Use preferences with local fallback/sync
-  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent' | 'financials'>(preferences.viewMode as any || 'globe');
+  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent' | 'financials' | 'hub'>(preferences.viewMode as any || 'globe');
   const [isPlaying, setIsPlaying] = useState(preferences.autoRotate ?? true);
   const [rotationSpeed, setRotationSpeed] = useState(preferences.rotationSpeed ?? 0.05);
   const [pauseOnHover, setPauseOnHover] = useState(preferences.pauseOnHover ?? false);
@@ -182,8 +192,15 @@ export default function EdgePage() {
   }, [mapFilteredMarkets, getMarketUpdate]);
 
   // Convert map filtered markets to GeoJSON features for override
+  // Use eventsToGeoJSON since geotagged API now returns events (grouped markets)
   const overrideMarkets = useMemo(() => {
-    let features = marketsToGeoJSON(liveMapFilteredMarkets).features;
+    // Check if markets are already grouped as events (from geotagged API)
+    const firstMarket = liveMapFilteredMarkets[0] as any;
+    const isGroupedAsEvents = firstMarket?.isEvent && firstMarket?.markets;
+
+    let features = isGroupedAsEvents
+      ? eventsToGeoJSON(liveMapFilteredMarkets).features
+      : marketsToGeoJSON(liveMapFilteredMarkets).features;
 
     // Verify features is an array (fix potential upstream issues)
     if (!Array.isArray(features)) {
@@ -192,12 +209,16 @@ export default function EdgePage() {
 
     // Ensure selectedMarket is included in the filtered view so it can be located
     if (selectedMarket) {
+      const selectedId = (selectedMarket as any).eventId || selectedMarket.id;
       const exists = features.find((f: any) =>
-        f.properties.id === selectedMarket.id
+        f.properties.id === selectedId || f.properties.eventId === selectedId
       );
       if (!exists) {
         // Convert selectedMarket to feature
-        const extraFeatures = marketsToGeoJSON([selectedMarket]).features;
+        const isSelectedEvent = (selectedMarket as any).isEvent && (selectedMarket as any).markets;
+        const extraFeatures = isSelectedEvent
+          ? eventsToGeoJSON([selectedMarket as any]).features
+          : marketsToGeoJSON([selectedMarket]).features;
         if (extraFeatures.length > 0) {
           features = [...features, extraFeatures[0]];
         }
@@ -229,9 +250,9 @@ export default function EdgePage() {
     updatePreferences({ pauseOnHover: pause });
   };
 
-  const handleSetViewMode = (mode: 'map' | 'globe' | 'insights' | 'agent' | 'financials') => {
+  const handleSetViewMode = (mode: 'map' | 'globe' | 'insights' | 'agent' | 'financials' | 'hub') => {
     setViewMode(mode);
-    updatePreferences({ viewMode: mode });
+    updatePreferences({ viewMode: mode as any });
   };
 
   const handleSetShowLabels = (show: boolean) => {
@@ -369,6 +390,31 @@ export default function EdgePage() {
     }, 150);
   };
 
+  const handleHubToggle = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setViewMode(prev => {
+        let newView: 'map' | 'globe' | 'hub';
+
+        if (prev === 'hub') {
+          // Return to last map/globe view
+          const lastView = localStorage.getItem('polyglobe-last-map-view') || 'globe';
+          newView = lastView as 'map' | 'globe';
+        } else {
+          // Save current view and switch to hub
+          localStorage.setItem('edge-last-map-view', prev);
+          newView = 'hub';
+        }
+
+        localStorage.setItem('polyglobe-view-mode', newView);
+        updatePreferences({ viewMode: newView });
+        return newView;
+
+      });
+      setIsTransitioning(false);
+    }, 150);
+  };
+
   const handleCountryClick = (countryName: string) => {
     setSelectedCountry(countryName);
     setSelectedMarket(null);
@@ -382,6 +428,7 @@ export default function EdgePage() {
     setSelectedMarket(market);
     if (market) {
       setSelectedCountry(null);
+      handleSetIsPlaying(false);
     }
   };
 
@@ -469,7 +516,7 @@ export default function EdgePage() {
       {viewMode === 'globe' && <Starfield starCount={300} />}
 
       {/* Map/Globe View */}
-      {viewMode !== 'insights' && viewMode !== 'financials' && (
+      {viewMode !== 'insights' && viewMode !== 'financials' && viewMode !== 'hub' && (
         <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 10 }}>
           <EdgeMap
             activeFilters={activeFilters}
@@ -487,6 +534,7 @@ export default function EdgePage() {
             shouldResetZoom={shouldResetZoom}
             visualizationMode={visualizationMode}
             marketType={marketType}
+            onInteractionStart={() => handleSetIsPlaying(false)}
           />
         </div>
       )}
@@ -510,6 +558,16 @@ export default function EdgePage() {
           </div>
         </div>
       )}
+
+      {/* Hub View */}
+      {viewMode === 'hub' && (
+        <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
+          <div className="w-full h-full p-4 pt-20">
+            <HubWorkspace />
+          </div>
+        </div>
+      )}
+
       <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
         <EdgeUI
           onSearch={handleSearch}
@@ -518,6 +576,7 @@ export default function EdgePage() {
           activeFilters={activeFilters}
           onViewToggle={handleInsightsToggle}
           onFinancialsToggle={handleFinancialsToggle}
+          onHubToggle={handleHubToggle} // Added for Hub toggle
           onMapGlobeToggle={handleViewToggle}
           currentView={viewMode}
           isPlaying={isPlaying}
@@ -536,6 +595,11 @@ export default function EdgePage() {
           // Visualization Mode
           visualizationMode={visualizationMode}
           onVisualizationModeChange={handleVisualizationModeChange}
+          onSetView={handleSetViewMode} // Changed to handleSetViewMode to include 'hub'
+          isNotificationCenterOpen={isNotificationCenterOpen}
+          setIsNotificationCenterOpen={setIsNotificationCenterOpen}
+          isResearchOpen={isResearchOpen}
+          setIsResearchOpen={setIsResearchOpen}
           // Notification Props
           onNotificationClick={() => setIsNotificationCenterOpen(true)}
           notificationCount={totalNotificationCount}
@@ -555,7 +619,7 @@ export default function EdgePage() {
       {/* Search results are now handled inside PolyglobeUI */}
 
       {/* Only show MarketDetails and CountryNewsPanel in map/globe view */}
-      {viewMode !== 'insights' && viewMode !== 'financials' && (
+      {viewMode !== 'insights' && viewMode !== 'financials' && viewMode !== 'hub' && (
         <>
           <MarketDetails
             market={selectedMarket as any}
@@ -602,12 +666,22 @@ export default function EdgePage() {
         open={isShortcutsOpen}
         onOpenChange={setIsShortcutsOpen}
       />
+
+      {/* Bloomberg-style Command Center (Cmd+K) */}
+      <CommandCenter
+        isOpen={isCommandCenterOpen}
+        onClose={closeCommandCenter}
+        onMarketSelect={handleMarketClick}
+      />
+
+      {/* Research Notebook Sidebar */}
+      <ResearchNotebook
+        isOpen={isResearchOpen}
+        onClose={() => setIsResearchOpen(false)}
+      />
     </div>
   );
 }
-
-
-
 
 
 

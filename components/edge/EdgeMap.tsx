@@ -52,7 +52,79 @@ interface EdgeMapProps {
   showLabels?: boolean;
   showGrid?: boolean;
   marketType?: MarketType;
+  onInteractionStart?: () => void;
 }
+
+
+const PulsingMarker = ({ longitude, latitude }: { longitude: number, latitude: number }) => (
+  <div className="relative w-4 h-4">
+    <div className="absolute inset-0 bg-blue-500 rounded-full opacity-75 animate-ping"></div>
+    <div className="absolute inset-0.5 bg-blue-400 rounded-full"></div>
+  </div>
+);
+
+// Inner map component now supports live trade pulsing
+// For demo purposes, we'll auto-generate a few pulsing markers near active hotspots
+const LivePulseLayer = ({ active }: { active: boolean }) => {
+  const [pulse, setPulse] = useState(1);
+
+  useEffect(() => {
+    if (!active) return;
+    const interval = setInterval(() => {
+      setPulse(p => (p === 1 ? 0.6 : 1));
+    }, 800);
+    return () => clearInterval(interval);
+  }, [active]);
+
+  if (!active) return null;
+
+  // Mock live trades locations (Middle East, Ukraine, Taiwan, etc)
+  const pulses = [
+    { id: 1, lat: 31.0, lng: 34.5 },   // Israel/Palestine
+    { id: 2, lat: 48.3, lng: 37.0 },   // Donetsk
+    { id: 3, lat: 25.0, lng: 121.5 },  // Taiwan
+    { id: 4, lat: 38.8, lng: -77.0 },  // DC
+    { id: 5, lat: 31.5, lng: 34.4 },   // Gaza
+    { id: 6, lat: 15.3, lng: 44.2 },   // Yemen
+  ];
+
+  const pulseGeoJSON = {
+    type: 'FeatureCollection',
+    features: pulses.map(p => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+      properties: { id: p.id }
+    }))
+  };
+
+  return (
+    <Source id="live-pulses" type="geojson" data={pulseGeoJSON as any}>
+      {/* Outer Pulse Glow */}
+      <Layer
+        id="live-pulse-glow"
+        type="circle"
+        paint={{
+          'circle-radius': pulse * 18,
+          'circle-color': '#3b82f6',
+          'circle-opacity': (1.1 - pulse) * 0.5,
+          'circle-blur': 0.8
+        }}
+      />
+      {/* Inner Core Dot */}
+      <Layer
+        id="live-pulse-center"
+        type="circle"
+        paint={{
+          'circle-radius': 4,
+          'circle-color': '#60a5fa',
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.9
+        }}
+      />
+    </Source>
+  );
+};
 
 
 // Inner component to isolate Map state from Data updates
@@ -76,7 +148,8 @@ function InnerMap({
   visualizationMode = 'dots',
   showLabels = true,
   showGrid = false,
-  marketType = 'prediction'
+  marketType = 'prediction',
+  onInteractionStart
 }: {
 
   markets: any;
@@ -99,6 +172,7 @@ function InnerMap({
   showLabels?: boolean;
   showGrid?: boolean;
   marketType?: MarketType;
+  onInteractionStart?: () => void;
 }) {
 
   const [viewState, setViewState] = useState({
@@ -297,6 +371,9 @@ function InnerMap({
   // Interaction Handlers
   const handleInteractionStart = useCallback(() => {
     setIsUserInteracting(true);
+    if (onInteractionStart) {
+      onInteractionStart();
+    }
     if (rotationAnimationRef.current) {
       cancelAnimationFrame(rotationAnimationRef.current);
       rotationAnimationRef.current = null;
@@ -305,7 +382,7 @@ function InnerMap({
       clearTimeout(interactionTimeoutRef.current);
       interactionTimeoutRef.current = null;
     }
-  }, []);
+  }, [onInteractionStart]);
 
   const handleInteractionEnd = useCallback(() => {
     if (interactionTimeoutRef.current) {
@@ -324,6 +401,9 @@ function InnerMap({
     setCursor('grabbing');
     // Immediately cancel rotation and mark as interacting
     setIsUserInteracting(true);
+    if (onInteractionStart) {
+      onInteractionStart();
+    }
     if (rotationAnimationRef.current) {
       cancelAnimationFrame(rotationAnimationRef.current);
       rotationAnimationRef.current = null;
@@ -421,6 +501,7 @@ function InnerMap({
       // Handle exchange clicks
       if (feature.layer.id === 'exchanges-layer' || feature.layer.id === 'exchanges-glow-layer') {
         const props = feature.properties;
+        const [lng, lat] = (feature.geometry as any).coordinates;
 
         const exchangeData = {
           id: props.id,
@@ -435,6 +516,9 @@ function InnerMap({
           website: props.website,
           timezone: props.timezone,
           isExchange: true, // Flag to identify this as an exchange
+          location: {
+            coordinates: { lat, lng }
+          }
         };
 
         if (onMarketSelect) {
@@ -447,6 +531,7 @@ function InnerMap({
       if (feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer' || feature.layer.id === 'markets-unclustered') {
         const props = feature.properties;
         const isGroup = props.isGroup === true;
+        const [lng, lat] = (feature.geometry as any).coordinates;
 
         // If it's a group (event), pass the event data with markets array
         if (isGroup && props.markets && Array.isArray(props.markets)) {
@@ -472,6 +557,9 @@ function InnerMap({
             liquidity: props.liquidity,
             imageUrl: props.image_url,
             description: props.description || '',
+            location: {
+              coordinates: { lat, lng }
+            }
           };
 
           if (onMarketSelect) {
@@ -516,6 +604,15 @@ function InnerMap({
         }
 
         if (market) {
+          // Inject coordinates from the click if missing
+          if (!market.location || !market.location.coordinates) {
+            market = {
+              ...market,
+              location: {
+                coordinates: { lat, lng }
+              }
+            };
+          }
           handleCardClick(market);
           setSelectedFeature(null);
         }
@@ -597,6 +694,31 @@ function InnerMap({
   }, [tweets, activeFilters.osint]);
 
   // Layers
+  const firmsSource = {
+    type: 'raster',
+    tiles: [
+      'https://firms.modaps.eosdis.nasa.gov/mapserver/tms/1.0.0/Fires_All/{z}/{x}/{y}.png'
+    ],
+    tileSize: 256,
+    attribution: 'NASA FIRMS'
+  };
+
+  const firmsLayer: any = {
+    id: 'firms-layer',
+    type: 'raster',
+    source: 'firms',
+    minzoom: 0,
+    maxzoom: 24,
+    paint: {
+      'raster-opacity': 0.8,
+      'raster-hue-rotate': 0,
+      'raster-brightness-min': 0,
+      'raster-brightness-max': 1,
+      'raster-saturation': 1,
+      'raster-contrast': 1
+    }
+  };
+
   const marketLayer = {
     id: 'markets-layer',
     source: 'markets',
@@ -905,6 +1027,9 @@ function InnerMap({
                 website: props.website,
                 timezone: props.timezone,
                 isExchange: true,
+                location: {
+                  coordinates: { lat, lng: lon }
+                }
               };
               handleCardClick(exchangeData);
             }}
@@ -963,6 +1088,9 @@ function InnerMap({
                             imageUrl: market.imageUrl,
                             endDate: market.endDate,
                             rawData: {},
+                            location: {
+                              coordinates: { lat, lng: lon }
+                            }
                           };
                           handleCardClick(fullMarket);
                         }}
@@ -1189,7 +1317,14 @@ function InnerMap({
                     }
 
                     if (market) {
-                      handleCardClick(market);
+                      // Inject location for zoom
+                      const finalMarket = {
+                        ...market,
+                        location: {
+                          coordinates: { lat, lng: lon }
+                        }
+                      };
+                      handleCardClick(finalMarket);
                     }
                   }}
                 >
@@ -1220,14 +1355,18 @@ function InnerMap({
     const map = getMapIfReady();
     if (!map) return;
 
-    if (selectedMarket && selectedMarket.location && selectedMarket.location.coordinates) {
-      const { lat, lng } = selectedMarket.location.coordinates;
-      map.flyTo({
-        center: [lng, lat],
-        zoom: 6,
-        duration: 2000,
-        padding: { right: 400, top: 0, bottom: 0, left: 0 }
-      });
+    if (selectedMarket) {
+      const lat = selectedMarket.location?.coordinates?.lat ?? selectedMarket.latitude;
+      const lng = selectedMarket.location?.coordinates?.lng ?? selectedMarket.longitude;
+
+      if (lat != null && lng != null) {
+        map.flyTo({
+          center: [lng, lat],
+          zoom: 6,
+          duration: 2000,
+          padding: { right: 450, top: 0, bottom: 0, left: 0 }
+        });
+      }
     } else if (!selectedMarket) {
       map.easeTo({
         padding: { right: 0, top: 0, bottom: 0, left: 0 },
@@ -1381,6 +1520,13 @@ function InnerMap({
         <NavigationControl position="bottom-right" />
         <FullscreenControl position="bottom-right" />
 
+        {/* OSINT Layer (NASA FIRMS) */}
+        {activeFilters.fires && (
+          <Source id="firms" type="raster" tiles={['https://firms.modaps.eosdis.nasa.gov/mapserver/tms/1.0.0/Fires_All/{z}/{x}/{y}.png']} tileSize={256}>
+            <Layer {...firmsLayer} />
+          </Source>
+        )}
+
         {marketType === 'financial' ? (
           <Source
             id="exchanges"
@@ -1435,6 +1581,9 @@ function InnerMap({
         <Source id="tweets" type="geojson" data={filteredTweets as any}>
           <Layer {...tweetLayer as any} />
         </Source>
+
+        {/* Live Pulse Layer */}
+        <LivePulseLayer active={activeFilters.live} />
 
         {showGrid && (
           <Source id="grid" type="geojson" data={{
@@ -1518,7 +1667,8 @@ export function EdgeMap({
   visualizationMode = 'dots',
   showLabels = true,
   showGrid = false,
-  marketType = 'prediction'
+  marketType = 'prediction',
+  onInteractionStart
 }: EdgeMapProps) {
   const { markets, tweets, rawMarkets, isLoading } = useEdgeData();
   const { geoJSON: exchangeGeoJSON } = useExchanges();
@@ -1589,6 +1739,7 @@ export function EdgeMap({
       showLabels={showLabels}
       showGrid={showGrid}
       marketType={marketType}
+      onInteractionStart={onInteractionStart}
     />
   );
 }

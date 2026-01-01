@@ -35,9 +35,8 @@ export async function GET(request: NextRequest) {
 
     if (platform === 'polymarket' || platform === 'all') {
       try {
-        // 1. Fetch active markets
-        // Increase limit to 500 to get more comprehensive global stats
-        const polymarketUrl = `https://gamma-api.polymarket.com/markets?limit=500&active=true&closed=false`
+        // 1. Fetch active markets sorted by 24h volume for most relevant results
+        const polymarketUrl = `https://gamma-api.polymarket.com/markets?limit=500&active=true&closed=false&order=volume24hr&ascending=false`
 
         const response = await fetch(polymarketUrl, {
           headers: {
@@ -60,8 +59,8 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: 'Invalid response from Polymarket' }, { status: 502 });
         }
 
-        // Sort by volume manually to prioritize relevant markets
-        markets.sort((a: any, b: any) => parseFloat(b.volume || 0) - parseFloat(a.volume || 0));
+        // Sort by 24h volume to prioritize currently active markets (not total volume)
+        markets.sort((a: any, b: any) => parseFloat(b.volume24hr || 0) - parseFloat(a.volume24hr || 0));
 
         // 2. Process markets and calculate changes
         const topMarkets = markets.slice(0, 100);

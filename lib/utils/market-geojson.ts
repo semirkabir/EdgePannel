@@ -129,10 +129,113 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
 }
 
 /**
+ * Convert events (grouped markets) to GeoJSON for map display
+ * This is the preferred method when markets are already grouped by eventId from the API
+ */
+export function eventsToGeoJSON(events: any[]): GeoJSONFeatureCollection {
+    const features: GeoJSONFeature[] = [];
+
+    for (const event of events) {
+        // Skip events without valid coordinates
+        const hasDirectCoords = event.latitude != null && event.longitude != null;
+        const hasNestedCoords = event.location?.coordinates;
+
+        if (!hasDirectCoords && !hasNestedCoords) {
+            continue;
+        }
+
+        let lng, lat;
+        if (hasDirectCoords) {
+            lng = event.longitude;
+            lat = event.latitude;
+        } else if (hasNestedCoords) {
+            lng = event.location.coordinates.lng;
+            lat = event.location.coordinates.lat;
+        } else {
+            continue;
+        }
+
+        // Apply jitter using eventId
+        const eventId = event.eventId || event.id || 'unknown';
+        [lng, lat] = applyJitter(lng, lat, eventId);
+
+        // Determine if this is a multi-market event or single market
+        const isGroup = event.isEvent && event.marketCount > 1;
+        const markets = event.markets || [];
+
+        features.push({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [lng, lat]
+            },
+            properties: {
+                id: eventId,
+                market_id: eventId,
+                title: event.title || '',
+                isGroup: isGroup,
+                isEvent: true,
+                groupId: eventId,
+                eventId: eventId,
+                marketCount: event.marketCount || 1,
+                // Store all market options for the details panel
+                markets: markets.map((m: any) => ({
+                    id: m.id || m.externalId,
+                    title: m.title,
+                    slug: m.slug || m.id,
+                    ticker: m.ticker || '',
+                    price: Number(m.price || m.probability || 0),
+                    probability: Number(m.probability || m.price || 0),
+                    volume24h: Number(m.volume24h || 0),
+                    liquidity: Number(m.liquidity || 0),
+                    platform: m.platform,
+                    description: m.description || '',
+                    imageUrl: m.image || null,
+                    endDate: m.endDate ? String(m.endDate) : null,
+                    outcomes: m.outcomes,
+                    outcomePrices: m.outcomePrices,
+                    url: m.platform === 'polymarket'
+                        ? `https://polymarket.com/market/${m.slug || m.id}`
+                        : `https://kalshi.com/markets/${m.rawData?.series_ticker || m.ticker}`,
+                    rawData: m.rawData || {},
+                })),
+                // Aggregate properties for display
+                last_price: Number(event.price || event.probability || 0),
+                volume: Number(event.volume24h || 0),
+                volume24h: Number(event.volume24h || 0),
+                liquidity: Number(event.liquidity || 0),
+                category: event.category || '',
+                platform: event.platform || '',
+                isBreakingNews: Boolean(event.isBreakingNews),
+                is_random_location: false,
+                image_url: event.image || event.rawData?.eventImage || event.rawData?.image || event.rawData?.icon || null,
+                description: event.description || event.title || '',
+                endDate: event.endDate ? String(event.endDate) : null,
+                rawData: event.rawData ? JSON.stringify(event.rawData) : '{}',
+            }
+        });
+    }
+
+    return {
+        type: 'FeatureCollection',
+        features
+    };
+}
+
+/**
  * Convert enriched markets to GeoJSON with grouping support
  * Groups markets that are options for the same event into a single feature
+ * @deprecated Use eventsToGeoJSON when markets are already grouped by the API
  */
 export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFeatureCollection {
+    // Check if markets are already grouped (from geotagged API with groupByEvent=true)
+    const firstMarket = markets[0] as any;
+    if (firstMarket?.isEvent && firstMarket?.markets) {
+        // Markets are already grouped as events, use eventsToGeoJSON
+        return eventsToGeoJSON(markets);
+    }
+
+    // Legacy path: group markets client-side
     const { groups, ungroupedMarkets } = getMarketsWithGroups(markets);
     const features: GeoJSONFeature[] = [];
 

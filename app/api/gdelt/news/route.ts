@@ -190,19 +190,37 @@ export async function GET(request: NextRequest) {
     ];
 
     // Helper to parse GDELT date string (YYYYMMDDHHMMSS)
-    const parseGdeltDate = (dateStr: string) => {
-      if (!dateStr || dateStr.length < 8) return new Date().toISOString();
-      try {
-        const year = dateStr.substring(0, 4);
-        const month = dateStr.substring(4, 6);
-        const day = dateStr.substring(6, 8);
-        const hour = dateStr.substring(8, 10) || '00';
-        const min = dateStr.substring(10, 12) || '00';
-        const sec = dateStr.substring(12, 14) || '00';
-        return `${year}-${month}-${day}T${hour}:${min}:${sec}Z`;
-      } catch (e) {
-        return new Date().toISOString();
+    const parseGdeltDate = (dateStr: any) => {
+      if (!dateStr) return new Date().toISOString();
+
+      const str = String(dateStr);
+
+      // If it's already a valid format that Date can parse, use it
+      // Standard ISO or YYYY-MM-DD
+      if (str.includes('-') || str.includes('T') || str.includes(':')) {
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) return d.toISOString();
       }
+
+      // Handle GDELT's YYYYMMDDHHMMSS format
+      if (str.length >= 8 && /^\d+$/.test(str)) {
+        try {
+          const year = str.substring(0, 4);
+          const month = str.substring(4, 6);
+          const day = str.substring(6, 8);
+          const hour = str.substring(8, 10) || '00';
+          const min = str.substring(10, 12) || '00';
+          const sec = str.substring(12, 14) || '00';
+
+          const isoStr = `${year}-${month}-${day}T${hour}:${min}:${sec}Z`;
+          const d = new Date(isoStr);
+          if (!isNaN(d.getTime())) return d.toISOString();
+        } catch (e) {
+          // Fall through
+        }
+      }
+
+      return new Date().toISOString();
     };
 
     // Transform and initial filter
