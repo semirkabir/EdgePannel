@@ -82,15 +82,16 @@ export default function IndexMarketsPage() {
     try {
       // Use new optimized indexing endpoint
       const platforms = platform === 'all' ? ['polymarket', 'kalshi'] : [platform]
+      const batchSize = 100 // Smaller default for better connection stability
 
-      console.log('[Admin] Starting indexing with:', { platforms, batchSize: 500 })
+      console.log('[Admin] Starting indexing with:', { platforms, batchSize })
 
       const response = await fetch('/api/markets/index-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           platforms,
-          batchSize: 500
+          batchSize
         })
       })
 
@@ -123,7 +124,7 @@ export default function IndexMarketsPage() {
 
       const data = await response.json()
       console.log('[Admin] Indexing completed:', data)
-      
+
       setIndexResults(data.stats)
       setLastIndexedTime(new Date().toISOString())
 
@@ -131,10 +132,10 @@ export default function IndexMarketsPage() {
       await fetchStatus()
     } catch (err: any) {
       console.error('[Admin] Indexing error:', err)
-      
+
       // Provide more detailed error information
       let errorMessage = 'Unknown error occurred'
-      
+
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         errorMessage = 'Network error: Unable to connect to the server. This could be due to:\n' +
           '• Server timeout (indexing takes a long time)\n' +
@@ -152,7 +153,7 @@ export default function IndexMarketsPage() {
       } else {
         errorMessage = err.message || err.toString()
       }
-      
+
       setError(errorMessage)
     } finally {
       setIsIndexing(false)

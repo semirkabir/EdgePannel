@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/client'
 import { PolymarketOptimizedClient } from '@/lib/api/polymarket-optimized'
 import { KalshiClient } from '@/lib/api/kalshi'
 import { enrichMarkets } from '@/lib/markets/enrich'
-import { extractLocation, batchExtractLocationsSmart } from '@/lib/utils/location-extractor-v2'
+import { batchExtractLocationsSmart } from '@/lib/utils/location-extractor-v2'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -16,62 +16,43 @@ interface IndexStats {
   duration: number
 }
 
-// Helper to process markets sequentially to avoid Prisma prepared statement issues
-async function processMarketsInChunks(
+/**
+ * Optimized market processing using Prisma createMany
+ */
+async function processMarketsBatch(
   markets: any[],
-  platform: 'polymarket' | 'kalshi',
-  stats: IndexStats['polymarket'] | IndexStats['kalshi']
-) {
-  // Process all markets, even those without location (for search)
-  // const marketsWithLocation = markets.filter(m => m.location?.coordinates)
-  const marketsToProcess = markets
+  platform: 'polymarket' | 'kalshi'
+): Promise<number> {
+  if (markets.length === 0) return 0
 
-  const marketsWithoutLocation = markets.filter(m => !m.location?.coordinates).length
-  if (marketsWithoutLocation > 0) {
-    console.log(`[Index All] Indexing ${marketsWithoutLocation} markets without location data (search only)`)
-  }
+  const marketsToCreate = markets.map(market => ({
+    marketId: `${platform}-${market.id}`,
+    platform,
+    externalId: String(market.id),
+    title: market.title,
+    description: market.description || '',
+    category: market.category || market.normalizedCategory || null,
+    probability: market.price || null,
+    volume24h: market.volume24h || 0,
+    liquidity: typeof market.liquidity === 'string' ? parseFloat(market.liquidity) : (market.liquidity || 0),
+    endDate: market.endDate ? new Date(market.endDate) : null,
+    slug: market.slug || null,
+    ticker: market.ticker || null,
+    country: market.location?.country || null,
+    region: market.location?.region || null,
+    city: market.location?.city || null,
+    latitude: market.location?.coordinates?.lat || null,
+    longitude: market.location?.coordinates?.lng || null,
+    confidence: 'medium',
+    rawData: market.rawData || {}
+  }))
 
-  // Process sequentially to avoid prepared statement cache issues
-  for (const market of marketsToProcess) {
-    try {
-      const marketId = `${platform}-${market.id}`
-      await prisma.geotaggedMarket.upsert({
-        where: { marketId },
-        create: {
-          marketId,
-          platform,
-          externalId: market.id,
-          title: market.title,
-          description: market.description || '',
-          category: market.category || market.normalizedCategory || null,
-          probability: market.price,
-          volume24h: market.volume24h,
-          liquidity: typeof market.liquidity === 'string' ? parseFloat(market.liquidity) : (market.liquidity || 0),
-          endDate: market.endDate,
-          slug: market.slug,
-          ticker: market.ticker,
-          country: market.location?.country,
-          region: market.location?.region,
-          city: market.location?.city,
-          latitude: market.location?.coordinates?.lat,
-          longitude: market.location?.coordinates?.lng,
-          confidence: 'medium',
-          rawData: market.rawData || {}
-        },
-        update: {
-          title: market.title,
-          probability: market.price,
-          volume24h: market.volume24h,
-          liquidity: typeof market.liquidity === 'string' ? parseFloat(market.liquidity) : (market.liquidity || 0),
-          updatedAt: new Date()
-        }
-      })
-      stats.indexed++
-    } catch (e: any) {
-      console.error(`[Index All] Error indexing market ${market.id}:`, e.message)
-      stats.errors++
-    }
-  }
+  const result = await prisma.geotaggedMarket.createMany({
+    data: marketsToCreate,
+    skipDuplicates: true
+  })
+
+  return result.count
 }
 
 export async function POST(request: Request) {
@@ -81,37 +62,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 })
   }
 
-  try {
-    const startTime = Date.now()
-    const stats: IndexStats = {
-      polymarket: { fetched: 0, indexed: 0, skipped: 0, errors: 0 },
-      kalshi: { fetched: 0, indexed: 0, skipped: 0, errors: 0 },
-      total: 0,
-      duration: 0
-    }
+  const startTime = Date.now()
+  const stats: IndexStats = {
+    polymarket: { fetched: 0, indexed: 0, skipped: 0, errors: 0 },
+    kalshi: { fetched: 0, indexed: 0, skipped: 0, errors: 0 },
+    total: 0,
+    duration: 0
+  }
 
+  // Set default structure for stats properly (fix TypeScript inference if needed)
+  stats.polymarket = { fetched: 0, indexed: 0, skipped: 0, errors: 0 }
+  stats.kalshi = { fetched: 0, indexed: 0, skipped: 0, errors: 0 }
+
+  try {
     const body = await request.json().catch(() => ({}))
     const platforms = body.platforms || ['polymarket', 'kalshi']
-    const batchSize = body.batchSize || 500
+    const batchSize = body.batchSize || 100 // Smaller default batch size for better stability
+    const isFullReset = body.fullReset !== false // Default to true
 
-    console.log('[Index All] Starting indexing for:', platforms)
+    console.log(`[Index All] Starting indexing for: ${platforms.join(', ')} (Reset: ${isFullReset})`)
 
     // Index Polymarket
     if (platforms.includes('polymarket')) {
-      console.log('[Index All] Clearing existing Polymarket data (Full Reset)...')
-      await prisma.geotaggedMarket.deleteMany({
-        where: { platform: 'polymarket' }
-      })
+      if (isFullReset) {
+        console.log('[Index All] Clearing existing Polymarket data...')
+        await prisma.geotaggedMarket.deleteMany({ where: { platform: 'polymarket' } })
+      }
 
       const polyClient = new PolymarketOptimizedClient()
-
       try {
         for await (const batch of polyClient.indexAllMarkets(batchSize)) {
           stats.polymarket.fetched += batch.length
           const enriched = enrichMarkets(batch)
 
-          // Enhance with v2 location extraction (LLM/Regex)
-          // Uses batched smart extraction to respect rate limits
+          // Location extraction
           const batchLocations = await batchExtractLocationsSmart(
             enriched.map((m, i) => ({
               id: String(i),
@@ -125,7 +109,6 @@ export async function POST(request: Request) {
             if (loc && loc.coordinates) {
               // @ts-ignore
               m.location = {
-                // name: loc.city || loc.country || loc.region || 'Unknown',
                 coordinates: loc.coordinates,
                 country: loc.country,
                 region: loc.region,
@@ -134,21 +117,22 @@ export async function POST(request: Request) {
             }
           })
 
-          await processMarketsInChunks(enriched, 'polymarket', stats.polymarket)
+          const indexedCount = await processMarketsBatch(enriched, 'polymarket')
+          stats.polymarket.indexed += indexedCount
+          console.log(`[Index All] Polymarket Batch: ${indexedCount} indexed. Total: ${stats.polymarket.indexed}`)
         }
       } catch (error) {
-        console.error('[Index All] Polymarket error:', error)
+        console.error('[Index All] Polymarket fatal error:', error)
       }
     }
 
     // Index Kalshi
     if (platforms.includes('kalshi')) {
-      console.log('[Index All] Clearing existing Kalshi data (Full Reset)...')
-      await prisma.geotaggedMarket.deleteMany({
-        where: { platform: 'kalshi' }
-      })
-      // Use system API keys from environment variables (for admin operations)
-      // Fallback to legacy env vars for backward compatibility
+      if (isFullReset) {
+        console.log('[Index All] Clearing existing Kalshi data...')
+        await prisma.geotaggedMarket.deleteMany({ where: { platform: 'kalshi' } })
+      }
+
       const accessKeyId = process.env.KALSHI_SYSTEM_API_KEY_ID || process.env.KALSHI_API_KEY_ID
       const privateKey = process.env.KALSHI_SYSTEM_PRIVATE_KEY || process.env.KALSHI_PRIVATE_KEY
 
@@ -160,11 +144,11 @@ export async function POST(request: Request) {
 
           while (hasMore) {
             const result = await kalshiClient.getMarkets({ limit: batchSize, cursor })
+            if (!result.markets || result.markets.length === 0) break
+
             stats.kalshi.fetched += result.markets.length
             const enriched = enrichMarkets(result.markets)
 
-            // Enhance with v2 location extraction (LLM/Regex)
-            // Uses batched smart extraction to respect rate limits
             const batchLocations = await batchExtractLocationsSmart(
               enriched.map((m, i) => ({ id: String(i), title: m.title, description: m.description }))
             )
@@ -174,7 +158,6 @@ export async function POST(request: Request) {
               if (loc && loc.coordinates) {
                 // @ts-ignore
                 m.location = {
-                  // name: loc.city || loc.country || loc.region || 'Unknown',
                   coordinates: loc.coordinates,
                   country: loc.country,
                   region: loc.region,
@@ -183,13 +166,15 @@ export async function POST(request: Request) {
               }
             })
 
-            await processMarketsInChunks(enriched, 'kalshi', stats.kalshi)
+            const indexedCount = await processMarketsBatch(enriched, 'kalshi')
+            stats.kalshi.indexed += indexedCount
+            console.log(`[Index All] Kalshi Batch: ${indexedCount} indexed. Total: ${stats.kalshi.indexed}`)
 
             cursor = result.nextCursor
             hasMore = !!cursor && result.markets.length === batchSize
           }
         } catch (error) {
-          console.error('[Index All] Kalshi error:', error)
+          console.error('[Index All] Kalshi fatal error:', error)
         }
       }
     }
@@ -200,12 +185,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       stats,
-      message: `Indexed ${stats.total} markets in ${(stats.duration / 1000).toFixed(1)}s`
+      message: `Successfully indexed ${stats.total} markets in ${(stats.duration / 1000).toFixed(1)}s`
     })
   } catch (error: any) {
-    console.error('[Index All] Error:', error)
+    console.error('[Index All] Critical indexing error:', error)
     return NextResponse.json(
-      { error: 'Failed to index markets', details: error.message },
+      { error: 'Failed to complete indexing', details: error.message, stats },
       { status: 500 }
     )
   }
