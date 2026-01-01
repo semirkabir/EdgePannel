@@ -83,6 +83,8 @@ export default function IndexMarketsPage() {
       // Use new optimized indexing endpoint
       const platforms = platform === 'all' ? ['polymarket', 'kalshi'] : [platform]
 
+      console.log('[Admin] Starting indexing with:', { platforms, batchSize: 500 })
+
       const response = await fetch('/api/markets/index-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,18 +94,66 @@ export default function IndexMarketsPage() {
         })
       })
 
+      console.log('[Admin] Response status:', response.status, response.statusText)
+
       if (!response.ok) {
-        throw new Error(`Failed to index: ${response.statusText}`)
+        // Try to get error details from response
+        let errorDetails = `HTTP ${response.status}: ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorDetails += ` - ${errorData.error}`
+          }
+          if (errorData.details) {
+            errorDetails += ` (${errorData.details})`
+          }
+        } catch (e) {
+          // Response might not be JSON
+          try {
+            const errorText = await response.text()
+            if (errorText) {
+              errorDetails += ` - ${errorText.substring(0, 200)}`
+            }
+          } catch (e2) {
+            // Ignore
+          }
+        }
+        throw new Error(errorDetails)
       }
 
       const data = await response.json()
+      console.log('[Admin] Indexing completed:', data)
+      
       setIndexResults(data.stats)
       setLastIndexedTime(new Date().toISOString())
 
       // Refresh status after indexing
       await fetchStatus()
     } catch (err: any) {
-      setError(err.message)
+      console.error('[Admin] Indexing error:', err)
+      
+      // Provide more detailed error information
+      let errorMessage = 'Unknown error occurred'
+      
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        errorMessage = 'Network error: Unable to connect to the server. This could be due to:\n' +
+          '• Server timeout (indexing takes a long time)\n' +
+          '• Database connection issues\n' +
+          '• API rate limiting\n' +
+          '• Server overload\n\n' +
+          'Try using smaller batch sizes or indexing one platform at a time.'
+      } else if (err.message.includes('Failed to fetch')) {
+        errorMessage = 'Connection failed: The request timed out or was interrupted.\n' +
+          'This often happens with large indexing operations.\n\n' +
+          'Suggestions:\n' +
+          '• Try indexing Polymarket only first\n' +
+          '• Use a smaller batch size (100-200)\n' +
+          '• Check server logs for more details'
+      } else {
+        errorMessage = err.message || err.toString()
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsIndexing(false)
     }
@@ -199,6 +249,75 @@ export default function IndexMarketsPage() {
               </Button>
             </div>
 
+            {/* Small batch size options for troubleshooting */}
+            <div className="border-t border-gray-600 pt-4">
+              <h3 className="text-sm font-semibold text-gray-300 mb-2">Troubleshooting Options (Smaller Batches)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Button
+                  onClick={async () => {
+                    setIsIndexing(true)
+                    setError(null)
+                    setIndexResults(null)
+                    try {
+                      const response = await fetch('/api/markets/index-all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          platforms: ['polymarket'],
+                          batchSize: 100
+                        })
+                      })
+                      if (!response.ok) throw new Error(`Failed: ${response.statusText}`)
+                      const data = await response.json()
+                      setIndexResults(data.stats)
+                      setLastIndexedTime(new Date().toISOString())
+                      await fetchStatus()
+                    } catch (err: any) {
+                      setError(err.message)
+                    } finally {
+                      setIsIndexing(false)
+                    }
+                  }}
+                  disabled={isIndexing}
+                  variant="outline"
+                  className="border-purple-500 text-purple-300 hover:bg-purple-500/10"
+                >
+                  Polymarket (Small Batch: 100)
+                </Button>
+                <Button
+                  onClick={async () => {
+                    setIsIndexing(true)
+                    setError(null)
+                    setIndexResults(null)
+                    try {
+                      const response = await fetch('/api/markets/index-all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          platforms: ['kalshi'],
+                          batchSize: 100
+                        })
+                      })
+                      if (!response.ok) throw new Error(`Failed: ${response.statusText}`)
+                      const data = await response.json()
+                      setIndexResults(data.stats)
+                      setLastIndexedTime(new Date().toISOString())
+                      await fetchStatus()
+                    } catch (err: any) {
+                      setError(err.message)
+                    } finally {
+                      setIsIndexing(false)
+                    }
+                  }}
+                  disabled={isIndexing}
+                  variant="outline"
+                  className="border-green-500 text-green-300 hover:bg-green-500/10"
+                >
+                  Kalshi (Small Batch: 100)
+                </Button>
+              </div>
+            </div>
+
             <Button
               onClick={() => startIndexing('all', true)}
               disabled={isIndexing}
@@ -223,6 +342,7 @@ export default function IndexMarketsPage() {
             <p>• Only markets not already indexed will be processed (unless force reindex)</p>
             <p>• Use &quot;Clear All &amp; Re-index&quot; if location extraction logic was updated</p>
             <p>• This may take 1-2 minutes for 2000+ markets</p>
+            <p>• If getting connection errors, try the small batch options above</p>
           </div>
         </Card>
 
@@ -309,7 +429,12 @@ export default function IndexMarketsPage() {
         {error && (
           <Card className="p-6 bg-red-900/20 border-red-500">
             <h2 className="text-xl font-bold text-red-400 mb-2">Error</h2>
-            <p className="text-red-300">{error}</p>
+            <pre className="text-red-300 text-sm whitespace-pre-wrap font-mono bg-red-900/10 p-3 rounded border border-red-500/30 overflow-x-auto">
+              {error}
+            </pre>
+            <div className="mt-3 text-xs text-red-200">
+              Check the browser console (F12) for additional technical details.
+            </div>
           </Card>
         )}
 
