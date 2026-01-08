@@ -125,12 +125,20 @@ export default function RegisterPage() {
             </Button>
           </div>
 
-          <p className="text-center text-sm text-muted-foreground px-8">
-            Already have an account?{' '}
-            <Link href="/login" className="text-primary font-medium hover:underline">
-              Sign in
-            </Link>
-          </p>
+          <div className="space-y-4">
+            <p className="text-center text-sm text-muted-foreground px-8">
+              By signing up, you agree to our{' '}
+              <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+            </p>
+            <p className="text-center text-sm text-muted-foreground px-8">
+              Already have an account?{' '}
+              <Link href="/login" className="text-primary font-medium hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -11,11 +11,26 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      allowDangerousEmailAccountLinking: true,
     }),
     TwitterProvider({
       clientId: process.env.TWITTER_CLIENT_ID || "",
       clientSecret: process.env.TWITTER_CLIENT_SECRET || "",
       version: "2.0", // Use OAuth 2.0 (X's current standard)
+      allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          scope: "users.read tweet.read offline.access email",
+        },
+      },
+      profile(profile) {
+        return {
+          id: profile.data.id,
+          name: profile.data.name,
+          email: profile.data.email ?? null,
+          image: profile.data.profile_image_url,
+        }
+      },
     }),
   ],
   session: {
