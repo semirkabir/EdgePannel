@@ -17,6 +17,7 @@ import { useExchanges } from '@/hooks/use-exchanges';
 import { getExchangeById } from '@/lib/data/exchanges';
 import { getDetailedMarketStatus } from '@/lib/utils/exchange-geojson';
 import { ExchangePopup } from './ExchangePopup';
+import { useLayerStore } from '@/lib/store/layer-store';
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -104,10 +105,10 @@ const LivePulseLayer = ({ active }: { active: boolean }) => {
         id="live-pulse-glow"
         type="circle"
         paint={{
-          'circle-radius': pulse * 18,
-          'circle-color': '#3b82f6',
-          'circle-opacity': (1.1 - pulse) * 0.5,
-          'circle-blur': 0.8
+          'circle-radius': pulse * 25,
+          'circle-color': '#06b6d4', // Cyan 500
+          'circle-opacity': (1.1 - pulse) * 0.4,
+          'circle-blur': 1.0
         }}
       />
       {/* Inner Core Dot */}
@@ -115,8 +116,8 @@ const LivePulseLayer = ({ active }: { active: boolean }) => {
         id="live-pulse-center"
         type="circle"
         paint={{
-          'circle-radius': 4,
-          'circle-color': '#60a5fa',
+          'circle-radius': 4.5,
+          'circle-color': '#22d3ee', // Cyan 400
           'circle-stroke-width': 1.5,
           'circle-stroke-color': '#ffffff',
           'circle-opacity': 0.9
@@ -126,6 +127,9 @@ const LivePulseLayer = ({ active }: { active: boolean }) => {
   );
 };
 
+
+
+// ... (existing imports)
 
 // Inner component to isolate Map state from Data updates
 function InnerMap({
@@ -149,9 +153,9 @@ function InnerMap({
   showLabels = true,
   showGrid = false,
   marketType = 'prediction',
-  onInteractionStart
+  onInteractionStart,
+  exchanges
 }: {
-
   markets: any;
   rawMarkets?: any[];
   tweets: any;
@@ -173,7 +177,9 @@ function InnerMap({
   showGrid?: boolean;
   marketType?: MarketType;
   onInteractionStart?: () => void;
+  exchanges?: any; // Added exchanges prop
 }) {
+  const { isLayerActive } = useLayerStore();
 
   const [viewState, setViewState] = useState({
     longitude: 0,
@@ -202,6 +208,116 @@ function InnerMap({
       zoom: viewState.zoom
     });
   }, [isPlaying, isUserInteracting, isHovering, viewState.zoom]);
+
+  // Real Data State
+  const [fetchedNewsData, setFetchedNewsData] = useState<any>({ type: 'FeatureCollection', features: [] });
+
+  // Fetch News Data when layer is active
+  useEffect(() => {
+    if (!isLayerActive('NEWS')) return;
+
+    const fetchNews = async () => {
+      try {
+        const res = await fetch('/api/layers/news');
+        if (res.ok) {
+          const data = await res.json();
+          setFetchedNewsData(data);
+        }
+      } catch (err) {
+        console.error('Failed to load news layer:', err);
+      }
+    };
+
+    fetchNews();
+    // Optional: Poll every 5 minutes
+    const interval = setInterval(fetchNews, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [isLayerActive]);
+
+  // Filter logic for newsData
+  const newsData = useMemo(() => {
+    if (!isLayerActive('NEWS')) return { type: 'FeatureCollection', features: [] };
+
+    if (searchQuery && fetchedNewsData.features) {
+      const q = searchQuery.toLowerCase();
+      const filtered = fetchedNewsData.features.filter((f: any) =>
+        (f.properties.title || '').toLowerCase().includes(q)
+      );
+      return { type: 'FeatureCollection', features: filtered };
+    }
+    return fetchedNewsData;
+  }, [fetchedNewsData, searchQuery, isLayerActive]);
+
+  const [fetchedFinanceData, setFetchedFinanceData] = useState<any>({ type: 'FeatureCollection', features: [] });
+
+  // Fetch Finance Data
+  useEffect(() => {
+    if (!isLayerActive('FINANCE')) return;
+
+    const fetchFinance = async () => {
+      try {
+        const res = await fetch('/api/layers/finance');
+        if (res.ok) {
+          const data = await res.json();
+          setFetchedFinanceData(data);
+        }
+      } catch (err) {
+        console.error('Failed to load finance layer:', err);
+      }
+    };
+    fetchFinance();
+  }, [isLayerActive]);
+
+  const financeData = useMemo(() => {
+    if (!isLayerActive('FINANCE')) return { type: 'FeatureCollection', features: [] };
+
+    if (searchQuery && fetchedFinanceData.features) {
+      const q = searchQuery.toLowerCase();
+      const filtered = fetchedFinanceData.features.filter((f: any) =>
+        (f.properties.symbol || '').toLowerCase().includes(q) ||
+        (f.properties.title || '').toLowerCase().includes(q)
+      );
+      return { type: 'FeatureCollection', features: filtered };
+    }
+    return fetchedFinanceData;
+  }, [fetchedFinanceData, searchQuery, isLayerActive]);
+
+  const [fetchedCustomData, setFetchedCustomData] = useState<any>({ type: 'FeatureCollection', features: [] });
+
+  // Fetch Custom Data
+  useEffect(() => {
+    if (!isLayerActive('CUSTOM')) return;
+
+    const fetchCustom = async () => {
+      try {
+        const res = await fetch('/api/layers/custom');
+        if (res.ok) {
+          const data = await res.json();
+          setFetchedCustomData(data);
+        }
+      } catch (err) {
+        console.error('Failed to load custom layer:', err);
+      }
+    };
+    fetchCustom();
+  }, [isLayerActive]);
+
+  const customData = useMemo(() => {
+    if (!isLayerActive('CUSTOM')) return { type: 'FeatureCollection', features: [] };
+
+    if (searchQuery && fetchedCustomData.features) {
+      const q = searchQuery.toLowerCase();
+      const filtered = fetchedCustomData.features.filter((f: any) =>
+        (f.properties.label || '').toLowerCase().includes(q) ||
+        (f.properties.title || '').toLowerCase().includes(q)
+      );
+      return { type: 'FeatureCollection', features: filtered };
+    }
+    return fetchedCustomData;
+  }, [fetchedCustomData, searchQuery, isLayerActive]);
+
+  // ... (rest of InnerMap)
+
 
   // Toggle label visibility
   useEffect(() => {
@@ -528,6 +644,41 @@ function InnerMap({
         return;
       }
 
+      if (feature.layer.id === 'news-layer' || feature.layer.id === 'news-glow') {
+        const props = { ...feature.properties };
+        const [lng, lat] = (feature.geometry as any).coordinates;
+
+        // Parse news array if it's stored as a JSON string (MapLibre serialization)
+        if (typeof props.news === 'string') {
+          try {
+            props.news = JSON.parse(props.news);
+          } catch (e) {
+            console.warn('[EdgeMap] Failed to parse news array:', e);
+            props.news = [];
+          }
+        }
+
+        if (onMarketSelect) onMarketSelect({ ...props, isNews: true, location: { coordinates: { lat, lng } } });
+        setSelectedFeature(null);
+        return;
+      }
+
+      if (feature.layer.id === 'finance-layer') {
+        const props = feature.properties;
+        const [lng, lat] = (feature.geometry as any).coordinates;
+        if (onMarketSelect) onMarketSelect({ ...props, isFinance: true, location: { coordinates: { lat, lng } } });
+        setSelectedFeature(null);
+        return;
+      }
+
+      if (feature.layer.id === 'custom-layer') {
+        const props = feature.properties;
+        const [lng, lat] = (feature.geometry as any).coordinates;
+        if (onMarketSelect) onMarketSelect({ ...props, isCustom: true, location: { coordinates: { lat, lng } } });
+        setSelectedFeature(null);
+        return;
+      }
+
       if (feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer' || feature.layer.id === 'markets-unclustered') {
         const props = feature.properties;
         const isGroup = props.isGroup === true;
@@ -649,6 +800,11 @@ function InnerMap({
 
   // Filter data
   const filteredMarkets = useMemo(() => {
+    // Check Layer Visibility first
+    if (!isLayerActive('PREDICTION')) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+
     // Handle both direct array of features and FeatureCollection object
     let features = Array.isArray(markets) ? markets : (markets?.features || []);
 
@@ -688,6 +844,29 @@ function InnerMap({
     return { type: 'FeatureCollection', features };
   }, [markets, activeFilters, searchQuery, isUsingOverride]);
 
+  const filteredExchanges = useMemo(() => {
+    // If FINANCE is not active, don't show exchanges (assuming they are part of FINANCE layer logic)
+    // Or we could have a separate 'EXCHANGES' layer if desired. 
+    // For now, let's treat them as part of "FINANCE" or just always show if marketType was 'financial'.
+    // The user request implies "Financial Markets" should show exchanges.
+    // So if FINANCE layer is active, we show exchanges.
+    if (!isLayerActive('FINANCE')) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+
+    let features = exchanges?.features || [];
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      features = features.filter((f: any) =>
+        (f.properties.name || '').toLowerCase().includes(q) ||
+        (f.properties.symbol || '').toLowerCase().includes(q)
+      );
+    }
+
+    return { type: 'FeatureCollection', features };
+  }, [exchanges, isLayerActive, searchQuery]);
+
   const filteredTweets = useMemo(() => {
     if (!activeFilters.osint) return { type: 'FeatureCollection', features: [] };
     return tweets;
@@ -726,19 +905,19 @@ function InnerMap({
     paint: {
       'circle-color': [
         'case',
-        ['==', ['get', 'platform'], 'kalshi'], '#00d26a', // Kalshi Green
-        '#2b7fff' // Polymarket Blue default
+        ['==', ['get', 'platform'], 'kalshi'], '#10b981', // Emerald Green 500
+        '#2563eb' // Cobalt Blue 600 (Polymarket)
       ],
       'circle-radius': [
         'interpolate',
         ['linear'],
         ['get', 'volume'],
         0, 3,
-        100000, 6,
-        1000000, 12,
-        10000000, 20
+        100000, 5,
+        1000000, 10,
+        10000000, 18
       ],
-      'circle-stroke-width': 2,
+      'circle-stroke-width': 1.5,
       'circle-stroke-color': '#ffffff',
       'circle-opacity': 1
     }
@@ -753,18 +932,18 @@ function InnerMap({
         'interpolate',
         ['linear'],
         ['get', 'volume'],
-        0, 6,
+        0, 8,
         100000, 15,
         1000000, 25,
-        10000000, 40
+        10000000, 45
       ],
       'circle-color': [
         'case',
-        ['==', ['get', 'platform'], 'kalshi'], '#00d26a',
-        '#2b7fff'
+        ['==', ['get', 'platform'], 'kalshi'], '#10b981',
+        '#2563eb'
       ],
-      'circle-opacity': 0.3,
-      'circle-blur': 0.5
+      'circle-opacity': 0.2,
+      'circle-blur': 0.8
     }
   };
 
@@ -822,13 +1001,13 @@ function InnerMap({
       'circle-color': [
         'step',
         ['get', 'point_count'],
-        '#3b82f6',  // blue for < 10
+        '#6366f1',  // Indigo 500 for < 10
         10,
-        '#8b5cf6',  // purple for 10-30
+        '#8b5cf6',  // Violet 500 for 10-30
         30,
-        '#ec4899',  // pink for 30-100
+        '#d946ef',  // Fuchsia 500 for 30-100
         100,
-        '#ef4444'   // red for 100+
+        '#f43f5e'   // Rose 500 for 100+
       ],
       'circle-radius': [
         'step',
@@ -868,22 +1047,22 @@ function InnerMap({
     paint: {
       'circle-color': [
         'case',
-        ['==', ['get', 'platform'], 'kalshi'], '#00d26a',
-        '#2b7fff'
+        ['==', ['get', 'platform'], 'kalshi'], '#10b981',
+        '#2563eb'
       ],
       'circle-radius': [
         'interpolate',
         ['linear'],
         ['get', 'volume'],
         0, 4,
-        100000, 8,
-        1000000, 15,
-        10000000, 25
+        100000, 7,
+        1000000, 12,
+        10000000, 20
       ],
-      'circle-opacity': 0.9,
+      'circle-opacity': 0.95,
       'circle-stroke-width': 1.5,
       'circle-stroke-color': '#ffffff',
-      'circle-stroke-opacity': 0.6
+      'circle-stroke-opacity': 0.7
     }
   };
 
@@ -897,18 +1076,18 @@ function InnerMap({
         'interpolate',
         ['linear'],
         ['get', 'volume'],
-        0, 8,
-        100000, 18,
-        1000000, 30,
-        10000000, 50
+        0, 10,
+        100000, 20,
+        1000000, 35,
+        10000000, 55
       ],
       'circle-color': [
         'case',
-        ['==', ['get', 'platform'], 'kalshi'], '#00d26a',
-        '#2b7fff'
+        ['==', ['get', 'platform'], 'kalshi'], '#10b981',
+        '#2563eb'
       ],
-      'circle-opacity': 0.2,
-      'circle-blur': 0.8
+      'circle-opacity': 0.15,
+      'circle-blur': 0.9
     }
   };
 
@@ -918,12 +1097,12 @@ function InnerMap({
     source: 'tweets',
     type: 'circle',
     paint: {
-      'circle-radius': 5,
-      'circle-color': '#ef4444',
+      'circle-radius': 4.5,
+      'circle-color': '#f43f5e', // Rose/Ruby
       'circle-opacity': 0.9,
-      'circle-stroke-width': 2,
+      'circle-stroke-width': 1.5,
       'circle-stroke-color': '#ffffff',
-      'circle-stroke-opacity': 0.5
+      'circle-stroke-opacity': 0.7
     }
   };
 
@@ -935,21 +1114,21 @@ function InnerMap({
     paint: {
       'circle-color': [
         'case',
-        ['get', 'isOpen'], '#10b981',  // Emerald for open
-        '#6b7280'                       // Gray for closed
+        ['get', 'isOpen'], '#34d399',  // Emerald 400 for open
+        '#94a3b8'                       // Slate 400 for closed
       ],
       'circle-radius': [
         'interpolate',
         ['linear'],
         ['coalesce', ['get', 'totalMarketCap'], 0],
-        0, 10,
-        1000000000000, 14,    // $1T
-        10000000000000, 20,   // $10T
-        50000000000000, 28    // $50T
+        0, 8,
+        1000000000000, 12,    // $1T
+        10000000000000, 18,   // $10T
+        50000000000000, 25    // $50T
       ],
-      'circle-stroke-width': 2.5,
+      'circle-stroke-width': 1.5,
       'circle-stroke-color': '#ffffff',
-      'circle-opacity': 0.9
+      'circle-opacity': 0.95
     }
   };
 
@@ -962,18 +1141,18 @@ function InnerMap({
         'interpolate',
         ['linear'],
         ['coalesce', ['get', 'totalMarketCap'], 0],
-        0, 16,
-        1000000000000, 24,
-        10000000000000, 35,
-        50000000000000, 50
+        0, 12,
+        1000000000000, 20,
+        10000000000000, 30,
+        50000000000000, 45
       ],
       'circle-color': [
         'case',
-        ['get', 'isOpen'], '#10b981',
-        '#6b7280'
+        ['get', 'isOpen'], '#34d399',
+        '#94a3b8'
       ],
-      'circle-opacity': 0.25,
-      'circle-blur': 0.6
+      'circle-opacity': 0.2,
+      'circle-blur': 0.8
     }
   };
 
@@ -984,15 +1163,15 @@ function InnerMap({
     const props = feature.properties;
     const [lon, lat] = feature.geometry.coordinates;
 
-    // Validate coordinates before rendering popup
-    if (!lon || !lat || isNaN(lon) || isNaN(lat)) {
-      console.warn('[PolyglobeMap] Invalid coordinates:', { lon, lat, feature });
-      return null;
-    }
+    // Validate coordinates
+    if (!lon || !lat || isNaN(lon) || isNaN(lat)) return null;
 
     const isMarket = feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer' || feature.layer.id === 'markets-unclustered' || feature.layer.id === 'markets-unclustered-glow';
     const isExchange = feature.layer.id === 'exchanges-layer' || feature.layer.id === 'exchanges-glow-layer';
-    const isGroup = props.isGroup === true;
+    const isNews = feature.layer.id === 'news-layer' || feature.layer.id === 'news-glow';
+    const isFinance = feature.layer.id === 'finance-layer';
+    const isCustom = feature.layer.id === 'custom-layer';
+    const isGroup = props.isGroup === true && isMarket;
 
     return (
       <Popup
@@ -1005,350 +1184,253 @@ function InnerMap({
         className="edge-popup z-50"
         maxWidth={isGroup ? "280px" : "210px"}
       >
-        {isExchange ? (
-          <ExchangePopup
-            exchangeId={props.id}
-            exchangeName={props.name}
-            shortName={props.shortName}
-            isOpen={props.isOpen}
-            city={props.city}
-            country={props.country}
-            onViewDetails={() => {
-              const exchangeData = {
-                id: props.id,
-                name: props.name,
-                shortName: props.shortName,
-                country: props.country,
-                city: props.city,
-                region: props.region,
-                isOpen: props.isOpen,
-                currency: props.currency,
-                indices: props.indices,
-                website: props.website,
-                timezone: props.timezone,
-                isExchange: true,
-                location: {
-                  coordinates: { lat, lng: lon }
-                }
-              };
-              handleCardClick(exchangeData);
-            }}
-          />
-        ) : (
-          <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden max-w-[280px]">
-            {/* Gradient overlay for modern effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
+        <div className="bg-gray-900/95 backdrop-blur-md border border-gray-700/50 rounded-xl shadow-2xl overflow-hidden p-3" style={{ minWidth: isGroup ? '280px' : '200px' }}>
 
-            {isMarket && isGroup ? (
-              <div className="relative z-10">
-                {/* Group Header */}
-                <div className="mb-2">
-                  <h3 className="font-semibold text-sm leading-tight text-white mb-1.5">{props.title}</h3>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-semibold shadow-sm",
-                      props.platform === 'polymarket'
-                        ? "bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-400/30"
-                        : "bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border border-green-400/30"
-                    )}>
-                      {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-purple-700/40 text-purple-300 border border-purple-600/30">
-                      {props.marketCount} Options
-                    </span>
-                    {props.category && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-700/40 text-gray-300 border border-gray-600/30">
-                        {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
-                      </span>
-                    )}
-                  </div>
+          {/* NEWS POPUP */}
+          {isNews && (
+            <div className="flex flex-col gap-2 min-w-[240px]">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></div>
+                  <span className="text-[10px] uppercase font-bold text-blue-400">Global News • {props.country || 'World'}</span>
                 </div>
+                {props.isTrending && (
+                  <span className="text-[9px] px-1.5 py-0.5 bg-red-500/20 text-red-300 rounded border border-red-500/30 font-bold uppercase tracking-wider animate-pulse">
+                    TRENDING
+                  </span>
+                )}
+              </div>
 
-                {/* Market Options List */}
-                <div className="space-y-1.5 mb-2 max-h-64 overflow-y-auto">
-                  {props.markets && JSON.parse(JSON.stringify(props.markets)).map((market: any, idx: number) => {
-                    const marketImageUrl = market.imageUrl || market.image || market.rawData?.image || market.rawData?.icon || market.rawData?.eventImage;
-                    return (
-                      <div
-                        key={idx}
-                        className="bg-gray-800/40 rounded p-2 border border-gray-700/30 hover:bg-gray-800/60 transition-colors cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Reconstruct market for selection
-                          const fullMarket = {
-                            id: market.id,
-                            title: market.title,
-                            description: market.description || '',
-                            platform: market.platform,
-                            volume24h: market.volume24h,
-                            price: market.price,
-                            probability: market.price,
-                            slug: market.slug,
-                            ticker: market.ticker,
-                            imageUrl: market.imageUrl,
-                            endDate: market.endDate,
-                            rawData: {},
-                            location: {
-                              coordinates: { lat, lng: lon }
-                            }
-                          };
-                          handleCardClick(fullMarket);
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          {/* Image Thumbnail */}
-                          <div className="shrink-0 w-10 h-10 rounded overflow-hidden border border-gray-600/30 bg-gray-700/50 flex items-center justify-center relative group-hover:border-blue-500/50 transition-colors">
-                            {marketImageUrl ? (
-                              <div className="relative w-full h-full">
-                                <Image
-                                  src={marketImageUrl}
-                                  alt={market.title}
-                                  fill
-                                  className="object-cover"
-                                  unoptimized
-                                  onError={(e) => {
-                                    // Fallback handled by parent CSS logic or hidden element
-                                    const target = e.currentTarget as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    const fallback = target.nextElementSibling;
-                                    if (fallback) fallback.classList.remove('hidden');
-                                  }}
-                                />
-                              </div>
-                            ) : market.ticker ? (
-                              <div className="relative w-full h-full bg-white/5 flex items-center justify-center">
-                                <img
-                                  src={`https://images.financialmodelingprep.com/symbol/${market.ticker.toUpperCase()}.png`}
-                                  alt={market.ticker}
-                                  className="w-full h-full object-contain p-1.5"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).classList.add('hidden');
-                                    (e.currentTarget.nextElementSibling as HTMLSpanElement)?.classList.remove('hidden');
-                                  }}
-                                />
-                                <span className="text-[10px] font-bold text-blue-400 hidden">
-                                  {market.ticker.substring(0, 2)}
-                                </span>
-                              </div>
-                            ) : null}
-                            <span className={`text-[8px] font-black ${marketImageUrl ? 'hidden' : ''} ${market.platform === 'polymarket' ? 'text-blue-400' : 'text-green-400'}`}>
-                              {market.platform === 'polymarket' ? 'POLY' : 'KALS'}
-                            </span>
-                          </div>
+              {(() => {
+                // Parse news array if it's a JSON string (MapLibre serializes arrays)
+                let newsItems = props.news;
+                if (typeof newsItems === 'string') {
+                  try {
+                    newsItems = JSON.parse(newsItems);
+                  } catch (e) {
+                    newsItems = [];
+                  }
+                }
 
-                          {/* Title and Price */}
-                          <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs text-white line-clamp-2">{market.title}</div>
-                            </div>
-                            <div className="flex-shrink-0">
-                              <span className="text-sm font-bold text-blue-300">{Math.round(market.price * 100)}¢</span>
-                            </div>
+                return newsItems && Array.isArray(newsItems) && newsItems.length > 0 ? (
+                  <div className="space-y-3">
+                    {newsItems.slice(0, 5).map((item: any, idx: number) => (
+                      <a key={idx} href={item.url || '#'} target="_blank" rel="noreferrer" className="block group border-b border-gray-800 last:border-0 pb-2 last:pb-0">
+                        {idx === 0 && item.imageUrl && (
+                          <div className="relative w-full h-24 rounded-lg overflow-hidden border border-gray-800 mb-2">
+                            <img src={item.imageUrl} alt={item.title} onError={(e) => e.currentTarget.style.display = 'none'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                           </div>
+                        )}
+                        <div className="flex flex-col gap-0.5">
+                          <h3 className="text-xs font-semibold text-white group-hover:text-blue-400 transition-colors leading-snug line-clamp-2">{item.title}</h3>
+                          <span className="text-[9px] text-gray-400">{item.source}</span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    {props.imageUrl && (
+                      <div className="relative w-full h-24 rounded-lg overflow-hidden border border-gray-800">
+                        <img src={props.imageUrl} alt={props.title} onError={(e) => e.currentTarget.style.display = 'none'} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <h3 className="text-sm font-bold text-white leading-snug">{props.title}</h3>
+                    {props.source && <div className="text-[10px] text-gray-400">Source: {props.source}</div>}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* FINANCE POPUP */}
+          {isFinance && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-yellow-400">{props.subtype || 'Asset'}</span>
+                <span className={cn("text-xs font-bold", props.change?.startsWith('-') ? "text-red-400" : "text-emerald-400")}>
+                  {props.change}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-base font-black text-white">{props.symbol}</h3>
+                <span className="text-xs text-gray-300 truncate max-w-[120px]">{props.title}</span>
+              </div>
+              <div className="text-xl font-bold text-white font-mono">{props.price}</div>
+              <div className="text-[9px] text-gray-500 mt-1 flex justify-between">
+                <span>{props.source}</span>
+              </div>
+            </div>
+          )}
+
+          {/* CUSTOM POPUP */}
+          {isCustom && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                <span className="text-[10px] uppercase font-bold text-purple-400">{props.subtype || 'Custom Data'}</span>
+              </div>
+              <h3 className="text-sm font-bold text-white">{props.featureTitle || props.title || props.label}</h3>
+              <div className="text-xs text-gray-300">{props.status || props.price}</div>
+            </div>
+          )}
+
+          {/* EXCHANGES / MARKETS */}
+          {(isMarket || isExchange) && (
+            <>
+              {isExchange ? (
+                <ExchangePopup
+                  exchangeId={props.id}
+                  exchangeName={props.name}
+                  shortName={props.shortName}
+                  isOpen={props.isOpen}
+                  city={props.city}
+                  country={props.country}
+                  onViewDetails={() => {
+                    const exchangeData = {
+                      id: props.id,
+                      name: props.name,
+                      shortName: props.shortName,
+                      country: props.country,
+                      city: props.city,
+                      region: props.region,
+                      isOpen: props.isOpen,
+                      currency: props.currency,
+                      indices: props.indices,
+                      website: props.website,
+                      timezone: props.timezone,
+                      isExchange: true,
+                      location: { coordinates: { lat, lng: lon } }
+                    };
+                    handleCardClick(exchangeData);
+                  }}
+                />
+              ) : (
+                <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden max-w-[280px]">
+
+                  {/* Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
+
+                  {/* GROUP (EVENT) POPUP */}
+                  {isGroup ? (
+                    <div className="relative z-10">
+                      {(props.imageUrl || props.image_url || props.image) && (
+                        <div className="relative w-full h-24 rounded-lg overflow-hidden border border-gray-800 mb-2">
+                          <img
+                            src={props.imageUrl || props.image_url || props.image}
+                            alt={props.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                          />
+                        </div>
+                      )}
+                      <div className="mb-2">
+                        <h3 className="font-semibold text-sm leading-tight text-white mb-1.5">{props.title}</h3>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-purple-700/40 text-purple-300 border border-purple-600/30">
+                            {props.marketCount} Options
+                          </span>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
 
-                {/* Event Stats - Volume and OI */}
-                <div className="flex gap-1.5 mb-2">
-                  <MarketPopupVolume
-                    market={{
-                      id: props.id || props.groupId,
-                      rawData: props.rawData ? (typeof props.rawData === 'string' ? JSON.parse(props.rawData) : props.rawData) : {},
-                      eventData: props.eventData,
-                      eventId: props.eventId,
-                    }}
-                    volume24h={props.volume || props.volume24h}
-                    platform={props.platform}
-                  />
-                </div>
-              </div>
-            ) : isMarket ? (
-              <div className="relative z-10">
-                {/* Price Badge - Floating top right */}
-                <div className="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-2.5 py-1 rounded-lg shadow-lg z-10">
-                  <span className="text-lg font-bold tabular-nums">{Math.round(props.last_price * 100)}¢</span>
-                </div>
-
-                {/* Compact Layout with Image Float */}
-                <div className="flex gap-2.5 mb-2.5">
-                  {/* Left: Title and Badges */}
-                  <div className="flex-1 min-w-0">
-                    {/* Title */}
-                    <h3 className="font-semibold text-sm leading-tight text-white line-clamp-3 mb-1.5 pr-10">{props.title}</h3>
-
-                    {/* Platform & Category Badge Row */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-semibold shadow-sm",
-                        props.platform === 'polymarket'
-                          ? "bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-300 border border-blue-400/30"
-                          : "bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border border-green-400/30"
-                      )}>
-                        {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
-                      </span>
-                      {props.category && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-700/40 text-gray-300 border border-gray-600/30">
-                          {props.category.charAt(0).toUpperCase() + props.category.slice(1)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right: Compact Image */}
-                  {(props.image_url || props.ticker) && (
-                    <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-gray-700/30 relative bg-gray-800/50 flex items-center justify-center group">
-                      {props.image_url ? (
-                        <Image
-                          src={props.image_url}
-                          alt={props.title}
-                          fill
-                          className="object-cover"
-                          unoptimized
-                          onError={(e) => {
-                            // Hide parent container if image fails to load
-                            const target = e.currentTarget as HTMLImageElement;
-                            if (target.parentElement) target.parentElement.style.display = 'none';
-                          }}
-                        />
-                      ) : props.ticker ? (
-                        <img
-                          src={`https://images.financialmodelingprep.com/symbol/${props.ticker.toUpperCase()}.png`}
-                          alt={props.ticker}
-                          className="w-full h-full object-contain p-2"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).classList.add('hidden');
-                            if (e.currentTarget.parentElement) e.currentTarget.parentElement.style.display = 'none';
-                          }}
-                        />
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-
-                {/* Stats Grid - Volume and OI side by side */}
-                <div className="flex gap-1.5 mb-2">
-                  <MarketPopupVolume
-                    market={{
-                      id: props.id || props.market_id,
-                      rawData: props.rawData ? (typeof props.rawData === 'string' ? JSON.parse(props.rawData) : props.rawData) : {},
-                      eventData: props.eventData,
-                      eventId: props.eventId,
-                    }}
-                    volume24h={props.volume || props.volume24h}
-                    platform={props.platform}
-                  />
-                  {props.price_movement !== undefined && props.price_movement !== 0 && (
-                    <div className="bg-gray-800/40 rounded p-1.5 border border-gray-700/30 flex-1">
-                      <div className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">24h Change</div>
-                      <div className={cn(
-                        "text-xs font-bold",
-                        props.price_movement >= 0 ? "text-emerald-400" : "text-red-400"
-                      )}>
-                        {props.price_movement > 0 ? '+' : ''}{Math.round(props.price_movement * 100)}%
+                      {/* Markets List */}
+                      <div className="space-y-1.5 mb-2 max-h-64 overflow-y-auto">
+                        {props.markets && JSON.parse(JSON.stringify(props.markets)).map((market: any, idx: number) => (
+                          <div key={idx} className="bg-gray-800/40 rounded p-2 border border-gray-700/30 hover:bg-gray-800/60 transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Market Click Logic
+                              const fullMarket = { ...market, location: { coordinates: { lat, lng: lon } } };
+                              handleCardClick(fullMarket);
+                            }}>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-white line-clamp-2">{market.title}</div>
+                              </div>
+                              <div className="flex-shrink-0">
+                                <span className="text-sm font-bold text-blue-300">{Math.round(market.price * 100)}¢</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
+                  ) : (
+                    // SINGLE MARKET POPUP
+                    <div className="relative z-10">
+                      <div className="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-2.5 py-1 rounded-lg shadow-lg z-10">
+                        <span className="text-lg font-bold tabular-nums">{Math.round(props.last_price * 100)}¢</span>
+                      </div>
+
+                      {(props.imageUrl || props.image_url || props.image) && (
+                        <div className="relative w-full h-24 rounded-lg overflow-hidden border border-gray-800 mb-2">
+                          <img
+                            src={props.imageUrl || props.image_url || props.image}
+                            alt={props.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                          />
+                        </div>
+                      )}
+
+                      <div className="mb-2.5">
+                        <h3 className="font-semibold text-sm leading-tight text-white line-clamp-3 mb-1.5 pr-10">{props.title}</h3>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            {props.platform === 'polymarket' ? 'Polymarket' : 'Kalshi'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mb-2">
+                        <MarketHoverChart
+                          marketId={props.id || props.market_id}
+                          platform={props.platform}
+                          currentPrice={props.last_price || props.price}
+                          priceChange={props.price_movement}
+                          enabled={true}
+                        />
+                      </div>
+
+                      <button
+                        className="w-full bg-blue-600 text-white text-xs font-bold py-2 rounded shadow hover:bg-blue-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const marketId = props.id || props.market_id;
+                          let market = rawMarkets?.find((m: any) => m.id === marketId);
+                          if (!market) {
+                            // Reconstruct if missing
+                            market = {
+                              id: marketId,
+                              title: props.title,
+                              platform: props.platform,
+                              price: props.last_price || props.price,
+                              // ... other props
+                              rawData: props.rawData || {}
+                            };
+                          }
+                          if (market) {
+                            handleCardClick({ ...market, location: { coordinates: { lat, lng: lon } } });
+                          }
+                        }}
+                      >
+                        View Market
+                      </button>
+                    </div>
                   )}
                 </div>
+              )}
+            </>
+          )}
 
-                {/* End Date */}
-                {props.endDate && (
-                  <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-2">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>Ends {new Date(props.endDate).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}</span>
-                  </div>
-                )}
-
-                {/* Mini Chart - Fetches on hover (only for single markets, not groups) */}
-                <div className="mb-2">
-                  <MarketHoverChart
-                    marketId={props.id || props.market_id}
-                    platform={props.platform}
-                    currentPrice={props.last_price || props.price}
-                    priceChange={props.price_movement}
-                    enabled={true}
-                  />
-                </div>
-
-                {/* CTA Button */}
-                <button
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Find full market data or reconstruct from properties
-                    const marketId = props.id || props.market_id;
-                    let market = rawMarkets?.find((m: any) => m.id === marketId);
-
-                    // If not found, reconstruct from feature properties (for geotagged markets)
-                    if (!market) {
-                      let rawData = props.rawData;
-                      if (typeof rawData === 'string') {
-                        try {
-                          rawData = JSON.parse(rawData);
-                        } catch (e) {
-                          rawData = {};
-                        }
-                      }
-
-                      market = {
-                        id: props.id || props.market_id,
-                        title: props.title,
-                        description: props.description || '',
-                        platform: props.platform,
-                        volume24h: props.volume || props.volume24h,
-                        price: props.last_price || props.price,
-                        probability: props.last_price || props.price,
-                        liquidity: props.liquidity,
-                        endDate: props.endDate,
-                        slug: props.slug,
-                        ticker: props.ticker,
-                        category: props.category,
-                        imageUrl: props.image_url,
-                        rawData: rawData || {},
-                      };
-                    }
-
-                    if (market) {
-                      // Inject location for zoom
-                      const finalMarket = {
-                        ...market,
-                        location: {
-                          coordinates: { lat, lng: lon }
-                        }
-                      };
-                      handleCardClick(finalMarket);
-                    }
-                  }}
-                >
-                  VIEW DETAILS →
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-sm truncate">{props.handle}</div>
-                    <div className="text-[10px] text-gray-400">{props.timestamp}</div>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-200 leading-relaxed font-sans border-t border-gray-800 pt-2 mt-2">
-                  {props.text}
-                </p>
-              </>
-            )}
-          </div>
-        )}
+        </div>
       </Popup>
     );
   };
+
 
   // Handle selectedMarket padding
   useEffect(() => {
@@ -1408,18 +1490,26 @@ function InnerMap({
 
   // Compute interactive layers - memoize to prevent re-renders
   const interactiveIds = useMemo(() => {
-    if (marketType === 'financial') {
-      return ['exchanges-layer', 'exchanges-glow-layer'];
-    } else if (visualizationMode === 'heatmap') {
+    const common = [
+      'news-layer',
+      'news-glow',
+      'finance-layer',
+      'custom-layer',
+      'tweets-layer',
+      'exchanges-layer',        // Always interactive if rendered
+      'exchanges-glow-layer'    // Always interactive if rendered
+    ];
+
+    if (visualizationMode === 'heatmap') {
       // In heatmap mode, keep dots invisible but interactive for clicks
-      return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
+      return ['markets-layer', 'markets-glow-layer', ...common];
     } else if (visualizationMode === 'cluster') {
-      return ['markets-clusters', 'markets-unclustered', 'markets-unclustered-glow', 'tweets-layer'];
+      return ['markets-clusters', 'markets-unclustered', 'markets-unclustered-glow', ...common];
     } else {
       // Default dots mode
-      return ['markets-layer', 'markets-glow-layer', 'tweets-layer'];
+      return ['markets-layer', 'markets-glow-layer', ...common];
     }
-  }, [marketType, visualizationMode]);
+  }, [visualizationMode]);
 
   // Debug: Log map and layer state on load
   useEffect(() => {
@@ -1521,22 +1611,21 @@ function InnerMap({
         <FullscreenControl position="bottom-right" />
 
         {/* OSINT Layer (NASA FIRMS) */}
-        {activeFilters.fires && (
+        {/* OSINT / Wildfires Layer */}
+        {(activeFilters.fires || isLayerActive('WILDFIRES')) && (
           <Source id="firms" type="raster" tiles={['https://firms.modaps.eosdis.nasa.gov/mapserver/tms/1.0.0/Fires_All/{z}/{x}/{y}.png']} tileSize={256}>
             <Layer {...firmsLayer} />
           </Source>
         )}
 
-        {marketType === 'financial' ? (
-          <Source
-            id="exchanges"
-            type="geojson"
-            data={filteredMarkets as any}
-          >
-            <Layer {...exchangeGlowLayer as any} />
-            <Layer {...exchangeLayer as any} />
+        {/* Community Layers: Shipping (Mock Tile for demo) */}
+        {isLayerActive('SHIPPING') && (
+          <Source id="shipping" type="geojson" data={{ type: 'FeatureCollection', features: [] } as any}>
+            {/* Placeholder for shipping data */}
           </Source>
-        ) : (
+        )}
+
+        {isLayerActive('PREDICTION') && (
           <Source
             key={`markets-${visualizationMode}`}
             id="markets"
@@ -1578,12 +1667,119 @@ function InnerMap({
           </Source>
         )}
 
+        {/* Exchanges Layer (Part of Financials) */}
+        {isLayerActive('FINANCE') && (
+          <Source
+            id="exchanges"
+            type="geojson"
+            data={filteredExchanges as any}
+          >
+            <Layer {...exchangeGlowLayer as any} />
+            <Layer {...exchangeLayer as any} />
+          </Source>
+        )}
+
         <Source id="tweets" type="geojson" data={filteredTweets as any}>
           <Layer {...tweetLayer as any} />
         </Source>
 
         {/* Live Pulse Layer */}
         <LivePulseLayer active={activeFilters.live} />
+
+        {/* NEWS Layer */}
+        {isLayerActive('NEWS') && (
+          <Source id="news-source" type="geojson" data={newsData as any}>
+            <Layer
+              id="news-layer"
+              type="circle"
+              paint={{
+                'circle-radius': [
+                  'interpolate',
+                  ['linear'],
+                  ['get', 'importance'],
+                  0, 2,
+                  0.5, 3.5,
+                  1, 8
+                ],
+                'circle-color': [
+                  'interpolate',
+                  ['linear'],
+                  ['get', 'importance'],
+                  0, '#f8fafc', // Bright Slate 50 (almost white)
+                  1, '#22d3ee'  // Cyan 400
+                ],
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#ffffff',
+                'circle-opacity': 0.95
+              }}
+            />
+            <Layer
+              id="news-glow"
+              type="circle"
+              paint={{
+                'circle-radius': [
+                  'interpolate',
+                  ['linear'],
+                  ['get', 'importance'],
+                  0, 8,
+                  1, 24
+                ],
+                'circle-color': [
+                  'interpolate',
+                  ['linear'],
+                  ['get', 'importance'],
+                  0, '#38bdf8', // Sky 400
+                  1, '#06b6d4'  // Cyan 500
+                ],
+                'circle-opacity': 0.2,
+                'circle-blur': 0.8
+              }}
+            />
+          </Source>
+        )}
+
+        {/* FINANCE Layer */}
+        {isLayerActive('FINANCE') && (
+          <Source id="finance-source" type="geojson" data={financeData as any}>
+            <Layer
+              id="finance-layer"
+              type="circle"
+              paint={{
+                'circle-radius': 5,
+                'circle-color': '#fbbf24', // Amber/Gold 400
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#ffffff',
+                'circle-opacity': 0.95
+              }}
+            />
+            <Layer
+              id="finance-glow"
+              type="circle"
+              paint={{
+                'circle-radius': 15,
+                'circle-color': '#fbbf24',
+                'circle-opacity': 0.15,
+                'circle-blur': 0.8
+              }}
+            />
+          </Source>
+        )}
+
+        {/* CUSTOM Layer */}
+        {isLayerActive('CUSTOM') && (
+          <Source id="custom-source" type="geojson" data={customData as any}>
+            <Layer
+              id="custom-layer"
+              type="circle"
+              paint={{
+                'circle-radius': 6,
+                'circle-color': '#A020F0',
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#fff'
+              }}
+            />
+          </Source>
+        )}
 
         {showGrid && (
           <Source id="grid" type="geojson" data={{
@@ -1719,7 +1915,8 @@ export function EdgeMap({
 
   return (
     <InnerMap
-      markets={displayMarkets}
+      markets={overrideMarkets || markets} // Always pass prediction markets here
+      exchanges={exchangeGeoJSON} // Always pass exchanges here
       rawMarkets={rawMarkets}
       tweets={tweets}
       activeFilters={activeFilters}

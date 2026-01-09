@@ -44,12 +44,12 @@ function LoginForm() {
           </div>
 
           <h2 className="text-4xl xl:text-5xl font-bold leading-tight mb-6">
-            Prediction Markets<br />
+            Global Intelligence<br />
             <span className="text-primary">Visualized</span>
           </h2>
 
           <p className="text-lg text-muted-foreground mb-8 max-w-md">
-            Track and trade prediction markets from Polymarket and Kalshi on an interactive 3D globe.
+            The ultimate terminal for news, finance, and prediction markets on an interactive 3D globe.
           </p>
 
           {/* Feature highlights */}
@@ -59,8 +59,8 @@ function LoginForm() {
                 <TrendingUp className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <div className="font-medium">Real-time Data</div>
-                <div className="text-sm text-muted-foreground">Live prices from multiple platforms</div>
+                <div className="font-medium">Multi-Layer Data</div>
+                <div className="text-sm text-muted-foreground">News, Stocks, & Prediction Markets</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -68,8 +68,8 @@ function LoginForm() {
                 <Globe className="h-5 w-5 text-green-400" />
               </div>
               <div>
-                <div className="font-medium">Global View</div>
-                <div className="text-sm text-muted-foreground">See markets on an interactive globe</div>
+                <div className="font-medium">Global Situational Awareness</div>
+                <div className="text-sm text-muted-foreground">Geospatial content mapping</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -77,8 +77,8 @@ function LoginForm() {
                 <Zap className="h-5 w-5 text-yellow-400" />
               </div>
               <div>
-                <div className="font-medium">Fast Trading</div>
-                <div className="text-sm text-muted-foreground">Execute trades directly from the app</div>
+                <div className="font-medium">Real-Time Terminal</div>
+                <div className="text-sm text-muted-foreground">Track whales & breaking events live</div>
               </div>
             </div>
           </div>

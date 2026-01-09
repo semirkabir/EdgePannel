@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils/cn';
 import { SearchResults } from './SearchResults';
 import { EnrichedMarket } from '@/lib/markets/enrich';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
-import { MarketTypeToggle } from './MarketTypeToggle';
+import { LayerMenu } from './LayerMenu';
 import { MarketType } from '@/types/exchange';
 
 export type VisualizationMode = 'dots' | 'heatmap' | 'cluster';
@@ -17,10 +17,9 @@ interface EdgeUIProps {
   onFilterChange: (filter: string, active: boolean) => void;
   activeFilters: Record<string, boolean>;
   onViewToggle?: () => void;
-  onFinancialsToggle?: () => void;
   onHubToggle?: () => void;
   onMapGlobeToggle?: () => void;
-  currentView?: 'map' | 'globe' | 'insights' | 'agent' | 'financials' | 'hub';
+  currentView?: 'map' | 'globe' | 'insights' | 'agent' | 'hub';
   isPlaying?: boolean;
   onPlayPause?: (playing: boolean) => void;
   onSettingsOpen?: () => void;
@@ -51,7 +50,7 @@ interface EdgeUIProps {
   marketType?: MarketType;
   onMarketTypeChange?: (type: MarketType) => void;
   // Navigation
-  onSetView?: (view: 'map' | 'globe' | 'insights' | 'agent' | 'financials' | 'hub') => void;
+  onSetView?: (view: 'map' | 'globe' | 'insights' | 'agent' | 'hub') => void;
   // Research Notebook
   isResearchOpen?: boolean;
   setIsResearchOpen?: (open: boolean) => void;
@@ -77,7 +76,6 @@ export function EdgeUI({
   onFilterChange,
   activeFilters,
   onViewToggle,
-  onFinancialsToggle,
   onHubToggle,
   onMapGlobeToggle,
   currentView = 'map',
@@ -120,7 +118,6 @@ export function EdgeUI({
   const isPlaying = externalIsPlaying !== undefined ? externalIsPlaying : internalIsPlaying;
   const isMapView = currentView === 'map';
   const isInsightsView = currentView === 'insights';
-  const isFinancialsView = currentView === 'financials';
 
   // Click-outside handling for dropdowns
   useEffect(() => {
@@ -309,8 +306,11 @@ export function EdgeUI({
         </div>
 
         {/* Row 2: Filter Buttons - Mobile (only when not in insights/financials view) */}
-        {!isInsightsView && !isFinancialsView && (
+        {!isInsightsView && (
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+            {/* Layer Menu - Mobile */}
+            <LayerMenu />
+
             {/* Consolidated View Settings - Mobile */}
             <div className="relative flex-shrink-0" ref={settingsRef}>
               <button
@@ -543,7 +543,7 @@ export function EdgeUI({
           {/* Unified View Controller */}
           <div className="flex items-center gap-1">
             {/* Play/Pause Rotation - Only show in map/globe view */}
-            {!isInsightsView && !isFinancialsView && (
+            {!isInsightsView && (
               <button
                 onClick={handlePlayPause}
                 className="w-8 h-8 flex items-center justify-center rounded-xl transition-all bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 hover:border-white/20"
@@ -554,7 +554,7 @@ export function EdgeUI({
             )}
 
             {/* Reset View - Only show when zoomed in and not in insights/financials */}
-            {!isInsightsView && !isFinancialsView && isZoomedIn && (
+            {!isInsightsView && isZoomedIn && (
               <button
                 onClick={onResetZoom}
                 className="w-8 h-8 flex items-center justify-center rounded-xl transition-all bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
@@ -572,17 +572,17 @@ export function EdgeUI({
                 onClick={onMapGlobeToggle} // This toggles between map/globe
                 className={cn(
                   "group px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 relative",
-                  !isInsightsView && !isFinancialsView
+                  !isInsightsView
                     ? "bg-white/20 text-white shadow-md border border-white/10"
                     : "text-gray-300 hover:text-white hover:bg-white/15"
                 )}
               >
                 {/* Main Icon */}
                 <div className="relative w-3.5 h-3.5">
-                  <div className={cn("absolute inset-0 transition-all duration-300", !isInsightsView && !isFinancialsView ? "opacity-100 group-hover:opacity-0 group-hover:scale-75" : "opacity-100")}>
+                  <div className={cn("absolute inset-0 transition-all duration-300", !isInsightsView ? "opacity-100 group-hover:opacity-0 group-hover:scale-75" : "opacity-100")}>
                     {isMapView ? <Map className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
                   </div>
-                  <div className={cn("absolute inset-0 transition-all duration-300 opacity-0 scale-75 rotate-90", !isInsightsView && !isFinancialsView ? "group-hover:opacity-100 group-hover:scale-100 group-hover:rotate-0" : "hidden")}>
+                  <div className={cn("absolute inset-0 transition-all duration-300 opacity-0 scale-75 rotate-90", !isInsightsView ? "group-hover:opacity-100 group-hover:scale-100 group-hover:rotate-0" : "hidden")}>
                     <ArrowRightLeft className="w-3.5 h-3.5 text-white/80" />
                   </div>
                 </div>
@@ -603,31 +603,21 @@ export function EdgeUI({
                 <Brain className="w-3.5 h-3.5" />
                 <span>Insights</span>
               </button>
-
-              <button
-                onClick={onFinancialsToggle}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
-                  isFinancialsView
-                    ? "bg-emerald-600/90 text-white shadow-md border border-emerald-500/50"
-                    : "text-gray-300 hover:text-white hover:bg-white/15"
-                )}
-              >
-                <ArrowRightLeft className="w-3.5 h-3.5" />
-                <span>Financials</span>
-              </button>
             </div>
           </div>
         </div>
 
         {/* Control Buttons Row - Hide when in insights/financials view */}
-        {!isInsightsView && !isFinancialsView && (
+        {!isInsightsView && (
           <div
             className="flex items-center gap-1.5 p-1.5 bg-[#0e0f11]/80 backdrop-blur-xl border border-white/10 rounded-2xl"
             style={{
               boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
             }}
           >
+            {/* Layer Menu */}
+            <LayerMenu />
+
             {/* Consolidated View Settings Dropdown */}
             <div className="relative" ref={settingsRef}>
               <button
@@ -844,13 +834,7 @@ export function EdgeUI({
 
 
 
-            {/* Market Type Toggle */}
-            {onMarketTypeChange && (
-              <MarketTypeToggle
-                value={marketType}
-                onChange={onMarketTypeChange}
-              />
-            )}
+
           </div>
         )}
       </div>

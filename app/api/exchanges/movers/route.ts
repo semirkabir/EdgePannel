@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { yahooFinance } from '@/lib/api/stock-exchanges/yahoo-finance';
+import { getTopMovers } from '@/lib/services/alpaca';
 
 // Region mapping for exchanges
 const EXCHANGE_REGION_MAP: Record<string, string> = {
@@ -63,7 +63,11 @@ export async function GET(request: NextRequest) {
 
     const region = EXCHANGE_REGION_MAP[exchangeId] || 'US';
 
-    const { gainers, losers, mostActive } = await yahooFinance.getMarketMovers(region, count);
+    const [gainers, losers, mostActive] = await Promise.all([
+      getTopMovers(region, 'gainers'),
+      getTopMovers(region, 'losers'),
+      getTopMovers(region, 'active')
+    ]);
 
     return NextResponse.json({
       exchangeId,

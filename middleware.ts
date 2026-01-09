@@ -21,7 +21,10 @@ const authMiddleware = AUTH_ENABLED ? withAuth({
         pathname === '/' ||
         pathname.startsWith('/api/auth') ||
         pathname === '/login' ||
-        pathname === '/register'
+        pathname === '/register' ||
+        pathname === '/privacy' ||
+        pathname === '/terms' ||
+        pathname === '/contact'
       ) {
         return true
       }
@@ -48,7 +51,10 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
     req.nextUrl.pathname.startsWith('/api/markets/search') ||
     req.nextUrl.pathname.startsWith('/api/markets/analytics') ||
     req.nextUrl.pathname === '/login' ||
-    req.nextUrl.pathname === '/register'
+    req.nextUrl.pathname === '/register' ||
+    req.nextUrl.pathname === '/privacy' ||
+    req.nextUrl.pathname === '/terms' ||
+    req.nextUrl.pathname === '/contact'
 
   console.log(`[Middleware] ${req.nextUrl.pathname} - isPublic: ${isPublicPath} - AUTH_ENABLED: ${AUTH_ENABLED}`)
 

@@ -37,6 +37,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'avatars.githubusercontent.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'image.chitra.live',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.river949.com.au',
+      },
     ],
   },
   // Suppress hydration warnings from browser extensions

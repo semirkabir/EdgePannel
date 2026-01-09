@@ -961,12 +961,14 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             </div>
 
             {/* Right: Compact Market Image */}
-            <div className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-700/50 shadow-lg relative">
-              <Image
-                src={activeMarket.imageUrl || (activeMarket as any).image || activeMarket.rawData?.image || activeMarket.rawData?.icon || activeMarket.rawData?.eventImage}
+            <div className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-700/50 shadow-lg relative bg-white/5">
+              <img
+                src={activeMarket.imageUrl || (activeMarket as any).image || activeMarket.rawData?.image || activeMarket.rawData?.icon || activeMarket.rawData?.eventImage || '/placeholder-market.png'}
                 alt={activeMarket.title}
-                fill
-                className="object-cover"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
               />
             </div>
 
@@ -1293,11 +1295,11 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                           <div className="flex items-center gap-2 mb-2">
                             {comment.user?.profile_image ? (
                               <div className="w-5 h-5 relative flex-shrink-0">
-                                <Image
+                                <img
                                   src={comment.user.profile_image}
                                   alt={comment.user.username}
-                                  fill
-                                  className="rounded-full object-cover"
+                                  className="w-full h-full rounded-full object-cover"
+                                  onError={(e) => e.currentTarget.style.display = 'none'}
                                 />
                               </div>
                             ) : (
@@ -1392,11 +1394,11 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                             <div className="flex items-center gap-2">
                               {profileImage ? (
                                 <div className="w-7 h-7 relative flex-shrink-0">
-                                  <Image
+                                  <img
                                     src={profileImage}
                                     alt={username}
-                                    fill
-                                    className="rounded-full object-cover"
+                                    className="w-full h-full rounded-full object-cover"
+                                    onError={(e) => e.currentTarget.style.display = 'none'}
                                   />
                                 </div>
                               ) : (

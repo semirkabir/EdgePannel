@@ -23,102 +23,118 @@ const capabilities = [
     title: 'Global Intelligence',
     stat: '195+',
     label: 'Countries Indexed',
-    description: 'Geospatial market data across every prediction market',
+    description: 'Geospatial intelligence across prediction, financial, and news layers',
   },
   {
     icon: Activity,
-    title: 'Whale Detection',
-    stat: '$2.1B',
-    label: 'Tracked Daily',
-    description: 'Real-time tracking of large holder movements',
+    title: 'Real-Time News',
+    stat: '24/7',
+    label: 'Global Coverage',
+    description: 'Live geopolitical updates mapped instantaneously to affected regions',
   },
   {
     icon: BarChart3,
-    title: 'Cross-Platform',
-    stat: '2',
-    label: 'Active Brokers',
-    description: 'Unified interface for all prediction markets',
+    title: 'Multi-Asset Terminal',
+    stat: 'All',
+    label: 'Unified View',
+    description: 'Monitor prediction markets, stocks, calmness indices, and commodities',
   },
   {
     icon: Bell,
-    title: 'Smart Alerts',
-    stat: '<100ms',
-    label: 'Response Time',
-    description: 'Get notified faster than anyone else',
+    title: 'Custom Layers',
+    stat: '∞',
+    label: 'User Data',
+    description: 'Map your own assets: Oil mills, mines, supply chains, and private infrastructure',
   },
 ]
 
-// Live market data for terminal display
+// Live market data for terminal display - Mixed Feed
 const liveMarkets: any[] = [
   {
     symbol: 'BTC.100K',
     title: 'Bitcoin reaches $100,000 in 2024',
+    type: 'PREDICTION',
     price: 64,
     change: 2.4,
     volume: '8.4M',
     trend: 'up',
   },
   {
-    symbol: 'ETH.ETF',
-    title: 'Ethereum Spot ETF Net Inflows',
-    price: 72,
-    change: -1.2,
-    volume: '3.1M',
-    trend: 'down',
+    symbol: 'NEWS.BREAK',
+    title: 'BREAKING: New Trade Agreement Signed in Pacific Region',
+    type: 'NEWS',
+    price: null,
+    change: null,
+    volume: 'LIVE',
+    trend: 'neutral',
   },
   {
     symbol: 'SPX.5500',
     title: 'S&P 500 Year-End Target',
+    type: 'FINANCE',
     price: 58,
     change: 0.8,
     volume: '12.2M',
     trend: 'up',
   },
+  {
+    symbol: 'CRUDE.OIL',
+    title: 'Brent Crude Oil Spot Price',
+    type: 'COMMODITY',
+    price: 82.40,
+    change: -1.5,
+    volume: 'Active',
+    trend: 'down',
+  },
 ]
 
 // System stats
 const systemStats = [
-  { label: 'MARKETS_LIVE', value: '1,247' },
-  { label: 'VOLUME_24H', value: '$42.3M' },
-  { label: 'TRADERS_ACTIVE', value: '15.2K' },
-  { label: 'DATA_LATENCY', value: '98ms' },
+  { label: 'DATA_LAYERS', value: '4' },
+  { label: 'EVENTS_24H', value: '14.2K' },
+  { label: 'NODES_ACTIVE', value: '8.3K' },
+  { label: 'GLOBAL_LATENCY', value: '98ms' },
 ]
 
 // Live market terminal row component
 function LiveMarketRow({ market, delay }: { market: any; delay: number }) {
+  const isNews = market.type === 'NEWS';
   return (
     <div
       className="grid grid-cols-12 gap-4 py-3 px-4 border-b border-white/5 hover:bg-white/5 transition-colors group cursor-pointer"
       style={{ animationDelay: `${delay * 100}ms` }}
     >
       {/* Symbol */}
-      <div className="col-span-3 font-mono text-sm text-[#00ff7f] group-hover:text-white transition-colors">
-        <span className="text-white/50 text-xs">▌</span> {market.symbol}
+      <div className="col-span-3 font-mono text-sm group-hover:text-white transition-colors">
+        <span className={cn(
+          "text-xs mr-2",
+          isNews ? "text-blue-400" : "text-[#00ff7f]"
+        )}>
+          {isNews ? 'Found' : 'Vol'}
+        </span>
+        <span className={cn(
+          isNews ? "text-blue-300" : "text-[#00ff7f]"
+        )}>{market.symbol}</span>
       </div>
 
       {/* Title */}
-      <div className="col-span-4 font-sans text-sm text-white/80 group-hover:text-white transition-colors truncate">
+      <div className="col-span-12 sm:col-span-5 font-sans text-sm text-white/80 group-hover:text-white transition-colors truncate">
         {market.title}
       </div>
 
-      {/* Price */}
-      <div className="col-span-2 text-right font-mono font-bold text-white">
-        {market.price}%
+      {/* Price/Status */}
+      <div className="hidden sm:block col-span-2 text-right font-mono font-bold text-white">
+        {isNews ? 'Active' : `${market.price}%`}
       </div>
 
-      {/* Change */}
-      <div className="col-span-2 text-right">
+      {/* Change/Trend */}
+      <div className="hidden sm:block col-span-2 text-right">
         <span className={cn(
           'text-xs font-mono font-bold inline-flex items-center gap-1',
-          market.trend === 'up' ? 'text-[#00ff7f]' : 'text-red-500'
+          market.trend === 'up' ? 'text-[#00ff7f]' : market.trend === 'down' ? 'text-red-500' : 'text-blue-400'
         )}>
-          {market.trend === 'up' ? '▲' : '▼'} {Math.abs(market.change)}%
+          {market.trend === 'up' ? '▲' : market.trend === 'down' ? '▼' : '●'} {market.change ? `${Math.abs(market.change)}%` : 'NOW'}
         </span>
-      </div>
-
-      {/* Volume */}
-      <div className="col-span-1 text-right font-mono text-xs text-white/50">
-        {market.volume}
       </div>
     </div>
   )
@@ -134,12 +150,18 @@ function CapabilityCard({ capability, index }: { capability: typeof capabilities
         transform: index % 2 === 0 ? 'skewY(-2deg)' : 'skewY(2deg)',
       }}
     >
-      {/* Diagonal accent lines */}
-      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#00ff7f]/10 to-transparent -translate-y-12 -translate-x-12 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform duration-500" />
+      {/* Diagonal accent lines - color varies by index roughly */}
+      <div className={cn(
+        "absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-transparent to-transparent -translate-y-12 -translate-x-12 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform duration-500",
+        index === 0 ? "from-[#00ff7f]/10" : index === 1 ? "from-blue-500/10" : "from-purple-500/10"
+      )} />
 
       <div className="relative z-10">
         {/* Icon */}
-        <div className="w-8 h-8 mb-4 text-[#00ff7f] group-hover:text-white transition-colors">
+        <div className={cn(
+          "w-8 h-8 mb-4 transition-colors group-hover:text-white",
+          index === 0 ? "text-[#00ff7f]" : index === 1 ? "text-blue-400" : index === 2 ? "text-purple-400" : "text-yellow-400"
+        )}>
           <Icon className="w-full h-full" />
         </div>
 
@@ -326,7 +348,7 @@ export default function LandingPage() {
   }, [showSearch])
 
   return (
-    <div className="min-h-screen bg-black overflow-hidden relative font-mono">
+    <div className="min-h-screen bg-black overflow-x-hidden relative font-mono">
       {/* Starfield background */}
       <Starfield starCount={300} />
 
@@ -380,24 +402,26 @@ export default function LandingPage() {
                 mounted ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
               )}>
                 <h1 className="text-6xl lg:text-8xl font-black leading-tight mb-6 tracking-tighter">
-                  <span className="text-white block">PREDICTION</span>
-                  <span className="text-white block">MARKETS</span>
+                  <span className="text-white block">GLOBAL</span>
+                  <span className="text-white block">INTELLIGENCE</span>
                   <span className="block">
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00ff7f] to-[#00ff7f]">INTELLIGENCE</span>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00ff7f] to-[#00ff7f]">TERMINAL</span>
                   </span>
                 </h1>
 
                 <p className="text-sm text-white/60 max-w-lg font-mono leading-relaxed mb-8">
-                  Connect all brokers. Track whales. Visualize globally.
+                  The ultimate situational awareness tool.
                   <br />
-                  <strong className="text-white">One unified platform.</strong>
+                  <strong className="text-white">News. Finance. Politics. Prediction Markets.</strong>
+                  <br />
+                  Map user data, track whales, and visualize the world in real-time.
                 </p>
 
                 {/* CTA Buttons - Aggressive style */}
                 <div className="flex flex-col sm:flex-row items-start gap-4">
                   <Link href="/edge">
                     <Button className="text-xs font-black bg-[#00ff7f] hover:bg-white text-black px-6 py-3 border-2 border-[#00ff7f] hover:border-white transition-all">
-                      LAUNCH PLATFORM
+                      LAUNCH TERMINAL
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </Link>
@@ -421,20 +445,20 @@ export default function LandingPage() {
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-white/50">MARKETS_LIVE</span>
-                      <span className="text-white font-bold">{liveStats.totalMarkets}</span>
+                      <span className="text-white/50">DATA_LAYERS</span>
+                      <span className="text-white font-bold">{systemStats[0].value}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-white/50">VOLUME_24H</span>
-                      <span className="text-white font-bold">{liveStats.totalVolume}</span>
+                      <span className="text-white/50">EVENTS_24H</span>
+                      <span className="text-white font-bold">{systemStats[1].value}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-white/50">TRADERS_ACTIVE</span>
-                      <span className="text-white font-bold">{liveStats.tradersActive}</span>
+                      <span className="text-white/50">NODES_ACTIVE</span>
+                      <span className="text-white font-bold">{systemStats[2].value}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-white/50">DATA_LAST_INDEXED</span>
-                      <span className="text-white font-bold">{liveStats.lastIndexed}</span>
+                      <span className="text-white/50">GLOBAL_LATENCY</span>
+                      <span className="text-white font-bold">{systemStats[3].value}</span>
                     </div>
                   </div>
                 </div>
@@ -451,15 +475,15 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/40">
                   <div className="text-xs font-mono text-[#00ff7f] uppercase tracking-wider">
                     <span className="inline-block w-2 h-2 bg-[#00ff7f] mr-2 rounded-full animate-pulse" />
-                    MARKET_FEED
+                    INTELLIGENCE_FEED
                   </div>
-                  <div className="text-xs font-mono text-white/40">live_stream: {liveStats.totalMarkets} markets | last_indexed: {liveStats.lastIndexed}</div>
+                  <div className="text-xs font-mono text-white/40">live_stream: mixed_layers | last_indexed: {liveStats.lastIndexed}</div>
                 </div>
 
                 {/* Market rows */}
                 <div className="overflow-x-auto">
                   <div className="text-[10px] font-mono text-white/20 px-4 py-2 border-b border-white/5 bg-white/[0.01]">
-                    INTELLIGENCE_STREAM: HIGH_VOLUME_DATA_FEED
+                    INCOMING_DATA_STREAM: [PREDICTION] [NEWS] [FINANCE] [CUSTOM]
                   </div>
                   {isLoadingTopMarkets ? (
                     <div className="py-12 flex flex-col items-center justify-center gap-3">
@@ -485,49 +509,11 @@ export default function LandingPage() {
                         setShowSearch(true)
                         setTimeout(() => searchInputRef.current?.focus(), 0)
                       }}>
-                        [{new Date().toLocaleTimeString()}] Ready for input | Press &apos;/&apos; to search or &apos;ESC&apos; to close
+                        [{new Date().toLocaleTimeString()}] Ready for input | Press &apos;/&apos; to search intelligence
                       </div>
-
-                      {topMarkets.length > 0 && (
-                        <div className="hidden sm:flex items-center gap-3 text-[10px] font-mono">
-                          <span className="text-white/20 uppercase">Trending:</span>
-                          {topMarkets.slice(0, 3).map((m, i) => (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                setShowSearch(true);
-                                setSearchQuery(m.title);
-                                performSearch(m.title);
-                              }}
-                              className="text-[#00ff7f]/50 hover:text-[#00ff7f] transition-colors"
-                            >
-                              _{m.symbol}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {/* Trending Shortcuts in Search Mode */}
-                      {topMarkets.length > 0 && (
-                        <div className="flex items-center gap-3 text-[10px] font-mono border-b border-white/5 pb-2">
-                          <span className="text-white/20 uppercase">Suggested:</span>
-                          {topMarkets.slice(0, 3).map((m, i) => (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                setSearchQuery(m.title);
-                                performSearch(m.title);
-                              }}
-                              className="text-[#00ff7f]/70 hover:text-[#00ff7f] transition-all bg-[#00ff7f]/5 px-2 py-0.5 rounded border border-[#00ff7f]/10"
-                            >
-                              {m.symbol}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
                       {/* Search input row */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-[#00ff7f]">$</span>
@@ -535,7 +521,7 @@ export default function LandingPage() {
                         <input
                           ref={searchInputRef}
                           type="text"
-                          placeholder="search markets..."
+                          placeholder="search markets, news, or assets..."
                           value={searchQuery}
                           onChange={handleSearchChange}
                           className="flex-1 bg-transparent border-none outline-none text-xs font-mono text-white placeholder-white/30"
@@ -572,7 +558,7 @@ export default function LandingPage() {
                               </Link>
                             ))
                           ) : (
-                            <div className="text-xs font-mono text-white/50 py-2">no markets found</div>
+                            <div className="text-xs font-mono text-white/50 py-2">no intelligence found</div>
                           )}
                         </div>
                       )}
@@ -597,10 +583,10 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto">
             <div className="mb-16">
               <h2 className="text-5xl lg:text-6xl font-black text-white mb-4 tracking-tighter">
-                MARKET CAPABILITIES
+                INTELLIGENCE LAYERS
               </h2>
               <p className="text-sm text-white/60 font-mono max-w-2xl">
-                Advanced tools for traders. Cross-platform intelligence. Real-time insights.
+                Multi-domain awareness. Correlate news, financial data, and prediction markets on a single map.
               </p>
             </div>
 
@@ -624,10 +610,10 @@ export default function LandingPage() {
                 </h2>
                 <div className="space-y-4">
                   {[
-                    { num: '01', title: 'Sign Up', desc: 'Create free account - no API needed to view markets' },
-                    { num: '02', title: 'Track', desc: 'Monitor whales, prices, and volume in real-time' },
-                    { num: '03', title: 'Visualize', desc: 'See markets on an interactive 3D globe' },
-                    { num: '04', title: 'Execute', desc: 'Trade across all platforms from one dashboard' },
+                    { num: '01', title: 'Connect', desc: 'Plug into global data streams: News, Finance, Prediction Markets' },
+                    { num: '02', title: 'Layer', desc: 'Toggle data layers on the 3D globe to find correlations' },
+                    { num: '03', title: 'Customize', desc: 'Add your own private data points (factories, assets, POIs)' },
+                    { num: '04', title: 'Act', desc: 'Execute trades or make decisions based on holistic intelligence' },
                   ].map((step) => (
                     <div key={step.num} className="flex gap-4 group cursor-pointer">
                       <div className="text-lg font-black text-[#00ff7f] group-hover:text-white transition-colors">
@@ -648,23 +634,23 @@ export default function LandingPage() {
               <div className="border border-white/20 bg-black/60 backdrop-blur p-6 font-mono text-xs leading-relaxed">
                 <div className="text-[#00ff7f] mb-4">
                   <span className="text-white/50">$ </span>
-                  <span>edgepannel --init</span>
+                  <span>edgepannel --init-all-layers</span>
                 </div>
                 <div className="space-y-2 text-white/60">
                   <div>
-                    <span className="text-[#00ff7f]">&gt;</span> Connecting to Polymarket...
+                    <span className="text-[#00ff7f]">&gt;</span> Syncing Global News Feed... [OK]
                   </div>
                   <div>
-                    <span className="text-[#00ff7f]">&gt;</span> Connecting to Kalshi...
+                    <span className="text-[#00ff7f]">&gt;</span> Connecting Financial Tickers... [OK]
                   </div>
                   <div>
-                    <span className="text-[#00ff7f]">&gt;</span> Loading 1,247 markets
+                    <span className="text-[#00ff7f]">&gt;</span> Loading Prediction Markets... [1,247 OK]
                   </div>
                   <div>
-                    <span className="text-[#00ff7f]">&gt;</span> Initializing whale detection
+                    <span className="text-[#00ff7f]">&gt;</span> Importing User Custom Data... [READY]
                   </div>
                   <div className="mt-4">
-                    <span className="text-[#00ff7f]">✓ Ready</span> System initialized successfully
+                    <span className="text-[#00ff7f]">✓ Terminal Active</span> Full spectrum dominance established
                   </div>
                 </div>
               </div>
@@ -682,17 +668,15 @@ export default function LandingPage() {
 
               <div className="relative z-10 max-w-3xl">
                 <h2 className="text-5xl lg:text-6xl font-black text-white mb-6 tracking-tighter leading-tight">
-                  READY TO
+                  READY FOR
                   <br />
-                  DOMINATE
+                  GLOBAL
                   <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00ff7f] to-[#00ff7f]">PREDICTION</span>
-                  <br />
-                  MARKETS?
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00ff7f] to-[#00ff7f]">DOMINANCE?</span>
                 </h2>
 
                 <p className="text-sm text-white/60 font-mono max-w-2xl mb-8 leading-relaxed">
-                  Join traders using EdgePannel to gain an unfair advantage. Track whales. Monitor all platforms. Make smarter trades.
+                  Join the new standard of intelligence. Don&apos;t just predict the market—visualize the world that drives it.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4">

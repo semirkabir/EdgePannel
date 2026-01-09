@@ -54,7 +54,7 @@ export default function EdgePage() {
   const { preferences, updatePreferences } = useUserSettings();
 
   // Use preferences with local fallback/sync
-  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent' | 'financials' | 'hub'>(preferences.viewMode as any || 'globe');
+  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent' | 'hub'>(preferences.viewMode as any || 'globe');
   const [isPlaying, setIsPlaying] = useState(preferences.autoRotate ?? true);
   const [rotationSpeed, setRotationSpeed] = useState(preferences.rotationSpeed ?? 0.05);
   const [pauseOnHover, setPauseOnHover] = useState(preferences.pauseOnHover ?? false);
@@ -65,7 +65,9 @@ export default function EdgePage() {
   // Sync state when preferences load
   useEffect(() => {
     if (preferences) {
-      if (preferences.viewMode) setViewMode(preferences.viewMode);
+      if (preferences.viewMode && preferences.viewMode !== 'financials') {
+        setViewMode(preferences.viewMode as any);
+      }
       setIsPlaying(preferences.autoRotate ?? true);
       setRotationSpeed(preferences.rotationSpeed ?? 0.05);
       setPauseOnHover(preferences.pauseOnHover ?? false);
@@ -250,7 +252,7 @@ export default function EdgePage() {
     updatePreferences({ pauseOnHover: pause });
   };
 
-  const handleSetViewMode = (mode: 'map' | 'globe' | 'insights' | 'agent' | 'financials' | 'hub') => {
+  const handleSetViewMode = (mode: 'map' | 'globe' | 'insights' | 'agent' | 'hub') => {
     setViewMode(mode);
     updatePreferences({ viewMode: mode as any });
   };
@@ -365,30 +367,7 @@ export default function EdgePage() {
     }, 150);
   };
 
-  const handleFinancialsToggle = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setViewMode(prev => {
-        let newView: 'map' | 'globe' | 'financials';
 
-        if (prev === 'financials') {
-          // Return to last map/globe view
-          const lastView = localStorage.getItem('polyglobe-last-map-view') || 'globe';
-          newView = lastView as 'map' | 'globe';
-        } else {
-          // Save current view and switch to financials
-          localStorage.setItem('edge-last-map-view', prev);
-          newView = 'financials';
-        }
-
-        localStorage.setItem('polyglobe-view-mode', newView);
-        updatePreferences({ viewMode: newView });
-        return newView;
-
-      });
-      setIsTransitioning(false);
-    }, 150);
-  };
 
   const handleHubToggle = () => {
     setIsTransitioning(true);
@@ -516,7 +495,7 @@ export default function EdgePage() {
       {viewMode === 'globe' && <Starfield starCount={300} />}
 
       {/* Map/Globe View */}
-      {viewMode !== 'insights' && viewMode !== 'financials' && viewMode !== 'hub' && (
+      {viewMode !== 'insights' && viewMode !== 'hub' && (
         <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 10 }}>
           <EdgeMap
             activeFilters={activeFilters}
@@ -546,18 +525,7 @@ export default function EdgePage() {
         </div>
       )}
 
-      {/* Financials View */}
-      {viewMode === 'financials' && (
-        <div className={`absolute inset-0 transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{ zIndex: 2 }}>
-          <div className="w-full h-full p-4 pt-20">
-            <MarketRelator initialMarket={selectedMarket ? {
-              title: selectedMarket.title,
-              id: selectedMarket.id,
-              currentPrice: (selectedMarket as any).price || (selectedMarket as any).probability || 0.5
-            } : null} />
-          </div>
-        </div>
-      )}
+
 
       {/* Hub View */}
       {viewMode === 'hub' && (
@@ -575,7 +543,6 @@ export default function EdgePage() {
           onFilterChange={handleFilterChange}
           activeFilters={activeFilters}
           onViewToggle={handleInsightsToggle}
-          onFinancialsToggle={handleFinancialsToggle}
           onHubToggle={handleHubToggle} // Added for Hub toggle
           onMapGlobeToggle={handleViewToggle}
           currentView={viewMode}
@@ -619,7 +586,7 @@ export default function EdgePage() {
       {/* Search results are now handled inside PolyglobeUI */}
 
       {/* Only show MarketDetails and CountryNewsPanel in map/globe view */}
-      {viewMode !== 'insights' && viewMode !== 'financials' && viewMode !== 'hub' && (
+      {viewMode !== 'insights' && viewMode !== 'hub' && (
         <>
           <MarketDetails
             market={selectedMarket as any}

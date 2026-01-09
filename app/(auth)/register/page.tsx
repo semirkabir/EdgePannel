@@ -29,21 +29,21 @@ export default function RegisterPage() {
           </div>
 
           <h2 className="text-4xl xl:text-5xl font-bold leading-tight mb-6">
-            Start Trading<br />
-            <span className="text-primary">Predictions</span>
+            Initialize<br />
+            <span className="text-primary">Terminal</span>
           </h2>
 
           <p className="text-lg text-muted-foreground mb-8 max-w-md">
-            Join thousands of traders using EdgePannel to discover and trade on prediction markets.
+            Join thousands of analysts and traders using EdgePannel for superior situational awareness.
           </p>
 
           {/* Benefits */}
           <div className="space-y-3">
             {[
-              'Connect your own API keys',
-              'Real-time market data',
-              'Trade on multiple platforms',
-              'Visual analytics on a 3D globe',
+              'Connect API keys (Polymarket, Kalshi, etc)',
+              'Real-time news & geopolitical mapping',
+              'Layer financial data on the 3D globe',
+              'Add custom private data points',
             ].map((benefit, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
