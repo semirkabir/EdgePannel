@@ -42,13 +42,21 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   // Check if market is actually an event (has markets array)
   const isEvent = market && (market as any).isEvent === true && Array.isArray((market as any).markets)
   const isExchange = market && (market as any).isExchange === true
+  const isCensus = market && (market as any).isCensus === true
+  const isNews = market && (market as any).isNews === true
+  const isFinance = market && (market as any).isFinance === true
+  const isCustom = market && (market as any).isCustom === true
 
   // Cache the market/event so we can display it while the panel is animating out
   const [activeMarket, setActiveMarket] = useState<MarketDetailsType | null>(
-    isEvent || isExchange ? null : (market as MarketDetailsType | null)
+    isEvent || isExchange || isCensus || isNews || isFinance || isCustom ? null : (market as MarketDetailsType | null)
   )
   const [activeEvent, setActiveEvent] = useState<any>(isEvent ? market : null)
   const [activeExchange, setActiveExchange] = useState<any>(isExchange ? market : null)
+  const [activeCensus, setActiveCensus] = useState<any>(isCensus ? market : null)
+  const [activeNews, setActiveNews] = useState<any>(isNews ? market : null)
+  const [activeFinance, setActiveFinance] = useState<any>(isFinance ? market : null)
+  const [activeCustom, setActiveCustom] = useState<any>(isCustom ? market : null)
   const [timeRange, setTimeRange] = useState('1W')
   const [chartType, setChartType] = useState<'line' | 'candle'>('line')
   const [candlesticks, setCandlesticks] = useState<Candlestick[]>([])
@@ -105,14 +113,32 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     if (market) {
       const isEventData = (market as any).isEvent === true && Array.isArray((market as any).markets)
       const isExchangeData = (market as any).isExchange === true
+      const isCensusData = (market as any).isCensus === true
+      const isNewsData = (market as any).isNews === true
+      const isFinanceData = (market as any).isFinance === true
+      const isCustomData = (market as any).isCustom === true
 
-      if (isExchangeData) {
+      // Reset all states first
+      setActiveMarket(null)
+      setActiveEvent(null)
+      setActiveExchange(null)
+      setActiveCensus(null)
+      setActiveNews(null)
+      setActiveFinance(null)
+      setActiveCustom(null)
+
+      if (isCensusData) {
+        setActiveCensus(market)
+      } else if (isNewsData) {
+        setActiveNews(market)
+      } else if (isFinanceData) {
+        setActiveFinance(market)
+      } else if (isCustomData) {
+        setActiveCustom(market)
+      } else if (isExchangeData) {
         setActiveExchange(market)
-        setActiveEvent(null)
-        setActiveMarket(null)
       } else if (isEventData) {
         setActiveEvent(market)
-        setActiveExchange(null)
         // Set the first market as active by default
         const firstMarket = (market as any).markets[0]
         if (firstMarket) {
@@ -134,18 +160,18 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             tags: firstMarket.tags || firstMarket.rawData?.tags || (market as any).tags || [],
           }
           setActiveMarket(fullMarket as MarketDetailsType)
-        } else {
-          setActiveMarket(null)
         }
       } else {
         setActiveMarket(market as MarketDetailsType)
-        setActiveEvent(null)
-        setActiveExchange(null)
       }
     } else {
       setActiveMarket(null)
       setActiveEvent(null)
       setActiveExchange(null)
+      setActiveCensus(null)
+      setActiveNews(null)
+      setActiveFinance(null)
+      setActiveCustom(null)
     }
   }, [market])
 
@@ -692,9 +718,65 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     <RightPanel
       isOpen={!!market}
       onClose={onClose}
-      title={activeExchange ? activeExchange.name : (activeEvent ? activeEvent.title : (activeMarket?.title || 'Market'))}
+      title={
+        activeCensus ? (activeCensus.stateName || activeCensus.name || 'Census Data') :
+          activeNews ? (activeNews.country || 'Global News') :
+            activeFinance ? (activeFinance.symbol || activeFinance.title || 'Financial Data') :
+              activeCustom ? (activeCustom.title || activeCustom.label || 'Custom Data') :
+                activeExchange ? activeExchange.name :
+                  (activeEvent ? activeEvent.title : (activeMarket?.title || 'Market'))
+      }
       subtitle={
-        activeExchange ? (
+        activeCensus ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={cn(
+              "text-[10px] font-mono uppercase tracking-wider",
+              activeCensus.dataset === 'population' ? "text-blue-400" :
+                activeCensus.dataset === 'income' ? "text-green-400" :
+                  activeCensus.dataset === 'poverty' ? "text-amber-400" :
+                    activeCensus.dataset === 'employment' ? "text-cyan-400" : "text-rose-400"
+            )}>
+              U.S. Census Bureau
+            </span>
+            <span className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[10px] font-medium text-indigo-300">
+              {activeCensus.dataset === 'population' ? 'Population' :
+                activeCensus.dataset === 'income' ? 'Income & Wealth' :
+                  activeCensus.dataset === 'poverty' ? 'Poverty Rates' :
+                    activeCensus.dataset === 'employment' ? 'Employment' : 'Trade & Exports'}
+            </span>
+          </div>
+        ) : activeNews ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-400">
+              Global News Feed
+            </span>
+            <span className="px-2 py-0.5 bg-cyan-500/10 border border-cyan-500/20 rounded-md text-[10px] font-medium text-cyan-300">
+              {activeNews.newsCount || 1} {activeNews.newsCount === 1 ? 'article' : 'articles'}
+            </span>
+          </div>
+        ) : activeFinance ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400">
+              {activeFinance.subtype || 'Financial Data'}
+            </span>
+            {activeFinance.change && (
+              <span className={cn(
+                "px-2 py-0.5 rounded-md text-[10px] font-bold",
+                activeFinance.change?.startsWith('-')
+                  ? "bg-red-500/10 border border-red-500/20 text-red-300"
+                  : "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
+              )}>
+                {activeFinance.change}
+              </span>
+            )}
+          </div>
+        ) : activeCustom ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-purple-400">
+              {activeCustom.subtype || 'Custom Layer'}
+            </span>
+          </div>
+        ) : activeExchange ? (
           <div className="flex items-center gap-2 flex-wrap">
             <span className={cn(
               "text-[10px] font-mono uppercase tracking-wider",
@@ -891,6 +973,208 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Census Data View */}
+      {activeCensus && (
+        <div className="px-4 pt-6 pb-4">
+          {/* Census Header */}
+          <div className="mb-6 text-center">
+            <h2 className="text-3xl font-bold text-white mb-2">{activeCensus.stateName || activeCensus.name}</h2>
+            <div className="text-sm text-gray-400 mb-4">
+              U.S. State • FIPS Code: {activeCensus.stateFips}
+            </div>
+            <div className={cn(
+              "inline-block px-4 py-2 rounded-lg text-sm font-bold",
+              activeCensus.dataset === 'population' ? "bg-blue-500/20 text-blue-300 border border-blue-500/50" :
+                activeCensus.dataset === 'income' ? "bg-green-500/20 text-green-300 border border-green-500/50" :
+                  activeCensus.dataset === 'poverty' ? "bg-amber-500/20 text-amber-300 border border-amber-500/50" :
+                    activeCensus.dataset === 'employment' ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50" :
+                      "bg-rose-500/20 text-rose-300 border border-rose-500/50"
+            )}>
+              {activeCensus.dataset === 'population' ? 'Population Data' :
+                activeCensus.dataset === 'income' ? 'Income & Wealth' :
+                  activeCensus.dataset === 'poverty' ? 'Poverty Statistics' :
+                    activeCensus.dataset === 'employment' ? 'Employment Stats' : 'Trade & Exports'}
+            </div>
+          </div>
+
+          {/* Census Stats */}
+          <div className="space-y-4">
+            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/30">
+              <h3 className="text-sm font-semibold text-white mb-4">Key Statistics</h3>
+              <div className="space-y-3">
+                {activeCensus.dataset === 'population' && (
+                  <>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/20">
+                      <span className="text-gray-400">Total Population</span>
+                      <span className="text-2xl font-bold text-blue-400">{parseInt(activeCensus.population || 0).toLocaleString()}</span>
+                    </div>
+                  </>
+                )}
+                {activeCensus.dataset === 'income' && (
+                  <>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/20">
+                      <span className="text-gray-400">Median Household Income</span>
+                      <span className="text-2xl font-bold text-green-400">${parseInt(activeCensus.medianIncome || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/20">
+                      <span className="text-gray-400">Per Capita Income</span>
+                      <span className="text-xl font-bold text-white">${parseInt(activeCensus.perCapitaIncome || 0).toLocaleString()}</span>
+                    </div>
+                  </>
+                )}
+                {activeCensus.dataset === 'poverty' && (
+                  <>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/20">
+                      <span className="text-gray-400">Poverty Rate</span>
+                      <span className="text-2xl font-bold text-amber-400">{parseFloat(activeCensus.povertyRate || 0).toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/20">
+                      <span className="text-gray-400">Population in Poverty</span>
+                      <span className="text-xl font-bold text-white">{parseInt(activeCensus.povertyCount || 0).toLocaleString()}</span>
+                    </div>
+                  </>
+                )}
+                {activeCensus.dataset === 'employment' && (
+                  <>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/20">
+                      <span className="text-gray-400">Employed Population</span>
+                      <span className="text-2xl font-bold text-cyan-400">{parseInt(activeCensus.employees || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-700/20">
+                      <span className="text-gray-400">Labor Force</span>
+                      <span className="text-xl font-bold text-white">{parseInt(activeCensus.establishments || 0).toLocaleString()}</span>
+                    </div>
+                    {activeCensus.unemploymentRate && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-400">Unemployment Rate</span>
+                        <span className="text-xl font-bold text-red-400">{activeCensus.unemploymentRate}%</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {activeCensus.dataset === 'trade' && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-400">Monthly Exports</span>
+                    <span className="text-2xl font-bold text-rose-400">${(parseInt(activeCensus.exportValue || 0) / 1000000).toFixed(1)}M</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Source Attribution */}
+            <div className="bg-gray-800/20 rounded-lg p-3 border border-gray-700/20">
+              <div className="text-[10px] text-gray-500 text-center">
+                Data Source: U.S. Census Bureau, American Community Survey 5-Year Estimates (2022)
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* News View */}
+      {activeNews && (
+        <div className="px-4 pt-6 pb-4">
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+              <span className="text-xs uppercase font-bold text-cyan-400">Live News • {activeNews.country || 'World'}</span>
+            </div>
+          </div>
+
+          {/* News Articles */}
+          <div className="space-y-3">
+            {(() => {
+              let newsItems = activeNews.news;
+              if (typeof newsItems === 'string') {
+                try { newsItems = JSON.parse(newsItems); } catch { newsItems = []; }
+              }
+              return newsItems && Array.isArray(newsItems) && newsItems.length > 0 ? (
+                newsItems.map((item: any, idx: number) => (
+                  <a key={idx} href={item.url || '#'} target="_blank" rel="noreferrer"
+                    className="block p-4 bg-gray-800/40 rounded-lg border border-gray-700/30 hover:border-cyan-500/30 transition-all group">
+                    {item.imageUrl && idx === 0 && (
+                      <div className="relative w-full h-32 rounded-lg overflow-hidden mb-3">
+                        <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      </div>
+                    )}
+                    <h3 className="text-sm font-semibold text-white group-hover:text-cyan-400 transition-colors mb-2">{item.title}</h3>
+                    <div className="flex items-center justify-between text-[10px] text-gray-400">
+                      <span>{item.source}</span>
+                      <span>{item.publishedAt || 'Recently'}</span>
+                    </div>
+                  </a>
+                ))
+              ) : (
+                <div className="text-center text-gray-400 py-8">No news articles available</div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Finance View */}
+      {activeFinance && (
+        <div className="px-4 pt-6 pb-4">
+          {/* Finance Header */}
+          <div className="mb-6 text-center">
+            <div className="text-xs uppercase font-bold text-amber-400 mb-2">{activeFinance.subtype || 'Asset'}</div>
+            <h2 className="text-3xl font-bold text-white mb-2">{activeFinance.symbol}</h2>
+            <div className="text-sm text-gray-400 mb-4">{activeFinance.title}</div>
+            <div className="text-5xl font-black text-white mb-2">{activeFinance.price}</div>
+            {activeFinance.change && (
+              <div className={cn(
+                "inline-block px-4 py-2 rounded-lg text-lg font-bold",
+                activeFinance.change?.startsWith('-')
+                  ? "bg-red-500/20 text-red-300"
+                  : "bg-emerald-500/20 text-emerald-300"
+              )}>
+                {activeFinance.change}
+              </div>
+            )}
+          </div>
+
+          {/* Source */}
+          <div className="bg-gray-800/20 rounded-lg p-3 border border-gray-700/20">
+            <div className="text-[10px] text-gray-500 text-center">
+              Source: {activeFinance.source || 'Market Data'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Data View */}
+      {activeCustom && (
+        <div className="px-4 pt-6 pb-4">
+          {/* Custom Header */}
+          <div className="mb-6 text-center">
+            <div className="text-xs uppercase font-bold text-purple-400 mb-2">{activeCustom.subtype || 'Custom Layer'}</div>
+            <h2 className="text-2xl font-bold text-white mb-2">{activeCustom.title || activeCustom.label}</h2>
+            {activeCustom.description && (
+              <div className="text-sm text-gray-400">{activeCustom.description}</div>
+            )}
+          </div>
+
+          {/* Custom Properties */}
+          <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/30">
+            <h3 className="text-sm font-semibold text-white mb-3">Details</h3>
+            <div className="space-y-2 text-sm">
+              {activeCustom.status && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Status</span>
+                  <span className="text-white font-semibold">{activeCustom.status}</span>
+                </div>
+              )}
+              {activeCustom.price && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Value</span>
+                  <span className="text-white font-semibold">{activeCustom.price}</span>
                 </div>
               )}
             </div>

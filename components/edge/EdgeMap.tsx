@@ -8,7 +8,6 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEdgeData } from '@/hooks/use-edge-data';
 import { cn } from '@/lib/utils/cn';
 import { loadGeoJSON } from '@/lib/geojson-loader';
-import { Sparkline } from '@/components/ui/Sparkline';
 import { Landmark, TrendingUp, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid, MapPin, Clock } from 'lucide-react';
 import { MarketPopupVolume } from './MarketPopup';
 import { MarketHoverChart } from './MarketHoverChart';
@@ -179,7 +178,7 @@ function InnerMap({
   onInteractionStart?: () => void;
   exchanges?: any; // Added exchanges prop
 }) {
-  const { isLayerActive } = useLayerStore();
+  const { isLayerActive, selectedCensusDataset } = useLayerStore();
 
   const [viewState, setViewState] = useState({
     longitude: 0,
@@ -189,12 +188,16 @@ function InnerMap({
     bearing: 0
   });
 
+  // Track longitude natively for rotation to avoid React re-render bottleneck
+  const nativeLongitudeRef = useRef(0);
+
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const interactionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rotationAnimationRef = useRef<number | null>(null);
   const mapRef = useRef<MapRef>(null);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+  const isFirstLoadRef = useRef(true);
   const prevViewModifiedRef = useRef<boolean>(false);
   const prevIsZoomedRef = useRef<boolean>(false);
   const lastIsZoomedInRef = useRef<boolean>(false);
@@ -315,6 +318,127 @@ function InnerMap({
     }
     return fetchedCustomData;
   }, [fetchedCustomData, searchQuery, isLayerActive]);
+
+  // Census Data State
+  const [fetchedCensusData, setFetchedCensusData] = useState<any>({ type: 'FeatureCollection', features: [] });
+  const [usCountiesGeoJSON, setUsCountiesGeoJSON] = useState<any>(null);
+  const [isCensusLoading, setIsCensusLoading] = useState(false);
+
+  // Get census geography from store
+  const { censusGeography, setCensusGeography } = useLayerStore();
+
+  // Load US Counties Geometry (once)
+  useEffect(() => {
+    // Only load if we ever switch to county view and haven't loaded yet
+    if (censusGeography === 'county' && !usCountiesGeoJSON) {
+      fetch('/data/geo/us-counties.json')
+        .then(res => res.json())
+        .then(data => {
+          console.log('[Census] Loaded US Counties geometry:', data.features?.length);
+          setUsCountiesGeoJSON(data);
+        })
+        .catch(err => console.error('Failed to load county geometry:', err));
+    }
+  }, [censusGeography, usCountiesGeoJSON]);
+
+  // Zoom threshold for auto-switching to county level
+  const COUNTY_ZOOM_THRESHOLD = 5;
+
+  // Auto-switch geography based on zoom level (using viewState.zoom)
+  useEffect(() => {
+    if (!isLayerActive('CENSUS') || !selectedCensusDataset) return;
+
+    const shouldBeCounty = viewState.zoom >= COUNTY_ZOOM_THRESHOLD;
+    const currentIsCounty = censusGeography === 'county';
+
+    // Auto-switch to county when zoomed in enough
+    if (shouldBeCounty && !currentIsCounty) {
+      console.log(`[Census] Auto-switching to county level at zoom ${viewState.zoom.toFixed(1)}`);
+      setCensusGeography('county');
+    } else if (!shouldBeCounty && currentIsCounty && viewState.zoom < COUNTY_ZOOM_THRESHOLD - 1) {
+      // Only switch back to state if significantly zoomed out (hysteresis prevents flicker)
+      console.log(`[Census] Auto-switching to state level at zoom ${viewState.zoom.toFixed(1)}`);
+      setCensusGeography('state');
+    }
+  }, [viewState.zoom, isLayerActive, selectedCensusDataset, censusGeography, setCensusGeography]);
+
+  // Fetch Census Data when layer is active and dataset is selected
+  useEffect(() => {
+    if (!isLayerActive('CENSUS') || !selectedCensusDataset) {
+      setFetchedCensusData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+
+    const fetchCensus = async () => {
+      setIsCensusLoading(true);
+      try {
+        const res = await fetch(`/api/layers/census?dataset=${selectedCensusDataset}&geography=${censusGeography}`);
+        if (res.ok) {
+          const data = await res.json();
+          setFetchedCensusData(data);
+          console.log(`[Census] Loaded ${data.features?.length || 0} features for ${selectedCensusDataset} (${censusGeography})`);
+        }
+      } catch (err) {
+        console.error('Failed to load census layer:', err);
+      } finally {
+        setIsCensusLoading(false);
+      }
+    };
+    fetchCensus();
+  }, [isLayerActive, selectedCensusDataset, censusGeography]);
+
+  // Prepare Census Display Data (Merge with Geometry if Choropleth needed)
+  const censusData = useMemo(() => {
+    if (!isLayerActive('CENSUS') || !selectedCensusDataset) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+
+    // Standard Point Data (State level or Employment/Trade which are always points)
+    // If geometry isn't loaded yet, falling back to points is better than nothing
+    if (censusGeography === 'state' || selectedCensusDataset === 'employment' || selectedCensusDataset === 'trade' || !usCountiesGeoJSON) {
+      return fetchedCensusData;
+    }
+
+    // Choropleth Data (Population, Income, Poverty at County Level)
+    // We need to merge the API data (values) with the Geometry (shapes)
+    if (usCountiesGeoJSON && fetchedCensusData.features) {
+      // PERF: Create a lookup map O(N) instead of finding in loop O(N^2)
+      const dataMap = new globalThis.Map<string, any>();
+      fetchedCensusData.features.forEach((f: any) => {
+        const id = f.properties.stateFips + f.properties.countyFips;
+        dataMap.set(id, f);
+      });
+
+      const mergedFeatures = usCountiesGeoJSON.features.map((geoFeature: any) => {
+        // Find matching data value by FIPS
+        // Geometry uses 'id' (FIPS), Data uses properties.stateFips + properties.countyFips
+        const fips = geoFeature.id;
+
+        // Find the feature in our data that matches this FIPS
+        // Data format: stateFips="01", countyFips="001" -> "01001"
+        const dataFeature = dataMap.get(fips);
+
+        if (dataFeature) {
+          return {
+            ...geoFeature,
+            properties: {
+              ...geoFeature.properties,
+              ...dataFeature.properties, // Inject values (color, population, etc.)
+              boxIsSet: true // Flag to filter empty ones
+            }
+          };
+        }
+        return null; // No data for this county
+      }).filter(Boolean); // Remove nulls
+
+      return {
+        type: 'FeatureCollection',
+        features: mergedFeatures
+      };
+    }
+
+    return fetchedCensusData;
+  }, [fetchedCensusData, usCountiesGeoJSON, isLayerActive, selectedCensusDataset, censusGeography]);
 
   // ... (rest of InnerMap)
 
@@ -454,10 +578,15 @@ function InnerMap({
       const deltaTime = currentTime - lastTime;
       lastTime = currentTime;
 
-      setViewState(prev => ({
-        ...prev,
-        longitude: (prev.longitude + rotationSpeedVal * (deltaTime / 16.67)) % 360,
-      }));
+      const map = mapRef.current?.getMap();
+      if (!map) {
+        rotationAnimationRef.current = requestAnimationFrame(rotate);
+        return;
+      }
+
+      nativeLongitudeRef.current = (nativeLongitudeRef.current + rotationSpeedVal * (deltaTime / 16.6)) % 360;
+
+      map.setCenter([nativeLongitudeRef.current, viewState.latitude]);
 
       rotationAnimationRef.current = requestAnimationFrame(rotate);
     };
@@ -545,6 +674,7 @@ function InnerMap({
     feature: any;
     x: number;
     y: number;
+    lngLat?: { lng: number; lat: number };
   } | null>(null);
 
   const [selectedFeature, setSelectedFeature] = useState<any | null>(null);
@@ -559,22 +689,33 @@ function InnerMap({
     });
   }, []);
 
-  const onHover = useCallback((event: MapLayerMouseEvent) => {
-    const feature = event.features && event.features[0];
+  // Ref for throttling hover updates
+  const hoverThrottleRef = useRef<NodeJS.Timeout | null>(null);
 
-    setHoverInfo(
-      feature
-        ? {
-          feature,
-          x: event.point.x,
-          y: event.point.y
-        }
-        : null
-    );
-    setIsHovering(!!feature);
-    if (!isDraggingRef.current) {
-      setCursor(feature ? 'pointer' : 'grab');
-    }
+  const onHover = useCallback((event: MapLayerMouseEvent) => {
+    // Throttle hover updates to prevent performance degradation during zoom/pan
+    if (hoverThrottleRef.current) return;
+
+    hoverThrottleRef.current = setTimeout(() => {
+      const feature = event.features && event.features[0];
+
+      setHoverInfo(
+        feature
+          ? {
+            feature,
+            x: event.point.x,
+            y: event.point.y,
+            lngLat: event.lngLat
+          }
+          : null
+      );
+      setIsHovering(!!feature);
+      if (!isDraggingRef.current) {
+        setCursor(feature ? 'pointer' : 'grab');
+      }
+
+      hoverThrottleRef.current = null;
+    }, 16);
   }, []);
 
   // Handle card click (internal or from map marker)
@@ -675,6 +816,28 @@ function InnerMap({
         const props = feature.properties;
         const [lng, lat] = (feature.geometry as any).coordinates;
         if (onMarketSelect) onMarketSelect({ ...props, isCustom: true, location: { coordinates: { lat, lng } } });
+        setSelectedFeature(null);
+        return;
+      }
+
+      if (feature.layer.id === 'census-layer' || feature.layer.id === 'census-glow' || feature.layer.id === 'census-fill') {
+        const props = feature.properties;
+
+        let lng, lat;
+        if (feature.geometry.type === 'Point') {
+          [lng, lat] = (feature.geometry as any).coordinates;
+        } else {
+          // For polygons (fill), use click location
+          lng = event.lngLat.lng;
+          lat = event.lngLat.lat;
+        }
+
+        if (onMarketSelect) onMarketSelect({
+          ...props,
+          title: props.countyName || props.regionName || props.name,
+          isCensus: true,
+          location: { coordinates: { lat, lng } }
+        });
         setSelectedFeature(null);
         return;
       }
@@ -1161,16 +1324,40 @@ function InnerMap({
     if (!feature) return null;
 
     const props = feature.properties;
-    const [lon, lat] = feature.geometry.coordinates;
+
+    // Determine coordinates based on geometry type
+    let lon, lat;
+    const gType = feature.geometry.type;
+    if (gType === 'Point' || gType === 'MultiPoint') {
+      [lon, lat] = gType === 'MultiPoint' ? feature.geometry.coordinates[0] : feature.geometry.coordinates;
+    } else if (hoverInfo && hoverInfo.feature === feature && hoverInfo.lngLat) {
+      // For polygons (hover), use cursor position
+      lon = hoverInfo.lngLat.lng;
+      lat = hoverInfo.lngLat.lat;
+    } else if (selectedFeature === feature && feature.layer.id === 'census-fill') {
+      // For selected polygon, we might need a centroid or just valid coords
+      // If we selected it via click, we likely passed coordinates to onMarketSelect, 
+      // but this popup is for the map itself.
+      // If we don't have coords, we can't show popup.
+      if ((feature as any)._clickLngLat) {
+        lon = (feature as any)._clickLngLat.lng;
+        lat = (feature as any)._clickLngLat.lat;
+      } else {
+        return null;
+      }
+    } else {
+      return null;
+    }
 
     // Validate coordinates
-    if (!lon || !lat || isNaN(lon) || isNaN(lat)) return null;
+    if (lon === undefined || lat === undefined || isNaN(lon) || isNaN(lat)) return null;
 
     const isMarket = feature.layer.id === 'markets-layer' || feature.layer.id === 'markets-glow-layer' || feature.layer.id === 'markets-unclustered' || feature.layer.id === 'markets-unclustered-glow';
     const isExchange = feature.layer.id === 'exchanges-layer' || feature.layer.id === 'exchanges-glow-layer';
     const isNews = feature.layer.id === 'news-layer' || feature.layer.id === 'news-glow';
     const isFinance = feature.layer.id === 'finance-layer';
     const isCustom = feature.layer.id === 'custom-layer';
+    const isCensus = feature.layer.id === 'census-layer' || feature.layer.id === 'census-glow' || feature.layer.id === 'census-fill';
     const isGroup = props.isGroup === true && isMarket;
 
     return (
@@ -1272,6 +1459,77 @@ function InnerMap({
               </div>
               <h3 className="text-sm font-bold text-white">{props.featureTitle || props.title || props.label}</h3>
               <div className="text-xs text-gray-300">{props.status || props.price}</div>
+            </div>
+          )}
+
+          {/* CENSUS POPUP */}
+          {isCensus && (
+            <div className="flex flex-col gap-2 min-w-[200px]">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  props.dataset === 'population' ? "bg-blue-400" :
+                    props.dataset === 'income' ? "bg-green-400" :
+                      props.dataset === 'poverty' ? "bg-amber-400" :
+                        props.dataset === 'employment' ? "bg-cyan-400" : "bg-rose-400"
+                )}></div>
+                <span className={cn(
+                  "text-[10px] uppercase font-bold",
+                  props.dataset === 'population' ? "text-blue-400" :
+                    props.dataset === 'income' ? "text-green-400" :
+                      props.dataset === 'poverty' ? "text-amber-400" :
+                        props.dataset === 'employment' ? "text-cyan-400" : "text-rose-400"
+                )}>
+                  {props.geography === 'county' ? 'County' : 'State'} • {props.dataset === 'population' ? 'Population' :
+                    props.dataset === 'income' ? 'Income' :
+                      props.dataset === 'poverty' ? 'Poverty' :
+                        props.dataset === 'employment' ? 'Employment' : 'Trade'}
+                </span>
+              </div>
+              {/* Region Name - County or State */}
+              <h3 className="text-base font-bold text-white">{props.countyName || props.regionName || props.stateName || props.name}</h3>
+              {props.geography === 'county' && props.stateName && (
+                <div className="text-[10px] text-gray-400 -mt-1 mb-1">{props.stateName}</div>
+              )}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {props.dataset === 'population' && (
+                  <>
+                    <div className="text-gray-400">Population</div>
+                    <div className="text-white font-semibold text-right">{parseInt(props.population || 0).toLocaleString()}</div>
+                  </>
+                )}
+                {props.dataset === 'income' && (
+                  <>
+                    <div className="text-gray-400">Median Income</div>
+                    <div className="text-green-400 font-semibold text-right">${parseInt(props.medianIncome || 0).toLocaleString()}</div>
+                    <div className="text-gray-400">Per Capita</div>
+                    <div className="text-white font-semibold text-right">${parseInt(props.perCapitaIncome || 0).toLocaleString()}</div>
+                  </>
+                )}
+                {props.dataset === 'poverty' && (
+                  <>
+                    <div className="text-gray-400">Poverty Rate</div>
+                    <div className="text-amber-400 font-semibold text-right">{parseFloat(props.povertyRate || 0).toFixed(1)}%</div>
+                    <div className="text-gray-400">In Poverty</div>
+                    <div className="text-white font-semibold text-right">{parseInt(props.povertyCount || 0).toLocaleString()}</div>
+                  </>
+                )}
+                {props.dataset === 'employment' && (
+                  <>
+                    <div className="text-gray-400">Employed</div>
+                    <div className="text-cyan-400 font-semibold text-right">{parseInt(props.employees || 0).toLocaleString()}</div>
+                    <div className="text-gray-400">Labor Force</div>
+                    <div className="text-white font-semibold text-right">{parseInt(props.establishments || 0).toLocaleString()}</div>
+                  </>
+                )}
+                {props.dataset === 'trade' && (
+                  <>
+                    <div className="text-gray-400">Exports</div>
+                    <div className="text-rose-400 font-semibold text-right">${(parseInt(props.exportValue || 0) / 1000000).toFixed(1)}M</div>
+                  </>
+                )}
+              </div>
+              <div className="text-[9px] text-gray-500 mt-1">Source: U.S. Census Bureau (ACS 2022)</div>
             </div>
           )}
 
@@ -1458,34 +1716,6 @@ function InnerMap({
   }, [selectedMarket, getMapIfReady, isStyleLoaded]);
 
   // Handle projection change
-  useEffect(() => {
-    const map = getMapIfReady();
-    if (map && map.setProjection) {
-      map.setProjection(projection === 'globe' ? { type: 'globe' } : { type: 'mercator' });
-
-      // Reset viewState to appropriate values for the new projection
-      // Use flyTo for smooth transition
-      if (projection === 'globe') {
-        // For globe: reset to world view
-        map.flyTo({
-          center: [viewState.longitude, 0],
-          zoom: 2.5,
-          pitch: 0,
-          bearing: 0,
-          duration: 800
-        });
-      } else {
-        // For mercator: reset to slightly higher latitude
-        map.flyTo({
-          center: [viewState.longitude, 20],
-          zoom: 2.5,
-          pitch: 0,
-          bearing: 0,
-          duration: 800
-        });
-      }
-    }
-  }, [projection, getMapIfReady, isStyleLoaded]);
 
 
   // Compute interactive layers - memoize to prevent re-renders
@@ -1495,6 +1725,8 @@ function InnerMap({
       'news-glow',
       'finance-layer',
       'custom-layer',
+      'census-layer',
+      'census-fill',
       'tweets-layer',
       'exchanges-layer',        // Always interactive if rendered
       'exchanges-glow-layer'    // Always interactive if rendered
@@ -1564,10 +1796,18 @@ function InnerMap({
     >
       <Map
         ref={mapRef}
-        {...viewState}
+        initialViewState={{
+          longitude: 0,
+          latitude: projection === 'mercator' ? 20 : 0,
+          zoom: 2.5,
+          pitch: 0,
+          bearing: 0
+        }}
+        projection={projection === 'globe' ? { type: 'globe' } : { type: 'mercator' }}
         cursor={cursor}
         onMove={evt => {
           setViewState(evt.viewState);
+          nativeLongitudeRef.current = evt.viewState.longitude;
         }}
         onMoveStart={handleInteractionStart}
         onMoveEnd={handleInteractionEnd}
@@ -1781,6 +2021,88 @@ function InnerMap({
           </Source>
         )}
 
+        {/* CENSUS Layer - Data-driven styling based on dataset type */}
+        {isLayerActive('CENSUS') && selectedCensusDataset && censusData.features?.length > 0 && (
+          <Source id="census-source" type="geojson" data={censusData as any}>
+            {/* Choropleth Fill Layer - for Polygons (County Level Pop/Income/Poverty) */}
+            <Layer
+              id="census-fill"
+              type="fill"
+              filter={['==', '$type', 'Polygon']}
+              paint={{
+                'fill-color': ['coalesce', ['get', 'color'], '#3b82f6'],
+                'fill-opacity': 0.7,
+                'fill-outline-color': 'rgba(255,255,255,0.2)'
+              }}
+            />
+
+            {/* Glow Layer - for Points */}
+            <Layer
+              id="census-glow"
+              type="circle"
+              filter={['==', '$type', 'Point']}
+              paint={{
+                'circle-radius': [
+                  'interpolate',
+                  ['linear'],
+                  ['coalesce', ['get', 'normalizedValue'], 0.5],
+                  0, 12,
+                  1, 45
+                ],
+                'circle-color': ['coalesce', ['get', 'color'], '#3b82f6'],
+                'circle-opacity': 0.15,
+                'circle-blur': 0.9
+              }}
+            />
+            {/* Main Circle Layer - for Points */}
+            <Layer
+              id="census-layer"
+              type="circle"
+              filter={['==', '$type', 'Point']}
+              paint={{
+                'circle-radius': [
+                  'interpolate',
+                  ['linear'],
+                  ['coalesce', ['get', 'normalizedValue'], 0.5],
+                  0, ['coalesce', ['get', 'size'], 5],
+                  1, ['+', ['coalesce', ['get', 'size'], 5], 12]
+                ],
+                'circle-color': ['coalesce', ['get', 'color'], '#3b82f6'],
+                'circle-stroke-width': [
+                  'case',
+                  ['==', ['get', 'geography'], 'county'], 1,
+                  1.5
+                ],
+                'circle-stroke-color': '#ffffff',
+                'circle-opacity': [
+                  'case',
+                  ['==', ['get', 'geography'], 'county'], 0.85,
+                  0.95
+                ]
+              }}
+            />
+            {/* Label Layer for state-level only */}
+            {censusGeography === 'state' && (
+              <Layer
+                id="census-labels"
+                type="symbol"
+                layout={{
+                  'text-field': ['get', 'stateName'],
+                  'text-size': 10,
+                  'text-offset': [0, 1.5],
+                  'text-anchor': 'top',
+                  'text-optional': true,
+                }}
+                paint={{
+                  'text-color': '#ffffff',
+                  'text-halo-color': '#000000',
+                  'text-halo-width': 1,
+                }}
+              />
+            )}
+          </Source>
+        )}
+
         {showGrid && (
           <Source id="grid" type="geojson" data={{
             type: 'FeatureCollection',
@@ -1911,7 +2233,7 @@ export function EdgeMap({
     setMounted(true);
   }, []);
 
-  if (!mounted) return null;
+  if (!mounted) return <div className="w-full h-full bg-black" />;
 
   return (
     <InnerMap

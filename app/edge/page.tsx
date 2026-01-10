@@ -54,7 +54,7 @@ export default function EdgePage() {
   const { preferences, updatePreferences } = useUserSettings();
 
   // Use preferences with local fallback/sync
-  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent' | 'hub'>(preferences.viewMode as any || 'globe');
+  const [viewMode, setViewMode] = useState<'map' | 'globe' | 'insights' | 'agent' | 'hub'>('globe');
   const [isPlaying, setIsPlaying] = useState(preferences.autoRotate ?? true);
   const [rotationSpeed, setRotationSpeed] = useState(preferences.rotationSpeed ?? 0.05);
   const [pauseOnHover, setPauseOnHover] = useState(preferences.pauseOnHover ?? false);
@@ -65,7 +65,7 @@ export default function EdgePage() {
   // Sync state when preferences load
   useEffect(() => {
     if (preferences) {
-      if (preferences.viewMode && preferences.viewMode !== 'financials') {
+      if (preferences.viewMode && preferences.viewMode !== 'financials' && preferences.viewMode !== 'map') {
         setViewMode(preferences.viewMode as any);
       }
       setIsPlaying(preferences.autoRotate ?? true);
@@ -490,7 +490,7 @@ export default function EdgePage() {
   ]);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-gray-950">
+    <div className="relative w-screen h-screen overflow-hidden bg-black">
       {/* Starfield background - only in globe mode */}
       {viewMode === 'globe' && <Starfield starCount={300} />}
 

@@ -26,7 +26,7 @@ export default function PrivacyPolicy() {
 
                 <div className="prose prose-invert max-w-none space-y-12 text-lg leading-relaxed">
                     <p className="text-muted-foreground">
-                        At EdgePannel ("we", "our", or "us"), we respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, and safeguard your information when you use our Platform.
+                        At EdgePannel (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;), we respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, and safeguard your information when you use our Platform.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 not-prose">

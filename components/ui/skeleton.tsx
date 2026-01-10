@@ -55,7 +55,7 @@ export function SkeletonSidebar() {
         <Skeleton className="h-9 w-full" />
         <Skeleton className="h-3 w-32" />
       </div>
-      
+
       {/* Category tabs */}
       <div className="flex gap-2 px-4 py-2 border-b border-border">
         <Skeleton className="h-8 w-16" />
@@ -63,7 +63,7 @@ export function SkeletonSidebar() {
         <Skeleton className="h-8 w-18" />
         <Skeleton className="h-8 w-14" />
       </div>
-      
+
       {/* Market cards */}
       <div className="flex-1 overflow-hidden p-2 space-y-2">
         {Array.from({ length: 6 }).map((_, i) => (
@@ -104,7 +104,7 @@ export function SkeletonMarketDetails() {
     <div className="w-96 h-full glass-effect border-l border-border p-4 space-y-4">
       {/* Header */}
       <Skeleton className="h-4 w-16" />
-      
+
       {/* Title card */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <Skeleton className="h-6 w-full" />
@@ -122,13 +122,13 @@ export function SkeletonMarketDetails() {
           </div>
         </div>
       </div>
-      
+
       {/* Chart */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <Skeleton className="h-5 w-28" />
         <Skeleton className="h-[200px] w-full" />
       </div>
-      
+
       {/* Trade interface */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <Skeleton className="h-5 w-12" />
@@ -146,11 +146,11 @@ export function SkeletonMarketDetails() {
 
 export function SkeletonGlobe() {
   return (
-    <div className="w-full h-full flex items-center justify-center bg-[#0a0e27]">
+    <div className="w-full h-full flex items-center justify-center bg-black">
       <div className="relative">
         {/* Globe outline */}
         <div className="w-64 h-64 rounded-full border-2 border-primary/30 animate-pulse" />
-        
+
         {/* Loading indicator in center */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center space-y-2">
@@ -158,7 +158,7 @@ export function SkeletonGlobe() {
             <p className="text-sm text-muted-foreground">Loading globe...</p>
           </div>
         </div>
-        
+
         {/* Orbit rings */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-72 h-72 rounded-full border border-primary/10 animate-pulse" style={{ animationDelay: '0.2s' }} />
@@ -188,7 +188,7 @@ export function SkeletonDashboard() {
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         <SkeletonSidebar />
-        
+
         <div className="flex-1 relative">
           <SkeletonBreakingNews />
           <SkeletonGlobe />

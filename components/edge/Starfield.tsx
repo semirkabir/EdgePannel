@@ -28,29 +28,12 @@ interface ShootingStar {
   maxLife: number;
 }
 
-interface Satellite {
-  x: number;
-  y: number;
-  speedX: number;
-  speedY: number;
-  blinkPhase: number;
-  blinkSpeed: number;
-  brightness: number;
-}
 
-interface Pulsar {
-  x: number;
-  y: number;
-  maxSize: number;
-  life: number;
-  maxLife: number;
-  color: string;
-}
 
 export function Starfield({
   starCount = 400,
   speedFactor = 0.05,
-  backgroundColor = 'rgb(3, 7, 18)'
+  backgroundColor = 'rgb(1, 2, 3)' // Deep black with a microscopic hint of blue
 }: StarfieldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -64,8 +47,6 @@ export function Starfield({
     let animationFrameId: number;
     let stars: Star[] = [];
     let shootingStars: ShootingStar[] = [];
-    let satellites: Satellite[] = [];
-    let pulsars: Pulsar[] = [];
     let width = 0;
     let height = 0;
 
@@ -104,20 +85,6 @@ export function Starfield({
         });
       }
 
-      // Initialize satellites (4-6 satellites)
-      satellites = [];
-      const satelliteCount = Math.floor(Math.random() * 3) + 4;
-      for (let i = 0; i < satelliteCount; i++) {
-        satellites.push({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          speedX: (Math.random() - 0.5) * 0.5,
-          speedY: (Math.random() - 0.5) * 0.5,
-          blinkPhase: Math.random() * Math.PI * 2,
-          blinkSpeed: Math.random() * 0.05 + 0.02,
-          brightness: Math.random() * 0.5 + 0.5,
-        });
-      }
     };
 
     const createShootingStar = () => {
@@ -139,26 +106,6 @@ export function Starfield({
       });
     };
 
-    const createPulsar = () => {
-      // Very occasional bright pulses
-      if (Math.random() < 0.998) return;
-      if (pulsars.length > 2) return;
-
-      const pulsarColors = [
-        'rgba(255, 255, 255, 1)',
-        'rgba(100, 200, 255, 1)',
-        'rgba(255, 200, 100, 1)',
-      ];
-
-      pulsars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        maxSize: Math.random() * 40 + 20,
-        life: 0,
-        maxLife: Math.random() * 60 + 40,
-        color: pulsarColors[Math.floor(Math.random() * pulsarColors.length)],
-      });
-    };
 
     const draw = () => {
       ctx.fillStyle = backgroundColor;
@@ -189,73 +136,9 @@ export function Starfield({
         }
       });
 
-      // Draw and Update Satellites
-      satellites.forEach(satellite => {
-        satellite.x += satellite.speedX;
-        satellite.y += satellite.speedY;
-        satellite.blinkPhase += satellite.blinkSpeed;
+      // Satellites removed as they were flashing red dots in the background
 
-        // Wrap around screen
-        if (satellite.x < 0) satellite.x = width;
-        if (satellite.x > width) satellite.x = 0;
-        if (satellite.y < 0) satellite.y = height;
-        if (satellite.y > height) satellite.y = 0;
-
-        // Blinking effect
-        const blinkOpacity = Math.abs(Math.sin(satellite.blinkPhase)) * satellite.brightness;
-
-        if (blinkOpacity > 0.3) {
-          ctx.fillStyle = `rgba(255, 100, 100, ${blinkOpacity})`;
-          ctx.beginPath();
-          ctx.arc(satellite.x, satellite.y, 2, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Add glow when bright
-          if (blinkOpacity > 0.7) {
-            ctx.shadowBlur = 6;
-            ctx.shadowColor = 'rgba(255, 100, 100, 0.8)';
-            ctx.fill();
-            ctx.shadowBlur = 0;
-          }
-        }
-      });
-
-      // Draw and Update Pulsars
-      createPulsar();
-      for (let i = pulsars.length - 1; i >= 0; i--) {
-        const pulsar = pulsars[i];
-        pulsar.life++;
-
-        if (pulsar.life >= pulsar.maxLife) {
-          pulsars.splice(i, 1);
-          continue;
-        }
-
-        // Fade in fast, fade out slow
-        let opacity = 1;
-        const halfLife = pulsar.maxLife * 0.2;
-        if (pulsar.life < halfLife) {
-          opacity = pulsar.life / halfLife;
-        } else {
-          opacity = 1 - ((pulsar.life - halfLife) / (pulsar.maxLife - halfLife));
-        }
-
-        const currentSize = (pulsar.life / pulsar.maxLife) * pulsar.maxSize;
-
-        // Draw expanding ring
-        const pulsarGradient = ctx.createRadialGradient(
-          pulsar.x, pulsar.y, 0,
-          pulsar.x, pulsar.y, currentSize
-        );
-        pulsarGradient.addColorStop(0, pulsar.color.replace('1)', `${opacity})`));
-        pulsarGradient.addColorStop(0.6, pulsar.color.replace('1)', `${opacity * 0.5})`));
-        pulsarGradient.addColorStop(1, pulsar.color.replace('1)', '0)'));
-
-        ctx.fillStyle = pulsarGradient;
-        ctx.beginPath();
-        ctx.arc(pulsar.x, pulsar.y, currentSize, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      // Pulsars (white blowup things) removed for a cleaner background
 
       // Update and Draw Shooting Stars
       createShootingStar();
@@ -314,7 +197,7 @@ export function Starfield({
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: 1 }}
+      style={{ zIndex: 0 }}
     />
   );
 }
