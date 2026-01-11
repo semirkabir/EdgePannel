@@ -28,7 +28,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-2xl font-semibold border-b border-primary/20 pb-2 mb-6 text-primary">1. Agreement to Terms</h2>
                         <p className="text-muted-foreground">
-                            By accessing or using EdgePannel (the "Platform"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Platform. EdgePannel provides visualization and tracking tools for prediction markets hosted on third-party platforms.
+                            By accessing or using EdgePannel (the &quot;Platform&quot;), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Platform. EdgePannel provides visualization and tracking tools for prediction markets hosted on third-party platforms.
                         </p>
                     </section>
 
@@ -80,7 +80,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-2xl font-semibold border-b border-primary/20 pb-2 mb-6 text-primary">7. Changes to Terms</h2>
                         <p className="text-muted-foreground">
-                            We reserve the right to modify these terms at any time. We will notify users of any material changes by posting the new terms on this page and updating the "Last updated" date.
+                            We reserve the right to modify these terms at any time. We will notify users of any material changes by posting the new terms on this page and updating the &quot;Last updated&quot; date.
                         </p>
                     </section>
 

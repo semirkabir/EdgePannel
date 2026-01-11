@@ -61,7 +61,7 @@ export default function PrivacyPolicy() {
                             </p>
                             <h3 className="text-xl font-medium text-foreground">Usage Data</h3>
                             <p className="text-muted-foreground">
-                                We may collect anonymous analytics data regarding how you interact with the globe and market data to help us improve the Platform's performance.
+                                We may collect anonymous analytics data regarding how you interact with the globe and market data to help us improve the Platform&apos;s performance.
                             </p>
                         </div>
                     </section>
@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
                             <ShieldCheck className="h-6 w-6" /> 2. How We Use Your Information
                         </h2>
                         <ul className="list-disc pl-6 space-y-3 text-muted-foreground">
-                            <li>To provide, maintain, and improve the Platform's visualization and trading tools.</li>
+                            <li>To provide, maintain, and improve the Platform&apos;s visualization and trading tools.</li>
                             <li>To protect against unauthorized access and ensure account security.</li>
                             <li>To communicate with you about updates, security alerts, and support requests.</li>
                             <li>To process and execute trades via linked third-party APIs as requested by you.</li>
