@@ -693,19 +693,23 @@ function InnerMap({
   const hoverThrottleRef = useRef<NodeJS.Timeout | null>(null);
 
   const onHover = useCallback((event: MapLayerMouseEvent) => {
+    // Capture properties synchronously
+    const { point, lngLat } = event;
+    const features = event.features;
+
     // Throttle hover updates to prevent performance degradation during zoom/pan
     if (hoverThrottleRef.current) return;
 
     hoverThrottleRef.current = setTimeout(() => {
-      const feature = event.features && event.features[0];
+      const feature = features && features[0];
 
       setHoverInfo(
         feature
           ? {
             feature,
-            x: event.point.x,
-            y: event.point.y,
-            lngLat: event.lngLat
+            x: point.x,
+            y: point.y,
+            lngLat
           }
           : null
       );

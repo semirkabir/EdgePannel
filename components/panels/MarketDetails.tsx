@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { MarketChart } from '@/components/charts/MarketChart'
 import { CandlestickChart } from '@/components/charts/CandlestickChart'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TrendingUp, TrendingDown, ExternalLink, Landmark, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid, BarChart2, ChevronDown, ChevronUp } from 'lucide-react'
+import { TrendingUp, TrendingDown, ExternalLink, Landmark, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid, BarChart2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { RightPanel } from '@/components/ui/RightPanel'
 import { useLiveVolume, getEventIdFromMarket } from '@/hooks/use-live-volume'
@@ -57,6 +57,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const [activeNews, setActiveNews] = useState<any>(isNews ? market : null)
   const [activeFinance, setActiveFinance] = useState<any>(isFinance ? market : null)
   const [activeCustom, setActiveCustom] = useState<any>(isCustom ? market : null)
+  const [eventMarkets, setEventMarkets] = useState<any[]>([]) // Store full market objects for navigation
   const [timeRange, setTimeRange] = useState('1W')
   const [chartType, setChartType] = useState<'line' | 'candle'>('line')
   const [candlesticks, setCandlesticks] = useState<Candlestick[]>([])
@@ -433,68 +434,93 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
         return
       }
 
-      if (!activeMarket || activeMarket.platform !== 'polymarket') {
+      if (!activeMarket) {
         setRelatedMarkets([])
         return
       }
 
-      const eventId = activeMarket.rawData?.events?.[0]?.id
-      if (!eventId) {
+      // Determine parameters for the API call based on platform
+      let queryParams = ''
+
+      if (activeMarket.platform === 'polymarket') {
+        const eventSlug = activeMarket.rawData?.events?.[0]?.slug || activeMarket.rawData?.series_slug
+        if (!eventSlug) {
+          setRelatedMarkets([])
+          return
+        }
+        queryParams = `platform=polymarket&slug=${eventSlug}`
+      } else if (activeMarket.platform === 'kalshi') {
+        const eventTicker = activeMarket.rawData?.event_ticker || activeMarket.ticker
+        if (!eventTicker) {
+          setRelatedMarkets([])
+          return
+        }
+        queryParams = `platform=kalshi&ticker=${eventTicker}`
+      } else {
+        // Other platforms not supported for event groups yet
         setRelatedMarkets([])
         return
       }
 
       setIsLoadingRelated(true)
       try {
-        // Use our API route instead of direct fetch to avoid CORS
-        const response = await fetch(`/api/markets/event-details?platform=polymarket&eventId=${eventId}`)
+        // Use our API route 
+        const response = await fetch(`/api/markets/event-details?${queryParams}`)
 
         if (response.ok) {
           const data = await response.json()
           const eventData = data.eventData
           const markets = eventData?.markets || []
 
+          // Store raw markets for navigation
+          setEventMarkets(markets)
+
           // Filter out the current market and sort by volume
           const otherMarkets = markets
-            .filter((m: any) => m.conditionId !== activeMarket.id)
+            .filter((m: any) => (m.conditionId || m.id) !== activeMarket.id)
             .sort((a: any, b: any) => {
-              const aVol = a.volume24hr || 0
-              const bVol = b.volume24hr || 0
+              const aVol = a.volume24hr || a.volume || 0
+              const bVol = b.volume24hr || b.volume || 0
               return parseFloat(bVol.toString()) - parseFloat(aVol.toString())
             })
             .slice(0, 10) // Show top 10 related markets
             .map((m: any) => {
-              // Parse outcome prices
-              let price = 0
+              // Parse outcome prices if needed
+              let price = m.price || 0
               try {
-                const prices = typeof m.outcomePrices === 'string'
-                  ? JSON.parse(m.outcomePrices)
-                  : m.outcomePrices
-                if (Array.isArray(prices) && prices.length > 0) {
-                  price = parseFloat(prices[0].toString())
+                if (m.outcomePrices) {
+                  const prices = typeof m.outcomePrices === 'string'
+                    ? JSON.parse(m.outcomePrices)
+                    : m.outcomePrices
+                  if (Array.isArray(prices) && prices.length > 0) {
+                    price = parseFloat(prices[0].toString())
+                  }
                 }
               } catch (e) {
                 console.warn('[MarketDetails] Failed to parse outcomePrices')
               }
 
-              // Extract option name from question
-              let optionName = m.question
-              const optionMatch = m.question.match(/Will (.+?) (win|be|get|reach|hit|dip to|rise to)/)
-              if (optionMatch) {
-                optionName = optionMatch[1]
+              // Extract option name
+              let optionName = m.question || m.title || 'Option'
+              // Try to clean up name for Polymarket questions
+              if (m.question) {
+                const optionMatch = m.question.match(/Will (.+?) (win|be|get|reach|hit|dip to|rise to)/)
+                if (optionMatch) {
+                  optionName = optionMatch[1]
+                }
               }
 
               return {
-                id: m.conditionId,
-                question: m.question,
+                id: m.conditionId || m.id,
+                question: m.question || m.title,
                 optionName,
                 price,
-                volume: m.volume24hr || 0,
-                slug: m.slug
+                volume: m.volume24hr || m.volume || 0,
+                slug: m.slug || m.id
               }
             })
 
-          console.log('[MarketDetails] Found', otherMarkets.length, 'related markets')
+          console.log('[MarketDetails] Found', otherMarkets.length, 'related markets for', activeMarket.platform)
           setRelatedMarkets(otherMarkets)
         }
       } catch (error) {
@@ -506,7 +532,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchRelatedMarkets()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.events, activeEvent?.id])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.events, activeMarket?.ticker, activeEvent?.id])
 
 
   // Fetch related markets by tags
@@ -666,6 +692,54 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
     fetchTopHolders()
   }, [activeMarket?.id, activeMarket?.platform, activeMarket?.rawData?.conditionId])
+
+
+  // Handle switching between markets in an event
+  const handleSwitchMarket = useCallback((direction: 'next' | 'prev') => {
+    if (!activeMarket) return
+
+    const markets = activeEvent?.markets || eventMarkets
+    if (!markets || markets.length === 0) return
+
+    const currentIndex = markets.findIndex((m: any) =>
+      (m.id === activeMarket.id) || (m.conditionId === activeMarket.id)
+    )
+    if (currentIndex === -1) return
+
+    let newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1
+
+    // Cycle through
+    if (newIndex >= markets.length) newIndex = 0
+    if (newIndex < 0) newIndex = markets.length - 1
+
+    const nextMarket = markets[newIndex]
+
+    // Hydrate market data similar to initial load
+    // Note: API markets might have slightly different structure than EnrichedMarket
+    const fullMarket = {
+      id: nextMarket.conditionId || nextMarket.id,
+      title: nextMarket.question || nextMarket.title,
+      description: nextMarket.description || '',
+      platform: activeEvent?.platform || activeMarket.platform, // Fallback to current platform
+      volume24h: nextMarket.volume24hr || nextMarket.volume24h || 0,
+      price: nextMarket.outcomePrices ? (JSON.parse(nextMarket.outcomePrices)[0]) : (nextMarket.price || 0), // Basic price extraction
+      probability: nextMarket.outcomePrices ? (JSON.parse(nextMarket.outcomePrices)[0]) : (nextMarket.price || 0),
+      slug: nextMarket.slug || nextMarket.id,
+      ticker: nextMarket.ticker || '',
+      category: activeEvent?.category || activeMarket.category,
+      imageUrl: nextMarket.image || nextMarket.imageUrl || activeMarket.imageUrl, // Fallback to current image
+      endDate: nextMarket.endDate ? (typeof nextMarket.endDate === 'string' ? new Date(nextMarket.endDate) : nextMarket.endDate) : undefined,
+      rawData: nextMarket.rawData || nextMarket, // specific rawData might be missing in simplified list
+      tags: nextMarket.tags || nextMarket.rawData?.tags || activeEvent?.tags || activeMarket.tags || [],
+      // Preserve event data if we have it
+      eventData: activeMarket.eventData
+    }
+
+    setActiveMarket(fullMarket as MarketDetailsType)
+
+    // Smooth scroll to top of content
+    panelTopRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [activeEvent, activeMarket, eventMarkets])
 
 
   // Get articles from event data or use mock tweets
@@ -1190,11 +1264,36 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             {/* Left: Price Section */}
             <div className="flex-1 text-center">
               {/* Show specific option if this is part of a multi-option event */}
-              {activeMarket.rawData?.subtitle && (
-                <div className="mb-3 inline-block px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                  <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
-                    {activeMarket.rawData.subtitle}
-                  </span>
+              {/* Show specific option if this is part of a multi-option event */}
+              {(activeMarket.rawData?.subtitle || (activeEvent && activeEvent.markets && activeEvent.markets.length > 1) || (eventMarkets && eventMarkets.length > 1)) && (
+                <div className="mb-3 flex items-center justify-center gap-2">
+                  {/* Previous Button */}
+                  {((activeEvent && activeEvent.markets && activeEvent.markets.length > 1) || (eventMarkets && eventMarkets.length > 1)) && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSwitchMarket('prev'); }}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-transparent hover:border-white/10"
+                      title="Previous Option"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  <div className="inline-block px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
+                      {activeMarket.rawData?.subtitle || activeMarket.title}
+                    </span>
+                  </div>
+
+                  {/* Next Button */}
+                  {((activeEvent && activeEvent.markets && activeEvent.markets.length > 1) || (eventMarkets && eventMarkets.length > 1)) && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSwitchMarket('next'); }}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-transparent hover:border-white/10"
+                      title="Next Option"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               )}
               <div className="flex items-center justify-center gap-2 mb-1">
