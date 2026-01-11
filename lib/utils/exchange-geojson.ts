@@ -20,6 +20,14 @@ export interface ExchangeGeoJSONFeature {
     indices: string[];
     website: string;
     timezone: string;
+    status?: MarketStatus;
+    nextStatusText?: string;
+    timeUntilNextStatus?: string;
+    minutesUntilNextStatus?: number;
+    exchangeTime?: string;
+    localOpenTime?: string;
+    localCloseTime?: string;
+    userTimezone?: string;
     // Market data
     topGainers?: any[];
     topLosers?: any[];
@@ -60,6 +68,14 @@ export function exchangesToGeoJSON(
         city: exchange.city,
         region: exchange.region,
         isOpen: data?.isOpen ?? false,
+        status: (data as any)?.detailedStatus?.status,
+        nextStatusText: (data as any)?.detailedStatus?.nextStatusText,
+        timeUntilNextStatus: (data as any)?.detailedStatus?.timeUntilNextStatus,
+        minutesUntilNextStatus: (data as any)?.detailedStatus?.minutesUntilNextStatus,
+        exchangeTime: (data as any)?.detailedStatus?.exchangeTime,
+        localOpenTime: (data as any)?.detailedStatus?.localOpenTime,
+        localCloseTime: (data as any)?.detailedStatus?.localCloseTime,
+        userTimezone: (data as any)?.detailedStatus?.userTimezone,
         totalVolume: data?.totalVolume,
         totalMarketCap: data?.totalMarketCap ?? exchange.marketCap,
         currency: exchange.currency,
@@ -316,6 +332,7 @@ export function getDetailedMarketStatus(
       isOpen: status === 'open',
       isExtendedHours: status === 'pre-market' || status === 'after-hours',
       nextStatusText,
+      minutesUntilNextStatus: minutesUntil,
       timeUntilNextStatus: minutesUntil > 0 ? formatDuration(minutesUntil) : '',
       localOpenTime: localOpen,
       localCloseTime: localClose,
@@ -329,6 +346,7 @@ export function getDetailedMarketStatus(
       isOpen: false,
       isExtendedHours: false,
       nextStatusText: 'Error',
+      minutesUntilNextStatus: 0,
       timeUntilNextStatus: '',
       localOpenTime: exchange.tradingHours.open,
       localCloseTime: exchange.tradingHours.close,

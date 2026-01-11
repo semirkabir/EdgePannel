@@ -59,6 +59,7 @@ export interface ExchangeMarketData {
   isOpen: boolean;
   nextOpenTime?: Date;
   nextCloseTime?: Date;
+  detailedStatus?: import('@/lib/utils/exchange-geojson').DetailedMarketStatus;
   totalVolume: number;       // Daily volume in USD
   totalMarketCap: number;
   advancingStocks: number;

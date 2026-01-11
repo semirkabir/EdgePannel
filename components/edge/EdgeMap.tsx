@@ -1546,6 +1546,13 @@ function InnerMap({
                   exchangeName={props.name}
                   shortName={props.shortName}
                   isOpen={props.isOpen}
+                  status={props.status}
+                  nextStatusText={props.nextStatusText}
+                  timeUntilNextStatus={props.timeUntilNextStatus}
+                  exchangeTime={props.exchangeTime}
+                  localOpenTime={props.localOpenTime}
+                  localCloseTime={props.localCloseTime}
+                  userTimezone={props.userTimezone}
                   city={props.city}
                   country={props.country}
                   onViewDetails={() => {
@@ -1557,6 +1564,13 @@ function InnerMap({
                       city: props.city,
                       region: props.region,
                       isOpen: props.isOpen,
+                      status: props.status,
+                      nextStatusText: props.nextStatusText,
+                      timeUntilNextStatus: props.timeUntilNextStatus,
+                      exchangeTime: props.exchangeTime,
+                      localOpenTime: props.localOpenTime,
+                      localCloseTime: props.localCloseTime,
+                      userTimezone: props.userTimezone,
                       currency: props.currency,
                       indices: props.indices,
                       website: props.website,

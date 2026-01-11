@@ -77,94 +77,167 @@ function isEnglishText(text: string): boolean {
 
 export async function fetchGDELTData(): Promise<GeoJSONCollection> {
     try {
-        // Use the DOC API which returns actual news articles
-        // Query for English news from the last 24 hours, fetch more for better coverage
+        // Try the GDELT GEO API first (returns ready-to-map GeoJSON with coordinates)
+        const geoUrl = 'https://api.gdeltproject.org/api/v2/geo/geo?query=sourcelang:english&format=geojson&maxrecords=400&timespan=24h';
+        const geoRes = await fetch(geoUrl);
+        if (geoRes.ok) {
+            const geoJson = await geoRes.json();
+            const featuresRaw = geoJson.features || [];
+            let maxCount = 1;
+
+            const parsedFeatures = featuresRaw
+                .map((f: any) => {
+                    const props = f.properties || {};
+                    const coords = f.geometry?.coordinates;
+                    if (!coords || !Array.isArray(coords) || coords.length < 2) return null;
+
+                    // Extract title and URL from the HTML field
+                    let title = '';
+                    let url = '';
+                    if (typeof props.html === 'string') {
+                        const match = props.html.match(/href=\"([^\"]+)\"[^>]*>([^<]+)<\/a>/i);
+                        if (match) {
+                            url = match[1];
+                            title = match[2];
+                        }
+                    }
+                    if (!title || !url || !isEnglishText(title)) return null;
+
+                    const count = Number(props.count) || 1;
+                    if (count > maxCount) maxCount = count;
+
+                    let source = '';
+                    try {
+                        source = new URL(url).hostname.replace(/^www\./, '');
+                    } catch (e) {
+                        source = '';
+                    }
+
+                    return {
+                        type: 'Feature' as const,
+                        geometry: {
+                            type: 'Point' as const,
+                            coordinates: [coords[0], coords[1]] as [number, number],
+                        },
+                        properties: {
+                            type: 'NEWS',
+                            title: title.trim(),
+                            url,
+                            source,
+                            country: props.name || '',
+                            count,
+                            importance: count, // normalize later
+                            news: [{
+                                title: title.trim(),
+                                url,
+                                source,
+                                imageUrl: props.shareimage || null,
+                                seenDate: '',
+                                importance: count,
+                            }],
+                            newsCount: 1,
+                            imageUrl: props.shareimage || null,
+                        }
+                    };
+                })
+                .filter(Boolean) as GeoJSONFeature[];
+
+            // Normalize importance and limit to top 200 to avoid clutter
+            const normalized = parsedFeatures
+                .map(f => ({
+                    ...f,
+                    properties: {
+                        ...f.properties,
+                        importance: maxCount > 0 ? (f.properties.importance as number) / maxCount : 0.5,
+                    }
+                }))
+                .sort((a, b) => (b.properties.importance as number) - (a.properties.importance as number))
+                .slice(0, 200);
+
+            if (normalized.length > 0) {
+                console.log(`[GDELT] GEO API returned ${normalized.length} geo-tagged news points`);
+                return { type: 'FeatureCollection', features: normalized };
+            }
+        }
+
+        // Fallback: DOC API grouped by country (capital-city pins)
         const response = await fetch(
             'https://api.gdeltproject.org/api/v2/doc/doc?query=sourcelang:english&mode=artlist&maxrecords=500&format=json&timespan=24h'
         );
 
-        if (!response.ok) {
-            throw new Error(`GDELT API failed: ${response.status} ${response.statusText}`);
-        }
+        if (response.ok) {
+            const data = await response.json();
+            const articles = data.articles || [];
 
-        const data = await response.json();
-        const articles = data.articles || [];
+            console.log(`[GDELT] Received ${articles.length} articles from DOC API`);
 
-        console.log(`[GDELT] Received ${articles.length} articles from DOC API`);
+            const groupedNews: Record<string, any[]> = {};
 
-        // Group news by country using the sourcecountry field directly
-        const groupedNews: Record<string, any[]> = {};
+            articles.forEach((article: any) => {
+                const title = article.title || '';
+                const url = article.url || '';
+                const domain = article.domain || article.source || '';
+                const seenDate = article.seendate || '';
+                const imageUrl = article.socialimage || null;
+                const sourceCountry = article.sourcecountry || '';
 
-        articles.forEach((article: any) => {
-            const title = article.title || '';
-            const url = article.url || '';
-            const domain = article.domain || article.source || '';
-            const seenDate = article.seendate || '';
-            const imageUrl = article.socialimage || null;
-            const sourceCountry = article.sourcecountry || '';
+                const countryKey = normalizeCountry(sourceCountry);
 
-            // Normalize the country name
-            const countryKey = normalizeCountry(sourceCountry);
+                if (countryKey && title.length > 10 && isEnglishText(title)) {
+                    if (!groupedNews[countryKey]) groupedNews[countryKey] = [];
 
-            // Filter: must have valid country, proper title (10+ chars, English text)
-            if (countryKey && title.length > 10 && isEnglishText(title)) {
-                if (!groupedNews[countryKey]) groupedNews[countryKey] = [];
-
-                // Avoid duplicate titles and limit per country
-                if (groupedNews[countryKey].length < 10 &&
-                    !groupedNews[countryKey].find(n => n.title === title)) {
-                    groupedNews[countryKey].push({
-                        title: title.trim(),
-                        url: url,
-                        imageUrl: imageUrl || null,
-                        source: domain.replace('www.', ''),
-                        seenDate: seenDate,
-                        importance: 0.5 + Math.random() * 0.5
-                    });
+                    if (groupedNews[countryKey].length < 10 &&
+                        !groupedNews[countryKey].find(n => n.title === title)) {
+                        groupedNews[countryKey].push({
+                            title: title.trim(),
+                            url: url,
+                            imageUrl: imageUrl || null,
+                            source: domain.replace('www.', ''),
+                            seenDate: seenDate,
+                            importance: 0.5 + Math.random() * 0.5
+                        });
+                    }
                 }
-            }
-        });
+            });
 
-        const countryCount = Object.keys(groupedNews).length;
-        console.log(`[GDELT] Grouped articles into ${countryCount} countries:`, Object.keys(groupedNews));
+            const features = Object.keys(groupedNews).map(country => {
+                const newsList = groupedNews[country]
+                    .sort((a: any, b: any) => b.importance - a.importance)
+                    .slice(0, 5);
+                const coords = COUNTRY_CAPITALS[country];
 
-        // Convert groups to features positioned at capital cities
-        const features = Object.keys(groupedNews).map(country => {
-            const newsList = groupedNews[country]
-                .sort((a, b) => b.importance - a.importance)
-                .slice(0, 5);
-            const coords = COUNTRY_CAPITALS[country];
+                if (!coords || newsList.length === 0) {
+                    return null;
+                }
 
-            if (!coords || newsList.length === 0) {
-                console.log(`[GDELT] Skipping ${country} - no coords or no news`);
-                return null;
-            }
+                return {
+                    type: 'Feature' as const,
+                    geometry: {
+                        type: 'Point' as const,
+                        coordinates: coords as [number, number]
+                    },
+                    properties: {
+                        type: 'NEWS',
+                        country: country,
+                        title: newsList[0].title,
+                        news: newsList,
+                        newsCount: newsList.length,
+                        importance: newsList[0].importance,
+                        isTrending: newsList.length >= 3,
+                        imageUrl: newsList[0].imageUrl
+                    }
+                };
+            }).filter(Boolean) as GeoJSONFeature[];
+
+            console.log(`[GDELT] Returning ${features.length} country news clusters (fallback)`);
 
             return {
-                type: 'Feature' as const,
-                geometry: {
-                    type: 'Point' as const,
-                    coordinates: coords as [number, number]
-                },
-                properties: {
-                    type: 'NEWS',
-                    country: country,
-                    title: newsList[0].title, // Use actual headline as title
-                    news: newsList,
-                    newsCount: newsList.length,
-                    importance: newsList[0].importance,
-                    isTrending: newsList.length >= 3,
-                    imageUrl: newsList[0].imageUrl
-                }
+                type: 'FeatureCollection',
+                features: features
             };
-        }).filter(Boolean) as GeoJSONFeature[];
+        }
 
-        console.log(`[GDELT] Returning ${features.length} country news clusters`);
-
-        return {
-            type: 'FeatureCollection',
-            features: features
-        };
+        throw new Error('GDELT API failed (both GEO and DOC)');
     } catch (error) {
         console.error('[GDELT] Failed to fetch data:', error);
         return { type: 'FeatureCollection', features: [] };

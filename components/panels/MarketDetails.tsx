@@ -104,6 +104,23 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     refreshInterval: 30000,
   })
 
+  // Markets available within the current event (used for navigation)
+  const marketsInEvent = useMemo(() => {
+    const markets = activeEvent?.markets || eventMarkets
+    return Array.isArray(markets) ? markets : []
+  }, [activeEvent?.markets, eventMarkets])
+
+  const currentMarketIndex = useMemo(() => {
+    if (!activeMarket || marketsInEvent.length === 0) return null
+
+    const idx = marketsInEvent.findIndex((m: any) => {
+      const marketId = m.id || m.conditionId || m.marketId
+      return marketId === activeMarket.id || marketId === activeMarket.rawData?.conditionId
+    })
+
+    return idx >= 0 ? idx : null
+  }, [activeMarket, marketsInEvent])
+
   // Fetch exchange movers for stock exchanges
   const { gainers, losers, mostActive, isLoading: isLoadingMovers } = useExchangeMovers(
     activeExchange?.id || null,
@@ -698,12 +715,13 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const handleSwitchMarket = useCallback((direction: 'next' | 'prev') => {
     if (!activeMarket) return
 
-    const markets = activeEvent?.markets || eventMarkets
+    const markets = marketsInEvent
     if (!markets || markets.length === 0) return
 
-    const currentIndex = markets.findIndex((m: any) =>
-      (m.id === activeMarket.id) || (m.conditionId === activeMarket.id)
-    )
+    const currentIndex = markets.findIndex((m: any) => {
+      const marketId = m.id || m.conditionId || m.marketId
+      return marketId === activeMarket.id || marketId === activeMarket.rawData?.conditionId
+    })
     if (currentIndex === -1) return
 
     let newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1
@@ -739,7 +757,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
     // Smooth scroll to top of content
     panelTopRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [activeEvent, activeMarket, eventMarkets])
+  }, [activeMarket, marketsInEvent])
 
 
   // Get articles from event data or use mock tweets
@@ -762,6 +780,9 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   }
 
   const category = getCategory()
+  const totalMarketsInEvent = marketsInEvent.length
+  const hasEventNavigation = totalMarketsInEvent > 1
+  const showOptionBadge = !!activeMarket?.rawData?.subtitle || hasEventNavigation
 
   // Debug: Log event markets
   useEffect(() => {
@@ -911,6 +932,21 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             )}>
               {activeExchange.isOpen ? 'Market Open' : 'Market Closed'}
             </div>
+            <div className="mt-3 text-xs text-gray-300">
+              {activeExchange.nextStatusText && activeExchange.timeUntilNextStatus
+                ? `${activeExchange.nextStatusText} ${activeExchange.timeUntilNextStatus}`
+                : activeExchange.isOpen ? 'Session in progress' : 'Session closed'}
+            </div>
+            {(activeExchange.localOpenTime || activeExchange.localCloseTime) && (
+              <div className="text-[11px] text-gray-400 mt-1">
+                Hours: {activeExchange.localOpenTime || '—'} – {activeExchange.localCloseTime || '—'} {activeExchange.userTimezone ? `(${activeExchange.userTimezone})` : ''}
+              </div>
+            )}
+            {activeExchange.exchangeTime && (
+              <div className="text-[11px] text-gray-500">
+                Exchange time now: {activeExchange.exchangeTime}
+              </div>
+            )}
           </div>
 
           {/* Trading Information */}
@@ -1265,32 +1301,41 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
             <div className="flex-1 text-center">
               {/* Show specific option if this is part of a multi-option event */}
               {/* Show specific option if this is part of a multi-option event */}
-              {(activeMarket.rawData?.subtitle || (activeEvent && activeEvent.markets && activeEvent.markets.length > 1) || (eventMarkets && eventMarkets.length > 1)) && (
-                <div className="mb-3 flex items-center justify-center gap-2">
+              {showOptionBadge && (
+                <div className="mb-3 flex items-center justify-center gap-2 flex-wrap">
                   {/* Previous Button */}
-                  {((activeEvent && activeEvent.markets && activeEvent.markets.length > 1) || (eventMarkets && eventMarkets.length > 1)) && (
+                  {hasEventNavigation && (
                     <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); handleSwitchMarket('prev'); }}
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-transparent hover:border-white/10"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all border border-transparent hover:border-white/10 text-xs font-semibold uppercase tracking-wide"
                       title="Previous Option"
                     >
                       <ChevronLeft className="w-4 h-4" />
+                      <span>Previous</span>
                     </button>
                   )}
 
                   <div className="inline-block px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                    <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
+                    <span className="text-xs font-bold text-blue-300 uppercase tracking-wider block text-center">
                       {activeMarket.rawData?.subtitle || activeMarket.title}
                     </span>
+                    {hasEventNavigation && currentMarketIndex !== null && (
+                      <span className="text-[10px] text-blue-200/80 font-medium block mt-1">
+                        Market {currentMarketIndex + 1} of {totalMarketsInEvent}
+                      </span>
+                    )}
                   </div>
 
                   {/* Next Button */}
-                  {((activeEvent && activeEvent.markets && activeEvent.markets.length > 1) || (eventMarkets && eventMarkets.length > 1)) && (
+                  {hasEventNavigation && (
                     <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); handleSwitchMarket('next'); }}
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-transparent hover:border-white/10"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all border border-transparent hover:border-white/10 text-xs font-semibold uppercase tracking-wide"
                       title="Next Option"
                     >
+                      <span>Next</span>
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   )}

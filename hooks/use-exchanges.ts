@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { getAllExchanges } from '@/lib/data/exchanges';
-import { exchangesToGeoJSON, isMarketOpen } from '@/lib/utils/exchange-geojson';
+import { exchangesToGeoJSON, getDetailedMarketStatus } from '@/lib/utils/exchange-geojson';
 import { StockExchange, ExchangeMarketData } from '@/types/exchange';
 
 export function useExchanges() {
@@ -11,9 +11,12 @@ export function useExchanges() {
     const map = new Map<string, ExchangeMarketData>();
 
     exchanges.forEach(exchange => {
+      const detailedStatus = getDetailedMarketStatus(exchange);
+
       map.set(exchange.id, {
         exchangeId: exchange.id,
-        isOpen: isMarketOpen(exchange),
+        isOpen: detailedStatus.isOpen,
+        detailedStatus,
         totalVolume: 0,
         totalMarketCap: exchange.marketCap || 0,
         advancingStocks: 0,

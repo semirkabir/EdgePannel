@@ -11,6 +11,13 @@ interface ExchangePopupProps {
   isOpen: boolean;
   city?: string;
   country?: string;
+  status?: string;
+  nextStatusText?: string;
+  timeUntilNextStatus?: string;
+  exchangeTime?: string;
+  localOpenTime?: string;
+  localCloseTime?: string;
+  userTimezone?: string;
   onViewDetails: () => void;
 }
 
@@ -19,6 +26,13 @@ export function ExchangePopup({
   exchangeName,
   shortName,
   isOpen,
+  status,
+  nextStatusText,
+  timeUntilNextStatus,
+  exchangeTime,
+  localOpenTime,
+  localCloseTime,
+  userTimezone,
   city,
   country,
   onViewDetails,
@@ -28,6 +42,39 @@ export function ExchangePopup({
   const [logoError, setLogoError] = useState(false);
 
   const currentData = activeTab === 'gainers' ? gainers : activeTab === 'losers' ? losers : mostActive;
+
+  const parseMinutes = (time?: string) => {
+    if (!time) return null;
+    const [h, m] = time.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  };
+
+  const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
+
+  const currentMinutes = parseMinutes(exchangeTime);
+  const openMinutes = parseMinutes(localOpenTime);
+  const closeMinutes = parseMinutes(localCloseTime);
+
+  // Progress across regular session (0-1)
+  let sessionProgress: number | null = null;
+  if (currentMinutes != null && openMinutes != null && closeMinutes != null) {
+    const wraps = closeMinutes < openMinutes;
+    const total = wraps ? (1440 - openMinutes + closeMinutes) : (closeMinutes - openMinutes);
+    const elapsed = wraps
+      ? (currentMinutes >= openMinutes ? currentMinutes - openMinutes : 1440 - openMinutes + currentMinutes)
+      : (currentMinutes - openMinutes);
+    sessionProgress = clamp(elapsed / total, 0, 1);
+  }
+
+  const statusLine = (() => {
+    if (isOpen) {
+      if (nextStatusText && timeUntilNextStatus) return `${nextStatusText} ${timeUntilNextStatus}`;
+      return 'Session in progress';
+    }
+    if (nextStatusText && timeUntilNextStatus) return `${nextStatusText} ${timeUntilNextStatus}`;
+    return 'Market closed';
+  })();
 
   // Exchange logo URLs - using Clearbit Logo API (works with domains)
   const domainMap: Record<string, string> = {
@@ -94,7 +141,60 @@ export function ExchangePopup({
             {city && country && (
               <p className="text-[9px] text-gray-500">{city}, {country}</p>
             )}
+            <div className="mt-1 text-[10px] text-gray-400">
+              {isOpen
+                ? (nextStatusText ? `${nextStatusText} ${timeUntilNextStatus || ''}`.trim() : 'Market hours in session')
+                : (timeUntilNextStatus ? `${nextStatusText || 'Opens in'} ${timeUntilNextStatus}` : 'Market closed')}
+            </div>
+            {(localOpenTime || localCloseTime) && (
+              <div className="text-[9px] text-gray-500 mt-0.5">
+                Hours: {localOpenTime || '—'} – {localCloseTime || '—'} {userTimezone ? `(${userTimezone})` : ''}
+              </div>
+            )}
+            {exchangeTime && (
+              <div className="text-[9px] text-gray-500">
+                Local exchange time: {exchangeTime}
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Status pill inspired by design */}
+        <div className="mt-2 bg-gray-800/70 border border-gray-700/50 rounded-lg p-2.5">
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              className={cn(
+                'w-2 h-2 rounded-full',
+                isOpen ? 'bg-emerald-400' : 'bg-gray-500'
+              )}
+            />
+            <div className="text-xs font-semibold text-white">
+              {isOpen ? 'Market open' : 'Market closed'}
+            </div>
+          </div>
+          <div className="text-[11px] text-gray-200 font-semibold mb-1">
+            {statusLine}
+          </div>
+          {(localOpenTime || localCloseTime) && (
+            <div className="text-[10px] text-gray-400 mb-2">
+              {isOpen ? 'Closes' : 'Opens'}: {isOpen ? localCloseTime || '—' : localOpenTime || '—'} {userTimezone ? `(${userTimezone})` : ''}
+            </div>
+          )}
+          {sessionProgress != null && (
+            <div className="flex items-center gap-2 text-[10px] text-gray-400">
+              <span>{localOpenTime || 'Open'}</span>
+              <div className="flex-1 h-2.5 bg-gray-900/80 rounded-full overflow-hidden border border-gray-700/70">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all',
+                    isOpen ? 'bg-emerald-500' : 'bg-gray-600'
+                  )}
+                  style={{ width: `${sessionProgress * 100}%` }}
+                />
+              </div>
+              <span>{localCloseTime || 'Close'}</span>
+            </div>
+          )}
         </div>
       </div>
 
