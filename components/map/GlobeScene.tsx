@@ -7,6 +7,20 @@ import { Market } from '@/types/market'
 import * as THREE from 'three'
 import { loadGeoJSON, parseCountries, CountryData } from '@/lib/geojson-loader'
 
+// Helper function to get category symbol
+function getCategorySymbol(category?: string): string {
+  const cat = (category || '').toLowerCase()
+  if (cat.includes('politic')) return '🏛️'
+  if (cat.includes('economic') || cat.includes('finance')) return '📈'
+  if (cat.includes('weather') || cat.includes('climate')) return '🌧️'
+  if (cat.includes('sport')) return '🏆'
+  if (cat.includes('tech')) return '💻'
+  if (cat.includes('entertain') || cat.includes('media')) return '🎬'
+  if (cat.includes('health') || cat.includes('medical')) return '⚕️'
+  if (cat.includes('international') || cat.includes('global')) return '🌍'
+  return '📍'
+}
+
 // Convert lat/lng to 3D coordinates on sphere
 function latLngToVector3(lat: number, lng: number, radius: number): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180)
@@ -159,21 +173,25 @@ function MarketMarker({
   isLive: boolean
   onClick: () => void
 }) {
-  const meshRef = useRef<THREE.Mesh>(null)
+  const scaleRef = useRef(1)
   const color = market.platform === 'polymarket' ? '#3b82f6' : '#10b981'
+  const symbol = getCategorySymbol(market.category)
+  const iconSize = isSelected ? 20 : 16
 
   useFrame((state) => {
-    if (meshRef.current) {
-      // Subtle pulsing animation
-      const scale = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.1
-      meshRef.current.scale.setScalar(scale)
-    }
+    // Subtle pulsing animation
+    scaleRef.current = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.1
   })
 
   return (
     <group position={[position.x, position.y, position.z]}>
-      <mesh
-        ref={meshRef}
+      <Html
+        center
+        distanceFactor={10}
+        style={{
+          transform: `scale(${scaleRef.current * (isSelected ? 1.3 : 1)})`,
+          transition: 'transform 0.2s ease-out'
+        }}
         onClick={(e) => {
           e.stopPropagation()
           onClick()
@@ -186,29 +204,56 @@ function MarketMarker({
           document.body.style.cursor = 'default'
         }}
       >
-        <sphereGeometry args={[isSelected ? 0.08 : 0.05, 16, 16]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={isSelected ? 0.8 : 0.4}
-        />
-      </mesh>
-      {(isBreaking || isLive) && (
-        <mesh position={[0, 0, 0]}>
-          <ringGeometry args={[0.06, 0.08, 16]} />
-          <meshStandardMaterial
-            color={isBreaking ? '#ef4444' : '#3b82f6'}
-            emissive={isBreaking ? '#ef4444' : '#3b82f6'}
-            emissiveIntensity={0.5}
-            transparent
-            opacity={0.7}
-            side={THREE.DoubleSide}
+        <div
+          className="relative flex items-center justify-center"
+          style={{
+            filter: isSelected 
+              ? `drop-shadow(0 0 8px ${color}) drop-shadow(0 0 4px ${color})` 
+              : `drop-shadow(0 0 2px ${color})`,
+          }}
+        >
+          {/* Background circle for better visibility */}
+          <div
+            className="absolute rounded-full"
+            style={{
+              width: iconSize + 8,
+              height: iconSize + 8,
+              backgroundColor: color,
+              opacity: isSelected ? 0.3 : 0.2,
+              transform: 'scale(1.2)'
+            }}
           />
-        </mesh>
-      )}
+          {/* Symbol/Icon */}
+          <div
+            className="relative text-center leading-none select-none"
+            style={{
+              fontSize: iconSize,
+              lineHeight: 1,
+              zIndex: 1
+            }}
+          >
+            {symbol}
+          </div>
+          {/* Breaking/Live indicator ring */}
+          {(isBreaking || isLive) && (
+            <div
+              className="absolute rounded-full border-2 animate-pulse"
+              style={{
+                width: iconSize + 12,
+                height: iconSize + 12,
+                borderColor: isBreaking ? '#ef4444' : '#3b82f6',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                zIndex: 0
+              }}
+            />
+          )}
+        </div>
+      </Html>
       {/* Label on hover or select */}
       {isSelected && (
-        <Html position={[0, 0.1, 0]} center distanceFactor={10}>
+        <Html position={[0, 0.15, 0]} center distanceFactor={10}>
           <div className="bg-black/80 text-white text-[8px] px-2 py-1 rounded border border-white/20 whitespace-nowrap backdrop-blur-sm">
             {market.title.slice(0, 20)}...
           </div>

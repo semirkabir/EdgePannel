@@ -32,6 +32,30 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   'Other': <LayoutGrid className="w-2.5 h-2.5" />
 };
 
+// Map feed types to icon characters (Unicode/emoji)
+const FEED_ICON_MAP: Record<string, string> = {
+  'PREDICTION': '💓', // Activity/Heartbeat
+  'FINANCE': '📈', // TrendingUp
+  'NEWS': '📰', // Rss/News
+  'CONFLICT': '🔥', // Flame
+  'GEOPOLITICS': '🌍', // Globe
+  'TECH_AI': '⚡', // Zap
+  'CONTRACTS': '💼', // Briefcase
+  'POLICY': '🏛️', // Landmark
+  'MONEY_PRINTER': '💵', // Banknote
+  'CRYPTO': '🪙', // Coins
+  'COMMODITIES': '🏭', // Factory
+  'LAYOFFS': '📉', // Activity/Down
+  'conflict': '🔥',
+  'tech': '⚡',
+  'geopolitics': '🌍',
+  'contracts': '💼',
+  'policy': '🏛️',
+  'crypto': '🪙',
+  'commodities': '🏭',
+  'layoffs': '📉',
+};
+
 export type VisualizationMode = 'dots' | 'heatmap' | 'cluster' | 'choropleth';
 
 interface EdgeMapProps {
@@ -181,7 +205,7 @@ function InnerMap({
   exchanges?: any; // Added exchanges prop
   feedData?: any; // Added feedData prop
 }) {
-  const { isLayerActive, selectedCensusDataset } = useLayerStore();
+  const { isLayerActive, selectedCensusDataset, activeLayers } = useLayerStore();
 
   const [viewState, setViewState] = useState({
     longitude: 0,
@@ -238,21 +262,31 @@ function InnerMap({
     // Optional: Poll every 5 minutes
     const interval = setInterval(fetchNews, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [isLayerActive]);
+  }, [activeLayers]);
 
   // Filter logic for newsData
   const newsData = useMemo(() => {
-    if (!isLayerActive('NEWS')) return { type: 'FeatureCollection', features: [] };
+    if (!activeLayers.includes('NEWS')) return { type: 'FeatureCollection', features: [] };
 
-    if (searchQuery && fetchedNewsData.features) {
+    let features = fetchedNewsData.features || [];
+    if (searchQuery && features.length > 0) {
       const q = searchQuery.toLowerCase();
-      const filtered = fetchedNewsData.features.filter((f: any) =>
+      features = features.filter((f: any) =>
         (f.properties.title || '').toLowerCase().includes(q)
       );
-      return { type: 'FeatureCollection', features: filtered };
     }
-    return fetchedNewsData;
-  }, [fetchedNewsData, searchQuery, isLayerActive]);
+    
+    // Add icon property
+    features = features.map((f: any) => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        icon: FEED_ICON_MAP['NEWS'] || '📰'
+      }
+    }));
+
+    return { type: 'FeatureCollection', features };
+  }, [fetchedNewsData, searchQuery, activeLayers]);
 
   const [fetchedFinanceData, setFetchedFinanceData] = useState<any>({ type: 'FeatureCollection', features: [] });
 
@@ -272,21 +306,31 @@ function InnerMap({
       }
     };
     fetchFinance();
-  }, [isLayerActive]);
+  }, [activeLayers]);
 
   const financeData = useMemo(() => {
-    if (!isLayerActive('FINANCE')) return { type: 'FeatureCollection', features: [] };
+    if (!activeLayers.includes('FINANCE')) return { type: 'FeatureCollection', features: [] };
 
-    if (searchQuery && fetchedFinanceData.features) {
+    let features = fetchedFinanceData.features || [];
+    if (searchQuery && features.length > 0) {
       const q = searchQuery.toLowerCase();
-      const filtered = fetchedFinanceData.features.filter((f: any) =>
+      features = features.filter((f: any) =>
         (f.properties.symbol || '').toLowerCase().includes(q) ||
         (f.properties.title || '').toLowerCase().includes(q)
       );
-      return { type: 'FeatureCollection', features: filtered };
     }
-    return fetchedFinanceData;
-  }, [fetchedFinanceData, searchQuery, isLayerActive]);
+    
+    // Add icon property
+    features = features.map((f: any) => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        icon: FEED_ICON_MAP['FINANCE'] || '📈'
+      }
+    }));
+
+    return { type: 'FeatureCollection', features };
+  }, [fetchedFinanceData, searchQuery, activeLayers]);
 
   const [fetchedCustomData, setFetchedCustomData] = useState<any>({ type: 'FeatureCollection', features: [] });
 
@@ -306,10 +350,10 @@ function InnerMap({
       }
     };
     fetchCustom();
-  }, [isLayerActive]);
+  }, [activeLayers]);
 
   const customData = useMemo(() => {
-    if (!isLayerActive('CUSTOM')) return { type: 'FeatureCollection', features: [] };
+    if (!activeLayers.includes('CUSTOM')) return { type: 'FeatureCollection', features: [] };
 
     if (searchQuery && fetchedCustomData.features) {
       const q = searchQuery.toLowerCase();
@@ -320,7 +364,7 @@ function InnerMap({
       return { type: 'FeatureCollection', features: filtered };
     }
     return fetchedCustomData;
-  }, [fetchedCustomData, searchQuery, isLayerActive]);
+  }, [fetchedCustomData, searchQuery, activeLayers]);
 
   // Census Data State
   const [fetchedCensusData, setFetchedCensusData] = useState<any>({ type: 'FeatureCollection', features: [] });
@@ -363,7 +407,7 @@ function InnerMap({
       console.log(`[Census] Auto-switching to state level at zoom ${viewState.zoom.toFixed(1)}`);
       setCensusGeography('state');
     }
-  }, [viewState.zoom, isLayerActive, selectedCensusDataset, censusGeography, setCensusGeography]);
+  }, [viewState.zoom, activeLayers, selectedCensusDataset, censusGeography, setCensusGeography]);
 
   // Fetch Census Data when layer is active and dataset is selected
   useEffect(() => {
@@ -388,11 +432,11 @@ function InnerMap({
       }
     };
     fetchCensus();
-  }, [isLayerActive, selectedCensusDataset, censusGeography]);
+  }, [activeLayers, selectedCensusDataset, censusGeography]);
 
   // Prepare Census Display Data (Merge with Geometry if Choropleth needed)
   const censusData = useMemo(() => {
-    if (!isLayerActive('CENSUS') || !selectedCensusDataset) {
+    if (!activeLayers.includes('CENSUS') || !selectedCensusDataset) {
       return { type: 'FeatureCollection', features: [] };
     }
 
@@ -441,7 +485,7 @@ function InnerMap({
     }
 
     return fetchedCensusData;
-  }, [fetchedCensusData, usCountiesGeoJSON, isLayerActive, selectedCensusDataset, censusGeography]);
+  }, [fetchedCensusData, usCountiesGeoJSON, activeLayers, selectedCensusDataset, censusGeography]);
 
   // ... (rest of InnerMap)
 
@@ -971,7 +1015,7 @@ function InnerMap({
   // Filter data
   const filteredMarkets = useMemo(() => {
     // Check Layer Visibility first
-    if (!isLayerActive('PREDICTION')) {
+    if (!activeLayers.includes('PREDICTION')) {
       return { type: 'FeatureCollection', features: [] };
     }
 
@@ -1011,8 +1055,17 @@ function InnerMap({
       );
     }
 
+    // Add icon property to each feature based on feed type
+    features = features.map((f: any) => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        icon: FEED_ICON_MAP['PREDICTION'] || '💓' // Default to prediction market icon
+      }
+    }));
+
     return { type: 'FeatureCollection', features };
-  }, [markets, activeFilters, searchQuery, isUsingOverride]);
+  }, [markets, activeFilters, searchQuery, isUsingOverride, activeLayers]);
 
   const filteredExchanges = useMemo(() => {
     // If FINANCE is not active, don't show exchanges (assuming they are part of FINANCE layer logic)
@@ -1020,7 +1073,7 @@ function InnerMap({
     // For now, let's treat them as part of "FINANCE" or just always show if marketType was 'financial'.
     // The user request implies "Financial Markets" should show exchanges.
     // So if FINANCE layer is active, we show exchanges.
-    if (!isLayerActive('FINANCE')) {
+    if (!activeLayers.includes('FINANCE')) {
       return { type: 'FeatureCollection', features: [] };
     }
 
@@ -1034,8 +1087,17 @@ function InnerMap({
       );
     }
 
+    // Add icon property for financial markets
+    features = features.map((f: any) => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        icon: FEED_ICON_MAP['FINANCE'] || '📈'
+      }
+    }));
+
     return { type: 'FeatureCollection', features };
-  }, [exchanges, isLayerActive, searchQuery]);
+  }, [exchanges, activeLayers, searchQuery]);
 
   const filteredTweets = useMemo(() => {
     if (!activeFilters.osint) return { type: 'FeatureCollection', features: [] };
@@ -1071,25 +1133,33 @@ function InnerMap({
   const marketLayer = {
     id: 'markets-layer',
     source: 'markets',
-    type: 'circle',
+    type: 'symbol',
+    layout: {
+      'text-field': ['get', 'icon'],
+      'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+      'text-size': [
+        'interpolate',
+        ['linear'],
+        ['get', 'volume'],
+        0, 12,
+        100000, 16,
+        1000000, 24,
+        10000000, 32
+      ],
+      'text-anchor': 'center',
+      'text-allow-overlap': true,
+      'text-ignore-placement': true
+    },
     paint: {
-      'circle-color': [
+      'text-color': [
         'case',
         ['==', ['get', 'platform'], 'kalshi'], '#10b981', // Emerald Green 500
         '#2563eb' // Cobalt Blue 600 (Polymarket)
       ],
-      'circle-radius': [
-        'interpolate',
-        ['linear'],
-        ['get', 'volume'],
-        0, 3,
-        100000, 5,
-        1000000, 10,
-        10000000, 18
-      ],
-      'circle-stroke-width': 1.5,
-      'circle-stroke-color': '#ffffff',
-      'circle-opacity': 1
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.5,
+      'text-halo-blur': 1,
+      'text-opacity': 1
     }
   };
 
@@ -1212,27 +1282,34 @@ function InnerMap({
   const unclusteredPointLayer = {
     id: 'markets-unclustered',
     source: 'markets',
-    type: 'circle',
+    type: 'symbol',
     filter: ['!', ['has', 'point_count']],
+    layout: {
+      'text-field': ['get', 'icon'],
+      'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+      'text-size': [
+        'interpolate',
+        ['linear'],
+        ['get', 'volume'],
+        0, 14,
+        100000, 18,
+        1000000, 26,
+        10000000, 36
+      ],
+      'text-anchor': 'center',
+      'text-allow-overlap': true,
+      'text-ignore-placement': true
+    },
     paint: {
-      'circle-color': [
+      'text-color': [
         'case',
         ['==', ['get', 'platform'], 'kalshi'], '#10b981',
         '#2563eb'
       ],
-      'circle-radius': [
-        'interpolate',
-        ['linear'],
-        ['get', 'volume'],
-        0, 4,
-        100000, 7,
-        1000000, 12,
-        10000000, 20
-      ],
-      'circle-opacity': 0.95,
-      'circle-stroke-width': 1.5,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-opacity': 0.7
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.5,
+      'text-halo-blur': 1,
+      'text-opacity': 0.95
     }
   };
 
@@ -1280,25 +1357,33 @@ function InnerMap({
   const exchangeLayer = {
     id: 'exchanges-layer',
     source: 'exchanges',
-    type: 'circle',
+    type: 'symbol',
+    layout: {
+      'text-field': ['get', 'icon'],
+      'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+      'text-size': [
+        'interpolate',
+        ['linear'],
+        ['coalesce', ['get', 'totalMarketCap'], 0],
+        0, 18,
+        1000000000000, 22,    // $1T
+        10000000000000, 28,   // $10T
+        50000000000000, 34    // $50T
+      ],
+      'text-anchor': 'center',
+      'text-allow-overlap': true,
+      'text-ignore-placement': true
+    },
     paint: {
-      'circle-color': [
+      'text-color': [
         'case',
         ['get', 'isOpen'], '#34d399',  // Emerald 400 for open
         '#94a3b8'                       // Slate 400 for closed
       ],
-      'circle-radius': [
-        'interpolate',
-        ['linear'],
-        ['coalesce', ['get', 'totalMarketCap'], 0],
-        0, 8,
-        1000000000000, 12,    // $1T
-        10000000000000, 18,   // $10T
-        50000000000000, 25    // $50T
-      ],
-      'circle-stroke-width': 1.5,
-      'circle-stroke-color': '#ffffff',
-      'circle-opacity': 0.95
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.5,
+      'text-halo-blur': 1,
+      'text-opacity': 0.95
     }
   };
 
@@ -1906,8 +1991,7 @@ function InnerMap({
                 }} />
                 <Layer {...marketLayer as any} paint={{
                   ...marketLayer.paint,
-                  'circle-opacity': 0,
-                  'circle-stroke-opacity': 0
+                  'text-opacity': 0
                 }} />
               </>
             ) : visualizationMode === 'cluster' ? (
@@ -1951,26 +2035,34 @@ function InnerMap({
           <Source id="news-source" type="geojson" data={newsData as any}>
             <Layer
               id="news-layer"
-              type="circle"
-              paint={{
-                'circle-radius': [
+              type="symbol"
+              layout={{
+                'text-field': ['get', 'icon'],
+                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+                'text-size': [
                   'interpolate',
                   ['linear'],
                   ['get', 'importance'],
-                  0, 2,
-                  0.5, 3.5,
-                  1, 8
+                  0, 14,
+                  0.5, 18,
+                  1, 24
                 ],
-                'circle-color': [
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+              }}
+              paint={{
+                'text-color': [
                   'interpolate',
                   ['linear'],
                   ['get', 'importance'],
                   0, '#f8fafc', // Bright Slate 50 (almost white)
                   1, '#22d3ee'  // Cyan 400
                 ],
-                'circle-stroke-width': 1.5,
-                'circle-stroke-color': '#ffffff',
-                'circle-opacity': 0.95
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 1.5,
+                'text-halo-blur': 1,
+                'text-opacity': 0.95
               }}
             />
             <Layer
@@ -2003,13 +2095,21 @@ function InnerMap({
           <Source id="finance-source" type="geojson" data={financeData as any}>
             <Layer
               id="finance-layer"
-              type="circle"
+              type="symbol"
+              layout={{
+                'text-field': ['get', 'icon'],
+                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+                'text-size': 20,
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+              }}
               paint={{
-                'circle-radius': 5,
-                'circle-color': '#fbbf24', // Amber/Gold 400
-                'circle-stroke-width': 1.5,
-                'circle-stroke-color': '#ffffff',
-                'circle-opacity': 0.95
+                'text-color': '#fbbf24', // Amber/Gold 400
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 1.5,
+                'text-halo-blur': 1,
+                'text-opacity': 0.95
               }}
             />
             <Layer
@@ -2055,14 +2155,21 @@ function InnerMap({
             {/* Conflict Layer - Red/Pulsing */}
             <Layer
               id="feed-conflict"
-              type="circle"
+              type="symbol"
               filter={['==', ['get', 'layer'], 'conflict']}
+              layout={{
+                'text-field': '🔥',
+                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+                'text-size': 20,
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+              }}
               paint={{
-                'circle-radius': 6,
-                'circle-color': '#ef4444', // Red 500
-                'circle-stroke-width': 1.5,
-                'circle-stroke-color': '#fff',
-                'circle-opacity': 0.9
+                'text-halo-color': '#fff',
+                'text-halo-width': 1.5,
+                'text-halo-blur': 1,
+                'text-opacity': 0.9
               }}
             />
             <Layer
@@ -2080,65 +2187,105 @@ function InnerMap({
             {/* Tech Layer - Cyan/Cyber */}
             <Layer
               id="feed-tech"
-              type="circle"
+              type="symbol"
               filter={['==', ['get', 'layer'], 'tech']}
+              layout={{
+                'text-field': '⚡',
+                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+                'text-size': 18,
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+              }}
               paint={{
-                'circle-radius': 5,
-                'circle-color': '#06b6d4', // Cyan 500
-                'circle-stroke-width': 1,
-                'circle-stroke-color': '#fff'
+                'text-halo-color': '#fff',
+                'text-halo-width': 1,
+                'text-halo-blur': 1,
+                'text-opacity': 0.9
               }}
             />
 
             {/* Contracts Layer - Emerald/Money */}
             <Layer
               id="feed-contracts"
-              type="circle"
+              type="symbol"
               filter={['==', ['get', 'layer'], 'contracts']}
+              layout={{
+                'text-field': '💼',
+                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+                'text-size': 18,
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+              }}
               paint={{
-                'circle-radius': 5,
-                'circle-color': '#10b981', // Emerald 500
-                'circle-stroke-width': 1,
-                'circle-stroke-color': '#fff'
+                'text-halo-color': '#fff',
+                'text-halo-width': 1,
+                'text-halo-blur': 1,
+                'text-opacity': 0.9
               }}
             />
 
             {/* Policy Layer - Violet/Gov */}
             <Layer
               id="feed-policy"
-              type="circle"
+              type="symbol"
               filter={['==', ['get', 'layer'], 'policy']}
+              layout={{
+                'text-field': '🏛️',
+                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+                'text-size': 18,
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+              }}
               paint={{
-                'circle-radius': 5,
-                'circle-color': '#8b5cf6', // Violet 500
-                'circle-stroke-width': 1,
-                'circle-stroke-color': '#fff'
+                'text-halo-color': '#fff',
+                'text-halo-width': 1,
+                'text-halo-blur': 1,
+                'text-opacity': 0.9
               }}
             />
 
             {/* Layoffs Layer - Orange/Warning */}
             <Layer
               id="feed-layoffs"
-              type="circle"
+              type="symbol"
               filter={['==', ['get', 'layer'], 'layoffs']}
+              layout={{
+                'text-field': '📉',
+                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+                'text-size': 18,
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+              }}
               paint={{
-                'circle-radius': 5,
-                'circle-color': '#f97316', // Orange 500
-                'circle-stroke-width': 1,
-                'circle-stroke-color': '#fff'
+                'text-halo-color': '#fff',
+                'text-halo-width': 1,
+                'text-halo-blur': 1,
+                'text-opacity': 0.9
               }}
             />
 
             {/* Crypto Whales - Indigo */}
             <Layer
               id="feed-crypto-whale"
-              type="circle"
+              type="symbol"
               filter={['==', ['get', 'layer'], 'crypto-whale']}
+              layout={{
+                'text-field': '🪙',
+                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
+                'text-size': 22,
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+              }}
               paint={{
-                'circle-radius': 8,
-                'circle-color': '#6366f1', // Indigo 500
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#fff'
+                'text-halo-color': '#fff',
+                'text-halo-width': 2,
+                'text-halo-blur': 1,
+                'text-opacity': 0.9
               }}
             />
           </Source>

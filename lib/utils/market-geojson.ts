@@ -11,6 +11,22 @@ export interface GeoJSONFeature {
     properties: any;
 }
 
+/**
+ * Get category symbol/emoji for map display
+ */
+function getCategorySymbol(category?: string): string {
+    const cat = (category || '').toLowerCase();
+    if (cat.includes('politic')) return '🏛️';
+    if (cat.includes('economic') || cat.includes('finance')) return '📈';
+    if (cat.includes('weather') || cat.includes('climate')) return '🌧️';
+    if (cat.includes('sport')) return '🏆';
+    if (cat.includes('tech')) return '💻';
+    if (cat.includes('entertain') || cat.includes('media')) return '🎬';
+    if (cat.includes('health') || cat.includes('medical')) return '⚕️';
+    if (cat.includes('international') || cat.includes('global')) return '🌍';
+    return '📍';
+}
+
 export interface GeoJSONFeatureCollection {
     type: 'FeatureCollection';
     features: GeoJSONFeature[];
@@ -112,6 +128,7 @@ export function marketsToGeoJSON(markets: Market[]): GeoJSONFeatureCollection {
                 is_open: true,
                 description: m.description || '',
                 category: m.category || '',
+                symbol: getCategorySymbol(m.category),
                 price_movement: Number(m.price_movement || 0),
                 isBreakingNews: Boolean(m.isBreakingNews),
                 platform: m.platform || '',
@@ -205,6 +222,7 @@ export function eventsToGeoJSON(events: any[]): GeoJSONFeatureCollection {
                 volume24h: Number(event.volume24h || 0),
                 liquidity: Number(event.liquidity || 0),
                 category: event.category || '',
+                symbol: getCategorySymbol(event.category),
                 platform: event.platform || '',
                 isBreakingNews: Boolean(event.isBreakingNews),
                 is_random_location: false,
@@ -309,6 +327,7 @@ export function marketsToGeoJSONWithGroups(markets: EnrichedMarket[]): GeoJSONFe
                 volume24h: group.totalVolume, // For compatibility
                 liquidity: group.markets.reduce((sum, m) => sum + (m.liquidity || 0), 0),
                 category: group.category,
+                symbol: getCategorySymbol(group.category),
                 platform: primaryMarket.platform,
                 isBreakingNews: group.isBreakingNews,
                 is_random_location: false,
