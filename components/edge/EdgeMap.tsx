@@ -53,6 +53,7 @@ interface EdgeMapProps {
   showGrid?: boolean;
   marketType?: MarketType;
   onInteractionStart?: () => void;
+  feedData?: any;
 }
 
 
@@ -153,7 +154,8 @@ function InnerMap({
   showGrid = false,
   marketType = 'prediction',
   onInteractionStart,
-  exchanges
+  exchanges,
+  feedData
 }: {
   markets: any;
   rawMarkets?: any[];
@@ -177,6 +179,7 @@ function InnerMap({
   marketType?: MarketType;
   onInteractionStart?: () => void;
   exchanges?: any; // Added exchanges prop
+  feedData?: any; // Added feedData prop
 }) {
   const { isLayerActive, selectedCensusDataset } = useLayerStore();
 
@@ -1757,7 +1760,7 @@ function InnerMap({
       return ['markets-clusters', 'markets-unclustered', 'markets-unclustered-glow', ...common];
     } else {
       // Default dots mode
-      return ['markets-layer', 'markets-glow-layer', ...common];
+      return ['markets-layer', 'markets-glow-layer', 'feed-conflict', 'feed-tech', 'feed-contracts', 'feed-policy', 'feed-layoffs', 'feed-crypto-whale', ...common];
     }
   }, [visualizationMode]);
 
@@ -2038,6 +2041,109 @@ function InnerMap({
           </Source>
         )}
 
+        {/* FEED LAYERS (Conflict, Contracts, Policy, etc.) */}
+        {/* We assume these features are passed in via overrideMarkets/markets or a dedicated feeds prop.
+            For now, check if they exist in the main data source or a new source.
+            The simplified approach is to rely on 'layer' property in the single main source if possible,
+            but EdgeMap splits sources. Let's assume we pass them as a merged 'feeds' source or handle them in 'custom'
+            but with data-driven styling.
+            
+            BETTER: Add a dedicated FEEDS Source that accepts generic features with 'layer' property.
+        */}
+        {(activeFilters.feeds || Object.keys(activeFilters).some(k => k.startsWith('feed_'))) && (
+          <Source id="feeds-source" type="geojson" data={feedData || { type: 'FeatureCollection', features: [] } as any}>
+            {/* Conflict Layer - Red/Pulsing */}
+            <Layer
+              id="feed-conflict"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'conflict']}
+              paint={{
+                'circle-radius': 6,
+                'circle-color': '#ef4444', // Red 500
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#fff',
+                'circle-opacity': 0.9
+              }}
+            />
+            <Layer
+              id="feed-conflict-glow"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'conflict']}
+              paint={{
+                'circle-radius': 15,
+                'circle-color': '#ef4444',
+                'circle-opacity': 0.3,
+                'circle-blur': 0.5
+              }}
+            />
+
+            {/* Tech Layer - Cyan/Cyber */}
+            <Layer
+              id="feed-tech"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'tech']}
+              paint={{
+                'circle-radius': 5,
+                'circle-color': '#06b6d4', // Cyan 500
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#fff'
+              }}
+            />
+
+            {/* Contracts Layer - Emerald/Money */}
+            <Layer
+              id="feed-contracts"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'contracts']}
+              paint={{
+                'circle-radius': 5,
+                'circle-color': '#10b981', // Emerald 500
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#fff'
+              }}
+            />
+
+            {/* Policy Layer - Violet/Gov */}
+            <Layer
+              id="feed-policy"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'policy']}
+              paint={{
+                'circle-radius': 5,
+                'circle-color': '#8b5cf6', // Violet 500
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#fff'
+              }}
+            />
+
+            {/* Layoffs Layer - Orange/Warning */}
+            <Layer
+              id="feed-layoffs"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'layoffs']}
+              paint={{
+                'circle-radius': 5,
+                'circle-color': '#f97316', // Orange 500
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#fff'
+              }}
+            />
+
+            {/* Crypto Whales - Indigo */}
+            <Layer
+              id="feed-crypto-whale"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'crypto-whale']}
+              paint={{
+                'circle-radius': 8,
+                'circle-color': '#6366f1', // Indigo 500
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#fff'
+              }}
+            />
+          </Source>
+        )}
+
         {/* CENSUS Layer - Data-driven styling based on dataset type */}
         {isLayerActive('CENSUS') && selectedCensusDataset && censusData.features?.length > 0 && (
           <Source id="census-source" type="geojson" data={censusData as any}>
@@ -2196,6 +2302,7 @@ export function EdgeMap({
   selectedMarket,
   onMarketSelect,
   overrideMarkets,
+  feedData,
   onZoomChange,
   onViewChange,
   shouldResetZoom,
@@ -2276,6 +2383,7 @@ export function EdgeMap({
       showGrid={showGrid}
       marketType={marketType}
       onInteractionStart={onInteractionStart}
+      feedData={feedData}
     />
   );
 }

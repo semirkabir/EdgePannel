@@ -18,6 +18,7 @@ import { useOpenInterest } from '@/hooks/use-open-interest'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { LatencyTag } from '@/components/edge/LatencyTag'
 import { useExchangeMovers } from '@/hooks/use-exchange-movers'
+import { FeedItemDetails } from '@/components/panels/FeedItemDetails'
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -889,6 +890,11 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     >
       {/* Scroll anchor for when switching markets */}
       <div ref={panelTopRef} className="h-0" />
+
+      {/* Custom Feed Details View */}
+      {activeCustom && (
+        <FeedItemDetails data={activeCustom} />
+      )}
 
       {/* Exchange Details View */}
       {activeExchange && (

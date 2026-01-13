@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils/cn';
 import { SearchResults } from './SearchResults';
 import { EnrichedMarket } from '@/lib/markets/enrich';
 import { parseMarketUrl } from '@/lib/utils/market-url-parser';
-import { LayerMenu } from './LayerMenu';
 import { MarketType } from '@/types/exchange';
 
 export type VisualizationMode = 'dots' | 'heatmap' | 'cluster';
@@ -307,8 +306,7 @@ export function EdgeUI({
         {/* Row 2: Filter Buttons - Mobile (only when not in insights/financials view) */}
         {!isInsightsView && (
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-            {/* Layer Menu - Mobile */}
-            <LayerMenu />
+
 
             {/* Consolidated View Settings - Mobile */}
             <div className="relative flex-shrink-0" ref={settingsRef}>
@@ -614,8 +612,7 @@ export function EdgeUI({
               boxShadow: "10px 20px 40px -5px rgba(0, 0, 0, 0.9), 5px 10px 20px -5px rgba(0, 0, 0, 0.7), 0px 0px 0px 1px rgba(255, 255, 255, 0.05)"
             }}
           >
-            {/* Layer Menu */}
-            <LayerMenu />
+            {/* Layer Menu removed, consolidated into FeedControls */}
 
             {/* Consolidated View Settings Dropdown */}
             <div className="relative" ref={settingsRef}>

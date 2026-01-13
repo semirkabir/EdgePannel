@@ -29,6 +29,8 @@ import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { KeyboardShortcutsDialog } from '@/components/ui/keyboard-shortcuts-dialog';
 import { useUserSettings } from '@/hooks/use-user-settings';
 import { MarketType } from '@/types/exchange';
+import { useFeedData } from '@/hooks/use-feed-data';
+import { FeedControls } from '@/components/edge/FeedControls';
 
 
 export default function EdgePage() {
@@ -46,6 +48,29 @@ export default function EdgePage() {
 
   // Command Center state
   const { isOpen: isCommandCenterOpen, close: closeCommandCenter, toggle: toggleCommandCenter } = useCommandCenter();
+
+  // Integrated Situation Feeds
+  const [activeFeeds, setActiveFeeds] = useState<Record<string, boolean>>({
+    'CONFLICT': true,
+    'TECH_AI': false,
+    'GEOPOLITICS': false,
+    'MONEY_PRINTER': false,
+    'RATES': false,
+    'CONTRACTS': false,
+    'POLICY': false,
+    'CRYPTO': false,
+    'COMMODITIES': false,
+    'LAYOFFS': false
+  });
+
+  const { feedFeatures } = useFeedData({ activeFeeds });
+
+  const handleFeedToggle = (feedKey: string, active: boolean) => {
+    setActiveFeeds(prev => ({ ...prev, [feedKey]: active }));
+    // Also toggle the main 'feeds' filter to ensure layers are rendered if any feed is active
+    const anyActive = active || Object.entries(activeFeeds).some(([k, v]) => k !== feedKey && v);
+    setActiveFilters(prev => ({ ...prev, feeds: anyActive }));
+  };
 
   // Research Notebook state
   const [isResearchOpen, setIsResearchOpen] = useState(false);
@@ -514,7 +539,15 @@ export default function EdgePage() {
             visualizationMode={visualizationMode}
             marketType={marketType}
             onInteractionStart={() => handleSetIsPlaying(false)}
+            feedData={feedFeatures}
           />
+        </div>
+      )}
+
+      {/* Feed Controls - Absolute Positioned */}
+      {viewMode !== 'insights' && viewMode !== 'hub' && (
+        <div className="absolute top-24 right-4 z-[40]">
+          <FeedControls activeFeeds={activeFeeds} onToggle={handleFeedToggle} />
         </div>
       )}
 
