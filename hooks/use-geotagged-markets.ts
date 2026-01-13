@@ -76,7 +76,6 @@ export function useGeotaggedMarkets(options: UseGeotaggedMarketsOptions = {}) {
         params.set('limit', limit.toString())
 
         const url = `/api/markets/geotagged?${params.toString()}`
-        console.log('[useGeotaggedMarkets] Fetching:', url)
 
         const response = await fetch(url)
 
@@ -95,7 +94,6 @@ export function useGeotaggedMarkets(options: UseGeotaggedMarketsOptions = {}) {
 
         const data: GeotaggedMarketsResponse = await response.json()
 
-        console.log(`[useGeotaggedMarkets] Fetched ${data.markets.length} of ${data.total} markets`)
 
         setMarkets(data.markets)
         setTotal(data.total)

@@ -84,7 +84,7 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
     return (
         <div className={cn(
             "absolute top-full left-0 right-0 mt-2",
-            "bg-[#0e0f11]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl",
+            "bg-[#0e0f11] border border-white/10 rounded-xl overflow-hidden shadow-2xl",
             "max-h-[60vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] animate-in fade-in slide-in-from-top-2 duration-200",
             className
         )}>
@@ -160,10 +160,10 @@ export function SearchResults({ results, onSelect, isLoading, className }: Searc
 
                                         {/* Fallback content - hidden by default, shown if image fails or missing */}
                                         <div className={`w - full h - full flex items - center justify - center bg - gray - 800 ${!(market.imageUrl ||
-                                                (market as any).image ||
-                                                (market as any).rawData?.image ||
-                                                (market as any).rawData?.icon ||
-                                                (market as any).rawData?.eventImage) ? '' : 'hidden'
+                                            (market as any).image ||
+                                            (market as any).rawData?.image ||
+                                            (market as any).rawData?.icon ||
+                                            (market as any).rawData?.eventImage) ? '' : 'hidden'
                                             } `}>
                                             {market.platform === 'polymarket' ? (
                                                 <span className="text-[8px] font-black text-blue-400">POLY</span>

@@ -96,7 +96,7 @@ export function LayerMenu() {
             </button>
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-[#0e0f11]/98 border border-white/10 rounded-xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50 flex flex-col max-h-[480px]">
+                <div className="absolute top-full left-0 mt-2 w-72 bg-[#0e0f11] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50 flex flex-col max-h-[480px]">
                     <div className="p-2 space-y-1 overflow-y-auto custom-scrollbar flex-shrink-0">
                         <div className="px-2 py-1.5 text-[10px] font-bold text-white/50 uppercase tracking-wider">
                             Core Data Feeds

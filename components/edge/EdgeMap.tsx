@@ -202,15 +202,15 @@ function InnerMap({
   const prevIsZoomedRef = useRef<boolean>(false);
   const lastIsZoomedInRef = useRef<boolean>(false);
 
-  // Debug interaction state
-  useEffect(() => {
-    console.log('[DEBUG] Interaction State:', {
-      isPlaying,
-      isUserInteracting,
-      isHovering,
-      zoom: viewState.zoom
-    });
-  }, [isPlaying, isUserInteracting, isHovering, viewState.zoom]);
+  // Debug interaction state - disabled to reduce console spam
+  // useEffect(() => {
+  //   console.log('[DEBUG] Interaction State:', {
+  //     isPlaying,
+  //     isUserInteracting,
+  //     isHovering,
+  //     zoom: viewState.zoom
+  //   });
+  // }, [isPlaying, isUserInteracting, isHovering, viewState.zoom]);
 
   // Real Data State
   const [fetchedNewsData, setFetchedNewsData] = useState<any>({ type: 'FeatureCollection', features: [] });
@@ -1373,13 +1373,13 @@ function InnerMap({
         onClose={() => setSelectedFeature(null)}
         anchor="top"
         className="edge-popup z-50"
-        maxWidth={isGroup ? "280px" : "210px"}
+        maxWidth="280px"
       >
-        <div className="bg-gray-900/95 backdrop-blur-md border border-gray-700/50 rounded-xl shadow-2xl overflow-hidden p-3" style={{ minWidth: isGroup ? '280px' : '200px' }}>
+        <div className="bg-gray-900/95 backdrop-blur-md border border-gray-700/50 rounded-xl shadow-2xl overflow-hidden p-3 w-[280px] max-w-[280px]">
 
           {/* NEWS POPUP */}
           {isNews && (
-            <div className="flex flex-col gap-2 min-w-[240px]">
+            <div className="flex flex-col gap-2 w-full">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></div>
@@ -1468,7 +1468,7 @@ function InnerMap({
 
           {/* CENSUS POPUP */}
           {isCensus && (
-            <div className="flex flex-col gap-2 min-w-[200px]">
+            <div className="flex flex-col gap-2 w-full">
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "w-1.5 h-1.5 rounded-full",
@@ -1582,7 +1582,7 @@ function InnerMap({
                   }}
                 />
               ) : (
-                <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden max-w-[280px]">
+                <div className="bg-gradient-to-br from-gray-900/98 via-gray-900/95 to-gray-950/98 border border-gray-700/50 rounded-lg p-2.5 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden w-full">
 
                   {/* Gradient */}
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
@@ -1766,8 +1766,7 @@ function InnerMap({
     const map = mapRef.current?.getMap();
     if (map) {
       const logState = () => {
-        console.log('[InnerMap] Map style loaded');
-        console.log('[InnerMap] Available layers:', map.getStyle()?.layers?.map((l: any) => l.id));
+        // Debug logs disabled
       };
 
       if (map.isStyleLoaded()) {
@@ -1781,12 +1780,12 @@ function InnerMap({
         try {
           if (map.getLayer('markets-layer')) {
             map.on('click', 'markets-layer', (e: any) => {
-              console.log('[MapLibre Direct] markets-layer clicked!', e);
+              // Click handler attached
             });
           }
           if (map.getLayer('markets-glow-layer')) {
             map.on('click', 'markets-glow-layer', (e: any) => {
-              console.log('[MapLibre Direct] markets-glow-layer clicked!', e);
+              // Click handler attached
             });
           }
         } catch (e) {

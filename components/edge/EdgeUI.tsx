@@ -168,7 +168,6 @@ export function EdgeUI({
 
       if (parsedUrl && onUrlSearch) {
         // It's a valid market URL - fetch and display it
-        console.log('[EdgeUI] Detected market URL on Enter:', parsedUrl);
         onUrlSearch(value);
 
         // Clear the input and search query
@@ -262,7 +261,7 @@ export function EdgeUI({
               </button>
               {/* Profile Dropdown Menu - Mobile */}
               {isProfileOpen && (
-                <div className="absolute top-full right-0 mt-2 w-56 bg-[#0e0f11]/95 border border-white/10 rounded-lg shadow-2xl backdrop-blur-xl overflow-hidden z-50">
+                <div className="absolute top-full right-0 mt-2 w-56 bg-[#0e0f11] border border-white/10 rounded-lg shadow-2xl overflow-hidden z-50">
                   <div className="p-2">
                     <button
                       onClick={() => {
@@ -340,7 +339,7 @@ export function EdgeUI({
 
               {/* View Settings Popover - Mobile */}
               {isViewSettingsOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[280px] bg-[#0e0f11]/98 border border-white/10 rounded-xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+                <div className="absolute top-full left-0 mt-2 w-[280px] bg-[#0e0f11] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
                   <div className="p-3 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
 
                     {/* Section 1: Data Source (Tags) */}
@@ -647,7 +646,7 @@ export function EdgeUI({
 
               {/* View Settings Popover */}
               {isViewSettingsOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[320px] bg-[#0e0f11]/98 border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute top-full left-0 mt-2 w-[320px] bg-[#0e0f11] border border-white/10 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="p-4 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
 
                     {/* Section 1: Data Source (Tags) */}
@@ -924,7 +923,7 @@ export function EdgeUI({
             </button>
             {/* Profile Dropdown Menu */}
             {isProfileOpen && (
-              <div className="absolute top-full right-0 mt-2 w-56 bg-[#0e0f11]/95 border border-white/10 rounded-lg shadow-2xl backdrop-blur-xl overflow-hidden">
+              <div className="absolute top-full right-0 mt-2 w-56 bg-[#0e0f11] border border-white/10 rounded-lg shadow-2xl overflow-hidden">
                 <div className="p-2">
                   <button
                     onClick={() => {

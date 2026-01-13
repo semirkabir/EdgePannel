@@ -537,7 +537,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               }
             })
 
-          console.log('[MarketDetails] Found', otherMarkets.length, 'related markets for', activeMarket.platform)
+
           setRelatedMarkets(otherMarkets)
         }
       } catch (error) {
@@ -690,12 +690,10 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
       setIsLoadingHolders(true)
       try {
-        console.log('[MarketDetails] Fetching top holders for conditionId:', conditionId)
         const response = await fetch(`/api/markets/top-holders?conditionId=${conditionId}&limit=20`)
 
         if (response.ok) {
           const data = await response.json()
-          console.log('[MarketDetails] Received top holders:', data.holders?.length || 0)
           setTopHolders(data.holders || [])
         } else {
           console.error('[MarketDetails] Top holders API error:', response.status, response.statusText)
@@ -784,30 +782,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const hasEventNavigation = totalMarketsInEvent > 1
   const showOptionBadge = !!activeMarket?.rawData?.subtitle || hasEventNavigation
 
-  // Debug: Log event markets
-  useEffect(() => {
-    if (activeEvent) {
-      console.log('[MarketDetails] ActiveEvent:', {
-        id: activeEvent.id,
-        title: activeEvent.title,
-        marketsCount: activeEvent.markets?.length || 0,
-        hasMarkets: Array.isArray(activeEvent.markets),
-        markets: activeEvent.markets?.map((m: any) => ({
-          id: m.id,
-          title: m.title,
-          price: m.price,
-          volume24h: m.volume24h
-        })) || []
-      })
-      console.log('[MarketDetails] Active market:', {
-        id: activeMarket?.id,
-        slug: activeMarket?.slug,
-        ticker: activeMarket?.ticker
-      })
-    } else {
-      console.log('[MarketDetails] No activeEvent')
-    }
-  }, [activeEvent, activeMarket])
+
 
   return (
     <RightPanel

@@ -9,22 +9,26 @@ import { decrypt } from '@/lib/utils/encryption'
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // if (!session?.user?.id) {
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // }
 
     // Polymarket's public GraphQL API doesn't require authentication for reading markets
     // API key is only needed for trading operations
     // Try to get API key if available (for future trading features), but don't require it
     let apiKey: string | undefined
-    const apiKeyRecord = await prisma.apiKey.findUnique({
-      where: {
-        userId_platform: {
-          userId: session.user.id,
-          platform: 'polymarket',
+
+    let apiKeyRecord = null;
+    if (session?.user?.id) {
+      apiKeyRecord = await prisma.apiKey.findUnique({
+        where: {
+          userId_platform: {
+            userId: session.user.id,
+            platform: 'polymarket',
+          },
         },
-      },
-    })
+      })
+    }
 
     if (apiKeyRecord) {
       try {

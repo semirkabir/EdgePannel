@@ -146,6 +146,7 @@ export function CountryNewsPanel({ country, onClose, onMarketSelect }: CountryNe
       isOpen={!!country}
       onClose={onClose}
       title={activeCountry || 'Country'}
+      widthClass="w-full sm:w-[420px]"
     >
       <div className="flex flex-col h-full">
         {/* Tab Navigation */}
