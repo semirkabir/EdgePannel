@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchLargeContracts } from '@/lib/api/usaspending.ts';
+import { fetchLargeContracts } from '@/lib/api/usaspending';
 
 export async function GET() {
     // Cache for 1 hour (3600 seconds)
