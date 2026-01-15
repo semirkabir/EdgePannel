@@ -16,11 +16,30 @@ function LoginForm() {
   // Check for OAuth errors
   useEffect(() => {
     const error = searchParams.get('error')
-    if (error === 'Callback') {
-      toast.error(
-        'OAuth login failed',
-        'Database connection error. Please check DATABASE_URL in your .env file. See DATABASE_CONNECTION_FIX.md for help.'
-      )
+    if (error === 'OAuthCallback' || error === 'Callback') {
+      toast({
+        title: 'OAuth login failed',
+        description: 'There was an error with OAuth authentication. This is often caused by invalid client credentials or incorrect redirect URIs. Please check your Google OAuth setup.',
+        variant: 'error',
+      })
+    } else if (error === 'OAuthSignin') {
+      toast({
+        title: 'Sign-in error',
+        description: 'Could not construct authorization URL. Please check OAuth credentials.',
+        variant: 'error',
+      })
+    } else if (error === 'OAuthCreateAccount') {
+      toast({
+        title: 'Account creation failed',
+        description: 'Database error while creating your account. Please try again.',
+        variant: 'error',
+      })
+    } else if (error) {
+      toast({
+        title: 'Authentication error',
+        description: `Error: ${error}. Please try again or contact support.`,
+        variant: 'error',
+      })
     }
   }, [searchParams])
 

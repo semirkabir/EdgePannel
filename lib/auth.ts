@@ -45,6 +45,12 @@ export const authOptions: NextAuthOptions = {
       // Allow all sign-ins, but log OAuth sign-ins
       if (account?.provider && account.provider !== 'credentials') {
         try {
+          console.log('[Auth] OAuth sign-in attempt:', {
+            provider: account.provider,
+            email: user.email,
+            userId: user.id,
+          })
+
           // Find or create user for audit logging
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email || '' },
@@ -62,10 +68,18 @@ export const authOptions: NextAuthOptions = {
                 email: user.email,
               },
             })
+          } else {
+            console.log('[Auth] User not found in database, will be created by adapter:', user.email)
           }
         } catch (error) {
-          console.error('[Auth] Error logging OAuth sign-in:', error)
+          console.error('[Auth] Error during OAuth sign-in callback:', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            provider: account.provider,
+            email: user.email,
+          })
           // Don't block sign-in if audit logging fails
+          // The user account creation is handled by the Prisma adapter
         }
       }
       return true
