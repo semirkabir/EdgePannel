@@ -20,7 +20,7 @@ export function MarketPopupVolume({ market, volume24h, platform }: MarketPopupPr
   const eventId = platform === 'polymarket' ? getEventIdFromMarket(market) : null
   const { liveVolume, marketVolumes, isLoading } = useLiveVolume(eventId, {
     enabled: !!eventId,
-    refreshInterval: 30000, // Refresh every 30 seconds
+    refreshInterval: 60000, // Refresh every 60 seconds
   })
 
   // Fetch Open Interest for Polymarket markets
@@ -54,7 +54,7 @@ export function MarketPopupVolume({ market, volume24h, platform }: MarketPopupPr
   
   const { openInterest, isLoading: isLoadingOI } = useOpenInterest(conditionId || undefined, {
     enabled: !!conditionId && platform === 'polymarket',
-    refreshInterval: 30000,
+    refreshInterval: 60000,
   })
 
   // Format volume for display
@@ -129,4 +129,3 @@ export function MarketPopupVolume({ market, volume24h, platform }: MarketPopupPr
     </div>
   )
 }
-

@@ -23,7 +23,7 @@ export function useLiveVolume(
   eventId: number | null | undefined,
   options: UseLiveVolumeOptions = {}
 ) {
-  const { enabled = true, refreshInterval = 30000 } = options
+  const { enabled = true, refreshInterval = 60000 } = options
 
   const { data, error, isLoading, mutate } = useSWR<LiveVolumeData>(
     eventId && enabled ? `/api/markets/live-volume?eventId=${eventId}` : null,
@@ -37,9 +37,9 @@ export function useLiveVolume(
     },
     {
       refreshInterval,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      dedupingInterval: 10000, // Dedupe requests within 10 seconds
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 15000, // Dedupe requests within 15 seconds
     }
   )
 
@@ -80,4 +80,3 @@ export function getEventIdFromMarket(market: any): number | null {
 
   return null
 }
-

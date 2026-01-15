@@ -45,9 +45,9 @@ const fetcher = async <T>(url: string): Promise<T> => {
 // SWR configuration for markets - reduced polling interval (WebSocket handles real-time updates)
 const MARKETS_CONFIG = {
   refreshInterval: 60000, // 60 seconds (reduced from 30s - WebSocket handles real-time)
-  revalidateOnFocus: true,
-  revalidateOnReconnect: true,
-  dedupingInterval: 10000, // Dedupe requests within 10 seconds
+  revalidateOnFocus: false,
+  revalidateOnReconnect: false,
+  dedupingInterval: 15000, // Dedupe requests within 15 seconds
   errorRetryCount: 3,
   errorRetryInterval: 5000,
 }

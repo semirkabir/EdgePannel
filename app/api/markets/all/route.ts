@@ -8,6 +8,7 @@ import { KalshiClient } from '@/lib/api/kalshi'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { decrypt } from '@/lib/utils/encryption'
 import { getBreakingNews, getLivePredictions, getCategories, enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich'
+import { buildCacheKey, cachedFetch } from '@/lib/api/response-cache'
 
 export async function GET(request: Request) {
   try {
@@ -118,15 +119,29 @@ export async function GET(request: Request) {
     console.log(`[Markets API] Pagination params - limit: ${limit}, cursor: ${cursor || 'none'}, offset: ${offset || 'none'}`)
 
     // Get markets from both platforms with pagination (errors are handled internally)
-    const markets = await aggregator.getAllMarkets({ limit, cursor, offset })
-    const enrichedMarkets = enrichMarkets(markets)
+    const cacheKey = buildCacheKey('markets:all', [
+      kalshiClient ? 'auth' : 'public',
+      polymarketClient ? 'enabled' : 'disabled',
+      limit,
+      cursor || '',
+      offset || ''
+    ])
+    const enrichedMarkets = await cachedFetch(
+      cacheKey,
+      async () => {
+        const markets = await aggregator.getAllMarkets({ limit, cursor, offset })
+        return enrichMarkets(markets)
+      },
+      { ttlMs: 15_000, allowStaleOnError: true }
+    )
+    const markets = enrichedMarkets
 
     // Get pagination info for next page
     let nextCursor: string | undefined
     let nextOffset: number | undefined
     let hasMore = false
 
-    if (kalshiClient && markets.length > 0) {
+    if (kalshiClient && enrichedMarkets.length > 0) {
       try {
         const { markets: kalshiMarkets, nextCursor: kNextCursor } = await kalshiClient.getMarkets({ limit: 1, cursor })
         if (kNextCursor) {
@@ -138,7 +153,7 @@ export async function GET(request: Request) {
       }
     }
 
-    if (polymarketClient && markets.length > 0) {
+    if (polymarketClient && enrichedMarkets.length > 0) {
       try {
         const { markets: polymarketMarkets, hasMore: pmHasMore, nextOffset: pmNextOffset } = await polymarketClient.getMarkets({ limit: 1, offset })
         if (pmHasMore) {
@@ -212,4 +227,3 @@ export async function GET(request: Request) {
     })
   }
 }
-

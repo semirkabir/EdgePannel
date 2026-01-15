@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db/client'
 import { KalshiClient } from '@/lib/api/kalshi'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { decrypt } from '@/lib/utils/encryption'
+import { buildCacheKey, cachedFetch } from '@/lib/api/response-cache'
 
 export async function GET(request: Request) {
   try {
@@ -27,7 +28,12 @@ export async function GET(request: Request) {
       const client = new PolymarketClient()
 
       try {
-        const candlesticksMap = await client.getCandlesticksForMarkets(slugArray, interval)
+        const cacheKey = buildCacheKey('polymarket:clob:candlesticks', [slugArray.join(','), interval])
+        const candlesticksMap = await cachedFetch(
+          cacheKey,
+          () => client.getCandlesticksForMarkets(slugArray, interval),
+          { ttlMs: 60_000, allowStaleOnError: true }
+        )
         return NextResponse.json({ candlesticks: candlesticksMap })
       } catch (error: any) {
         console.error('[Polymarket Candlesticks] Error:', error.message || error)

@@ -1,4 +1,5 @@
 import { Market, MarketDetails, EventData, Candlestick } from '@/types/market'
+import { buildCacheKey, cachedJson } from '@/lib/api/response-cache'
 
 interface PolymarketCredentials {
   apiKey?: string
@@ -63,23 +64,25 @@ export class PolymarketClient {
         url.searchParams.set('question', params.search)
       }
 
-      const marketsResponse = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // Cache shorter time or no-store? code had no-store
-        cache: 'no-store', // Always get fresh data
-      })
-
-      if (!marketsResponse.ok) {
-        const errorText = await marketsResponse.text()
-        console.error('[Polymarket Client] CLOB API error:', marketsResponse.status, errorText)
+      const cacheKey = buildCacheKey('polymarket:gamma:markets', [url.toString()])
+      let markets: any[]
+      try {
+        markets = await cachedJson<any[]>(
+          cacheKey,
+          url.toString(),
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+          { ttlMs: 15_000, allowStaleOnError: true, cacheNull: true }
+        )
+      } catch (error: any) {
+        console.error('[Polymarket Client] CLOB API error:', error?.status || 'unknown', error?.message || error)
         // Don't throw - return empty array so other platforms can still work
         return { markets: [], hasMore: false, nextOffset: undefined }
       }
-
-      const markets = await marketsResponse.json()
 
       console.log(`[Polymarket Client] Received ${markets.length} markets from Gamma API`)
 
@@ -208,17 +211,17 @@ export class PolymarketClient {
    */
   private async fetchMarketTags(numericId: string | number): Promise<string[]> {
     try {
-      const response = await fetch(`https://gamma-api.polymarket.com/markets/${numericId}/tags`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        return []
-      }
-
-      const tags = await response.json()
+      const url = `https://gamma-api.polymarket.com/markets/${numericId}/tags`
+      const cacheKey = buildCacheKey('polymarket:gamma:market-tags', [numericId])
+      const tags = await cachedJson<any[]>(
+        cacheKey,
+        url,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        },
+        { ttlMs: 6 * 60 * 60 * 1000, allowStaleOnError: true, cacheNull: true }
+      )
       if (Array.isArray(tags)) {
         // Extract tag labels (e.g., "Culture", "Games", "Politics")
         return tags.map((tag: any) => tag.label).filter(Boolean)
@@ -1184,4 +1187,3 @@ export class PolymarketClient {
     return candlesticks
   }
 }
-

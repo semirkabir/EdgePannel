@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { PolymarketClient } from '@/lib/api/polymarket'
+import { buildCacheKey, cachedFetch, cachedJson } from '@/lib/api/response-cache'
 import { KalshiClient } from '@/lib/api/kalshi'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -32,43 +33,47 @@ export async function GET(request: Request) {
                 // If ID is a slug (doesn't start with 0x), try Gamma API first
                 if (!id.startsWith('0x')) {
                     try {
-                        const gammaResponse = await fetch(`https://gamma-api.polymarket.com/markets?slug=${id}`)
-                        if (gammaResponse.ok) {
-                            const markets = await gammaResponse.json()
-                            if (Array.isArray(markets) && markets.length > 0) {
-                                const market = markets[0]
-                                console.log('[History API] Market data:', {
-                                    clobTokenIds: market.clobTokenIds,
-                                    outcomes: market.outcomes
-                                })
+                        const gammaUrl = `https://gamma-api.polymarket.com/markets?slug=${id}`
+                        const gammaCacheKey = buildCacheKey('polymarket:gamma:market:slug', [id])
+                        const markets = await cachedJson<any[]>(
+                            gammaCacheKey,
+                            gammaUrl,
+                            undefined,
+                            { ttlMs: 60_000, allowStaleOnError: true, cacheNull: true }
+                        )
+                        if (Array.isArray(markets) && markets.length > 0) {
+                            const market = markets[0]
+                            console.log('[History API] Market data:', {
+                                clobTokenIds: market.clobTokenIds,
+                                outcomes: market.outcomes
+                            })
 
-                                // Try to find "Yes" token or default to first
-                                if (market.clobTokenIds) {
-                                    let tokenIds = market.clobTokenIds
+                            // Try to find "Yes" token or default to first
+                            if (market.clobTokenIds) {
+                                let tokenIds = market.clobTokenIds
 
-                                    // Parse if it's a string
-                                    if (typeof tokenIds === 'string') {
+                                // Parse if it's a string
+                                if (typeof tokenIds === 'string') {
+                                    try {
+                                        tokenIds = JSON.parse(tokenIds)
+                                    } catch (e) {
+                                        console.error('[History API] Failed to parse clobTokenIds:', e)
+                                    }
+                                }
+
+                                if (Array.isArray(tokenIds) && tokenIds.length > 0) {
+                                    let outcomes = market.outcomes || []
+                                    if (typeof outcomes === 'string') {
                                         try {
-                                            tokenIds = JSON.parse(tokenIds)
+                                            outcomes = JSON.parse(outcomes)
                                         } catch (e) {
-                                            console.error('[History API] Failed to parse clobTokenIds:', e)
+                                            outcomes = []
                                         }
                                     }
 
-                                    if (Array.isArray(tokenIds) && tokenIds.length > 0) {
-                                        let outcomes = market.outcomes || []
-                                        if (typeof outcomes === 'string') {
-                                            try {
-                                                outcomes = JSON.parse(outcomes)
-                                            } catch (e) {
-                                                outcomes = []
-                                            }
-                                        }
-
-                                        const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === 'yes')
-                                        tokenId = yesIndex >= 0 ? tokenIds[yesIndex] : tokenIds[0]
-                                        console.log('[History API] Resolved tokenId:', tokenId)
-                                    }
+                                    const yesIndex = outcomes.findIndex((o: string) => o.toLowerCase() === 'yes')
+                                    tokenId = yesIndex >= 0 ? tokenIds[yesIndex] : tokenIds[0]
+                                    console.log('[History API] Resolved tokenId:', tokenId)
                                 }
                             }
                         }
@@ -82,10 +87,14 @@ export async function GET(request: Request) {
                     try {
                         // Fetch market details from CLOB API to get the token ID
                         // The ID passed is usually the conditionId
-                        const marketResponse = await fetch(`https://clob.polymarket.com/markets/${id}`)
-
-                        if (marketResponse.ok) {
-                            const marketData = await marketResponse.json()
+                        const clobUrl = `https://clob.polymarket.com/markets/${id}`
+                        const clobCacheKey = buildCacheKey('polymarket:clob:market', [id])
+                        const marketData = await cachedJson<any>(
+                            clobCacheKey,
+                            clobUrl,
+                            undefined,
+                            { ttlMs: 60_000, allowStaleOnError: true, cacheNull: true }
+                        )
 
                             // Find the "Yes" token
                             if (marketData.tokens && Array.isArray(marketData.tokens)) {
@@ -100,7 +109,6 @@ export async function GET(request: Request) {
                                     tokenId = marketData.tokens[0].token_id
                                 }
                             }
-                        }
                     } catch (error) {
                         console.error('[History API] Error fetching market details:', error)
                     }
@@ -112,7 +120,12 @@ export async function GET(request: Request) {
             }
 
             console.log(`[History API] Fetching history for token ${tokenId} (interval: ${interval})`)
-            const history = await client.getPriceHistory(tokenId, interval)
+            const historyCacheKey = buildCacheKey('polymarket:clob:price-history', [tokenId, interval])
+            const history = await cachedFetch(
+                historyCacheKey,
+                () => client.getPriceHistory(tokenId, interval),
+                { ttlMs: 60_000, allowStaleOnError: true }
+            )
 
             return NextResponse.json({ history })
         }

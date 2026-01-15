@@ -1,4 +1,5 @@
 import { Market as AppMarket, MarketDetails } from '@/types/market'
+import { buildCacheKey, cachedJson } from '@/lib/api/response-cache'
 
 /**
  * Public Kalshi API Client - No authentication required
@@ -49,19 +50,28 @@ export class PublicKalshiClient {
       const url = `${this.baseUrl}/markets?${queryParams.toString()}`
       console.log('[Public Kalshi Client] Fetching from:', url)
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      const cacheKey = buildCacheKey('kalshi:public:markets', [
+        fetchLimit,
+        params?.cursor || '',
+        params?.event_ticker || '',
+        params?.series_ticker || '',
+        params?.status || '',
+        params?.search || ''
+      ])
+      const data = await cachedJson<any>(
+        cacheKey,
+        url,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         },
-      })
-
-      if (!response.ok) {
-        console.error('[Public Kalshi Client] HTTP error:', response.status, response.statusText)
+        { ttlMs: 15_000, allowStaleOnError: true, cacheNull: true }
+      )
+      if (!data) {
         return { markets: [], nextCursor: undefined }
       }
-
-      const data = await response.json()
       const markets = data.markets || []
       console.log(`[Public Kalshi Client] Received ${markets.length} raw markets from API`)
 
@@ -114,19 +124,21 @@ export class PublicKalshiClient {
       const url = `${this.baseUrl}/markets/${ticker}`
       console.log('[Public Kalshi Client] Fetching market:', url)
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      const cacheKey = buildCacheKey('kalshi:public:market', [ticker])
+      const data = await cachedJson<any>(
+        cacheKey,
+        url,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         },
-      })
-
-      if (!response.ok) {
-        console.error('[Public Kalshi Client] HTTP error:', response.status)
+        { ttlMs: 30_000, allowStaleOnError: true, cacheNull: true }
+      )
+      if (!data) {
         return null
       }
-
-      const data = await response.json()
       return this.transformMarket(data.market)
     } catch (error) {
       console.error('[Public Kalshi Client] Error fetching market:', error)

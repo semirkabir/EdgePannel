@@ -136,7 +136,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const eventId = activeMarket?.platform === 'polymarket' ? getEventIdFromMarket(activeMarket) : null
   const { liveVolume, isLoading: isLoadingLiveVolume } = useLiveVolume(eventId, {
     enabled: !!eventId && !!activeMarket,
-    refreshInterval: 30000,
+    refreshInterval: 60000,
   })
 
   // Fetch Open Interest for Polymarket markets
@@ -145,7 +145,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     : null
   const { openInterest, isLoading: isLoadingOI } = useOpenInterest(conditionId || undefined, {
     enabled: !!conditionId && !!activeMarket && activeMarket.platform === 'polymarket',
-    refreshInterval: 30000,
+    refreshInterval: 60000,
   })
 
   // Markets available within the current event (used for navigation)

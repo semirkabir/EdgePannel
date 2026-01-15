@@ -1,5 +1,6 @@
 import useSWR from 'swr'
 import { useSession } from 'next-auth/react'
+import { useCallback, useEffect, useRef } from 'react'
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
@@ -36,20 +37,39 @@ export function useUserSettings() {
     )
 
     const preferences: UserPreferences = data?.preferences || defaultPreferences
+    const preferencesRef = useRef<UserPreferences>(preferences)
+    const pendingPrefsRef = useRef<UserPreferences | null>(null)
+    const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    const updatePreferences = async (newPrefs: Partial<UserPreferences>) => {
-        if (status !== 'authenticated') return
+    useEffect(() => {
+        preferencesRef.current = preferences
+    }, [preferences])
 
-        const updatedPrefs = { ...preferences, ...newPrefs }
+    useEffect(() => {
+        return () => {
+            if (flushTimerRef.current) {
+                clearTimeout(flushTimerRef.current)
+                flushTimerRef.current = null
+            }
+        }
+    }, [])
 
-        // Optimistic update
-        mutate({ preferences: updatedPrefs }, false)
+    const flushPending = useCallback(async () => {
+        if (status !== 'authenticated') {
+            pendingPrefsRef.current = null
+            return
+        }
+
+        const pending = pendingPrefsRef.current
+        if (!pending) return
+
+        pendingPrefsRef.current = null
 
         try {
             const response = await fetch('/api/user/preferences', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ preferences: updatedPrefs })
+                body: JSON.stringify({ preferences: pending })
             })
 
             if (!response.ok) throw new Error('Failed to update preferences')
@@ -61,6 +81,25 @@ export function useUserSettings() {
             // Revert on error
             mutate()
         }
+    }, [status, mutate])
+
+    const updatePreferences = async (newPrefs: Partial<UserPreferences>) => {
+        if (status !== 'authenticated') return
+        const basePrefs = pendingPrefsRef.current || preferencesRef.current || defaultPreferences
+        const updatedPrefs = { ...basePrefs, ...newPrefs }
+        pendingPrefsRef.current = updatedPrefs
+
+        // Optimistic update
+        mutate({ preferences: updatedPrefs }, false)
+
+        if (flushTimerRef.current) {
+            clearTimeout(flushTimerRef.current)
+        }
+
+        flushTimerRef.current = setTimeout(() => {
+            flushTimerRef.current = null
+            void flushPending()
+        }, 500)
     }
 
     return {

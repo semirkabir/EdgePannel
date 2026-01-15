@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db/client'
 import { KalshiClient } from '@/lib/api/kalshi'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { decrypt } from '@/lib/utils/encryption'
+import { buildCacheKey, cachedFetch } from '@/lib/api/response-cache'
 
 export async function GET(request: Request) {
   try {
@@ -25,7 +26,12 @@ export async function GET(request: Request) {
       const client = new PolymarketClient()
 
       try {
-        const eventData = await client.getEventDetails(slug)
+        const cacheKey = buildCacheKey('polymarket:gamma:event-details', [slug])
+        const eventData = await cachedFetch(
+          cacheKey,
+          () => client.getEventDetails(slug),
+          { ttlMs: 60_000, allowStaleOnError: true }
+        )
         return NextResponse.json({ eventData })
       } catch (error: any) {
         console.error('[Polymarket Event Details] Error:', error.message || error)

@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
+import { buildCacheKey, cachedJson } from '@/lib/api/response-cache'
 
 /**
  * Get Open Interest for Polymarket markets
@@ -31,20 +32,24 @@ export async function GET(request: Request) {
         params.append('market', id.toLowerCase())
       })
 
-      const response = await fetch(`${apiUrl}?${params.toString()}`, {
-        next: { revalidate: 30 }, // Cache for 30 seconds
-      })
-
-      if (!response.ok) {
-        console.warn('[Open Interest] API error:', response.status, response.statusText)
+      const url = `${apiUrl}?${params.toString()}`
+      const cacheKey = buildCacheKey('polymarket:data:open-interest:batch', [marketIds.join(',')])
+      let data: Array<{ market: string; value: number }>
+      try {
+        data = await cachedJson<Array<{ market: string; value: number }>>(
+          cacheKey,
+          url,
+          undefined,
+          { ttlMs: 15_000, allowStaleOnError: true }
+        )
+      } catch (error: any) {
+        console.warn('[Open Interest] API error:', error?.status || 'unknown', error?.message || error)
         return NextResponse.json({
           success: true,
           openInterest: {},
           message: 'Open interest data temporarily unavailable',
         })
       }
-
-      const data: Array<{ market: string; value: number }> = await response.json()
 
       // Convert array to object keyed by market ID
       const result: Record<string, { yesOI: number; noOI: number; totalOI: number }> = {}
@@ -69,20 +74,24 @@ export async function GET(request: Request) {
       const normalizedMarketId = marketId.toLowerCase()
       const params = new URLSearchParams({ market: normalizedMarketId })
 
-      const response = await fetch(`${apiUrl}?${params.toString()}`, {
-        next: { revalidate: 30 }, // Cache for 30 seconds
-      })
-
-      if (!response.ok) {
-        console.warn('[Open Interest] API error:', response.status, response.statusText)
+      const url = `${apiUrl}?${params.toString()}`
+      const cacheKey = buildCacheKey('polymarket:data:open-interest', [normalizedMarketId])
+      let data: Array<{ market: string; value: number }>
+      try {
+        data = await cachedJson<Array<{ market: string; value: number }>>(
+          cacheKey,
+          url,
+          undefined,
+          { ttlMs: 15_000, allowStaleOnError: true }
+        )
+      } catch (error: any) {
+        console.warn('[Open Interest] API error:', error?.status || 'unknown', error?.message || error)
         return NextResponse.json({
           success: true,
           openInterest: null,
           message: 'Open interest data not available for this market',
         })
       }
-
-      const data: Array<{ market: string; value: number }> = await response.json()
 
       if (!data || data.length === 0) {
         return NextResponse.json({
@@ -121,4 +130,3 @@ export async function GET(request: Request) {
     )
   }
 }
-

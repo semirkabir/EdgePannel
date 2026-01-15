@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
+import { buildCacheKey, cachedJson } from '@/lib/api/response-cache'
 
 export async function GET(request: Request) {
   try {
@@ -27,34 +28,38 @@ export async function GET(request: Request) {
 
         // Get related tags by tag ID
         const relatedTagsUrl = `https://gamma-api.polymarket.com/tags/${tagId}/related-tags/tags`
-        const relatedTagsResponse = await fetch(relatedTagsUrl, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store',
-        })
-
-        if (relatedTagsResponse.ok) {
-          const relatedTags = await relatedTagsResponse.json()
-          if (Array.isArray(relatedTags)) {
-            // Extract tag IDs from related tags
-            relatedTagIds = relatedTags
-              .map((tag: any) => tag.id)
-              .filter((id: any) => id != null && id !== primaryTagId) // Exclude the primary tag itself
-              .slice(0, 5) // Limit to top 5 related tags
-          }
+        const relatedTagsCacheKey = buildCacheKey('polymarket:gamma:tags:related', [tagId])
+        const relatedTags = await cachedJson<any[]>(
+          relatedTagsCacheKey,
+          relatedTagsUrl,
+          {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          },
+          { ttlMs: 300_000, allowStaleOnError: true, cacheNull: true }
+        )
+        if (Array.isArray(relatedTags)) {
+          // Extract tag IDs from related tags
+          relatedTagIds = relatedTags
+            .map((tag: any) => tag.id)
+            .filter((id: any) => id != null && id !== primaryTagId) // Exclude the primary tag itself
+            .slice(0, 5) // Limit to top 5 related tags
         }
       } else if (tagSlug) {
         // First, try to get the tag by slug to get its ID
         try {
           const tagUrl = `https://gamma-api.polymarket.com/tags/slug/${tagSlug}`
-          const tagResponse = await fetch(tagUrl, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            cache: 'no-store',
-          })
-
-          if (tagResponse.ok) {
-            const tag = await tagResponse.json()
+          const tagCacheKey = buildCacheKey('polymarket:gamma:tags:slug', [tagSlug])
+          const tag = await cachedJson<any>(
+            tagCacheKey,
+            tagUrl,
+            {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' },
+            },
+            { ttlMs: 300_000, allowStaleOnError: true, cacheNull: true }
+          )
+          if (tag) {
             primaryTagId = tag.id
           }
         } catch (e) {
@@ -63,20 +68,21 @@ export async function GET(request: Request) {
 
         // Get related tags by tag slug
         const relatedTagsUrl = `https://gamma-api.polymarket.com/tags/slug/${tagSlug}/related-tags/tags`
-        const relatedTagsResponse = await fetch(relatedTagsUrl, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store',
-        })
-
-        if (relatedTagsResponse.ok) {
-          const relatedTags = await relatedTagsResponse.json()
-          if (Array.isArray(relatedTags)) {
-            relatedTagIds = relatedTags
-              .map((tag: any) => tag.id)
-              .filter((id: any) => id != null && id !== primaryTagId) // Exclude the primary tag itself
-              .slice(0, 5)
-          }
+        const relatedTagsCacheKey = buildCacheKey('polymarket:gamma:tags:related:slug', [tagSlug])
+        const relatedTags = await cachedJson<any[]>(
+          relatedTagsCacheKey,
+          relatedTagsUrl,
+          {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          },
+          { ttlMs: 300_000, allowStaleOnError: true, cacheNull: true }
+        )
+        if (Array.isArray(relatedTags)) {
+          relatedTagIds = relatedTags
+            .map((tag: any) => tag.id)
+            .filter((id: any) => id != null && id !== primaryTagId) // Exclude the primary tag itself
+            .slice(0, 5)
         }
       }
     } catch (error) {
@@ -99,16 +105,18 @@ export async function GET(request: Request) {
       try {
         // Fetch markets by tag ID
         const marketsUrl = `https://gamma-api.polymarket.com/markets?tags=${tagIdToSearch}&limit=10&closed=false&order=volume&ascending=false`
-        const marketsResponse = await fetch(marketsUrl, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store',
-        })
-
-        if (marketsResponse.ok) {
-          const markets = await marketsResponse.json()
-          if (Array.isArray(markets)) {
-            for (const market of markets) {
+        const marketsCacheKey = buildCacheKey('polymarket:gamma:markets:tags', [tagIdToSearch])
+        const markets = await cachedJson<any[]>(
+          marketsCacheKey,
+          marketsUrl,
+          {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          },
+          { ttlMs: 30_000, allowStaleOnError: true, cacheNull: true }
+        )
+        if (Array.isArray(markets)) {
+          for (const market of markets) {
               const marketId = market.conditionId || market.id?.toString()
               // Exclude the current market and avoid duplicates
               if (marketId && marketId !== excludeMarketId && !seenMarketIds.has(marketId)) {
@@ -144,7 +152,6 @@ export async function GET(request: Request) {
                 })
               }
             }
-          }
         }
       } catch (error) {
         console.error(`[Related Markets API] Error fetching markets for tag ${tagIdToSearch}:`, error)

@@ -16,6 +16,10 @@ export function Providers({ children }: ProvidersProps) {
     <ErrorBoundary>
       <SWRConfig
         value={{
+          revalidateOnFocus: false,
+          revalidateOnReconnect: false,
+          dedupingInterval: 10000,
+          focusThrottleInterval: 30000,
           onError: (error, key) => {
             // Don't show toast for 401 errors (user might not be logged in)
             if (error?.status === 401) return
@@ -48,4 +52,3 @@ export function Providers({ children }: ProvidersProps) {
     </ErrorBoundary>
   )
 }
-

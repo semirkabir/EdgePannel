@@ -175,8 +175,56 @@ export default function EdgePage() {
   // Use geotagged markets if available AND no error, otherwise fall back to search results
   // If geotagged has error or returns 0 results, use fallback
   const shouldUseFallback = geotaggedError || geotaggedTotal === 0;
-  const mapFilteredMarkets = shouldUseFallback ? fallbackMarkets : geotaggedMarkets;
-  const isMapFiltering = shouldUseFallback ? isFallbackLoading : isGeotaggedLoading;
+
+  const geotaggedKalshiCount = useMemo(() => {
+    return geotaggedMarkets.filter(m => m.platform === 'kalshi').length;
+  }, [geotaggedMarkets]);
+
+  const shouldAddKalshiFallback = !shouldUseFallback
+    && (selectedPlatform === 'kalshi' || selectedPlatform === 'all')
+    && geotaggedKalshiCount === 0;
+
+  const kalshiFallbackEvents = useMemo(() => {
+    if (!shouldAddKalshiFallback) return [];
+
+    return fallbackMarkets
+      .filter(m => m.platform === 'kalshi')
+      .filter(m => m.location?.coordinates)
+      .map(m => ({
+        ...m,
+        id: m.id,
+        eventId: `single_kalshi_${m.id}`,
+        isEvent: true,
+        marketCount: 1,
+        markets: [
+          {
+            id: m.id,
+            marketId: (m as any).marketId,
+            title: m.title,
+            slug: m.slug,
+            ticker: m.ticker,
+            probability: m.probability,
+            price: m.price,
+            volume24h: m.volume24h,
+            liquidity: m.liquidity,
+            outcomes: m.outcomes,
+            outcomePrices: m.outcomePrices,
+            endDate: m.endDate,
+            platform: m.platform,
+            image: (m as any).image,
+            rawData: m.rawData,
+          }
+        ],
+      }));
+  }, [shouldAddKalshiFallback, fallbackMarkets]);
+
+  const mapFilteredMarkets = shouldUseFallback
+    ? fallbackMarkets
+    : (shouldAddKalshiFallback ? [...geotaggedMarkets, ...kalshiFallbackEvents] : geotaggedMarkets);
+
+  const isMapFiltering = shouldUseFallback
+    ? isFallbackLoading
+    : (isGeotaggedLoading || (shouldAddKalshiFallback && isFallbackLoading));
 
   // Initialize Whale Trades with the currently displayed markets
   const { processTicker, unreadCount: whaleUnreadCount } = useWhaleTrades({
@@ -189,8 +237,24 @@ export default function EdgePage() {
 
   // Setup WebSocket for live updates on displayed markets
   const marketIds = useMemo(() => {
-    return mapFilteredMarkets.slice(0, 100).map(m => m.id); // Limit to top 100 for WS performance
-  }, [mapFilteredMarkets]);
+    const ids = new Set(mapFilteredMarkets.slice(0, 100).map(m => m.id)) // Limit to top 100 for WS performance
+
+    if (selectedMarket) {
+      const isEventData = (selectedMarket as any).isEvent === true && Array.isArray((selectedMarket as any).markets)
+      if (isEventData) {
+        const eventMarkets = (selectedMarket as any).markets.slice(0, 5)
+        eventMarkets.forEach((m: any) => {
+          const marketId = m?.id || m?.conditionId || m?.marketId
+          if (marketId) ids.add(marketId)
+        })
+      } else {
+        const marketId = (selectedMarket as any).id || (selectedMarket as any).conditionId || (selectedMarket as any).marketId
+        if (marketId) ids.add(marketId)
+      }
+    }
+
+    return Array.from(ids)
+  }, [mapFilteredMarkets, selectedMarket]);
 
   const { getMarketUpdate } = useMarketWebSocket({
     watchlistMarketIds: marketIds,
@@ -217,6 +281,44 @@ export default function EdgePage() {
       return m;
     });
   }, [mapFilteredMarkets, getMarketUpdate]);
+
+  const liveSelectedMarket = useMemo(() => {
+    if (!selectedMarket) return null
+
+    const isEventData = (selectedMarket as any).isEvent === true && Array.isArray((selectedMarket as any).markets)
+    if (isEventData) {
+      const updatedMarkets = (selectedMarket as any).markets.map((m: any) => {
+        const marketId = m?.id || m?.conditionId || m?.marketId
+        if (!marketId) return m
+        const update = getMarketUpdate(marketId)
+        if (!update) return m
+        return {
+          ...m,
+          price: update.price ?? m.price,
+          volume24h: update.volume24h ?? m.volume24h,
+          probability: update.price ?? m.probability,
+        }
+      })
+
+      return {
+        ...selectedMarket,
+        markets: updatedMarkets,
+      }
+    }
+
+    const marketId = (selectedMarket as any).id || (selectedMarket as any).conditionId || (selectedMarket as any).marketId
+    if (!marketId) return selectedMarket
+
+    const update = getMarketUpdate(marketId)
+    if (!update) return selectedMarket
+
+    return {
+      ...selectedMarket,
+      price: update.price ?? selectedMarket.price,
+      volume24h: update.volume24h ?? selectedMarket.volume24h,
+      probability: update.price ?? selectedMarket.probability,
+    }
+  }, [selectedMarket, getMarketUpdate]);
 
   // Convert map filtered markets to GeoJSON features for override
   // Use eventsToGeoJSON since geotagged API now returns events (grouped markets)
@@ -622,7 +724,7 @@ export default function EdgePage() {
       {viewMode !== 'insights' && viewMode !== 'hub' && (
         <>
           <MarketDetails
-            market={selectedMarket as any}
+            market={liveSelectedMarket as any}
             onClose={() => setSelectedMarket(null)}
           />
 
@@ -682,9 +784,6 @@ export default function EdgePage() {
     </div>
   );
 }
-
-
-
 
 
 

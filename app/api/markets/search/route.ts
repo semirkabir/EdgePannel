@@ -9,6 +9,7 @@ import { KalshiOptimizedClient } from '@/lib/api/kalshi-optimized'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { decrypt } from '@/lib/utils/encryption'
 import { enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich'
+import { buildCacheKey, cachedJson } from '@/lib/api/response-cache'
 
 interface SearchParams {
   q?: string
@@ -177,14 +178,18 @@ export async function GET(request: Request) {
         const searchUrl = `https://api.polymarket.com/search?query=${encodeURIComponent(params.q)}&limit=${safeLimit}`
 
         try {
-          const response = await fetch(searchUrl, {
-            headers: {
-              'Accept': 'application/json'
-            }
-          })
-
-          if (response.ok) {
-            const data = await response.json()
+          const cacheKey = buildCacheKey('polymarket:search', [params.q, safeLimit])
+          const data = await cachedJson<any>(
+            cacheKey,
+            searchUrl,
+            {
+              headers: {
+                'Accept': 'application/json'
+              }
+            },
+            { ttlMs: 10_000, allowStaleOnError: true, cacheNull: true }
+          )
+          if (data) {
             // Extract markets from search results
             const polymarkets = (data.markets || []).map((m: any) => {
               // Polymarket uses 'tags' array for categorization, with first tag being primary category
@@ -384,4 +389,3 @@ export async function GET(request: Request) {
     )
   }
 }
-

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { buildCacheKey, cachedJson } from '@/lib/api/response-cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,13 +37,16 @@ export async function GET(request: Request) {
           : `https://gamma-api.polymarket.com/markets?slug=${slug}&limit=1`
 
         console.log('[Comments API] Fetching market data from:', marketUrl)
-        const marketResponse = await fetch(marketUrl, {
-          headers: { 'Accept': 'application/json' },
-          next: { revalidate: 300 } // Cache market metadata for 5 minutes
-        })
-
-        if (marketResponse.ok) {
-          const marketData = await marketResponse.json()
+        const marketCacheKey = buildCacheKey('polymarket:gamma:market:comments', [conditionId || '', slug || ''])
+        const marketData = await cachedJson<any>(
+          marketCacheKey,
+          marketUrl,
+          {
+            headers: { 'Accept': 'application/json' },
+          },
+          { ttlMs: 300_000, allowStaleOnError: true, cacheNull: true }
+        )
+        if (marketData) {
           const market = Array.isArray(marketData) ? marketData[0] : marketData
 
           if (market) {
@@ -65,13 +69,16 @@ export async function GET(request: Request) {
         const commentsUrl = `https://gamma-api.polymarket.com/comments?limit=${limit}&offset=0&parent_entity_type=Event&parent_entity_id=${eventId}`
         console.log('[Comments API] Fetching comments from:', commentsUrl)
 
-        const commentsResponse = await fetch(commentsUrl, {
-          headers: { 'Accept': 'application/json' },
-          next: { revalidate: 60 } // Cache for 60 seconds
-        })
-
-        if (commentsResponse.ok) {
-          const comments = await commentsResponse.json()
+        const commentsCacheKey = buildCacheKey('polymarket:gamma:comments', [eventId, limit])
+        const comments = await cachedJson<any[]>(
+          commentsCacheKey,
+          commentsUrl,
+          {
+            headers: { 'Accept': 'application/json' },
+          },
+          { ttlMs: 30_000, allowStaleOnError: true, cacheNull: true }
+        )
+        if (comments) {
           console.log('[Comments API] Received', comments.length, 'comments')
 
           // Transform comments to simpler format

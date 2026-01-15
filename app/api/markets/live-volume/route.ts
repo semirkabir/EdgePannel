@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
+import { buildCacheKey, cachedJson } from '@/lib/api/response-cache'
 
 /**
  * Fetches live volume for a Polymarket event
@@ -27,26 +28,18 @@ export async function GET(request: Request) {
     }
 
     // Fetch live volume from Polymarket Data API
-    const response = await fetch(
-      `https://data-api.polymarket.com/live-volume?id=${eventIdNum}`,
+    const url = `https://data-api.polymarket.com/live-volume?id=${eventIdNum}`
+    const cacheKey = buildCacheKey('polymarket:data:live-volume', [eventIdNum])
+    const data = await cachedJson<any[]>(
+      cacheKey,
+      url,
       {
         headers: {
           'Accept': 'application/json',
         },
-        // Cache for 30 seconds
-        next: { revalidate: 30 },
-      }
+      },
+      { ttlMs: 15_000, allowStaleOnError: true }
     )
-
-    if (!response.ok) {
-      console.error(`[Live Volume] Polymarket API error: ${response.status} ${response.statusText}`)
-      return NextResponse.json(
-        { error: 'Failed to fetch live volume from Polymarket' },
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
 
     // Polymarket returns an array with one object containing total and markets
     if (Array.isArray(data) && data.length > 0) {
@@ -74,4 +67,3 @@ export async function GET(request: Request) {
     )
   }
 }
-

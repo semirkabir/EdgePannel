@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { buildCacheKey, cachedJson } from '@/lib/api/response-cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,22 +28,27 @@ export async function GET(request: Request) {
     const apiUrl = `https://data-api.polymarket.com/holders?market=${conditionId}&limit=${limit}`
     console.log('[Top Holders API] Fetching from:', apiUrl)
 
-    const response = await fetch(apiUrl, {
-      headers: {
-        'Accept': 'application/json'
-      }
-    })
-
-    if (!response.ok) {
-      console.error('[Top Holders API] API error:', response.status, response.statusText)
+    const cacheKey = buildCacheKey('polymarket:data:holders', [conditionId, limit])
+    let data: any
+    try {
+      data = await cachedJson<any>(
+        cacheKey,
+        apiUrl,
+        {
+          headers: {
+            'Accept': 'application/json'
+          }
+        },
+        { ttlMs: 60_000, allowStaleOnError: true }
+      )
+    } catch (error: any) {
+      console.error('[Top Holders API] API error:', error?.status || 'unknown', error?.message || error)
       return NextResponse.json({
         holders: [],
         total: 0,
-        error: `API returned ${response.status}: ${response.statusText}`
+        error: 'Failed to fetch holders from Polymarket'
       })
     }
-
-    const data = await response.json()
     console.log('[Top Holders API] Received tokens:', data.length || 0)
 
     // The API returns an array of tokens (one for each outcome)

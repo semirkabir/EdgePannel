@@ -18,7 +18,7 @@ export function MarketDetailModal({ market, isOpen, onClose }: MarketDetailModal
   const eventId = market?.platform === 'polymarket' ? getEventIdFromMarket(market) : null
   const { liveVolume, isLoading: isLoadingLiveVolume } = useLiveVolume(eventId, {
     enabled: !!eventId && !!market && isOpen,
-    refreshInterval: 30000,
+    refreshInterval: 60000,
   })
 
   useEffect(() => {

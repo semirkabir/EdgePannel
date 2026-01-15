@@ -22,7 +22,7 @@ export function useOpenInterest(
   marketId: string | null | undefined,
   options: UseOpenInterestOptions = {}
 ) {
-  const { enabled = true, refreshInterval = 30000 } = options
+  const { enabled = true, refreshInterval = 60000 } = options
 
   const { data, error, isLoading, mutate } = useSWR<OpenInterestData | null>(
     marketId && enabled ? `/api/markets/open-interest?marketId=${marketId}` : null,
@@ -55,9 +55,9 @@ export function useOpenInterest(
     },
     {
       refreshInterval,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      dedupingInterval: 10000,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 15000,
       shouldRetryOnError: true,
       errorRetryCount: 3,
       onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
@@ -87,4 +87,3 @@ export function useOpenInterest(
 }
 
 // Removed useMultipleOpenInterest - not used anywhere in the codebase
-
