@@ -91,6 +91,7 @@ export interface EventData {
   dateRangeEnd: string
   active: boolean
   closed: boolean
+  tags?: string[]
   searchQueries?: SearchQueries
   rankedArticles?: RankedArticle[]
 }
@@ -103,4 +104,3 @@ export interface Candlestick {
   close: number
   volume: number
 }
-
