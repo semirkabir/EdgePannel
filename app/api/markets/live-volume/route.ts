@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     // Fetch live volume from Polymarket Data API
     const url = `https://data-api.polymarket.com/live-volume?id=${eventIdNum}`
     const cacheKey = buildCacheKey('polymarket:data:live-volume', [eventIdNum])
-    const data = await cachedJson<any[]>(
+    const data = await cachedJson<unknown>(
       cacheKey,
       url,
       {
@@ -53,10 +53,11 @@ export async function GET(request: Request) {
     }
 
     // Fallback if structure is different
+    const volumeData = (data && typeof data === 'object') ? (data as any) : {}
     return NextResponse.json({
       success: true,
-      total: data.total || 0,
-      markets: data.markets || [],
+      total: volumeData.total || 0,
+      markets: volumeData.markets || [],
       eventId: eventIdNum,
     })
   } catch (error: any) {

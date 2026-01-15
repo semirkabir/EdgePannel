@@ -34,13 +34,20 @@ function isFresh(entry: CacheEntry<unknown>, now: number): boolean {
   return entry.expiresAt > now
 }
 
-async function readCache<T>(key: string): Promise<CacheEntry<T> | null> {
+async function readCache<T>(
+  key: string,
+  options: { allowStale?: boolean } = {}
+): Promise<CacheEntry<T> | null> {
+  const allowStale = options.allowStale === true
   const now = Date.now()
   const memory = memoryCache.get(key)
-  if (memory && isFresh(memory, now)) {
-    return memory as CacheEntry<T>
-  }
   if (memory) {
+    if (isFresh(memory, now)) {
+      return memory as CacheEntry<T>
+    }
+    if (allowStale) {
+      return memory as CacheEntry<T>
+    }
     memoryCache.delete(key)
   }
 
@@ -53,9 +60,14 @@ async function readCache<T>(key: string): Promise<CacheEntry<T> | null> {
   try {
     const parsed = JSON.parse(raw) as CacheEntry<T>
     if (!parsed || typeof parsed.expiresAt !== 'number') return null
-    if (!isFresh(parsed, now)) return null
-    memoryCache.set(key, parsed as CacheEntry<unknown>)
-    return parsed
+    if (isFresh(parsed, now)) {
+      memoryCache.set(key, parsed as CacheEntry<unknown>)
+      return parsed
+    }
+    if (allowStale) {
+      return parsed
+    }
+    return null
   } catch {
     return null
   }
@@ -99,6 +111,7 @@ export async function cachedFetch<T>(
 
   const promise = (async () => {
     const cached = await readCache<T>(key)
+    const stale = allowStaleOnError ? await readCache<T>(key, { allowStale: true }) : null
     if (cached) {
       return cached.value
     }
@@ -112,8 +125,8 @@ export async function cachedFetch<T>(
       }
       return value
     } catch (error) {
-      if (allowStaleOnError && cached) {
-        return cached.value
+      if (allowStaleOnError && stale) {
+        return stale.value
       }
       throw error
     } finally {
