@@ -133,6 +133,7 @@ export interface DetailedMarketStatus {
   isOpen: boolean; // True if in regular trading hours
   isExtendedHours: boolean; // True if in pre or post market
   nextStatusText: string; // e.g., "Closes in" or "Opens in"
+  minutesUntilNextStatus: number; // Raw minutes until the next status change
   timeUntilNextStatus: string; // e.g., "2h 15m"
   localOpenTime: string; // Open time in user's timezone
   localCloseTime: string; // Close time in user's timezone
