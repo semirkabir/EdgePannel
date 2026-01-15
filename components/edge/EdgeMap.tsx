@@ -1138,7 +1138,7 @@ function InnerMap({
       ...f,
       properties: {
         ...f.properties,
-        icon: FEED_ICON_MAP['FINANCE'] || '📈'
+        icon: FEED_ICON_MAP['FINANCE'] || 'icon-finance'
       }
     }));
 
@@ -1396,31 +1396,27 @@ function InnerMap({
     source: 'exchanges',
     type: 'symbol',
     layout: {
-      'text-field': ['get', 'icon'],
-      'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-      'text-size': [
+      'icon-image': ['get', 'icon'],
+      'icon-size': [
         'interpolate',
         ['linear'],
         ['coalesce', ['get', 'totalMarketCap'], 0],
-        0, 18,
-        1000000000000, 22,    // $1T
-        10000000000000, 28,   // $10T
-        50000000000000, 34    // $50T
+        0, 0.6,
+        1000000000000, 0.75,    // $1T
+        10000000000000, 0.95,   // $10T
+        50000000000000, 1.1     // $50T
       ],
-      'text-anchor': 'center',
-      'text-allow-overlap': true,
-      'text-ignore-placement': true
+      'icon-anchor': 'center',
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true
     },
     paint: {
-      'text-color': [
+      'icon-color': [
         'case',
         ['get', 'isOpen'], '#34d399',  // Emerald 400 for open
         '#94a3b8'                       // Slate 400 for closed
       ],
-      'text-halo-color': '#ffffff',
-      'text-halo-width': 1.5,
-      'text-halo-blur': 1,
-      'text-opacity': 0.95
+      'icon-opacity': 0.95
     }
   };
 

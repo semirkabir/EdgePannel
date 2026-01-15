@@ -34,6 +34,49 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   'Other': <LayoutGrid className="w-3 h-3" />
 }
 
+const CATEGORY_NAME_MAP = new Map(
+  Object.keys(CATEGORY_ICONS).map(key => [key.toLowerCase(), key])
+)
+
+const CATEGORY_ALIASES: Record<string, string> = {
+  sport: 'Sports',
+  sports: 'Sports',
+  economy: 'Economics',
+  economic: 'Economics',
+  finance: 'Economics',
+  politics: 'Politics',
+  entertainment: 'Entertainment',
+  tech: 'Technology',
+  technology: 'Technology',
+  weather: 'Weather',
+  health: 'Health',
+  international: 'International',
+  general: 'General',
+}
+
+const SPORTS_KEYWORDS = [
+  'sport',
+  'sports',
+  'nfl',
+  'nba',
+  'mlb',
+  'nhl',
+  'soccer',
+  'football',
+  'tennis',
+  'golf',
+  'cricket',
+  'f1',
+  'formula',
+  'nascar',
+  'ufc',
+  'mma',
+  'boxing',
+  'olympic',
+  'world cup',
+  'championship',
+]
+
 interface MarketDetailsProps {
   market: MarketDetailsType | any | null // Can be a market or an event object
   onClose: () => void
@@ -127,6 +170,99 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     activeExchange?.id || null,
     !!activeExchange
   )
+
+  const displayTags = useMemo(() => {
+    const tags: string[] = []
+    const seen = new Set<string>()
+
+    const addTag = (value: string) => {
+      const trimmed = value.trim()
+      if (!trimmed) return
+      const key = trimmed.toLowerCase()
+      if (seen.has(key)) return
+      seen.add(key)
+      tags.push(trimmed)
+    }
+
+    const toTitleCase = (value: string) =>
+      value
+        .split(' ')
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ')
+
+    const normalizeTag = (value: string) => {
+      const raw = value.replace(/[_-]+/g, ' ').trim()
+      if (!raw) return ''
+      return raw === raw.toLowerCase() ? toTitleCase(raw) : raw
+    }
+
+    const collect = (items: any[] | undefined | null) => {
+      if (!items || !Array.isArray(items)) return
+      items.forEach((t) => {
+        if (!t) return
+        if (typeof t === 'string') {
+          addTag(normalizeTag(t))
+          return
+        }
+        if (typeof t === 'object') {
+          const label = t.label || t.name || t.slug || t.id
+          if (label) addTag(normalizeTag(String(label)))
+        }
+      })
+    }
+
+    collect(activeMarket?.rawData?.tags)
+    collect(activeMarket?.rawData?.events?.[0]?.tags)
+    collect(activeMarket?.rawData?.event?.tags)
+    collect(activeMarket?.eventData?.tags)
+    collect(activeMarket?.tags as any[])
+    collect(activeEvent?.tags)
+
+    return tags
+  }, [activeMarket?.rawData?.tags, activeMarket?.rawData?.events, activeMarket?.rawData?.event, activeMarket?.eventData?.tags, activeMarket?.tags, activeEvent?.tags])
+
+  useEffect(() => {
+    if (!activeMarket || activeMarket.platform !== 'polymarket') return
+
+    const hasExistingTags =
+      (Array.isArray(activeMarket.rawData?.tags) && activeMarket.rawData?.tags.length > 0) ||
+      (Array.isArray(activeMarket.tags) && activeMarket.tags.length > 0)
+
+    if (hasExistingTags) return
+
+    const marketId = activeMarket.rawData?.numericId || activeMarket.id
+    if (!marketId) return
+
+    let cancelled = false
+
+    const fetchTags = async () => {
+      try {
+        const res = await fetch(`/api/markets/${marketId}/tags`, { method: 'GET' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!data?.tags || !Array.isArray(data.tags) || data.tags.length === 0) return
+        if (cancelled) return
+
+        setActiveMarket(prev => prev ? ({
+          ...prev,
+          tags: data.tags,
+          rawData: {
+            ...prev.rawData,
+            tags: data.tags,
+          }
+        }) : prev)
+      } catch (error) {
+        console.warn('[MarketDetails] Failed to fetch Polymarket tags', error)
+      }
+    }
+
+    fetchTags()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeMarket?.id, activeMarket?.rawData?.numericId, activeMarket?.platform, activeMarket?.rawData?.tags, activeMarket?.tags])
 
   useEffect(() => {
     if (market) {
@@ -773,9 +909,27 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
   // Get category with proper capitalization
   const getCategory = () => {
+    const resolveCategory = (value: string) => {
+      const lower = value.toLowerCase()
+      if (CATEGORY_ALIASES[lower]) return CATEGORY_ALIASES[lower]
+      const direct = CATEGORY_NAME_MAP.get(lower)
+      if (direct) return direct
+      const title = lower.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      return CATEGORY_NAME_MAP.get(title.toLowerCase()) || title
+    }
+
+    const tagText = displayTags.map(tag => tag.toLowerCase()).join(' ')
+    if (SPORTS_KEYWORDS.some(keyword => tagText.includes(keyword))) {
+      return 'Sports'
+    }
+
+    for (const tag of displayTags) {
+      const resolved = resolveCategory(tag)
+      if (resolved && CATEGORY_ICONS[resolved]) return resolved
+    }
+
     if (!activeMarket?.category) return null
-    const category = activeMarket.category.charAt(0).toUpperCase() + activeMarket.category.slice(1)
-    return category
+    return resolveCategory(activeMarket.category)
   }
 
   const category = getCategory()
@@ -874,6 +1028,19 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-md text-[10px] font-medium text-purple-300">
                 {CATEGORY_ICONS[category] || <LayoutGrid className="w-2.5 h-2.5" />}
                 {category}
+              </span>
+            )}
+            {displayTags.slice(0, 4).map(tag => (
+              <span
+                key={tag}
+                className="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[10px] font-medium text-gray-200"
+              >
+                {tag}
+              </span>
+            ))}
+            {displayTags.length > 4 && (
+              <span className="text-[10px] text-gray-400">
+                +{displayTags.length - 4}
               </span>
             )}
             {(activeMarket as any)?.updatedAt && (

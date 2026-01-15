@@ -94,12 +94,13 @@ const LOCATION_KEYS = Object.keys(LOCATION_COORDINATES);
 const LOCATION_FIRST_WORD_MAP = new Map<string, string[]>();
 
 LOCATION_KEYS.forEach(key => {
-  const words = key.toLowerCase().split(/\s+/);
+  const safeKey = typeof key === 'string' ? key : String(key);
+  const words = safeKey.toLowerCase().split(/\s+/);
   const firstWord = words[0];
   if (!LOCATION_FIRST_WORD_MAP.has(firstWord)) {
     LOCATION_FIRST_WORD_MAP.set(firstWord, []);
   }
-  LOCATION_FIRST_WORD_MAP.get(firstWord)!.push(key);
+  LOCATION_FIRST_WORD_MAP.get(firstWord)!.push(safeKey);
 });
 
 // Sort matches by length descending so we match "New York" before "New"
@@ -127,7 +128,7 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
 
   // Helper to lookup location by string key
   const lookup = (key: string): { name: string; coordinates: { lat: number; lng: number } } | undefined => {
-    const k = key.toLowerCase().trim();
+    const k = String(key).toLowerCase().trim();
     if (LOCATION_COORDINATES[k]) {
       const displayName = k.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       return { name: displayName, coordinates: LOCATION_COORDINATES[k] };
