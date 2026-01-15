@@ -21,6 +21,10 @@ export const authOptions: NextAuthOptions = {
       authorization: {
         params: {
           scope: "users.read tweet.read offline.access email",
+          // Don't force login if user is already authenticated to X
+          force_login: "false",
+          // Use screen_name for better UX (auto-fills username if logged in)
+          screen_name: "",
         },
       },
       profile(profile) {
