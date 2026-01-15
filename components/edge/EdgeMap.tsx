@@ -8,7 +8,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEdgeData } from '@/hooks/use-edge-data';
 import { cn } from '@/lib/utils/cn';
 import { loadGeoJSON } from '@/lib/geojson-loader';
-import { Landmark, TrendingUp, CloudRain, Trophy, Cpu, Film, Activity, Globe as GlobeIcon, LayoutGrid, MapPin, Clock } from 'lucide-react';
+import {
+  Landmark, TrendingUp, CloudRain, Trophy, Cpu, Film, Activity,
+  Globe as GlobeIcon, LayoutGrid, MapPin, Clock,
+  Flame, Zap, Briefcase, Banknote, Coins, Factory, Rss
+} from 'lucide-react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { MarketPopupVolume } from './MarketPopup';
 import { MarketHoverChart } from './MarketHoverChart';
 import { MarketType } from '@/types/exchange';
@@ -33,27 +38,43 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 // Map feed types to icon characters (Unicode/emoji)
+// Map feed types to icon characters (Unicode/emoji) -> Now Mapped to Icon IDs
 const FEED_ICON_MAP: Record<string, string> = {
-  'PREDICTION': '💓', // Activity/Heartbeat
-  'FINANCE': '📈', // TrendingUp
-  'NEWS': '📰', // Rss/News
-  'CONFLICT': '🔥', // Flame
-  'GEOPOLITICS': '🌍', // Globe
-  'TECH_AI': '⚡', // Zap
-  'CONTRACTS': '💼', // Briefcase
-  'POLICY': '🏛️', // Landmark
-  'MONEY_PRINTER': '💵', // Banknote
-  'CRYPTO': '🪙', // Coins
-  'COMMODITIES': '🏭', // Factory
-  'LAYOFFS': '📉', // Activity/Down
-  'conflict': '🔥',
-  'tech': '⚡',
-  'geopolitics': '🌍',
-  'contracts': '💼',
-  'policy': '🏛️',
-  'crypto': '🪙',
-  'commodities': '🏭',
-  'layoffs': '📉',
+  'PREDICTION': 'icon-prediction', // Activity
+  'FINANCE': 'icon-finance', // TrendingUp
+  'NEWS': 'icon-news', // Rss
+  'CONFLICT': 'icon-conflict', // Flame
+  'GEOPOLITICS': 'icon-geopolitics', // Globe
+  'TECH_AI': 'icon-tech', // Zap
+  'CONTRACTS': 'icon-contracts', // Briefcase
+  'POLICY': 'icon-policy', // Landmark
+  'MONEY_PRINTER': 'icon-money', // Banknote
+  'CRYPTO': 'icon-crypto', // Coins
+  'COMMODITIES': 'icon-commodities', // Factory
+  'LAYOFFS': 'icon-layoffs', // Activity
+  'conflict': 'icon-conflict',
+  'tech': 'icon-tech',
+  'geopolitics': 'icon-geopolitics',
+  'contracts': 'icon-contracts',
+  'policy': 'icon-policy',
+  'crypto': 'icon-crypto',
+  'commodities': 'icon-commodities',
+  'layoffs': 'icon-layoffs',
+};
+
+const MAP_ICONS = {
+  'icon-prediction': Activity,
+  'icon-finance': TrendingUp,
+  'icon-news': Rss,
+  'icon-conflict': Flame,
+  'icon-geopolitics': GlobeIcon,
+  'icon-tech': Zap,
+  'icon-contracts': Briefcase,
+  'icon-policy': Landmark,
+  'icon-money': Banknote,
+  'icon-crypto': Coins,
+  'icon-commodities': Factory,
+  'icon-layoffs': Activity,
 };
 
 export type VisualizationMode = 'dots' | 'heatmap' | 'cluster' | 'choropleth';
@@ -239,6 +260,31 @@ function InnerMap({
   //   });
   // }, [isPlaying, isUserInteracting, isHovering, viewState.zoom]);
 
+  // Load Icons into Map
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map || !isStyleLoaded) return;
+
+    Object.entries(MAP_ICONS).forEach(([id, Icon]) => {
+      if (!map.hasImage(id)) {
+        const svgString = renderToStaticMarkup(
+          <Icon
+            size={48} // Render larger for better quality
+            color="white" // Use white so we can tint it with icon-color
+            strokeWidth={2}
+          />
+        );
+        const img = new window.Image(48, 48);
+        img.onload = () => {
+          if (!map.hasImage(id)) map.addImage(id, img, { sdf: true });
+        };
+        img.src = 'data:image/svg+xml;base64,' + btoa(svgString);
+      }
+    });
+
+    // Also add default fallback if needed
+  }, [isStyleLoaded]);
+
   // Real Data State
   const [fetchedNewsData, setFetchedNewsData] = useState<any>({ type: 'FeatureCollection', features: [] });
 
@@ -275,13 +321,13 @@ function InnerMap({
         (f.properties.title || '').toLowerCase().includes(q)
       );
     }
-    
+
     // Add icon property
     features = features.map((f: any) => ({
       ...f,
       properties: {
         ...f.properties,
-        icon: FEED_ICON_MAP['NEWS'] || '📰'
+        icon: FEED_ICON_MAP['NEWS'] || 'icon-news'
       }
     }));
 
@@ -319,13 +365,13 @@ function InnerMap({
         (f.properties.title || '').toLowerCase().includes(q)
       );
     }
-    
+
     // Add icon property
     features = features.map((f: any) => ({
       ...f,
       properties: {
         ...f.properties,
-        icon: FEED_ICON_MAP['FINANCE'] || '📈'
+        icon: FEED_ICON_MAP['FINANCE'] || 'icon-finance'
       }
     }));
 
@@ -1060,7 +1106,7 @@ function InnerMap({
       ...f,
       properties: {
         ...f.properties,
-        icon: FEED_ICON_MAP['PREDICTION'] || '💓' // Default to prediction market icon
+        icon: FEED_ICON_MAP['PREDICTION'] || 'icon-prediction' // Default to prediction market icon
       }
     }));
 
@@ -1135,31 +1181,26 @@ function InnerMap({
     source: 'markets',
     type: 'symbol',
     layout: {
-      'text-field': ['get', 'icon'],
-      'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-      'text-size': [
+      'icon-image': ['get', 'icon'],
+      'icon-size': [
         'interpolate',
         ['linear'],
         ['get', 'volume'],
-        0, 12,
-        100000, 16,
-        1000000, 24,
-        10000000, 32
+        0, 0.4,
+        100000, 0.5,
+        1000000, 0.7,
+        10000000, 0.9
       ],
-      'text-anchor': 'center',
-      'text-allow-overlap': true,
-      'text-ignore-placement': true
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true
     },
     paint: {
-      'text-color': [
+      'icon-color': [
         'case',
         ['==', ['get', 'platform'], 'kalshi'], '#10b981', // Emerald Green 500
         '#2563eb' // Cobalt Blue 600 (Polymarket)
       ],
-      'text-halo-color': '#ffffff',
-      'text-halo-width': 1.5,
-      'text-halo-blur': 1,
-      'text-opacity': 1
+      'icon-opacity': 1
     }
   };
 
@@ -1285,31 +1326,27 @@ function InnerMap({
     type: 'symbol',
     filter: ['!', ['has', 'point_count']],
     layout: {
-      'text-field': ['get', 'icon'],
-      'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-      'text-size': [
+      'icon-image': ['get', 'icon'],
+      'icon-size': [
         'interpolate',
         ['linear'],
         ['get', 'volume'],
-        0, 14,
-        100000, 18,
-        1000000, 26,
-        10000000, 36
+        0, 0.5,
+        100000, 0.6,
+        1000000, 0.8,
+        10000000, 1.0
       ],
-      'text-anchor': 'center',
-      'text-allow-overlap': true,
-      'text-ignore-placement': true
+      'icon-anchor': 'center',
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true
     },
     paint: {
-      'text-color': [
+      'icon-color': [
         'case',
         ['==', ['get', 'platform'], 'kalshi'], '#10b981',
         '#2563eb'
       ],
-      'text-halo-color': '#ffffff',
-      'text-halo-width': 1.5,
-      'text-halo-blur': 1,
-      'text-opacity': 0.95
+      'icon-opacity': 0.95
     }
   };
 
@@ -2037,32 +2074,26 @@ function InnerMap({
               id="news-layer"
               type="symbol"
               layout={{
-                'text-field': ['get', 'icon'],
-                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-                'text-size': [
+                'icon-image': ['get', 'icon'],
+                'icon-size': [
                   'interpolate',
                   ['linear'],
                   ['get', 'importance'],
-                  0, 14,
-                  0.5, 18,
-                  1, 24
+                  0, 0.5,
+                  0.5, 0.7,
+                  1, 0.9
                 ],
-                'text-anchor': 'center',
-                'text-allow-overlap': true,
-                'text-ignore-placement': true
+                'icon-anchor': 'center'
               }}
               paint={{
-                'text-color': [
+                'icon-color': [
                   'interpolate',
                   ['linear'],
                   ['get', 'importance'],
                   0, '#f8fafc', // Bright Slate 50 (almost white)
                   1, '#22d3ee'  // Cyan 400
                 ],
-                'text-halo-color': '#ffffff',
-                'text-halo-width': 1.5,
-                'text-halo-blur': 1,
-                'text-opacity': 0.95
+                'icon-opacity': 0.95
               }}
             />
             <Layer
@@ -2097,19 +2128,13 @@ function InnerMap({
               id="finance-layer"
               type="symbol"
               layout={{
-                'text-field': ['get', 'icon'],
-                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-                'text-size': 20,
-                'text-anchor': 'center',
-                'text-allow-overlap': true,
-                'text-ignore-placement': true
+                'icon-image': ['get', 'icon'],
+                'icon-size': 0.8,
+                'icon-anchor': 'center'
               }}
               paint={{
-                'text-color': '#fbbf24', // Amber/Gold 400
-                'text-halo-color': '#ffffff',
-                'text-halo-width': 1.5,
-                'text-halo-blur': 1,
-                'text-opacity': 0.95
+                'icon-color': '#fbbf24', // Amber/Gold 400
+                'icon-opacity': 0.95
               }}
             />
             <Layer
@@ -2158,18 +2183,13 @@ function InnerMap({
               type="symbol"
               filter={['==', ['get', 'layer'], 'conflict']}
               layout={{
-                'text-field': '🔥',
-                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-                'text-size': 20,
-                'text-anchor': 'center',
-                'text-allow-overlap': true,
-                'text-ignore-placement': true
+                'icon-image': 'icon-conflict',
+                'icon-size': 0.7,
+                'icon-anchor': 'center'
               }}
               paint={{
-                'text-halo-color': '#fff',
-                'text-halo-width': 1.5,
-                'text-halo-blur': 1,
-                'text-opacity': 0.9
+                'icon-color': '#ef4444',
+                'icon-opacity': 0.9
               }}
             />
             <Layer
@@ -2190,18 +2210,13 @@ function InnerMap({
               type="symbol"
               filter={['==', ['get', 'layer'], 'tech']}
               layout={{
-                'text-field': '⚡',
-                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-                'text-size': 18,
-                'text-anchor': 'center',
-                'text-allow-overlap': true,
-                'text-ignore-placement': true
+                'icon-image': 'icon-tech',
+                'icon-size': 0.7,
+                'icon-anchor': 'center'
               }}
               paint={{
-                'text-halo-color': '#fff',
-                'text-halo-width': 1,
-                'text-halo-blur': 1,
-                'text-opacity': 0.9
+                'icon-color': '#22d3ee',
+                'icon-opacity': 0.9
               }}
             />
 
@@ -2211,18 +2226,13 @@ function InnerMap({
               type="symbol"
               filter={['==', ['get', 'layer'], 'contracts']}
               layout={{
-                'text-field': '💼',
-                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-                'text-size': 18,
-                'text-anchor': 'center',
-                'text-allow-overlap': true,
-                'text-ignore-placement': true
+                'icon-image': 'icon-contracts',
+                'icon-size': 0.7,
+                'icon-anchor': 'center'
               }}
               paint={{
-                'text-halo-color': '#fff',
-                'text-halo-width': 1,
-                'text-halo-blur': 1,
-                'text-opacity': 0.9
+                'icon-color': '#10b981',
+                'icon-opacity': 0.9
               }}
             />
 
@@ -2232,18 +2242,13 @@ function InnerMap({
               type="symbol"
               filter={['==', ['get', 'layer'], 'policy']}
               layout={{
-                'text-field': '🏛️',
-                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-                'text-size': 18,
-                'text-anchor': 'center',
-                'text-allow-overlap': true,
-                'text-ignore-placement': true
+                'icon-image': 'icon-policy',
+                'icon-size': 0.7,
+                'icon-anchor': 'center'
               }}
               paint={{
-                'text-halo-color': '#fff',
-                'text-halo-width': 1,
-                'text-halo-blur': 1,
-                'text-opacity': 0.9
+                'icon-color': '#a78bfa',
+                'icon-opacity': 0.9
               }}
             />
 
@@ -2253,18 +2258,13 @@ function InnerMap({
               type="symbol"
               filter={['==', ['get', 'layer'], 'layoffs']}
               layout={{
-                'text-field': '📉',
-                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-                'text-size': 18,
-                'text-anchor': 'center',
-                'text-allow-overlap': true,
-                'text-ignore-placement': true
+                'icon-image': 'icon-layoffs',
+                'icon-size': 0.7,
+                'icon-anchor': 'center'
               }}
               paint={{
-                'text-halo-color': '#fff',
-                'text-halo-width': 1,
-                'text-halo-blur': 1,
-                'text-opacity': 0.9
+                'icon-color': '#fb7185',
+                'icon-opacity': 0.9
               }}
             />
 
@@ -2274,18 +2274,13 @@ function InnerMap({
               type="symbol"
               filter={['==', ['get', 'layer'], 'crypto-whale']}
               layout={{
-                'text-field': '🪙',
-                'text-font': ['Noto Color Emoji Regular', 'Arial Unicode MS Regular'],
-                'text-size': 22,
-                'text-anchor': 'center',
-                'text-allow-overlap': true,
-                'text-ignore-placement': true
+                'icon-image': 'icon-crypto',
+                'icon-size': 0.8,
+                'icon-anchor': 'center'
               }}
               paint={{
-                'text-halo-color': '#fff',
-                'text-halo-width': 2,
-                'text-halo-blur': 1,
-                'text-opacity': 0.9
+                'icon-color': '#facc15',
+                'icon-opacity': 0.9
               }}
             />
           </Source>

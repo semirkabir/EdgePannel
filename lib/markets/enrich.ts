@@ -110,8 +110,11 @@ LOCATION_FIRST_WORD_MAP.forEach(matches => {
 /**
  * Infer location (coordinates and name) from market data with improved context awareness
  */
+/**
+ * Infer location (coordinates and name) from market data with improved context awareness
+ */
 export function inferLocation(market: Market): { name: string; coordinates: { lat: number; lng: number } } | undefined {
-  // If location already exists, use it
+  // 1. Existing Location: If location already exists, use it
   if (market.location?.coordinates) {
     return {
       name: market.location.city || market.location.country || 'Unknown',
@@ -120,11 +123,43 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
   }
 
   const searchText = `${market.title} ${market.description || ''}`.toLowerCase();
+  const slugText = (market.slug || '').replace(/-/g, ' ').toLowerCase();
 
-  // Tokenize text into words (alphanumeric only for matching)
-  const tokens = searchText.split(/[^a-z0-9]+/);
+  // Helper to lookup location by string key
+  const lookup = (key: string): { name: string; coordinates: { lat: number; lng: number } } | undefined => {
+    const k = key.toLowerCase().trim();
+    if (LOCATION_COORDINATES[k]) {
+      const displayName = k.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      return { name: displayName, coordinates: LOCATION_COORDINATES[k] };
+    }
+    return undefined;
+  };
 
-  // 1. FIRST: Check for country-specific contexts (highest priority) using regex patterns
+  // 2. TAGS: Check explicit tags (Highest Priority)
+  // Polymarket tags are often very specific (e.g. "US", "Middle East", "California")
+  if (market.tags && Array.isArray(market.tags)) {
+    for (const tag of market.tags) {
+      const location = lookup(tag);
+      if (location) return location;
+    }
+  }
+
+  // 3. SLUG: Check URL slug (High Priority)
+  // Slugs are normalized and often contain the main entities (e.g. "will-trump-win-georgia")
+  const slugTokens = slugText.split(' ');
+  for (let i = 0; i < slugTokens.length; i++) {
+    // Check single word
+    let match = lookup(slugTokens[i]);
+    if (match) return match;
+
+    // Check 2-word combination
+    if (i + 1 < slugTokens.length) {
+      match = lookup(`${slugTokens[i]} ${slugTokens[i + 1]}`);
+      if (match) return match;
+    }
+  }
+
+  // 4. CONTEXT REGEX: Context-aware matches (Medium Priority)
   // We keep this because context matters ("wins in Georgia" vs "Georgia wins")
   const findCountryInContext = (text: string): string | undefined => {
     for (const pattern of CONTEXT_PATTERNS) {
@@ -142,13 +177,13 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
 
   const contextCountry = findCountryInContext(searchText);
   if (contextCountry) {
-    const coords = LOCATION_COORDINATES[contextCountry];
-    const displayName = contextCountry.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    return { name: displayName, coordinates: coords };
+    return lookup(contextCountry);
   }
 
-  // 2. Direct country/location name matching (high priority)
-  // Fast token-based lookup instead of regex loop
+  // 5. TOKEN LOOKUP: Direct country/location name matching (Medium Priority)
+  // Tokenize text into words (alphanumeric only for matching)
+  const tokens = searchText.split(/[^a-z0-9]+/);
+
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     if (LOCATION_FIRST_WORD_MAP.has(token)) {
@@ -173,44 +208,43 @@ export function inferLocation(market: Market): { name: string; coordinates: { la
         }
 
         if (match) {
-          const coords = LOCATION_COORDINATES[candidate];
-          const displayName = candidate.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-          return { name: displayName, coordinates: coords };
+          // Additional Context Checks for Ambiguous Names
+          // e.g. "Georgia" (State vs Country)
+          if (candidate === 'georgia') {
+            const isCountryCtx = searchText.includes('russia') || searchText.includes('tbilisi') || searchText.includes('europe');
+            if (isCountryCtx) return lookup('georgia (country)');
+          }
+
+          return lookup(candidate);
         }
       }
     }
   }
 
-  // 3. Topic-based overrides
-  if (searchText.includes('will be the biggest company') ||
-    searchText.includes('largest company') ||
-    searchText.includes('most valuable company') ||
-    searchText.includes('world\'s largest company') ||
-    searchText.includes('biggest market cap')) {
-    return { name: 'San Francisco', coordinates: LOCATION_COORDINATES['san francisco'] }
+  // 6. TOPIC-BASED OVERRIDES (Fallback)
+  if (searchText.includes('biggest company') || searchText.includes('largest company') || searchText.includes('market cap')) {
+    return lookup('san francisco');
   }
-
-  // We can optimize this by checking for key tokens instead of regexes
-  if (searchText.includes('musk') || searchText.includes('tesla') || searchText.includes('xai') || searchText.includes('cybertruck')) {
-    return { name: 'Austin', coordinates: LOCATION_COORDINATES['austin'] }
+  if ((searchText.includes('tesla') || searchText.includes('xai') || searchText.includes('cybertruck')) && !searchText.includes('delaware')) {
+    return lookup('austin');
   }
   if (searchText.includes('spacex') || searchText.includes('starship')) {
-    return { name: 'Hawthorne', coordinates: LOCATION_COORDINATES['hawthorne'] }
+    return lookup('starbase');
   }
-  if (searchText.includes('movie') || searchText.includes('box office') || searchText.includes('cinema') || searchText.includes('avatar') || searchText.includes('film')) {
-    return { name: 'Hollywood', coordinates: LOCATION_COORDINATES['hollywood'] }
+  if (searchText.includes('movie') || searchText.includes('box office') || searchText.includes('oscar')) {
+    return lookup('hollywood');
   }
 
-  // US Politics check
+  // US Politics Defaults
   const hasUS = searchText.includes('us') || searchText.includes('america');
-  if ((searchText.includes('senate') || searchText.includes('congress') || searchText.includes('house') || searchText.includes('supreme court') || searchText.includes('biden') || searchText.includes('trump') || searchText.includes('white house')) && hasUS) {
-    return { name: 'Washington DC', coordinates: LOCATION_COORDINATES['dc'] }
+  if ((searchText.includes('senate') || searchText.includes('congress') || searchText.includes('house') || searchText.includes('supreme court') || searchText.includes('biden') || searchText.includes('trump') || searchText.includes('white house') || searchText.includes('gov')) && !searchText.includes('state')) {
+    return lookup('dc');
   }
-  if (searchText.includes('inflation') || searchText.includes('cpi') || searchText.includes('pce') || searchText.includes('jobs report')) {
-    return { name: 'Washington DC', coordinates: LOCATION_COORDINATES['dc'] }
+  if ((searchText.includes('inflation') || searchText.includes('cpi') || searchText.includes('fed') || searchText.includes('interest rate')) && hasUS) {
+    return lookup('dc'); // or Wall St / NYC?
   }
-  if (searchText.includes('tech') || searchText.includes('startup') || searchText.includes('silicon valley') || searchText.includes('venture capital') || searchText.includes('openai') || searchText.includes('google') || searchText.includes('apple')) {
-    return { name: 'Silicon Valley', coordinates: LOCATION_COORDINATES['silicon valley'] }
+  if (searchText.includes('tech') || searchText.includes('startup') || searchText.includes('silicon valley') || searchText.includes('venture capital') || searchText.includes('openai')) {
+    return lookup('silicon valley');
   }
 
   return undefined

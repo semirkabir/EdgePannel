@@ -48,10 +48,10 @@ export function useEdgeData() {
     const allSignificant = marketsToUse.filter((m: any) => (m.volume24h || 0) > 0);
 
     // Get Top markets from combined pool by Volume
-    // We take up to 1000 total across platforms
+    // We take up to 2000 total across platforms (increased from 1000)
     const mixedMarkets = allSignificant
       .sort((a: any, b: any) => (b.volume24h || 0) - (a.volume24h || 0))
-      .slice(0, 1000);
+      .slice(0, 2000);
 
     // Enrich markets to ensure they have location data and grouping info
     const enrichedMarkets = enrichMarkets(mixedMarkets);
@@ -83,7 +83,7 @@ export function useEdgeData() {
   // 4. Setup WebSocket for live updates
   const marketIds = useMemo(() => {
     return marketFeatures
-      .slice(0, 1000)
+      .slice(0, 2000)
       .map((f: any) => f.properties.market_id)
       .filter(Boolean);
   }, [marketFeatures]);

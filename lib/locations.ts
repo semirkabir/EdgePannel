@@ -1,35 +1,62 @@
 // Coordinates for major cities and regions relevant to prediction markets
+// Merged from multiple sources for maximum coverage
+
 export const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
-  // North America
+  // --- North America ---
   'washington': { lat: 38.9072, lng: -77.0369 },
   'dc': { lat: 38.9072, lng: -77.0369 },
+  'washington dc': { lat: 38.9072, lng: -77.0369 },
   'usa': { lat: 39.8283, lng: -98.5795 },
   'united states': { lat: 39.8283, lng: -98.5795 },
   'america': { lat: 39.8283, lng: -98.5795 },
   'us': { lat: 39.8283, lng: -98.5795 },
   'new york': { lat: 40.7128, lng: -74.0060 },
   'nyc': { lat: 40.7128, lng: -74.0060 },
+  'new york city': { lat: 40.7128, lng: -74.0060 },
   'california': { lat: 36.7783, lng: -119.4179 },
   'texas': { lat: 31.9686, lng: -99.9018 },
   'florida': { lat: 27.6648, lng: -81.5158 },
-  'georgia': { lat: 32.1656, lng: -82.9001 },
+  'georgia': { lat: 32.1656, lng: -82.9001 }, // US State default
+  'georgia (country)': { lat: 42.3154, lng: 43.3569 },
   'arizona': { lat: 34.0489, lng: -111.0937 },
   'pennsylvania': { lat: 41.2033, lng: -77.1945 },
   'michigan': { lat: 44.3148, lng: -85.6024 },
   'wisconsin': { lat: 43.7844, lng: -88.7879 },
   'nevada': { lat: 38.8026, lng: -116.4194 },
-  'ottawa': { lat: 45.4215, lng: -75.6972 },
-  'canada': { lat: 56.1304, lng: -106.3468 },
-  'mexico': { lat: 23.6345, lng: -102.5528 },
   'ohio': { lat: 40.4173, lng: -82.9071 },
   'north carolina': { lat: 35.7596, lng: -79.0193 },
   'virginia': { lat: 37.4316, lng: -78.6569 },
   'colorado': { lat: 39.5501, lng: -105.7821 },
+  'montana': { lat: 46.8797, lng: -110.3626 },
+  'iowa': { lat: 41.8780, lng: -93.0977 },
+  'new hampshire': { lat: 43.1939, lng: -71.5724 },
+  'canada': { lat: 56.1304, lng: -106.3468 },
+  'ottawa': { lat: 45.4215, lng: -75.6972 },
+  'mexico': { lat: 23.6345, lng: -102.5528 },
+  'mexico city': { lat: 19.4326, lng: -99.1332 },
 
-  // Europe
+  // --- South America ---
+  'brazil': { lat: -14.2350, lng: -51.9253 },
+  'brasilia': { lat: -15.7942, lng: -47.8825 },
+  'argentina': { lat: -38.4161, lng: -63.6167 },
+  'buenos aires': { lat: -34.6037, lng: -58.3816 },
+  'venezuela': { lat: 6.4238, lng: -66.5897 },
+  'caracas': { lat: 10.4806, lng: -66.9036 },
+  'colombia': { lat: 4.5709, lng: -74.2973 },
+  'bogota': { lat: 4.7110, lng: -74.0721 },
+  'chile': { lat: -35.6751, lng: -71.5430 },
+  'santiago': { lat: -33.4489, lng: -70.6693 },
+  'peru': { lat: -9.1900, lng: -75.0152 },
+  'lima': { lat: -12.0464, lng: -77.0428 },
+  'uruguay': { lat: -32.5228, lng: -55.7658 },
+  'ecuador': { lat: -1.8312, lng: -78.1834 },
+  'el salvador': { lat: 13.7942, lng: -88.8965 },
+
+  // --- Europe ---
   'london': { lat: 51.5074, lng: -0.1278 },
   'uk': { lat: 55.3781, lng: -3.4360 },
   'united kingdom': { lat: 55.3781, lng: -3.4360 },
+  'great britain': { lat: 55.3781, lng: -3.4360 },
   'paris': { lat: 48.8566, lng: 2.3522 },
   'france': { lat: 46.2276, lng: 2.2137 },
   'berlin': { lat: 52.5200, lng: 13.4050 },
@@ -49,65 +76,39 @@ export const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> 
   'poland': { lat: 51.9194, lng: 19.1451 },
   'warsaw': { lat: 52.2297, lng: 21.0122 },
   'eastern ukraine': { lat: 48.0, lng: 37.0 },
-  'black sea': { lat: 43.0, lng: 34.0 },
+  'donetsk': { lat: 48.0159, lng: 37.8028 },
   'portugal': { lat: 39.3999, lng: -8.2245 },
   'lisbon': { lat: 38.7223, lng: -9.1393 },
   'netherlands': { lat: 52.1326, lng: 5.2913 },
   'amsterdam': { lat: 52.3676, lng: 4.9041 },
   'belgium': { lat: 50.5039, lng: 4.4699 },
   'sweden': { lat: 60.1282, lng: 18.6435 },
+  'stockholm': { lat: 59.3293, lng: 18.0686 },
   'norway': { lat: 60.4720, lng: 8.4689 },
+  'oslo': { lat: 59.9139, lng: 10.7522 },
   'denmark': { lat: 56.2639, lng: 9.5018 },
+  'copenhagen': { lat: 55.6761, lng: 12.5683 },
   'finland': { lat: 61.9241, lng: 25.7482 },
+  'helsinki': { lat: 60.1699, lng: 24.9384 },
   'greece': { lat: 39.0742, lng: 21.8243 },
   'athens': { lat: 37.9838, lng: 23.7275 },
-  'croatia': { lat: 45.1, lng: 15.2 },
-  'serbia': { lat: 44.0165, lng: 21.0059 },
+  'ireland': { lat: 53.1424, lng: -7.6921 },
+  'dublin': { lat: 53.3498, lng: -6.2603 },
   'switzerland': { lat: 46.8182, lng: 8.2275 },
+  'zurich': { lat: 47.3769, lng: 8.5417 },
   'austria': { lat: 47.5162, lng: 14.5501 },
+  'vienna': { lat: 48.2082, lng: 16.3738 },
   'czech republic': { lat: 49.8175, lng: 15.4730 },
+  'prague': { lat: 50.0755, lng: 14.4378 },
   'hungary': { lat: 47.1625, lng: 19.5033 },
+  'budapest': { lat: 47.4979, lng: 19.0402 },
   'romania': { lat: 45.9432, lng: 24.9668 },
+  'bucharest': { lat: 44.4268, lng: 26.1025 },
 
-  // Asia
-  'beijing': { lat: 39.9042, lng: 116.4074 },
-  'china': { lat: 35.8617, lng: 104.1954 },
-  'taiwan': { lat: 23.6978, lng: 120.9605 },
-  'taipei': { lat: 25.0330, lng: 121.5654 },
-  'tokyo': { lat: 35.6762, lng: 139.6503 },
-  'japan': { lat: 36.2048, lng: 138.2529 },
-  'seoul': { lat: 37.5665, lng: 126.9780 },
-  'korea': { lat: 35.9078, lng: 127.7669 },
-  'south korea': { lat: 35.9078, lng: 127.7669 },
-  'north korea': { lat: 40.3399, lng: 127.5101 },
-  'india': { lat: 20.5937, lng: 78.9629 },
-  'delhi': { lat: 28.6139, lng: 77.2090 },
-  'mumbai': { lat: 19.0760, lng: 72.8777 },
-  'hong kong': { lat: 22.3193, lng: 114.1694 },
-  'singapore': { lat: 1.3521, lng: 103.8198 },
-  'thailand': { lat: 15.8700, lng: 100.9925 },
-  'bangkok': { lat: 13.7563, lng: 100.5018 },
-  'vietnam': { lat: 14.0583, lng: 108.2772 },
-  'hanoi': { lat: 21.0285, lng: 105.8542 },
-  'philippines': { lat: 12.8797, lng: 121.7740 },
-  'manila': { lat: 14.5995, lng: 120.9842 },
-  'indonesia': { lat: -0.7893, lng: 113.9213 },
-  'jakarta': { lat: -6.2088, lng: 106.8456 },
-  'malaysia': { lat: 4.2105, lng: 101.9758 },
-  'kuala lumpur': { lat: 3.1390, lng: 101.6869 },
-  'pakistan': { lat: 30.3753, lng: 69.3451 },
-  'bangladesh': { lat: 23.6850, lng: 90.3563 },
-  'sri lanka': { lat: 7.8731, lng: 80.7718 },
-  'myanmar': { lat: 21.9162, lng: 95.9560 },
-  'cambodia': { lat: 12.5657, lng: 104.9910 },
-  'laos': { lat: 19.8563, lng: 102.4955 },
-  'mongolia': { lat: 46.8625, lng: 103.8467 },
-  'kazakhstan': { lat: 48.0196, lng: 66.9237 },
-  'uzbekistan': { lat: 41.3775, lng: 64.5853 },
-
-  // Middle East
+  // --- Middle East & Africa ---
   'israel': { lat: 31.0461, lng: 34.8516 },
   'jerusalem': { lat: 31.7683, lng: 35.2137 },
+  'tel aviv': { lat: 32.0853, lng: 34.7818 },
   'gaza': { lat: 31.5000, lng: 34.4667 },
   'gaza strip': { lat: 31.5000, lng: 34.4667 },
   'rafah': { lat: 31.2968, lng: 34.2455 },
@@ -115,77 +116,105 @@ export const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> 
   'tehran': { lat: 35.6892, lng: 51.3890 },
   'saudi': { lat: 23.8859, lng: 45.0792 },
   'saudi arabia': { lat: 23.8859, lng: 45.0792 },
+  'riyadh': { lat: 24.7136, lng: 46.6753 },
   'yemen': { lat: 15.5527, lng: 48.5164 },
-  'houthi': { lat: 15.5527, lng: 48.5164 },
+  'sanaa': { lat: 15.3694, lng: 44.1910 },
+  'houthi': { lat: 15.5527, lng: 48.5164 }, // Map to Yemen
   'red sea': { lat: 20.0000, lng: 38.0000 },
-  'persian gulf': { lat: 27.0, lng: 51.0 },
   'dubai': { lat: 25.2048, lng: 55.2708 },
   'uae': { lat: 23.4241, lng: 53.8478 },
+  'united arab emirates': { lat: 23.4241, lng: 53.8478 },
+  'qatar': { lat: 25.3548, lng: 51.1839 },
+  'doha': { lat: 25.2854, lng: 51.5310 },
   'turkey': { lat: 38.9637, lng: 35.2433 },
   'istanbul': { lat: 41.0082, lng: 28.9784 },
+  'ankara': { lat: 39.9334, lng: 32.8597 },
   'lebanon': { lat: 33.8547, lng: 35.8623 },
   'beirut': { lat: 33.8938, lng: 35.5018 },
-
-  // South America
-  'brazil': { lat: -14.2350, lng: -51.9253 },
-  'argentina': { lat: -38.4161, lng: -63.6167 },
-  'venezuela': { lat: 6.4238, lng: -66.5897 },
-  'colombia': { lat: 4.5709, lng: -74.2973 },
-  'chile': { lat: -35.6751, lng: -71.5430 },
-  'peru': { lat: -9.1900, lng: -75.0152 },
-  'uruguay': { lat: -32.5228, lng: -55.7658 },
-  'ecuador': { lat: -1.8312, lng: -78.1834 },
-
-  // Africa
+  'syria': { lat: 34.8021, lng: 38.9968 },
+  'damascus': { lat: 33.5138, lng: 36.2765 },
+  'iraq': { lat: 33.2232, lng: 43.6793 },
+  'baghdad': { lat: 33.3152, lng: 44.3661 },
+  'afghanistan': { lat: 33.9391, lng: 67.7100 },
+  'kabul': { lat: 34.5553, lng: 69.2075 },
   'nigeria': { lat: 9.0820, lng: 8.6753 },
+  'abuja': { lat: 9.0765, lng: 7.5332 },
   'egypt': { lat: 26.8206, lng: 30.8025 },
   'cairo': { lat: 30.0444, lng: 31.2357 },
   'south africa': { lat: -30.5595, lng: 22.9375 },
-  'ghana': { lat: 7.9465, lng: -1.0232 },
-  'kenya': { lat: -0.0236, lng: 37.9062 },
+  'pretoria': { lat: -25.7479, lng: 28.2293 },
   'morocco': { lat: 31.7917, lng: -7.0926 },
-  'algeria': { lat: 28.0339, lng: 1.6596 },
-  'tunisia': { lat: 33.8869, lng: 9.5375 },
-  'senegal': { lat: 14.4974, lng: -14.4524 },
-  'ivory coast': { lat: 7.5400, lng: -5.5471 },
-  'cameroon': { lat: 7.3697, lng: 12.3547 },
 
-  // Oceania
+  // --- Asia ---
+  'beijing': { lat: 39.9042, lng: 116.4074 },
+  'china': { lat: 35.8617, lng: 104.1954 },
+  'taiwan': { lat: 23.6978, lng: 120.9605 },
+  'taipei': { lat: 25.0330, lng: 121.5654 },
+  'tokyo': { lat: 35.6762, lng: 139.6503 },
+  'japan': { lat: 36.2048, lng: 138.2529 },
+  'seoul': { lat: 37.5665, lng: 126.9780 },
+  'south korea': { lat: 35.9078, lng: 127.7669 },
+  'north korea': { lat: 40.3399, lng: 127.5101 },
+  'pyongyang': { lat: 39.0392, lng: 125.7625 },
+  'india': { lat: 20.5937, lng: 78.9629 },
+  'new delhi': { lat: 28.6139, lng: 77.2090 },
+  'delhi': { lat: 28.6139, lng: 77.2090 },
+  'mumbai': { lat: 19.0760, lng: 72.8777 },
+  'pakistan': { lat: 30.3753, lng: 69.3451 },
+  'islamabad': { lat: 33.6844, lng: 73.0479 },
+  'bangladesh': { lat: 23.6850, lng: 90.3563 },
+  'dhaka': { lat: 23.8103, lng: 90.4125 },
+  'indonesia': { lat: -0.7893, lng: 113.9213 },
+  'jakarta': { lat: -6.2088, lng: 106.8456 },
+  'vietnam': { lat: 14.0583, lng: 108.2772 },
+  'hanoi': { lat: 21.0285, lng: 105.8542 },
+  'thailand': { lat: 15.8700, lng: 100.9925 },
+  'bangkok': { lat: 13.7563, lng: 100.5018 },
+  'philippines': { lat: 12.8797, lng: 121.7740 },
+  'manila': { lat: 14.5995, lng: 120.9842 },
+  'singapore': { lat: 1.3521, lng: 103.8198 },
+  'malaysia': { lat: 4.2105, lng: 101.9758 },
+  'kuala lumpur': { lat: 3.1390, lng: 101.6869 },
+  'hong kong': { lat: 22.3193, lng: 114.1694 },
+  'kazakhstan': { lat: 48.0196, lng: 66.9237 },
+  'uzbekistan': { lat: 41.3775, lng: 64.5853 },
+
+  // --- Oceania ---
   'australia': { lat: -25.2744, lng: 133.7751 },
+  'canberra': { lat: -35.2809, lng: 149.1287 },
+  'sydney': { lat: -33.8688, lng: 151.2093 },
   'new zealand': { lat: -40.9006, lng: 174.8860 },
+  'wellington': { lat: -41.2865, lng: 174.7762 },
 
-  // Misc
-  'fed': { lat: 38.8977, lng: -77.0365 }, // DC
-  'interest rate': { lat: 40.7128, lng: -74.0060 }, // NYC (Wall St)
-  'wall street': { lat: 40.7128, lng: -74.0060 }, // NYC
-  'bitcoin': { lat: 13.7563, lng: -89.5019 }, // El Salvador
-  'ethereum': { lat: 46.9480, lng: 7.4474 }, // Switzerland
-  'crypto': { lat: 25.0343, lng: -77.3963 }, // Bahamas
-  'global': { lat: 0, lng: 0 },
-  'world': { lat: 0, lng: 0 },
-
-  // Specific Requests
-  'hollywood': { lat: 34.0928, lng: -118.3287 },
-  'los angeles': { lat: 34.0522, lng: -118.2437 },
-  'la': { lat: 34.0522, lng: -118.2437 },
-  'hawthorne': { lat: 33.9164, lng: -118.3526 }, // SpaceX
-  'spacex': { lat: 33.9164, lng: -118.3526 },
-  'austin': { lat: 30.2672, lng: -97.7431 }, // Tesla/XAI
-  'tesla': { lat: 30.2672, lng: -97.7431 },
-  'xai': { lat: 30.2672, lng: -97.7431 },
+  // --- Specific Tech & Finance ---
   'silicon valley': { lat: 37.3875, lng: -122.0575 },
   'san francisco': { lat: 37.7749, lng: -122.4194 },
   'sf': { lat: 37.7749, lng: -122.4194 },
+  'wall street': { lat: 40.7128, lng: -74.0060 },
+  'fed': { lat: 38.8977, lng: -77.0365 },
+  'sec': { lat: 38.8977, lng: -77.0365 },
   'white house': { lat: 38.8977, lng: -77.0365 },
   'congress': { lat: 38.8899, lng: -77.0091 },
   'senate': { lat: 38.8899, lng: -77.0091 },
+  'hollywood': { lat: 34.0928, lng: -118.3287 },
+  'bitcoin': { lat: 13.7942, lng: -88.8965 }, // El Salvador
+  'spacex': { lat: 25.9968, lng: -97.1558 }, // Starbase
+  'starbase': { lat: 25.9968, lng: -97.1558 },
+  'tesla': { lat: 30.2672, lng: -97.7431 }, // Austin
+  'austin': { lat: 30.2672, lng: -97.7431 },
+  'twitter': { lat: 37.7749, lng: -122.4194 }, // SF
+  'x': { lat: 37.7749, lng: -122.4194 },
+  'openai': { lat: 37.7749, lng: -122.4194 },
+  'google': { lat: 37.4220, lng: -122.0841 }, // Mountain View
+  'apple': { lat: 37.3349, lng: -122.0090 }, // Cupertino
+  'nvidia': { lat: 37.3541, lng: -121.9552 }, // Santa Clara
+  'taiwan semiconductor': { lat: 24.7825, lng: 120.9996 }, // Hsinchu
+  'tsmc': { lat: 24.7825, lng: 120.9996 },
+
+  // --- Miscellaneous / Topics ---
+  'global': { lat: 0, lng: 0 },
+  'world': { lat: 0, lng: 0 },
+  'climate': { lat: 78.2232, lng: 15.6267 }, // Svalbard (Global Seed Vault)
+  'antarctica': { lat: -82.8628, lng: 135.0000 },
+  'space': { lat: 28.5721, lng: -80.6480 }, // Kennedy Space Center
 };
-
-
-
-
-
-
-
-
-
