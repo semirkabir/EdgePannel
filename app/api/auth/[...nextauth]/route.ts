@@ -10,7 +10,7 @@ const handler = NextAuth(authOptions)
 // This provides additional IP-based protection
 async function rateLimitedHandler(
   request: NextRequest,
-  context: { params: { nextauth: string[] } }
+  context: { params: Promise<{ nextauth: string[] }> }
 ) {
   // Only rate limit on signin attempts (not callbacks, etc.)
   const isSignIn = request.url.includes('/signin') || 

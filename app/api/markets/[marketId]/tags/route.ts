@@ -6,10 +6,10 @@ import { NextResponse } from 'next/server'
  */
 export async function GET(
   request: Request,
-  { params }: { params: { marketId: string } }
+  { params }: { params: Promise<{ marketId: string }> }
 ) {
   try {
-    const { marketId } = params
+    const { marketId } = await params
 
     if (!marketId) {
       return NextResponse.json(
