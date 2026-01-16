@@ -2,3 +2,6 @@
 # Resend (and some other deps) require Node >= 20.
 nixPkgs = ["nodejs_20", "npm-10_x", "openssl"]
 
+[start]
+cmd = "npm run start"
+
