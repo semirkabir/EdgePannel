@@ -7,12 +7,16 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:setup": "docker-compose up -d && npx prisma migrate dev && npx prisma generate",
+    "dev:reset": "docker-compose down -v && docker-compose up -d && npx prisma migrate dev",
     "build": "prisma generate && next build",
     "start": "prisma migrate deploy && concurrently \"next start\" \"npm run cron:start\"",
     "lint": "next lint",
     "generate-secrets": "node scripts/generate-secrets.js",
     "cron:start": "npx tsx scripts/local-cron-scheduler.ts",
-    "cron:test": "npx tsx scripts/test-cron.ts"
+    "cron:test": "npx tsx scripts/test-cron.ts",
+    "db:studio": "npx prisma studio",
+    "db:status": "npx prisma migrate status"
   },
   "dependencies": {
     "@alpacahq/alpaca-trade-api": "^3.1.3",
