@@ -48,22 +48,22 @@ async function runFullMaintenance() {
 
 // Startup logic
 console.log('🚀 VPS Background Scheduler Started')
-console.log('⏰ Schedule: Top of every hour (0 * * * *)')
+console.log('⏰ Schedule: Every 4 hours (full maintenance), Every 30 minutes (incremental sync)')
 console.log('🌐 Target: ' + BASE_URL)
 
-// Wait 15 seconds for Next.js to fully boot before initial run
+// Wait 2 minutes for Next.js to fully boot before initial run
 console.log('⏳ Waiting for server to boot...')
 setTimeout(() => {
-  runFullMaintenance()
-}, 15000)
+  triggerTask('/api/cron/sync-new-markets', 'Initial Incremental Sync')
+}, 120000)
 
-// Schedule: Every hour
-cron.schedule('0 * * * *', () => {
+// Schedule: Every 4 hours (reduced from hourly to reduce CPU load)
+cron.schedule('0 */4 * * *', () => {
   runFullMaintenance()
 }, { timezone: 'UTC' })
 
-// Optional: Every 5 minutes incremental sync for new markets
-cron.schedule('*/5 * * * *', () => {
+// Schedule: Every 30 minutes incremental sync (reduced from 5 minutes)
+cron.schedule('*/30 * * * *', () => {
   triggerTask('/api/cron/sync-new-markets', 'Incremental Sync')
 }, { timezone: 'UTC' })
 
