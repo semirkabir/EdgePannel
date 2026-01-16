@@ -44,6 +44,18 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Copy full node_modules for runtime tools (prisma, tsx, cron scheduler)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Copy Prisma schema, scripts, and lib for runtime operations
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
+
+# Copy and prepare startup script
+COPY docker-start.sh ./
+RUN chmod +x docker-start.sh && chown nextjs:nodejs docker-start.sh
+
 USER nextjs
 
 EXPOSE 3000
@@ -52,4 +64,4 @@ ENV PORT 3000
 # set hostname to localhost
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["./docker-start.sh"]

@@ -10,7 +10,7 @@
     "dev:setup": "docker-compose up -d && npx prisma db push && npx prisma generate",
     "dev:reset": "docker-compose down -v && docker-compose up -d && npx prisma db push",
     "build": "prisma generate && next build",
-    "start": "npx prisma db push --accept-data-loss && concurrently \"next start\" \"npm run cron:start\"",
+    "start": "concurrently \"next start\" \"npm run cron:start\"",
     "lint": "next lint",
     "generate-secrets": "node scripts/generate-secrets.js",
     "cron:start": "npx tsx scripts/local-cron-scheduler.ts",
