@@ -6,6 +6,7 @@ import { Sphere, Html } from '@react-three/drei'
 import { Market } from '@/types/market'
 import * as THREE from 'three'
 import { loadGeoJSON, parseCountries, CountryData } from '@/lib/geojson-loader'
+import { ConflictZoneLayer } from './conflicts/ConflictZoneLayer'
 
 // Helper function to get category symbol
 function getCategorySymbol(category?: string): string {
@@ -144,7 +145,7 @@ function CountryLabels({ radius }: { radius: number }) {
         const pos = latLngToVector3(country.lat, country.lng, radius)
         return (
           <Html key={i} position={[pos.x, pos.y, pos.z]} center distanceFactor={10} occlude>
-            <div className="text-[9px] text-white font-sans font-semibold tracking-wide pointer-events-none select-none" style={{ 
+            <div className="text-[9px] text-white font-sans font-semibold tracking-wide pointer-events-none select-none" style={{
               textShadow: '0 0 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.6), 1px 1px 2px rgba(0,0,0,0.9)',
               WebkitTextStroke: '0.5px rgba(0,0,0,0.8)'
             }}>
@@ -207,8 +208,8 @@ function MarketMarker({
         <div
           className="relative flex items-center justify-center"
           style={{
-            filter: isSelected 
-              ? `drop-shadow(0 0 8px ${color}) drop-shadow(0 0 4px ${color})` 
+            filter: isSelected
+              ? `drop-shadow(0 0 8px ${color}) drop-shadow(0 0 4px ${color})`
               : `drop-shadow(0 0 2px ${color})`,
           }}
         >
@@ -470,6 +471,9 @@ export function GlobeScene({
           color="#3b82f6"
         />
       ))}
+
+      {/* Global Conflicts Layer */}
+      <ConflictZoneLayer radius={radius} />
 
       {/* Market markers */}
       {validMarkets.map((market) => {

@@ -412,6 +412,83 @@ function InnerMap({
     return fetchedCustomData;
   }, [fetchedCustomData, searchQuery, activeLayers]);
 
+  // ============== CONFLICTS DATA LAYER ==============
+  const [fetchedConflictsData, setFetchedConflictsData] = useState<any>({ type: 'FeatureCollection', features: [] });
+
+  // Fetch Conflicts Data when layer is active
+  useEffect(() => {
+    console.log('[Conflicts] Layer active check:', isLayerActive('CONFLICTS'), 'activeLayers:', activeLayers);
+    if (!isLayerActive('CONFLICTS')) {
+      setFetchedConflictsData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+
+    const fetchConflicts = async () => {
+      const regions = ['ukraine', 'iran', 'venezuela', 'taiwan'];
+      const allFeatures: any[] = [];
+
+      await Promise.all(regions.map(async (region) => {
+        try {
+          const res = await fetch(`/api/conflicts/osint?region=${region}`);
+          if (res.ok) {
+            const data = await res.json();
+            const zone = data.zone;
+
+            // Convert assets to GeoJSON features
+            zone.assets?.forEach((asset: any) => {
+              allFeatures.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [asset.lng, asset.lat] },
+                properties: {
+                  id: asset.id,
+                  type: 'conflict-asset',
+                  assetType: asset.type,
+                  label: asset.label || asset.type,
+                  region: region,
+                  icon: 'icon-conflict',
+                  color: '#ef4444',
+                }
+              });
+            });
+
+            // Convert events to GeoJSON features  
+            zone.recentEvents?.slice(0, 3).forEach((event: any) => {
+              allFeatures.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [event.lng, event.lat] },
+                properties: {
+                  id: event.id,
+                  type: 'conflict-event',
+                  title: event.title,
+                  source: event.source,
+                  severity: event.severity,
+                  region: region,
+                  icon: 'icon-conflict',
+                  color: event.severity === 'critical' ? '#dc2626' : '#ef4444',
+                }
+              });
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to fetch conflicts for ${region}:`, err);
+        }
+      }));
+
+      console.log('[Conflicts] Loaded features:', allFeatures.length);
+      setFetchedConflictsData({ type: 'FeatureCollection', features: allFeatures });
+    };
+
+    fetchConflicts();
+    // Poll every 60 seconds
+    const interval = setInterval(fetchConflicts, 60000);
+    return () => clearInterval(interval);
+  }, [activeLayers]);
+
+  const conflictsData = useMemo(() => {
+    if (!activeLayers.includes('CONFLICTS')) return { type: 'FeatureCollection', features: [] };
+    return fetchedConflictsData;
+  }, [fetchedConflictsData, activeLayers]);
+
   // Census Data State
   const [fetchedCensusData, setFetchedCensusData] = useState<any>({ type: 'FeatureCollection', features: [] });
   const [usCountiesGeoJSON, setUsCountiesGeoJSON] = useState<any>(null);
@@ -2073,6 +2150,50 @@ function InnerMap({
 
         {/* Live Pulse Layer */}
         <LivePulseLayer active={activeFilters.live} />
+
+        {/* CONFLICTS Layer */}
+        {isLayerActive('CONFLICTS') && conflictsData.features.length > 0 && (
+          <Source id="conflicts-source" type="geojson" data={conflictsData as any}>
+            {/* Outer glow for conflicts */}
+            <Layer
+              id="conflicts-glow"
+              type="circle"
+              paint={{
+                'circle-radius': 18,
+                'circle-color': '#ef4444',
+                'circle-opacity': 0.25,
+                'circle-blur': 0.8
+              }}
+            />
+            {/* Inner dot */}
+            <Layer
+              id="conflicts-center"
+              type="circle"
+              paint={{
+                'circle-radius': 6,
+                'circle-color': '#ef4444',
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff',
+                'circle-opacity': 0.9
+              }}
+            />
+            {/* Icon layer */}
+            <Layer
+              id="conflicts-icon"
+              type="symbol"
+              layout={{
+                'icon-image': 'icon-conflict',
+                'icon-size': 0.5,
+                'icon-anchor': 'center',
+                'icon-allow-overlap': true
+              }}
+              paint={{
+                'icon-color': '#ffffff',
+                'icon-opacity': 1
+              }}
+            />
+          </Source>
+        )}
 
         {/* NEWS Layer */}
         {isLayerActive('NEWS') && (

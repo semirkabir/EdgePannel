@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   compress: true,
-  turbopack: {},
+
   images: {
     remotePatterns: [
       {

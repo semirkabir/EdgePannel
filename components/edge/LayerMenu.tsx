@@ -1,5 +1,5 @@
 import React from 'react';
-import { Rss, Activity, TrendingUp, Globe, MapPin, Check, Search, Building2, ChevronDown, ChevronRight, Users, DollarSign, AlertTriangle, Briefcase, Ship } from 'lucide-react';
+import { Rss, Activity, TrendingUp, Globe, MapPin, Check, Search, Building2, ChevronDown, ChevronRight, Users, DollarSign, AlertTriangle, Briefcase, Ship, Crosshair } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useLayerStore, LayerType, CensusDatasetType, CensusGeographyType } from '@/lib/store/layer-store';
 
@@ -36,6 +36,7 @@ export function LayerMenu() {
         { id: 'PREDICTION', label: 'Prediction Markets', icon: Activity, color: 'text-emerald-400' },
         { id: 'NEWS', label: 'Global News', icon: Globe, color: 'text-blue-400' },
         { id: 'FINANCE', label: 'Financial Markets', icon: TrendingUp, color: 'text-yellow-400' },
+        { id: 'CONFLICTS', label: 'Global Conflicts', icon: Crosshair, color: 'text-red-400' },
     ];
 
     const MOCK_COMMUNITY_LAYERS = [

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,15 +22,8 @@ export async function GET(request: NextRequest) {
 
     const startTime = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000)
 
-    // Parallel fetch real DB stats
-    const [dbMarketCount, lastSyncRecord] = await Promise.all([
-      prisma.geotaggedMarket.count(),
-      prisma.marketSyncState.findFirst({
-        orderBy: { updatedAt: 'desc' }
-      })
-    ])
-
-    const lastSyncAt = lastSyncRecord?.updatedAt || lastSyncRecord?.lastSyncAt || now;
+    // No database dependency - fetch everything live from Polymarket
+    const lastSyncAt = now;
 
     if (platform === 'polymarket' || platform === 'all') {
       try {
@@ -167,7 +159,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           timeframe,
           summary: {
-            totalMarkets: dbMarketCount > 0 ? dbMarketCount : validMarkets.length,
+            totalMarkets: validMarkets.length,
             gainers: gainersCount,
             losers: losersCount,
             unchanged: validMarkets.length - gainersCount - losersCount,
