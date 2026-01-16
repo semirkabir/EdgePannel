@@ -41,7 +41,7 @@ export async function rateLimit(req: NextRequest) {
 
     // Use IP address as the key
     const forwardedFor = req.headers.get('x-forwarded-for')
-    const ip = req.ip || (forwardedFor ? forwardedFor.split(',')[0]?.trim() : undefined) || 'unknown'
+    const ip = forwardedFor?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
     const now = Date.now()
 
     const isApiRequest = pathname.startsWith('/api/')
