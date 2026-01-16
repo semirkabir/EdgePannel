@@ -44,13 +44,20 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy full node_modules for runtime tools (prisma, tsx, cron scheduler)
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-
 # Copy Prisma schema, scripts, and lib for runtime operations
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
+
+# Copy Prisma binaries and generated client (standalone might not include them)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+
+# Copy runtime dependencies for cron (tsx, node-cron)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tsx ./node_modules/tsx
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/esbuild ./node_modules/esbuild
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/node-cron ./node_modules/node-cron
 
 # Copy and prepare startup script
 COPY docker-start.sh ./
