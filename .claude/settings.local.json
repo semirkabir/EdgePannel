@@ -40,7 +40,9 @@
       "Bash(timeout 15 bash:*)",
       "Bash(ls:*)",
       "Bash(wc:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "Bash(npm install:*)",
+      "Bash(npm view:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

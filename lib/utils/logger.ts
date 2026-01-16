@@ -94,23 +94,6 @@ class Logger {
 // Export singleton instance
 export const logger = new Logger()
 
-// Initialize error tracking if available (e.g., Sentry)
-if (typeof window === 'undefined' && process.env.SENTRY_DSN) {
-  // Server-side error tracking
-  try {
-    // Standard dynamic import, but we wrap it to ensure it doesn't crash the build if resolution is tricky
-    import('@sentry/nextjs').then((Sentry) => {
-      if (Sentry && Sentry.captureException) {
-        logger.setErrorTracker((error, context) => {
-          Sentry.captureException(error, { extra: context })
-        })
-        logger.info('Error tracking initialized (Sentry)')
-      }
-    }).catch(() => {
-      // Sentry not installed or failed to load, that's okay
-    })
-  } catch {
-    // Ignore
-  }
-}
+// Error tracking disabled (Sentry removed for Next.js 16 compatibility)
+// Re-enable when Sentry supports Next.js 16+
 
