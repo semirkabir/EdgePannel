@@ -1162,8 +1162,8 @@ function InnerMap({
 
   const firmsLayer: any = {
     id: 'firms-layer',
-    type: 'raster',
     source: 'firms',
+    type: 'raster',
     minzoom: 0,
     maxzoom: 24,
     paint: {
@@ -2003,44 +2003,55 @@ function InnerMap({
           </Source>
         )}
 
-        {isLayerActive('PREDICTION') && (
+        {/* Prediction Markets - Heatmap Mode */}
+        {isLayerActive('PREDICTION') && visualizationMode === 'heatmap' && (
           <Source
-            key={`markets-${visualizationMode}`}
+            key="markets-heatmap"
             id="markets"
             type="geojson"
             data={filteredMarkets as any}
-            cluster={visualizationMode === 'cluster'}
+          >
+            <Layer {...heatmapLayer as any} />
+            <Layer {...marketGlowLayer as any} paint={{
+              ...marketGlowLayer.paint,
+              'circle-opacity': 0,
+              'circle-stroke-opacity': 0
+            }} />
+            <Layer {...marketLayer as any} paint={{
+              ...marketLayer.paint,
+              'text-opacity': 0
+            }} />
+          </Source>
+        )}
+
+        {/* Prediction Markets - Cluster Mode */}
+        {isLayerActive('PREDICTION') && visualizationMode === 'cluster' && (
+          <Source
+            key="markets-cluster"
+            id="markets"
+            type="geojson"
+            data={filteredMarkets as any}
+            cluster={true}
             clusterMaxZoom={14}
             clusterRadius={50}
           >
-            {visualizationMode === 'heatmap' ? (
-              <>
-                <Layer {...heatmapLayer as any} />
-                {/* Overlay individual market dots on top of heatmap for interactivity but keep them invisible */}
-                <Layer {...marketGlowLayer as any} paint={{
-                  ...marketGlowLayer.paint,
-                  'circle-opacity': 0,
-                  'circle-stroke-opacity': 0
-                }} />
-                <Layer {...marketLayer as any} paint={{
-                  ...marketLayer.paint,
-                  'text-opacity': 0
-                }} />
-              </>
-            ) : visualizationMode === 'cluster' ? (
-              <>
-                <Layer {...unclusteredGlowLayer as any} />
-                <Layer {...clusterLayer as any} />
-                <Layer {...clusterCountLayer as any} />
-                <Layer {...unclusteredPointLayer as any} />
-              </>
-            ) : (
-              // Default dots mode
-              <>
-                <Layer {...marketGlowLayer as any} />
-                <Layer {...marketLayer as any} />
-              </>
-            )}
+            <Layer {...unclusteredGlowLayer as any} />
+            <Layer {...clusterLayer as any} />
+            <Layer {...clusterCountLayer as any} />
+            <Layer {...unclusteredPointLayer as any} />
+          </Source>
+        )}
+
+        {/* Prediction Markets - Default Dots Mode */}
+        {isLayerActive('PREDICTION') && visualizationMode === 'dots' && (
+          <Source
+            key="markets-dots"
+            id="markets"
+            type="geojson"
+            data={filteredMarkets as any}
+          >
+            <Layer {...marketGlowLayer as any} />
+            <Layer {...marketLayer as any} />
           </Source>
         )}
 
