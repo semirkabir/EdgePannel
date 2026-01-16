@@ -39,7 +39,8 @@
       "Bash(powershell:*)",
       "Bash(timeout 15 bash:*)",
       "Bash(ls:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(npx prisma:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
