@@ -36,15 +36,16 @@ export const GET = withErrorHandler(async (request: Request) => {
 
     // Build where clause
     const where: any = {
-      // Only active markets (not expired)
-      OR: [
-        { endDate: { gte: new Date() } },
-        { endDate: null }
-      ],
       // Must have coordinates
       latitude: { not: null },
       longitude: { not: null },
     }
+
+    // Active markets filter (not expired)
+    const activeMarketFilter = [
+      { endDate: { gte: new Date() } },
+      { endDate: null }
+    ]
 
     if (platform) {
       where.platform = platform
@@ -76,11 +77,19 @@ export const GET = withErrorHandler(async (request: Request) => {
       where.confidence = confidence
     }
 
+    // Combine active market filter with search filter using AND
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } }
+      where.AND = [
+        { OR: activeMarketFilter },
+        {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } }
+          ]
+        }
       ]
+    } else {
+      where.OR = activeMarketFilter
     }
 
     // Bounding box filter
@@ -306,6 +315,26 @@ export const GET = withErrorHandler(async (request: Request) => {
     })
   } catch (error: any) {
     console.error('[Geotagged Markets] Error:', error)
+
+    // Check for missing table error (Prisma P2021 or table doesn't exist)
+    const isTableMissing =
+      error?.code === 'P2021' ||
+      error?.message?.includes('does not exist') ||
+      error?.message?.includes('relation') ||
+      error?.message?.includes('table')
+
+    if (isTableMissing) {
+      return NextResponse.json(
+        {
+          error: 'Database table not found',
+          message: 'The geotagged_market table has not been created yet.',
+          instructions: 'Run: npx prisma db push or npx prisma migrate dev',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 503 }
+      )
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch geotagged markets', details: error.message },
       { status: 500 }

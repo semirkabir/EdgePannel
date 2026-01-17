@@ -25,7 +25,7 @@ interface LayerState {
 }
 
 export const useLayerStore = create<LayerState>((set, get) => ({
-    activeLayers: ['PREDICTION', 'NEWS', 'FINANCE'], // 'CUSTOM' removed by default
+    activeLayers: ['PREDICTION', 'NEWS', 'FINANCE', 'CONFLICTS'], // 'CUSTOM' removed by default
     customLayers: [],
     selectedCensusDataset: null,
     censusGeography: 'state', // Default to state-level for performance
