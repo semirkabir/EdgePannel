@@ -53,6 +53,7 @@
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "supabase"
+    "supabase",
+    "chrome-devtools"
   ]
 }

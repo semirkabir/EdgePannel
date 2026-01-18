@@ -118,7 +118,7 @@ const PulsingMarker = ({ longitude, latitude }: { longitude: number, latitude: n
 // ... (existing imports)
 
 // Inner component to isolate Map state from Data updates
-function InnerMap({
+export function InnerMap({
   markets,
   rawMarkets = [],
   tweets,
@@ -144,7 +144,8 @@ function InnerMap({
   feedData,
   disableZoom = false,
   initialZoom = 2.5,
-  hideControls = false
+  hideControls = false,
+  forcedActiveLayers
 }: {
   markets: any;
   rawMarkets?: any[];
@@ -172,8 +173,24 @@ function InnerMap({
   disableZoom?: boolean;
   initialZoom?: number;
   hideControls?: boolean;
+  forcedActiveLayers?: string[];
 }) {
-  const { isLayerActive, selectedCensusDataset, activeLayers } = useLayerStore();
+  const { isLayerActive: storeIsLayerActive, selectedCensusDataset, activeLayers: storeActiveLayers } = useLayerStore();
+
+  // Helper to determine if a layer should be considered active
+  // If forcedActiveLayers is provided, we ONLY use that.
+  // Otherwise, we fallback to the global store.
+  const isLayerActive = useCallback((layer: string) => {
+    if (forcedActiveLayers) {
+      return forcedActiveLayers.includes(layer);
+    }
+    return storeIsLayerActive(layer);
+  }, [forcedActiveLayers, storeIsLayerActive]);
+
+  // Derived active layers list for dependencies
+  const activeLayers = useMemo(() => {
+    return forcedActiveLayers || storeActiveLayers;
+  }, [forcedActiveLayers, storeActiveLayers]);
 
   const [viewState, setViewState] = useState({
     longitude: 0,
@@ -359,82 +376,7 @@ function InnerMap({
     return fetchedCustomData;
   }, [fetchedCustomData, searchQuery, activeLayers]);
 
-  // ============== CONFLICTS DATA LAYER ==============
-  const [fetchedConflictsData, setFetchedConflictsData] = useState<any>({ type: 'FeatureCollection', features: [] });
 
-  // Fetch Conflicts Data when layer is active
-  useEffect(() => {
-    console.log('[Conflicts] Layer active check:', isLayerActive('CONFLICTS'), 'activeLayers:', activeLayers);
-    if (!isLayerActive('CONFLICTS')) {
-      setFetchedConflictsData({ type: 'FeatureCollection', features: [] });
-      return;
-    }
-
-    const fetchConflicts = async () => {
-      const regions = ['ukraine', 'iran', 'venezuela', 'taiwan'];
-      const allFeatures: any[] = [];
-
-      await Promise.all(regions.map(async (region) => {
-        try {
-          const res = await fetch(`/api/conflicts/osint?region=${region}`);
-          if (res.ok) {
-            const data = await res.json();
-            const zone = data.zone;
-
-            // Convert assets to GeoJSON features
-            zone.assets?.forEach((asset: any) => {
-              allFeatures.push({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [asset.lng, asset.lat] },
-                properties: {
-                  id: asset.id,
-                  type: 'conflict-asset',
-                  assetType: asset.type,
-                  label: asset.label || asset.type,
-                  region: region,
-                  icon: 'icon-conflict',
-                  color: '#ef4444',
-                }
-              });
-            });
-
-            // Convert events to GeoJSON features  
-            zone.recentEvents?.slice(0, 3).forEach((event: any) => {
-              allFeatures.push({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [event.lng, event.lat] },
-                properties: {
-                  id: event.id,
-                  type: 'conflict-event',
-                  title: event.title,
-                  source: event.source,
-                  severity: event.severity,
-                  region: region,
-                  icon: 'icon-conflict',
-                  color: event.severity === 'critical' ? '#dc2626' : '#ef4444',
-                }
-              });
-            });
-          }
-        } catch (err) {
-          console.error(`Failed to fetch conflicts for ${region}:`, err);
-        }
-      }));
-
-      console.log('[Conflicts] Loaded features:', allFeatures.length);
-      setFetchedConflictsData({ type: 'FeatureCollection', features: allFeatures });
-    };
-
-    fetchConflicts();
-    // Poll every 60 seconds
-    const interval = setInterval(fetchConflicts, 60000);
-    return () => clearInterval(interval);
-  }, [activeLayers]);
-
-  const conflictsData = useMemo(() => {
-    if (!activeLayers.includes('CONFLICTS')) return { type: 'FeatureCollection', features: [] };
-    return fetchedConflictsData;
-  }, [fetchedConflictsData, activeLayers]);
 
   // Census Data State
   const [fetchedCensusData, setFetchedCensusData] = useState<any>({ type: 'FeatureCollection', features: [] });
@@ -1498,6 +1440,7 @@ function InnerMap({
     const isNews = feature.layer.id === 'news-layer' || feature.layer.id === 'news-glow';
     const isFinance = feature.layer.id === 'finance-layer';
     const isCustom = feature.layer.id === 'custom-layer';
+    const isFeed = feature.layer.id.startsWith('feed-');
     const isCensus = feature.layer.id === 'census-layer' || feature.layer.id === 'census-glow' || feature.layer.id === 'census-fill';
     const isGroup = props.isGroup === true && isMarket;
 
@@ -1600,6 +1543,46 @@ function InnerMap({
               </div>
               <h3 className="text-sm font-bold text-white">{props.featureTitle || props.title || props.label}</h3>
               <div className="text-xs text-gray-300">{props.status || props.price}</div>
+            </div>
+          )}
+
+          {/* FEED POPUP (Generic for Conflicts, Tech, etc.) */}
+          {isFeed && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full animate-pulse",
+                  props.layer === 'conflict' ? "bg-red-500" :
+                    props.layer === 'tech' ? "bg-cyan-400" :
+                      props.layer === 'contracts' ? "bg-emerald-400" : "bg-blue-400"
+                )}></div>
+                <span className={cn(
+                  "text-[10px] uppercase font-bold",
+                  props.layer === 'conflict' ? "text-red-400" :
+                    props.layer === 'tech' ? "text-cyan-400" :
+                      props.layer === 'contracts' ? "text-green-400" : "text-blue-400"
+                )}>
+                  {props.layer === 'conflict' ? 'Conflict Zone' :
+                    props.layer === 'tech' ? 'Tech News' :
+                      props.layer === 'contracts' ? 'Gov Contract' : 'Feed Item'}
+                </span>
+              </div>
+
+              <h3 className="text-sm font-bold text-white leading-tight">{props.title}</h3>
+
+              {props.subTitle && (
+                <div className="text-xs text-gray-300">{props.subTitle}</div>
+              )}
+
+              {props.value && (
+                <div className="text-sm font-mono text-emerald-400 font-bold">{props.value}</div>
+              )}
+
+              {props.url && (
+                <a href={props.url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-400 hover:text-blue-300 underline mt-1">
+                  View Source
+                </a>
+              )}
             </div>
           )}
 
@@ -2092,49 +2075,7 @@ function InnerMap({
         </Source>
 
 
-        {/* CONFLICTS Layer */}
-        {isLayerActive('CONFLICTS') && conflictsData.features.length > 0 && (
-          <Source id="conflicts-source" type="geojson" data={conflictsData as any}>
-            {/* Outer glow for conflicts */}
-            <Layer
-              id="conflicts-glow"
-              type="circle"
-              paint={{
-                'circle-radius': 18,
-                'circle-color': '#ef4444',
-                'circle-opacity': 0.25,
-                'circle-blur': 0.8
-              }}
-            />
-            {/* Inner dot */}
-            <Layer
-              id="conflicts-center"
-              type="circle"
-              paint={{
-                'circle-radius': 6,
-                'circle-color': '#ef4444',
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#ffffff',
-                'circle-opacity': 0.9
-              }}
-            />
-            {/* Icon layer */}
-            <Layer
-              id="conflicts-icon"
-              type="symbol"
-              layout={{
-                'icon-image': 'icon-conflict',
-                'icon-size': 0.5,
-                'icon-anchor': 'center',
-                'icon-allow-overlap': true
-              }}
-              paint={{
-                'icon-color': '#ffffff',
-                'icon-opacity': 1
-              }}
-            />
-          </Source>
-        )}
+
 
         {/* NEWS Layer */}
         {isLayerActive('NEWS') && (
@@ -2601,6 +2542,40 @@ export function EdgeMap({
       disableZoom={disableZoom}
       initialZoom={initialZoom}
       hideControls={hideControls}
+    />
+  );
+}
+
+export function StaticEdgeMap(props: EdgeMapProps & { forcedActiveLayers?: string[], exchanges?: any }) {
+  return (
+    <InnerMap
+      markets={props.overrideMarkets || { type: 'FeatureCollection', features: [] }}
+      exchanges={props.exchanges || { type: 'FeatureCollection', features: [] }}
+      rawMarkets={[]}
+      tweets={{ type: 'FeatureCollection', features: [] }}
+      activeFilters={props.activeFilters}
+      searchQuery={props.searchQuery || ''}
+      projection={props.projection}
+      onCountryClick={props.onCountryClick}
+      isPlaying={props.isPlaying}
+      rotationSpeed={props.rotationSpeed}
+      pauseOnHover={props.pauseOnHover}
+      selectedMarket={props.selectedMarket}
+      onMarketSelect={props.onMarketSelect}
+      isUsingOverride={true}
+      onZoomChange={props.onZoomChange}
+      onViewChange={props.onViewChange}
+      shouldResetZoom={props.shouldResetZoom}
+      visualizationMode={props.visualizationMode}
+      showLabels={props.showLabels}
+      showGrid={props.showGrid}
+      marketType={props.marketType}
+      onInteractionStart={props.onInteractionStart}
+      feedData={props.feedData}
+      disableZoom={props.disableZoom}
+      initialZoom={props.initialZoom}
+      hideControls={props.hideControls}
+      forcedActiveLayers={props.forcedActiveLayers}
     />
   );
 }

@@ -74,9 +74,9 @@ export function useFeedData({ activeFeeds }: FeedConfig) {
         const features: any[] = [];
 
         // GDELT Processing
-        if (conflictFeed?.features) features.push(...conflictFeed.features.map((f: any) => ({ ...f, properties: { ...f.properties, layer: 'conflict', isCustom: true } })));
-        if (techFeed?.features) features.push(...techFeed.features.map((f: any) => ({ ...f, properties: { ...f.properties, layer: 'tech', isCustom: true } })));
-        if (geoFeed?.features) features.push(...geoFeed.features.map((f: any) => ({ ...f, properties: { ...f.properties, layer: 'geopolitics', isCustom: true } })));
+        if (activeFeeds['CONFLICT'] && conflictFeed?.features) features.push(...conflictFeed.features.map((f: any) => ({ ...f, properties: { ...f.properties, layer: 'conflict', isCustom: true } })));
+        if (activeFeeds['TECH_AI'] && techFeed?.features) features.push(...techFeed.features.map((f: any) => ({ ...f, properties: { ...f.properties, layer: 'tech', isCustom: true } })));
+        if (activeFeeds['GEOPOLITICS'] && geoFeed?.features) features.push(...geoFeed.features.map((f: any) => ({ ...f, properties: { ...f.properties, layer: 'geopolitics', isCustom: true } })));
 
         // Contracts Processing
         if (contractFeed?.contracts) {
@@ -204,7 +204,7 @@ export function useFeedData({ activeFeeds }: FeedConfig) {
         }
 
         return { type: 'FeatureCollection', features };
-    }, [conflictFeed, techFeed, geoFeed, contractFeed, policyFeed, layoffFeed, cryptoFeed, m2Feed, commodityFeed]);
+    }, [activeFeeds, conflictFeed, techFeed, geoFeed, contractFeed, policyFeed, layoffFeed, cryptoFeed, m2Feed, commodityFeed]);
 
     return {
         feedFeatures

@@ -5,11 +5,13 @@ import dynamic from 'next/dynamic';
 import { SignInPrompt } from './SignInPrompt';
 import { Loader, Activity, TrendingUp, Flame } from 'lucide-react';
 import { useFeedData } from '@/hooks/use-feed-data';
+import { useExchanges } from '@/hooks/use-exchanges';
 import { marketsToGeoJSON, eventsToGeoJSON } from '@/lib/utils/market-geojson';
 
 // Dynamically import EdgeMap to avoid SSR issues with MapLibre
+// Dynamically import EdgeMap to avoid SSR issues with MapLibre
 const EdgeMap = dynamic(
-    () => import('@/components/edge/EdgeMap').then((mod) => mod.EdgeMap),
+    () => import('@/components/edge/EdgeMap').then((mod) => mod.StaticEdgeMap),
     {
         ssr: false,
         loading: () => (
@@ -35,6 +37,7 @@ export function LandingGlobe({ className }: LandingGlobeProps) {
     const [mounted, setMounted] = useState(false);
     const [markets, setMarkets] = useState<any[]>([]);
     const [isLoadingMarkets, setIsLoadingMarkets] = useState(true);
+    const { geoJSON: exchangeGeoJSON } = useExchanges();
 
     // Fetch conflict feed data for landing page
     const { feedFeatures } = useFeedData({
@@ -153,6 +156,8 @@ export function LandingGlobe({ className }: LandingGlobeProps) {
                     disableZoom={true}
                     initialZoom={1.8}
                     hideControls={true}
+                    forcedActiveLayers={['PREDICTION', 'FINANCE']}
+                    exchanges={exchangeGeoJSON}
                 />
             </div>
 
