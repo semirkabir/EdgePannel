@@ -55,13 +55,19 @@ export function TradeFeed({
 
       const data = await res.json()
       setTrades(data.trades || [])
-      setStats(data.stats || stats)
+      setStats(data.stats || {
+        totalTrades: 0,
+        totalVolume: 0,
+        avgTradeSize: 0,
+        buyVolume: 0,
+        sellVolume: 0
+      })
     } catch (err) {
       console.error('[TradeFeed] Error:', err)
     } finally {
       setLoading(false)
     }
-  }, [ticker, platform, maxTrades, paused, stats])
+  }, [ticker, platform, maxTrades, paused])
 
   useEffect(() => {
     fetchTrades()

@@ -1,0 +1,248 @@
+{
+    "navalGroups": [
+        {
+            "id": "us-4th-fleet-patrol",
+            "name": "US 4th Fleet Patrol",
+            "nationality": "US",
+            "formation": "patrol",
+            "centerLat": 12.0,
+            "centerLng": -66.0,
+            "heading": 180,
+            "estimatedStrength": "4+ vessels",
+            "vessels": [
+                {
+                    "id": "us-ddg-1",
+                    "type": "destroyer",
+                    "label": "USS Arleigh Burke DDG",
+                    "lat": 12.2,
+                    "lng": -65.8,
+                    "heading": 180,
+                    "confidence": "high",
+                    "nationality": "US",
+                    "class": "Arleigh Burke"
+                },
+                {
+                    "id": "us-cg-1",
+                    "type": "warship",
+                    "label": "USS Ticonderoga CG",
+                    "lat": 11.8,
+                    "lng": -66.2,
+                    "heading": 175,
+                    "confidence": "high",
+                    "nationality": "US",
+                    "class": "Ticonderoga"
+                }
+            ]
+        },
+        {
+            "id": "uscg-caribbean",
+            "name": "USCG Caribbean Patrol",
+            "nationality": "US",
+            "formation": "patrol",
+            "centerLat": 13.0,
+            "centerLng": -68.5,
+            "heading": 90,
+            "estimatedStrength": "3+ vessels",
+            "vessels": [
+                {
+                    "id": "uscg-1",
+                    "type": "patrol_boat",
+                    "label": "USCGC Cutter",
+                    "lat": 13.2,
+                    "lng": -68.3,
+                    "heading": 90,
+                    "confidence": "high",
+                    "nationality": "US",
+                    "class": "Legend-class"
+                },
+                {
+                    "id": "uscg-2",
+                    "type": "patrol_boat",
+                    "label": "USCGC Fast Response",
+                    "lat": 12.8,
+                    "lng": -68.7,
+                    "heading": 95,
+                    "confidence": "medium",
+                    "nationality": "US",
+                    "class": "Sentinel-class"
+                }
+            ]
+        },
+        {
+            "id": "ven-navy-patrol",
+            "name": "Venezuelan Navy Patrol",
+            "nationality": "VE",
+            "formation": "patrol",
+            "centerLat": 11.0,
+            "centerLng": -67.0,
+            "heading": 270,
+            "estimatedStrength": "5+ vessels",
+            "vessels": [
+                {
+                    "id": "ve-frigate-1",
+                    "type": "frigate",
+                    "label": "ARV Mariscal Sucre",
+                    "lat": 11.2,
+                    "lng": -66.8,
+                    "heading": 270,
+                    "confidence": "high",
+                    "nationality": "VE",
+                    "class": "Lupo-class"
+                },
+                {
+                    "id": "ve-patrol-1",
+                    "type": "patrol_boat",
+                    "label": "ARV Patrol",
+                    "lat": 10.8,
+                    "lng": -67.2,
+                    "heading": 265,
+                    "confidence": "medium",
+                    "nationality": "VE",
+                    "class": "Guaiqueri-class"
+                }
+            ]
+        }
+    ],
+    "zones": [
+        {
+            "id": "caribbean-patrol-zone",
+            "type": "naval_exclusion",
+            "label": "US Counter-Narcotics Zone",
+            "color": "#3b82f6",
+            "opacity": 0.15,
+            "polygon": [
+                {
+                    "lat": 14.0,
+                    "lng": -70.0
+                },
+                {
+                    "lat": 14.0,
+                    "lng": -62.0
+                },
+                {
+                    "lat": 10.0,
+                    "lng": -62.0
+                },
+                {
+                    "lat": 10.0,
+                    "lng": -70.0
+                }
+            ]
+        },
+        {
+            "id": "venezuela-territorial",
+            "type": "naval_exclusion",
+            "label": "Venezuelan Territorial Waters",
+            "color": "#ef4444",
+            "opacity": 0.15,
+            "polygon": [
+                {
+                    "lat": 12.5,
+                    "lng": -68.0
+                },
+                {
+                    "lat": 12.5,
+                    "lng": -64.0
+                },
+                {
+                    "lat": 10.5,
+                    "lng": -64.0
+                },
+                {
+                    "lat": 10.5,
+                    "lng": -68.0
+                }
+            ]
+        },
+        {
+            "id": "colombia-border",
+            "type": "danger",
+            "label": "Colombia Border Zone",
+            "color": "#f97316",
+            "opacity": 0.2,
+            "polygon": [
+                {
+                    "lat": 8.0,
+                    "lng": -73.0
+                },
+                {
+                    "lat": 8.0,
+                    "lng": -71.0
+                },
+                {
+                    "lat": 6.0,
+                    "lng": -71.0
+                },
+                {
+                    "lat": 6.0,
+                    "lng": -73.0
+                }
+            ]
+        }
+    ],
+    "assets": [
+        {
+            "id": "ve-caracas",
+            "type": "checkpoint",
+            "label": "Caracas",
+            "lat": 10.48,
+            "lng": -66.9,
+            "confidence": "high"
+        },
+        {
+            "id": "ve-miraflores",
+            "type": "base",
+            "label": "Miraflores Palace",
+            "lat": 10.51,
+            "lng": -66.92,
+            "confidence": "high",
+            "nationality": "VE"
+        },
+        {
+            "id": "ve-la-carlota",
+            "type": "airbase",
+            "label": "La Carlota AFB",
+            "lat": 10.49,
+            "lng": -66.85,
+            "confidence": "high",
+            "nationality": "VE"
+        },
+        {
+            "id": "ve-puerto-cabello",
+            "type": "naval_zone",
+            "label": "Puerto Cabello Naval",
+            "lat": 10.47,
+            "lng": -68.02,
+            "confidence": "high",
+            "nationality": "VE"
+        },
+        {
+            "id": "ve-maracaibo",
+            "type": "base",
+            "label": "Maracaibo Base",
+            "lat": 10.66,
+            "lng": -71.64,
+            "confidence": "medium",
+            "nationality": "VE"
+        },
+        {
+            "id": "ve-sam-caracas",
+            "type": "sam_site",
+            "label": "S-300 Battery",
+            "lat": 10.42,
+            "lng": -66.95,
+            "confidence": "medium",
+            "nationality": "VE"
+        },
+        {
+            "id": "col-border-troops",
+            "type": "troops",
+            "label": "Colombian Border Forces",
+            "lat": 7.77,
+            "lng": -72.22,
+            "confidence": "high",
+            "nationality": "CO"
+        }
+    ],
+    "alertLevel": "guarded"
+}

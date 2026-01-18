@@ -1,6 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PolymarketClient } from '@/lib/api/polymarket';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Extract event ID from a market object
+ */
+function getEventIdFromMarket(market: any): string | null {
+    // Try eventId from rawData (set when fetching from events API)
+    if (market.eventId != null) {
+        return String(market.eventId).trim();
+    }
+
+    // Fallback to events array
+    if (market.events && Array.isArray(market.events) && market.events.length > 0) {
+        const eventId = market.events[0].id;
+        if (eventId != null) {
+            return String(eventId).trim();
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Aggregate daily price history to weekly
+ */
+function aggregateToWeekly(history: { timestamp: Date; price: number; volume: number }[]): number[] {
+    if (history.length === 0) return [];
+
+    // Group by week
+    const weeklyData = new Map<string, number[]>();
+    
+    for (const point of history) {
+        const date = new Date(point.timestamp);
+        // Get the start of the week (Sunday)
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - date.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        
+        const weekKey = weekStart.toISOString();
+        if (!weeklyData.has(weekKey)) {
+            weeklyData.set(weekKey, []);
+        }
+        weeklyData.get(weekKey)!.push(point.price);
+    }
+
+    // Calculate average price per week
+    const weeklyPrices: number[] = [];
+    const sortedWeeks = Array.from(weeklyData.entries()).sort((a, b) => 
+        new Date(a[0]).getTime() - new Date(b[0]).getTime()
+    );
+
+    for (const [, prices] of sortedWeeks) {
+        const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+        weeklyPrices.push(avgPrice);
+    }
+
+    return weeklyPrices;
+}
 
 /**
  * GET /api/insights/market-stats
@@ -61,56 +119,126 @@ export async function GET(request: NextRequest) {
         // Estimate active traders (based on historical ratio of ~800 users per $1M volume)
         const estimatedTraders = Math.floor(65000 + (totalVolume24h / 1000000) * 120);
 
-        // Transform top 50 markets for trending list
-        const trendingMarkets = markets.slice(0, 50).map((m: any) => {
-            // Use lastTradePrice as the primary price source
-            let price = parseFloat(m.lastTradePrice);
+        // Group markets by event and select the highest volume market per event
+        const eventGroups = new Map<string, any[]>();
+        
+        for (const m of markets) {
+            const eventId = getEventIdFromMarket(m) || `single_${m.conditionId}`;
+            
+            if (!eventGroups.has(eventId)) {
+                eventGroups.set(eventId, []);
+            }
+            eventGroups.get(eventId)!.push(m);
+        }
 
-            // Fallback to outcomePrices if lastTradePrice is missing or zero (some markets might not have traded)
-            if (isNaN(price) || price === 0) {
-                if (m.outcomePrices) {
-                    try {
-                        const prices = typeof m.outcomePrices === 'string'
-                            ? JSON.parse(m.outcomePrices)
-                            : m.outcomePrices;
-                        if (Array.isArray(prices) && prices.length > 0) {
-                            price = parseFloat(prices[0].toString());
+        // For each event, select the market with highest volume
+        const topMarketsByEvent: any[] = [];
+        for (const [eventId, eventMarkets] of eventGroups.entries()) {
+            // Sort markets in event by volume and take the top one
+            const sortedMarkets = eventMarkets.sort((a, b) => {
+                const volA = parseFloat(a.volume24hr) || 0;
+                const volB = parseFloat(b.volume24hr) || 0;
+                return volB - volA;
+            });
+            
+            topMarketsByEvent.push({
+                market: sortedMarkets[0],
+                eventId,
+                volume: parseFloat(sortedMarkets[0].volume24hr) || 0,
+            });
+        }
+
+        // Sort events by their top market's volume
+        topMarketsByEvent.sort((a, b) => b.volume - a.volume);
+
+        // Take top 50 events and fetch weekly price history
+        const polymarketClient = new PolymarketClient();
+        const trendingMarkets = await Promise.all(
+            topMarketsByEvent.slice(0, 50).map(async ({ market: m, eventId }) => {
+                // Use lastTradePrice as the primary price source
+                let price = parseFloat(m.lastTradePrice);
+
+                // Fallback to outcomePrices if lastTradePrice is missing or zero
+                if (isNaN(price) || price === 0) {
+                    if (m.outcomePrices) {
+                        try {
+                            const prices = typeof m.outcomePrices === 'string'
+                                ? JSON.parse(m.outcomePrices)
+                                : m.outcomePrices;
+                            if (Array.isArray(prices) && prices.length > 0) {
+                                price = parseFloat(prices[0].toString());
+                            }
+                        } catch (e) {
+                            price = 0.5;
                         }
-                    } catch (e) {
+                    } else {
                         price = 0.5;
                     }
-                } else {
-                    price = 0.5;
                 }
-            }
 
-            // Final fallback
-            if (isNaN(price)) price = 0.5;
+                // Final fallback
+                if (isNaN(price)) price = 0.5;
 
-            // Calculate price change
-            let priceChangePercent = 0;
-            if (m.oneDayPriceChange !== undefined && m.oneDayPriceChange !== null) {
-                priceChangePercent = parseFloat(m.oneDayPriceChange) * 100;
-            }
+                // Calculate price change
+                let priceChangePercent = 0;
+                if (m.oneDayPriceChange !== undefined && m.oneDayPriceChange !== null) {
+                    priceChangePercent = parseFloat(m.oneDayPriceChange) * 100;
+                }
 
-            return {
-                id: m.conditionId,
-                title: m.question,
-                slug: m.slug,
-                platform: 'polymarket',
-                category: m.category || 'General',
-                price: price,
-                bestAsk: parseFloat(m.bestAsk) || null,
-                bestBid: parseFloat(m.bestBid) || null,
-                volume24h: parseFloat(m.volume24hr) || 0,
-                liquidity: parseFloat(m.liquidity) || 0,
-                priceChangePercent: priceChangePercent,
-                priceHistory: generateSparkline(price, priceChangePercent),
-                outcomeCount: m.outcomes ? (typeof m.outcomes === 'string' ? JSON.parse(m.outcomes).length : m.outcomes.length) : 2,
-                endDate: m.endDateIso,
-                imageUrl: m.image || m.icon,
-            };
-        });
+                // Fetch weekly price history
+                let weeklyPriceHistory: number[] = [];
+                try {
+                    // Get tokenId from clobTokenIds (first token is usually the "Yes" outcome)
+                    let tokenId: string | null = null;
+                    if (m.clobTokenIds) {
+                        try {
+                            const tokenIds = typeof m.clobTokenIds === 'string'
+                                ? JSON.parse(m.clobTokenIds)
+                                : m.clobTokenIds;
+                            if (Array.isArray(tokenIds) && tokenIds.length > 0) {
+                                tokenId = tokenIds[0];
+                            }
+                        } catch (e) {
+                            // Ignore parse errors
+                        }
+                    }
+
+                    if (tokenId) {
+                        // Fetch daily data and aggregate to weekly
+                        const dailyHistory = await polymarketClient.getPriceHistory(tokenId, '1d');
+                        if (dailyHistory.length > 0) {
+                            weeklyPriceHistory = aggregateToWeekly(dailyHistory);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`[Market Stats API] Error fetching price history for ${m.conditionId}:`, error);
+                }
+
+                // If we don't have enough weekly data, use generated sparkline
+                if (weeklyPriceHistory.length < 2) {
+                    weeklyPriceHistory = generateSparkline(price, priceChangePercent);
+                }
+
+                return {
+                    id: m.conditionId,
+                    title: m.question,
+                    slug: m.slug,
+                    platform: 'polymarket',
+                    category: m.category || 'General',
+                    price: price,
+                    bestAsk: parseFloat(m.bestAsk) || null,
+                    bestBid: parseFloat(m.bestBid) || null,
+                    volume24h: parseFloat(m.volume24hr) || 0,
+                    liquidity: parseFloat(m.liquidity) || 0,
+                    priceChangePercent: priceChangePercent,
+                    priceHistory: weeklyPriceHistory,
+                    outcomeCount: m.outcomes ? (typeof m.outcomes === 'string' ? JSON.parse(m.outcomes).length : m.outcomes.length) : 2,
+                    endDate: m.endDateIso,
+                    imageUrl: m.image || m.icon,
+                    eventId: eventId,
+                };
+            })
+        );
 
         // Determine peak trading hour (simplified - would need historical data)
         const peakHour = determinePeakHour();

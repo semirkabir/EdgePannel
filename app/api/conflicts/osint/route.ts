@@ -1,140 +1,163 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { promises as fs } from 'fs';
+import path from 'path';
 import {
     ConflictRegion,
     ConflictZone,
     ConflictAsset,
     ConflictEvent,
-    OSINTResponse
+    OSINTResponse,
+    AlertLevel,
+    ControlZone,
+    NuclearFacility,
+    NavalGroup,
+    FrontLine,
+    ZoneOverlay,
+    BattleLocation
 } from '@/types/conflicts';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Conflict zone base configurations
+ * Conflict zone base configurations with enhanced metadata
  */
 const CONFLICT_CONFIGS: Record<ConflictRegion, Omit<ConflictZone, 'assets' | 'recentEvents' | 'lastUpdated'>> = {
     ukraine: {
         id: 'ukraine',
         name: 'Ukraine-Russia War',
         status: 'active',
-        description: 'Ongoing military conflict since February 2022',
+        description: 'Ongoing military conflict since February 2022. Russian forces occupy Crimea and parts of eastern oblasts.',
         centerLat: 48.3794,
         centerLng: 31.1656,
         zoomLevel: 5,
-        frontLines: [
-            {
-                id: 'eastern-front',
-                points: [
-                    { lat: 49.0, lng: 38.5 },
-                    { lat: 48.5, lng: 38.0 },
-                    { lat: 48.0, lng: 37.5 },
-                    { lat: 47.5, lng: 37.0 },
-                    { lat: 47.0, lng: 36.5 },
-                ],
-                type: 'contested',
-            },
-        ],
+        alertLevel: 'critical',
     },
     iran: {
         id: 'iran',
-        name: 'Iran Political Crisis',
+        name: 'Iran Nuclear & Political Crisis',
         status: 'escalating',
-        description: 'Ongoing protests and government instability',
+        description: 'Nuclear program at 60% enrichment. Ongoing protests and regional tensions.',
         centerLat: 32.4279,
         centerLng: 53.688,
         zoomLevel: 5,
+        alertLevel: 'elevated',
     },
     venezuela: {
         id: 'venezuela',
         name: 'Venezuela Crisis',
         status: 'active',
-        description: 'Political instability and military presence',
-        centerLat: 6.4238,
-        centerLng: -66.5897,
+        description: 'Political instability with US counter-narcotics naval presence in Caribbean.',
+        centerLat: 10.5,
+        centerLng: -66.5,
         zoomLevel: 5,
-        zones: [
-            {
-                id: 'caribbean-naval',
-                type: 'naval_exclusion',
-                polygon: [
-                    { lat: 12.5, lng: -70.0 },
-                    { lat: 12.5, lng: -62.0 },
-                    { lat: 10.5, lng: -62.0 },
-                    { lat: 10.5, lng: -70.0 },
-                ],
-                label: 'Naval Activity Zone',
-                opacity: 0.3,
-            },
-        ],
+        alertLevel: 'guarded',
     },
     taiwan: {
         id: 'taiwan',
         name: 'Taiwan Strait Tensions',
-        status: 'active',
-        description: 'PLA military exercises and ADIZ incursions',
+        status: 'escalating',
+        description: 'PLA military exercises, naval encirclement drills, and frequent ADIZ incursions.',
         centerLat: 23.6978,
         centerLng: 120.9605,
         zoomLevel: 6,
-        zones: [
-            {
-                id: 'taiwan-strait',
-                type: 'naval_exclusion',
-                polygon: [
-                    { lat: 25.5, lng: 119.0 },
-                    { lat: 25.5, lng: 122.0 },
-                    { lat: 22.0, lng: 122.0 },
-                    { lat: 22.0, lng: 119.0 },
-                ],
-                label: 'Taiwan Strait',
-                opacity: 0.2,
-            },
-        ],
+        alertLevel: 'elevated',
+    },
+    israel: {
+        id: 'israel',
+        name: 'Israel-Gaza Conflict',
+        status: 'active',
+        description: 'Active military operations in Gaza. Lebanon border exchanges with Hezbollah.',
+        centerLat: 31.5,
+        centerLng: 34.8,
+        zoomLevel: 7,
+        alertLevel: 'critical',
     },
 };
 
 /**
- * Static asset positions (updated based on known deployments)
+ * Load region-specific data from JSON files
  */
-function getStaticAssets(region: ConflictRegion): ConflictAsset[] {
+async function loadRegionData(region: ConflictRegion): Promise<any> {
+    const dataPath = path.join(process.cwd(), 'public', 'data', 'conflicts', `${region}-data.json`);
+
+    try {
+        const fileContent = await fs.readFile(dataPath, 'utf-8');
+        return JSON.parse(fileContent);
+    } catch (error) {
+        console.warn(`[OSINT] No data file found for ${region}, using fallback`);
+        return null;
+    }
+}
+
+/**
+ * Transform raw data into ConflictAssets with current timestamp
+ */
+function processAssets(rawAssets: any[], region: ConflictRegion): ConflictAsset[] {
     const now = new Date().toISOString();
 
-    switch (region) {
-        case 'ukraine':
-            return [
-                { id: 'ua-1', type: 'explosion', lat: 48.45, lng: 37.8, label: 'Recent Strike Zone', lastUpdated: now, confidence: 'high' },
-                { id: 'ua-2', type: 'checkpoint', lat: 50.45, lng: 30.52, label: 'Kyiv', lastUpdated: now, confidence: 'high' },
-                { id: 'ua-3', type: 'explosion', lat: 49.98, lng: 36.25, label: 'Kharkiv Region', lastUpdated: now, confidence: 'medium' },
-                { id: 'ua-4', type: 'troops', lat: 48.02, lng: 37.8, label: 'Donetsk Front', lastUpdated: now, confidence: 'medium' },
-            ];
+    if (!rawAssets) return [];
 
-        case 'iran':
-            return [
-                { id: 'ir-1', type: 'protest', lat: 35.6892, lng: 51.389, label: 'Tehran', lastUpdated: now, confidence: 'high' },
-                { id: 'ir-2', type: 'protest', lat: 32.6546, lng: 51.668, label: 'Isfahan', lastUpdated: now, confidence: 'medium' },
-                { id: 'ir-3', type: 'protest', lat: 29.5918, lng: 52.5836, label: 'Shiraz', lastUpdated: now, confidence: 'medium' },
-                { id: 'ir-4', type: 'checkpoint', lat: 35.75, lng: 51.41, label: 'Government District', lastUpdated: now, confidence: 'high' },
-            ];
+    return rawAssets.map((asset: any) => ({
+        ...asset,
+        lastUpdated: asset.lastUpdated || now,
+        source: asset.source || 'Intel Database',
+    }));
+}
 
-        case 'venezuela':
-            return [
-                { id: 've-1', type: 'warship', lat: 11.8, lng: -66.5, heading: 270, label: 'Naval Patrol', lastUpdated: now, confidence: 'medium' },
-                { id: 've-2', type: 'warship', lat: 11.5, lng: -65.0, heading: 180, label: 'Coast Guard', lastUpdated: now, confidence: 'medium' },
-                { id: 've-3', type: 'troops', lat: 10.48, lng: -66.9, label: 'Caracas Military', lastUpdated: now, confidence: 'high' },
-                { id: 've-4', type: 'checkpoint', lat: 7.77, lng: -72.22, label: 'Colombia Border', lastUpdated: now, confidence: 'high' },
-            ];
+/**
+ * Extract all vessels from naval groups as individual assets
+ */
+function extractNavalAssets(navalGroups: NavalGroup[]): ConflictAsset[] {
+    const now = new Date().toISOString();
 
-        case 'taiwan':
-            return [
-                { id: 'tw-1', type: 'warship', lat: 24.5, lng: 119.5, heading: 90, label: 'PLA Navy Frigate', lastUpdated: now, confidence: 'high' },
-                { id: 'tw-2', type: 'warship', lat: 23.8, lng: 120.2, heading: 45, label: 'PLA Navy Destroyer', lastUpdated: now, confidence: 'high' },
-                { id: 'tw-3', type: 'warship', lat: 23.0, lng: 121.5, heading: 315, label: 'PLA Navy Patrol', lastUpdated: now, confidence: 'medium' },
-                { id: 'tw-4', type: 'aircraft', lat: 24.2, lng: 120.8, heading: 180, label: 'ADIZ Incursion', lastUpdated: now, confidence: 'high' },
-                { id: 'tw-5', type: 'missile', lat: 24.8, lng: 118.5, label: 'Fujian Launchers', lastUpdated: now, confidence: 'medium' },
-            ];
+    if (!navalGroups) return [];
 
-        default:
-            return [];
-    }
+    return navalGroups.flatMap(group =>
+        group.vessels.map(vessel => ({
+            ...vessel,
+            lastUpdated: now,
+            source: `${group.name} - ${group.nationality}`,
+        }))
+    );
+}
+
+/**
+ * Convert nuclear facilities to assets for map display
+ */
+function nuclearFacilitiesToAssets(facilities: NuclearFacility[]): ConflictAsset[] {
+    const now = new Date().toISOString();
+
+    if (!facilities) return [];
+
+    return facilities.map(facility => ({
+        id: facility.id,
+        type: 'nuclear' as const,
+        label: `${facility.name} (${facility.status})`,
+        lat: facility.lat,
+        lng: facility.lng,
+        lastUpdated: now,
+        confidence: facility.iaeaAccess ? 'high' : 'low',
+        source: 'IAEA / Intel',
+    }));
+}
+
+/**
+ * Convert battle locations to conflict events
+ */
+function battleLocationsToEvents(battles: BattleLocation[]): ConflictEvent[] {
+    if (!battles) return [];
+
+    return battles.map(battle => ({
+        id: battle.id,
+        title: battle.name,
+        description: `${battle.type} - ${battle.intensity} intensity`,
+        type: 'military' as const,
+        lat: battle.lat,
+        lng: battle.lng,
+        timestamp: battle.lastReported,
+        source: battle.source,
+        severity: battle.intensity === 'heavy' ? 'critical' : battle.intensity === 'moderate' ? 'high' : 'medium',
+    }));
 }
 
 /**
@@ -142,10 +165,11 @@ function getStaticAssets(region: ConflictRegion): ConflictAsset[] {
  */
 async function fetchGDELTEvents(region: ConflictRegion, baseUrl: string): Promise<ConflictEvent[]> {
     const queryTerms: Record<ConflictRegion, string> = {
-        ukraine: 'Ukraine war OR Kyiv OR Kharkiv military',
-        iran: 'Iran protests OR Tehran unrest OR IRGC',
-        venezuela: 'Venezuela military OR Maduro OR Caracas',
-        taiwan: 'Taiwan China military OR PLA Navy OR Taiwan Strait',
+        ukraine: 'Ukraine war OR Kyiv OR Kharkiv military OR Donetsk',
+        iran: 'Iran nuclear OR Tehran IRGC OR Iran protests',
+        venezuela: 'Venezuela military OR Maduro OR Caribbean naval',
+        taiwan: 'Taiwan China military OR PLA Navy OR Taiwan Strait OR ADIZ',
+        israel: 'Israel Gaza OR IDF OR Hamas OR Hezbollah Lebanon',
     };
 
     try {
@@ -155,7 +179,7 @@ async function fetchGDELTEvents(region: ConflictRegion, baseUrl: string): Promis
         );
 
         if (!response.ok) {
-            console.error(`[OSINT] GDELT fetch failed for ${region}:`, response.status);
+            console.warn(`[OSINT] GDELT fetch failed for ${region}:`, response.status);
             return [];
         }
 
@@ -163,7 +187,6 @@ async function fetchGDELTEvents(region: ConflictRegion, baseUrl: string): Promis
         const articles = data.articles || [];
 
         // Transform GDELT articles to ConflictEvents
-        // Note: GDELT doesn't provide lat/lng, so we use region center
         const config = CONFLICT_CONFIGS[region];
 
         return articles.slice(0, 10).map((article: any, idx: number) => ({
@@ -171,7 +194,7 @@ async function fetchGDELTEvents(region: ConflictRegion, baseUrl: string): Promis
             title: article.title || 'Unknown Event',
             description: article.domain,
             type: 'military' as const,
-            lat: config.centerLat + (Math.random() - 0.5) * 2, // Spread around center
+            lat: config.centerLat + (Math.random() - 0.5) * 2,
             lng: config.centerLng + (Math.random() - 0.5) * 2,
             timestamp: article.seendate || new Date().toISOString(),
             source: article.domain || 'GDELT',
@@ -179,23 +202,26 @@ async function fetchGDELTEvents(region: ConflictRegion, baseUrl: string): Promis
             severity: 'medium' as const,
         }));
     } catch (error) {
-        console.error(`[OSINT] Error fetching GDELT for ${region}:`, error);
+        console.warn(`[OSINT] Error fetching GDELT for ${region}:`, error);
         return [];
     }
 }
 
 /**
  * GET /api/conflicts/osint
- * Returns OSINT data for a specific conflict region
+ * Returns enriched OSINT data for a specific conflict region
  */
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const region = searchParams.get('region') as ConflictRegion;
+        const zoomLevel = parseFloat(searchParams.get('zoom') || '5');
 
-        if (!region || !CONFLICT_CONFIGS[region]) {
+        const validRegions: ConflictRegion[] = ['ukraine', 'iran', 'venezuela', 'taiwan', 'israel'];
+
+        if (!region || !validRegions.includes(region)) {
             return NextResponse.json(
-                { error: 'Invalid region. Valid options: ukraine, iran, venezuela, taiwan' },
+                { error: 'Invalid region. Valid options: ukraine, iran, venezuela, taiwan, israel' },
                 { status: 400 }
             );
         }
@@ -203,24 +229,100 @@ export async function GET(request: NextRequest) {
         const baseUrl = request.nextUrl.origin;
         const config = CONFLICT_CONFIGS[region];
 
-        // Fetch data in parallel
-        const [assets, events] = await Promise.all([
-            Promise.resolve(getStaticAssets(region)),
+        // Load region-specific data and GDELT events in parallel
+        const [regionData, gdeltEvents] = await Promise.all([
+            loadRegionData(region),
             fetchGDELTEvents(region, baseUrl),
         ]);
 
+        // Process assets based on region type
+        let assets: ConflictAsset[] = [];
+        let controlZones: ControlZone[] | undefined;
+        let nuclearFacilities: NuclearFacility[] | undefined;
+        let navalGroups: NavalGroup[] | undefined;
+        let frontLines: FrontLine[] | undefined;
+        let zones: ZoneOverlay[] | undefined;
+        let battleLocations: BattleLocation[] | undefined;
+        let alertLevel: AlertLevel | undefined = config.alertLevel;
+
+        if (regionData) {
+            // Base assets from data file
+            assets = processAssets(regionData.assets || [], region);
+
+            // Region-specific data handling
+            switch (region) {
+                case 'ukraine':
+                    controlZones = regionData.controlZones;
+                    frontLines = regionData.frontLines;
+                    battleLocations = regionData.battleLocations;
+                    break;
+
+                case 'iran':
+                    nuclearFacilities = regionData.nuclearFacilities;
+                    zones = regionData.zones;
+                    // Add nuclear facilities as assets for map display
+                    assets = [...assets, ...nuclearFacilitiesToAssets(regionData.nuclearFacilities || [])];
+                    break;
+
+                case 'taiwan':
+                    navalGroups = regionData.navalGroups;
+                    zones = regionData.zones;
+                    alertLevel = regionData.alertLevel || alertLevel;
+                    // Extract naval assets from groups
+                    assets = [...assets, ...extractNavalAssets(regionData.navalGroups || [])];
+                    break;
+
+                case 'venezuela':
+                    navalGroups = regionData.navalGroups;
+                    zones = regionData.zones;
+                    alertLevel = regionData.alertLevel || alertLevel;
+                    // Extract naval assets from groups
+                    assets = [...assets, ...extractNavalAssets(regionData.navalGroups || [])];
+                    break;
+
+                case 'israel':
+                    controlZones = regionData.controlZones;
+                    navalGroups = regionData.navalGroups;
+                    zones = regionData.zones;
+                    battleLocations = regionData.battleLocations;
+                    alertLevel = regionData.alertLevel || alertLevel;
+                    // Extract naval assets
+                    assets = [...assets, ...extractNavalAssets(regionData.navalGroups || [])];
+                    break;
+            }
+        }
+
+        // Combine battle location events with GDELT events
+        const battleEvents = battleLocationsToEvents(battleLocations || []);
+        const recentEvents = [...battleEvents, ...gdeltEvents];
+
+        // Build the zone response
         const zone: ConflictZone = {
             ...config,
             assets,
-            recentEvents: events,
+            recentEvents,
             lastUpdated: new Date().toISOString(),
+            alertLevel,
+            controlZones,
+            nuclearFacilities,
+            navalGroups,
+            frontLines,
+            zones,
+            battleLocations,
         };
+
+        // Collect all sources used
+        const sources: string[] = ['Static Intel Database'];
+        if (gdeltEvents.length > 0) sources.push('GDELT');
+        if (nuclearFacilities) sources.push('IAEA Reports');
+        if (navalGroups) sources.push('Naval Tracking');
+        if (battleLocations) sources.push('ISW / DeepState');
 
         const response: OSINTResponse = {
             region,
             zone,
             fetchedAt: new Date().toISOString(),
-            sources: ['GDELT', 'Static Intel'],
+            sources,
         };
 
         return NextResponse.json(response);

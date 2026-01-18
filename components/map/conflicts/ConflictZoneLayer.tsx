@@ -4,7 +4,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useLayerStore } from '@/lib/store/layer-store';
-import { ConflictZone, ConflictAsset, ConflictEvent, ConflictRegion, OSINTResponse } from '@/types/conflicts';
+import {
+    ConflictZone,
+    ConflictAsset,
+    ConflictEvent,
+    ConflictRegion,
+    OSINTResponse,
+    NuclearFacility,
+    NavalGroup,
+    ControlZone,
+    FrontLine,
+    AlertLevel
+} from '@/types/conflicts';
+import { NuclearFacilityMarker } from './NuclearFacilityMarker';
+import { NavalGroupMarker } from './NavalGroupMarker';
+import { ControlZoneLayer } from './ControlZoneLayer';
+import { AlertLevelBadge } from './AlertLevelBadge';
 
 // Convert lat/lng to 3D coordinates on sphere
 function latLngToVector3(lat: number, lng: number, radius: number): THREE.Vector3 {
@@ -18,17 +33,29 @@ function latLngToVector3(lat: number, lng: number, radius: number): THREE.Vector
     );
 }
 
-// 2D Asset Icons
+// Enhanced asset icons with more variety
 const ASSET_ICONS: Record<string, { icon: string; color: string }> = {
     warship: { icon: '🚢', color: '#ef4444' },
+    carrier: { icon: '⚓', color: '#dc2626' },
+    destroyer: { icon: '🚢', color: '#dc2626' },
+    frigate: { icon: '🚢', color: '#f97316' },
+    submarine: { icon: '🔱', color: '#6b7280' },
+    patrol_boat: { icon: '⛵', color: '#f97316' },
     aircraft: { icon: '✈️', color: '#f97316' },
+    drone: { icon: '🎯', color: '#8b5cf6' },
     troops: { icon: '⚔️', color: '#dc2626' },
-    missile: { icon: '🎯', color: '#b91c1c' },
+    missile: { icon: '🚀', color: '#b91c1c' },
+    missile_launcher: { icon: '🚀', color: '#b91c1c' },
+    radar: { icon: '📡', color: '#3b82f6' },
+    sam_site: { icon: '🛡️', color: '#22c55e' },
     protest: { icon: '📢', color: '#eab308' },
     strike: { icon: '💥', color: '#ef4444' },
     explosion: { icon: '💥', color: '#ef4444' },
     checkpoint: { icon: '🏛️', color: '#3b82f6' },
     naval_zone: { icon: '🌊', color: '#0ea5e9' },
+    nuclear: { icon: '☢️', color: '#eab308' },
+    base: { icon: '🏰', color: '#6b7280' },
+    airbase: { icon: '🛫', color: '#3b82f6' },
 };
 
 interface AssetMarkerProps {
@@ -74,10 +101,23 @@ function AssetMarker({ asset, radius, onClick }: AssetMarkerProps) {
                 >
                     <span className="text-xs">{iconConfig.icon}</span>
                 </div>
+                {/* Nationality badge */}
+                {asset.nationality && (
+                    <div
+                        className="absolute -top-1 -right-1 px-1 py-0.5 rounded text-[7px] font-bold"
+                        style={{
+                            backgroundColor: iconConfig.color,
+                            color: 'white',
+                        }}
+                    >
+                        {asset.nationality}
+                    </div>
+                )}
                 {/* Label on hover */}
                 <div className="absolute left-1/2 -translate-x-1/2 -bottom-6 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                     <div className="bg-black/90 text-white text-[9px] px-2 py-0.5 rounded border border-white/20">
                         {asset.label || asset.type}
+                        {asset.class && <span className="text-gray-400 ml-1">({asset.class})</span>}
                     </div>
                 </div>
             </div>
@@ -145,13 +185,58 @@ function EventMarker({ event, radius, onClick }: EventMarkerProps) {
     );
 }
 
+interface RegionAlertBadgeProps {
+    region: ConflictRegion;
+    alertLevel: AlertLevel;
+    centerLat: number;
+    centerLng: number;
+    radius: number;
+}
+
+function RegionAlertBadge({ region, alertLevel, centerLat, centerLng, radius }: RegionAlertBadgeProps) {
+    const position = latLngToVector3(centerLat, centerLng, radius + 0.1);
+
+    const regionNames: Record<ConflictRegion, string> = {
+        ukraine: 'Ukraine',
+        iran: 'Iran',
+        venezuela: 'Venezuela',
+        taiwan: 'Taiwan',
+        israel: 'Israel',
+    };
+
+    return (
+        <Html
+            position={[position.x, position.y, position.z]}
+            center
+            distanceFactor={12}
+            zIndexRange={[200, 0]}
+            style={{ pointerEvents: 'auto', zIndex: 200 }}
+        >
+            <AlertLevelBadge
+                level={alertLevel}
+                regionName={regionNames[region]}
+                size="sm"
+                className="shadow-lg"
+            />
+        </Html>
+    );
+}
+
 interface ConflictZoneLayerProps {
     radius: number;
     onAssetClick?: (asset: ConflictAsset) => void;
     onEventClick?: (event: ConflictEvent) => void;
+    onNavalGroupClick?: (group: NavalGroup) => void;
+    onNuclearFacilityClick?: (facility: NuclearFacility) => void;
 }
 
-export function ConflictZoneLayer({ radius, onAssetClick, onEventClick }: ConflictZoneLayerProps) {
+export function ConflictZoneLayer({
+    radius,
+    onAssetClick,
+    onEventClick,
+    onNavalGroupClick,
+    onNuclearFacilityClick,
+}: ConflictZoneLayerProps) {
     const isActive = useLayerStore((s) => s.isLayerActive('CONFLICTS'));
     const [zones, setZones] = useState<ConflictZone[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -163,7 +248,7 @@ export function ConflictZoneLayer({ radius, onAssetClick, onEventClick }: Confli
         setIsLoading(true);
         setError(null);
 
-        const regions: ConflictRegion[] = ['ukraine', 'iran', 'venezuela', 'taiwan'];
+        const regions: ConflictRegion[] = ['ukraine', 'iran', 'venezuela', 'taiwan', 'israel'];
 
         try {
             const results = await Promise.all(
@@ -181,7 +266,13 @@ export function ConflictZoneLayer({ radius, onAssetClick, onEventClick }: Confli
             );
 
             const validZones = results.filter((z): z is ConflictZone => z !== null);
-            console.log('[ConflictLayer] Fetched zones:', validZones.length, validZones.map(z => ({ id: z.id, assets: z.assets.length })));
+            console.log('[ConflictLayer] Fetched zones:', validZones.length, validZones.map(z => ({
+                id: z.id,
+                assets: z.assets.length,
+                navalGroups: z.navalGroups?.length || 0,
+                nuclearFacilities: z.nuclearFacilities?.length || 0,
+                controlZones: z.controlZones?.length || 0,
+            })));
             setZones(validZones);
         } catch (e) {
             setError('Failed to fetch conflict data');
@@ -212,10 +303,51 @@ export function ConflictZoneLayer({ radius, onAssetClick, onEventClick }: Confli
 
     return (
         <group>
-            {/* Render assets for each zone */}
+            {/* Render each zone */}
             {zones.map((zone) => (
                 <group key={zone.id}>
-                    {/* Assets (ships, troops, etc.) */}
+                    {/* Alert level badge at region center */}
+                    {zone.alertLevel && (
+                        <RegionAlertBadge
+                            region={zone.id}
+                            alertLevel={zone.alertLevel}
+                            centerLat={zone.centerLat}
+                            centerLng={zone.centerLng}
+                            radius={radius}
+                        />
+                    )}
+
+                    {/* Control zones and frontlines (Ukraine, Israel) */}
+                    {(zone.controlZones || zone.frontLines) && (
+                        <ControlZoneLayer
+                            controlZones={zone.controlZones}
+                            frontLines={zone.frontLines}
+                            radius={radius}
+                            showLabels={true}
+                        />
+                    )}
+
+                    {/* Naval groups (Taiwan, Venezuela, Israel) */}
+                    {zone.navalGroups?.map((group) => (
+                        <NavalGroupMarker
+                            key={group.id}
+                            group={group}
+                            radius={radius + 0.06}
+                            onClick={onNavalGroupClick}
+                        />
+                    ))}
+
+                    {/* Nuclear facilities (Iran) */}
+                    {zone.nuclearFacilities?.map((facility) => (
+                        <NuclearFacilityMarker
+                            key={facility.id}
+                            facility={facility}
+                            radius={radius + 0.06}
+                            onClick={onNuclearFacilityClick}
+                        />
+                    ))}
+
+                    {/* Standard assets (all regions) */}
                     {zone.assets.map((asset) => (
                         <AssetMarker
                             key={asset.id}

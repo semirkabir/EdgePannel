@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Play, Pause, Search, Flame, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Layers, VolumeX, Eye, ArrowRightLeft, SlidersHorizontal, BookOpen } from 'lucide-react';
+import { Settings, Play, Pause, Search, Radio, Activity, Globe, Shield, Map, Filter, X, ChevronDown, Bell, User, LogOut, RotateCcw, Wallet, Brain, Circle, Eye, ArrowRightLeft, SlidersHorizontal, BookOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils/cn';
@@ -324,7 +324,7 @@ export function EdgeUI({
                 {(() => {
                   const activeCount =
                     (selectedCategories.length > 0 && !selectedCategories.includes('All') ? 1 : 0) +
-                    ([activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length > 0 ? 1 : 0);
+                    ([activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length > 0 ? 1 : 0);
 
                   return activeCount > 0 && (
                     <span className="w-3.5 h-3.5 flex items-center justify-center bg-purple-500 text-white rounded-full text-[8px] font-bold">
@@ -436,78 +436,6 @@ export function EdgeUI({
                           <div className="w-1.5 h-1.5 rounded-full border-2 border-current" />
                           <span className="text-[9px] font-bold">Group</span>
                         </button>
-                      </div>
-                    </div>
-
-                    <div className="h-px bg-white/5 w-full" />
-
-                    {/* Section 3: Overlays */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 text-white/90">
-                        <Layers className="w-3 h-3 text-emerald-400" />
-                        <h3 className="text-[10px] font-bold uppercase tracking-wider">Overlays</h3>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        {/* Live Updates */}
-                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/15 border border-white/20">
-                          <div className="flex items-center gap-1.5">
-                            <span className={cn("w-1.5 h-1.5 rounded-full", activeFilters.live ? "bg-emerald-400 animate-pulse" : "bg-gray-500")} />
-                            <span className="text-[10px] text-gray-300">Live Updates</span>
-                          </div>
-                          <button
-                            onClick={() => onFilterChange('live', !activeFilters.live)}
-                            className={cn(
-                              "w-6 h-3.5 rounded-full relative transition-colors",
-                              activeFilters.live ? "bg-emerald-500" : "bg-white/20"
-                            )}
-                          >
-                            <div className={cn(
-                              "absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all shadow-sm",
-                              activeFilters.live ? "left-[13px]" : "left-0.5"
-                            )} />
-                          </button>
-                        </div>
-
-                        {/* Fires */}
-                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/15 border border-white/20">
-                          <div className="flex items-center gap-1.5">
-                            <Flame className={cn("w-2.5 h-2.5", activeFilters.fires ? "text-orange-400" : "text-gray-500")} />
-                            <span className="text-[10px] text-gray-300">Viral / Fires</span>
-                          </div>
-                          <button
-                            onClick={() => onFilterChange('fires', !activeFilters.fires)}
-                            className={cn(
-                              "w-6 h-3.5 rounded-full relative transition-colors",
-                              activeFilters.fires ? "bg-orange-600" : "bg-white/20"
-                            )}
-                          >
-                            <div className={cn(
-                              "absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all shadow-sm",
-                              activeFilters.fires ? "left-[13px]" : "left-0.5"
-                            )} />
-                          </button>
-                        </div>
-
-                        {/* Low Liquidity Filter */}
-                        <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/15 border border-white/20">
-                          <div className="flex items-center gap-1.5">
-                            <VolumeX className={cn("w-2.5 h-2.5", activeFilters.noiseFilter ? "text-amber-400" : "text-gray-500")} />
-                            <span className="text-[10px] text-gray-300">Hide Low Liquidity</span>
-                          </div>
-                          <button
-                            onClick={() => onFilterChange('noiseFilter', !activeFilters.noiseFilter)}
-                            className={cn(
-                              "w-6 h-3.5 rounded-full relative transition-colors",
-                              activeFilters.noiseFilter ? "bg-amber-600" : "bg-white/20"
-                            )}
-                          >
-                            <div className={cn(
-                              "absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all shadow-sm",
-                              activeFilters.noiseFilter ? "left-[13px]" : "left-0.5"
-                            )} />
-                          </button>
-                        </div>
                       </div>
                     </div>
 
@@ -630,7 +558,7 @@ export function EdgeUI({
                 {(() => {
                   const activeCount =
                     (selectedCategories.length > 0 && !selectedCategories.includes('All') ? 1 : 0) +
-                    ([activeFilters.live, activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length > 0 ? 1 : 0);
+                    ([activeFilters.fires, activeFilters.noiseFilter].filter(Boolean).length > 0 ? 1 : 0);
 
                   return activeCount > 0 && (
                     <span className="ml-1 flex items-center justify-center w-4 h-4 bg-purple-500 text-white rounded-full text-[9px] font-bold">
@@ -742,84 +670,6 @@ export function EdgeUI({
                           <div className="w-2 h-2 rounded-full border-2 border-current" />
                           <span className="text-[10px] font-bold">Clusters</span>
                         </button>
-                      </div>
-                    </div>
-
-                    <div className="h-px bg-white/5 w-full" />
-
-                    {/* Section 3: Overlays */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-white/90">
-                        <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                        <h3 className="text-xs font-bold uppercase tracking-wider">Overlays</h3>
-                      </div>
-
-                      <div className="space-y-2">
-                        {/* Live Updates */}
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-white/15 border border-white/20">
-                          <div className="flex items-center gap-2">
-                            <span className={cn("w-1.5 h-1.5 rounded-full", activeFilters.live ? "bg-emerald-400 animate-pulse" : "bg-gray-500")} />
-                            <span className="text-xs text-gray-300">Live Updates</span>
-                          </div>
-                          <button
-                            onClick={() => onFilterChange('live', !activeFilters.live)}
-                            className={cn(
-                              "w-8 h-4 rounded-full relative transition-colors",
-                              activeFilters.live ? "bg-emerald-500" : "bg-white/20"
-                            )}
-                          >
-                            <div className={cn(
-                              "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm",
-                              activeFilters.live ? "left-[18px]" : "left-0.5"
-                            )} />
-                          </button>
-                        </div>
-
-                        {/* Fires */}
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-white/15 border border-white/20">
-                          <div className="flex items-center gap-2">
-                            <Flame className={cn("w-3 h-3", activeFilters.fires ? "text-orange-400" : "text-gray-500")} />
-                            <div className="flex flex-col">
-                              <span className="text-xs text-gray-300">OSINT / Thermal</span>
-                              <span className="text-[9px] text-gray-500">NASA FIRMS Data</span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => onFilterChange('fires', !activeFilters.fires)}
-                            className={cn(
-                              "w-8 h-4 rounded-full relative transition-colors",
-                              activeFilters.fires ? "bg-orange-600" : "bg-white/20"
-                            )}
-                          >
-                            <div className={cn(
-                              "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm",
-                              activeFilters.fires ? "left-[18px]" : "left-0.5"
-                            )} />
-                          </button>
-                        </div>
-
-                        {/* Low Liquidity Filter */}
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-white/15 border border-white/20">
-                          <div className="flex items-center gap-2">
-                            <VolumeX className={cn("w-3 h-3", activeFilters.noiseFilter ? "text-amber-400" : "text-gray-500")} />
-                            <div className="flex flex-col">
-                              <span className="text-xs text-gray-300">Hide Low Liquidity</span>
-                              <span className="text-[9px] text-gray-500">Under $100 Vol</span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => onFilterChange('noiseFilter', !activeFilters.noiseFilter)}
-                            className={cn(
-                              "w-8 h-4 rounded-full relative transition-colors",
-                              activeFilters.noiseFilter ? "bg-amber-600" : "bg-white/20"
-                            )}
-                          >
-                            <div className={cn(
-                              "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all shadow-sm",
-                              activeFilters.noiseFilter ? "left-[18px]" : "left-0.5"
-                            )} />
-                          </button>
-                        </div>
                       </div>
                     </div>
 

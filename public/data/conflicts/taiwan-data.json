@@ -1,0 +1,346 @@
+{
+    "navalGroups": [
+        {
+            "id": "pla-eastern-fleet",
+            "name": "PLA Eastern Fleet",
+            "nationality": "CN",
+            "formation": "patrol",
+            "centerLat": 24.5,
+            "centerLng": 119.8,
+            "heading": 90,
+            "estimatedStrength": "12+ vessels",
+            "vessels": [
+                {
+                    "id": "cn-055-1",
+                    "type": "destroyer",
+                    "label": "Type 055 Destroyer",
+                    "lat": 24.6,
+                    "lng": 119.7,
+                    "heading": 90,
+                    "confidence": "high",
+                    "nationality": "CN",
+                    "class": "Type 055"
+                },
+                {
+                    "id": "cn-052d-1",
+                    "type": "destroyer",
+                    "label": "Type 052D Destroyer",
+                    "lat": 24.4,
+                    "lng": 119.9,
+                    "heading": 85,
+                    "confidence": "high",
+                    "nationality": "CN",
+                    "class": "Type 052D"
+                },
+                {
+                    "id": "cn-054a-1",
+                    "type": "frigate",
+                    "label": "Type 054A Frigate",
+                    "lat": 24.5,
+                    "lng": 119.6,
+                    "heading": 95,
+                    "confidence": "high",
+                    "nationality": "CN",
+                    "class": "Type 054A"
+                },
+                {
+                    "id": "cn-054a-2",
+                    "type": "frigate",
+                    "label": "Type 054A Frigate",
+                    "lat": 24.3,
+                    "lng": 120.0,
+                    "heading": 88,
+                    "confidence": "medium",
+                    "nationality": "CN",
+                    "class": "Type 054A"
+                }
+            ]
+        },
+        {
+            "id": "pla-southern-patrol",
+            "name": "PLA Southern Patrol",
+            "nationality": "CN",
+            "formation": "patrol",
+            "centerLat": 22.8,
+            "centerLng": 120.5,
+            "heading": 45,
+            "estimatedStrength": "6+ vessels",
+            "vessels": [
+                {
+                    "id": "cn-052d-2",
+                    "type": "destroyer",
+                    "label": "Type 052D Destroyer",
+                    "lat": 22.9,
+                    "lng": 120.4,
+                    "heading": 45,
+                    "confidence": "high",
+                    "nationality": "CN",
+                    "class": "Type 052D"
+                },
+                {
+                    "id": "cn-056-1",
+                    "type": "patrol_boat",
+                    "label": "Type 056 Corvette",
+                    "lat": 22.7,
+                    "lng": 120.6,
+                    "heading": 50,
+                    "confidence": "medium",
+                    "nationality": "CN",
+                    "class": "Type 056"
+                },
+                {
+                    "id": "cn-056-2",
+                    "type": "patrol_boat",
+                    "label": "Type 056 Corvette",
+                    "lat": 22.6,
+                    "lng": 120.8,
+                    "heading": 40,
+                    "confidence": "medium",
+                    "nationality": "CN",
+                    "class": "Type 056"
+                }
+            ]
+        },
+        {
+            "id": "pla-carrier-group",
+            "name": "Shandong Carrier Strike Group",
+            "nationality": "CN",
+            "formation": "carrier_strike_group",
+            "centerLat": 23.5,
+            "centerLng": 118.5,
+            "heading": 120,
+            "estimatedStrength": "8+ vessels",
+            "vessels": [
+                {
+                    "id": "cn-cv17",
+                    "type": "carrier",
+                    "label": "CV-17 Shandong",
+                    "lat": 23.5,
+                    "lng": 118.5,
+                    "heading": 120,
+                    "confidence": "high",
+                    "nationality": "CN",
+                    "class": "Type 002"
+                },
+                {
+                    "id": "cn-055-2",
+                    "type": "destroyer",
+                    "label": "Type 055 Destroyer",
+                    "lat": 23.6,
+                    "lng": 118.3,
+                    "heading": 115,
+                    "confidence": "high",
+                    "nationality": "CN",
+                    "class": "Type 055"
+                },
+                {
+                    "id": "cn-052d-3",
+                    "type": "destroyer",
+                    "label": "Type 052D Destroyer",
+                    "lat": 23.4,
+                    "lng": 118.7,
+                    "heading": 125,
+                    "confidence": "high",
+                    "nationality": "CN",
+                    "class": "Type 052D"
+                },
+                {
+                    "id": "cn-ssn-1",
+                    "type": "submarine",
+                    "label": "Type 093 SSN",
+                    "lat": 23.3,
+                    "lng": 118.4,
+                    "heading": 130,
+                    "confidence": "low",
+                    "nationality": "CN",
+                    "class": "Type 093"
+                }
+            ]
+        },
+        {
+            "id": "tw-naval-defense",
+            "name": "ROC Fleet Command",
+            "nationality": "TW",
+            "formation": "patrol",
+            "centerLat": 24.8,
+            "centerLng": 121.5,
+            "heading": 270,
+            "estimatedStrength": "10+ vessels",
+            "vessels": [
+                {
+                    "id": "tw-kidd-1",
+                    "type": "destroyer",
+                    "label": "ROCS Kee Lung",
+                    "lat": 24.9,
+                    "lng": 121.4,
+                    "heading": 270,
+                    "confidence": "high",
+                    "nationality": "TW",
+                    "class": "Kidd-class"
+                },
+                {
+                    "id": "tw-perry-1",
+                    "type": "frigate",
+                    "label": "ROCS Cheng Kung",
+                    "lat": 24.7,
+                    "lng": 121.6,
+                    "heading": 265,
+                    "confidence": "high",
+                    "nationality": "TW",
+                    "class": "Cheng Kung-class"
+                }
+            ]
+        }
+    ],
+    "zones": [
+        {
+            "id": "taiwan-strait",
+            "type": "naval_exclusion",
+            "label": "Taiwan Strait",
+            "color": "#22c55e",
+            "opacity": 0.15,
+            "polygon": [
+                {
+                    "lat": 25.5,
+                    "lng": 119.0
+                },
+                {
+                    "lat": 25.5,
+                    "lng": 121.5
+                },
+                {
+                    "lat": 22.5,
+                    "lng": 121.5
+                },
+                {
+                    "lat": 22.5,
+                    "lng": 119.0
+                }
+            ]
+        },
+        {
+            "id": "taiwan-adiz",
+            "type": "adiz",
+            "label": "Taiwan ADIZ",
+            "color": "#3b82f6",
+            "opacity": 0.1,
+            "polygon": [
+                {
+                    "lat": 29.0,
+                    "lng": 117.5
+                },
+                {
+                    "lat": 29.0,
+                    "lng": 123.0
+                },
+                {
+                    "lat": 21.0,
+                    "lng": 123.0
+                },
+                {
+                    "lat": 21.0,
+                    "lng": 117.5
+                }
+            ]
+        },
+        {
+            "id": "pla-exercise-zone",
+            "type": "danger",
+            "label": "PLA Exercise Zone",
+            "color": "#ef4444",
+            "opacity": 0.2,
+            "polygon": [
+                {
+                    "lat": 25.0,
+                    "lng": 119.5
+                },
+                {
+                    "lat": 25.0,
+                    "lng": 120.5
+                },
+                {
+                    "lat": 24.0,
+                    "lng": 120.5
+                },
+                {
+                    "lat": 24.0,
+                    "lng": 119.5
+                }
+            ]
+        }
+    ],
+    "assets": [
+        {
+            "id": "pla-fujian-missiles",
+            "type": "missile_launcher",
+            "label": "DF-15/DF-16 Launchers",
+            "lat": 25.0,
+            "lng": 118.1,
+            "confidence": "high",
+            "nationality": "CN"
+        },
+        {
+            "id": "pla-fujian-airbase",
+            "type": "airbase",
+            "label": "Longtian Air Base",
+            "lat": 25.67,
+            "lng": 119.66,
+            "confidence": "high",
+            "nationality": "CN"
+        },
+        {
+            "id": "tw-hsinchu-airbase",
+            "type": "airbase",
+            "label": "Hsinchu AFB",
+            "lat": 24.82,
+            "lng": 120.94,
+            "confidence": "high",
+            "nationality": "TW"
+        },
+        {
+            "id": "tw-patriot",
+            "type": "sam_site",
+            "label": "Patriot Battery",
+            "lat": 25.03,
+            "lng": 121.53,
+            "confidence": "high",
+            "nationality": "TW"
+        },
+        {
+            "id": "tw-tien-kung",
+            "type": "sam_site",
+            "label": "Tien Kung III",
+            "lat": 22.63,
+            "lng": 120.27,
+            "confidence": "high",
+            "nationality": "TW"
+        }
+    ],
+    "adizIncursions": [
+        {
+            "id": "inc-1",
+            "aircraftType": "J-16",
+            "count": 4,
+            "lat": 24.2,
+            "lng": 118.8,
+            "timestamp": "2026-01-17T06:00:00Z"
+        },
+        {
+            "id": "inc-2",
+            "aircraftType": "Y-8 ASW",
+            "count": 1,
+            "lat": 23.5,
+            "lng": 119.2,
+            "timestamp": "2026-01-17T08:30:00Z"
+        },
+        {
+            "id": "inc-3",
+            "aircraftType": "J-10",
+            "count": 6,
+            "lat": 24.8,
+            "lng": 119.0,
+            "timestamp": "2026-01-16T14:00:00Z"
+        }
+    ],
+    "alertLevel": "elevated"
+}

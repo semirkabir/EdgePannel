@@ -1,0 +1,191 @@
+{
+  "controlZones": [
+    {
+      "id": "crimea",
+      "name": "Crimea",
+      "controlledBy": "russia",
+      "since": "2014-03-18",
+      "confidence": "high",
+      "population": 2400000,
+      "polygon": [
+        { "lat": 46.15, "lng": 33.35 },
+        { "lat": 46.2, "lng": 34.0 },
+        { "lat": 45.9, "lng": 34.8 },
+        { "lat": 45.45, "lng": 35.5 },
+        { "lat": 45.0, "lng": 36.2 },
+        { "lat": 44.5, "lng": 35.9 },
+        { "lat": 44.4, "lng": 34.1 },
+        { "lat": 44.95, "lng": 33.7 },
+        { "lat": 45.35, "lng": 32.5 },
+        { "lat": 45.9, "lng": 33.0 }
+      ]
+    },
+    {
+      "id": "luhansk-oblast",
+      "name": "Luhansk Oblast",
+      "controlledBy": "russia",
+      "since": "2022-07-01",
+      "confidence": "high",
+      "population": 2100000,
+      "polygon": [
+        { "lat": 50.1, "lng": 38.0 },
+        { "lat": 49.8, "lng": 39.6 },
+        { "lat": 49.0, "lng": 40.2 },
+        { "lat": 48.5, "lng": 39.8 },
+        { "lat": 48.6, "lng": 38.4 },
+        { "lat": 49.2, "lng": 37.5 },
+        { "lat": 49.8, "lng": 37.8 }
+      ]
+    },
+    {
+      "id": "donetsk-south",
+      "name": "Southern Donetsk",
+      "controlledBy": "russia",
+      "since": "2022-03-01",
+      "confidence": "high",
+      "population": 800000,
+      "polygon": [
+        { "lat": 48.0, "lng": 37.0 },
+        { "lat": 47.5, "lng": 38.0 },
+        { "lat": 47.0, "lng": 38.5 },
+        { "lat": 46.8, "lng": 37.5 },
+        { "lat": 47.1, "lng": 36.8 },
+        { "lat": 47.6, "lng": 36.5 }
+      ]
+    },
+    {
+      "id": "zaporizhzhia-south",
+      "name": "Southern Zaporizhzhia",
+      "controlledBy": "russia",
+      "since": "2022-03-15",
+      "confidence": "high",
+      "population": 500000,
+      "polygon": [
+        { "lat": 47.5, "lng": 35.0 },
+        { "lat": 47.3, "lng": 36.5 },
+        { "lat": 46.8, "lng": 36.5 },
+        { "lat": 46.4, "lng": 35.5 },
+        { "lat": 46.6, "lng": 34.5 },
+        { "lat": 47.0, "lng": 34.5 }
+      ]
+    },
+    {
+      "id": "kherson-east",
+      "name": "Eastern Kherson (Left Bank)",
+      "controlledBy": "russia",
+      "since": "2022-11-01",
+      "confidence": "medium",
+      "population": 200000,
+      "polygon": [
+        { "lat": 46.8, "lng": 33.5 },
+        { "lat": 46.6, "lng": 34.5 },
+        { "lat": 46.2, "lng": 34.0 },
+        { "lat": 46.0, "lng": 33.3 },
+        { "lat": 46.4, "lng": 33.0 }
+      ]
+    },
+    {
+      "id": "donetsk-frontline",
+      "name": "Donetsk Frontline Zone",
+      "controlledBy": "contested",
+      "confidence": "medium",
+      "polygon": [
+        { "lat": 48.8, "lng": 37.0 },
+        { "lat": 48.6, "lng": 37.8 },
+        { "lat": 48.2, "lng": 37.5 },
+        { "lat": 48.0, "lng": 37.0 },
+        { "lat": 48.3, "lng": 36.5 }
+      ]
+    }
+  ],
+  "frontLines": [
+    {
+      "id": "eastern-front-main",
+      "name": "Eastern Front",
+      "type": "contested",
+      "lastUpdated": "2026-01-17",
+      "points": [
+        { "lat": 50.2, "lng": 37.5 },
+        { "lat": 49.5, "lng": 37.8 },
+        { "lat": 49.0, "lng": 37.5 },
+        { "lat": 48.5, "lng": 37.2 },
+        { "lat": 48.0, "lng": 37.0 },
+        { "lat": 47.5, "lng": 36.5 },
+        { "lat": 47.0, "lng": 35.8 }
+      ]
+    },
+    {
+      "id": "southern-front",
+      "name": "Southern Front",
+      "type": "controlled",
+      "controlledBy": "ukraine",
+      "lastUpdated": "2026-01-17",
+      "points": [
+        { "lat": 47.0, "lng": 35.8 },
+        { "lat": 46.8, "lng": 35.0 },
+        { "lat": 46.6, "lng": 34.2 },
+        { "lat": 46.5, "lng": 33.5 }
+      ]
+    }
+  ],
+  "battleLocations": [
+    {
+      "id": "avdiivka-sector",
+      "name": "Avdiivka Sector",
+      "lat": 48.14,
+      "lng": 37.75,
+      "type": "offensive",
+      "intensity": "heavy",
+      "lastReported": "2026-01-17T12:00:00Z",
+      "source": "ISW"
+    },
+    {
+      "id": "bakhmut-area",
+      "name": "Bakhmut Area",
+      "lat": 48.6,
+      "lng": 38.0,
+      "type": "defensive",
+      "intensity": "moderate",
+      "lastReported": "2026-01-17T10:00:00Z",
+      "source": "DeepState"
+    },
+    {
+      "id": "kupyansk-front",
+      "name": "Kupyansk Front",
+      "lat": 49.7,
+      "lng": 37.6,
+      "type": "defensive",
+      "intensity": "moderate",
+      "lastReported": "2026-01-17T08:00:00Z",
+      "source": "ISW"
+    },
+    {
+      "id": "robotyne-sector",
+      "name": "Robotyne Sector",
+      "lat": 47.45,
+      "lng": 35.85,
+      "type": "offensive",
+      "intensity": "light",
+      "lastReported": "2026-01-16T18:00:00Z",
+      "source": "UA General Staff"
+    },
+    {
+      "id": "kherson-artillery",
+      "name": "Kherson City Shelling",
+      "lat": 46.64,
+      "lng": 32.62,
+      "type": "shelling",
+      "intensity": "moderate",
+      "lastReported": "2026-01-17T06:00:00Z",
+      "source": "Kherson OVA"
+    }
+  ],
+  "assets": [
+    { "id": "ua-kyiv", "type": "checkpoint", "label": "Kyiv", "lat": 50.45, "lng": 30.52, "confidence": "high" },
+    { "id": "ua-kharkiv", "type": "base", "label": "Kharkiv HQ", "lat": 49.99, "lng": 36.23, "confidence": "high" },
+    { "id": "ua-odesa", "type": "naval_zone", "label": "Odesa Naval Base", "lat": 46.48, "lng": 30.74, "confidence": "high" },
+    { "id": "ru-sevastopol", "type": "naval_zone", "label": "Sevastopol Fleet", "lat": 44.62, "lng": 33.53, "confidence": "high", "nationality": "RU" },
+    { "id": "ru-crimea-airbase", "type": "airbase", "label": "Belbek Airbase", "lat": 44.69, "lng": 33.58, "confidence": "high", "nationality": "RU" },
+    { "id": "ua-drone-base", "type": "drone", "label": "UAV Operations", "lat": 49.5, "lng": 35.0, "confidence": "medium" }
+  ]
+}

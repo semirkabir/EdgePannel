@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Starfield } from '@/components/edge/Starfield'
+import { LandingGlobe } from '@/components/landing/LandingGlobe'
 
 // Core capabilities with aggressive positioning
 const capabilities = [
@@ -410,7 +411,7 @@ export default function LandingPage() {
                 'lg:col-span-2 transition-all duration-1000',
                 mounted ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
               )}>
-                <h1 className="text-6xl lg:text-8xl font-black leading-tight mb-6 tracking-tighter">
+                <h1 className="text-5xl sm:text-6xl lg:text-8xl font-black leading-tight mb-6 tracking-tighter">
                   <span className="text-white block">GLOBAL</span>
                   <span className="text-white block">INTELLIGENCE</span>
                   <span className="block">
@@ -418,7 +419,7 @@ export default function LandingPage() {
                   </span>
                 </h1>
 
-                <p className="text-sm text-white/60 max-w-lg font-mono leading-relaxed mb-8">
+                <p className="text-xs sm:text-sm text-white/60 max-w-lg font-mono leading-relaxed mb-8">
                   The ultimate situational awareness tool.
                   <br />
                   <strong className="text-white">News. Finance. Politics. Prediction Markets.</strong>
@@ -427,15 +428,15 @@ export default function LandingPage() {
                 </p>
 
                 {/* CTA Buttons - Aggressive style */}
-                <div className="flex flex-col sm:flex-row items-start gap-4">
-                  <Link href="/edge">
-                    <Button className="text-xs font-black bg-[#00ff7f] hover:bg-white text-black px-6 py-3 border-2 border-[#00ff7f] hover:border-white transition-all">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3 sm:gap-4">
+                  <Link href="/edge" className="w-full sm:w-auto">
+                    <Button className="w-full sm:w-auto text-xs font-black bg-[#00ff7f] hover:bg-white text-black px-6 py-3 border-2 border-[#00ff7f] hover:border-white transition-all">
                       LAUNCH TERMINAL
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </Link>
-                  <Link href="/register">
-                    <Button variant="outline" className="text-xs font-black border-2 border-white/30 text-white hover:border-[#00ff7f] hover:text-[#00ff7f] bg-transparent px-6 py-3 transition-all">
+                  <Link href="/register" className="w-full sm:w-auto">
+                    <Button variant="outline" className="w-full sm:w-auto text-xs font-black border-2 border-white/30 text-white hover:border-[#00ff7f] hover:text-[#00ff7f] bg-transparent px-6 py-3 transition-all">
                       CREATE ACCOUNT
                     </Button>
                   </Link>
@@ -474,115 +475,23 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Live Market Terminal */}
+            {/* Floating Globe */}
             <div className={cn(
               'relative transition-all duration-1000 delay-300',
               mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             )}>
-              <div className="border border-white/20 bg-black/80 backdrop-blur overflow-hidden">
-                {/* Terminal header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/40">
-                  <div className="text-xs font-mono text-[#00ff7f] uppercase tracking-wider">
-                    <span className="inline-block w-2 h-2 bg-[#00ff7f] mr-2 rounded-full animate-pulse" />
-                    INTELLIGENCE_FEED
-                  </div>
-                  <div className="text-xs font-mono text-white/40">live_stream: mixed_layers | last_indexed: {liveStats.lastIndexed}</div>
-                </div>
-
-                {/* Market rows */}
-                <div className="overflow-x-auto">
-                  <div className="text-[10px] font-mono text-white/20 px-4 py-2 border-b border-white/5 bg-white/[0.01]">
-                    INCOMING_DATA_STREAM: [PREDICTION] [NEWS] [FINANCE] [CUSTOM]
-                  </div>
-                  {isLoadingTopMarkets ? (
-                    <div className="py-12 flex flex-col items-center justify-center gap-3">
-                      <Loader className="w-5 h-5 text-[#00ff7f] animate-spin" />
-                      <div className="text-[10px] font-mono text-white/40 uppercase tracking-widest">establishing_secure_feed...</div>
-                    </div>
-                  ) : topMarkets.length > 0 ? (
-                    topMarkets.map((market, idx) => (
-                      <LiveMarketRow key={idx} market={market} delay={idx} />
-                    ))
-                  ) : (
-                    liveMarkets.map((market, idx) => (
-                      <LiveMarketRow key={idx} market={market} delay={idx} />
-                    ))
-                  )}
-                </div>
-
-                {/* Terminal footer with search */}
-                <div className="px-4 py-3 border-t border-white/10 bg-black/40">
-                  {!showSearch ? (
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-mono text-white/40 cursor-pointer hover:text-white/60 transition-colors" onClick={() => {
-                        setShowSearch(true)
-                        setTimeout(() => searchInputRef.current?.focus(), 0)
-                      }}>
-                        [{currentTime || '--:--:--'}] Ready for input | Press &apos;/&apos; to search intelligence
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {/* Search input row */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-[#00ff7f]">$</span>
-                        <Search className="w-3 h-3 text-white/50" />
-                        <input
-                          ref={searchInputRef}
-                          type="text"
-                          placeholder="search markets, news, or assets..."
-                          value={searchQuery}
-                          onChange={handleSearchChange}
-                          className="flex-1 bg-transparent border-none outline-none text-xs font-mono text-white placeholder-white/30"
-                          autoFocus
-                        />
-                        {isSearching && <Loader className="w-3 h-3 text-[#00ff7f] animate-spin" />}
-                      </div>
-
-                      {/* Search results */}
-                      {(searchResults.length > 0 || isSearching || searchQuery.trim()) && (
-                        <div className="max-h-64 overflow-y-auto space-y-1 border-t border-white/10 pt-2">
-                          {isSearching && !searchResults.length ? (
-                            <div className="text-xs font-mono text-white/50 py-2">searching...</div>
-                          ) : searchResults.length > 0 ? (
-                            searchResults.map((market) => (
-                              <Link key={market.id} href={`/edge?market=${market.id}`}>
-                                <div className="p-2 hover:bg-white/5 transition-colors cursor-pointer group">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs font-mono text-[#00ff7f] truncate group-hover:text-white">
-                                        {market.question || market.title}
-                                      </div>
-                                      <div className="text-xs text-white/40 mt-1 flex gap-2">
-                                        <span>{market.price ? (market.price * 100).toFixed(0) : '—'}%</span>
-                                        <span className="text-white/25">•</span>
-                                        <span>{market.platform || 'polymarket'}</span>
-                                      </div>
-                                    </div>
-                                    {market.image && (
-                                      <img src={market.image} alt="" className="w-6 h-6 rounded flex-shrink-0" />
-                                    )}
-                                  </div>
-                                </div>
-                              </Link>
-                            ))
-                          ) : (
-                            <div className="text-xs font-mono text-white/50 py-2">no intelligence found</div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Help text */}
-                      <div className="text-xs font-mono text-white/30 pt-1">
-                        press <span className="text-[#00ff7f]">esc</span> to close
-                      </div>
-                    </div>
-                  )}
-                </div>
+              {/* Globe container - seamless floating */}
+              <div className="relative h-[500px] lg:h-[650px] -mx-6 lg:-mx-12">
+                <LandingGlobe className="w-full h-full" />
               </div>
 
-              {/* Glow effect */}
-              <div className="absolute -inset-1 -z-10 bg-gradient-to-r from-[#00ff7f]/10 via-transparent to-transparent blur-2xl opacity-50" />
+              {/* Subtle status indicator */}
+              <div className="absolute bottom-4 right-4 z-20">
+                <div className="flex items-center gap-2 text-xs font-mono text-[#00ff7f]/60">
+                  <span className="inline-block w-1.5 h-1.5 bg-[#00ff7f] rounded-full animate-pulse" />
+                  LIVE
+                </div>
+              </div>
             </div>
           </div>
         </section>

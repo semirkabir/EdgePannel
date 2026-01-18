@@ -1,0 +1,212 @@
+{
+    "nuclearFacilities": [
+        {
+            "id": "natanz",
+            "name": "Natanz Enrichment Facility",
+            "type": "enrichment",
+            "lat": 33.72,
+            "lng": 51.73,
+            "status": "active",
+            "enrichmentLevel": "60%",
+            "centrifuges": 19000,
+            "iaeaAccess": false,
+            "lastInspected": "2024-06-15"
+        },
+        {
+            "id": "fordow",
+            "name": "Fordow Fuel Enrichment Plant",
+            "type": "enrichment",
+            "lat": 34.88,
+            "lng": 51.0,
+            "status": "active",
+            "enrichmentLevel": "60%",
+            "centrifuges": 2976,
+            "iaeaAccess": false,
+            "lastInspected": "2024-05-20"
+        },
+        {
+            "id": "isfahan",
+            "name": "Isfahan Nuclear Technology Center",
+            "type": "conversion",
+            "lat": 32.67,
+            "lng": 51.68,
+            "status": "active",
+            "iaeaAccess": true,
+            "lastInspected": "2024-08-10"
+        },
+        {
+            "id": "arak",
+            "name": "Arak Heavy Water Reactor",
+            "type": "reactor",
+            "lat": 34.38,
+            "lng": 49.24,
+            "status": "construction",
+            "iaeaAccess": true,
+            "lastInspected": "2024-07-22"
+        },
+        {
+            "id": "bushehr",
+            "name": "Bushehr Nuclear Power Plant",
+            "type": "reactor",
+            "lat": 28.83,
+            "lng": 50.89,
+            "status": "active",
+            "iaeaAccess": true,
+            "lastInspected": "2024-09-01"
+        },
+        {
+            "id": "parchin",
+            "name": "Parchin Military Complex",
+            "type": "research",
+            "lat": 35.52,
+            "lng": 51.77,
+            "status": "unknown",
+            "iaeaAccess": false
+        }
+    ],
+    "assets": [
+        {
+            "id": "ir-tehran",
+            "type": "checkpoint",
+            "label": "Tehran",
+            "lat": 35.6892,
+            "lng": 51.389,
+            "confidence": "high"
+        },
+        {
+            "id": "ir-irgc-hq",
+            "type": "base",
+            "label": "IRGC HQ",
+            "lat": 35.73,
+            "lng": 51.42,
+            "confidence": "high",
+            "nationality": "IR"
+        },
+        {
+            "id": "ir-bandar",
+            "type": "naval_zone",
+            "label": "Bandar Abbas Naval",
+            "lat": 27.19,
+            "lng": 56.28,
+            "confidence": "high"
+        },
+        {
+            "id": "ir-chabahar",
+            "type": "naval_zone",
+            "label": "Chabahar Port",
+            "lat": 25.29,
+            "lng": 60.64,
+            "confidence": "high"
+        },
+        {
+            "id": "ir-sam-tehran",
+            "type": "sam_site",
+            "label": "S-300 Battery",
+            "lat": 35.55,
+            "lng": 51.45,
+            "confidence": "medium",
+            "nationality": "IR"
+        },
+        {
+            "id": "ir-missile-khorramabad",
+            "type": "missile_launcher",
+            "label": "Ballistic Missile Site",
+            "lat": 33.49,
+            "lng": 48.35,
+            "confidence": "medium",
+            "nationality": "IR"
+        },
+        {
+            "id": "ir-radar-bushehr",
+            "type": "radar",
+            "label": "Air Defense Radar",
+            "lat": 28.92,
+            "lng": 50.84,
+            "confidence": "high"
+        }
+    ],
+    "zones": [
+        {
+            "id": "persian-gulf-patrol",
+            "type": "naval_exclusion",
+            "label": "IRGCN Patrol Zone",
+            "color": "#ef4444",
+            "opacity": 0.2,
+            "polygon": [
+                {
+                    "lat": 27.5,
+                    "lng": 51.0
+                },
+                {
+                    "lat": 27.5,
+                    "lng": 56.5
+                },
+                {
+                    "lat": 25.5,
+                    "lng": 56.5
+                },
+                {
+                    "lat": 25.5,
+                    "lng": 51.0
+                }
+            ]
+        },
+        {
+            "id": "strait-of-hormuz",
+            "type": "danger",
+            "label": "Strait of Hormuz",
+            "color": "#f97316",
+            "opacity": 0.25,
+            "polygon": [
+                {
+                    "lat": 26.8,
+                    "lng": 56.0
+                },
+                {
+                    "lat": 26.8,
+                    "lng": 57.0
+                },
+                {
+                    "lat": 26.2,
+                    "lng": 57.0
+                },
+                {
+                    "lat": 26.2,
+                    "lng": 56.0
+                }
+            ]
+        }
+    ],
+    "protestAreas": [
+        {
+            "id": "tehran-protests",
+            "lat": 35.69,
+            "lng": 51.39,
+            "intensity": "high"
+        },
+        {
+            "id": "isfahan-protests",
+            "lat": 32.65,
+            "lng": 51.67,
+            "intensity": "medium"
+        },
+        {
+            "id": "shiraz-protests",
+            "lat": 29.59,
+            "lng": 52.58,
+            "intensity": "medium"
+        },
+        {
+            "id": "tabriz-protests",
+            "lat": 38.08,
+            "lng": 46.29,
+            "intensity": "low"
+        },
+        {
+            "id": "mashhad-protests",
+            "lat": 36.3,
+            "lng": 59.6,
+            "intensity": "low"
+        }
+    ]
+}

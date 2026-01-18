@@ -1,0 +1,318 @@
+{
+    "controlZones": [
+        {
+            "id": "gaza-strip",
+            "name": "Gaza Strip",
+            "controlledBy": "contested",
+            "confidence": "medium",
+            "population": 2000000,
+            "polygon": [
+                {
+                    "lat": 31.59,
+                    "lng": 34.22
+                },
+                {
+                    "lat": 31.59,
+                    "lng": 34.56
+                },
+                {
+                    "lat": 31.22,
+                    "lng": 34.56
+                },
+                {
+                    "lat": 31.22,
+                    "lng": 34.22
+                }
+            ]
+        },
+        {
+            "id": "west-bank",
+            "name": "West Bank",
+            "controlledBy": "contested",
+            "confidence": "medium",
+            "population": 3000000,
+            "polygon": [
+                {
+                    "lat": 32.55,
+                    "lng": 35.0
+                },
+                {
+                    "lat": 32.55,
+                    "lng": 35.57
+                },
+                {
+                    "lat": 31.35,
+                    "lng": 35.57
+                },
+                {
+                    "lat": 31.35,
+                    "lng": 35.0
+                }
+            ]
+        },
+        {
+            "id": "golan-heights",
+            "name": "Golan Heights",
+            "controlledBy": "israel",
+            "since": "1967-06-10",
+            "confidence": "high",
+            "population": 50000,
+            "polygon": [
+                {
+                    "lat": 33.25,
+                    "lng": 35.7
+                },
+                {
+                    "lat": 33.25,
+                    "lng": 35.95
+                },
+                {
+                    "lat": 32.7,
+                    "lng": 35.95
+                },
+                {
+                    "lat": 32.7,
+                    "lng": 35.7
+                }
+            ]
+        }
+    ],
+    "zones": [
+        {
+            "id": "gaza-buffer",
+            "type": "danger",
+            "label": "Gaza Buffer Zone",
+            "color": "#ef4444",
+            "opacity": 0.25,
+            "polygon": [
+                {
+                    "lat": 31.6,
+                    "lng": 34.2
+                },
+                {
+                    "lat": 31.6,
+                    "lng": 34.6
+                },
+                {
+                    "lat": 31.2,
+                    "lng": 34.6
+                },
+                {
+                    "lat": 31.2,
+                    "lng": 34.2
+                }
+            ]
+        },
+        {
+            "id": "lebanon-border",
+            "type": "danger",
+            "label": "Lebanon Border Zone",
+            "color": "#f97316",
+            "opacity": 0.2,
+            "polygon": [
+                {
+                    "lat": 33.35,
+                    "lng": 35.1
+                },
+                {
+                    "lat": 33.35,
+                    "lng": 35.8
+                },
+                {
+                    "lat": 33.05,
+                    "lng": 35.8
+                },
+                {
+                    "lat": 33.05,
+                    "lng": 35.1
+                }
+            ]
+        },
+        {
+            "id": "mediterranean-naval",
+            "type": "naval_exclusion",
+            "label": "IDF Naval Zone",
+            "color": "#3b82f6",
+            "opacity": 0.15,
+            "polygon": [
+                {
+                    "lat": 32.5,
+                    "lng": 34.0
+                },
+                {
+                    "lat": 32.5,
+                    "lng": 34.5
+                },
+                {
+                    "lat": 31.5,
+                    "lng": 34.5
+                },
+                {
+                    "lat": 31.5,
+                    "lng": 34.0
+                }
+            ]
+        }
+    ],
+    "navalGroups": [
+        {
+            "id": "idf-navy-patrol",
+            "name": "IDF Navy Patrol",
+            "nationality": "IL",
+            "formation": "patrol",
+            "centerLat": 32.0,
+            "centerLng": 34.25,
+            "heading": 180,
+            "estimatedStrength": "5+ vessels",
+            "vessels": [
+                {
+                    "id": "il-saar6-1",
+                    "type": "frigate",
+                    "label": "INS Sa'ar 6",
+                    "lat": 32.1,
+                    "lng": 34.2,
+                    "heading": 180,
+                    "confidence": "high",
+                    "nationality": "IL",
+                    "class": "Sa'ar 6"
+                },
+                {
+                    "id": "il-saar5-1",
+                    "type": "frigate",
+                    "label": "INS Lahav",
+                    "lat": 31.9,
+                    "lng": 34.3,
+                    "heading": 175,
+                    "confidence": "high",
+                    "nationality": "IL",
+                    "class": "Sa'ar 5"
+                },
+                {
+                    "id": "il-patrol-1",
+                    "type": "patrol_boat",
+                    "label": "INS Patrol",
+                    "lat": 31.7,
+                    "lng": 34.35,
+                    "heading": 190,
+                    "confidence": "medium",
+                    "nationality": "IL",
+                    "class": "Shaldag"
+                }
+            ]
+        }
+    ],
+    "assets": [
+        {
+            "id": "il-tel-aviv",
+            "type": "checkpoint",
+            "label": "Tel Aviv",
+            "lat": 32.09,
+            "lng": 34.78,
+            "confidence": "high"
+        },
+        {
+            "id": "il-idf-hq",
+            "type": "base",
+            "label": "IDF HQ (Kirya)",
+            "lat": 32.07,
+            "lng": 34.79,
+            "confidence": "high",
+            "nationality": "IL"
+        },
+        {
+            "id": "il-iron-dome-1",
+            "type": "sam_site",
+            "label": "Iron Dome Battery",
+            "lat": 31.8,
+            "lng": 34.65,
+            "confidence": "high",
+            "nationality": "IL"
+        },
+        {
+            "id": "il-iron-dome-2",
+            "type": "sam_site",
+            "label": "Iron Dome Battery",
+            "lat": 32.8,
+            "lng": 35.0,
+            "confidence": "high",
+            "nationality": "IL"
+        },
+        {
+            "id": "il-nevatim",
+            "type": "airbase",
+            "label": "Nevatim AFB (F-35)",
+            "lat": 31.21,
+            "lng": 35.01,
+            "confidence": "high",
+            "nationality": "IL"
+        },
+        {
+            "id": "il-ramat-david",
+            "type": "airbase",
+            "label": "Ramat David AFB",
+            "lat": 32.67,
+            "lng": 35.18,
+            "confidence": "high",
+            "nationality": "IL"
+        },
+        {
+            "id": "gaza-tunnels",
+            "type": "explosion",
+            "label": "Tunnel Entry Point",
+            "lat": 31.45,
+            "lng": 34.4,
+            "confidence": "medium"
+        },
+        {
+            "id": "hezbollah-rockets",
+            "type": "missile_launcher",
+            "label": "Hezbollah Rockets",
+            "lat": 33.27,
+            "lng": 35.2,
+            "confidence": "low",
+            "nationality": "LB"
+        },
+        {
+            "id": "idf-troops-gaza",
+            "type": "troops",
+            "label": "IDF Ground Forces",
+            "lat": 31.4,
+            "lng": 34.38,
+            "confidence": "high",
+            "nationality": "IL"
+        }
+    ],
+    "battleLocations": [
+        {
+            "id": "gaza-north",
+            "name": "Northern Gaza Operations",
+            "lat": 31.52,
+            "lng": 34.45,
+            "type": "offensive",
+            "intensity": "heavy",
+            "lastReported": "2026-01-17T10:00:00Z",
+            "source": "IDF"
+        },
+        {
+            "id": "rafah-crossing",
+            "name": "Rafah Area",
+            "lat": 31.28,
+            "lng": 34.25,
+            "type": "siege",
+            "intensity": "moderate",
+            "lastReported": "2026-01-17T08:00:00Z",
+            "source": "Al Jazeera"
+        },
+        {
+            "id": "lebanon-border-shelling",
+            "name": "Lebanon Border Exchanges",
+            "lat": 33.1,
+            "lng": 35.4,
+            "type": "shelling",
+            "intensity": "moderate",
+            "lastReported": "2026-01-17T06:00:00Z",
+            "source": "UNIFIL"
+        }
+    ],
+    "alertLevel": "critical"
+}

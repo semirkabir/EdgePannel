@@ -46,7 +46,7 @@ export function TrendingMarketsTable({ markets, onMarketSelect, className }: Tre
             {/* Table Header */}
             <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider px-3 py-2 border-b border-white/5 bg-[#0e0f11]">
                 <div className="col-span-5">Market</div>
-                <div className="col-span-2 text-center">Chart</div>
+                <div className="col-span-2 text-center">Weekly</div>
                 <div className="col-span-2 text-right">Yes Price</div>
                 <div className="col-span-1 text-right">24h</div>
                 <div className="col-span-2 text-right">Volume</div>

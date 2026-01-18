@@ -99,6 +99,9 @@ interface EdgeMapProps {
   marketType?: MarketType;
   onInteractionStart?: () => void;
   feedData?: any;
+  disableZoom?: boolean;
+  initialZoom?: number;
+  hideControls?: boolean;
 }
 
 
@@ -109,68 +112,6 @@ const PulsingMarker = ({ longitude, latitude }: { longitude: number, latitude: n
   </div>
 );
 
-// Inner map component now supports live trade pulsing
-// For demo purposes, we'll auto-generate a few pulsing markers near active hotspots
-const LivePulseLayer = ({ active }: { active: boolean }) => {
-  const [pulse, setPulse] = useState(1);
-
-  useEffect(() => {
-    if (!active) return;
-    const interval = setInterval(() => {
-      setPulse(p => (p === 1 ? 0.6 : 1));
-    }, 800);
-    return () => clearInterval(interval);
-  }, [active]);
-
-  if (!active) return null;
-
-  // Mock live trades locations (Middle East, Ukraine, Taiwan, etc)
-  const pulses = [
-    { id: 1, lat: 31.0, lng: 34.5 },   // Israel/Palestine
-    { id: 2, lat: 48.3, lng: 37.0 },   // Donetsk
-    { id: 3, lat: 25.0, lng: 121.5 },  // Taiwan
-    { id: 4, lat: 38.8, lng: -77.0 },  // DC
-    { id: 5, lat: 31.5, lng: 34.4 },   // Gaza
-    { id: 6, lat: 15.3, lng: 44.2 },   // Yemen
-  ];
-
-  const pulseGeoJSON = {
-    type: 'FeatureCollection',
-    features: pulses.map(p => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-      properties: { id: p.id }
-    }))
-  };
-
-  return (
-    <Source id="live-pulses" type="geojson" data={pulseGeoJSON as any}>
-      {/* Outer Pulse Glow */}
-      <Layer
-        id="live-pulse-glow"
-        type="circle"
-        paint={{
-          'circle-radius': pulse * 25,
-          'circle-color': '#06b6d4', // Cyan 500
-          'circle-opacity': (1.1 - pulse) * 0.4,
-          'circle-blur': 1.0
-        }}
-      />
-      {/* Inner Core Dot */}
-      <Layer
-        id="live-pulse-center"
-        type="circle"
-        paint={{
-          'circle-radius': 4.5,
-          'circle-color': '#22d3ee', // Cyan 400
-          'circle-stroke-width': 1.5,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.9
-        }}
-      />
-    </Source>
-  );
-};
 
 
 
@@ -200,7 +141,10 @@ function InnerMap({
   marketType = 'prediction',
   onInteractionStart,
   exchanges,
-  feedData
+  feedData,
+  disableZoom = false,
+  initialZoom = 2.5,
+  hideControls = false
 }: {
   markets: any;
   rawMarkets?: any[];
@@ -225,13 +169,16 @@ function InnerMap({
   onInteractionStart?: () => void;
   exchanges?: any; // Added exchanges prop
   feedData?: any; // Added feedData prop
+  disableZoom?: boolean;
+  initialZoom?: number;
+  hideControls?: boolean;
 }) {
   const { isLayerActive, selectedCensusDataset, activeLayers } = useLayerStore();
 
   const [viewState, setViewState] = useState({
     longitude: 0,
     latitude: projection === 'mercator' ? 20 : 0,
-    zoom: 2.5,
+    zoom: initialZoom,
     pitch: 0,
     bearing: 0
   });
@@ -1145,15 +1092,7 @@ function InnerMap({
     // Handle both direct array of features and FeatureCollection object
     let features = Array.isArray(markets) ? markets : (markets?.features || []);
 
-    // IMPORTANT: When using override markets (category/platform filters active),
-    // we should always show them regardless of "live" toggle state
-    // The "live" toggle only affects the default global view
-    if (!isUsingOverride) {
-      // Only apply live filter when NOT using category/platform overrides
-      if (!activeFilters.live && !activeFilters.heatmap) {
-        features = [];
-      }
-    }
+    // Note: Live filter removed - markets are always shown
 
     // Filter for active/breaking - apply to all cases
     if (activeFilters.breaking) {
@@ -2014,7 +1953,7 @@ function InnerMap({
         initialViewState={{
           longitude: 0,
           latitude: projection === 'mercator' ? 20 : 0,
-          zoom: 2.5,
+          zoom: initialZoom,
           pitch: 0,
           bearing: 0
         }}
@@ -2054,16 +1993,20 @@ function InnerMap({
         mapStyle={`https://api.maptiler.com/maps/darkmatter/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY || '35TZqSTSBjgDvsawKAK9'}`}
         attributionControl={false}
         interactiveLayerIds={interactiveIds}
-        scrollZoom={true}
-        boxZoom={true}
-        touchZoomRotate={true}
-        touchPitch={true}
-        doubleClickZoom={true}
+        scrollZoom={!disableZoom}
+        boxZoom={!disableZoom}
+        touchZoomRotate={!disableZoom}
+        touchPitch={!disableZoom}
+        doubleClickZoom={!disableZoom}
         dragPan={true}
         dragRotate={true}
       >
-        <NavigationControl position="bottom-right" />
-        <FullscreenControl position="bottom-right" />
+        {!hideControls && (
+          <>
+            <NavigationControl position="bottom-right" />
+            <FullscreenControl position="bottom-right" />
+          </>
+        )}
 
         {/* OSINT Layer (NASA FIRMS) */}
         {/* OSINT / Wildfires Layer */}
@@ -2148,8 +2091,6 @@ function InnerMap({
           <Layer {...tweetLayer as any} />
         </Source>
 
-        {/* Live Pulse Layer */}
-        <LivePulseLayer active={activeFilters.live} />
 
         {/* CONFLICTS Layer */}
         {isLayerActive('CONFLICTS') && conflictsData.features.length > 0 && (
@@ -2580,7 +2521,10 @@ export function EdgeMap({
   showLabels = true,
   showGrid = false,
   marketType = 'prediction',
-  onInteractionStart
+  onInteractionStart,
+  disableZoom = false,
+  initialZoom = 2.5,
+  hideControls = false
 }: EdgeMapProps) {
   const { markets, tweets, rawMarkets, isLoading } = useEdgeData();
   const { geoJSON: exchangeGeoJSON } = useExchanges();
@@ -2654,6 +2598,9 @@ export function EdgeMap({
       marketType={marketType}
       onInteractionStart={onInteractionStart}
       feedData={feedData}
+      disableZoom={disableZoom}
+      initialZoom={initialZoom}
+      hideControls={hideControls}
     />
   );
 }

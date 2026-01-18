@@ -262,7 +262,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     return () => {
       cancelled = true
     }
-  }, [activeMarket?.id, activeMarket?.rawData?.numericId, activeMarket?.platform, activeMarket?.rawData?.tags, activeMarket?.tags])
+  }, [activeMarket])
 
   useEffect(() => {
     if (market) {
@@ -432,7 +432,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchHistory()
-  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.slug, timeRange, JSON.stringify(activeMarket?.rawData?.clobTokenIds)])
+  }, [activeMarket, timeRange])
 
 
   // Fetch candlestick data
@@ -487,7 +487,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchCandlesticks()
-  }, [activeMarket?.ticker, activeMarket?.slug, activeMarket?.platform, timeRange])
+  }, [activeMarket, timeRange])
 
 
   // Fetch event details with articles
