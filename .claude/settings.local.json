@@ -42,7 +42,13 @@
       "Bash(wc:*)",
       "Bash(npx prisma:*)",
       "Bash(npm install:*)",
-      "Bash(npm view:*)"
+      "Bash(npm view:*)",
+      "Bash(git log:*)",
+      "Bash(npx tsc:*)",
+      "Bash(grep:*)",
+      "Bash(lsof:*)",
+      "Bash(pkill:*)",
+      "Bash(docker exec:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

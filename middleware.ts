@@ -34,6 +34,11 @@ const authMiddleware = AUTH_ENABLED ? withAuth({
 }) : undefined
 
 export default async function middleware(req: NextRequest, event: NextFetchEvent) {
+  // 0. Skip all checks for health endpoints
+  if (req.nextUrl.pathname.startsWith('/api/health')) {
+    return NextResponse.next()
+  }
+
   // 1. Anti-scraping check
   const botResponse = antiScrapeMiddleware(req)
   if (botResponse) return applySecurityHeaders(botResponse)

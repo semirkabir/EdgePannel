@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LiveTradesQuerySchema } from '@/lib/api/schemas';
+import { validateQuery } from '@/lib/api/validate';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +12,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        const limit = searchParams.get('limit') || '50';
+        const params = validateQuery(LiveTradesQuerySchema, searchParams);
+        const limit = params.limit || 50;
 
         // Fetch from Polymarket Data API
         const response = await fetch(

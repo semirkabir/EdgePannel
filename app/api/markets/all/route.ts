@@ -9,14 +9,15 @@ import { PolymarketClient } from '@/lib/api/polymarket'
 import { decrypt } from '@/lib/utils/encryption'
 import { getBreakingNews, getLivePredictions, getCategories, enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich'
 import { buildCacheKey, cachedFetch } from '@/lib/api/response-cache'
+import { withErrorHandler } from '@/lib/api/middleware'
+import { validateQuery } from '@/lib/api/validate'
+import { PaginationSchema } from '@/lib/api/schemas'
 
-export async function GET(request: Request) {
+export const GET = withErrorHandler(async (request: Request) => {
   try {
-    // Parse query parameters for pagination
+    // Parse and validate query parameters
     const { searchParams } = new URL(request.url)
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 500
-    const cursor = searchParams.get('cursor') || undefined
-    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : undefined
+    const { limit, cursor, offset } = validateQuery(PaginationSchema, searchParams)
 
     // Get user ID - use mock if auth is disabled (to match api-keys route)
     let userId: string
@@ -226,4 +227,4 @@ export async function GET(request: Request) {
       error: error?.message || 'Failed to fetch markets',
     })
   }
-}
+})

@@ -15,6 +15,7 @@
  */
 
 import { Market, MarketDetails, EventData, Candlestick, PricePoint } from '@/types/market'
+import { marketCache } from '@/lib/cache/cache-manager'
 
 // API Base URLs
 const GAMMA_API = 'https://gamma-api.polymarket.com'
@@ -97,28 +98,13 @@ export interface PolymarketTrade {
 
 
 export class PolymarketOptimizedClient {
-  private cache: Map<string, { data: any; timestamp: number }> = new Map()
   private cacheTTL = 30000 // 30 seconds default cache
 
   /**
-   * Helper to fetch with in-memory caching
+   * Helper to fetch with Redis-backed caching
    */
   private async fetchWithCache<T>(key: string, fetchFn: () => Promise<T>, ttl: number = this.cacheTTL): Promise<T> {
-    const cached = this.cache.get(key)
-    const now = Date.now()
-
-    if (cached && (now - cached.timestamp < ttl)) {
-      return cached.data
-    }
-
-    const data = await fetchFn()
-
-    // Only cache if data is valid (checked by caller mostly, but strictly non-null here)
-    if (data !== null && data !== undefined) {
-      this.cache.set(key, { data, timestamp: now })
-    }
-
-    return data
+    return marketCache.getOrSet(key, fetchFn, ttl)
   }
 
   /**

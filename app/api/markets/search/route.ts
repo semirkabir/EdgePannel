@@ -10,48 +10,18 @@ import { PolymarketClient } from '@/lib/api/polymarket'
 import { decrypt } from '@/lib/utils/encryption'
 import { enrichMarkets, EnrichedMarket } from '@/lib/markets/enrich'
 import { buildCacheKey, cachedJson } from '@/lib/api/response-cache'
+import { withErrorHandler } from '@/lib/api/middleware'
+import { validateQuery } from '@/lib/api/validate'
+import { MarketSearchQuerySchema } from '@/lib/api/schemas/markets'
 
-interface SearchParams {
-  q?: string
-  platform?: 'kalshi' | 'polymarket' | 'all'
-  category?: string
-  minProbability?: string
-  maxProbability?: string
-  limit?: string
-  cursor?: string
-  offset?: string
-  sort?: string
-}
-
-export async function GET(request: Request) {
+export const GET = withErrorHandler(async (request: Request) => {
   try {
     const { searchParams } = new URL(request.url)
 
-    // Parse query parameters
-    const params: SearchParams = {
-      q: searchParams.get('q') || undefined,
-      platform: (searchParams.get('platform') as any) || 'all',
-      category: searchParams.get('category') || undefined,
-      minProbability: searchParams.get('minProbability') || undefined,
-      maxProbability: searchParams.get('maxProbability') || undefined,
-      limit: searchParams.get('limit') || '50',
-      cursor: searchParams.get('cursor') || undefined,
-      offset: searchParams.get('offset') || undefined,
-      sort: searchParams.get('sort') || undefined,
-    }
+    // Validate and parse query parameters
+    const params = validateQuery(MarketSearchQuerySchema, searchParams)
 
-    console.log('[Search API] Search params:', params)
-
-    // Early validation
-    if (params.limit) {
-      const limitNum = parseInt(params.limit, 10)
-      if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000) {
-        return NextResponse.json(
-          { error: 'Invalid limit parameter', markets: [], pagination: { hasMore: false, nextCursor: null, nextOffset: null, total: 0 } },
-          { status: 400 }
-        )
-      }
-    }
+    console.log('[Search API] Validated search params:', params)
 
     // Get user ID - use mock if auth is disabled or user is not authenticated
     let userId: string
@@ -136,17 +106,11 @@ export async function GET(request: Request) {
     // Create aggregator
     const aggregator = new MarketAggregator(kalshiClient, polymarketClient)
 
-    // Parse limit
-    const limit = parseInt(params.limit || '50', 10)
-    const safeLimit = isNaN(limit) ? 50 : Math.min(limit, 500)
-    const minProb = params.minProbability ? parseFloat(params.minProbability) : undefined
-    const maxProb = params.maxProbability ? parseFloat(params.maxProbability) : undefined
-
     console.log('[Search API] Searching with aggregator:', {
       query: params.q,
       platform: params.platform,
       category: params.category,
-      limit: safeLimit,
+      limit: params.limit,
       sort: params.sort
     })
 
@@ -157,8 +121,8 @@ export async function GET(request: Request) {
         console.log('[Search API] Fetching Kalshi markets from public API')
         const kalshiOptimized = new KalshiOptimizedClient()
         const result = await kalshiOptimized.getMarkets({
-          limit: safeLimit,
-          offset: params.offset ? parseInt(params.offset, 10) : undefined,
+          limit: params.limit,
+          offset: params.offset,
           search: params.q,
           closed: false
         })
@@ -175,10 +139,10 @@ export async function GET(request: Request) {
       // If there's a query and we're searching polymarket or all platforms, use Polymarket API
       if (params.q && (params.platform === 'polymarket' || params.platform === 'all')) {
         console.log('[Search API] Searching Polymarket unified API')
-        const searchUrl = `https://api.polymarket.com/search?query=${encodeURIComponent(params.q)}&limit=${safeLimit}`
+        const searchUrl = `https://api.polymarket.com/search?query=${encodeURIComponent(params.q)}&limit=${params.limit}`
 
         try {
-          const cacheKey = buildCacheKey('polymarket:search', [params.q, safeLimit])
+          const cacheKey = buildCacheKey('polymarket:search', [params.q, params.limit])
           const data = await cachedJson<any>(
             cacheKey,
             searchUrl,
@@ -260,8 +224,8 @@ export async function GET(request: Request) {
               ]
 
               searchResults = {
-                markets: combined.slice(0, safeLimit),
-                hasMore: combined.length > safeLimit,
+                markets: combined.slice(0, params.limit),
+                hasMore: combined.length > params.limit,
                 nextCursor: null,
                 nextOffset: null
               }
@@ -275,12 +239,12 @@ export async function GET(request: Request) {
               query: params.q,
               platform: params.platform === 'all' ? undefined : params.platform,
               category: params.category,
-              minProbability: minProb,
-              maxProbability: maxProb,
-              limit: safeLimit,
+              minProbability: params.minProbability,
+              maxProbability: params.maxProbability,
+              limit: params.limit,
               cursor: params.cursor,
-              offset: params.offset ? parseInt(params.offset, 10) : undefined,
-              sort: params.sort as any,
+              offset: params.offset,
+              sort: params.sort,
             })
           }
         } catch (polyError: any) {
@@ -290,12 +254,12 @@ export async function GET(request: Request) {
             query: params.q,
             platform: params.platform === 'all' ? undefined : params.platform,
             category: params.category,
-            minProbability: minProb,
-            maxProbability: maxProb,
-            limit: safeLimit,
+            minProbability: params.minProbability,
+            maxProbability: params.maxProbability,
+            limit: params.limit,
             cursor: params.cursor,
-            offset: params.offset ? parseInt(params.offset, 10) : undefined,
-            sort: params.sort as any,
+            offset: params.offset,
+            sort: params.sort,
           })
         }
       } else {
@@ -304,8 +268,8 @@ export async function GET(request: Request) {
           // Kalshi only - return Kalshi markets directly
           console.log('[Search API] Returning Kalshi markets only')
           searchResults = {
-            markets: kalshiMarkets.slice(0, safeLimit),
-            hasMore: kalshiMarkets.length > safeLimit,
+            markets: kalshiMarkets.slice(0, params.limit),
+            hasMore: kalshiMarkets.length > params.limit,
             nextCursor: null,
             nextOffset: null
           }
@@ -316,19 +280,19 @@ export async function GET(request: Request) {
             query: params.q,
             platform: params.platform === 'all' ? undefined : params.platform,
             category: params.category,
-            minProbability: minProb,
-            maxProbability: maxProb,
-            limit: safeLimit,
+            minProbability: params.minProbability,
+            maxProbability: params.maxProbability,
+            limit: params.limit,
             cursor: params.cursor,
-            offset: params.offset ? parseInt(params.offset, 10) : undefined,
-            sort: params.sort as any,
+            offset: params.offset,
+            sort: params.sort,
           })
 
           // Combine indexed results with Kalshi markets
           const combined = [...indexedResults.markets, ...kalshiMarkets]
           searchResults = {
-            markets: combined.slice(0, safeLimit),
-            hasMore: combined.length > safeLimit || indexedResults.hasMore,
+            markets: combined.slice(0, params.limit),
+            hasMore: combined.length > params.limit || indexedResults.hasMore,
             nextCursor: indexedResults.nextCursor,
             nextOffset: indexedResults.nextOffset
           }
@@ -388,4 +352,4 @@ export async function GET(request: Request) {
       { status: 500 }
     )
   }
-}
+})

@@ -1,0 +1,306 @@
+/**
+ * Redis Cache Usage Examples
+ *
+ * This file demonstrates how to use the Redis caching system.
+ * These are example patterns - not meant to be executed directly.
+ */
+
+import { marketCache, apiCache, cache } from './cache-manager'
+import { getRedisInfo, isRedisAvailable } from './redis-client'
+
+// ============================================================================
+// Example 1: Basic Cache Operations
+// ============================================================================
+
+async function basicCacheExample() {
+  // Set a value with 30 second TTL
+  await marketCache.set('market:123', { id: '123', name: 'Test Market' }, 30000)
+
+  // Get a value
+  const market = await marketCache.get<{ id: string; name: string }>('market:123')
+  console.log(market) // { id: '123', name: 'Test Market' }
+
+  // Delete a value
+  await marketCache.delete('market:123')
+
+  // Check if key exists
+  const exists = await marketCache.has('market:123')
+  console.log(exists) // false
+}
+
+// ============================================================================
+// Example 2: Get-or-Set Pattern (Most Common)
+// ============================================================================
+
+async function getOrSetExample() {
+  interface Market {
+    id: string
+    name: string
+    price: number
+  }
+
+  // This is the recommended pattern:
+  // Try to get from cache, if not found, fetch and cache
+  const market = await marketCache.getOrSet<Market>(
+    'market:456',
+    async () => {
+      // This function only runs if cache miss
+      console.log('Cache miss - fetching from API...')
+      const response = await fetch('https://api.example.com/market/456')
+      return response.json()
+    },
+    60000 // 60 second TTL
+  )
+
+  console.log(market)
+}
+
+// ============================================================================
+// Example 3: Batch Operations
+// ============================================================================
+
+async function batchOperationsExample() {
+  // Set multiple keys at once
+  await marketCache.mset([
+    { key: 'market:1', value: { id: '1', name: 'Market 1' }, ttl: 30000 },
+    { key: 'market:2', value: { id: '2', name: 'Market 2' }, ttl: 30000 },
+    { key: 'market:3', value: { id: '3', name: 'Market 3' }, ttl: 30000 }
+  ])
+
+  // Get multiple keys at once
+  const markets = await marketCache.mget<{ id: string; name: string }>([
+    'market:1',
+    'market:2',
+    'market:3'
+  ])
+
+  console.log(markets) // Array of market objects (or null for missing keys)
+}
+
+// ============================================================================
+// Example 4: Atomic Increment (for counters)
+// ============================================================================
+
+async function counterExample() {
+  // Increment a counter
+  const views = await marketCache.increment('page_views:home', 1, 3600000) // 1 hour TTL
+  console.log(`Page views: ${views}`)
+
+  // Increment by different amount
+  const clicks = await marketCache.increment('clicks:button:123', 5, 3600000)
+  console.log(`Total clicks: ${clicks}`)
+}
+
+// ============================================================================
+// Example 5: TTL Management
+// ============================================================================
+
+async function ttlExample() {
+  // Set a value
+  await marketCache.set('temp_data', { value: 'test' }, 60000) // 1 minute
+
+  // Check remaining TTL
+  const ttl = await marketCache.getTTL('temp_data')
+  console.log(`Expires in: ${ttl}ms`)
+
+  // Wait a bit
+  await new Promise(resolve => setTimeout(resolve, 5000))
+
+  // Check again
+  const ttl2 = await marketCache.getTTL('temp_data')
+  console.log(`Expires in: ${ttl2}ms`) // Should be ~55000ms
+}
+
+// ============================================================================
+// Example 6: Cache Clearing
+// ============================================================================
+
+async function cacheClearExample() {
+  // Clear all market cache
+  await marketCache.clear()
+
+  // Or clear all caches
+  await cache.clear()
+  await apiCache.clear()
+  await marketCache.clear()
+}
+
+// ============================================================================
+// Example 7: Health Monitoring
+// ============================================================================
+
+async function healthCheckExample() {
+  // Check if Redis is available
+  if (isRedisAvailable()) {
+    console.log('Redis is connected')
+  } else {
+    console.log('Using in-memory fallback')
+  }
+
+  // Get detailed info
+  const info = await getRedisInfo()
+  console.log('Redis Info:', info)
+  // { available: true, connected: true, latency: 2 }
+}
+
+// ============================================================================
+// Example 8: Polymarket Integration Pattern
+// ============================================================================
+
+async function polymarketPatternExample() {
+  // This is how the Polymarket client uses caching
+
+  async function fetchMarkets() {
+    const cacheKey = 'markets:all'
+
+    return marketCache.getOrSet(
+      cacheKey,
+      async () => {
+        // Fetch from API
+        const response = await fetch('https://gamma-api.polymarket.com/markets?limit=100')
+        const data = await response.json()
+        return data
+      },
+      10000 // 10 second cache
+    )
+  }
+
+  const markets = await fetchMarkets()
+  console.log(`Fetched ${markets.length} markets (possibly from cache)`)
+}
+
+// ============================================================================
+// Example 9: Custom Cache Manager
+// ============================================================================
+
+async function customCacheManagerExample() {
+  // Create a custom cache manager with specific prefix
+  const { CacheManager } = await import('./cache-manager')
+  const userCache = new CacheManager('user')
+
+  // Now all operations use 'user:' prefix
+  await userCache.set('profile:123', { name: 'John' }, 30000)
+  const profile = await userCache.get('profile:123')
+
+  // Clear only user cache
+  await userCache.clear()
+}
+
+// ============================================================================
+// Example 10: Error Handling
+// ============================================================================
+
+async function errorHandlingExample() {
+  try {
+    const data = await marketCache.getOrSet(
+      'risky_operation',
+      async () => {
+        // This might fail
+        const response = await fetch('https://api.example.com/data')
+        if (!response.ok) throw new Error('API failed')
+        return response.json()
+      },
+      30000
+    )
+
+    console.log('Success:', data)
+  } catch (error) {
+    console.error('Operation failed:', error)
+    // Cache manager will not cache failed operations
+    // In-memory fallback will be used if Redis is down
+  }
+}
+
+// ============================================================================
+// Example 11: Rate Limiting Integration
+// ============================================================================
+
+async function rateLimitExample() {
+  // Rate limiting is handled by middleware automatically
+  // But you can also use cache for custom rate limiting
+
+  const userId = '123'
+  const key = `rate_limit:api:${userId}`
+
+  // Increment request count
+  const requestCount = await cache.increment(key, 1, 60000) // 1 minute window
+
+  if (requestCount > 100) {
+    console.log('Rate limit exceeded')
+    // Deny request
+  } else {
+    console.log(`Request ${requestCount}/100`)
+    // Allow request
+  }
+}
+
+// ============================================================================
+// Example 12: Cache Warming (Startup)
+// ============================================================================
+
+async function cacheWarmingExample() {
+  console.log('Warming cache...')
+
+  // Pre-populate frequently accessed data
+  const popularMarkets = ['market:1', 'market:2', 'market:3']
+
+  for (const marketId of popularMarkets) {
+    await marketCache.getOrSet(
+      marketId,
+      async () => {
+        // Fetch from database or API
+        return { id: marketId, name: `Market ${marketId}` }
+      },
+      3600000 // 1 hour
+    )
+  }
+
+  console.log('Cache warmed')
+}
+
+// ============================================================================
+// Example 13: Conditional Caching
+// ============================================================================
+
+async function conditionalCachingExample() {
+  interface MarketData {
+    id: string
+    closed: boolean
+    price: number
+  }
+
+  const market = await marketCache.getOrSet<MarketData>(
+    'market:789',
+    async () => {
+      const data = await fetch('https://api.example.com/market/789').then(r => r.json())
+      return data
+    },
+    // Use longer TTL for closed markets, shorter for active ones
+    (data: MarketData) => {
+      return data.closed ? 3600000 : 10000 // 1 hour vs 10 seconds
+    }
+  )
+
+  // Note: The above pattern requires extending the cache manager
+  // Current implementation uses fixed TTL
+}
+
+// ============================================================================
+// Export examples for documentation
+// ============================================================================
+
+export {
+  basicCacheExample,
+  getOrSetExample,
+  batchOperationsExample,
+  counterExample,
+  ttlExample,
+  cacheClearExample,
+  healthCheckExample,
+  polymarketPatternExample,
+  customCacheManagerExample,
+  errorHandlingExample,
+  rateLimitExample,
+  cacheWarmingExample,
+  conditionalCachingExample
+}

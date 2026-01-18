@@ -4,16 +4,13 @@ import { withAuth, withErrorHandler, ApiError } from '@/lib/api/middleware'
 import { ErrorCodes } from '@/lib/api/error-codes'
 import { prisma } from '@/lib/db/client'
 import { decrypt } from '@/lib/utils/encryption'
+import { KalshiFillsQuerySchema } from '@/lib/api/schemas'
+import { validateQuery } from '@/lib/api/validate'
 
 export const GET = withErrorHandler(
   withAuth(async (userId: string, request: NextRequest) => {
     const searchParams = request.nextUrl.searchParams
-    const ticker = searchParams.get('ticker') || undefined
-    const orderId = searchParams.get('orderId') || undefined
-    const minTs = searchParams.get('minTs') ? parseInt(searchParams.get('minTs')!) : undefined
-    const maxTs = searchParams.get('maxTs') ? parseInt(searchParams.get('maxTs')!) : undefined
-    const limit = parseInt(searchParams.get('limit') || '100')
-    const cursor = searchParams.get('cursor') || undefined
+    const params = validateQuery(KalshiFillsQuerySchema, searchParams)
 
     // Get user's API keys from database
     const apiKeyRecord = await prisma.apiKey.findUnique({
@@ -41,12 +38,12 @@ export const GET = withErrorHandler(
     })
 
     const data = await kalshi.getFills({
-      ticker,
-      orderId,
-      minTs,
-      maxTs,
-      limit,
-      cursor,
+      ticker: params.ticker,
+      orderId: undefined, // Not in schema yet
+      minTs: undefined, // Not in schema yet
+      maxTs: undefined, // Not in schema yet
+      limit: params.limit,
+      cursor: params.cursor,
     })
 
     return NextResponse.json(data)

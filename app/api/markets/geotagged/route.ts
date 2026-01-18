@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/client'
 import { withErrorHandler, getUserId } from '@/lib/api/middleware'
+import { validateQuery } from '@/lib/api/validate'
+import { GeotaggedMarketsQuerySchema } from '@/lib/api/schemas/markets'
 
 /**
  * Get geotagged markets for map display
@@ -14,25 +16,25 @@ export const GET = withErrorHandler(async (request: Request) => {
 
     const { searchParams } = new URL(request.url)
 
-    // Filters
-    const platform = searchParams.get('platform') // 'kalshi', 'polymarket', or null for all
-    const country = searchParams.get('country')
-    const region = searchParams.get('region')
-    const category = searchParams.get('category')
-    const tag = searchParams.get('tag') // Filter by specific tag
-    const confidence = searchParams.get('confidence') // 'high', 'medium', 'low'
-    const search = searchParams.get('search')
-    const groupByEvent = searchParams.get('groupByEvent') !== 'false' // Default to true
+    // Validate and parse query parameters
+    const params = validateQuery(GeotaggedMarketsQuerySchema, searchParams)
 
-    // Bounding box for map viewport
-    const minLat = searchParams.get('minLat') ? parseFloat(searchParams.get('minLat')!) : undefined
-    const maxLat = searchParams.get('maxLat') ? parseFloat(searchParams.get('maxLat')!) : undefined
-    const minLng = searchParams.get('minLng') ? parseFloat(searchParams.get('minLng')!) : undefined
-    const maxLng = searchParams.get('maxLng') ? parseFloat(searchParams.get('maxLng')!) : undefined
-
-    // Pagination
-    const limit = Math.min(parseInt(searchParams.get('limit') || '1000'), 5000)
-    const offset = parseInt(searchParams.get('offset') || '0')
+    const {
+      platform,
+      country,
+      region,
+      category,
+      tag,
+      confidence,
+      search,
+      groupByEvent,
+      minLat,
+      maxLat,
+      minLng,
+      maxLng,
+      limit,
+      offset
+    } = params
 
     // Build where clause
     const where: any = {
@@ -298,8 +300,8 @@ export const GET = withErrorHandler(async (request: Request) => {
         markets: events,
         total: events.length,
         limit,
-        offset,
-        hasMore: offset + markets.length < total,
+        offset: offset || 0,
+        hasMore: (offset || 0) + markets.length < total,
         grouped: true,
       })
     }
@@ -309,8 +311,8 @@ export const GET = withErrorHandler(async (request: Request) => {
       markets: transformedMarkets,
       total,
       limit,
-      offset,
-      hasMore: offset + markets.length < total,
+      offset: offset || 0,
+      hasMore: (offset || 0) + markets.length < total,
       grouped: false,
     })
   } catch (error: any) {

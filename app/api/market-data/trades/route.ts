@@ -4,14 +4,20 @@ import { withAuth, withErrorHandler, ApiError } from '@/lib/api/middleware'
 import { ErrorCodes } from '@/lib/api/error-codes'
 import { prisma } from '@/lib/db/client'
 import { decrypt } from '@/lib/utils/encryption'
+import { validateQuery } from '@/lib/api/validate'
+import { z } from 'zod'
+
+const MarketTradesQuerySchema = z.object({
+  ticker: z.string().trim().max(100).optional(),
+  platform: z.enum(['kalshi', 'polymarket']).default('kalshi'),
+  limit: z.coerce.number().int().min(1).max(1000).default(100),
+  cursor: z.string().optional(),
+})
 
 export const GET = withErrorHandler(
   withAuth(async (userId: string, request: NextRequest) => {
     const searchParams = request.nextUrl.searchParams
-    const ticker = searchParams.get('ticker')
-    const platform = searchParams.get('platform') || 'kalshi'
-    const limit = parseInt(searchParams.get('limit') || '100')
-    const cursor = searchParams.get('cursor') || undefined
+    const { ticker, platform, limit, cursor } = validateQuery(MarketTradesQuerySchema, searchParams)
 
     if (platform === 'kalshi') {
       // Get user's API keys from database

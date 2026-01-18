@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: prediction_markets_db_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-webapp}
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.utf8"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - edgepannel_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=200
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=2MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+
+  redis:
+    image: redis:7-alpine
+    container_name: prediction_markets_redis_prod
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory ${REDIS_MAX_MEMORY:-1gb}
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --auto-aof-rewrite-percentage 100
+      --auto-aof-rewrite-min-size 64mb
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --stop-writes-on-bgsave-error yes
+      --rdbcompression yes
+      --rdbchecksum yes
+      --tcp-backlog 511
+      --timeout 300
+      --tcp-keepalive 300
+      --supervised no
+      --loglevel notice
+      --rename-command FLUSHALL ""
+      --rename-command FLUSHDB ""
+      --rename-command CONFIG ""
+      --rename-command SHUTDOWN SHUTDOWN_PROD_ONLY
+      --rename-command DEBUG ""
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_prod_data:/data
+      - ./logs/redis:/logs
+    networks:
+      - edgepannel_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MAX_MEMORY:-1gb}
+        reservations:
+          memory: 512mb
+
+  # Redis backup service
+  redis-backup:
+    image: redis:7-alpine
+    container_name: redis_backup_prod
+    restart: "no"
+    depends_on:
+      - redis
+    volumes:
+      - redis_prod_data:/data:ro
+      - ./backups:/backups
+    networks:
+      - edgepannel_network
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      echo 'Starting Redis backup...';
+      while true; do
+        redis-cli -h redis -a ${REDIS_PASSWORD} --rdb /backups/redis_backup_$$(date +%Y%m%d_%H%M%S).rdb;
+        echo 'Backup completed at $$(date)';
+        find /backups -name 'redis_backup_*.rdb' -mtime +7 -delete;
+        echo 'Old backups cleaned up';
+        sleep 86400;
+      done
+      "
+    profiles:
+      - backup
+
+networks:
+  edgepannel_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local

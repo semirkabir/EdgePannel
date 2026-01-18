@@ -1,16 +1,14 @@
 export const dynamic = "force-dynamic"
 import { NextRequest, NextResponse } from 'next/server'
 import { PolymarketClient } from '@/lib/api/polymarket'
+import { withErrorHandler } from '@/lib/api/middleware'
+import { validateQuery } from '@/lib/api/validate'
+import { WhaleTradesQuerySchema } from '@/lib/api/schemas/whales'
 
-export async function GET(request: NextRequest) {
+export const GET = withErrorHandler(async (request: NextRequest) => {
   try {
     const searchParams = request.nextUrl.searchParams
-    const market = searchParams.get('market') || undefined
-    const user = searchParams.get('user') || undefined
-    const side = searchParams.get('side') || undefined
-    const limit = parseInt(searchParams.get('limit') || '100')
-    const offset = parseInt(searchParams.get('offset') || '0')
-    const minSize = parseFloat(searchParams.get('minSize') || '0')
+    const { market, user, side, minSize, limit, offset } = validateQuery(WhaleTradesQuerySchema, searchParams)
 
     const polymarket = new PolymarketClient()
     const trades = await polymarket.getTrades({
@@ -54,4 +52,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

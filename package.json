@@ -12,6 +12,10 @@
     "build": "prisma generate && next build",
     "start": "concurrently \"next start\" \"npm run cron:start\"",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
     "generate-secrets": "node scripts/generate-secrets.js",
     "cron:start": "npx tsx scripts/local-cron-scheduler.ts",
     "cron:test": "npx tsx scripts/test-cron.ts",
@@ -73,6 +77,9 @@
     "@types/react-dom": "^18.2.0",
     "@types/react-simple-maps": "^3.0.6",
     "@types/three": "^0.162.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^1.2.0",
+    "@vitest/ui": "^1.2.0",
     "autoprefixer": "^10.4.17",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.0",
@@ -80,6 +87,7 @@
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^1.2.0"
   }
 }

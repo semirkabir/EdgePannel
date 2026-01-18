@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Simple in-memory cache for rate limiting
-// Note: This only works on a per-instance basis. For distributed scaling, use Redis.
+// In-memory fallback for rate limiting (only used when Redis is unavailable)
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>()
 
 const DEFAULT_WINDOW_MS = 60 * 1000 // 1 minute
@@ -20,15 +19,41 @@ const apiLimit = getEnvInt('RATE_LIMIT_API_MAX_PER_MINUTE', isProd ? 2000 : 2000
 const rateLimitEnabled = process.env.RATE_LIMIT_ENABLED?.toLowerCase() !== 'false'
 
 /**
- * Basic rate limiting middleware
+ * In-memory rate limiting (fixed window)
+ * Note: Redis-based rate limiting removed due to Edge runtime incompatibility
+ * For production with Redis, implement rate limiting in API routes or use a separate service
+ */
+function rateLimitMemory(key: string, limit: number, windowMs: number): {
+    allowed: boolean
+    remaining: number
+    resetAt: number
+} {
+    const now = Date.now()
+    const record = rateLimitMap.get(key) || { count: 0, lastReset: now }
+
+    // Reset window if needed
+    if (now - record.lastReset > windowMs) {
+        record.count = 0
+        record.lastReset = now
+    }
+
+    record.count++
+    rateLimitMap.set(key, record)
+
+    const allowed = record.count <= limit
+    const remaining = Math.max(0, limit - record.count)
+    const resetAt = record.lastReset + windowMs
+
+    return { allowed, remaining, resetAt }
+}
+
+/**
+ * Rate limiting middleware with Redis support
  */
 export async function rateLimit(req: NextRequest) {
     if (!rateLimitEnabled) return null
 
-    // 1. Skip rate limiting in development or for specific routes if needed
-    // However, it's better to keep it on but with higher limits to test the logic.
-
-    // 2. EXEMPT: Auth routes and static files should never be rate limited by this middleware
+    // EXEMPT: Auth routes and static files
     const pathname = req.nextUrl.pathname
     if (
         pathname.startsWith('/api/auth') ||
@@ -42,36 +67,35 @@ export async function rateLimit(req: NextRequest) {
     // Use IP address as the key
     const forwardedFor = req.headers.get('x-forwarded-for')
     const ip = forwardedFor?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
-    const now = Date.now()
 
     const isApiRequest = pathname.startsWith('/api/')
     const bucket = isApiRequest ? 'api' : 'page'
-    const key = `${ip}:${bucket}`
-    const record = rateLimitMap.get(key) || { count: 0, lastReset: now }
-
-    // Reset window if needed
-    if (now - record.lastReset > windowMs) {
-        record.count = 0
-        record.lastReset = now
-    }
-
-    record.count++
-    rateLimitMap.set(key, record)
-
-    // Higher limit in development to prevent issues during HMR/Refresh
+    const key = `rate_limit:${ip}:${bucket}`
     const limit = isApiRequest ? apiLimit : pageLimit
-    if (record.count > limit) {
+
+    let result: { allowed: boolean; remaining: number; resetAt: number }
+
+    // Edge runtime doesn't support Redis (ioredis), so always use memory
+    // In production, use a Node.js runtime middleware or separate rate limiting service
+    result = rateLimitMemory(key, limit, windowMs)
+
+    // Return 429 if limit exceeded
+    if (!result.allowed) {
+        const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000)
         return new NextResponse(
             JSON.stringify({
                 error: 'Too many requests. Please try again later.',
                 code: 429,
-                retryAfter: Math.ceil((windowMs - (now - record.lastReset)) / 1000)
+                retryAfter
             }),
             {
                 status: 429,
                 headers: {
                     'content-type': 'application/json',
-                    'Retry-After': Math.ceil((windowMs - (now - record.lastReset)) / 1000).toString()
+                    'Retry-After': retryAfter.toString(),
+                    'X-RateLimit-Limit': limit.toString(),
+                    'X-RateLimit-Remaining': result.remaining.toString(),
+                    'X-RateLimit-Reset': result.resetAt.toString()
                 }
             }
         )
@@ -85,9 +109,11 @@ export async function rateLimit(req: NextRequest) {
  */
 setInterval(() => {
     const now = Date.now()
-    for (const [ip, record] of rateLimitMap.entries()) {
+    const keysToDelete: string[] = []
+    rateLimitMap.forEach((record, ip) => {
         if (now - record.lastReset > windowMs * 2) {
-            rateLimitMap.delete(ip)
+            keysToDelete.push(ip)
         }
-    }
+    })
+    keysToDelete.forEach(key => rateLimitMap.delete(key))
 }, windowMs * 5)

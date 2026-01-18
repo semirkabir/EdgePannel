@@ -7,18 +7,21 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db/client'
 import { decrypt } from '@/lib/utils/encryption'
+import { withErrorHandler } from '@/lib/api/middleware'
+import { validateQuery } from '@/lib/api/validate'
+import { z } from 'zod'
 
-export async function GET(request: Request) {
+const MarketHistoryQuerySchema = z.object({
+  id: z.string().trim().min(1, 'Market ID is required').max(500),
+  platform: z.enum(['kalshi', 'polymarket']),
+  interval: z.enum(['1m', '5m', '15m', '30m', '1h', '4h', '1d']).default('1d'),
+  assetId: z.string().trim().max(500).optional(),
+})
+
+export const GET = withErrorHandler(async (request: Request) => {
     try {
         const { searchParams } = new URL(request.url)
-        const id = searchParams.get('id')
-        const platform = searchParams.get('platform')
-        const interval = searchParams.get('interval') || '1d'
-        const assetId = searchParams.get('assetId')
-
-        if (!id || !platform) {
-            return NextResponse.json({ error: 'Missing id or platform' }, { status: 400 })
-        }
+        const { id, platform, interval, assetId } = validateQuery(MarketHistoryQuerySchema, searchParams)
 
         if (platform === 'polymarket') {
             const client = new PolymarketClient({ apiKey: '' })
@@ -179,4 +182,4 @@ export async function GET(request: Request) {
         console.error('[History API] Error:', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
-}
+})

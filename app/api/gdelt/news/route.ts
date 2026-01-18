@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withErrorHandler } from '@/lib/api/middleware'
+import { validateQuery } from '@/lib/api/validate'
+import { z } from 'zod'
+
+const GdeltNewsQuerySchema = z.object({
+  country: z.string().trim().min(1, 'Country is required').max(100),
+})
 
 // Country name to ISO code mapping
 const COUNTRY_CODES: Record<string, string> = {
@@ -120,17 +127,10 @@ function getCountryCode(countryName: string): string {
   return COUNTRY_CODES[normalized] || normalized.toUpperCase().slice(0, 2);
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withErrorHandler(async (request: NextRequest) => {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const country = searchParams.get('country');
-
-    if (!country) {
-      return NextResponse.json(
-        { error: 'Country parameter is required' },
-        { status: 400 }
-      );
-    }
+    const { country } = validateQuery(GdeltNewsQuerySchema, searchParams);
 
     // Get date range (last 7 days)
     const endDate = new Date();
@@ -271,7 +271,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+})
 
 
 

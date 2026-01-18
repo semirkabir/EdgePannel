@@ -7,6 +7,15 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db/client';
 import { decrypt } from '@/lib/utils/encryption';
+import { withErrorHandler } from '@/lib/api/middleware'
+import { validateQuery } from '@/lib/api/validate'
+import { z } from 'zod'
+
+const MarketByIdentifierQuerySchema = z.object({
+  platform: z.enum(['kalshi', 'polymarket']),
+  identifier: z.string().trim().min(1).max(500),
+  type: z.enum(['slug', 'ticker', 'id']).optional(),
+})
 
 /**
  * GET /api/markets/by-url
@@ -17,19 +26,10 @@ import { decrypt } from '@/lib/utils/encryption';
  * - identifier: slug/ticker/id depending on platform
  * - type: 'slug' | 'ticker' | 'id'
  */
-export async function GET(request: NextRequest) {
+export const GET = withErrorHandler(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
-    const platform = searchParams.get('platform');
-    const identifier = searchParams.get('identifier');
-    const type = searchParams.get('type');
-
-    if (!platform || !identifier) {
-      return NextResponse.json(
-        { error: 'Missing platform or identifier' },
-        { status: 400 }
-      );
-    }
+    const { platform, identifier, type } = validateQuery(MarketByIdentifierQuerySchema, searchParams);
 
     console.log(`[Markets By URL API] Fetching ${platform} market with ${type}: ${identifier}`);
 
@@ -231,4 +231,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+})

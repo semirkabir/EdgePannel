@@ -1,80 +1,79 @@
 /**
- * Redis-based rate limiting for production
- * 
- * This is a placeholder for Redis implementation.
- * To use, install: npm install ioredis
- * 
- * Usage:
- * import { RedisRateLimiter } from '@/lib/api/redis-rate-limit'
- * const rateLimiter = new RedisRateLimiter(redisClient)
+ * Redis-based rate limiting (Legacy)
+ *
+ * NOTE: This file is now deprecated in favor of the new rate limiting
+ * implementation in lib/middleware/rate-limit.ts which uses Redis sorted sets
+ * for sliding window algorithm.
+ *
+ * This file is kept for backward compatibility.
+ *
+ * @deprecated Use lib/middleware/rate-limit.ts instead
  */
 
-interface RedisClient {
-  get(key: string): Promise<string | null>
-  set(key: string, value: string, mode: string, duration: number): Promise<string | null>
-  incr(key: string): Promise<number>
-  expire(key: string, seconds: number): Promise<number>
-  del(key: string): Promise<number>
-}
+import { getRedisClient, isRedisAvailable } from '@/lib/cache/redis-client'
 
 export class RedisRateLimiter {
-  private redis: RedisClient | null = null
-
-  constructor(redisClient?: RedisClient) {
-    if (redisClient) {
-      this.redis = redisClient
-    } else if (process.env.REDIS_URL) {
-      // Try to initialize Redis if URL is provided
-      try {
-        // Dynamic import to avoid breaking if Redis not installed
-        import('ioredis').then((Redis) => {
-          this.redis = new Redis.default(process.env.REDIS_URL as string) as unknown as RedisClient
-        }).catch(() => {
-          // Redis not installed, use in-memory fallback
-        })
-      } catch {
-        // Ignore
-      }
-    }
-  }
-
   /**
-   * Check if rate limit is exceeded
+   * Check if rate limit is exceeded using sliding window
    */
   async checkLimit(
     identifier: string,
     maxRequests: number,
     windowMs: number
   ): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
-    if (!this.redis) {
-      // Fallback to in-memory (from middleware)
-      const { rateLimit } = await import('./middleware')
-      const allowed = rateLimit(identifier, maxRequests, windowMs)
+    if (!isRedisAvailable()) {
+      // Fallback: Allow request if Redis unavailable
+      console.warn('[Redis Rate Limit] Redis unavailable, allowing request')
       return {
-        allowed,
-        remaining: allowed ? maxRequests - 1 : 0,
+        allowed: true,
+        remaining: maxRequests,
+        resetAt: Date.now() + windowMs,
+      }
+    }
+
+    const redis = getRedisClient()
+    if (!redis) {
+      return {
+        allowed: true,
+        remaining: maxRequests,
         resetAt: Date.now() + windowMs,
       }
     }
 
     const key = `rate_limit:${identifier}`
-    const windowSeconds = Math.ceil(windowMs / 1000)
+    const now = Date.now()
+    const windowStart = now - windowMs
 
     try {
-      const current = await this.redis.incr(key)
+      // Use Redis sorted set for sliding window
+      const multi = redis.multi()
 
-      if (current === 1) {
-        // First request, set expiration
-        await this.redis.expire(key, windowSeconds)
+      // Remove old entries outside the window
+      multi.zremrangebyscore(key, 0, windowStart)
+
+      // Count requests in current window
+      multi.zcard(key)
+
+      // Add current request
+      const requestId = `${now}-${Math.random()}`
+      multi.zadd(key, now, requestId)
+
+      // Set expiration to window + buffer
+      multi.expire(key, Math.ceil(windowMs / 1000) + 10)
+
+      const results = await multi.exec()
+
+      if (!results) {
+        throw new Error('Redis transaction failed')
       }
 
-      const ttl = await this.redis.get(`ttl:${key}`)
-      const resetAt = ttl ? Date.now() + (parseInt(ttl) * 1000) : Date.now() + windowMs
+      // Get count from ZCARD result (index 1)
+      const count = (results[1]?.[1] as number) || 0
 
       return {
-        allowed: current <= maxRequests,
-        remaining: Math.max(0, maxRequests - current),
-        resetAt,
+        allowed: count < maxRequests,
+        remaining: Math.max(0, maxRequests - count - 1),
+        resetAt: now + windowMs,
       }
     } catch (error) {
       // Redis error, fallback to allowing request
@@ -91,10 +90,13 @@ export class RedisRateLimiter {
    * Reset rate limit for an identifier
    */
   async resetLimit(identifier: string): Promise<void> {
-    if (!this.redis) return
+    if (!isRedisAvailable()) return
+
+    const redis = getRedisClient()
+    if (!redis) return
 
     const key = `rate_limit:${identifier}`
-    await this.redis.del(key)
+    await redis.del(key)
   }
 }
 

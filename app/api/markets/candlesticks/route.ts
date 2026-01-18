@@ -7,6 +7,8 @@ import { KalshiClient } from '@/lib/api/kalshi'
 import { PolymarketClient } from '@/lib/api/polymarket'
 import { decrypt } from '@/lib/utils/encryption'
 import { buildCacheKey, cachedFetch } from '@/lib/api/response-cache'
+import { MarketCandlesticksQuerySchema } from '@/lib/api/schemas'
+import { validateQuery } from '@/lib/api/validate'
 
 export async function GET(request: Request) {
   try {
@@ -16,11 +18,12 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const platform = searchParams.get('platform') || 'kalshi'
-    const seriesTicker = searchParams.get('seriesTicker')
-    const eventTicker = searchParams.get('eventTicker')
-    const marketSlugs = searchParams.get('marketSlugs') // Comma-separated slugs for Polymarket
-    const interval = searchParams.get('interval') || '1h'
+    const params = validateQuery(MarketCandlesticksQuerySchema, searchParams)
+
+    const platform = params.platform || 'kalshi'
+    const eventTicker = params.eventTicker
+    const marketSlugs = params.marketSlugs
+    const interval = params.interval || '1h'
 
     // Polymarket: fetch candlesticks for multiple markets
     if (platform === 'polymarket' && marketSlugs) {
