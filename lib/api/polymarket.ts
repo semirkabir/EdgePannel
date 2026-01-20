@@ -922,7 +922,7 @@ export class PolymarketClient {
       }
 
       const events = await response.json()
-      
+
       if (!Array.isArray(events)) {
         console.warn('[Polymarket] Events API returned non-array response')
         return { events: [], hasMore: false, nextOffset: undefined }
@@ -951,7 +951,7 @@ export class PolymarketClient {
     try {
       // Try by slug first
       const url = new URL(`https://gamma-api.polymarket.com/events/slug/${idOrSlug}`)
-      
+
       const response = await fetch(url.toString(), {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
@@ -1055,6 +1055,30 @@ export class PolymarketClient {
     } catch (error) {
       console.error('[Polymarket] Error fetching event details:', error)
       return null
+    }
+  }
+
+  /**
+   * Get all markets for an event by slug or ID
+   * Returns transformed Market[] for use in UI
+   */
+  async getEventMarkets(slugOrId: string): Promise<Market[]> {
+    try {
+      const event = await this.getEventByIdOrSlug(slugOrId)
+      if (!event || !event.markets || !Array.isArray(event.markets)) {
+        return []
+      }
+
+      // Transform each Gamma market to our Market type
+      const markets: Market[] = event.markets
+        .map((m: any) => this.transformMarketFromGamma(m))
+        .filter((m: Market | null): m is Market => m !== null)
+
+      console.log(`[Polymarket] getEventMarkets: Found ${markets.length} markets for event ${slugOrId}`)
+      return markets
+    } catch (error) {
+      console.error('[Polymarket] Error fetching event markets:', error)
+      return []
     }
   }
 

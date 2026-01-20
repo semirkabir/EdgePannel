@@ -151,3 +151,19 @@ export const UserPreferencesSchema = z.object({
   }).passthrough().optional(),
 }).passthrough() // Allow unknown fields to pass through without rejection
 
+// Market candlesticks query schema
+export const MarketCandlesticksQuerySchema = z.object({
+  platform: z.enum(['kalshi', 'polymarket']).optional(),
+  eventTicker: z.string().trim().max(500).optional(),
+  marketSlugs: z.string().trim().max(2000).optional(),
+  interval: z.enum(['1m', '5m', '15m', '30m', '1h', '4h', '6h', '1d']).default('1h'),
+})
+
+// Market history query schema
+export const MarketHistoryQuerySchema = z.object({
+  id: z.string().trim().min(1, 'Market ID is required').max(500),
+  platform: z.enum(['kalshi', 'polymarket']),
+  interval: z.enum(['1m', '5m', '15m', '30m', '1h', '4h', '6h', '1d']).default('1d'),
+  assetId: z.string().trim().max(500).optional(),
+})
+

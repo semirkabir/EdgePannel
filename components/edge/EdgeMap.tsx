@@ -22,6 +22,7 @@ import { getExchangeById } from '@/lib/data/exchanges';
 import { getDetailedMarketStatus } from '@/lib/utils/exchange-geojson';
 import { ExchangePopup } from './ExchangePopup';
 import { useLayerStore } from '@/lib/store/layer-store';
+import { useNewsLayer, useFinanceLayer, useCustomLayer, useCensusLayer } from '@/hooks/use-layer-data';
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -224,55 +225,56 @@ export function InnerMap({
   //   });
   // }, [isPlaying, isUserInteracting, isHovering, viewState.zoom]);
 
-  // Load Icons into Map
+  // Helper function to load a single icon
+  const loadIconToMap = useCallback((map: any, id: string, Icon: any) => {
+    if (map.hasImage(id)) return;
+
+    const svgString = renderToStaticMarkup(
+      <Icon
+        size={48} // Render larger for better quality
+        color="white" // Use white so we can tint it with icon-color
+        strokeWidth={2}
+      />
+    );
+    const img = new window.Image(48, 48);
+    img.onload = () => {
+      if (!map.hasImage(id)) {
+        map.addImage(id, img, { sdf: true });
+      }
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(svgString);
+  }, []);
+
+  // Load Icons into Map + handle missing images on-demand
   useEffect(() => {
     const map = mapRef.current?.getMap();
     if (!map || !isStyleLoaded) return;
 
+    // Pre-load all icons
     Object.entries(MAP_ICONS).forEach(([id, Icon]) => {
-      if (!map.hasImage(id)) {
-        const svgString = renderToStaticMarkup(
-          <Icon
-            size={48} // Render larger for better quality
-            color="white" // Use white so we can tint it with icon-color
-            strokeWidth={2}
-          />
-        );
-        const img = new window.Image(48, 48);
-        img.onload = () => {
-          if (!map.hasImage(id)) map.addImage(id, img, { sdf: true });
-        };
-        img.src = 'data:image/svg+xml;base64,' + btoa(svgString);
-      }
+      loadIconToMap(map, id, Icon);
     });
 
-    // Also add default fallback if needed
-  }, [isStyleLoaded]);
-
-  // Real Data State
-  const [fetchedNewsData, setFetchedNewsData] = useState<any>({ type: 'FeatureCollection', features: [] });
-
-  // Fetch News Data when layer is active
-  useEffect(() => {
-    if (!isLayerActive('NEWS')) return;
-
-    const fetchNews = async () => {
-      try {
-        const res = await fetch('/api/layers/news');
-        if (res.ok) {
-          const data = await res.json();
-          setFetchedNewsData(data);
-        }
-      } catch (err) {
-        console.error('Failed to load news layer:', err);
+    // Handle missing images on-demand (fixes race conditions)
+    const handleMissingImage = (e: any) => {
+      const id = e.id;
+      const Icon = MAP_ICONS[id as keyof typeof MAP_ICONS];
+      if (Icon && !map.hasImage(id)) {
+        loadIconToMap(map, id, Icon);
       }
     };
 
-    fetchNews();
-    // Optional: Poll every 5 minutes
-    const interval = setInterval(fetchNews, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [activeLayers]);
+    map.on('styleimagemissing', handleMissingImage);
+
+    return () => {
+      map.off('styleimagemissing', handleMissingImage);
+    };
+  }, [isStyleLoaded, loadIconToMap]);
+
+  // Layer Data with SWR caching (replaces manual fetch/useState patterns)
+  const { data: fetchedNewsData } = useNewsLayer(isLayerActive('NEWS'));
+  const { data: fetchedFinanceData } = useFinanceLayer(isLayerActive('FINANCE'));
+  const { data: fetchedCustomData } = useCustomLayer(isLayerActive('CUSTOM'));
 
   // Filter logic for newsData
   const newsData = useMemo(() => {
@@ -298,26 +300,6 @@ export function InnerMap({
     return { type: 'FeatureCollection', features };
   }, [fetchedNewsData, searchQuery, activeLayers]);
 
-  const [fetchedFinanceData, setFetchedFinanceData] = useState<any>({ type: 'FeatureCollection', features: [] });
-
-  // Fetch Finance Data
-  useEffect(() => {
-    if (!isLayerActive('FINANCE')) return;
-
-    const fetchFinance = async () => {
-      try {
-        const res = await fetch('/api/layers/finance');
-        if (res.ok) {
-          const data = await res.json();
-          setFetchedFinanceData(data);
-        }
-      } catch (err) {
-        console.error('Failed to load finance layer:', err);
-      }
-    };
-    fetchFinance();
-  }, [activeLayers]);
-
   const financeData = useMemo(() => {
     if (!activeLayers.includes('FINANCE')) return { type: 'FeatureCollection', features: [] };
 
@@ -341,26 +323,6 @@ export function InnerMap({
 
     return { type: 'FeatureCollection', features };
   }, [fetchedFinanceData, searchQuery, activeLayers]);
-
-  const [fetchedCustomData, setFetchedCustomData] = useState<any>({ type: 'FeatureCollection', features: [] });
-
-  // Fetch Custom Data
-  useEffect(() => {
-    if (!isLayerActive('CUSTOM')) return;
-
-    const fetchCustom = async () => {
-      try {
-        const res = await fetch('/api/layers/custom');
-        if (res.ok) {
-          const data = await res.json();
-          setFetchedCustomData(data);
-        }
-      } catch (err) {
-        console.error('Failed to load custom layer:', err);
-      }
-    };
-    fetchCustom();
-  }, [activeLayers]);
 
   const customData = useMemo(() => {
     if (!activeLayers.includes('CUSTOM')) return { type: 'FeatureCollection', features: [] };

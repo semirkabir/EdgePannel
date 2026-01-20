@@ -115,6 +115,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
   const [commentSort, setCommentSort] = useState<'recent' | 'likes'>('recent')
   const [relatedMarketsByTags, setRelatedMarketsByTags] = useState<any[]>([])
   const [isLoadingRelatedByTags, setIsLoadingRelatedByTags] = useState(false)
+  const [showOptionsDropdown, setShowOptionsDropdown] = useState(false)
 
   // Research Store
   const { pinnedMarkets, pinMarket, unpinMarket } = useResearchStore()
@@ -281,6 +282,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
       setActiveNews(null)
       setActiveFinance(null)
       setActiveCustom(null)
+      setShowOptionsDropdown(false)
 
       if (isCensusData) {
         setActiveCensus(market)
@@ -432,7 +434,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
     }
 
     fetchHistory()
-  }, [activeMarket, timeRange])
+  }, [activeMarket?.id, activeMarket?.platform, activeMarket?.slug, activeMarket?.rawData?.clobTokenIds, timeRange])
 
 
   // Fetch candlestick data
@@ -869,6 +871,7 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
 
     // Hydrate market data similar to initial load
     // Note: API markets might have slightly different structure than EnrichedMarket
+    const rawData = nextMarket.rawData || nextMarket
     const fullMarket = {
       id: nextMarket.conditionId || nextMarket.id,
       title: nextMarket.question || nextMarket.title,
@@ -881,8 +884,13 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
       ticker: nextMarket.ticker || '',
       category: activeEvent?.category || activeMarket.category,
       imageUrl: nextMarket.image || nextMarket.imageUrl || activeMarket.imageUrl, // Fallback to current image
-      endDate: nextMarket.endDate ? (typeof nextMarket.endDate === 'string' ? new Date(nextMarket.endDate) : nextMarket.endDate) : undefined,
-      rawData: nextMarket.rawData || nextMarket, // specific rawData might be missing in simplified list
+      endDate: nextMarket.endDate || nextMarket.endDateIso ? new Date(nextMarket.endDate || nextMarket.endDateIso) : undefined,
+      rawData: {
+        ...rawData,
+        // Ensure clobTokenIds is available for chart fetching
+        clobTokenIds: nextMarket.clobTokenIds || rawData.clobTokenIds || nextMarket.tokens?.map((t: any) => t.token_id),
+        subtitle: nextMarket.rawData?.subtitle || nextMarket.question || nextMarket.title,
+      },
       tags: nextMarket.tags || nextMarket.rawData?.tags || activeEvent?.tags || activeMarket.tags || [],
       // Preserve event data if we have it
       eventData: activeMarket.eventData
@@ -1450,42 +1458,115 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               {/* Show specific option if this is part of a multi-option event */}
               {/* Show specific option if this is part of a multi-option event */}
               {showOptionBadge && (
-                <div className="mb-3 flex items-center justify-center gap-2 flex-wrap">
-                  {/* Previous Button */}
-                  {hasEventNavigation && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleSwitchMarket('prev'); }}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all border border-transparent hover:border-white/10 text-xs font-semibold uppercase tracking-wide"
-                      title="Previous Option"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      <span>Previous</span>
-                    </button>
-                  )}
+                <div className="mb-3 flex items-center justify-center gap-2 flex-wrap relative">
+                  {hasEventNavigation ? (
+                    <div className="relative group">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowOptionsDropdown(!showOptionsDropdown);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 hover:border-blue-500/30 transition-all cursor-pointer"
+                      >
+                        <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
+                          {activeMarket.rawData?.subtitle || activeMarket.title}
+                        </span>
+                        <ChevronDown className={cn(
+                          "w-4 h-4 text-blue-400 transition-transform",
+                          showOptionsDropdown && "rotate-180"
+                        )} />
+                      </button>
 
-                  <div className="inline-block px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                    <span className="text-xs font-bold text-blue-300 uppercase tracking-wider block text-center">
-                      {activeMarket.rawData?.subtitle || activeMarket.title}
-                    </span>
-                    {hasEventNavigation && currentMarketIndex !== null && (
-                      <span className="text-[10px] text-blue-200/80 font-medium block mt-1">
-                        Market {currentMarketIndex + 1} of {totalMarketsInEvent}
+                      {/* Dropdown Menu */}
+                      {showOptionsDropdown && (
+                        <>
+                          {/* Backdrop to close dropdown */}
+                          <div
+                            className="fixed inset-0 z-[100]"
+                            onClick={() => setShowOptionsDropdown(false)}
+                          />
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[101] min-w-[280px] max-h-[300px] overflow-y-auto bg-[#1a1b1e] border border-white/10 rounded-lg shadow-xl">
+                            <div className="py-1">
+                              {marketsInEvent.map((m: any, idx: number) => {
+                                const marketId = m.conditionId || m.id || m.marketId
+                                const isActive = marketId === activeMarket?.id || marketId === activeMarket?.rawData?.conditionId
+                                const optionLabel = m.rawData?.subtitle || m.question || m.title || `Option ${idx + 1}`
+
+                                // Parse price if available
+                                let price = 0
+                                try {
+                                  if (m.outcomePrices) {
+                                    const prices = typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : m.outcomePrices
+                                    price = parseFloat(prices[0])
+                                  } else if (m.price !== undefined) {
+                                    price = m.price
+                                  }
+                                } catch (e) { }
+
+                                return (
+                                  <button
+                                    key={marketId || idx}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setShowOptionsDropdown(false)
+                                      // Navigate to this market
+                                      // Preserve clobTokenIds for chart data fetching
+                                      const rawData = m.rawData || m
+                                      const fullMarket = {
+                                        id: m.conditionId || m.id,
+                                        title: m.question || m.title,
+                                        description: m.description || '',
+                                        platform: activeEvent?.platform || activeMarket?.platform,
+                                        volume24h: m.volume24hr || m.volume24h || 0,
+                                        price: price,
+                                        probability: price,
+                                        slug: m.slug || m.id,
+                                        ticker: m.ticker || '',
+                                        category: activeEvent?.category || activeMarket?.category,
+                                        imageUrl: m.image || m.imageUrl || activeMarket?.imageUrl,
+                                        endDate: m.endDate || m.endDateIso ? new Date(m.endDate || m.endDateIso) : undefined,
+                                        rawData: {
+                                          ...rawData,
+                                          // Ensure clobTokenIds is available for chart fetching
+                                          clobTokenIds: m.clobTokenIds || rawData.clobTokenIds || m.tokens?.map((t: any) => t.token_id),
+                                          subtitle: m.rawData?.subtitle || m.question || m.title,
+                                        },
+                                        tags: m.tags || m.rawData?.tags || activeEvent?.tags || activeMarket?.tags || [],
+                                        eventData: activeMarket?.eventData
+                                      }
+                                      setActiveMarket(fullMarket as MarketDetailsType)
+                                      panelTopRef.current?.scrollIntoView({ behavior: 'smooth' })
+                                    }}
+                                    className={cn(
+                                      "w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors",
+                                      isActive
+                                        ? "bg-blue-500/20 text-blue-300"
+                                        : "text-gray-300 hover:bg-white/5 hover:text-white"
+                                    )}
+                                  >
+                                    <span className="text-xs font-medium truncate flex-1 mr-2">{optionLabel}</span>
+                                    <span className={cn(
+                                      "text-sm font-bold shrink-0",
+                                      price >= 0.5 ? "text-emerald-400" : "text-gray-400"
+                                    )}>
+                                      {Math.round(price * 100)}%
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="inline-block px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                      <span className="text-xs font-bold text-blue-300 uppercase tracking-wider block text-center">
+                        {activeMarket.rawData?.subtitle || activeMarket.title}
                       </span>
-                    )}
-                  </div>
-
-                  {/* Next Button */}
-                  {hasEventNavigation && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleSwitchMarket('next'); }}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all border border-transparent hover:border-white/10 text-xs font-semibold uppercase tracking-wide"
-                      title="Next Option"
-                    >
-                      <span>Next</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
+                    </div>
                   )}
                 </div>
               )}

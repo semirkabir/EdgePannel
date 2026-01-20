@@ -12,11 +12,6 @@ import { validateQuery } from '@/lib/api/validate'
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const params = validateQuery(MarketCandlesticksQuerySchema, searchParams)
 
@@ -25,7 +20,7 @@ export async function GET(request: Request) {
     const marketSlugs = params.marketSlugs
     const interval = params.interval || '1h'
 
-    // Polymarket: fetch candlesticks for multiple markets
+    // Polymarket: fetch candlesticks for multiple markets (no auth required - public data)
     if (platform === 'polymarket' && marketSlugs) {
       const slugArray = marketSlugs.split(',').map(s => s.trim())
       const client = new PolymarketClient()
@@ -42,6 +37,12 @@ export async function GET(request: Request) {
         console.error('[Polymarket Candlesticks] Error:', error.message || error)
         return NextResponse.json({ candlesticks: {} })
       }
+    }
+
+    // Kalshi requires authentication for API key access
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized - Kalshi requires login' }, { status: 401 })
     }
 
     // Kalshi: fetch candlesticks for single market

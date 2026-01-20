@@ -9,14 +9,7 @@ import { prisma } from '@/lib/db/client'
 import { decrypt } from '@/lib/utils/encryption'
 import { withErrorHandler } from '@/lib/api/middleware'
 import { validateQuery } from '@/lib/api/validate'
-import { z } from 'zod'
-
-const MarketHistoryQuerySchema = z.object({
-  id: z.string().trim().min(1, 'Market ID is required').max(500),
-  platform: z.enum(['kalshi', 'polymarket']),
-  interval: z.enum(['1m', '5m', '15m', '30m', '1h', '4h', '1d']).default('1d'),
-  assetId: z.string().trim().max(500).optional(),
-})
+import { MarketHistoryQuerySchema } from '@/lib/api/schemas'
 
 export const GET = withErrorHandler(async (request: Request) => {
     try {
@@ -28,7 +21,12 @@ export const GET = withErrorHandler(async (request: Request) => {
 
             console.log('[History API] Polymarket request:', { id, interval, assetId })
 
+            // Handle assetId that may have outcome index suffix (e.g., "tokenId:0" or "tokenId:1")
             let tokenId = assetId
+            if (tokenId && tokenId.includes(':')) {
+                tokenId = tokenId.split(':')[0]
+                console.log('[History API] Stripped outcome index from assetId:', tokenId)
+            }
 
             // If we don't have the assetId (token_id), we need to fetch it
             if (!tokenId) {
@@ -99,19 +97,19 @@ export const GET = withErrorHandler(async (request: Request) => {
                             { ttlMs: 60_000, allowStaleOnError: true, cacheNull: true }
                         )
 
-                            // Find the "Yes" token
-                            if (marketData.tokens && Array.isArray(marketData.tokens)) {
-                                const yesToken = marketData.tokens.find((t: any) =>
-                                    t.outcome === 'Yes' || t.outcome === 'YES' || t.outcome === 'True'
-                                )
+                        // Find the "Yes" token
+                        if (marketData && marketData.tokens && Array.isArray(marketData.tokens)) {
+                            const yesToken = marketData.tokens.find((t: any) =>
+                                t.outcome === 'Yes' || t.outcome === 'YES' || t.outcome === 'True'
+                            )
 
-                                if (yesToken) {
-                                    tokenId = yesToken.token_id
-                                } else if (marketData.tokens.length > 0) {
-                                    // Fallback to first token if Yes not found
-                                    tokenId = marketData.tokens[0].token_id
-                                }
+                            if (yesToken) {
+                                tokenId = yesToken.token_id
+                            } else if (marketData.tokens.length > 0) {
+                                // Fallback to first token if Yes not found
+                                tokenId = marketData.tokens[0].token_id
                             }
+                        }
                     } catch (error) {
                         console.error('[History API] Error fetching market details:', error)
                     }

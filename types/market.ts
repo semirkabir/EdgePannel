@@ -82,6 +82,8 @@ export interface SearchQueries {
 export interface EventData {
   id: string
   eventId: string
+  slug?: string
+  title?: string // Event title (for display)
   probability: number
   liquidity: number
   question: string
@@ -94,6 +96,12 @@ export interface EventData {
   tags?: string[]
   searchQueries?: SearchQueries
   rankedArticles?: RankedArticle[]
+  // Enhanced for unified event view
+  imageUrl?: string
+  totalVolume?: number
+  totalLiquidity?: number
+  markets?: Market[] // All markets/outcomes in this event
+  priceHistories?: Record<string, PricePoint[]> // Price history keyed by market ID
 }
 
 export interface Candlestick {

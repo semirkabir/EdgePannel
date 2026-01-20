@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { Providers } from "@/components/providers"
+import { PreloadAssets } from "@/components/PreloadAssets"
 import "./globals.css"
 // Validate environment variables at startup
 import "@/lib/config/validate-env"
@@ -109,9 +110,9 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className} suppressHydrationWarning>
+        <PreloadAssets />
         <Providers>{children}</Providers>
       </body>
     </html>
   )
 }
-
