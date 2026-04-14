@@ -5,7 +5,7 @@ import { getLiveStreamsAlwaysOn, setLiveStreamsAlwaysOn } from '@/services/live-
 import { getGlobeVisualPreset, setGlobeVisualPreset, GLOBE_VISUAL_PRESET_OPTIONS, type GlobeVisualPreset } from '@/services/globe-render-settings';
 import { getInsightSeverityPreference, setInsightSeverityPreference, INSIGHT_SEVERITY_OPTIONS, type InsightSeverityPreference } from '@/services/insight-severity-settings';
 import type { StreamQuality } from '@/services/ai-flow-settings';
-import { getThemePreference, setThemePreference, getFontPreference, setFontPreference, type ThemePreference, type FontPreference } from '@/utils/theme-manager';
+import { getThemePreference, setThemePreference, getFontPreference, setFontPreference, getAccentColor, setAccentColor, type ThemePreference, type FontPreference, type AccentColor } from '@/utils/theme-manager';
 import { escapeHtml } from '@/utils/sanitize';
 import { trackLanguageChange } from '@/services/analytics';
 import { exportSettings, importSettings, type ImportResult } from '@/utils/settings-persistence';
@@ -186,21 +186,39 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
   html += `<div class="ai-flow-toggle-row">
     <div class="ai-flow-toggle-label-wrap">
       <div class="ai-flow-toggle-label">Font</div>
-      <div class="ai-flow-toggle-desc">Choose between the current theme font and the news/article reading font.</div>
+      <div class="ai-flow-toggle-desc">Choose the interface font. Numbers and data always use the monospace font.</div>
     </div>
   </div>`;
   html += `<select class="unified-settings-select" id="us-font-preference">`;
   for (const opt of [
-    { value: 'theme', label: 'Theme font' },
-    { value: 'article', label: 'Article font' },
+    { value: 'inter',   label: 'Inter — clean sans-serif (recommended)' },
+    { value: 'theme',   label: 'Console — monospace terminal' },
+    { value: 'article', label: 'System — native sans-serif' },
   ] as { value: FontPreference; label: string }[]) {
     const selected = opt.value === currentFontPref ? ' selected' : '';
     html += `<option value="${opt.value}"${selected}>${escapeHtml(opt.label)}</option>`;
   }
   html += `</select>`;
   html += `<div class="us-font-preview-grid">
-    ${renderFontPreviewCard('theme', 'Theme font', 'Operator console', 'CURRENT SITUATION UPDATE // SIGNALS STABLE', currentFontPref)}
-    ${renderFontPreviewCard('article', 'Article font', 'News/article reading', 'Current situation update: signals stable.', currentFontPref)}
+    ${renderFontPreviewCard('inter',   'Inter',   'Clean sans-serif · recommended', 'Edge Intelligence — live signals updated', currentFontPref)}
+    ${renderFontPreviewCard('theme',   'Console', 'Monospace terminal', 'CURRENT SITUATION UPDATE // SIGNALS STABLE', currentFontPref)}
+    ${renderFontPreviewCard('article', 'System',  'Native sans-serif', 'Current situation update: signals stable.', currentFontPref)}
+  </div>`;
+
+  const currentAccentPref = getAccentColor();
+  html += `<div class="ai-flow-toggle-row">
+    <div class="ai-flow-toggle-label-wrap">
+      <div class="ai-flow-toggle-label">Accent Color</div>
+      <div class="ai-flow-toggle-desc">Signature color for highlights, badges, active states, and glow effects.</div>
+    </div>
+  </div>`;
+  html += `<div class="accent-color-grid">
+    ${renderAccentSwatch('zinc',    'Neutral', '#71717a', currentAccentPref)}
+    ${renderAccentSwatch('indigo',  'Indigo',  '#6366f1', currentAccentPref)}
+    ${renderAccentSwatch('emerald', 'Emerald', '#10b981', currentAccentPref)}
+    ${renderAccentSwatch('amber',   'Amber',   '#f59e0b', currentAccentPref)}
+    ${renderAccentSwatch('sky',     'Sky',     '#0ea5e9', currentAccentPref)}
+    ${renderAccentSwatch('rose',    'Rose',    '#f43f5e', currentAccentPref)}
   </div>`;
 
   const currentCursorPref = getCursorPreference();
@@ -527,6 +545,14 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
           markDirty();
           return;
         }
+        const accentSwatch = target.closest<HTMLElement>('.accent-swatch');
+        if (accentSwatch?.dataset.accent) {
+          const value = accentSwatch.dataset.accent as AccentColor;
+          setAccentColor(value);
+          syncAccentSwatchState(container, value);
+          markDirty();
+          return;
+        }
         const cursorCard = target.closest<HTMLElement>('.us-cursor-preview-card');
         if (cursorCard?.dataset.cursorPreference) {
           const value = cursorCard.dataset.cursorPreference as CursorPreference;
@@ -634,6 +660,20 @@ function renderCursorPreviewCard(
 function syncFontPreviewState(container: HTMLElement, value: FontPreference): void {
   container.querySelectorAll<HTMLElement>('.us-font-preview-card').forEach((card) => {
     card.classList.toggle('active', card.dataset.fontPreference === value);
+  });
+}
+
+function renderAccentSwatch(value: AccentColor, label: string, hex: string, current: AccentColor): string {
+  const active = current === value ? ' active' : '';
+  return `<button type="button" class="accent-swatch${active}" data-accent="${value}" style="--swatch-color:${hex}" title="${label}">
+    <span class="accent-swatch-chip"></span>
+    <span class="accent-swatch-name">${label}</span>
+  </button>`;
+}
+
+function syncAccentSwatchState(container: HTMLElement, value: AccentColor): void {
+  container.querySelectorAll<HTMLElement>('.accent-swatch').forEach((swatch) => {
+    swatch.classList.toggle('active', swatch.dataset.accent === value);
   });
 }
 

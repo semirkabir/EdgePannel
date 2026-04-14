@@ -31,7 +31,7 @@ import { getApiBaseUrl, isDesktopRuntime, resolveLocalApiPort, startSmartPollLoo
 import { tryInvokeTauri, invokeTauri } from '@/services/tauri-bridge';
 import { escapeHtml } from '@/utils/sanitize';
 import { initI18n, t } from '@/services/i18n';
-import { applyStoredTheme, getFontPreference, setFontPreference, type FontPreference } from '@/utils/theme-manager';
+import { applyStoredTheme, getFontPreference, setFontPreference, getAccentColor, setAccentColor, type FontPreference, type AccentColor } from '@/utils/theme-manager';
 import { trackFeatureToggle } from '@/services/analytics';
 import { installCursorDiagnostics } from '@/utils/cursor-diagnostics';
 import { installForcedCursor } from '@/utils/forced-cursor';
@@ -227,15 +227,32 @@ function renderOverview(area: HTMLElement): void {
     <section class="settings-appearance-card">
       <div class="settings-appearance-copy">
         <h2 class="wm-section-title">Font</h2>
-        <p class="wm-section-desc">Choose between the current console theme font and the current news/article font.</p>
+        <p class="wm-section-desc">Choose the interface font. Numbers and data always use the monospace font.</p>
       </div>
       <select class="settings-font-select" id="settingsFontPreference">
-        <option value="theme"${getFontPreference() === 'theme' ? ' selected' : ''}>Theme font</option>
-        <option value="article"${getFontPreference() === 'article' ? ' selected' : ''}>Article font</option>
+        <option value="inter"${getFontPreference() === 'inter' ? ' selected' : ''}>Inter — clean sans-serif (recommended)</option>
+        <option value="theme"${getFontPreference() === 'theme' ? ' selected' : ''}>Console — monospace terminal</option>
+        <option value="article"${getFontPreference() === 'article' ? ' selected' : ''}>System — native sans-serif</option>
       </select>
       <div class="settings-font-preview-grid">
-        ${renderFontPreviewCard('theme', 'Theme font', 'Operator console', 'CURRENT SITUATION UPDATE // SIGNALS STABLE')}
-        ${renderFontPreviewCard('article', 'Article font', 'News/article reading', 'Current situation update: signals stable.')}
+        ${renderFontPreviewCard('inter',   'Inter',   'Clean sans-serif · recommended', 'Edge Intelligence — live signals updated')}
+        ${renderFontPreviewCard('theme',   'Console', 'Monospace terminal',             'CURRENT SITUATION UPDATE // SIGNALS STABLE')}
+        ${renderFontPreviewCard('article', 'System',  'Native sans-serif',              'Current situation update: signals stable.')}
+      </div>
+    </section>
+
+    <section class="settings-appearance-card settings-accent-card">
+      <div class="settings-appearance-copy">
+        <h2 class="wm-section-title">Accent Color</h2>
+        <p class="wm-section-desc">Signature color for highlights, badges, active states, and glow effects.</p>
+      </div>
+      <div class="accent-color-grid">
+        ${renderAccentSwatch('zinc',    'Neutral', '#71717a')}
+        ${renderAccentSwatch('indigo',  'Indigo',  '#6366f1')}
+        ${renderAccentSwatch('emerald', 'Emerald', '#10b981')}
+        ${renderAccentSwatch('amber',   'Amber',   '#f59e0b')}
+        ${renderAccentSwatch('sky',     'Sky',     '#0ea5e9')}
+        ${renderAccentSwatch('rose',    'Rose',    '#f43f5e')}
       </div>
     </section>
 
@@ -302,6 +319,18 @@ function initOverviewListeners(area: HTMLElement): void {
       setFontPreference(value);
       syncFontPreviewState(value);
       setActionStatus('Font preference updated.', 'ok');
+    });
+  });
+
+  area.querySelectorAll<HTMLElement>('.accent-swatch').forEach((swatch) => {
+    swatch.addEventListener('click', () => {
+      const value = swatch.dataset.accent as AccentColor | undefined;
+      if (!value) return;
+      setAccentColor(value);
+      area.querySelectorAll<HTMLElement>('.accent-swatch').forEach((s) => {
+        s.classList.toggle('active', s.dataset.accent === value);
+      });
+      setActionStatus('Accent color updated.', 'ok');
     });
   });
 
@@ -378,6 +407,14 @@ function renderFontPreviewCard(value: FontPreference, title: string, subtitle: s
       <div class="settings-font-preview-sample settings-font-preview-sample-${value}">${escapeHtml(sample)}</div>
     </button>
   `;
+}
+
+function renderAccentSwatch(value: AccentColor, label: string, hex: string): string {
+  const active = getAccentColor() === value ? ' active' : '';
+  return `<button type="button" class="accent-swatch${active}" data-accent="${value}" style="--swatch-color:${hex}" title="${escapeHtml(label)}">
+    <span class="accent-swatch-chip"></span>
+    <span class="accent-swatch-name">${escapeHtml(label)}</span>
+  </button>`;
 }
 
 // ── Feature sections ──

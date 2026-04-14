@@ -5163,7 +5163,15 @@ export class DeckGLMap {
       document.addEventListener('click', closeHandler);
     }, 100);
 
+    // Append to container and position below the slider using calculated coords
     this.container.appendChild(popup);
+    const sliderEl = this.container.querySelector<HTMLElement>('.deckgl-time-slider');
+    if (sliderEl) {
+      const containerRect = this.container.getBoundingClientRect();
+      const sliderRect = sliderEl.getBoundingClientRect();
+      popup.style.top  = `${sliderRect.bottom - containerRect.top + 6}px`;
+      popup.style.left = `${sliderRect.left - containerRect.left}px`;
+    }
   }
 
   private hideLayerHelp(): void {

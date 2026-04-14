@@ -2,12 +2,15 @@ import { invalidateColorCache } from './theme-colors';
 
 export type Theme = 'dark' | 'light';
 export type ThemePreference = 'auto' | 'dark' | 'light';
-export type FontPreference = 'theme' | 'article';
+export type FontPreference = 'inter' | 'theme' | 'article';
+export type AccentColor = 'indigo' | 'emerald' | 'amber' | 'sky' | 'rose' | 'zinc';
 
 const STORAGE_KEY = 'worldmonitor-theme';
 const FONT_STORAGE_KEY = 'worldmonitor-font-preference';
+const ACCENT_STORAGE_KEY = 'worldmonitor-accent-color';
 const DEFAULT_THEME: Theme = 'dark';
-const DEFAULT_FONT: FontPreference = 'theme';
+const DEFAULT_FONT: FontPreference = 'inter';
+const DEFAULT_ACCENT: AccentColor = 'indigo';
 
 /**
  * Read the stored theme preference from localStorage.
@@ -34,9 +37,33 @@ export function getThemePreference(): ThemePreference {
 export function getFontPreference(): FontPreference {
   try {
     const stored = localStorage.getItem(FONT_STORAGE_KEY);
-    if (stored === 'theme' || stored === 'article') return stored;
+    if (stored === 'inter' || stored === 'theme' || stored === 'article') return stored;
   } catch { /* noop */ }
   return DEFAULT_FONT;
+}
+
+export function getAccentColor(): AccentColor {
+  try {
+    const stored = localStorage.getItem(ACCENT_STORAGE_KEY);
+    if (stored === 'indigo' || stored === 'emerald' || stored === 'amber' || stored === 'sky' || stored === 'rose' || stored === 'zinc') {
+      return stored as AccentColor;
+    }
+  } catch { /* noop */ }
+  return DEFAULT_ACCENT;
+}
+
+function applyAccentColor(accent: AccentColor): void {
+  if (accent === 'indigo') {
+    document.documentElement.removeAttribute('data-accent-color');
+  } else {
+    document.documentElement.dataset.accentColor = accent;
+  }
+}
+
+export function setAccentColor(accent: AccentColor): void {
+  try { localStorage.setItem(ACCENT_STORAGE_KEY, accent); } catch { /* noop */ }
+  applyAccentColor(accent);
+  window.dispatchEvent(new CustomEvent('accent-changed', { detail: { accent } }));
 }
 
 function resolveAutoTheme(): Theme {
@@ -143,4 +170,5 @@ export function applyStoredTheme(): void {
     }
   }
   applyFontPreference(getFontPreference());
+  applyAccentColor(getAccentColor());
 }
