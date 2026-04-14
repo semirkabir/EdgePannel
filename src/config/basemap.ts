@@ -43,17 +43,11 @@ export interface UnifiedThemeOption {
 function buildUnifiedOptions(): UnifiedThemeOption[] {
   const opts: UnifiedThemeOption[] = [
     // ── Dark ──
-    { value: 'carto:dark-matter',          label: 'Carto Dark Matter', group: 'Dark',      provider: 'carto',       theme: 'dark-matter' },
-    { value: 'openfreemap:dark',           label: 'OpenFreeMap Dark',  group: 'Dark',      provider: 'openfreemap', theme: 'dark' },
-    { value: 'custom:smooth_dark',         label: 'Smooth Dark',       group: 'Dark',      provider: 'custom',      theme: 'smooth_dark' },
-    { value: 'custom:toner',               label: 'Toner B&W',         group: 'Dark',      provider: 'custom',      theme: 'toner' },
+    { value: 'carto:dark-matter',          label: 'Meridian',          group: 'Dark',      provider: 'carto',       theme: 'dark-matter' },
+    { value: 'custom:toner',               label: 'Obsidian',          group: 'Dark',      provider: 'custom',      theme: 'toner' },
     // ── Light ──
-    { value: 'carto:voyager',              label: 'Carto Voyager',     group: 'Light',     provider: 'carto',       theme: 'voyager' },
-    { value: 'openfreemap:positron',       label: 'Positron',          group: 'Light',     provider: 'openfreemap', theme: 'positron' },
-    { value: 'custom:smooth_light',        label: 'Smooth Light',      group: 'Light',     provider: 'custom',      theme: 'smooth_light' },
-    { value: 'custom:toner_lite',          label: 'Toner Lite',        group: 'Light',     provider: 'custom',      theme: 'toner_lite' },
-    // ── Custom ──
-    { value: 'custom:matrix',              label: 'Matrix',            group: 'Dark',      provider: 'custom',      theme: 'matrix' },
+    { value: 'carto:voyager',              label: 'Ivory',             group: 'Light',     provider: 'carto',       theme: 'voyager' },
+    { value: 'custom:toner_lite',          label: 'Chalk',             group: 'Light',     provider: 'custom',      theme: 'toner_lite' },
   ];
   if (HAS_PMTILES_URL) {
     opts.unshift(
@@ -124,8 +118,9 @@ export const THEME_LAYER_OVERRIDES: Partial<Record<string, ThemeLayerOverride>> 
       { match: 'landcover_wood', type: 'fill', property: 'fill-color', value: '#333333' },
       { match: 'landuse_park', type: 'fill', property: 'fill-color', value: '#333333' },
       { match: 'place_country_major', type: 'symbol', property: 'text-color', value: '#ffffff' },
-      { match: 'place_country_minor', type: 'symbol', property: 'text-color', value: '#ffffff' },
-      { match: 'place_country_other', type: 'symbol', property: 'text-color', value: '#ffffff' },
+      { match: 'place_country_minor', type: 'symbol', property: 'text-color', value: '#cccccc' },
+      { match: 'place_country_other', type: 'symbol', property: 'text-color', value: '#aaaaaa' },
+      { match: 'place_continent', type: 'symbol', property: 'text-color', value: '#ffffff' },
       { match: 'place_city', type: 'symbol', property: 'text-color', value: '#ffffff' },
       { match: 'place_city_large', type: 'symbol', property: 'text-color', value: '#ffffff' },
       { match: 'place_town', type: 'symbol', property: 'text-color', value: '#ffffff' },
@@ -133,12 +128,126 @@ export const THEME_LAYER_OVERRIDES: Partial<Record<string, ThemeLayerOverride>> 
       { match: 'highway_name_other', type: 'symbol', property: 'text-color', value: '#cccccc' },
       { match: 'highway_name_motorway', type: 'symbol', property: 'text-color', value: '#cccccc' },
     ],
+    // Match Carto Dark Matter's uppercase + tracked-spacing label treatment for
+    // country and continent names. No font change — stays within OpenFreeMap's glyph server.
+    layout: [
+      // Continents — widest tracking, all-caps
+      { match: 'place_continent', type: 'symbol', property: 'text-transform', value: 'uppercase' },
+      { match: 'place_continent', type: 'symbol', property: 'text-letter-spacing', value: 0.25 },
+      // Major countries — uppercase with moderate tracking
+      { match: 'place_country_major', type: 'symbol', property: 'text-transform', value: 'uppercase' },
+      { match: 'place_country_major', type: 'symbol', property: 'text-letter-spacing', value: 0.15 },
+      // Minor / other countries — uppercase, tighter tracking
+      { match: 'place_country_minor', type: 'symbol', property: 'text-transform', value: 'uppercase' },
+      { match: 'place_country_minor', type: 'symbol', property: 'text-letter-spacing', value: 0.1 },
+      { match: 'place_country_other', type: 'symbol', property: 'text-transform', value: 'uppercase' },
+      { match: 'place_country_other', type: 'symbol', property: 'text-letter-spacing', value: 0.1 },
+      // States / regions — subtle tracking only, no uppercase (matches Carto treatment)
+      { match: 'place_state', type: 'symbol', property: 'text-letter-spacing', value: 0.05 },
+    ],
   },
   'custom:smooth_dark': {
     paint: [
       { match: 'country', type: 'line', property: 'line-color', value: '#ffffff' },
       { match: 'country', type: 'line', property: 'line-opacity', value: 0.45 },
       { match: 'country', type: 'line', property: 'line-width', value: 2.5 },
+    ],
+  },
+  // Toner Lite — desaturate the Carto Positron (light) vector layers at the paint level.
+  // CSS canvas filter is NOT used so DeckGL icon layers keep their original colors.
+  'custom:toner_lite': {
+    paint: [
+      // Background
+      { match: 'background', type: 'background', property: 'background-color', value: '#f5f5f5' },
+      // Water bodies
+      { match: 'water', type: 'fill', property: 'fill-color', value: '#d4d4d4' },
+      { match: 'water', type: 'fill', property: 'fill-outline-color', value: '#c0c0c0' },
+      { match: 'water', type: 'line', property: 'line-color', value: '#c0c0c0' },
+      { match: 'waterway', type: 'line', property: 'line-color', value: '#c8c8c8' },
+      // Land cover (grass, scrub, trees, snow, crop...)
+      { match: 'landcover', type: 'fill', property: 'fill-color', value: '#ebebeb' },
+      { match: 'landcover', type: 'fill', property: 'fill-outline-color', value: '#e0e0e0' },
+      // Land use
+      { match: 'landuse', type: 'fill', property: 'fill-color', value: '#e8e8e8' },
+      { match: 'landuse', type: 'fill', property: 'fill-outline-color', value: '#e0e0e0' },
+      // Parks / green areas
+      { match: 'park', type: 'fill', property: 'fill-color', value: '#e4e4e4' },
+      // Hillshade
+      { match: 'hillshade', type: 'fill', property: 'fill-color', value: '#cccccc' },
+      { match: 'hillshade', type: 'fill', property: 'fill-opacity', value: 0.15 },
+      // Buildings
+      { match: 'building', type: 'fill', property: 'fill-color', value: '#dedede' },
+      { match: 'building', type: 'fill', property: 'fill-outline-color', value: '#cccccc' },
+      { match: 'building', type: 'fill-extrusion', property: 'fill-extrusion-color', value: '#dedede' },
+      // Tunnels
+      { match: 'tunnel', type: 'line', property: 'line-color', value: '#d0d0d0' },
+      // Roads — general
+      { match: 'road', type: 'line', property: 'line-color', value: '#c4c4c4' },
+      // Major roads override with progressively darker grays
+      { match: 'motorway', type: 'line', property: 'line-color', value: '#888888' },
+      { match: 'trunk', type: 'line', property: 'line-color', value: '#999999' },
+      { match: 'primary', type: 'line', property: 'line-color', value: '#aaaaaa' },
+      // Bridges
+      { match: 'bridge', type: 'line', property: 'line-color', value: '#c4c4c4' },
+      // Rail
+      { match: 'rail', type: 'line', property: 'line-color', value: '#bbbbbb' },
+      // Admin / political boundaries
+      { match: 'admin', type: 'line', property: 'line-color', value: '#888888' },
+      { match: 'boundary', type: 'line', property: 'line-color', value: '#888888' },
+      { match: 'state', type: 'line', property: 'line-color', value: '#aaaaaa' },
+      // All text labels → dark text on white halo
+      { match: '', type: 'symbol', property: 'text-color', value: '#333333' },
+      { match: '', type: 'symbol', property: 'text-halo-color', value: '#f5f5f5' },
+      { match: '', type: 'symbol', property: 'text-halo-width', value: 1 },
+    ],
+  },
+  // Toner B&W — desaturate the Carto dark-matter vector layers at the paint level.
+  // CSS canvas filter is NOT used for this theme (see CUSTOM_THEME_FILTERS) so that
+  // DeckGL icon layers, which share the same WebGL canvas, keep their original colors.
+  'custom:toner': {
+    paint: [
+      // Background
+      { match: 'background', type: 'background', property: 'background-color', value: '#080808' },
+      // Water bodies
+      { match: 'water', type: 'fill', property: 'fill-color', value: '#1a1a1a' },
+      { match: 'water', type: 'fill', property: 'fill-outline-color', value: '#2a2a2a' },
+      { match: 'water', type: 'line', property: 'line-color', value: '#252525' },
+      { match: 'waterway', type: 'line', property: 'line-color', value: '#252525' },
+      // Land cover (grass, scrub, trees, snow, crop...)
+      { match: 'landcover', type: 'fill', property: 'fill-color', value: '#131313' },
+      { match: 'landcover', type: 'fill', property: 'fill-outline-color', value: '#1a1a1a' },
+      // Land use (residential, commercial, industrial, cemetery, parking...)
+      { match: 'landuse', type: 'fill', property: 'fill-color', value: '#161616' },
+      { match: 'landuse', type: 'fill', property: 'fill-outline-color', value: '#1e1e1e' },
+      // Parks / green areas
+      { match: 'park', type: 'fill', property: 'fill-color', value: '#161616' },
+      // Hillshade
+      { match: 'hillshade', type: 'fill', property: 'fill-color', value: '#000000' },
+      { match: 'hillshade', type: 'fill', property: 'fill-opacity', value: 0.1 },
+      // Buildings
+      { match: 'building', type: 'fill', property: 'fill-color', value: '#1e1e1e' },
+      { match: 'building', type: 'fill', property: 'fill-outline-color', value: '#2a2a2a' },
+      { match: 'building', type: 'fill-extrusion', property: 'fill-extrusion-color', value: '#1e1e1e' },
+      // Tunnels (drawn below roads)
+      { match: 'tunnel', type: 'line', property: 'line-color', value: '#282828' },
+      // Roads — general (minor paths, streets)
+      { match: 'road', type: 'line', property: 'line-color', value: '#363636' },
+      // Motorways / major roads override road match with a lighter tone
+      { match: 'motorway', type: 'line', property: 'line-color', value: '#555555' },
+      { match: 'trunk', type: 'line', property: 'line-color', value: '#4a4a4a' },
+      { match: 'primary', type: 'line', property: 'line-color', value: '#444444' },
+      // Bridges
+      { match: 'bridge', type: 'line', property: 'line-color', value: '#363636' },
+      // Rail
+      { match: 'rail', type: 'line', property: 'line-color', value: '#333333' },
+      // Admin / political boundaries
+      { match: 'admin', type: 'line', property: 'line-color', value: '#999999' },
+      { match: 'boundary', type: 'line', property: 'line-color', value: '#999999' },
+      { match: 'state', type: 'line', property: 'line-color', value: '#666666' },
+      // All text labels → white on black halo
+      { match: '', type: 'symbol', property: 'text-color', value: '#d8d8d8' },
+      { match: '', type: 'symbol', property: 'text-halo-color', value: '#000000' },
+      { match: '', type: 'symbol', property: 'text-halo-width', value: 1 },
     ],
   },
 };
@@ -303,12 +412,10 @@ export function isLightMapTheme(theme: string): boolean {
 }
 
 export const CUSTOM_THEME_FILTERS: Partial<Record<string, string>> = {
-  'custom:matrix': 'saturate(0) sepia(1) hue-rotate(80deg) saturate(4) brightness(0.55)',
   'custom:smooth_dark': 'brightness(0.85) contrast(1.05) saturate(0.7)',
-  'custom:toner': 'saturate(0) contrast(1.4) brightness(0.92)',
-  'custom:toner_lite': 'grayscale(1) contrast(1.15) brightness(1.05)',
+  // 'custom:toner' and 'custom:toner_lite' intentionally omitted — grayscale is applied via
+  // THEME_LAYER_OVERRIDES so that DeckGL icon layers (which share the same canvas) keep their colors
   'custom:smooth_light': 'brightness(1.05) saturate(0.85) contrast(0.95)',
-
 };
 
 const CUSTOM_THEME_BASE: Partial<Record<string, { provider: MapProvider; theme: string }>> = {

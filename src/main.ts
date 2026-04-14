@@ -267,6 +267,8 @@ import { loadDesktopSecrets } from '@/services/runtime-config';
 import { applyStoredTheme } from '@/utils/theme-manager';
 import { SITE_VARIANT } from '@/config/variant';
 import { clearChunkReloadGuard, installChunkReloadGuard } from '@/bootstrap/chunk-reload';
+import { onAuthChange, isFirebaseConfigured } from '@/services/firebase-auth';
+import { onUserLogin, onUserLogout } from '@/services/preferences-sync';
 
 // Auto-reload on stale chunk 404s after deployment (Vite fires this for modulepreload failures).
 const chunkReloadStorageKey = installChunkReloadGuard(__APP_VERSION__);
@@ -285,6 +287,23 @@ loadDesktopSecrets().catch(() => {});
 
 // Apply stored theme preference before app initialization (safety net for inline script)
 applyStoredTheme();
+
+// Cloud preferences sync — TradingView-style session persistence.
+// Only active when Firebase auth is configured (not in anonymous/local-only mode).
+if (isFirebaseConfigured()) {
+  let prevUid: string | null = null;
+  onAuthChange((user) => {
+    if (user) {
+      if (user.uid !== prevUid) {
+        prevUid = user.uid;
+        void onUserLogin();
+      }
+    } else {
+      prevUid = null;
+      onUserLogout();
+    }
+  });
+}
 
 // Initialize custom selects early so dropdowns are ready before heavy app init
 initCustomSelects();

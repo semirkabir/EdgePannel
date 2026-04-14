@@ -50,9 +50,10 @@ import { VisitorCounter } from '@/components/VisitorCounter';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { t } from '@/services/i18n';
 import { TvModeController } from '@/services/tv-mode';
-import { buildShareUrl, getHeaderThemeIconHtml } from './event-handler-view';
+import { buildShareUrl } from './event-handler-view';
 import { confirmShellAction, showShellNotification } from './shell-notifications';
 import { checkFeatureAccess } from '@/services/auth-modal';
+import { forceSaveToCloud } from '@/services/preferences-sync';
 import {
   getPanelDensityPreference,
   isDesktopOnboardingDismissed,
@@ -324,6 +325,8 @@ export class EventHandlerManager implements AppModule {
         const urlObj = new URL(shareUrl);
         localStorage.setItem('worldmonitor-saved-map-layout', urlObj.search);
         this.savePanelLayoutSnapshot();
+        // Push to cloud immediately so it's available on next login
+        void forceSaveToCloud();
         showShellNotification(t('header.layoutSaved'), 'success');
       } catch (error) {
         console.warn('Failed to save layout:', error);
@@ -775,7 +778,7 @@ export class EventHandlerManager implements AppModule {
   updateHeaderThemeIcon(): void {
     const btn = document.getElementById('headerThemeToggle');
     if (!btn) return;
-    btn.innerHTML = getHeaderThemeIconHtml(getCurrentTheme() === 'dark');
+    btn.dataset.theme = getCurrentTheme();
   }
 
   private updateMobileMenuThemeItem(): void {

@@ -493,6 +493,114 @@ function camerasPlugin(): Plugin {
   };
 }
 
+/**
+ * Dev-server plugin that replicates the /api/prefs Vercel edge function.
+ * Reads/writes from Upstash Redis using the same env vars.
+ * Firebase token verification uses Google tokeninfo (same as production).
+ */
+function prefsPlugin(): Plugin {
+  const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? '';
+  const tokenCache = new Map<string, { uid: string; exp: number }>();
+
+  async function verifyToken(token: string): Promise<string | null> {
+    const cached = tokenCache.get(token);
+    if (cached && Date.now() < cached.exp) return cached.uid;
+    try {
+      const resp = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`,
+        { signal: AbortSignal.timeout(5000) },
+      );
+      if (!resp.ok) return null;
+      const info = await resp.json() as Record<string, string>;
+      if (FIREBASE_PROJECT_ID && info.aud !== FIREBASE_PROJECT_ID) return null;
+      const uid = info.sub ?? info.user_id ?? null;
+      if (!uid) return null;
+      tokenCache.set(token, { uid, exp: Date.now() + 50 * 60 * 1000 });
+      return uid;
+    } catch { return null; }
+  }
+
+  function getRedis() {
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    return url && token ? { url, token } : null;
+  }
+
+  async function redisGet(key: string): Promise<string | null> {
+    const r = getRedis();
+    if (!r) return null;
+    try {
+      const resp = await fetch(`${r.url}/get/${encodeURIComponent(key)}`, {
+        headers: { Authorization: `Bearer ${r.token}` },
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json() as { result?: string };
+      return data.result ?? null;
+    } catch { return null; }
+  }
+
+  async function redisSet(key: string, value: string): Promise<void> {
+    const r = getRedis();
+    if (!r) return;
+    await fetch(`${r.url}/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${r.token}` },
+      signal: AbortSignal.timeout(3000),
+    });
+  }
+
+  return {
+    name: 'prefs-proxy',
+    configureServer(server) {
+      server.middlewares.use(async (req: any, res: any, next: () => void) => {
+        if (req.url !== '/api/prefs' && !req.url?.startsWith('/api/prefs?')) return next();
+
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', 'application/json');
+
+        if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+        const token = req.headers['x-worldmonitor-token'];
+        if (!token) { res.statusCode = 401; res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+
+        const uid = await verifyToken(token as string);
+        if (!uid) { res.statusCode = 401; res.end(JSON.stringify({ error: 'Invalid token' })); return; }
+
+        const redisKey = `user-prefs:${uid}`;
+
+        if (req.method === 'GET') {
+          const raw = await redisGet(redisKey);
+          const prefs = raw ? JSON.parse(raw) : null;
+          res.setHeader('Cache-Control', 'no-store');
+          res.statusCode = 200;
+          res.end(JSON.stringify({ prefs }));
+          return;
+        }
+
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) chunks.push(chunk);
+          const body = Buffer.concat(chunks).toString();
+          try {
+            const { prefs } = JSON.parse(body);
+            await redisSet(redisKey, JSON.stringify(prefs));
+            res.statusCode = 200;
+            res.end(JSON.stringify({ ok: true }));
+          } catch {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: 'Failed to save' }));
+          }
+          return;
+        }
+
+        res.statusCode = 405;
+        res.end(JSON.stringify({ error: 'Method not allowed' }));
+      });
+    },
+  };
+}
+
 function telegramFeedPlugin(): Plugin {
   const RELAY_BASE = 'http://localhost:3004';
   return {
@@ -860,6 +968,7 @@ export default defineConfig({
     htmlVariantPlugin(),
     polymarketPlugin(),
     camerasPlugin(),
+    prefsPlugin(),
     telegramFeedPlugin(),
     aisSnapshotPlugin(),
     rssProxyPlugin(),

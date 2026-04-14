@@ -114,27 +114,12 @@ import { getCountriesGeoJson, getCountryAtCoordinates, getCountryBbox } from '@/
 import type { FeatureCollection, Geometry } from 'geojson';
 import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferences';
 import type { MarketplaceRuntimeLayer } from '@/types/marketplace';
-import { hasPaidSubscription } from '@/services/feature-flags';
-
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 type MapInteractionMode = 'flat' | '3d';
 
-function showPaidTimeRangeNotice(): void {
-  document.querySelector('.toast-notification')?.remove();
-  const el = document.createElement('div');
-  el.className = 'toast-notification';
-  el.textContent = 'All time is available for Pro users.';
-  document.body.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('visible'));
-  setTimeout(() => {
-    el.classList.remove('visible');
-    setTimeout(() => el.remove(), 300);
-  }, 3000);
-}
-
 function normalizeTimeRange(range: TimeRange): TimeRange {
-  return range === 'all' && !hasPaidSubscription() ? '7d' : range;
+  return range;
 }
 
 interface CableFlowTrip {
@@ -4407,8 +4392,7 @@ export class DeckGLMap {
   private createTimeSlider(): void {
     const slider = document.createElement('div');
     slider.className = 'time-slider deckgl-time-slider';
-    const hasPaidAccess = hasPaidSubscription();
-    const allTimeButton = `<button class="time-btn ${this.state.timeRange === 'all' ? 'active' : ''} ${!hasPaidAccess ? 'time-btn-pro' : ''}" data-range="all">${t('components.deckgl.timeAll')}</button>`;
+    const allTimeButton = `<button class="time-btn ${this.state.timeRange === 'all' ? 'active' : ''}" data-range="all">${t('components.deckgl.timeAll')}</button>`;
     slider.innerHTML = `
       <div class="time-options">
         <button class="time-btn ${this.state.timeRange === '1h' ? 'active' : ''}" data-range="1h">1h</button>
@@ -4510,10 +4494,6 @@ export class DeckGLMap {
     slider.querySelectorAll('.time-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const range = (btn as HTMLElement).dataset.range as TimeRange;
-        if (range === 'all' && !hasPaidSubscription()) {
-          showPaidTimeRangeNotice();
-          return;
-        }
         this.setTimeRange(range);
       });
     });
