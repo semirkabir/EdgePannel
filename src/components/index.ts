@@ -63,3 +63,5 @@ export * from './SocialSentimentPanel';
 export * from './OptionsChainPanel';
 export * from './SolarWeatherPanel';
 export * from './PortfolioPanel';
+export * from './DemocracyPanel';
+export * from './RiskDashboardPanel';

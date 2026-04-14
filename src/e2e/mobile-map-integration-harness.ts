@@ -130,6 +130,7 @@ const layers = {
   iranAttacks: false,
 
   ciiChoropleth: false,
+  governanceChoropleth: false,
   dayNight: false,
   miningSites: false,
   processingPlants: false,

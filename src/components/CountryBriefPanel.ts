@@ -115,6 +115,7 @@ export interface CountryBriefPanel {
   updateMilitaryActivity?(summary: CountryDeepDiveMilitarySummary): void;
   updateEconomicIndicators?(indicators: CountryDeepDiveEconomicIndicator[]): void;
   updateMacroCards?(cards: MacroEconomicCardData[]): void;
+  updateGovernance?(data: import('@/services/data360').CountryGovernanceData | null): void;
   maximize?(): void;
   minimize?(): void;
   getIsMaximized?(): boolean;

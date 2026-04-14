@@ -4,6 +4,9 @@ export interface CuratedCountryConfig {
   searchAliases: string[];
   baselineRisk: number;
   eventMultiplier: number;
+  /** If 'curated', baselineRisk is hand-tuned and overrides WB governance data.
+   *  If 'computed', baselineRisk comes from WGI governance scores. */
+  baselineRiskSource?: 'curated' | 'computed';
 }
 
 export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
@@ -13,6 +16,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['united states', 'american', 'washington', 'pentagon', 'white house', 'usa', 'america', 'biden', 'trump'],
     baselineRisk: 5,
     eventMultiplier: 0.3,
+    baselineRiskSource: 'curated',
   },
   RU: {
     name: 'Russia',
@@ -20,6 +24,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['russia', 'russian', 'moscow', 'kremlin', 'putin', 'ukraine war'],
     baselineRisk: 35,
     eventMultiplier: 2.0,
+    baselineRiskSource: 'curated',
   },
   CN: {
     name: 'China',
@@ -27,6 +32,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['china', 'chinese', 'beijing', 'taiwan strait', 'south china sea', 'xi jinping'],
     baselineRisk: 25,
     eventMultiplier: 2.5,
+    baselineRiskSource: 'curated',
   },
   UA: {
     name: 'Ukraine',
@@ -34,6 +40,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['ukraine', 'ukrainian', 'kyiv', 'zelensky', 'zelenskyy'],
     baselineRisk: 50,
     eventMultiplier: 0.8,
+    baselineRiskSource: 'curated',
   },
   IR: {
     name: 'Iran',
@@ -41,6 +48,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['iran', 'iranian', 'tehran', 'persian', 'irgc', 'khamenei'],
     baselineRisk: 40,
     eventMultiplier: 2.0,
+    baselineRiskSource: 'curated',
   },
   IL: {
     name: 'Israel',
@@ -48,6 +56,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['israel', 'israeli', 'gaza', 'hamas', 'hezbollah', 'netanyahu', 'idf', 'west bank', 'tel aviv', 'jerusalem'],
     baselineRisk: 45,
     eventMultiplier: 0.7,
+    baselineRiskSource: 'curated',
   },
   TW: {
     name: 'Taiwan',
@@ -55,6 +64,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['taiwan', 'taiwanese', 'taipei'],
     baselineRisk: 30,
     eventMultiplier: 1.5,
+    baselineRiskSource: 'curated',
   },
   KP: {
     name: 'North Korea',
@@ -62,6 +72,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['north korea', 'pyongyang', 'kim jong'],
     baselineRisk: 45,
     eventMultiplier: 3.0,
+    baselineRiskSource: 'curated',
   },
   SA: {
     name: 'Saudi Arabia',
@@ -69,6 +80,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['saudi', 'riyadh', 'mbs'],
     baselineRisk: 20,
     eventMultiplier: 2.0,
+    baselineRiskSource: 'curated',
   },
   TR: {
     name: 'Turkey',
@@ -76,6 +88,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['turkey', 'turkish', 'ankara', 'erdogan', 'türkiye'],
     baselineRisk: 25,
     eventMultiplier: 1.2,
+    baselineRiskSource: 'curated',
   },
   PL: {
     name: 'Poland',
@@ -83,6 +96,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['poland', 'polish', 'warsaw'],
     baselineRisk: 10,
     eventMultiplier: 0.8,
+    baselineRiskSource: 'curated',
   },
   DE: {
     name: 'Germany',
@@ -90,6 +104,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['germany', 'german', 'berlin'],
     baselineRisk: 5,
     eventMultiplier: 0.5,
+    baselineRiskSource: 'curated',
   },
   FR: {
     name: 'France',
@@ -97,6 +112,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['france', 'french', 'paris', 'macron'],
     baselineRisk: 10,
     eventMultiplier: 0.6,
+    baselineRiskSource: 'curated',
   },
   GB: {
     name: 'United Kingdom',
@@ -104,6 +120,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['united kingdom', 'british', 'london', 'uk '],
     baselineRisk: 5,
     eventMultiplier: 0.5,
+    baselineRiskSource: 'curated',
   },
   IN: {
     name: 'India',
@@ -111,6 +128,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['india', 'indian', 'new delhi', 'modi'],
     baselineRisk: 20,
     eventMultiplier: 0.8,
+    baselineRiskSource: 'curated',
   },
   PK: {
     name: 'Pakistan',
@@ -118,6 +136,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['pakistan', 'pakistani', 'islamabad'],
     baselineRisk: 35,
     eventMultiplier: 1.5,
+    baselineRiskSource: 'curated',
   },
   SY: {
     name: 'Syria',
@@ -125,6 +144,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['syria', 'syrian', 'damascus', 'assad'],
     baselineRisk: 50,
     eventMultiplier: 0.7,
+    baselineRiskSource: 'curated',
   },
   YE: {
     name: 'Yemen',
@@ -132,6 +152,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['yemen', 'houthi', 'sanaa'],
     baselineRisk: 50,
     eventMultiplier: 0.7,
+    baselineRiskSource: 'curated',
   },
   MM: {
     name: 'Myanmar',
@@ -139,6 +160,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['myanmar', 'burmese', 'burma', 'rangoon'],
     baselineRisk: 45,
     eventMultiplier: 1.8,
+    baselineRiskSource: 'curated',
   },
   VE: {
     name: 'Venezuela',
@@ -146,6 +168,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['venezuela', 'venezuelan', 'caracas', 'maduro'],
     baselineRisk: 40,
     eventMultiplier: 1.8,
+    baselineRiskSource: 'curated',
   },
   BR: {
     name: 'Brazil',
@@ -153,6 +176,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['brazil', 'brazilian', 'brasilia', 'lula', 'bolsonaro'],
     baselineRisk: 15,
     eventMultiplier: 0.6,
+    baselineRiskSource: 'curated',
   },
   AE: {
     name: 'United Arab Emirates',
@@ -160,6 +184,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['united arab emirates', 'uae', 'emirati', 'dubai', 'abu dhabi'],
     baselineRisk: 10,
     eventMultiplier: 1.5,
+    baselineRiskSource: 'curated',
   },
   MX: {
     name: 'Mexico',
@@ -167,6 +192,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['mexico', 'mexican', 'amlo', 'sheinbaum', 'cartel', 'sinaloa', 'jalisco', 'cjng', 'tijuana', 'juarez', 'sedena', 'fentanyl', 'narco'],
     baselineRisk: 35,
     eventMultiplier: 1.0,
+    baselineRiskSource: 'curated',
   },
   KR: {
     name: 'South Korea',
@@ -174,6 +200,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['south korea', 'seoul'],
     baselineRisk: 15,
     eventMultiplier: 1.0,
+    baselineRiskSource: 'curated',
   },
   IQ: {
     name: 'Iraq',
@@ -181,6 +208,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['iraq', 'iraqi', 'baghdad'],
     baselineRisk: 35,
     eventMultiplier: 1.0,
+    baselineRiskSource: 'curated',
   },
   AF: {
     name: 'Afghanistan',
@@ -188,6 +216,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['afghanistan', 'afghan', 'kabul', 'taliban'],
     baselineRisk: 15,
     eventMultiplier: 1.0,
+    baselineRiskSource: 'curated',
   },
   LB: {
     name: 'Lebanon',
@@ -195,6 +224,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['lebanon', 'lebanese', 'beirut'],
     baselineRisk: 15,
     eventMultiplier: 1.0,
+    baselineRiskSource: 'curated',
   },
   EG: {
     name: 'Egypt',
@@ -202,6 +232,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['egypt', 'egyptian', 'cairo', 'suez'],
     baselineRisk: 15,
     eventMultiplier: 1.0,
+    baselineRiskSource: 'curated',
   },
   JP: {
     name: 'Japan',
@@ -209,6 +240,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['japan', 'japanese', 'tokyo'],
     baselineRisk: 15,
     eventMultiplier: 1.0,
+    baselineRiskSource: 'curated',
   },
   QA: {
     name: 'Qatar',
@@ -216,6 +248,7 @@ export const CURATED_COUNTRIES: Record<string, CuratedCountryConfig> = {
     searchAliases: ['qatar', 'qatari', 'doha'],
     baselineRisk: 15,
     eventMultiplier: 1.0,
+    baselineRiskSource: 'curated',
   },
 };
 

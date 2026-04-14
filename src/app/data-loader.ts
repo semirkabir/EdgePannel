@@ -68,7 +68,7 @@ import { updateAndCheck, consumeServerAnomalies, fetchLiveAnomalies } from '@/se
 import { fetchAllFires, flattenFires, computeRegionStats, toMapFires } from '@/services/wildfires';
 import { analyzeFlightsForSurge, surgeAlertToSignal, detectForeignMilitaryPresence, foreignPresenceToSignal, type TheaterPostureSummary } from '@/services/military-surge';
 import { fetchCachedTheaterPosture } from '@/services/cached-theater-posture';
-import { ingestProtestsForCII, ingestMilitaryForCII, ingestNewsForCII, ingestOutagesForCII, ingestUcdpForCII, ingestHapiForCII, ingestDisplacementForCII, ingestClimateForCII, ingestStrikesForCII, ingestOrefForCII, ingestAviationForCII, ingestAdvisoriesForCII, ingestGpsJammingForCII, ingestAisDisruptionsForCII, ingestSatelliteFiresForCII, ingestCyberThreatsForCII, ingestTemporalAnomaliesForCII, hasIntelligenceSignalsLoaded, isInLearningMode, markCoreIntelligenceSourceSettled, resetHotspotActivity, calculateCII } from '@/services/country-instability';
+import { ingestProtestsForCII, ingestMilitaryForCII, ingestNewsForCII, ingestOutagesForCII, ingestUcdpForCII, ingestHapiForCII, ingestDisplacementForCII, ingestClimateForCII, ingestStrikesForCII, ingestOrefForCII, ingestAviationForCII, ingestAdvisoriesForCII, ingestGpsJammingForCII, ingestAisDisruptionsForCII, ingestSatelliteFiresForCII, ingestCyberThreatsForCII, ingestTemporalAnomaliesForCII, ingestGovernanceBaselines, ingestEconomicVulnerability, ingestVDemForCII, ingestPolityForCII, hasIntelligenceSignalsLoaded, isInLearningMode, markCoreIntelligenceSourceSettled, resetHotspotActivity, calculateCII } from '@/services/country-instability';
 import { fetchCachedRiskScores, getPersistedLiveCountryScores, savePersistedLiveCountryScores } from '@/services/cached-risk-scores';
 import { fetchGpsInterference } from '@/services/gps-interference';
 import { dataFreshness, type DataSourceId } from '@/services/data-freshness';
@@ -487,6 +487,9 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'tech') {
       tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.ctx.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
     }
+
+    // Load WB governance baselines and economic vulnerability for CII scoring
+    tasks.push({ name: 'governanceBaselines', task: runGuarded('governanceBaselines', () => this.loadGovernanceBaselines()) });
 
     // Progress bar: track completions reactively (tasks already started above)
     const progressEl = document.getElementById('loading-progress');
@@ -1952,6 +1955,47 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (error) {
       console.warn('[App] Failed to load cached postures for banner:', error);
+    }
+  }
+
+  async loadGovernanceBaselines(): Promise<void> {
+    try {
+      const { getGovernanceScores, getEconomicVulnerability } = await import('@/services/economic');
+      const [governanceScores, vulnerabilityData] = await Promise.allSettled([
+        getGovernanceScores(),
+        getEconomicVulnerability(),
+      ]);
+
+      if (governanceScores.status === 'fulfilled' && governanceScores.value?.length) {
+        ingestGovernanceBaselines(governanceScores.value);
+        console.debug('[DataLoader] Governance baselines loaded:', governanceScores.value.length, 'countries');
+      }
+      if (vulnerabilityData.status === 'fulfilled' && vulnerabilityData.value?.length) {
+        ingestEconomicVulnerability(vulnerabilityData.value);
+        console.debug('[DataLoader] Economic vulnerability loaded:', vulnerabilityData.value.length, 'countries');
+      }
+
+      // Load V-Dem and Polity data for enhanced CII governance blending (WGI 50% + V-Dem 30% + Polity 20%)
+      const { fetchVDemScores, fetchPolityScores } = await import('@/services/data360');
+      const [vdemResult, polityResult] = await Promise.allSettled([
+        fetchVDemScores(),
+        fetchPolityScores(),
+      ]);
+
+      if (vdemResult.status === 'fulfilled' && vdemResult.value?.length) {
+        ingestVDemForCII(vdemResult.value);
+        console.debug('[DataLoader] V-Dem electoral democracy loaded:', vdemResult.value.length, 'countries');
+      } else {
+        console.debug('[DataLoader] V-Dem data unavailable; CII will use WGI+Polity only or pure WGI fallback');
+      }
+      if (polityResult.status === 'fulfilled' && polityResult.value?.length) {
+        ingestPolityForCII(polityResult.value);
+        console.debug('[DataLoader] Polity scores loaded:', polityResult.value.length, 'countries');
+      } else {
+        console.debug('[DataLoader] Polity data unavailable; CII will use WGI+V-Dem only or pure WGI fallback');
+      }
+    } catch (err) {
+      console.warn('[DataLoader] Governance baselines failed (non-fatal):', err);
     }
   }
 

@@ -112,6 +112,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   // Additional required properties
   aptGroups: false,
   ciiChoropleth: false,
+  governanceChoropleth: false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,6 +172,7 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   // Additional required properties
   aptGroups: false,
   ciiChoropleth: false,
+  governanceChoropleth: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

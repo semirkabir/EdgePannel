@@ -108,6 +108,7 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   minerals:                 def('minerals',                 ICONS.gem,       'criticalMinerals',       'Critical Minerals'),
   gpsJamming:               def('gpsJamming',               ICONS.satellite, 'gpsJamming',             'GPS Jamming', ['flat', 'globe'], _desktop ? 'locked' : undefined),
   ciiChoropleth:            def('ciiChoropleth',            ICONS.globe,     'ciiChoropleth',          'CII Instability', ['flat', 'globe'], _desktop ? 'enhanced' : undefined),
+  governanceChoropleth:    def('governanceChoropleth',    ICONS.shield,    'governanceChoropleth',   'Governance Quality', ['flat', 'globe']),
   dayNight:                 def('dayNight',                 ICONS.sunMoon,   'dayNight',               'Day/Night', ['flat']),
   sanctions:                def('sanctions',                ICONS.ban,       'sanctions',              'Sanctions', []),
   startupHubs:              def('startupHubs',              ICONS.spark,     'startupHubs',            'Startup Hubs'),
@@ -223,7 +224,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'ucdpEvents', 'displacement', 'climate', 'weather',
     'outages', 'cyberThreats', 'aptGroups', 'natural', 'fires',
     'waterways', 'economic', 'minerals', 'gpsJamming',
-    'ciiChoropleth', 'dayNight',
+    'ciiChoropleth', 'governanceChoropleth', 'dayNight',
   ],
   tech: [
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions',
@@ -232,7 +233,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
   ],
   finance: [
     'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs',
-    'gulfInvestments', 'tradeRoutes', 'economic',
+    'gulfInvestments', 'tradeRoutes', 'economic', 'governanceChoropleth',
   ],
   happy: [
     'positiveEvents', 'kindness', 'happiness',
@@ -247,7 +248,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'hotspots', 'conflicts',
     'bases', 'nuclear', 'irradiators', 'gpsJamming',
     'military', 'ais', 'flights', 'protests',
-    'ucdpEvents', 'displacement', 'ciiChoropleth',
+    'ucdpEvents', 'displacement', 'ciiChoropleth', 'governanceChoropleth',
     'cables', 'pipelines',
     'cyberThreats', 'aptGroups', 'outages', 'minerals',
   ],

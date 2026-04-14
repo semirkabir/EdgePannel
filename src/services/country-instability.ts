@@ -13,6 +13,8 @@ import type { CountryDisplacement } from '@/services/displacement';
 import type { ClimateAnomaly } from '@/services/climate';
 import type { GpsJamHex } from '@/services/gps-interference';
 import { getCountryAtCoordinates, iso3ToIso2Code, nameToCountryCode, getCountryNameByCode, matchCountryNamesInText, ME_STRIKE_BOUNDS, resolveCountryFromBounds } from './country-geometry';
+import type { GovernanceScore, EconomicVulnerabilityData } from '@/services/economic';
+import type { DemocracyScore, PolityData } from '@/services/data360';
 
 export interface CountryScore {
   code: string;
@@ -30,6 +32,7 @@ export interface ComponentScores {
   conflict: number;
   security: number;
   information: number;
+  economic: number;
 }
 
 interface CountryData {
@@ -62,6 +65,84 @@ interface CountryData {
   cyberThreatMediumCount: number;
   temporalAnomalyCount: number;
   temporalAnomalyCriticalCount: number;
+  governanceBaselineRisk: number | null;
+  economicVulnerabilityScore: number | null;
+}
+
+const wbBaselines = new Map<string, number>();
+const wbEconomicScores = new Map<string, number>();
+const vdemElectoralByCountry = new Map<string, number>(); // V-Dem electoral democracy (0–1 scale)
+const polityByCountry = new Map<string, number>();         // Polity2 score (−10 to +10)
+
+export function ingestGovernanceBaselines(scores: GovernanceScore[]): void {
+  wbBaselines.clear();
+  for (const s of scores) {
+    const iso2 = iso3ToIso2Code(s.countryCode);
+    if (iso2) wbBaselines.set(iso2, s.baselineRisk);
+  }
+}
+
+export function ingestEconomicVulnerability(data: EconomicVulnerabilityData[]): void {
+  wbEconomicScores.clear();
+  for (const d of data) {
+    const iso2 = iso3ToIso2Code(d.countryCode);
+    if (iso2) wbEconomicScores.set(iso2, d.economicScore);
+  }
+}
+
+/**
+ * Ingest V-Dem electoral democracy scores for enhanced CII governance blending.
+ * Stores the electoral democracy component (V2X_API) as a 0–1 value per country.
+ * Falls back to pure WGI for countries without V-Dem data.
+ */
+export function ingestVDemForCII(scores: DemocracyScore[]): void {
+  vdemElectoralByCountry.clear();
+  for (const s of scores) {
+    if (s.components.electoral !== null) {
+      // components.electoral is 0–100 (normalized from raw 0–1), convert back to 0–1
+      vdemElectoralByCountry.set(s.countryCode, s.components.electoral / 100);
+    }
+  }
+}
+
+/**
+ * Ingest Polity V scores for enhanced CII governance blending.
+ * Stores the Polity2 score (−10 to +10) per country.
+ * Falls back to pure WGI for countries without Polity data.
+ */
+export function ingestPolityForCII(scores: PolityData[]): void {
+  polityByCountry.clear();
+  for (const s of scores) {
+    // Clamp to valid range just in case
+    const clamped = Math.max(-10, Math.min(10, s.polityScore));
+    polityByCountry.set(s.countryCode, clamped);
+  }
+}
+
+/**
+ * Compute blended governance baseline for CII:
+ *   WGI 50% + (1 − vdem_norm) × 30 + (1 − polity_norm) × 20
+ *
+ * WGI baseline is already 0–100 (higher = more unstable).
+ * V-Dem electoral democracy is 0–1 (higher = more democratic → less instability).
+ * Polity2 is −10..+10 → normalized to 0..1 (higher = more democratic → less instability).
+ *
+ * When V-Dem OR Polity data is missing for a country, falls back to pure WGI
+ * (weight redistributed to 100%).
+ */
+function computeGovernanceBaseline(code: string, wgiBaseline: number): number {
+  const vdem = vdemElectoralByCountry.get(code);
+  const polity = polityByCountry.get(code);
+
+  if (vdem !== undefined && polity !== undefined) {
+    const vdemNorm = vdem;                    // 0–1, higher = more democratic
+    const polityNorm = (polity + 10) / 20;    // −10..+10 → 0..1, higher = more democratic
+    // Higher democracy → less instability → subtract from 1
+    return wgiBaseline * 0.50 + (1 - vdemNorm) * 30 + (1 - polityNorm) * 20;
+  }
+
+  // Fallback: pure WGI (Data360 data unavailable for this country)
+  return wgiBaseline;
 }
 
 export { TIER1_COUNTRIES } from '@/config/countries';
@@ -236,6 +317,8 @@ function initCountryData(): CountryData {
     cyberThreatMediumCount: 0,
     temporalAnomalyCount: 0,
     temporalAnomalyCriticalCount: 0,
+    governanceBaselineRisk: null,
+    economicVulnerabilityScore: null,
   };
 }
 
@@ -247,6 +330,8 @@ export function clearCountryData(): void {
   newsEventIndexMap.clear();
   intelligenceSignalsLoaded = false;
   settledCoreIntelligenceSources.clear();
+  vdemElectoralByCountry.clear();
+  polityByCountry.clear();
 }
 
 export function getCountryData(code: string): CountryData | undefined {
@@ -941,6 +1026,16 @@ function calcInformationScore(data: CountryData, countryCode: string): number {
   return Math.min(100, baseScore + velocityBoost + alertBoost);
 }
 
+function calcEconomicScore(countryCode: string): number {
+  const econScore = wbEconomicScores.get(countryCode);
+  if (econScore != null) return Math.min(100, Math.max(0, econScore));
+
+  const data = countryDataMap.get(countryCode);
+  if (data?.economicVulnerabilityScore != null) return Math.min(100, Math.max(0, data.economicVulnerabilityScore));
+
+  return 15;
+}
+
 function getLevel(score: number): CountryScore['level'] {
   if (score >= 81) return 'critical';
   if (score >= 66) return 'high';
@@ -970,16 +1065,25 @@ export function calculateCII(): CountryScore[] {
   for (const code of countryCodes) {
     const name = CURATED_COUNTRIES[code]?.name || getCountryNameByCode(code) || code;
     const data = countryDataMap.get(code) || initCountryData();
-    const baselineRisk = CURATED_COUNTRIES[code]?.baselineRisk ?? DEFAULT_BASELINE_RISK;
+
+    // Use curated baseline for hand-tuned countries, WB governance baseline for others, default fallback
+    const curated = CURATED_COUNTRIES[code];
+    const wgiBaseline = curated?.baselineRiskSource === 'curated'
+      ? curated.baselineRisk
+      : (wbBaselines.get(code) ?? DEFAULT_BASELINE_RISK);
+    // Enhanced governance: blend WGI 50% + V-Dem 30% + Polity 20%
+    // Falls back to pure WGI when Data360 (V-Dem/Polity) data is unavailable
+    const baselineRisk = computeGovernanceBaseline(code, wgiBaseline);
 
     const components: ComponentScores = {
       unrest: Math.round(calcUnrestScore(data, code)),
       conflict: Math.round(calcConflictScore(data, code)),
       security: Math.round(calcSecurityScore(data)),
       information: Math.round(calcInformationScore(data, code)),
+      economic: Math.round(calcEconomicScore(code)),
     };
 
-    const eventScore = components.unrest * 0.25 + components.conflict * 0.30 + components.security * 0.20 + components.information * 0.25;
+    const eventScore = components.unrest * 0.20 + components.conflict * 0.25 + components.security * 0.15 + components.information * 0.20 + components.economic * 0.20;
 
     const hotspotBoost = getHotspotBoost(code);
     const newsUrgencyBoost = components.information >= 70 ? 5
@@ -1030,15 +1134,21 @@ export function getCountryScore(code: string): number | null {
   const data = countryDataMap.get(code);
   if (!data) return null;
 
-  const baselineRisk = CURATED_COUNTRIES[code]?.baselineRisk ?? DEFAULT_BASELINE_RISK;
+  const curated = CURATED_COUNTRIES[code];
+  const wgiBaseline = curated?.baselineRiskSource === 'curated'
+    ? curated.baselineRisk
+    : (wbBaselines.get(code) ?? DEFAULT_BASELINE_RISK);
+  // Enhanced governance: blend WGI 50% + V-Dem 30% + Polity 20%
+  const baselineRisk = computeGovernanceBaseline(code, wgiBaseline);
   const components: ComponentScores = {
     unrest: calcUnrestScore(data, code),
     conflict: calcConflictScore(data, code),
     security: calcSecurityScore(data),
     information: calcInformationScore(data, code),
+    economic: calcEconomicScore(code),
   };
 
-  const eventScore = components.unrest * 0.25 + components.conflict * 0.30 + components.security * 0.20 + components.information * 0.25;
+  const eventScore = components.unrest * 0.20 + components.conflict * 0.25 + components.security * 0.15 + components.information * 0.20 + components.economic * 0.20;
   const hotspotBoost = getHotspotBoost(code);
   const newsUrgencyBoost = components.information >= 70 ? 5
     : components.information >= 50 ? 3

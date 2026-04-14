@@ -40,6 +40,8 @@ const BOOTSTRAP_CACHE_KEYS = {
   iranEvents: 'conflict:iran-events:v1',
   ucdpEvents: 'conflict:ucdp-events:v1',
   temporalAnomalies: 'temporal:anomalies:v1',
+  governanceBaselines: 'economic:worldbank-governance:v1',
+  economicVulnerability: 'economic:worldbank-economic-vulnerability:v1',
 };
 
 const SLOW_KEYS = new Set([
@@ -48,6 +50,7 @@ const SLOW_KEYS = new Set([
   'cyberThreats', 'techReadiness', 'progressData', 'renewableEnergy',
   'theaterPosture', 'naturalEvents',
   'cryptoQuotes', 'gulfQuotes', 'stablecoinMarkets', 'unrestEvents', 'ucdpEvents',
+  'governanceBaselines', 'economicVulnerability',
 ]);
 const FAST_KEYS = new Set([
   'earthquakes', 'outages', 'serviceStatuses', 'macroSignals', 'chokepoints',

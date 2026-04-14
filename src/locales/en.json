@@ -631,6 +631,7 @@
       "timeline": "7-Day Timeline",
       "predictionMarkets": "Prediction Markets",
       "loadingMarkets": "Loading prediction markets...",
+      "governanceDemocracy": "Governance & Democracy",
       "infrastructure": "Infrastructure Exposure",
       "briefUnavailable": "AI brief unavailable — configure GROQ_API_KEY in Settings.",
       "cached": "Cached",

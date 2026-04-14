@@ -8,6 +8,7 @@ import type { PredictionMarket } from '@/services/prediction';
 import type { AssetType, NewsItem, RelatedAsset } from '@/types';
 import { sanitizeUrl, escapeHtml } from '@/utils/sanitize';
 import { getCSSColor } from '@/utils';
+import { getRegimeTypeColor, getRiskColor, type CountryGovernanceData, type GemRiskScore } from '@/services/data360';
 import { applyArticleLinkDataset } from '@/services/article-open';
 import { PORTS } from '@/config/ports';
 import { haversineKm } from '@/utils/geo';
@@ -72,6 +73,8 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private economicBody: HTMLElement | null = null;
   private macroCards: MacroEconomicCardData[] = [];
   private marketsBody: HTMLElement | null = null;
+  private governanceBody: HTMLElement | null = null;
+  private riskProfileBody: HTMLElement | null = null;
   private briefBody: HTMLElement | null = null;
   private timelineBody: HTMLElement | null = null;
   private scoreCard: HTMLElement | null = null;
@@ -682,6 +685,8 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     const [infraCard, infraBody] = this.sectionCard(t('countryBrief.infrastructure'));
     const [economicCard, economicBody] = this.sectionCard(t('countryBrief.economicIndicators'));
     const [marketsCard, marketsBody] = this.sectionCard(t('countryBrief.predictionMarkets'));
+    const [governanceCard, governanceBody] = this.sectionCard(t('countryBrief.governanceDemocracy') ?? 'Governance & Democracy');
+    const [riskProfileCard, riskProfileBody] = this.sectionCard('GEM Risk Profile');
     const [briefCard, briefBody] = this.sectionCard(t('countryBrief.intelBrief'));
 
     this.signalsBody = signalBody;
@@ -692,6 +697,8 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.infrastructureBody = infraBody;
     this.economicBody = economicBody;
     this.marketsBody = marketsBody;
+    this.governanceBody = governanceBody;
+    this.riskProfileBody = riskProfileBody;
     this.briefBody = briefBody;
 
     this.renderInitialSignals(signals);
@@ -700,9 +707,11 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     infraBody.append(this.makeLoading('Computing nearby critical infrastructure…'));
     economicBody.append(this.makeLoading('Loading available indicators…'));
     marketsBody.append(this.makeLoading(t('countryBrief.loadingMarkets')));
+    governanceBody.append(this.makeLoading('Loading governance data…'));
+    riskProfileBody.append(this.makeLoading('Loading risk profile…'));
     briefBody.append(this.makeLoading(t('countryBrief.generatingBrief')));
 
-    bodyGrid.append(signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, briefCard);
+    bodyGrid.append(signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, governanceCard, briefCard);
     shell.append(header, scoreCard, bodyGrid);
     this.content.append(shell);
   }
@@ -865,6 +874,216 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   public updateMacroCards(cards: MacroEconomicCardData[]): void {
     this.macroCards = cards;
     this.renderEconomicIndicators();
+  }
+
+  public updateGovernance(data: CountryGovernanceData | null): void {
+    if (!this.governanceBody) return;
+    this.governanceBody.replaceChildren();
+
+    if (!data) {
+      this.governanceBody.append(this.makeEmpty('Governance data unavailable'));
+      return;
+    }
+
+    const { vdem, polity, regimeType } = data;
+    const regimeColor = getRegimeTypeColor(regimeType);
+
+    // ── Regime type badge ──
+    const header = this.el('div', 'cdp-governance-header');
+    const regimeBadge = this.el('span', 'cdp-regime-badge');
+    regimeBadge.textContent = regimeType;
+    regimeBadge.style.background = `${regimeColor}20`;
+    regimeBadge.style.color = regimeColor;
+    regimeBadge.style.border = `1px solid ${regimeColor}40`;
+    regimeBadge.style.fontSize = '11px';
+    regimeBadge.style.fontWeight = '600';
+    regimeBadge.style.padding = '2px 8px';
+    regimeBadge.style.borderRadius = '999px';
+    regimeBadge.style.letterSpacing = '0.03em';
+
+    const compositeValue = this.el('span', 'cdp-governance-composite');
+    compositeValue.textContent = `${vdem.compositeScore.toFixed(1)}`;
+    compositeValue.style.color = regimeColor;
+    compositeValue.style.fontSize = '20px';
+    compositeValue.style.fontWeight = '700';
+    compositeValue.style.lineHeight = '1';
+
+    const compositeLabel = this.el('span', 'cdp-governance-label');
+    compositeLabel.textContent = '/ 100';
+    compositeLabel.style.color = 'var(--text-faint)';
+    compositeLabel.style.fontSize = '11px';
+
+    const compositeWrap = this.el('div', 'cdp-governance-composite-wrap');
+    compositeWrap.append(compositeValue, compositeLabel);
+    header.append(regimeBadge, compositeWrap);
+    this.governanceBody.append(header);
+
+    // ── Radar chart (CSS-only) ──
+    this.governanceBody.append(this.renderRadarChart(vdem));
+
+    // ── Key V-Dem indicators row ──
+    const keyRow = this.el('div', 'cdp-governance-key-row');
+    if (vdem.components.freedomOfExpression !== null) {
+      keyRow.append(this.metric(
+        '🗣\uFE0E Freedom of Expr.',
+        `${Math.round(vdem.components.freedomOfExpression)}`,
+        'cdp-chip-neutral',
+      ));
+    }
+    if (vdem.components.cleanElections !== null) {
+      keyRow.append(this.metric(
+        '\u2705 Clean Elections',
+        `${Math.round(vdem.components.cleanElections)}`,
+        'cdp-chip-neutral',
+      ));
+    }
+    if (keyRow.children.length > 0) {
+      this.governanceBody.append(keyRow);
+    }
+
+    // ── Polity score (if available) ──
+    if (polity) {
+      const polityRow = this.el('div', 'cdp-governance-polity-row');
+
+      const polityLabel = this.el('div', 'cdp-governance-polity-label');
+      polityLabel.textContent = 'Polity2 Score';
+      polityLabel.style.color = 'var(--text-muted)';
+      polityLabel.style.fontSize = '11px';
+
+      const polityBar = this.el('div', 'cdp-polity-bar');
+      const polityFill = this.el('div', 'cdp-polity-fill');
+      // Polity2 score ranges from -10 to +10; map to 0-100%
+      const pct = ((polity.polityScore + 10) / 20) * 100;
+      polityFill.style.width = `${Math.max(2, pct)}%`;
+      const polityColor = polity.polityScore >= 6 ? '#22c55e'
+        : polity.polityScore >= 0 ? '#eab308'
+        : '#ef4444';
+      polityFill.style.background = polityColor;
+      polityBar.append(polityFill);
+      polityBar.title = `Polity2: ${polity.polityScore} / +10`;
+
+      const polityValue = this.el('span', 'cdp-polity-value');
+      polityValue.textContent = `${polity.polityScore}`;
+      polityValue.style.color = polityColor;
+      polityValue.style.fontWeight = '700';
+      polityValue.style.fontSize = '14px';
+      polityValue.style.flexShrink = '0';
+
+      const polityRange = this.el('div', 'cdp-polity-range');
+      polityRange.textContent = '(-10 to +10)';
+      polityRange.style.color = 'var(--text-faint)';
+      polityRange.style.fontSize = '10px';
+
+      polityRow.append(polityLabel, polityBar, polityValue, polityRange);
+      this.governanceBody.append(polityRow);
+    }
+  }
+
+  private renderRadarChart(vdem: CountryGovernanceData['vdem']): HTMLElement {
+    const { components } = vdem;
+
+    // Five sub-scores for radar: Electoral, Liberal, Participatory, Deliberative, Egalitarian
+    const axes: Array<{ key: string; label: string; value: number | null; color: string }> = [
+      { key: 'electoral', label: 'Electoral', value: components.electoral, color: '#3b82f6' },
+      { key: 'liberal', label: 'Liberal', value: components.liberal, color: '#8b5cf6' },
+      { key: 'participatory', label: 'Participatory', value: components.participatory, color: '#06b6d4' },
+      { key: 'deliberative', label: 'Deliberative', value: components.deliberative, color: '#f59e0b' },
+      { key: 'egalitarian', label: 'Egalitarian', value: components.egalitarian, color: '#10b981' },
+    ];
+
+    const wrap = this.el('div', 'cdp-radar-wrap');
+
+    // SVG-based radar chart
+    const size = 180;
+    const cx = size / 2;
+    const cy = size / 2;
+    const radius = 70;
+
+    // Compute radial endpoints for each axis
+    const radianOffset = -Math.PI / 2; // Start from top
+    const points = axes.map((axis, i) => {
+      const angle = radianOffset + (2 * Math.PI * i) / axes.length;
+      const pct = axis.value !== null ? Math.min(100, Math.max(0, axis.value)) / 100 : 0;
+      return {
+        x: cx + radius * pct * Math.cos(angle),
+        y: cy + radius * pct * Math.sin(angle),
+        axis,
+        angle,
+        pct,
+      };
+    });
+
+    // Build SVG string
+    const gridRings = [0.25, 0.5, 0.75, 1.0];
+
+    let svg = `<svg viewBox="0 0 ${size} ${size}" class="cdp-radar-svg" role="img" aria-label="V-Dem democracy radar chart">`;
+
+    // Grid rings
+    for (const ring of gridRings) {
+      const ringPoints = axes.map((_, i) => {
+        const angle = radianOffset + (2 * Math.PI * i) / axes.length;
+        return `${cx + radius * ring * Math.cos(angle)},${cy + radius * ring * Math.sin(angle)}`;
+      });
+      svg += `<polygon points="${ringPoints.join(' ')}" fill="none" stroke="var(--border-subtle)" stroke-width="0.5"/>`;
+    }
+
+    // Grid lines from center to each vertex
+    for (let i = 0; i < axes.length; i++) {
+      const angle = radianOffset + (2 * Math.PI * i) / axes.length;
+      const ex = cx + radius * Math.cos(angle);
+      const ey = cy + radius * Math.sin(angle);
+      svg += `<line x1="${cx}" y1="${cy}" x2="${ex}" y2="${ey}" stroke="var(--border-subtle)" stroke-width="0.5"/>`;
+    }
+
+    // Data polygon
+    const validPoints = points.filter(p => p.axis.value !== null);
+    if (validPoints.length === axes.length) {
+      const dataPoints = points.map(p => `${p.x},${p.y}`).join(' ');
+      // Semi-transparent fill
+      svg += `<polygon points="${dataPoints}" fill="rgba(59,130,246,0.15)" stroke="#3b82f6" stroke-width="1.5"/>`;
+    } else {
+      // Partial data — draw individual dots instead
+      for (const p of validPoints) {
+        svg += `<circle cx="${p.x}" cy="${p.y}" r="3" fill="${p.axis.color}"/>`;
+      }
+    }
+
+    // Data point dots
+    for (const p of points) {
+      if (p.axis.value !== null) {
+        svg += `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${p.axis.color}" stroke="var(--panel-bg)" stroke-width="1"/>`;
+        svg += `<title>${p.axis.label}: ${Math.round(p.axis.value!)}</title>`;
+      }
+    }
+
+    // Axis labels
+    for (let i = 0; i < axes.length; i++) {
+      const axis = axes[i]!;
+      const angle = radianOffset + (2 * Math.PI * i) / axes.length;
+      const labelRadius = radius + 16;
+      const lx = cx + labelRadius * Math.cos(angle);
+      const ly = cy + labelRadius * Math.sin(angle);
+      svg += `<text x="${lx}" y="${ly + 4}" text-anchor="middle" fill="var(--text-muted)" font-size="9" font-weight="500">${axis.label}</text>`;
+    }
+
+    svg += '</svg>';
+    wrap.innerHTML = svg;
+
+    // Score labels below chart
+    const legend = this.el('div', 'cdp-radar-legend');
+    for (const axis of axes) {
+      const item = this.el('div', 'cdp-radar-legend-item');
+      const dot = this.el('span', 'cdp-radar-dot');
+      dot.style.background = axis.color;
+      const labelEl = this.el('span', 'cdp-radar-legend-label', axis.label);
+      const valEl = this.el('span', 'cdp-radar-legend-val');
+      valEl.textContent = axis.value !== null ? `${Math.round(axis.value)}` : '—';
+      item.append(dot, labelEl, valEl);
+      legend.append(item);
+    }
+    wrap.append(legend);
+
+    return wrap;
   }
 
   private highlightInfrastructure(type: AssetType): void {

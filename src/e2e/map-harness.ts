@@ -181,6 +181,7 @@ const allLayersEnabled: MapLayers = {
   tradeRoutes: true,
   iranAttacks: false,
   ciiChoropleth: false,
+  governanceChoropleth: false,
   dayNight: true,
   miningSites: false,
   processingPlants: false,
@@ -233,11 +234,9 @@ const allLayersDisabled: MapLayers = {
   renewableInstallations: false,
   tradeRoutes: false,
   iranAttacks: false,
-  ciiChoropleth: false,
+ciiChoropleth: false,
+  governanceChoropleth: false,
   dayNight: false,
-  miningSites: false,
-  processingPlants: false,
-  commodityPorts: false,
   aptGroups: false,
 };
 

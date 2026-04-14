@@ -380,13 +380,17 @@ const TECH_INDICATORS: Record<string, string> = {
   'NE.EXP.GNFS.ZS': 'Exports of Goods & Services (% of GDP)',
 };
 
+// IMF WEO DataMapper indicators — codes without dots route to IMF API,
+// codes with dots route to World Bank API (see server/list-world-bank-indicators.ts).
 const MACRO_INDICATORS: Record<string, { label: string; unit: string; wbCode: string }> = {
-  debtToGdp: { label: 'Debt to GDP', unit: '%', wbCode: 'GC.DOD.TOTL.GD.ZS' },
-  cpi: { label: 'CPI', unit: '', wbCode: 'FP.CPI.TOTL.ZG' },
-  gdpGrowth: { label: 'GDP Growth', unit: '%', wbCode: 'NY.GDP.MKTP.KD.ZG' },
-  cdsSpreads: { label: 'CDS Spreads', unit: 'bps', wbCode: '' },
-  fxReserves: { label: 'FX Reserves', unit: '$B', wbCode: 'FI.RES.TOTL.CD' },
-  currentAccount: { label: 'Current Account', unit: '% of GDP', wbCode: 'BN.CAB.XOKA.GD.ZS' },
+  gdpCurrent:     { label: 'GDP (Current)',     unit: '$B',    wbCode: 'NGDPD'         },
+  gdpPerCapita:   { label: 'GDP Per Capita',    unit: '$',     wbCode: 'NGDPDPC'       },
+  population:     { label: 'Population',        unit: 'M',     wbCode: 'LP'            },
+  gdpGrowth:      { label: 'GDP Growth',        unit: '%',     wbCode: 'NGDP_RPCH'     },
+  inflation:      { label: 'Inflation (CPI)',   unit: '%',     wbCode: 'PCPIPCH'       },
+  unemployment:   { label: 'Unemployment',      unit: '%',     wbCode: 'LUR'           },
+  debtToGdp:      { label: 'Debt to GDP',       unit: '%',     wbCode: 'GGXWDG_NGDP'  },
+  currentAccount: { label: 'Current Account',   unit: '% GDP', wbCode: 'BCA_NGDPD'    },
 };
 
 export interface MacroEconomicCard {
@@ -411,9 +415,15 @@ export async function fetchCountryMacroData(countryCode: string): Promise<MacroE
     wbKeys.map(async ({ key, wbCode, label, unit }) => {
       try {
         const resp = await getIndicatorData(wbCode, { countries: [countryCode], years: 3 });
-        const latest = resp.latestByCountry?.[countryCode];
+        // We always request exactly one country, so latestByCountry has one entry.
+        // The WB API keys it by ISO-3 (e.g. "USA") even when we pass ISO-2 ("US"),
+        // so look up by the passed code first, then fall back to the only entry present.
+        const latest = resp.latestByCountry?.[countryCode]
+          ?? Object.values(resp.latestByCountry ?? {}).find(v => v != null);
         if (latest && latest.value != null) {
-          const values = resp.byCountry?.[countryCode]?.values ?? [];
+          const countryValues = resp.byCountry?.[countryCode]
+            ?? Object.values(resp.byCountry ?? {})[0];
+          const values = countryValues?.values ?? [];
           const prev = values.length > 1 ? values[values.length - 2]?.value : null;
           let trend: 'up' | 'down' | 'flat' = 'flat';
           if (prev != null) {
@@ -422,10 +432,15 @@ export async function fetchCountryMacroData(countryCode: string): Promise<MacroE
           }
           let displayValue: string;
           if (unit === '$B') {
-            displayValue = `$${(latest.value / 1e9).toFixed(1)}B`;
-          } else if (unit === '%') {
-            displayValue = `${latest.value.toFixed(1)}%`;
-          } else if (unit === '% of GDP') {
+            // IMF NGDPD value is already in USD billions
+            displayValue = `$${latest.value.toFixed(1)}B`;
+          } else if (unit === '$') {
+            // IMF NGDPDPC: USD per capita
+            displayValue = `$${Math.round(latest.value).toLocaleString()}`;
+          } else if (unit === 'M') {
+            // IMF LP: millions of persons
+            displayValue = `${latest.value.toFixed(1)}M`;
+          } else if (unit === '%' || unit === '% GDP' || unit === '% of GDP') {
             displayValue = `${latest.value.toFixed(1)}%`;
           } else {
             displayValue = latest.value.toFixed(1);
@@ -435,7 +450,7 @@ export async function fetchCountryMacroData(countryCode: string): Promise<MacroE
       } catch {
         // fall through
       }
-      return { key, label, value: '—', year: '', trend: 'flat' as const, available: false, reason: 'No World Bank data for this country' };
+      return { key, label, value: '—', year: '', trend: 'flat' as const, available: false, reason: 'No IMF WEO data for this country' };
     }),
   );
 
@@ -443,11 +458,8 @@ export async function fetchCountryMacroData(countryCode: string): Promise<MacroE
     if (r.status === 'fulfilled') cards.push(r.value);
   }
 
-  // CDS spreads — not sourced from World Bank or any currently integrated provider
-  cards.push({ key: 'cdsSpreads', label: 'CDS Spreads', value: '—', year: '', trend: 'flat', available: false, reason: 'No CDS data source configured' });
-
-  // Sort to match the desired order
-  const order = ['debtToGdp', 'cpi', 'gdpGrowth', 'cdsSpreads', 'fxReserves', 'currentAccount'];
+  // Sort to match the desired display order (matches MACRO_INDICATORS key order)
+  const order = ['gdpCurrent', 'gdpPerCapita', 'population', 'gdpGrowth', 'inflation', 'unemployment', 'debtToGdp', 'currentAccount'];
   cards.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
   return cards;
@@ -674,6 +686,216 @@ export async function getCountryComparison(
     latestByCountry: {},
     timeSeries: [],
   };
+}
+
+// ========================================================================
+// WGI Governance Scores (Worldwide Governance Indicators)
+// ========================================================================
+
+export interface GovernanceScore {
+  countryCode: string;
+  countryName: string;
+  governanceIndex: number;
+  baselineRisk: number;
+  components: {
+    controlOfCorruption: number | null;
+    governmentEffectiveness: number | null;
+    politicalStability: number | null;
+    ruleOfLaw: number | null;
+    regulatoryQuality: number | null;
+    voiceAndAccountability: number | null;
+  };
+}
+
+const WGI_INDICATORS: Record<string, { label: string; weight: number }> = {
+  'GOV_WGI_CC.SC': { label: 'Control of Corruption', weight: 0.20 },
+  'GOV_WGI_GE.SC': { label: 'Government Effectiveness', weight: 0.20 },
+  'GOV_WGI_PV.SC': { label: 'Political Stability', weight: 0.30 },
+  'GOV_WGI_RL.SC': { label: 'Rule of Law', weight: 0.15 },
+  'GOV_WGI_RQ.SC': { label: 'Regulatory Quality', weight: 0.10 },
+  'GOV_WGI_VA.SC': { label: 'Voice and Accountability', weight: 0.05 },
+};
+
+export async function getGovernanceScores(): Promise<GovernanceScore[]> {
+  const hydrated = getHydratedData('governanceBaselines') as GovernanceScore[] | undefined;
+  if (hydrated?.length) return hydrated;
+
+  try {
+    const resp = await fetch('/api/bootstrap?keys=governanceBaselines', {
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (resp.ok) {
+      const { data } = (await resp.json()) as { data: { governanceBaselines?: GovernanceScore[] } };
+      if (data.governanceBaselines?.length) return data.governanceBaselines;
+    }
+  } catch { /* fall through */ }
+
+  return computeGovernanceScoresFromApi();
+}
+
+async function computeGovernanceScoresFromApi(): Promise<GovernanceScore[]> {
+  const indicatorEntries = Object.entries(WGI_INDICATORS);
+  const results = await Promise.allSettled(
+    indicatorEntries.map(async ([code]) => {
+      return { code, resp: await getIndicatorData(code, { years: 3 }) };
+    }),
+  );
+
+  const countryData = new Map<string, Map<string, { name: string; value: number }>>();
+
+  for (const r of results) {
+    if (r.status !== 'fulfilled') continue;
+    const { code, resp } = r.value;
+    for (const [iso3, latest] of Object.entries(resp.latestByCountry)) {
+      if (!latest || latest.value == null) continue;
+      if (!countryData.has(iso3)) countryData.set(iso3, new Map());
+      countryData.get(iso3)!.set(code, { name: latest.name, value: latest.value });
+    }
+  }
+
+  const scores: GovernanceScore[] = [];
+  for (const [iso3, indicators] of countryData) {
+    let weightedSum = 0;
+    let totalWeight = 0;
+    const components: GovernanceScore['components'] = {
+      controlOfCorruption: null,
+      governmentEffectiveness: null,
+      politicalStability: null,
+      ruleOfLaw: null,
+      regulatoryQuality: null,
+      voiceAndAccountability: null,
+    };
+
+    for (const [indiCode, config] of indicatorEntries) {
+      const entry = indicators.get(indiCode);
+      if (!entry || entry.value == null) continue;
+      weightedSum += entry.value * config.weight;
+      totalWeight += config.weight;
+
+      switch (indiCode) {
+        case 'GOV_WGI_CC.SC': components.controlOfCorruption = entry.value; break;
+        case 'GOV_WGI_GE.SC': components.governmentEffectiveness = entry.value; break;
+        case 'GOV_WGI_PV.SC': components.politicalStability = entry.value; break;
+        case 'GOV_WGI_RL.SC': components.ruleOfLaw = entry.value; break;
+        case 'GOV_WGI_RQ.SC': components.regulatoryQuality = entry.value; break;
+        case 'GOV_WGI_VA.SC': components.voiceAndAccountability = entry.value; break;
+      }
+    }
+
+    if (totalWeight === 0) continue;
+
+    const governanceIndex = Math.round((weightedSum / totalWeight) * 10) / 10;
+    const baselineRisk = Math.round(100 - governanceIndex);
+
+    const name = [...indicators.values()].find(e => e.name)?.name || iso3;
+    scores.push({
+      countryCode: iso3,
+      countryName: name,
+      governanceIndex,
+      baselineRisk,
+      components,
+    });
+  }
+
+  scores.sort((a, b) => b.governanceIndex - a.governanceIndex);
+  return scores;
+}
+
+// ========================================================================
+// Economic Vulnerability (CII 5th component)
+// ========================================================================
+
+export interface EconomicVulnerabilityData {
+  countryCode: string;
+  countryName: string;
+  economicScore: number;
+  components: {
+    povertyRate: number | null;
+    gdpPerCapita: number | null;
+    debtToGdp: number | null;
+  };
+}
+
+const VULNERABILITY_INDICATORS: Record<string, { label: string }> = {
+  'SI.POV.DDAY': { label: 'Poverty Headcount ($2.15/day)' },
+  'NY.GDP.PCAP.CD': { label: 'GDP per Capita (USD)' },
+  'GC.DOD.TOTL.GD.ZS': { label: 'Central Government Debt (% of GDP)' },
+};
+
+export async function getEconomicVulnerability(): Promise<EconomicVulnerabilityData[]> {
+  const hydrated = getHydratedData('economicVulnerability') as EconomicVulnerabilityData[] | undefined;
+  if (hydrated?.length) return hydrated;
+
+  try {
+    const resp = await fetch('/api/bootstrap?keys=economicVulnerability', {
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (resp.ok) {
+      const { data } = (await resp.json()) as { data: { economicVulnerability?: EconomicVulnerabilityData[] } };
+      if (data.economicVulnerability?.length) return data.economicVulnerability;
+    }
+  } catch { /* fall through */ }
+
+  return computeEconomicVulnerabilityFromApi();
+}
+
+async function computeEconomicVulnerabilityFromApi(): Promise<EconomicVulnerabilityData[]> {
+  const results = await Promise.allSettled(
+    Object.keys(VULNERABILITY_INDICATORS).map(async (code) => ({
+      code,
+      resp: await getIndicatorData(code, { years: 3 }),
+    })),
+  );
+
+  const countryData = new Map<string, Map<string, { name: string; value: number }>>();
+
+  for (const r of results) {
+    if (r.status !== 'fulfilled') continue;
+    const { code, resp } = r.value;
+    for (const [iso3, latest] of Object.entries(resp.latestByCountry)) {
+      if (!latest || latest.value == null) continue;
+      if (!countryData.has(iso3)) countryData.set(iso3, new Map());
+      countryData.get(iso3)!.set(code, { name: latest.name, value: latest.value });
+    }
+  }
+
+  const scores: EconomicVulnerabilityData[] = [];
+  for (const [iso3, indicators] of countryData) {
+    const poverty = indicators.get('SI.POV.DDAY')?.value ?? null;
+    const gdpPc = indicators.get('NY.GDP.PCAP.CD')?.value ?? null;
+    const debt = indicators.get('GC.DOD.TOTL.GD.ZS')?.value ?? null;
+
+    let score = 0;
+    let weight = 0;
+
+    if (poverty != null) {
+      score += Math.min(100, poverty) * 0.35;
+      weight += 0.35;
+    }
+    if (gdpPc != null) {
+      score += (1 - Math.min(1, gdpPc / 80000)) * 100 * 0.35;
+      weight += 0.35;
+    }
+    if (debt != null) {
+      score += Math.min(100, debt / 2) * 0.30;
+      weight += 0.30;
+    }
+
+    if (weight === 0) continue;
+
+    const economicScore = Math.round((score / weight) * 10) / 10;
+    const name = [...indicators.values()].find(e => e.name)?.name || iso3;
+
+    scores.push({
+      countryCode: iso3,
+      countryName: name,
+      economicScore,
+      components: { povertyRate: poverty, gdpPerCapita: gdpPc, debtToGdp: debt },
+    });
+  }
+
+  scores.sort((a, b) => b.economicScore - a.economicScore);
+  return scores;
 }
 
 // ========================================================================

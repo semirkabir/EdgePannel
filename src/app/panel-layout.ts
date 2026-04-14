@@ -1073,6 +1073,14 @@ export class PanelLayoutManager implements AppModule {
         }),
       );
 
+      this.lazyPanel('risk-dashboard', () =>
+        import('@/components/RiskDashboardPanel').then(m => {
+          const p = new m.RiskDashboardPanel();
+          void p.refresh();
+          return p;
+        }),
+      );
+
       this.ctx.panels['macro-signals'] = new MacroSignalsPanel();
       this.ctx.panels['etf-flows'] = new ETFFlowsPanel();
       this.ctx.panels['stablecoins'] = new StablecoinPanel();

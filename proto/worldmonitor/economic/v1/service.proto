@@ -12,6 +12,7 @@ import "worldmonitor/economic/v1/get_bis_policy_rates.proto";
 import "worldmonitor/economic/v1/get_bis_exchange_rates.proto";
 import "worldmonitor/economic/v1/get_bis_credit.proto";
 import "worldmonitor/economic/v1/get_fred_series_batch.proto";
+import "worldmonitor/economic/v1/data360_data.proto";
 
 // EconomicService provides APIs for macroeconomic data from FRED, World Bank, and EIA.
 service EconomicService {
@@ -60,5 +61,16 @@ service EconomicService {
   // GetFredSeriesBatch retrieves multiple FRED series in a single call.
   rpc GetFredSeriesBatch(GetFredSeriesBatchRequest) returns (GetFredSeriesBatchResponse) {
     option (sebuf.http.config) = {path: "/get-fred-series-batch", method: HTTP_METHOD_POST};
+  }
+
+  // GetData360Data retrieves data from the World Bank Data360 unified API.
+  // Supports V-Dem, Polity, GEM, ESG, SSGD, FINDEX, ITU_DH, and WGI databases.
+  rpc GetData360Data(GetData360DataRequest) returns (GetData360DataResponse) {
+    option (sebuf.http.config) = {path: "/get-data360-data", method: HTTP_METHOD_GET};
+  }
+
+  // SearchData360 searches Data360 indicators by keyword.
+  rpc SearchData360(SearchData360Request) returns (SearchData360Response) {
+    option (sebuf.http.config) = {path: "/search-data360", method: HTTP_METHOD_POST};
   }
 }

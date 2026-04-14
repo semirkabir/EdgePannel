@@ -30,7 +30,7 @@ const BASE_LAYERS: MapLayers = {
   commodityHubs: false, gulfInvestments: false,
   positiveEvents: false, kindness: false, happiness: false,
   speciesRecovery: false, renewableInstallations: false,
-  tradeRoutes: false, ciiChoropleth: false, dayNight: false,
+  tradeRoutes: false, ciiChoropleth: false, governanceChoropleth: false, dayNight: false,
   miningSites: false, processingPlants: false, commodityPorts: false,
   aptGroups: false,
 };
@@ -91,6 +91,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'sanctions-tracker':   p1('Sanctions Tracker'),
   'alert-rules':         p2('Alert Rules'),
   'geopolitical-risk':   p1('Geopolitical Risk Index'),
+  'risk-dashboard':      p2('GEM Risk Dashboard'),
   'trade-flows':         p2('Trade Flows'),
   'earnings-calendar':   p2('Earnings Calendar'),
   'ipo-calendar':        p2('IPO Calendar'),
@@ -438,7 +439,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['cii', 'strategic-risk', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel'],
+    panelKeys: ['cii', 'strategic-risk', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel', 'risk-dashboard'],
     variants: ['full'],
   },
   regionalNews: {

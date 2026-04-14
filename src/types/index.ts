@@ -584,6 +584,8 @@ export interface MapLayers {
 
   // CII choropleth layer
   ciiChoropleth: boolean;
+  // Governance choropleth layer (WGI scores)
+  governanceChoropleth: boolean;
   // Overlay layers
   dayNight: boolean;
   // Commodity variant layers
@@ -592,6 +594,10 @@ export interface MapLayers {
   commodityPorts: boolean;
   // APT Groups layer
   aptGroups: boolean;
+  // Democracy & Governance layers (Data360)
+  gemRisk: boolean;
+  democracy: boolean;
+  socialProgress: boolean;
 }
 
 export interface AIDataCenter {

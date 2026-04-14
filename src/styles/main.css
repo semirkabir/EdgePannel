@@ -5476,6 +5476,8 @@ body.playback-mode .status-dot {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 160;
 }
 
 .layer-help-btn:hover {
@@ -5486,15 +5488,15 @@ body.playback-mode .status-dot {
 
 .layer-help-popup {
   position: absolute;
-  bottom: 40px;
-  left: 10px;
-  width: 360px;
-  max-height: 70vh;
+  top: 40px;
+  left: 0;
+  width: 320px;
+  max-height: 60vh;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
-  z-index: 200;
-  overflow: hidden;
+  z-index: 150;
+  overflow-y: auto;
   box-shadow: 0 8px 32px var(--shadow-color);
 }
 

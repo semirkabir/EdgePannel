@@ -89,6 +89,7 @@ function toCachedCII(proto: CiiScore): CachedCIIScore {
       conflict: proto.components?.geoConvergence ?? 0,
       security: proto.components?.militaryActivity ?? 0,
       information: proto.components?.newsActivity ?? 0,
+      economic: 0,
     },
     lastUpdated: proto.computedAt ? new Date(proto.computedAt).toISOString() : new Date().toISOString(),
   };

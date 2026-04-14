@@ -9,6 +9,8 @@ import { getEnergyCapacity } from './get-energy-capacity';
 import { getBisPolicyRates } from './get-bis-policy-rates';
 import { getBisExchangeRates } from './get-bis-exchange-rates';
 import { getBisCredit } from './get-bis-credit';
+import { getData360Data } from './get-data360-data';
+import { searchData360 } from './search-data360';
 
 export const economicHandler: EconomicServiceHandler = {
   getFredSeries,
@@ -20,4 +22,6 @@ export const economicHandler: EconomicServiceHandler = {
   getBisPolicyRates,
   getBisExchangeRates,
   getBisCredit,
+  getData360Data,
+  searchData360,
 };

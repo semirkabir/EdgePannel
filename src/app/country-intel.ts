@@ -25,6 +25,7 @@ import { signalAggregator } from '@/services/signal-aggregator';
 import { supplementalBus } from '@/services/supplemental-signal-bus';
 import { dataFreshness } from '@/services/data-freshness';
 import { fetchCountryMarkets } from '@/services/prediction';
+import { fetchCountryGovernance } from '@/services/data360';
 import { collectStoryData } from '@/services/story-data';
 import { openStoryModal } from '@/components/StoryModal';
 import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
@@ -209,6 +210,17 @@ export class CountryIntelManager implements AppModule {
     this.refreshNewsForPanel(code, country);
 
     this.ctx.countryBriefPage.updateInfrastructure(code);
+
+    // Fetch governance & democracy data (V-Dem + Polity)
+    fetchCountryGovernance(code)
+      .then((governanceData) => {
+        if (this.ctx.countryBriefPage?.getCode() !== code) return;
+        this.ctx.countryBriefPage.updateGovernance?.(governanceData);
+      })
+      .catch(() => {
+        if (this.ctx.countryBriefPage?.getCode() !== code) return;
+        this.ctx.countryBriefPage.updateGovernance?.(null);
+      });
 
     this.mountCountryTimeline(code, country);
 

@@ -100,6 +100,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   tradeRoutes: false,
   iranAttacks: true,
   ciiChoropleth: false,
+  governanceChoropleth: false,
   dayNight: false,
   // Commodity variant layers (disabled in full variant)
   miningSites: false,

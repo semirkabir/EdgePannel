@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package worldmonitor.economic.v1;
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+
+// Data360DataPoint represents a single observation from the World Bank Data360 API.
+message Data360DataPoint {
+  // Data360 indicator code (e.g. "VDEM_CORE_V2X_API", "IFC_GEM_PBD").
+  string indicator = 1;
+  // ISO country code (2 or 3 letter, as returned by Data360).
+  string ref_area = 2;
+  // Country display name.
+  string country_name = 3;
+  // Observation year.
+  int32 time_period = 4;
+  // Observed value.
+  double obs_value = 5;
+  // Sex disaggregation ("_T" = total, "M" = male, "F" = female, "_Z" = N/A).
+  string sex = 6;
+  // Age disaggregation.
+  string age = 7;
+  // Urbanisation disaggregation ("_T" = total, "U" = urban, "R" = rural, "_Z" = N/A).
+  string urbanisation = 8;
+  // Frequency ("A" = annual).
+  string freq = 9;
+  // Unit of measurement code.
+  string unit_measure = 10;
+  // Data source identifier.
+  string data_source = 11;
+  // Database identifier (e.g. "VDEM_CORE", "IFC_GEM", "WB_ESG").
+  string database_id = 12;
+}
+
+// GetData360DataRequest specifies filters for retrieving Data360 data.
+message GetData360DataRequest {
+  // Database ID (required, e.g. "VDEM_CORE", "IFC_GEM", "WB_ESG", "POLITY5_PRC").
+  string database_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (sebuf.http.query) = { name: "database_id" }
+  ];
+  // Indicator code within the database (e.g. "VDEM_CORE_V2X_API").
+  // Empty = return all indicators in the database.
+  string indicator = 2 [(sebuf.http.query) = { name: "indicator" }];
+  // Country code filter (ISO-2 or ISO-3). Empty = all countries.
+  string ref_area = 3 [(sebuf.http.query) = { name: "ref_area" }];
+  // Start year (inclusive).
+  int32 time_period_from = 4 [(sebuf.http.query) = { name: "time_period_from" }];
+  // End year (inclusive).
+  int32 time_period_to = 5 [(sebuf.http.query) = { name: "time_period_to" }];
+  // Frequency filter. Default "A" (annual).
+  string freq = 6 [(sebuf.http.query) = { name: "freq" }];
+  // If true, return only the latest observation per indicator-country pair.
+  bool is_latest_data = 7 [(sebuf.http.query) = { name: "is_latest_data" }];
+  // Max records per page (default 1000, max 1000).
+  int32 top = 8 [(sebuf.http.query) = { name: "top" }];
+  // Pagination offset.
+  int32 skip = 9 [(sebuf.http.query) = { name: "skip" }];
+}
+
+// GetData360DataResponse contains Data360 indicator data.
+message GetData360DataResponse {
+  // Data points matching the query.
+  repeated Data360DataPoint data = 1;
+  // Total count of matching records (for pagination).
+  int32 total_count = 2;
+}
+
+// SearchData360Request searches Data360 indicators by keyword.
+message SearchData360Request {
+  // Search query (e.g. "democracy", "political risk", "broadband").
+  string query = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+  // Maximum results to return (default 20, max 100).
+  int32 top = 2;
+  // OData filter expression (e.g. "type eq 'indicator'").
+  string filter = 3;
+  // OData $select expression for fields to return.
+  string select = 4;
+}
+
+// SearchData360Result represents a single search hit.
+message SearchData360Result {
+  // Indicator or database ID.
+  string id = 1;
+  // Display name.
+  string name = 2;
+  // Parent database ID.
+  string database_id = 3;
+  // Description text.
+  string description = 4;
+}
+
+// SearchData360Response contains search results from Data360.
+message SearchData360Response {
+  // Search results.
+  repeated SearchData360Result results = 1;
+  // Total matching results.
+  int32 total_count = 2;
+}
