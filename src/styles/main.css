@@ -1015,8 +1015,10 @@ canvas,
   font-size: 11px;
   filter: grayscale(80%);
   opacity: 0.6;
+  display: inline-block;
   transition: filter var(--motion-fast) var(--ease-standard),
-              opacity var(--motion-fast) var(--ease-standard);
+              opacity var(--motion-fast) var(--ease-standard),
+              transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 .variant-option .variant-label {
@@ -1041,6 +1043,7 @@ canvas,
 .variant-option:hover .variant-icon {
   filter: grayscale(40%);
   opacity: 0.8;
+  transform: translateY(-2px) scale(1.2);
 }
 
 .variant-option.active {
@@ -1319,6 +1322,12 @@ canvas,
   background: var(--status-live);
   animation: pulse-dot 2s infinite;
   box-shadow: 0 0 4px var(--status-live);
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.2s ease;
+}
+
+.status-indicator:hover .status-dot {
+  transform: scale(1.8);
+  box-shadow: 0 0 7px var(--status-live);
 }
 
 .status-dot.delayed {
@@ -1595,6 +1604,7 @@ canvas,
   background: var(--ctrl-bg-hover);
   border-color: var(--frame-border-strong);
   color: var(--text);
+  transform: scale(1.08);
 }
 
 .fullscreen-btn.active {
@@ -1660,6 +1670,8 @@ canvas,
   background: var(--ctrl-bg-hover);
   border-color: var(--frame-border-strong);
   color: #fff;
+  transform: translateY(-1px);
+  box-shadow: var(--depth-resting), inset 0 1px 0 var(--frame-inset-highlight), 0 3px 8px rgba(0,0,0,0.18);
 }
 
 .search-btn:active {
@@ -1691,6 +1703,8 @@ canvas,
   background: var(--ctrl-bg-hover);
   border-color: var(--frame-border-strong);
   color: var(--text);
+  transform: translateY(-1px);
+  box-shadow: var(--depth-resting), inset 0 1px 0 var(--frame-inset-highlight), 0 3px 8px rgba(0,0,0,0.15);
 }
 
 .copy-link-btn.copied {
@@ -1869,6 +1883,13 @@ canvas,
   border-radius: 3px;
   font-size: 10px;
   font-family: inherit;
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1), background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search-btn:hover kbd {
+  transform: scale(1.15) translateY(-1px);
+  background: var(--bg);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.22);
 }
 
 .main-content {
@@ -5129,6 +5150,14 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   color: var(--text);
 }
 
+.playback-icon {
+  transition: transform 0.22s var(--ease-standard);
+}
+
+.playback-toggle:hover .playback-icon {
+  transform: translateX(-2px);
+}
+
 .playback-toggle:active,
 .playback-toggle[aria-expanded="true"] {
   background: var(--ctrl-bg-pressed);
@@ -5288,6 +5317,37 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   letter-spacing: 0.04em;
 }
 
+.playback-tier-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.playback-tier-window {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.playback-tier-cta {
+  font-size: 9.5px;
+  color: var(--accent, #22c55e);
+  font-weight: 500;
+  cursor: var(--wm-cursor-pointer);
+  white-space: nowrap;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.playback-tier-cta:hover { opacity: 1; }
+
 /* Footer: transport + speed */
 .playback-footer {
   display: flex;
@@ -5387,7 +5447,8 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   color: var(--text);
 }
 
-/* Playback mode indicator */
+/* ── Playback mode indicator ──────────────────────────────────────────────── */
+
 body.playback-mode .header {
   border-bottom: 2px solid var(--yellow);
 }
@@ -5395,6 +5456,49 @@ body.playback-mode .header {
 body.playback-mode .status-dot {
   background: var(--yellow);
   animation: none;
+}
+
+/* Banner — hidden by default, shown only in playback mode */
+.playback-mode-banner {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  background: linear-gradient(90deg, rgba(234, 179, 8, 0.12), rgba(234, 179, 8, 0.04) 60%, transparent);
+  border-bottom: 1px solid rgba(234, 179, 8, 0.3);
+  color: var(--yellow, #eab308);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+body.playback-mode .playback-mode-banner {
+  display: flex;
+}
+
+.playback-mode-banner svg {
+  opacity: 0.85;
+}
+
+.playback-banner-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playback-mode-banner strong {
+  font-weight: 700;
+  letter-spacing: 0.07em;
+}
+
+.playback-banner-sep {
+  opacity: 0.45;
+}
+
+.playback-banner-relative {
+  opacity: 0.7;
+  font-style: italic;
 }
 
 /* Map */
@@ -9092,6 +9196,14 @@ a.prediction-link:hover {
   filter: drop-shadow(0 0 7px rgba(239, 68, 68, 0.85));
 }
 
+.vc-eye svg {
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.visitor-counter:hover .vc-eye svg {
+  transform: scale(1.25);
+}
+
 /* Subtle pulse ring */
 .vc-pulse-ring {
   position: absolute;
@@ -9286,6 +9398,14 @@ body.urgency-mode #header {
 .export-btn svg * {
   stroke: currentColor !important;
   color: currentColor !important;
+}
+
+.export-btn svg {
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.export-btn:hover svg {
+  transform: rotate(-12deg) scale(1.15);
 }
 
 .snap-menu {
@@ -15078,7 +15198,7 @@ button.cluster-flight-item:focus-visible {
               transform var(--motion-fast) var(--ease-press);
   position: relative;
   box-shadow: var(--depth-resting), inset 0 1px 0 var(--frame-inset-highlight);
-  height: 24px;
+  height: 28px;
 }
 
 .intel-findings-badge:hover {
@@ -15102,6 +15222,12 @@ button.cluster-flight-item:focus-visible {
 .intel-findings-badge .findings-icon {
   font-size: 12px;
   line-height: 1;
+  display: inline-flex;
+  transition: transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.intel-findings-badge:hover .findings-icon {
+  transform: translateY(-2px) scale(1.2);
 }
 
 .intel-findings-badge .findings-count {
@@ -15116,6 +15242,11 @@ button.cluster-flight-item:focus-visible {
   background: var(--ctrl-bg-active);
   border: 1px solid var(--frame-border);
   color: var(--text-dim);
+  transition: transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.intel-findings-badge:hover .findings-count {
+  transform: scale(1.1);
 }
 
 .intel-findings-badge.status-none {
@@ -18738,6 +18869,11 @@ button.cluster-flight-item:focus-visible {
 .unified-settings-btn svg {
   width: 16px;
   height: 16px;
+  transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.unified-settings-btn:hover svg {
+  transform: translateY(-2px) scale(1.1);
 }
 
 .unified-settings-modal {
@@ -23509,6 +23645,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
 .local-dev-api-notice-copy strong {
   color: var(--text);
 }
+
 
 .mobile-help-overlay {
   position: fixed;

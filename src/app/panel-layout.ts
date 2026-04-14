@@ -69,6 +69,7 @@ import { getSecretState } from '@/services/runtime-config';
 import { checkFeatureAccess } from '@/services/auth-modal';
 import { isLoggedIn } from '@/services/user-auth';
 import { LIMITED_LOCAL_RPC_DEV_MODE } from '@/services/local-dev-stability';
+import { isLocalDevApiNoticeDismissed } from '@/app/ui-preferences';
 
 export interface PanelLayoutCallbacks {
   openCountryStory: (code: string, name: string) => void;
@@ -301,13 +302,20 @@ export class PanelLayoutManager implements AppModule {
           <button type="button" class="shell-guidance-btn" id="shellGuidanceDismiss">Dismiss</button>
         </div>
       </div>
-      ${LIMITED_LOCAL_RPC_DEV_MODE ? `
-      <div class="local-dev-api-notice" role="note">
+      ${LIMITED_LOCAL_RPC_DEV_MODE && !isLocalDevApiNoticeDismissed() ? `
+      <div class="local-dev-api-notice" role="note" id="localDevApiNotice">
         <div class="local-dev-api-notice-copy">
           <strong>Local API mode:</strong> some RPC-backed panels are off by default in web dev because their local routes are unavailable. They still remain in Add Panel if you want to test them manually.
         </div>
+        <div class="shell-guidance-actions">
+          <button type="button" class="shell-guidance-btn" id="localDevApiDismiss">Dismiss</button>
+        </div>
       </div>
       ` : ''}
+      <div class="playback-mode-banner" id="playbackModeBanner" role="status" aria-live="polite">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="playback-banner-text"><strong>HISTORICAL PLAYBACK</strong> &mdash; <span id="playbackBannerTime"></span><span class="playback-banner-sep"> &middot; </span><span id="playbackBannerRelative" class="playback-banner-relative"></span></span>
+      </div>
       <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
       <nav class="mobile-menu" id="mobileMenu">
         <div class="mobile-menu-header">

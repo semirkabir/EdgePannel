@@ -67,10 +67,10 @@ export const UNIFIED_THEME_OPTIONS: UnifiedThemeOption[] = buildUnifiedOptions()
 
 export function resolveUnifiedTheme(value: string): { provider: MapProvider; theme: string } {
   const sep = value.indexOf(':');
-  if (sep < 0) return { provider: 'openfreemap', theme: 'dark' };
+  if (sep < 0) return { provider: 'custom', theme: 'toner' }; // Obsidian
   const provider = value.slice(0, sep) as MapProvider;
   const theme = value.slice(sep + 1);
-  if (!isMapProvider(provider)) return { provider: 'openfreemap', theme: 'dark' };
+  if (!isMapProvider(provider)) return { provider: 'custom', theme: 'toner' }; // Obsidian
   return { provider, theme };
 }
 
@@ -83,7 +83,7 @@ export function getUnifiedTheme(): string {
     const candidate = `${oldProvider}:${oldTheme}`;
     if (UNIFIED_THEME_OPTIONS.some(o => o.value === candidate)) return candidate;
   }
-  return 'openfreemap:dark';
+  return 'custom:toner'; // Obsidian
 }
 
 export interface ThemePaintOverride {

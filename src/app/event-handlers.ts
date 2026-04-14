@@ -59,6 +59,7 @@ import {
   isDesktopOnboardingDismissed,
   isMobileHelpDismissed,
   setDesktopOnboardingDismissed,
+  setLocalDevApiNoticeDismissed,
   setMobileHelpDismissed,
   setPanelDensityPreference,
 } from './ui-preferences';
@@ -708,6 +709,11 @@ export class EventHandlerManager implements AppModule {
     document.getElementById('shellGuidanceDismiss')?.addEventListener('click', () => {
       setDesktopOnboardingDismissed(true);
       strip.classList.add('hidden');
+    });
+
+    document.getElementById('localDevApiDismiss')?.addEventListener('click', () => {
+      setLocalDevApiNoticeDismissed(true);
+      document.getElementById('localDevApiNotice')?.remove();
     });
   }
 

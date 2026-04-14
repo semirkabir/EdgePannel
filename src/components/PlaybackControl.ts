@@ -1,10 +1,33 @@
 import { getSnapshotTimestamps, getSnapshotAt, type DashboardSnapshot } from '@/services/storage';
 import { t } from '@/services/i18n';
 import { checkFeatureAccess } from '@/services/auth-modal';
+import { isLoggedIn } from '@/services/user-auth';
+import { hasPaidSubscription } from '@/services/feature-flags';
 
 const PLAYBACK_PANEL_CLOSE_DELAY_MS = 320;
 const PLAYBACK_PANEL_OFFSET_PX = 4;
 const SPEEDS = [0.5, 1, 2, 4] as const;
+
+const WINDOW_FREE_MS     = 48 * 60 * 60 * 1000;   // 48 h  — not logged in
+const WINDOW_LOGGEDIN_MS =  7 * 24 * 60 * 60 * 1000; //  7 d  — free account
+const WINDOW_PRO_MS      = 30 * 24 * 60 * 60 * 1000; // 30 d  — pro / business / enterprise
+
+function getPlaybackWindowMs(): number {
+  if (hasPaidSubscription()) return WINDOW_PRO_MS;
+  if (isLoggedIn())          return WINDOW_LOGGEDIN_MS;
+  return WINDOW_FREE_MS;
+}
+
+interface TierInfo {
+  label: string;       // e.g. "48h history"
+  cta: string | null;  // upgrade copy, null if already max tier
+}
+
+function getTierInfo(): TierInfo {
+  if (hasPaidSubscription()) return { label: '30-day history', cta: null };
+  if (isLoggedIn())          return { label: '7-day history',  cta: 'Upgrade to Pro for 30-day history →' };
+  return                            { label: '48h history',    cta: 'Sign in for 7-day history →' };
+}
 
 function formatRelative(ts: number): string {
   const diff = Date.now() - ts;
@@ -87,6 +110,7 @@ export class PlaybackControl {
             <span class="playback-oldest-label">oldest</span>
             <span class="playback-now-label">now</span>
           </div>
+          <div class="playback-tier-notice" style="display:none"></div>
         </div>
 
         <!-- Transport -->
@@ -232,9 +256,13 @@ export class PlaybackControl {
   // ── Data loading ───────────────────────────────────────────────────────────
 
   private async loadTimestamps(): Promise<void> {
-    this.timestamps = await getSnapshotTimestamps();
+    const all = await getSnapshotTimestamps();
     if (!this.element?.isConnected) return;
-    this.timestamps.sort((a, b) => a - b);
+    all.sort((a, b) => a - b);
+
+    // Filter to the tier-allowed window
+    const cutoff = Date.now() - getPlaybackWindowMs();
+    this.timestamps = all.filter(ts => ts >= cutoff);
 
     const slider = this.panel.querySelector('.playback-slider') as HTMLInputElement;
     slider.max = String(Math.max(0, this.timestamps.length - 1));
@@ -242,7 +270,21 @@ export class PlaybackControl {
     this.currentIndex = this.timestamps.length - 1;
 
     this.updateOldestLabel();
+    this.updateTierNotice();
     this.updateTimeDisplay();
+  }
+
+  private updateTierNotice(): void {
+    const notice = this.panel.querySelector('.playback-tier-notice') as HTMLElement;
+    if (!notice) return;
+    const { label, cta } = getTierInfo();
+    if (cta) {
+      notice.style.display = '';
+      notice.innerHTML = `<span class="playback-tier-window">${label}</span><span class="playback-tier-cta">${cta}</span>`;
+    } else {
+      notice.style.display = '';
+      notice.innerHTML = `<span class="playback-tier-window">${label}</span>`;
+    }
   }
 
   private async loadSnapshot(index: number): Promise<void> {
@@ -369,6 +411,7 @@ export class PlaybackControl {
     if (!this.isPlaybackMode || this.timestamps.length === 0) {
       liveState.style.display = '';
       histState.style.display = 'none';
+      this.updateBanner(null);
       return;
     }
 
@@ -379,6 +422,20 @@ export class PlaybackControl {
     histState.style.display = '';
     (histState.querySelector('.playback-ts-main') as HTMLElement).textContent = formatTimestamp(ts);
     (histState.querySelector('.playback-ts-relative') as HTMLElement).textContent = formatRelative(ts);
+    this.updateBanner(ts);
+  }
+
+  private updateBanner(ts: number | null): void {
+    const timeEl = document.getElementById('playbackBannerTime');
+    const relEl  = document.getElementById('playbackBannerRelative');
+    if (!timeEl || !relEl) return;
+    if (ts === null) {
+      timeEl.textContent = '';
+      relEl.textContent  = '';
+    } else {
+      timeEl.textContent = formatTimestamp(ts);
+      relEl.textContent  = formatRelative(ts);
+    }
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
