@@ -346,10 +346,8 @@ const AIS_VESSEL_ICON_ATLAS = `data:image/svg+xml;charset=utf-8,${encodeURICompo
 )}`;
 
 // Port icon — anchor (white, for mask-mode tinting by port type)
-const AIS_PORT_ICON_MAPPING = { anchor: { x: 0, y: 0, width: 64, height: 64, mask: true } };
-const AIS_PORT_ICON_ATLAS = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-  '<svg viewBox="0 0 24 24" width="64" height="64" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><circle cx="12" cy="4" r="1.5" fill="white"/><path d="M7 12a5 5 0 0 0 10 0"/><path d="M5 14a7 7 0 0 0 14 0"/></svg>'
-)}`;
+const AIS_PORT_ICON_MAPPING = { port: { x: 0, y: 0, width: 64, height: 64, mask: false } };
+const AIS_PORT_ICON_ATLAS = '/icons/port.png';
 
 const AVIATION_AIRPORT_ICON_MAPPING = { airport: { x: 0, y: 0, width: 512, height: 512, mask: false } };
 const AVIATION_AIRPORT_ICON_ATLAS = '/icons/airport.png';
@@ -2091,7 +2089,7 @@ export class DeckGLMap {
       id: 'ports-layer',
       data: PORTS,
       getPosition: (d) => [d.lon, d.lat],
-      getIcon: () => 'anchor',
+      getIcon: () => 'port',
       iconAtlas: AIS_PORT_ICON_ATLAS,
       iconMapping: AIS_PORT_ICON_MAPPING,
       getSize: 14,
@@ -5320,6 +5318,15 @@ export class DeckGLMap {
                 : `<span class="legend-icon" style="color:${WEATHER_CATEGORY_COLORS[cat][theme]}">${WEATHER_CATEGORY_ICONS[cat]}</span>`;
               return `<span class="legend-item">${iconHtml}<span class="legend-label">${catLabel}</span></span>`;
             });
+          }
+          // Expand AIS layer into ports and vessels entries
+          if (def.key === 'ais') {
+            const portIcon = `<img src="/icons/port.png" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;" />`;
+            const vesselIcon = `<img src="/icons/bulk-carrier.png" style="width:16px;height:16px;object-fit:contain;vertical-align:middle;" />`;
+            return [
+              `<span class="legend-item">${portIcon}<span class="legend-label">Ports</span></span>`,
+              `<span class="legend-item">${vesselIcon}<span class="legend-label">Vessels</span></span>`,
+            ];
           }
           const color = resolveLayerAccentColor(def.key, theme);
           const label = resolveLayerLabel(def, t);

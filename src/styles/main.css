@@ -1051,6 +1051,28 @@ body.animations-paused *::after {
   background-color: var(--ctrl-bg);
 }
 
+.panels-grid > *,
+.map-bottom-grid > * {
+  position: relative;
+}
+
+.panel-removed-hint {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: var(--ctrl-bg);
+  border: 1px solid var(--frame-border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 3px 6px;
+  cursor: var(--wm-cursor-pointer);
+  z-index: 10;
+  white-space: nowrap;
+}
+.panel-removed-hint:hover { color: var(--text); border-color: var(--text-dim); }
+.panel-removed-hint:active { transform: translateY(1px); }
+
 /* ============================================================
    Theme Transition — smooth 200ms animation for theme switches
    ============================================================ */
@@ -1308,6 +1330,11 @@ canvas,
 .variant-option.new-category:hover {
   border-color: var(--text-dim);
   background: var(--overlay-light);
+  transform: translateY(-1px);
+}
+
+.variant-option.new-category:active {
+  transform: translateY(1px);
 }
 
 .variant-option.new-category .variant-icon {
@@ -1753,6 +1780,44 @@ canvas,
 
 /* Banner alerts */
 .notif-banners { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+
+/* Top-right toast container for breaking news banners */
+.notif-toast-container {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.notif-toast-banner {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 340px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.notif-banner-view {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.notif-banner-view:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
 .notif-banner { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; cursor: var(--wm-cursor-pointer); transition: opacity 0.2s; }
 .notif-banner:hover { opacity: 0.9; }
 .notif-banner.critical { background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.08) 100%); border: 1px solid var(--semantic-critical, #ef4444); }
@@ -1788,7 +1853,11 @@ canvas,
   background: var(--ctrl-bg-hover);
   border-color: var(--frame-border-strong);
   color: var(--text);
-  transform: scale(1.08);
+  transform: translateY(-1px);
+}
+
+.fullscreen-btn:active {
+  transform: translateY(1px);
 }
 
 .fullscreen-btn.active {
@@ -2342,6 +2411,11 @@ canvas,
 .map-dim-btn:hover {
   color: var(--text);
   background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+.map-dim-btn:active {
+  transform: translateY(1px);
 }
 
 .map-dim-btn.active {
@@ -2372,6 +2446,11 @@ canvas,
   background: var(--surface-hover);
   color: var(--text);
   border-color: var(--text-dim);
+  transform: translateY(-1px);
+}
+
+.map-pin-btn:active {
+  transform: translateY(1px);
 }
 
 .map-pin-btn.active {
@@ -17346,6 +17425,11 @@ button.cluster-flight-item:focus-visible {
 
 .deckgl-controls .map-btn:hover {
   background: var(--border);
+  transform: translateY(-1px);
+}
+
+.deckgl-controls .map-btn:active {
+  transform: translateY(1px);
 }
 
 .deckgl-controls .view-selector {
@@ -18216,6 +18300,11 @@ button.cluster-flight-item:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+.deckgl-legend .legend-item img {
+  flex-shrink: 0;
+  display: block;
 }
 
 .deckgl-legend .legend-item svg {

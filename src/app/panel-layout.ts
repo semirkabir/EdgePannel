@@ -1587,7 +1587,24 @@ export class PanelLayoutManager implements AppModule {
     if (!config) return;
     config.enabled = false;
     saveToStorage(getVariantStorageKey(STORAGE_KEYS.panels, SITE_VARIANT), this.ctx.panelSettings);
-    this.ctx.panels[key]?.hide();
+    const panelEl = this.ctx.panels[key];
+    panelEl?.hide();
+
+    // Show a "panel removed" hint in the bottom-right of the grid cell
+    const cell = panelEl?.getElement()?.closest('.panels-grid > *') ?? panelEl?.getElement()?.closest('.map-bottom-grid > *');
+    if (cell) {
+      const hint = document.createElement('button');
+      hint.className = 'panel-removed-hint';
+      hint.dataset.forPanel = key;
+      hint.textContent = `${config.name} removed \u2014 find in Add Panels`;
+      hint.addEventListener('click', () => {
+        const overlay = document.querySelector('.add-widget-overlay');
+        if (overlay) overlay.remove();
+        this.showAddWidgetOverlay();
+      });
+      cell.appendChild(hint);
+    }
+
     this.refreshAddWidgetBtn();
     this.saveCurrentLayout();
   }

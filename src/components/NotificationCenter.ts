@@ -78,6 +78,7 @@ export class NotificationCenter {
   private dropdownEl: HTMLElement;
   private listEl: HTMLElement;
   private bannerEl: HTMLElement;
+  private toastContainerEl: HTMLElement;
   private items: NotificationItem[] = [];
   private seenSignalIds = new Set<string>();
   private seenFindingIds = new Set<string>();
@@ -142,6 +143,11 @@ export class NotificationCenter {
     this.bannerEl.className = 'notif-banners';
     this.bannerEl.style.display = 'none';
     this.dropdownEl.appendChild(this.bannerEl);
+
+    // Top-right toast container for breaking alert banners (visible without opening dropdown)
+    this.toastContainerEl = document.createElement('div');
+    this.toastContainerEl.className = 'notif-toast-container';
+    document.body.appendChild(this.toastContainerEl);
 
     // Empty state
     const empty = document.createElement('div');
@@ -230,7 +236,7 @@ export class NotificationCenter {
     }
 
     this.activeBanners.push(item);
-    this.renderBanners();
+    this.renderToasts();
     this.updateBadge();
 
     setTimeout(() => this.dismissBanner(item.id), this.BANNER_DISMISS_MS);
@@ -241,6 +247,12 @@ export class NotificationCenter {
     if (idx !== -1) {
       this.activeBanners.splice(idx, 1);
       this.removeBannerElement(id);
+      const toast = this.toastContainerEl.querySelector(`[data-banner-id="${id}"]`);
+      if (toast) {
+        (toast as HTMLElement).style.opacity = '0';
+        (toast as HTMLElement).style.transform = 'translateX(20px) scale(0.96)';
+        setTimeout(() => toast.remove(), 220);
+      }
       this.renderBanners();
     }
   }
@@ -303,6 +315,86 @@ export class NotificationCenter {
 
       this.bannerEl.appendChild(banner);
     }
+  }
+
+  private renderToasts(): void {
+    // Remove stale toast elements from DOM that are no longer in activeBanners
+    const activeIds = new Set(this.activeBanners.map(b => b.id));
+    for (const toast of this.toastContainerEl.querySelectorAll('[data-banner-id]')) {
+      const id = toast.getAttribute('data-banner-id');
+      if (id && !activeIds.has(id)) toast.remove();
+    }
+
+    for (const item of this.activeBanners) {
+      const existing = this.toastContainerEl.querySelector(`[data-banner-id="${item.id}"]`);
+      if (existing) continue; // already rendered
+
+      const toast = document.createElement('div');
+      toast.className = `notif-banner notif-toast-banner ${item.severity === 'critical' ? 'critical' : 'high'}`;
+      toast.dataset.bannerId = item.id;
+      toast.setAttribute('role', 'alert');
+
+      const icon = document.createElement('span');
+      icon.className = 'notif-banner-icon';
+      icon.textContent = '🚨';
+
+      const content = document.createElement('div');
+      content.className = 'notif-banner-content';
+
+      const title = document.createElement('div');
+      title.className = 'notif-banner-title';
+      title.textContent = item.title;
+
+      const source = document.createElement('div');
+      source.className = 'notif-banner-source';
+      source.textContent = item.detail || '';
+
+      content.appendChild(title);
+      content.appendChild(source);
+
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'notif-banner-view';
+      viewBtn.textContent = 'View';
+      viewBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.dismissBanner(item.id);
+        this.show(); // Open the notification dropdown
+        this.scrollToItem(item.id);
+      });
+
+      const dismiss = document.createElement('button');
+      dismiss.className = 'notif-banner-dismiss';
+      dismiss.textContent = '×';
+      dismiss.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.dismissBanner(item.id);
+      });
+
+      toast.appendChild(icon);
+      toast.appendChild(content);
+      toast.appendChild(viewBtn);
+      toast.appendChild(dismiss);
+
+      toast.addEventListener('click', () => {
+        if (item.link) window.open(item.link, '_blank', 'noopener');
+      });
+
+      // Animate in
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(20px) scale(0.97)';
+      requestAnimationFrame(() => {
+        toast.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(0) scale(1)';
+      });
+
+      this.toastContainerEl.appendChild(toast);
+    }
+  }
+
+  private scrollToItem(id: string): void {
+    const el = this.listEl.querySelector(`[data-item-id="${id}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   /* ---- toggle ---- */

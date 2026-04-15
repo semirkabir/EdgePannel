@@ -384,6 +384,10 @@ export class IntelligenceFindingsBadge {
         this.showNotificationPopup(this.findings[0]);
       }
     }
+    // Also show popup on the very first finding (lastFindingCount is 0)
+    if (this.lastFindingCount === 0 && count > 0 && this.popupEnabled && this.findings[0]) {
+      this.showNotificationPopup(this.findings[0]);
+    }
     this.lastFindingCount = count;
 
     // Update badge status based on priority
