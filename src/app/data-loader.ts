@@ -96,6 +96,7 @@ import { getHydratedData } from '@/services/bootstrap';
 import { canQueueAiClassification, AI_CLASSIFY_MAX_PER_FEED } from '@/services/ai-classify-queue';
 import { classifyWithAI } from '@/services/threat-classifier';
 import { ingestHeadlines } from '@/services/trending-keywords';
+import { showShellNotification } from '@/app/shell-notifications';
 import type { ListFeedDigestResponse } from '@/generated/client/worldmonitor/news/v1/service_client';
 import type { GetSectorSummaryResponse, ListMarketQuotesResponse } from '@/generated/client/worldmonitor/market/v1/service_client';
 import { ResearchServiceClient } from '@/generated/client/worldmonitor/research/v1/service_client';
@@ -2426,10 +2427,19 @@ export class DataLoaderManager implements AppModule {
       }
 
       const keywordSpikeSignals = drainTrendingSignals();
-      const allSignals = [...signals, ...geoSignals, ...keywordSpikeSignals];
+      const coreSignals = [...signals, ...geoSignals];
+      const allSignals = [...coreSignals, ...keywordSpikeSignals];
       if (allSignals.length > 0) {
         addToSignalHistory(allSignals);
-        if (this.shouldShowIntelligenceNotifications()) this.ctx.signalModal?.show(allSignals);
+      }
+      // Trending keyword spikes → top-right toast + notification bell (not the modal)
+      for (const spike of keywordSpikeSignals) {
+        showShellNotification(spike.title, 'info', 7000, 'top');
+        this.ctx.notificationCenter?.addTrendingSpike(spike);
+      }
+      // Core intelligence signals → signal modal as before
+      if (coreSignals.length > 0 && this.shouldShowIntelligenceNotifications()) {
+        this.ctx.signalModal?.show(coreSignals);
       }
     } catch (error) {
       console.error('[App] Correlation analysis failed:', error);

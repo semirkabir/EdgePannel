@@ -240,10 +240,6 @@ export const THEME_LAYER_OVERRIDES: Partial<Record<string, ThemeLayerOverride>> 
       { match: 'bridge', type: 'line', property: 'line-color', value: '#363636' },
       // Rail
       { match: 'rail', type: 'line', property: 'line-color', value: '#333333' },
-      // Admin / political boundaries
-      { match: 'admin', type: 'line', property: 'line-color', value: '#999999' },
-      { match: 'boundary', type: 'line', property: 'line-color', value: '#999999' },
-      { match: 'state', type: 'line', property: 'line-color', value: '#666666' },
       // All text labels → white on black halo
       { match: '', type: 'symbol', property: 'text-color', value: '#d8d8d8' },
       { match: '', type: 'symbol', property: 'text-halo-color', value: '#000000' },

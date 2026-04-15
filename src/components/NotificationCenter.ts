@@ -444,6 +444,23 @@ export class NotificationCenter {
     }
   }
 
+  /* ---- public API for trending spikes ---- */
+
+  public addTrendingSpike(signal: CorrelationSignal): void {
+    const id = `trend-${signal.id}`;
+    const item: NotificationItem = {
+      id,
+      kind: 'finding',
+      title: signal.title,
+      detail: signal.description?.slice(0, 120) || '',
+      severity: signal.confidence >= 0.7 ? 'high' : signal.confidence >= 0.5 ? 'medium' : 'low',
+      timestamp: signal.timestamp.getTime(),
+      read: false,
+      originalSignal: signal,
+    };
+    this.addItem(item);
+  }
+
   /* ---- items ---- */
 
   private addItem(item: NotificationItem): void {
