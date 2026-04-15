@@ -23,6 +23,12 @@ import {
   CentralBankRenderer,
   CommodityHubRenderer,
 } from '@/components/entity-detail/renderers/financial-center';
+import { GulfInvestmentRenderer } from '@/components/entity-detail/renderers/gulf-investment';
+import { MineralRenderer } from '@/components/entity-detail/renderers/mineral';
+import { CommodityPortRenderer } from '@/components/entity-detail/renderers/commodity-port';
+import { GpsJammingRenderer } from '@/components/entity-detail/renderers/gps-jamming';
+import { CiiCountryRenderer } from '@/components/entity-detail/renderers/cii-country';
+import { GovernanceCountryRenderer } from '@/components/entity-detail/renderers/governance-country';
 import { TechHQClusterRenderer, TechHQRenderer } from '@/components/entity-detail/renderers/tech-hq';
 import { AcceleratorRenderer } from '@/components/entity-detail/renderers/accelerator';
 import { TechEventClusterRenderer } from '@/components/entity-detail/renderers/tech-event-cluster';
@@ -133,6 +139,11 @@ export class EntityIntelManager implements AppModule {
       financialCenter: new FinancialCenterRenderer(),
       centralBank: new CentralBankRenderer(),
       commodityHub: new CommodityHubRenderer(),
+      gulfInvestment: new GulfInvestmentRenderer(),
+      mineral: new MineralRenderer(),
+      commodityPort: new CommodityPortRenderer(),
+      gpsJamming: new GpsJammingRenderer(),
+      ciiCountry: new CiiCountryRenderer(),
       techHQ: new TechHQRenderer(),
       techHQCluster: new TechHQClusterRenderer(),
       accelerator: new AcceleratorRenderer(),
@@ -145,6 +156,7 @@ export class EntityIntelManager implements AppModule {
       apt: new APTGroupRenderer(),
       predictionMarket: new PredictionMarketRenderer(),
       article: new ArticleRenderer(),
+      governanceCountry: new GovernanceCountryRenderer(),
     };
   }
 

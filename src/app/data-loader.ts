@@ -478,7 +478,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT === 'full') tasks.push({ name: 'firms', task: runGuarded('firms', () => this.loadFirmsData()) });
     if (this.ctx.mapLayers.natural) tasks.push({ name: 'natural', task: runGuarded('natural', () => this.loadNatural()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
-    if (SITE_VARIANT !== 'happy' && !isDesktopRuntime() && this.ctx.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
+    if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.cables) tasks.push({ name: 'cables', task: runGuarded('cables', () => this.loadCableActivity()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.cables) tasks.push({ name: 'cableHealth', task: runGuarded('cableHealth', () => this.loadCableHealth()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.flights) tasks.push({ name: 'flights', task: runGuarded('flights', () => this.loadFlightDelays()) });
@@ -1684,9 +1684,13 @@ export class DataLoaderManager implements AppModule {
     try {
       const { disruptions, density } = await fetchAisSignals();
       const aisStatus = getAisStatus();
-      console.log('[Ships] Events:', { disruptions: disruptions.length, density: density.length, vessels: aisStatus.vessels });
+      console.log('[Ships] Events:', { disruptions: disruptions.length, density: density.length, vessels: aisStatus.vessels, connected: aisStatus.connected });
       this.ctx.map?.setAisData(disruptions, density);
       this.ctx.map?.enableAisLiveTracking();
+      setTimeout(() => {
+        const afterStatus = getAisStatus();
+        console.log('[Ships] After live tracking enabled:', { vessels: afterStatus.vessels, connected: afterStatus.connected });
+      }, 5000);
       signalAggregator.ingestAisDisruptions(disruptions);
       ingestAisDisruptionsForCII(disruptions);
       this.refreshCiiAndBrief();
@@ -1970,6 +1974,19 @@ export class DataLoaderManager implements AppModule {
       if (governanceScores.status === 'fulfilled' && governanceScores.value?.length) {
         ingestGovernanceBaselines(governanceScores.value);
         console.debug('[DataLoader] Governance baselines loaded:', governanceScores.value.length, 'countries');
+
+        // Push governance scores to map for choropleth rendering
+        const { iso3ToIso2Code } = await import('@/services/country-geometry');
+        const govMapScores = governanceScores.value
+          .map(s => {
+            const code = iso3ToIso2Code(s.countryCode) ?? s.countryCode;
+            if (!code) return null;
+            const idx = s.governanceIndex;
+            const level = idx >= 80 ? 'excellent' : idx >= 60 ? 'good' : idx >= 40 ? 'moderate' : idx >= 20 ? 'weak' : 'failing';
+            return { code, index: idx, level };
+          })
+          .filter((s): s is NonNullable<typeof s> => s != null);
+        this.ctx.map?.setGovernanceScores(govMapScores);
       }
       if (vulnerabilityData.status === 'fulfilled' && vulnerabilityData.value?.length) {
         ingestEconomicVulnerability(vulnerabilityData.value);

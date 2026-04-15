@@ -485,6 +485,10 @@ export class DeckGLMap {
   private ciiScoresMap: Map<string, { score: number; level: string }> = new Map();
   private ciiScoresVersion = 0;
 
+  // Governance choropleth data
+  private governanceScoresMap: Map<string, { index: number; level: string }> = new Map();
+  private governanceScoresVersion = 0;
+
   // Country highlight state
   private countryGeoJsonLoaded = false;
   private countryHoverSetup = false;
@@ -1689,6 +1693,11 @@ export class DeckGLMap {
     if (mapLayers.ciiChoropleth) {
       const ciiLayer = this.createCIIChoroplethLayer();
       if (ciiLayer) layers.push(ciiLayer);
+    }
+    // Governance Quality choropleth
+    if (mapLayers.governanceChoropleth) {
+      const govLayer = this.createGovernanceChoroplethLayer();
+      if (govLayer) layers.push(govLayer);
     }
     // Phase 8: Species recovery zones
     if (mapLayers.speciesRecovery && this.speciesRecoveryZones.length > 0) {
@@ -3438,6 +3447,40 @@ export class DeckGLMap {
     });
   }
 
+  private static readonly GOV_LEVEL_COLORS: Record<string, [number, number, number, number]> = {
+    excellent: [30, 140, 50, 130],
+    good:      [80, 180, 80, 125],
+    moderate:  [220, 200, 50, 135],
+    weak:      [230, 120, 30, 145],
+    failing:   [180, 30, 20, 160],
+  };
+
+  private static readonly GOV_LEVEL_HEX: Record<string, string> = {
+    excellent: '#16a34a', good: '#22c55e', moderate: '#eab308', weak: '#f59e0b', failing: '#dc2626',
+  };
+
+  private createGovernanceChoroplethLayer(): GeoJsonLayer | null {
+    if (!this.countriesGeoJsonData || this.governanceScoresMap.size === 0) return null;
+    const scores = this.governanceScoresMap;
+    const colors = DeckGLMap.GOV_LEVEL_COLORS;
+    return new GeoJsonLayer({
+      id: 'governance-choropleth-layer',
+      data: this.countriesGeoJsonData,
+      filled: true,
+      stroked: true,
+      getFillColor: (feature: { properties?: Record<string, unknown> }) => {
+        const code = feature.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const entry = code ? scores.get(code) : undefined;
+        return entry ? (colors[entry.level] ?? [0, 0, 0, 0]) : [0, 0, 0, 0];
+      },
+      getLineColor: [80, 80, 80, 80] as [number, number, number, number],
+      getLineWidth: 1,
+      lineWidthMinPixels: 0.5,
+      pickable: true,
+      updateTriggers: { getFillColor: [this.governanceScoresVersion] },
+    });
+  }
+
   private createSpeciesRecoveryLayer(): IconLayer {
     return new IconLayer({
       id: 'species-recovery-layer',
@@ -3684,6 +3727,14 @@ export class DeckGLMap {
         if (!ciiEntry) return { html: `<div class="deckgl-tooltip"><strong>${text(ciiName)}</strong><br/><span style="opacity:.7">No CII data</span></div>` };
         const levelColor = DeckGLMap.CII_LEVEL_HEX[ciiEntry.level] ?? '#888';
         return { html: `<div class="deckgl-tooltip"><strong>${text(ciiName)}</strong><br/>CII: <span style="color:${levelColor};font-weight:600">${ciiEntry.score}/100</span><br/><span style="text-transform:capitalize;opacity:.7">${text(ciiEntry.level)}</span></div>` };
+      }
+      case 'governance-choropleth-layer': {
+        const govName = obj.properties?.name ?? 'Unknown';
+        const govCode = obj.properties?.['ISO3166-1-Alpha-2'];
+        const govEntry = govCode ? this.governanceScoresMap.get(govCode as string) : undefined;
+        if (!govEntry) return { html: `<div class="deckgl-tooltip"><strong>${text(govName)}</strong><br/><span style="opacity:.7">No governance data</span></div>` };
+        const govColor = DeckGLMap.GOV_LEVEL_HEX[govEntry.level] ?? '#888';
+        return { html: `<div class="deckgl-tooltip"><strong>${text(govName)}</strong><br/>Governance: <span style="color:${govColor};font-weight:600">${govEntry.index.toFixed(1)}/100</span><br/><span style="text-transform:capitalize;opacity:.7">${text(govEntry.level)}</span></div>` };
       }
       case 'species-recovery-layer': {
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.commonName)}</strong><br/>${text(obj.recoveryZone?.name ?? obj.region)}<br/><span style="opacity:.7">Status: ${text(obj.recoveryStatus)}</span></div>` };
@@ -3988,6 +4039,7 @@ export class DeckGLMap {
       'ais-disruptions-layer': 'ais',
       'ais-vessels-layer': 'aisVessel',
       'gps-jamming-layer': 'gpsJamming',
+      'cii-choropleth-layer': 'ciiCountry',
       'cable-advisories-layer': 'cable-advisory',
       'repair-ships-layer': 'repair-ship',
       'gulf-investments-layer': 'gulfInvestment',
@@ -4001,6 +4053,7 @@ export class DeckGLMap {
       'ucdp-events-layer': 'ucdpEvent',
       'species-recovery-layer': 'speciesRecovery',
       'renewable-installations-layer': 'renewableInstallation',
+      'governance-choropleth-layer': 'governanceCountry',
     };
 
     const popupType = layerToPopupType[layerId];
@@ -4161,6 +4214,7 @@ export class DeckGLMap {
       'ais-disruptions-layer': 'ais',
       'ais-vessels-layer': 'aisVessel',
       'gps-jamming-layer': 'gpsJamming',
+      'cii-choropleth-layer': 'ciiCountry',
       'cable-advisories-layer': 'cable-advisory',
       'repair-ships-layer': 'repair-ship',
       'mining-sites-layer': 'mineral',
@@ -4174,6 +4228,7 @@ export class DeckGLMap {
       'ucdp-events-layer': 'ucdpEvent',
       'species-recovery-layer': 'speciesRecovery',
       'renewable-installations-layer': 'renewableInstallation',
+      'governance-choropleth-layer': 'governanceCountry',
     };
 
     if (layerId.startsWith('marketplace-layer-')) {
@@ -4239,6 +4294,9 @@ export class DeckGLMap {
       if (cluster.count > 1) return;
     }
 
+    // For choropleth layers, zoom to a reasonable country level, not street level
+    const isChoropleth = layerId === 'cii-choropleth-layer' || layerId === 'governance-choropleth-layer';
+
     let lat: number | null = null;
     let lon: number | null = null;
 
@@ -4273,7 +4331,7 @@ export class DeckGLMap {
     if (lat != null && lon != null) {
       this.maplibreMap.flyTo({
         center: [lon, lat],
-        zoom: 12,
+        zoom: isChoropleth ? 5 : 12,
         duration: 800,
       });
     }
@@ -5941,6 +5999,12 @@ export class DeckGLMap {
     this.ciiScoresMap = new Map(scores.map(s => [s.code, { score: s.score, level: s.level }]));
     this.ciiScoresVersion++;
     this.render('ciiChoropleth');
+  }
+
+  public setGovernanceScores(scores: Array<{ code: string; index: number; level: string }>): void {
+    this.governanceScoresMap = new Map(scores.map(s => [s.code, { index: s.index, level: s.level }]));
+    this.governanceScoresVersion++;
+    this.render('governanceChoropleth');
   }
 
   public setSpeciesRecoveryZones(species: SpeciesRecovery[]): void {

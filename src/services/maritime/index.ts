@@ -203,8 +203,12 @@ async function fetchRawRelaySnapshot(includeCandidates: boolean, signal?: AbortS
 
 async function fetchSnapshotPayload(includeCandidates: boolean, signal?: AbortSignal): Promise<unknown> {
   if (includeCandidates) {
-    // Candidate reports are only available on the raw relay endpoint.
-    return fetchRawRelaySnapshot(true, signal);
+    try {
+      return await fetchRawRelaySnapshot(true, signal);
+    } catch (candidateError) {
+      console.warn('[AIS] Candidate reports fetch failed, falling back to non-candidate snapshot:', (candidateError as Error).message);
+      // Fall through to non-candidate path which has proto fallback
+    }
   }
 
   try {
@@ -218,7 +222,7 @@ async function fetchSnapshotPayload(includeCandidates: boolean, signal?: AbortSi
 
     if (response.snapshot) {
       return {
-        sequence: 0, // Proto payload does not include relay sequence.
+        sequence: 0,
         status: { connected: true, vessels: 0, messages: 0 },
         disruptions: response.snapshot.disruptions.map(toDisruptionEvent),
         density: response.snapshot.densityZones.map(toDensityZone),
@@ -316,10 +320,13 @@ async function pollSnapshot(force = false, signal?: AbortSignal): Promise<void> 
     lastPollAt = Date.now();
 
     if (includeCandidates) {
-      if (snapshot.sequence > lastSequence) {
-        emitCandidateReports(snapshot.candidateReports);
-        lastSequence = snapshot.sequence;
-      } else if (lastSequence === 0) {
+      if (snapshot.sequence > lastSequence || lastSequence === 0) {
+        const count = snapshot.candidateReports?.length ?? 0;
+        if (count > 0) {
+          console.debug(`[AIS] Received ${count} vessel positions (seq ${snapshot.sequence})`);
+        } else {
+          console.debug(`[AIS] No candidate reports in snapshot (seq ${snapshot.sequence})`);
+        }
         emitCandidateReports(snapshot.candidateReports);
         lastSequence = snapshot.sequence;
       }
@@ -389,6 +396,10 @@ export function getAisStatus(): { connected: boolean; vessels: number; messages:
     vessels: latestStatus.vessels,
     messages: latestStatus.messages,
   };
+}
+
+export function getAisVesselCount(): number {
+  return positionCallbacks.size > 0 ? latestStatus.vessels : 0;
 }
 
 export async function fetchAisSignals(): Promise<{ disruptions: AisDisruptionEvent[]; density: AisDensityZone[] }> {

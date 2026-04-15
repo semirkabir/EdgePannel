@@ -575,6 +575,10 @@ export class MapContainer {
     if (this.useDeckGL) { this.deckGLMap?.setCIIScores(scores); }
   }
 
+  public setGovernanceScores(scores: Array<{ code: string; index: number; level: string }>): void {
+    if (this.useDeckGL) { this.deckGLMap?.setGovernanceScores(scores); }
+  }
+
   public setSpeciesRecoveryZones(species: SpeciesRecovery[]): void {
     this.cachedSpeciesRecovery = species;
     if (this.useDeckGL) {

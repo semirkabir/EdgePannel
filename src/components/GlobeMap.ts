@@ -360,7 +360,7 @@ interface GlobePath {
 interface GlobePolygon {
   coords: number[][][];
   name: string;
-  _kind: 'cii' | 'conflict';
+  _kind: 'cii' | 'conflict' | 'governance';
   level?: string;
   score?: number;
 
@@ -462,6 +462,7 @@ export class GlobeMap {
   private cableFaultIds = new Set<string>();
   private cableDegradedIds = new Set<string>();
   private ciiScoresMap: Map<string, { score: number; level: string }> = new Map();
+  private governanceScoresMap: Map<string, { index: number; level: string }> = new Map();
   private countriesGeoData: FeatureCollection<Geometry> | null = null;
 
   // Current layers state
@@ -720,26 +721,34 @@ export class GlobeMap {
       .polygonGeoJsonGeometry((d: GlobePolygon) => ({ type: 'Polygon', coordinates: d.coords }))
       .polygonCapColor((d: GlobePolygon) => {
         if (d._kind === 'cii') return GlobeMap.CII_GLOBE_COLORS[d.level!] ?? 'rgba(0,0,0,0)';
+        if (d._kind === 'governance') {
+          const GOV_CAP: Record<string, string> = { excellent: 'rgba(30,140,50,0.7)', good: 'rgba(80,180,80,0.65)', moderate: 'rgba(220,200,50,0.65)', weak: 'rgba(230,120,30,0.7)', failing: 'rgba(180,30,20,0.75)' };
+          return GOV_CAP[d.level!] ?? 'rgba(0,0,0,0)';
+        }
         if (d._kind === 'conflict') return GlobeMap.CONFLICT_CAP[d.intensity!] ?? GlobeMap.CONFLICT_CAP.low;
         return 'rgba(255,60,60,0.15)';
       })
       .polygonSideColor((d: GlobePolygon) => {
         if (d._kind === 'cii') return 'rgba(0,0,0,0)';
+        if (d._kind === 'governance') return 'rgba(0,0,0,0)';
         if (d._kind === 'conflict') return GlobeMap.CONFLICT_SIDE[d.intensity!] ?? GlobeMap.CONFLICT_SIDE.low;
         return 'rgba(255,60,60,0.08)';
       })
       .polygonStrokeColor((d: GlobePolygon) => {
         if (d._kind === 'cii') return 'rgba(80,80,80,0.3)';
+        if (d._kind === 'governance') return 'rgba(80,80,80,0.3)';
         if (d._kind === 'conflict') return GlobeMap.CONFLICT_STROKE[d.intensity!] ?? GlobeMap.CONFLICT_STROKE.low;
         return '#ff4444';
       })
       .polygonAltitude((d: GlobePolygon) => {
         if (d._kind === 'cii') return 0.002;
+        if (d._kind === 'governance') return 0.002;
         if (d._kind === 'conflict') return GlobeMap.CONFLICT_ALT[d.intensity!] ?? GlobeMap.CONFLICT_ALT.low;
         return 0.005;
       })
       .polygonLabel((d: GlobePolygon) => {
         if (d._kind === 'cii') return `<b>${escapeHtml(d.name)}</b><br/>CII: ${d.score}/100 (${escapeHtml(d.level ?? '')})`;
+        if (d._kind === 'governance') return `<b>${escapeHtml(d.name)}</b><br/>Governance: ${d.score?.toFixed(1)}/100 (${escapeHtml(d.level ?? '')})`;
         if (d._kind === 'conflict') {
           let label = `<b>${escapeHtml(d.name)}</b>`;
           if (d.parties?.length) label += `<br/>Parties: ${d.parties.map(p => escapeHtml(p)).join(', ')}`;
@@ -1078,6 +1087,8 @@ export class GlobeMap {
         accelerator: 'accelerator',
         techHQ: 'techHQ',
         newsLocation: 'newsLocation',
+        cii: 'ciiCountry',
+        governance: 'governanceCountry',
       };
       const popupType = kindToPopupType[d._kind];
       if (popupType) {
@@ -1110,6 +1121,7 @@ export class GlobeMap {
       gulfInvestment: 'gulfInvestment', startupHub: 'startupHub',
       accelerator: 'accelerator', techHQ: 'techHQ',
       newsLocation: 'newsLocation', datacenterCluster: 'datacenterCluster',
+      cii: 'ciiCountry', governance: 'governanceCountry',
     };
     const popupType = kindToPopupType[d._kind];
     if (!popupType) return;
@@ -1529,6 +1541,21 @@ export class GlobeMap {
       }
     }
 
+    if (this.layers.governanceChoropleth && this.countriesGeoData) {
+      for (const feat of this.countriesGeoData.features) {
+        const code = feat.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const entry = code ? this.governanceScoresMap.get(code) : undefined;
+        if (!entry || !code) continue;
+        const geom = feat.geometry;
+        if (!geom) continue;
+        const rings = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+        const name = (feat.properties?.name as string) ?? code;
+        for (const ring of rings) {
+          polys.push({ coords: ring, name, _kind: 'governance', level: entry.level, score: entry.index });
+        }
+      }
+    }
+
     (this.globe as any).polygonsData(polys);
   }
 
@@ -1536,6 +1563,11 @@ export class GlobeMap {
 
   public setCIIScores(scores: Array<{ code: string; score: number; level: string }>): void {
     this.ciiScoresMap = new Map(scores.map(s => [s.code, { score: s.score, level: s.level }]));
+    this.flushPolygons();
+  }
+
+  public setGovernanceScores(scores: Array<{ code: string; index: number; level: string }>): void {
+    this.governanceScoresMap = new Map(scores.map(s => [s.code, { index: s.index, level: s.level }]));
     this.flushPolygons();
   }
 

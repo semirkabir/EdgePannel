@@ -59,7 +59,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   cables: false,
   pipelines: false,
   hotspots: true,
-  ais: false,
+  ais: true,
   nuclear: true,
   irradiators: false,
   sanctions: true,
@@ -159,6 +159,7 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   tradeRoutes: false,
   iranAttacks: true,
   ciiChoropleth: false,
+  governanceChoropleth: false,
   dayNight: false,
   // Commodity variant layers (disabled in full variant)
   miningSites: false,
