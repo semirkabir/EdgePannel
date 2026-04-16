@@ -536,7 +536,7 @@ export class NewsPanel extends Panel {
         </div>
         <div class="item-title-row">
           <a class="item-title" href="${sanitizeUrl(item.link)}" target="_blank" rel="noopener" ${articleAttrs}>${escapeHtml(item.title)}</a>
-          ${articleAttrs ? `<button class="item-expand-btn" type="button" aria-label="Open article in right panel" title="Open in right panel" ${articleAttrs}>↗</button>` : ''}
+          ${articleAttrs ? `<button class="item-expand-btn" type="button" aria-label="Open article in right panel" title="Open in right panel" ${articleAttrs}></button>` : ''}
         </div>
         <div class="item-time">
           ${formatTime(item.pubDate)}
@@ -766,7 +766,7 @@ export class NewsPanel extends Panel {
         </div>
         <div class="item-title-row">
           <a class="item-title" href="${sanitizeUrl(cluster.primaryLink)}" target="_blank" rel="noopener" ${articleAttrs}>${linkifyTickers(escapeHtml(cluster.primaryTitle))}</a>
-          ${articleAttrs ? `<button class="item-expand-btn" type="button" aria-label="Open article in right panel" title="Open in right panel" ${articleAttrs}>↗</button>` : ''}
+          ${articleAttrs ? `<button class="item-expand-btn" type="button" aria-label="Open article in right panel" title="Open in right panel" ${articleAttrs}></button>` : ''}
         </div>
         <div class="cluster-meta">
           <span class="top-sources">${topSourcesHtml}</span>

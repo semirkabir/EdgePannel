@@ -341,6 +341,53 @@ export class UnifiedSettings {
     if (this.activeTab === 'profile') {
       void this.renderProfileTab();
     }
+
+    this.setupModalScrollButtons();
+  }
+
+  private setupModalScrollButtons(): void {
+    const modal = this.overlay.querySelector<HTMLElement>('.unified-settings-modal');
+    if (!modal) return;
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const makeChevron = (direction: 'up' | 'down'): SVGElement => {
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('width', '16'); svg.setAttribute('height', '16');
+      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2.5');
+      svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+      const poly = document.createElementNS(NS, 'polyline');
+      poly.setAttribute('points', direction === 'up' ? '18 15 12 9 6 15' : '6 9 12 15 18 9');
+      svg.appendChild(poly);
+      return svg;
+    };
+
+    const topBtn = document.createElement('button');
+    topBtn.className = 'scroll-to-top-btn';
+    topBtn.setAttribute('aria-label', 'Scroll to top');
+    topBtn.appendChild(makeChevron('up'));
+
+    const bottomBtn = document.createElement('button');
+    bottomBtn.className = 'scroll-to-bottom-btn';
+    bottomBtn.setAttribute('aria-label', 'Scroll to bottom');
+    bottomBtn.appendChild(makeChevron('down'));
+
+    modal.appendChild(topBtn);
+    modal.appendChild(bottomBtn);
+
+    const update = (): void => {
+      const { scrollTop, scrollHeight, clientHeight } = modal;
+      const scrollable = scrollHeight > clientHeight + 60;
+      topBtn.classList.toggle('visible', scrollTop > 60);
+      bottomBtn.classList.toggle('visible', scrollable && scrollTop < scrollHeight - clientHeight - 60);
+    };
+
+    modal.addEventListener('scroll', update, { passive: true });
+    new ResizeObserver(update).observe(modal);
+    update();
+
+    topBtn.addEventListener('click', () => modal.scrollTo({ top: 0, behavior: 'smooth' }));
+    bottomBtn.addEventListener('click', () => modal.scrollTo({ top: modal.scrollHeight, behavior: 'smooth' }));
   }
 
   private switchTab(tab: TabId): void {

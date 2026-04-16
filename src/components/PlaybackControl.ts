@@ -185,6 +185,7 @@ export class PlaybackControl {
       this.pausePlay();
       const idx = parseInt(slider.value);
       this.currentIndex = idx;
+      this.updateProgressBar(); // instant visual feedback before snapshot loads
       void this.loadSnapshot(idx);
     });
 
@@ -195,11 +196,26 @@ export class PlaybackControl {
       });
     });
 
-    // Speed buttons
+    // Speed buttons (panel)
     this.panel.querySelectorAll('.playback-speed-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const speed = parseFloat((btn as HTMLElement).dataset.speed!);
         this.setSpeed(speed);
+      });
+    });
+
+    // Banner controls — wired up after DOM is ready (banner lives outside this component)
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.playback-banner-speed-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const speed = parseFloat((btn as HTMLElement).dataset.bannerSpeed!);
+          this.setSpeed(speed);
+        });
+      });
+      document.getElementById('playbackBannerLiveBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.goLive();
       });
     });
   }
@@ -230,7 +246,8 @@ export class PlaybackControl {
   private closePanel(): void {
     this.cancelClose();
     if (!this.isPanelOpen) return;
-    this.pausePlay();
+    // Don't pause when closing the panel during active playback — let it run in the background
+    if (!this.isPlaybackMode) this.pausePlay();
     this.panel.classList.add('hidden');
     this.toggleButton.setAttribute('aria-expanded', 'false');
     this.isPanelOpen = false;
@@ -300,6 +317,9 @@ export class PlaybackControl {
     if (!this.element?.isConnected) return;
     this.onSnapshotChange?.(snapshot);
     document.body.classList.add('playback-mode');
+    document.getElementById('shellGuidanceStrip')?.classList.add('hidden');
+    this.updateProgressBar();
+    document.getElementById('localDevApiNotice')?.style.setProperty('display', 'none', 'important');
     this.panel.querySelector('.playback-live-btn')?.classList.remove('active');
   }
 
@@ -334,8 +354,12 @@ export class PlaybackControl {
 
   private setSpeed(speed: number): void {
     this.playbackSpeed = speed;
+    // Sync both panel and banner speed buttons
     this.panel.querySelectorAll('.playback-speed-btn').forEach(btn => {
       btn.classList.toggle('active', parseFloat((btn as HTMLElement).dataset.speed!) === speed);
+    });
+    document.querySelectorAll('.playback-banner-speed-btn').forEach(btn => {
+      btn.classList.toggle('active', parseFloat((btn as HTMLElement).dataset.bannerSpeed!) === speed);
     });
     // Restart interval at new speed if currently playing
     if (this.isPlaying) {
@@ -354,6 +378,8 @@ export class PlaybackControl {
     this.updateTimeDisplay();
     this.onSnapshotChange?.(null);
     document.body.classList.remove('playback-mode');
+    document.documentElement.style.removeProperty('--playback-progress');
+    document.getElementById('localDevApiNotice')?.style.removeProperty('display');
     this.panel.querySelector('.playback-live-btn')?.classList.add('active');
   }
 
@@ -423,6 +449,13 @@ export class PlaybackControl {
     (histState.querySelector('.playback-ts-main') as HTMLElement).textContent = formatTimestamp(ts);
     (histState.querySelector('.playback-ts-relative') as HTMLElement).textContent = formatRelative(ts);
     this.updateBanner(ts);
+  }
+
+  private updateProgressBar(): void {
+    const pct = this.timestamps.length > 1
+      ? (this.currentIndex / (this.timestamps.length - 1)) * 100
+      : 0;
+    document.documentElement.style.setProperty('--playback-progress', `${pct.toFixed(2)}%`);
   }
 
   private updateBanner(ts: number | null): void {

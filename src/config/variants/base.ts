@@ -14,7 +14,7 @@ export const REFRESH_INTERVALS = {
   feeds: 5 * 60 * 1000,         // 5 min — RSS sources refresh every 5-10 min
   markets: 1 * 60 * 1000,       // 1 min — near real-time prices
   crypto: 1 * 60 * 1000,        // 1 min — crypto is highly volatile
-  predictions: 5 * 60 * 1000,
+  predictions: 24 * 60 * 60 * 1000, // 24h — markets update once daily; circuit breaker caches the full pool
   ais: 5 * 60 * 1000,           // 5 min — vessel positions
   pizzint: 5 * 60 * 1000,
   natural: 10 * 60 * 1000,      // 10 min — earthquake/natural event feeds
@@ -40,7 +40,7 @@ export const REFRESH_INTERVALS_ANON = {
   feeds: 30 * 60 * 1000,
   markets: 15 * 60 * 1000,
   crypto: 15 * 60 * 1000,
-  predictions: 30 * 60 * 1000,
+  predictions: 24 * 60 * 60 * 1000, // 24h — same pool, anon or logged-in
   ais: 30 * 60 * 1000,
   pizzint: 60 * 60 * 1000,
   natural: 60 * 60 * 1000,

@@ -122,6 +122,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.content = content;
     this.closeButton = closeButton;
 
+    this.setupScrollButtons();
     this.closeButton.addEventListener('click', () => this.hide());
 
     this.panel.addEventListener('click', (e) => {
@@ -1120,6 +1121,32 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       .filter((el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true' && el.offsetParent !== null);
   }
 
+  private setupScrollButtons(): void {
+    const scrollUp = this.panel.querySelector<HTMLButtonElement>('#cdp-scroll-top');
+    const scrollDown = this.panel.querySelector<HTMLButtonElement>('#cdp-scroll-bottom');
+    if (!scrollUp || !scrollDown) return;
+
+    const update = (): void => {
+      const { scrollTop, scrollHeight, clientHeight } = this.content;
+      const atTop = scrollTop < 80;
+      const atBottom = scrollTop >= scrollHeight - clientHeight - 80;
+      scrollUp.classList.toggle('cdp-scroll-btn--visible', !atTop);
+      scrollDown.classList.toggle('cdp-scroll-btn--visible', !atBottom);
+    };
+
+    this.content.addEventListener('scroll', update, { passive: true });
+    // Re-evaluate whenever new content is rendered
+    const observer = new ResizeObserver(update);
+    observer.observe(this.content);
+
+    scrollUp.addEventListener('click', () => {
+      this.content.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    scrollDown.addEventListener('click', () => {
+      this.content.scrollTo({ top: this.content.scrollHeight, behavior: 'smooth' });
+    });
+  }
+
   private getOrCreatePanel(): HTMLElement {
     const existing = document.getElementById('country-deep-dive-panel');
     if (existing) return existing;
@@ -1136,7 +1163,18 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
 
     const content = this.el('div', 'panel-content');
     content.id = 'deep-dive-content';
-    shell.append(close, content);
+
+    const scrollUp = this.el('button', 'cdp-scroll-btn cdp-scroll-btn--top') as HTMLButtonElement;
+    scrollUp.id = 'cdp-scroll-top';
+    scrollUp.setAttribute('aria-label', 'Scroll to top');
+    scrollUp.textContent = '↑';
+
+    const scrollDown = this.el('button', 'cdp-scroll-btn cdp-scroll-btn--bottom') as HTMLButtonElement;
+    scrollDown.id = 'cdp-scroll-bottom';
+    scrollDown.setAttribute('aria-label', 'Scroll to bottom');
+    scrollDown.textContent = '↓';
+
+    shell.append(close, content, scrollUp, scrollDown);
     panel.append(shell);
     document.body.append(panel);
     return panel;

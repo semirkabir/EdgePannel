@@ -704,7 +704,7 @@ export class EventHandlerManager implements AppModule {
   private setupShellGuidance(): void {
     const strip = document.getElementById('shellGuidanceStrip');
     if (!strip) return;
-    const shouldHide = this.ctx.isMobile || isDesktopOnboardingDismissed();
+    const shouldHide = this.ctx.isMobile || isDesktopOnboardingDismissed() || document.body.classList.contains('playback-mode');
     strip.classList.toggle('hidden', shouldHide);
     document.getElementById('shellGuidanceDismiss')?.addEventListener('click', () => {
       setDesktopOnboardingDismissed(true);

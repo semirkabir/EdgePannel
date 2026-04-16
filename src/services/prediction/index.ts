@@ -79,7 +79,9 @@ const DIRECT_RAILWAY_POLY_URL = wsRelayUrl
 const isLocalhostRuntime = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const PROXY_STRIP_KEYS = new Set(['end_date_min', 'active', 'archived']);
 
-const breaker = createCircuitBreaker<PredictionMarket[]>({ name: 'Polymarket', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
+// Cache for 24 hours — markets update once a day; IndexedDB persistence means
+// the pool survives page reloads and is reused until it expires.
+const breaker = createCircuitBreaker<PredictionMarket[]>({ name: 'Polymarket', cacheTtlMs: 24 * 60 * 60 * 1000, persistCache: true });
 
 // Sebuf client for strategy 4
 const client = new PredictionServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
@@ -444,7 +446,7 @@ function extractMarketSlug(value?: string): string | undefined {
   return undefined;
 }
 
-async function fetchEventsByTag(tag: string, limit = 30): Promise<PolymarketEvent[]> {
+async function fetchEventsByTag(tag: string, limit = 50): Promise<PolymarketEvent[]> {
   const response = await polyFetch('events', {
     tag_slug: tag,
     closed: 'false',
@@ -468,7 +470,7 @@ async function fetchTopMarkets(): Promise<PredictionMarket[]> {
     end_date_min: new Date().toISOString(),
     order: 'volume',
     ascending: 'false',
-    limit: '100',
+    limit: '200',
   });
   if (!response.ok) return [];
   const data: PolymarketMarket[] = await response.json();
@@ -525,14 +527,21 @@ function normalizePredictionMarket(market: PredictionMarket): PredictionMarket {
   };
 }
 
+// Maximum pool size cached — the panel picks top-15 within the selected timeframe.
+// A large pool (150) is needed so short windows (1h, 6h) can still surface 15 results.
+const POOL_SIZE = 150;
+
 export async function fetchPredictions(): Promise<PredictionMarket[]> {
   return breaker.execute(async () => {
     // Strategy 1: Bootstrap hydration (zero network cost — data arrived with page load)
+    // Accept bootstrap data up to 2h old; the circuit breaker's 24h cache takes over
+    // for subsequent loads within the same day.
     const hydrated = getHydratedData('predictions') as BootstrapPredictionData | undefined;
-    if (hydrated && hydrated.fetchedAt && Date.now() - hydrated.fetchedAt < 20 * 60 * 1000) {
+    if (hydrated && hydrated.fetchedAt && Date.now() - hydrated.fetchedAt < 2 * 60 * 60 * 1000) {
       const variant = SITE_VARIANT === 'tech' ? hydrated.tech : hydrated.geopolitical;
       if (variant && variant.length > 0) {
-        return variant.map(normalizePredictionMarket).slice(0, 15);
+        // Return full hydrated pool — don't cap at 15 here; the panel filters by timeframe.
+        return variant.map(normalizePredictionMarket);
       }
     }
 
@@ -542,7 +551,7 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
       const rpcResults = await client.listPredictionMarkets({
         category: tags[0] ?? '',
         query: '',
-        pageSize: 50,
+        pageSize: POOL_SIZE,
         cursor: '',
       });
       if (rpcResults.markets && rpcResults.markets.length > 0) {
@@ -556,13 +565,14 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
             endDate: m.closesAt ? new Date(m.closesAt).toISOString() : undefined,
             slug: extractMarketSlug(m.url) || m.id,
           }))
-          .slice(0, 15);
+          .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
+          .slice(0, POOL_SIZE);
       }
     } catch { /* RPC failed, fall through to direct fetch */ }
 
-    // Strategy 3: Direct fan-out (legacy — only used when bootstrap + RPC both fail)
+    // Strategy 3: Direct fan-out — fetch all configured tags in parallel.
     const tags = SITE_VARIANT === 'tech' ? TECH_TAGS : GEOPOLITICAL_TAGS;
-    const eventResults = await Promise.all(tags.map(tag => fetchEventsByTag(tag, 20)));
+    const eventResults = await Promise.all(tags.map(tag => fetchEventsByTag(tag, 50)));
 
     const seen = new Set<string>();
     const markets: PredictionMarket[] = [];
@@ -575,7 +585,6 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
         if (isExcluded(event.title)) continue;
 
         const eventVolume = event.volume ?? 0;
-        if (eventVolume < 1000) continue;
 
         if (event.markets && event.markets.length > 0) {
           const activeCandidates = event.markets.filter(m =>
@@ -610,11 +619,12 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
       }
     }
 
-    if (markets.length < 15) {
+    // Pad with direct market fetch if the fan-out didn't return enough variety.
+    if (markets.length < POOL_SIZE) {
       const fallbackMarkets = await fetchTopMarkets();
       for (const m of fallbackMarkets) {
-        if (markets.length >= 20) break;
-        if (!markets.some(existing => existing.title === m.title)) {
+        if (markets.length >= POOL_SIZE) break;
+        if (!markets.some(existing => existing.slug === m.slug || existing.title === m.title)) {
           markets.push(m);
         }
       }
@@ -622,14 +632,10 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
 
     const result = markets
       .filter(m => !isExpired(m.endDate))
-      .filter(m => {
-        const discrepancy = Math.abs(m.yesPrice - 50);
-        return discrepancy > 5 || (m.volume && m.volume > 50000);
-      })
       .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
-      .slice(0, 15);
+      .slice(0, POOL_SIZE);
 
-    if (result.length === 0 && markets.length === 0) {
+    if (result.length === 0) {
       throw new Error('No markets returned — upstream may be down');
     }
 

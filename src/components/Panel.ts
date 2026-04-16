@@ -212,6 +212,8 @@ export class Panel {
   private freshnessEl: HTMLElement | null = null;
   private freshnessUnsubscribe: (() => void) | null = null;
   private lastFreshnessStatus: FreshnessStatus | null = null;
+  private nextUpdateCountdownTimer: ReturnType<typeof setInterval> | null = null;
+  private nextUpdateEndTime = 0;
 
   constructor(options: PanelOptions) {
     this.panelId = options.id;
@@ -702,6 +704,37 @@ export class Panel {
     this.freshnessUnsubscribe = dataFreshness.subscribe(update);
   }
 
+  private clearNextUpdateCountdown(): void {
+    if (this.nextUpdateCountdownTimer) {
+      clearInterval(this.nextUpdateCountdownTimer);
+      this.nextUpdateCountdownTimer = null;
+    }
+  }
+
+  private startNextUpdateCountdown(seconds: number): void {
+    this.clearNextUpdateCountdown();
+    if (!this.statusBadgeEl) return;
+
+    this.nextUpdateEndTime = Date.now() + seconds * 1000;
+
+    const fmt = (secs: number): string => {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    };
+
+    const tick = (): void => {
+      const remaining = Math.max(0, Math.round((this.nextUpdateEndTime - Date.now()) / 1000));
+      if (this.statusBadgeEl) {
+        this.statusBadgeEl.textContent = remaining > 0 ? fmt(remaining) : '↻';
+      }
+      if (remaining <= 0) this.clearNextUpdateCountdown();
+    };
+
+    tick();
+    this.nextUpdateCountdownTimer = setInterval(tick, 1000);
+  }
+
   protected setDataBadge(state: 'live' | 'cached' | 'unavailable', detail?: string): void {
     if (!this.statusBadgeEl) return;
     this.lastBadgeState = state;
@@ -718,12 +751,14 @@ export class Panel {
     if (!isLoggedIn() && !getCurrentAuthState().loading) {
       if (state === 'live' || state === 'cached') {
         const timeSince = dataFreshness.getTimeSinceForPanel(this.panelId);
-        
+
         if (timeSince && timeSince !== '') {
+          // Real freshness timestamp available — stop any running countdown and show age
+          this.clearNextUpdateCountdown();
           this.statusBadgeEl.textContent = `updated ${timeSince}`;
-        } else {
-          // Show next refresh ETA (anonymous users have 10 min throttle)
-          this.statusBadgeEl.textContent = 'next update in 10m';
+        } else if (!this.nextUpdateCountdownTimer) {
+          // No freshness data yet — start a 10-minute countdown (anonymous throttle)
+          this.startNextUpdateCountdown(600);
         }
         this.statusBadgeEl.className = `panel-data-badge cached`;
         this.statusBadgeEl.style.display = 'inline-flex';
@@ -1040,6 +1075,7 @@ export class Panel {
   public destroy(): void {
     this.abortController.abort();
     this.clearRetryCountdown();
+    this.clearNextUpdateCountdown();
     if (this.freshnessUnsubscribe) {
       this.freshnessUnsubscribe();
       this.freshnessUnsubscribe = null;

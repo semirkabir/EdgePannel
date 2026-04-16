@@ -36,6 +36,9 @@ export class PredictionPanel extends Panel {
   private searchInput: HTMLInputElement | null = null;
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private searchVersion = 0;
+  private searchBar: HTMLElement | null = null;
+  private cacheTimestampEl: HTMLElement | null = null;
+  private lastFetchedAt = 0;
 
   private getTheme(title: string): string {
     const lower = title.toLowerCase();
@@ -54,15 +57,45 @@ export class PredictionPanel extends Panel {
       infoTooltip: t('components.prediction.infoTooltip'),
     });
 
+    // ── Search sub-header (sits below the panel header, always visible) ──
+    const searchBar = document.createElement('div');
+    searchBar.className = 'prediction-search-bar';
+    this.searchBar = searchBar;
+
     const searchWrap = document.createElement('label');
     searchWrap.className = 'prediction-panel-search';
     searchWrap.title = 'Search Polymarket markets';
-    searchWrap.innerHTML = '<span class="prediction-panel-search-icon" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>';
+
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'prediction-panel-search-icon';
+    searchIcon.setAttribute('aria-hidden', 'true');
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('width', '12');
+    svg.setAttribute('height', '12');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    const circle = document.createElementNS(svgNS, 'circle');
+    circle.setAttribute('cx', '11');
+    circle.setAttribute('cy', '11');
+    circle.setAttribute('r', '7');
+    const line = document.createElementNS(svgNS, 'line');
+    line.setAttribute('x1', '21');
+    line.setAttribute('y1', '21');
+    line.setAttribute('x2', '16.65');
+    line.setAttribute('y2', '16.65');
+    svg.append(circle, line);
+    searchIcon.appendChild(svg);
+    searchWrap.appendChild(searchIcon);
 
     const searchInput = document.createElement('input');
     searchInput.className = 'prediction-panel-search-input';
     searchInput.type = 'search';
-    searchInput.placeholder = 'Search Polymarket';
+    searchInput.placeholder = 'Search markets…';
     searchInput.setAttribute('aria-label', 'Search Polymarket markets');
     searchInput.setAttribute('autocomplete', 'off');
     searchInput.setAttribute('spellcheck', 'false');
@@ -71,13 +104,6 @@ export class PredictionPanel extends Panel {
     });
     searchWrap.appendChild(searchInput);
     this.searchInput = searchInput;
-
-    const anchor = this.header.querySelector('.panel-copy-btn, .panel-remove-btn, .panel-data-badge, .panel-count');
-    if (anchor) {
-      this.header.insertBefore(searchWrap, anchor);
-    } else {
-      this.header.appendChild(searchWrap);
-    }
 
     const tfSelect = document.createElement('select');
     tfSelect.className = 'prediction-timeframe';
@@ -114,12 +140,16 @@ export class PredictionPanel extends Panel {
       this.renderFilteredMarkets();
     }) as EventListener);
 
-    const headerAnchor = this.header.querySelector('.panel-copy-btn, .panel-remove-btn, .panel-data-badge, .panel-count');
-    if (headerAnchor) {
-      this.header.insertBefore(tfSelect, headerAnchor);
-    } else {
-      this.header.appendChild(tfSelect);
-    }
+    // Cache-age label — updated each time data arrives
+    const cacheTimestampEl = document.createElement('span');
+    cacheTimestampEl.className = 'prediction-cache-ts';
+    this.cacheTimestampEl = cacheTimestampEl;
+
+    searchBar.append(searchWrap, tfSelect);
+    // Insert between header and scrollable content
+    this.element.insertBefore(searchBar, this.content);
+    // Timestamp sits below the search bar row
+    this.element.insertBefore(cacheTimestampEl, this.content);
   }
 
   public setOnMarketClick(cb: (market: PredictionMarket) => void): void {
@@ -133,8 +163,29 @@ export class PredictionPanel extends Panel {
     return `$${volume.toFixed(0)}`;
   }
 
+  private updateCacheTimestamp(): void {
+    if (!this.cacheTimestampEl) return;
+    if (!this.lastFetchedAt) {
+      this.cacheTimestampEl.textContent = '';
+      return;
+    }
+    const diffMs = Date.now() - this.lastFetchedAt;
+    const diffH = Math.floor(diffMs / (60 * 60 * 1000));
+    const diffM = Math.floor((diffMs % (60 * 60 * 1000)) / 60_000);
+    let age: string;
+    if (diffH >= 1) age = `${diffH}h ago`;
+    else if (diffM >= 1) age = `${diffM}m ago`;
+    else age = 'just now';
+    const d = new Date(this.lastFetchedAt);
+    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    this.cacheTimestampEl.textContent = `Updated ${age} · refreshes daily`;
+    this.cacheTimestampEl.title = `Data fetched at ${timeStr}. Polymarket markets update once a day.`;
+  }
+
   public renderPredictions(data: PredictionMarket[]): void {
     this.allPredictions = [...data];
+    this.lastFetchedAt = Date.now();
+    this.updateCacheTimestamp();
     const activeQuery = this.searchInput?.value.trim() ?? '';
     if (activeQuery) {
       void this.runSearch(activeQuery);
@@ -158,9 +209,17 @@ export class PredictionPanel extends Panel {
     const top15 = [...filtered]
       .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
       .slice(0, 15);
-    this.renderMarketList(top15, top15.length === 0 && this.allPredictions.length > 0
-      ? `No markets closing within ${this.timeframe === '1h' ? '1 hour' : this.timeframe === '6h' ? '6 hours' : this.timeframe === '24h' ? '24 hours' : this.timeframe === '48h' ? '48 hours' : this.timeframe === '7d' ? '7 days' : 'all time'}`
-      : undefined);
+
+    let emptyMsg: string | undefined;
+    if (top15.length === 0 && this.allPredictions.length > 0) {
+      const windowLabel = this.timeframe === '1h' ? '1 hour'
+        : this.timeframe === '6h' ? '6 hours'
+        : this.timeframe === '24h' ? '24 hours'
+        : this.timeframe === '48h' ? '48 hours'
+        : this.timeframe === '7d' ? '7 days' : 'all time';
+      emptyMsg = `No markets closing within ${windowLabel} — try a wider timeframe`;
+    }
+    this.renderMarketList(top15, emptyMsg);
   }
 
   private renderMarketList(data: PredictionMarket[], emptyMessage?: string): void {
@@ -254,7 +313,7 @@ export class PredictionPanel extends Panel {
     }
     if (!query) {
       this.searchVersion++;
-      this.header.classList.remove('prediction-searching');
+      this.searchBar?.classList.remove('searching');
       this.renderFilteredMarkets();
       return;
     }
@@ -266,7 +325,7 @@ export class PredictionPanel extends Panel {
   private async runSearch(query: string): Promise<void> {
     const normalized = query.trim();
     if (!normalized) {
-      this.header.classList.remove('prediction-searching');
+      this.searchBar?.classList.remove('searching');
       this.renderFilteredMarkets();
       return;
     }
@@ -277,7 +336,7 @@ export class PredictionPanel extends Panel {
 
     if (normalized.length < 2) return;
 
-    this.header.classList.add('prediction-searching');
+    this.searchBar?.classList.add('searching');
     try {
       const liveMatches = await searchPredictions(normalized);
       if (version !== this.searchVersion) return;
@@ -296,7 +355,7 @@ export class PredictionPanel extends Panel {
       this.renderMarketList(localMatches, `Unable to search Polymarket for "${normalized}"`);
     } finally {
       if (version === this.searchVersion) {
-        this.header.classList.remove('prediction-searching');
+        this.searchBar?.classList.remove('searching');
       }
     }
   }

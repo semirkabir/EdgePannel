@@ -293,7 +293,7 @@ export class PanelLayoutManager implements AppModule {
           <span id="unifiedSettingsMount"></span>
         </div>
       </div>
-      <div class="shell-guidance-strip" id="shellGuidanceStrip" role="note">
+      <div class="shell-guidance-strip hidden" id="shellGuidanceStrip" role="note">
         <div class="shell-guidance-copy">
           <strong>Faster navigation:</strong> use Cmd/Ctrl+K to jump between regions, layers, and panels. Save your view, share it, or reset back to the default layout from the shell.
         </div>
@@ -315,6 +315,13 @@ export class PanelLayoutManager implements AppModule {
       <div class="playback-mode-banner" id="playbackModeBanner" role="status" aria-live="polite">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span class="playback-banner-text"><strong>HISTORICAL PLAYBACK</strong> &mdash; <span id="playbackBannerTime"></span><span class="playback-banner-sep"> &middot; </span><span id="playbackBannerRelative" class="playback-banner-relative"></span></span>
+        <div class="playback-banner-controls" id="playbackBannerControls">
+          <button class="playback-banner-speed-btn" data-banner-speed="0.5">½×</button>
+          <button class="playback-banner-speed-btn active" data-banner-speed="1">1×</button>
+          <button class="playback-banner-speed-btn" data-banner-speed="2">2×</button>
+          <button class="playback-banner-speed-btn" data-banner-speed="4">4×</button>
+          <button class="playback-banner-live-btn" id="playbackBannerLiveBtn">LIVE</button>
+        </div>
       </div>
       <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
       <nav class="mobile-menu" id="mobileMenu">
@@ -729,6 +736,17 @@ export class PanelLayoutManager implements AppModule {
       layers: this.ctx.mapLayers,
       timeRange: '7d',
     }, preferGlobe);
+
+    // Double-rAF: the first frame ends JS execution, the second fires after the
+    // browser has completed its first layout pass and paint. At that point the
+    // flex/grid chain resolves and mapContainer has its true pixel dimensions.
+    // Without this, MapLibre bakes the initial 0-height canvas into its projection
+    // matrix, causing vertical stretching until the user pans.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.ctx.map?.resize();
+      });
+    });
 
     this.ctx.map.initEscalationGetters();
     this.ctx.currentTimeRange = this.ctx.map.getTimeRange();
@@ -1356,35 +1374,85 @@ export class PanelLayoutManager implements AppModule {
   }
 
   private setupScrollToTopButtons(): void {
-    const createScrollBtn = (container: HTMLElement, scrollTarget: HTMLElement): void => {
-      const btn = document.createElement('button');
-      btn.className = 'scroll-to-top-btn';
-      btn.setAttribute('aria-label', 'Scroll to top');
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
+    const NS = 'http://www.w3.org/2000/svg';
+
+    const makeChevronSvg = (direction: 'up' | 'down'): SVGElement => {
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('width', '16'); svg.setAttribute('height', '16');
+      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2.5');
+      svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+      const poly = document.createElementNS(NS, 'polyline');
+      poly.setAttribute('points', direction === 'up' ? '18 15 12 9 6 15' : '6 9 12 15 18 9');
+      svg.appendChild(poly);
+      return svg;
+    };
+
+    // getTarget: resolves the correct scroll container at call time.
+    // In side layout, panelsGrid scrolls itself (overflow-y: auto).
+    // In bottom layout, mainContent is the outer scroll container.
+    const createScrollBtns = (container: HTMLElement, getTarget: () => HTMLElement): void => {
+      const topBtn = document.createElement('button');
+      topBtn.className = 'scroll-to-top-btn';
+      topBtn.setAttribute('aria-label', 'Scroll to top');
+      topBtn.appendChild(makeChevronSvg('up'));
+
+      const bottomBtn = document.createElement('button');
+      bottomBtn.className = 'scroll-to-bottom-btn';
+      bottomBtn.setAttribute('aria-label', 'Scroll to bottom');
+      bottomBtn.appendChild(makeChevronSvg('down'));
 
       container.style.position = 'relative';
-      container.appendChild(btn);
+      container.appendChild(topBtn);
+      container.appendChild(bottomBtn);
 
-      const updateVisibility = () => {
-        const scrolled = scrollTarget.scrollTop > 60;
-        btn.classList.toggle('visible', scrolled);
+      let currentTarget = getTarget();
+      const updateVisibility = (): void => {
+        const { scrollTop, scrollHeight, clientHeight } = currentTarget;
+        const scrolled = scrollTop > 60;
+        const atBottom = scrollTop >= scrollHeight - clientHeight - 60;
+        const scrollable = scrollHeight > clientHeight + 60;
+        topBtn.classList.toggle('visible', scrolled);
+        bottomBtn.classList.toggle('visible', scrollable && !atBottom);
       };
 
-      scrollTarget.addEventListener('scroll', updateVisibility, { passive: true });
+      // Re-attach scroll listener when layout switches change the target element
+      const attachToTarget = (): void => {
+        const next = getTarget();
+        if (next !== currentTarget) {
+          currentTarget.removeEventListener('scroll', updateVisibility);
+          currentTarget = next;
+          currentTarget.addEventListener('scroll', updateVisibility, { passive: true });
+        }
+        updateVisibility();
+      };
 
-      btn.addEventListener('click', () => {
-        scrollTarget.scrollTo({ top: 0, behavior: 'smooth' });
+      currentTarget.addEventListener('scroll', updateVisibility, { passive: true });
+      new ResizeObserver(attachToTarget).observe(container);
+      updateVisibility();
+
+      topBtn.addEventListener('click', () => {
+        getTarget().scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      bottomBtn.addEventListener('click', () => {
+        const t = getTarget();
+        t.scrollTo({ top: t.scrollHeight, behavior: 'smooth' });
       });
     };
 
-    // Right panel: button in panels-grid, scroll on main-content
     const panelsGrid = document.getElementById('panelsGrid');
     const mainContent = document.querySelector('.main-content') as HTMLElement | null;
-    if (panelsGrid && mainContent) createScrollBtn(panelsGrid, mainContent);
+    if (panelsGrid && mainContent) {
+      // Side layout: panelsGrid has overflow-y:auto and scrolls itself.
+      // Bottom layout: mainContent is the outer scroll container.
+      createScrollBtns(panelsGrid, () =>
+        mainContent.classList.contains('layout-side') ? panelsGrid : mainContent
+      );
+    }
 
-    // Bottom grid: button and scroll on the same element
+    // Bottom grid always scrolls itself
     const bottomGrid = document.getElementById('mapBottomGrid');
-    if (bottomGrid) createScrollBtn(bottomGrid, bottomGrid);
+    if (bottomGrid) createScrollBtns(bottomGrid, () => bottomGrid);
   }
 
   private setupLayoutToggle(): void {
@@ -2207,12 +2275,18 @@ export class PanelLayoutManager implements AppModule {
   initShellGuidanceAfterRender(): void {
     const strip = document.getElementById('shellGuidanceStrip');
     if (strip) {
-      const shouldHide = this.ctx.isMobile || localStorage.getItem('wm-ui-desktop-onboarding-dismissed') === 'true';
-      strip.classList.toggle('hidden', shouldHide);
-      document.getElementById('shellGuidanceDismiss')?.addEventListener('click', () => {
-        localStorage.setItem('wm-ui-desktop-onboarding-dismissed', 'true');
-        strip.classList.add('hidden');
-      });
+      const alreadyDismissed = this.ctx.isMobile || localStorage.getItem('wm-ui-desktop-onboarding-dismissed') === 'true';
+      const inPlayback = document.body.classList.contains('playback-mode');
+      // Strip starts hidden in HTML — only reveal it when appropriate
+      strip.classList.toggle('hidden', alreadyDismissed || inPlayback);
+      // Guard against duplicate listeners on re-render
+      if (!strip.dataset.guidanceInitDone) {
+        strip.dataset.guidanceInitDone = '1';
+        document.getElementById('shellGuidanceDismiss')?.addEventListener('click', () => {
+          localStorage.setItem('wm-ui-desktop-onboarding-dismissed', 'true');
+          strip.classList.add('hidden');
+        });
+      }
     }
   }
 }
