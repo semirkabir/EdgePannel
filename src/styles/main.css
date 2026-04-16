@@ -3,6 +3,15 @@
 @import './portfolio-panel.css';
 @import './tier1.css';
 
+/* Global scrollbar suppression */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* ============================================================
    Shared Visual System — operator-console tokens
    ============================================================ */
@@ -6442,16 +6451,14 @@ body.playback-mode #shellGuidanceStrip {
 }
 
 .layer-help-popup {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 320px;
-  max-height: 60vh;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
-  z-index: 150;
-  overflow: hidden;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px var(--shadow-color);
@@ -6493,10 +6500,7 @@ body.playback-mode #shellGuidanceStrip {
 .layer-help-content {
   padding: 8px;
   overflow-y: auto;
-  flex: 1 1 0;
-  min-height: 0;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  max-height: calc(60vh - 44px);
 }
 
 .layer-help-content::-webkit-scrollbar {
@@ -14168,6 +14172,12 @@ button.cluster-flight-item:focus-visible {
   max-height: 400px;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.gdelt-intel-articles::-webkit-scrollbar {
+  display: none;
 }
 
 .gdelt-intel-article {
@@ -24859,6 +24869,32 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .status-dropdown-badge-fresh { color: var(--status-live); background: rgba(var(--status-live-rgb),0.08); }
 .status-dropdown-badge-stale { color: #ffaa00; background: rgba(255,170,0,0.1); }
 .status-dropdown-badge-error { color: #ff3030; background: rgba(255,48,48,0.1); }
+
+.status-dropdown-group-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  padding: 8px 14px 4px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.status-dropdown-group-label::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dropdown-group-wss { color: var(--status-live); }
+.status-dropdown-group-wss::before { background: var(--status-live); box-shadow: 0 0 4px rgba(var(--status-live-rgb),0.6); }
+.status-dropdown-group-rss { color: #f59e0b; }
+.status-dropdown-group-rss::before { background: #f59e0b; }
+.status-dropdown-group-api { color: var(--text-dim); }
+.status-dropdown-group-api::before { background: var(--text-dim); }
 /* ============================================================
    Marketplace Modal — operator-console styling
    ============================================================ */

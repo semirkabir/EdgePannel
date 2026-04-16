@@ -1,4 +1,8 @@
 /* Settings window — VS Code-style sidebar + content layout */
+
+/* Global scrollbar suppression */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; }
 .settings-shell {
   --settings-bg: var(--bg-secondary);
   --settings-surface: var(--surface-hover);

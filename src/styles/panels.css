@@ -14,8 +14,8 @@
   overflow-x: auto;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
-  scrollbar-width: thin;
-  scrollbar-color: var(--text-dim) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 /* When .panel-content contains tabs (at any depth), remove top padding
@@ -37,20 +37,7 @@
 }
 
 .panel-tabs::-webkit-scrollbar {
-  height: 6px;
-}
-
-.panel-tabs::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.panel-tabs::-webkit-scrollbar-thumb {
-  background: var(--text-dim);
-  border-radius: 3px;
-}
-
-.panel-tabs::-webkit-scrollbar-thumb:hover {
-  background: var(--text);
+  display: none;
 }
 
 .panel-tabs--wrap {

@@ -1530,7 +1530,14 @@ export class EventHandlerManager implements AppModule {
   // ─── Live status hover dropdown ───────────────────────────────────────────
 
   // Sources that use a persistent WebSocket connection (true "live")
-  private static readonly WS_SOURCES = new Set(['ais']);
+  private static readonly WS_SOURCES = new Set(['ais', 'opensky', 'wingbits', 'polymarket', 'predictions']);
+  private static readonly RSS_SOURCES = new Set(['rss', 'gdelt_doc', 'pizzint', 'outages', 'cyber_threats', 'gpsjam', 'webcams', 'security_advisories']);
+
+  private static readonly SOURCE_GROUPS: { label: string; type: string; ids: Set<string> }[] = [
+    { label: 'WebSocket', type: 'wss', ids: EventHandlerManager.WS_SOURCES },
+    { label: 'RSS / Feed', type: 'rss', ids: EventHandlerManager.RSS_SOURCES },
+    { label: 'REST API',  type: 'api', ids: new Set<string>() }, // catch-all for the rest
+  ];
 
   private setupStatusDropdown(): void {
     const indicator = document.querySelector<HTMLElement>('.status-indicator');
@@ -1551,45 +1558,58 @@ export class EventHandlerManager implements AppModule {
   private showStatusDropdown(anchor: HTMLElement): void {
     this.hideStatusDropdown();
 
-    const sources = dataFreshness.getAllSources().filter(s => s.enabled);
+    const sources = dataFreshness.getAllSources();
     const dropdown = document.createElement('div');
     dropdown.className = 'status-dropdown';
 
-    // Header
     const header = document.createElement('div');
     header.className = 'status-dropdown-header';
     header.textContent = 'DATA SOURCES';
     dropdown.appendChild(header);
 
-    // Sort: errors first, then by name
-    const sorted = [...sources].sort((a, b) => {
-      const order = { error: 0, no_data: 1, very_stale: 2, stale: 3, fresh: 4, disabled: 5 };
-      return (order[a.status] ?? 9) - (order[b.status] ?? 9);
-    });
+    const statusOrder: Record<string, number> = { error: 0, no_data: 1, very_stale: 2, stale: 3, fresh: 4, disabled: 5 };
 
-    sorted.forEach(source => {
-      const isWs = EventHandlerManager.WS_SOURCES.has(source.id);
-      const row = document.createElement('div');
-      row.className = 'status-dropdown-row';
+    const groups = [
+      { label: 'WebSocket', type: 'wss', ids: EventHandlerManager.WS_SOURCES },
+      { label: 'RSS / Feed', type: 'rss', ids: EventHandlerManager.RSS_SOURCES },
+      { label: 'REST API',  type: 'api', ids: null as Set<string> | null },
+    ];
 
-      const dot = document.createElement('span');
-      dot.className = `status-dropdown-dot status-dropdown-dot-${this.getSourceDotClass(source.status, isWs)}`;
-      row.appendChild(dot);
+    for (const group of groups) {
+      const groupSources = sources
+        .filter(s => group.ids ? group.ids.has(s.id) : !EventHandlerManager.WS_SOURCES.has(s.id) && !EventHandlerManager.RSS_SOURCES.has(s.id))
+        .sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
 
-      const name = document.createElement('span');
-      name.className = 'status-dropdown-name';
-      name.textContent = source.name;
-      row.appendChild(name);
+      if (groupSources.length === 0) continue;
 
-      const badge = document.createElement('span');
-      badge.className = `status-dropdown-badge status-dropdown-badge-${this.getSourceDotClass(source.status, isWs)}`;
-      badge.textContent = this.getSourceLabel(source, isWs);
-      row.appendChild(badge);
+      const groupLabel = document.createElement('div');
+      groupLabel.className = `status-dropdown-group-label status-dropdown-group-${group.type}`;
+      groupLabel.textContent = group.label;
+      dropdown.appendChild(groupLabel);
 
-      dropdown.appendChild(row);
-    });
+      for (const source of groupSources) {
+        const isWs = group.type === 'wss';
+        const row = document.createElement('div');
+        row.className = 'status-dropdown-row';
 
-    // Keep open when hovering the dropdown itself
+        const dot = document.createElement('span');
+        dot.className = `status-dropdown-dot status-dropdown-dot-${this.getSourceDotClass(source.status, isWs)}`;
+        row.appendChild(dot);
+
+        const name = document.createElement('span');
+        name.className = 'status-dropdown-name';
+        name.textContent = source.name;
+        row.appendChild(name);
+
+        const badge = document.createElement('span');
+        badge.className = `status-dropdown-badge status-dropdown-badge-${this.getSourceDotClass(source.status, isWs)}`;
+        badge.textContent = this.getSourceLabel(source, isWs);
+        row.appendChild(badge);
+
+        dropdown.appendChild(row);
+      }
+    }
+
     dropdown.addEventListener('mouseenter', () => {
       if (this.statusDropdownTimer) clearTimeout(this.statusDropdownTimer);
     });

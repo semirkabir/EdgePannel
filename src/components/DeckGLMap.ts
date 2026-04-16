@@ -4520,7 +4520,7 @@ export class DeckGLMap {
     layersHelpBtn.addEventListener('mouseenter', () => {
       cancelHelpClose();
       this.showLayerHelp();
-      const popup = this.container.querySelector('.layer-help-popup');
+      const popup = document.querySelector('.layer-help-popup');
       if (popup && !popup.hasAttribute('data-hover-bound')) {
         popup.setAttribute('data-hover-bound', 'true');
         popup.addEventListener('mouseenter', cancelHelpClose);
@@ -4986,7 +4986,7 @@ export class DeckGLMap {
 
   /** Show layer help popup explaining each layer */
   private showLayerHelp(): void {
-    const existing = this.container.querySelector('.layer-help-popup');
+    const existing = document.querySelector('.layer-help-popup');
     if (existing) {
       return;
     }
@@ -5219,19 +5219,19 @@ export class DeckGLMap {
       document.addEventListener('click', closeHandler);
     }, 100);
 
-    // Append to container and position below the slider using calculated coords
-    this.container.appendChild(popup);
+    // Append to body to escape overflow:hidden on #mapContainer
+    document.body.appendChild(popup);
     const sliderEl = this.container.querySelector<HTMLElement>('.deckgl-time-slider');
     if (sliderEl) {
-      const containerRect = this.container.getBoundingClientRect();
-      const sliderRect = sliderEl.getBoundingClientRect();
-      popup.style.top  = `${sliderRect.bottom - containerRect.top + 6}px`;
-      popup.style.left = `${sliderRect.left - containerRect.left}px`;
+      const rect = sliderEl.getBoundingClientRect();
+      popup.style.position = 'fixed';
+      popup.style.top  = `${rect.bottom + 6}px`;
+      popup.style.left = `${rect.left}px`;
     }
   }
 
   private hideLayerHelp(): void {
-    this.container.querySelector('.layer-help-popup')?.remove();
+    document.querySelector('.layer-help-popup')?.remove();
   }
 
   private createLegend(): void {

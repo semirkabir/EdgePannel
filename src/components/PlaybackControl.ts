@@ -327,27 +327,36 @@ export class PlaybackControl {
 
   private startPlay(): void {
     if (this.timestamps.length === 0) return;
-    // If already at the end, restart from beginning
     if (this.currentIndex >= this.timestamps.length - 1) {
       this.currentIndex = 0;
     }
     this.isPlaying = true;
     this.updatePlayPauseIcon();
+    this.scheduleNextFrame(Date.now());
+  }
 
+  private scheduleNextFrame(stepStartedAt: number): void {
+    if (!this.isPlaying) return;
     const intervalMs = Math.round(1000 / this.playbackSpeed);
-    this.playInterval = setInterval(() => {
+    const elapsed = Date.now() - stepStartedAt;
+    const delay = Math.max(0, intervalMs - elapsed);
+
+    this.playInterval = setTimeout(async () => {
+      if (!this.isPlaying) return;
       if (this.currentIndex >= this.timestamps.length - 1) {
         this.pausePlay();
         this.goLive();
         return;
       }
       this.currentIndex++;
-      void this.loadSnapshot(this.currentIndex);
-    }, intervalMs);
+      const frameStart = Date.now();
+      await this.loadSnapshot(this.currentIndex);
+      this.scheduleNextFrame(frameStart);
+    }, delay);
   }
 
   private pausePlay(): void {
-    if (this.playInterval) { clearInterval(this.playInterval); this.playInterval = null; }
+    if (this.playInterval) { clearTimeout(this.playInterval); this.playInterval = null; }
     this.isPlaying = false;
     this.updatePlayPauseIcon();
   }
