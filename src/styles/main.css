@@ -6451,14 +6451,10 @@ body.playback-mode #shellGuidanceStrip {
   border: 1px solid var(--border);
   border-radius: 4px;
   z-index: 150;
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 8px 32px var(--shadow-color);
-}
-
-.layer-help-popup::-webkit-scrollbar {
-  display: none;
 }
 
 .layer-help-header {
@@ -6497,7 +6493,8 @@ body.playback-mode #shellGuidanceStrip {
 .layer-help-content {
   padding: 8px;
   overflow-y: auto;
-  max-height: calc(70vh - 45px);
+  flex: 1 1 0;
+  min-height: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -9024,11 +9021,21 @@ a.prediction-link:hover {
   width: 380px;
   max-width: calc(100vw - 40px);
   max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   border: 1px solid var(--border);
-  z-index: 1000;
-  overflow-y: auto;
+  /* Must sit above panels grid (backdrop-filter creates stacking contexts there).
+     Highest panel element is playback panel at z-index:30000, so we go higher. */
+  z-index: 99999;
+  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.map-popup::-webkit-scrollbar {
+  display: none;
 }
 
 .map-popup.map-popup-sheet {
@@ -9092,17 +9099,11 @@ a.prediction-link:hover {
   gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--bg);
-}
-
-.map-popup.map-popup-sheet .popup-header {
   position: relative;
-  top: auto;
   flex: 0 0 auto;
   z-index: 2;
+  background: var(--bg);
+  overflow: hidden;
 }
 
 .map-popup.map-popup-sheet .map-popup-sheet-handle {
@@ -9111,10 +9112,11 @@ a.prediction-link:hover {
   flex: 0 0 auto;
 }
 
-.map-popup.map-popup-sheet .popup-body {
+.popup-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -9181,6 +9183,7 @@ a.prediction-link:hover {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow: hidden;
 }
 
 .popup-title-block .popup-title {
@@ -9195,11 +9198,16 @@ a.prediction-link:hover {
 }
 
 .popup-title {
+  display: block;
   font-size: 16px;
   font-weight: bold;
   color: var(--red);
   letter-spacing: 1px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .popup-header.hotspot .popup-title {
@@ -9247,6 +9255,7 @@ a.prediction-link:hover {
   font-weight: bold;
   border-radius: 2px;
   letter-spacing: 1px;
+  flex-shrink: 0;
 }
 
 .popup-badge.high {
@@ -9280,6 +9289,7 @@ a.prediction-link:hover {
   min-height: 36px;
   line-height: 1;
   touch-action: manipulation;
+  flex-shrink: 0;
 }
 
 .popup-close:hover {
@@ -14040,7 +14050,7 @@ button.cluster-flight-item:focus-visible {
   .map-popup {
     max-width: calc(100vw - 32px);
     max-height: 60vh;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .map-popup.map-popup-sheet {

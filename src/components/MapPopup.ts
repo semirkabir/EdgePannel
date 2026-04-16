@@ -288,13 +288,17 @@ export class MapPopup {
   private positionDesktopPopup(data: PopupData, containerRect: DOMRect): void {
     if (!this.popup) return;
 
-    const popupWidth = 380;
     const minMargin = 20; // Minimum margin from viewport edges
     const bottomBuffer = 50; // Buffer from viewport bottom
     const topBuffer = 80; // Header height + breathing room
+    const maxPopupWidth = Math.min(380, Math.max(240, window.innerWidth - minMargin * 2));
+    const topLimit = Math.max(topBuffer, containerRect.top + minMargin);
+    const bottomLimit = Math.min(window.innerHeight - bottomBuffer, containerRect.bottom - minMargin);
+
+    this.popup.style.width = `${maxPopupWidth}px`;
 
     // Cap popup height to available vertical space before measuring
-    const maxAllowedHeight = window.innerHeight - topBuffer - bottomBuffer;
+    const maxAllowedHeight = Math.max(160, bottomLimit - topLimit);
     this.popup.style.maxHeight = `${maxAllowedHeight}px`;
 
     // Temporarily append popup off-screen to measure actual height
@@ -303,6 +307,7 @@ export class MapPopup {
     this.popup.style.left = '-9999px';
     document.body.appendChild(this.popup);
     const rawPopupHeight = this.popup.offsetHeight;
+    const popupWidth = Math.min(this.popup.offsetWidth || maxPopupWidth, maxPopupWidth);
     document.body.removeChild(this.popup);
     this.popup.style.visibility = '';
 
@@ -312,33 +317,34 @@ export class MapPopup {
     const viewportX = containerRect.left + data.x;
     const viewportY = containerRect.top + data.y;
 
-    // Horizontal positioning (viewport-relative)
-    // Calculate available space on each side
-    const spaceToRight = window.innerWidth - viewportX - minMargin;
-    const spaceToLeft = viewportX - minMargin;
+    // Horizontal positioning — constrain to map container bounds so the popup
+    // never escapes into the panels grid in side-by-side layout.
+    const containerRight = containerRect.right; // right edge of map in viewport coords
+    const spaceToRight = containerRight - viewportX - minMargin;
+    const spaceToLeft = viewportX - containerRect.left - minMargin;
 
     let left: number;
     if (spaceToRight >= popupWidth) {
-      // Enough space to the right - position to the right of click
+      // Enough space to the right within the map container
       left = viewportX + 20;
     } else if (spaceToLeft >= popupWidth) {
-      // Not enough right, but enough left - position to the left of click
+      // Flip left — still within the map container
       left = viewportX - popupWidth - 20;
     } else {
-      // Not enough space on either side - clamp to right edge of viewport
-      left = Math.max(minMargin, window.innerWidth - popupWidth - minMargin);
+      // Not enough space on either side — centre within the container
+      left = containerRect.left + (containerRect.width - popupWidth) / 2;
     }
 
-    // Ensure popup doesn't extend off left or right edge
-    left = Math.max(minMargin, left);
-    const maxLeft = window.innerWidth - popupWidth - minMargin;
-    if (maxLeft > minMargin) {
-      left = Math.min(left, maxLeft);
-    }
+    // Hard clamp: keep the popup inside both the map frame and the viewport.
+    // This prevents the hotspot header badge from getting pushed off-screen on
+    // narrow layouts or when the map is docked against the viewport edge.
+    const minLeft = Math.max(minMargin, containerRect.left + minMargin);
+    const maxLeft = Math.min(window.innerWidth - popupWidth - minMargin, containerRight - popupWidth - minMargin);
+    left = Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft));
 
     // Vertical positioning - prefer below click, but flip above if needed
-    const availableBelow = window.innerHeight - viewportY - bottomBuffer;
-    const availableAbove = viewportY - topBuffer;
+    const availableBelow = bottomLimit - viewportY;
+    const availableAbove = viewportY - topLimit;
 
     let top: number;
     if (availableBelow >= popupHeight) {
@@ -352,14 +358,15 @@ export class MapPopup {
       top = topBuffer;
     }
 
-    // CRITICAL: Ensure popup stays within viewport vertically
-    top = Math.max(topBuffer, top);
-    top = Math.min(top, window.innerHeight - popupHeight - bottomBuffer);
+    // Keep the popup inside the visible map frame as well as the viewport.
+    top = Math.max(topLimit, top);
+    const maxTop = Math.max(topLimit, bottomLimit - popupHeight);
+    top = Math.min(top, maxTop);
 
     // Tighten max-height to the space actually available from this position so
     // async content (GDELT articles) that loads after positioning can never push
     // the popup below the viewport.
-    const fittingMaxHeight = window.innerHeight - top - bottomBuffer;
+    const fittingMaxHeight = Math.max(160, bottomLimit - top);
     this.popup.style.maxHeight = `${Math.min(maxAllowedHeight, fittingMaxHeight)}px`;
 
     this.popup.style.left = `${left}px`;
