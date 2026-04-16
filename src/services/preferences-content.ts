@@ -189,16 +189,6 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
       <div class="ai-flow-toggle-desc">Choose the interface font. Numbers and data always use the monospace font.</div>
     </div>
   </div>`;
-  html += `<select class="unified-settings-select" id="us-font-preference">`;
-  for (const opt of [
-    { value: 'inter',   label: 'Inter — clean sans-serif (recommended)' },
-    { value: 'theme',   label: 'Console — monospace terminal' },
-    { value: 'article', label: 'System — native sans-serif' },
-  ] as { value: FontPreference; label: string }[]) {
-    const selected = opt.value === currentFontPref ? ' selected' : '';
-    html += `<option value="${opt.value}"${selected}>${escapeHtml(opt.label)}</option>`;
-  }
-  html += `</select>`;
   html += `<div class="us-font-preview-grid">
     ${renderFontPreviewCard('inter',   'Inter',   'Clean sans-serif · recommended', 'Edge Intelligence — live signals updated', currentFontPref)}
     ${renderFontPreviewCard('theme',   'Console', 'Monospace terminal', 'CURRENT SITUATION UPDATE // SIGNALS STABLE', currentFontPref)}

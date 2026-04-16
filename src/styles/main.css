@@ -14165,6 +14165,9 @@ button.cluster-flight-item:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .gdelt-intel-article {

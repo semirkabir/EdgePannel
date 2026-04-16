@@ -17,6 +17,8 @@ export class GdeltIntelPanel extends Panel {
   private activeTopic: IntelTopic = getIntelTopics()[0]!;
   private topicData = new Map<string, TopicIntelligence>();
   private tabsEl: HTMLElement | null = null;
+  private topics: IntelTopic[];
+  private draggedTab: HTMLElement | null = null;
 
   constructor() {
     super({
@@ -26,14 +28,15 @@ export class GdeltIntelPanel extends Panel {
       trackActivity: true,
       infoTooltip: t('components.gdeltIntel.infoTooltip'),
     });
+    this.topics = getIntelTopics();
     this.createTabs();
     this.loadActiveTopic();
   }
 
   private createTabs(): void {
     this.tabsEl = h('div', { className: 'panel-tabs' },
-      ...getIntelTopics().map(topic =>
-        h('button', {
+      ...this.topics.map(topic => {
+        const btn = h('button', {
           className: `panel-tab ${topic.id === this.activeTopic.id ? 'active' : ''}`,
           dataset: { topicId: topic.id },
           title: topic.description,
@@ -41,11 +44,50 @@ export class GdeltIntelPanel extends Panel {
         },
           h('span', { className: 'tab-icon' }, topic.icon),
           h('span', { className: 'tab-label' }, topic.name),
-        ),
-      ),
+        );
+        btn.draggable = true;
+        btn.addEventListener('dragstart', (e) => this.onDragStart(e as DragEvent));
+        btn.addEventListener('dragover', (e) => this.onDragOver(e as DragEvent));
+        btn.addEventListener('drop', (e) => this.onDrop(e as DragEvent));
+        btn.addEventListener('dragend', () => this.onDragEnd());
+        return btn;
+      }),
     );
 
     this.element.insertBefore(this.tabsEl, this.content);
+  }
+
+  private onDragStart(e: DragEvent): void {
+    this.draggedTab = e.target as HTMLElement;
+    this.draggedTab.classList.add('dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/html', this.draggedTab.innerHTML);
+    }
+  }
+
+  private onDragOver(e: DragEvent): void {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('panel-tab') && target !== this.draggedTab) {
+      target.parentNode?.insertBefore(this.draggedTab!, target);
+    }
+  }
+
+  private onDrop(e: DragEvent): void {
+    e.preventDefault();
+  }
+
+  private onDragEnd(): void {
+    this.draggedTab?.classList.remove('dragging');
+    // Update topics order based on new tab order
+    const tabs = Array.from(this.tabsEl?.querySelectorAll('.panel-tab') ?? []) as HTMLElement[];
+    this.topics = tabs.map(tab => {
+      const id = tab.dataset.topicId!;
+      return this.topics.find(t => t.id === id)!;
+    });
+    this.draggedTab = null;
   }
 
   private selectTopic(topic: IntelTopic): void {
