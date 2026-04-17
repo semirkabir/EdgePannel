@@ -87,7 +87,6 @@ import {
   CENTRAL_BANKS,
   COMMODITY_HUBS,
   GULF_INVESTMENTS,
-  MINING_SITES,
   PROCESSING_PLANTS,
   COMMODITY_PORTS as COMMODITY_GEO_PORTS,
 } from '@/config';
@@ -525,11 +524,6 @@ export class DeckGLMap {
   private _spinGlobeRaf: number | null = null;
   private _spinPaused = false;
   private _spinResumeTimer: ReturnType<typeof setTimeout> | null = null;
-  private _globeNativeSources: string[] = [];
-  private _globeNativeLayers: string[] = [];
-  private _globeNativeImages: string[] = [];
-  // [layerId, event, handler] tuples for cleanup
-  private _globeNativeListeners: Array<[string, string, (e: maplibregl.MapLayerMouseEvent) => void]> = [];
   private styleLoadTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private tileMonitorGeneration = 0;
 
@@ -2138,7 +2132,7 @@ export class DeckGLMap {
     return new IconLayer<PositionSample>({
       id: 'aircraft-positions-layer',
       data,
-      getPosition: (d) => [d.lon, d.lat],
+      getPosition: (d) => [d.lon, d.lat, (d.altitudeFt ?? 0) * 0.3048],
       getIcon: () => 'plane',
       iconAtlas: AVIATION_PLANE_ICON_ATLAS,
       iconMapping: AVIATION_PLANE_ICON_MAPPING,
@@ -2151,7 +2145,7 @@ export class DeckGLMap {
       sizeMaxPixels: 36,
       sizeScale: 1,
       pickable: true,
-      billboard: false,
+      billboard: true,
     });
   }
 
@@ -2625,7 +2619,7 @@ export class DeckGLMap {
     return new IconLayer({
       id: 'military-flights-layer',
       data: flights,
-      getPosition: (d) => [d.lon, d.lat],
+      getPosition: (d) => [d.lon, d.lat, (d.altitude ?? 0) * 0.3048],
       getIcon: () => 'plane',
       iconAtlas: AVIATION_PLANE_ICON_ATLAS,
       iconMapping: AVIATION_PLANE_ICON_MAPPING,
@@ -2635,7 +2629,7 @@ export class DeckGLMap {
       getColor: () => [220, 50, 50, 230] as [number, number, number, number],
       getAngle: (d) => -d.heading,
       pickable: true,
-      billboard: false,
+      billboard: true,
     });
   }
 
@@ -5399,14 +5393,9 @@ export class DeckGLMap {
     const startTime = performance.now();
     const dirty = this.dirtyLayers.size > 0 ? new Set(this.dirtyLayers) : undefined;
     this.dirtyLayers.clear();
-    if (this._globeProjection) {
-      try { this.deckOverlay?.setProps({ layers: [] }); } catch { /* */ }
-      this._addGlobeNativeLayers();
-    } else {
-      try {
-        this.deckOverlay?.setProps({ layers: this.buildLayers(dirty) });
-      } catch { /* map may be mid-teardown (null.getProjection) */ }
-    }
+    try {
+      this.deckOverlay?.setProps({ layers: this.buildLayers(dirty) });
+    } catch { /* map may be mid-teardown (null.getProjection) */ }
     this.maplibreMap.triggerRepaint();
     const elapsed = performance.now() - startTime;
     if (import.meta.env.DEV && elapsed > 16) {
@@ -6748,13 +6737,7 @@ export class DeckGLMap {
     }
 
     this.maplibreMap.resize();
-
-    if (enabled) {
-      this._addGlobeNativeLayers();
-    } else {
-      this._removeGlobeNativeLayers();
-      this.render(); // Restore deck.gl layers
-    }
+    this.render();
   }
 
   private _startGlobeSpin(): void {
@@ -6819,177 +6802,7 @@ export class DeckGLMap {
     }
   }
 
-  /** Mapping from layer key to the PopupType used by MapPopup. */
-  private static readonly GLOBE_LAYER_POPUP_TYPES: Partial<Record<keyof MapLayers, PopupType>> = {
-    bases: 'base', nuclear: 'nuclear', irradiators: 'irradiator', spaceports: 'spaceport',
-    waterways: 'waterway', economic: 'economic',
-    stockExchanges: 'stockExchange', financialCenters: 'financialCenter',
-    centralBanks: 'centralBank', commodityHubs: 'commodityHub',
-    datacenters: 'datacenter', hotspots: 'hotspot',
-    natural: 'earthquake', minerals: 'mineral',
-    startupHubs: 'startupHub', techHQs: 'techHQ',
-    accelerators: 'accelerator', cloudRegions: 'cloudRegion',
-    flights: 'flight',
-  };
-
-  /** Add MapLibre native symbol layers for globe mode (deck.gl can't project onto globe). */
-  private _addGlobeNativeLayers(): void {
-    if (!this.maplibreMap || !this._globeProjection) return;
-    this._removeGlobeNativeLayers();
-
-    // Hide deck.gl layers while globe native layers are active
-    try { this.deckOverlay?.setProps({ layers: [] }); } catch { /* */ }
-
-    const { layers: mapLayers } = this.state;
-    const theme = getThemeMode();
-    const basesData = this.serverBases.length ? this.serverBases : MILITARY_BASES;
-
-    type GlobeLayerDef = { key: keyof MapLayers; items: Array<Record<string, unknown>>; active: boolean };
-
-    const defs: GlobeLayerDef[] = [
-      { key: 'bases', items: basesData as unknown as Array<Record<string, unknown>>, active: !!mapLayers.bases },
-      { key: 'nuclear', items: NUCLEAR_FACILITIES as unknown as Array<Record<string, unknown>>, active: !!mapLayers.nuclear },
-      { key: 'irradiators', items: GAMMA_IRRADIATORS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.irradiators },
-      { key: 'spaceports', items: SPACEPORTS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.spaceports },
-      { key: 'waterways', items: STRATEGIC_WATERWAYS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.waterways },
-      { key: 'economic', items: ECONOMIC_CENTERS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.economic },
-      { key: 'stockExchanges', items: STOCK_EXCHANGES as unknown as Array<Record<string, unknown>>, active: !!mapLayers.stockExchanges },
-      { key: 'financialCenters', items: FINANCIAL_CENTERS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.financialCenters },
-      { key: 'centralBanks', items: CENTRAL_BANKS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.centralBanks },
-      { key: 'commodityHubs', items: COMMODITY_HUBS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.commodityHubs },
-      { key: 'datacenters', items: AI_DATA_CENTERS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.datacenters },
-      { key: 'hotspots', items: (this.hotspots || []) as unknown as Array<Record<string, unknown>>, active: !!mapLayers.hotspots },
-      { key: 'natural', items: this.earthquakes as unknown as Array<Record<string, unknown>>, active: !!mapLayers.natural },
-      { key: 'minerals', items: CRITICAL_MINERALS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.minerals },
-      { key: 'flights', items: this.flightDelays as unknown as Array<Record<string, unknown>>, active: !!mapLayers.flights },
-    ];
-
-    if (SITE_VARIANT === 'tech') {
-      defs.push(
-        { key: 'startupHubs', items: STARTUP_HUBS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.startupHubs },
-        { key: 'techHQs', items: TECH_HQS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.techHQs },
-        { key: 'accelerators', items: ACCELERATORS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.accelerators },
-        { key: 'cloudRegions', items: CLOUD_REGIONS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.cloudRegions },
-      );
-    }
-
-    defs.push(
-      { key: 'miningSites', items: MINING_SITES as unknown as Array<Record<string, unknown>>, active: !!mapLayers.miningSites },
-      { key: 'processingPlants', items: PROCESSING_PLANTS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.processingPlants },
-      { key: 'commodityPorts', items: COMMODITY_GEO_PORTS as unknown as Array<Record<string, unknown>>, active: !!mapLayers.commodityPorts },
-    );
-
-    for (const def of defs) {
-      if (!def.active || def.items.length === 0) continue;
-
-      const imgId = `_globe-img-${def.key}-${theme}`;
-      const srcId = `_globe-src-${def.key}`;
-      const lyrId = `_globe-lyr-${def.key}`;
-      const popupType = DeckGLMap.GLOBE_LAYER_POPUP_TYPES[def.key];
-
-      const geojson: GeoJSON.FeatureCollection = {
-        type: 'FeatureCollection',
-        features: def.items.map((item, idx) => {
-          const lon = typeof item.lon === 'number' ? item.lon : (item.location as any)?.longitude ?? 0;
-          const lat = typeof item.lat === 'number' ? item.lat : (item.location as any)?.latitude ?? 0;
-          return {
-            type: 'Feature' as const,
-            geometry: { type: 'Point' as const, coordinates: [lon, lat] },
-            // Store index so we can look up the original item on hover
-            properties: { _idx: idx },
-          };
-        }),
-      };
-
-      this.maplibreMap.addSource(srcId, { type: 'geojson', data: geojson });
-      this._globeNativeSources.push(srcId);
-
-      const addSymbolLayer = () => {
-        if (!this.maplibreMap?.getSource(srcId)) return;
-        this.maplibreMap.addLayer({
-          id: lyrId,
-          type: 'symbol',
-          source: srcId,
-          layout: {
-            'icon-image': imgId,
-            'icon-size': 0.45,
-            'icon-allow-overlap': true,
-            'icon-ignore-placement': true,
-          },
-        });
-        this._globeNativeLayers.push(lyrId);
-
-        // Wire hover/click to show the same popup as 2D mode
-        if (popupType) {
-          const items = def.items;
-          const onMouseMove = (e: maplibregl.MapLayerMouseEvent) => {
-            if (!this.maplibreMap) return;
-            this.maplibreMap.getCanvas().style.cursor = resolveInlineCursor('pointer');
-            const feat = e.features?.[0];
-            if (!feat) return;
-            const idx = feat.properties?._idx as number;
-            const data = items[idx];
-            if (!data) return;
-            // e.point is relative to the map canvas which equals the container
-            this.popup.show({ type: popupType, data: data as any, x: e.point.x, y: e.point.y });
-            if (popupType === 'hotspot') {
-              this.popup.loadHotspotGdeltContext(data as any);
-              this.onHotspotClick?.(data as any);
-            }
-          };
-          const onMouseLeave = () => {
-            if (this.maplibreMap) this.maplibreMap.getCanvas().style.cursor = resolveInlineCursor('');
-            this.popup.hide();
-          };
-          this.maplibreMap.on('mousemove', lyrId, onMouseMove);
-          this.maplibreMap.on('mouseleave', lyrId, onMouseLeave);
-          this._globeNativeListeners.push([lyrId, 'mousemove', onMouseMove]);
-          this._globeNativeListeners.push([lyrId, 'mouseleave', onMouseLeave]);
-        }
-      };
-
-      if (this.maplibreMap.hasImage(imgId)) {
-        addSymbolLayer();
-      } else {
-        const svgUrl = getSharedLayerIconAtlas(def.key, theme);
-        const img = new Image(32, 32);
-        img.onload = () => {
-          if (!this.maplibreMap) return;
-          if (!this.maplibreMap.hasImage(imgId)) {
-            this.maplibreMap.addImage(imgId, img);
-            this._globeNativeImages.push(imgId);
-          }
-          addSymbolLayer();
-        };
-        img.onerror = () => { /* skip symbol layer if icon fails to load */ };
-        img.src = svgUrl;
-      }
-    }
-  }
-
-  /** Remove all MapLibre native layers/sources/images/listeners added for globe mode. */
-  private _removeGlobeNativeLayers(): void {
-    if (!this.maplibreMap) return;
-    for (const [lyrId, event, handler] of this._globeNativeListeners) {
-      try { this.maplibreMap.off(event as any, lyrId, handler as any); } catch { /* */ }
-    }
-    for (const id of this._globeNativeLayers) {
-      try { this.maplibreMap.removeLayer(id); } catch { /* */ }
-    }
-    for (const id of this._globeNativeSources) {
-      try { this.maplibreMap.removeSource(id); } catch { /* */ }
-    }
-    for (const id of this._globeNativeImages) {
-      try { this.maplibreMap.removeImage(id); } catch { /* */ }
-    }
-    this._globeNativeLayers = [];
-    this._globeNativeSources = [];
-    this._globeNativeImages = [];
-    this._globeNativeListeners = [];
-  }
-
   public destroy(): void {
-    this._removeGlobeNativeLayers();
     window.removeEventListener('theme-changed', this.handleThemeChange);
     window.removeEventListener('map-theme-changed', this.handleMapThemeChange);
     this.debouncedRebuildLayers.cancel();

@@ -49,7 +49,6 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'strategic-posture':   p1('AI Strategic Posture'),
   cii:                   p1d('Country Instability', 'enhanced'),
   'strategic-risk':      p1d('Strategic Risk Overview', 'enhanced'),
-  intel:                 p1('Intel Feed'),
   'gdelt-intel':         p1d('Live Intelligence', 'enhanced'),
   cascade:               p1('Infrastructure Cascade'),
   politics:              p1('World News'),
@@ -341,7 +340,6 @@ const CONFLICTS_PANELS: Record<string, PanelConfig> = {
   'strategic-posture':   p1d('AI Strategic Posture', 'enhanced'),
   cii:                   p1d('Country Instability', 'enhanced'),
   'strategic-risk':      p1d('Strategic Risk Overview', 'enhanced'),
-  intel:                 p1('Intel Feed'),
   'gdelt-intel':         p1d('Live Intelligence', 'enhanced'),
   'ucdp-events':         p1('Conflict Events'),
   displacement:          p1('Displacement & Refugees'),
@@ -440,7 +438,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['cii', 'strategic-risk', 'intel', 'gdelt-intel', 'cascade', 'telegram-intel', 'risk-dashboard'],
+    panelKeys: ['cii', 'strategic-risk', 'gdelt-intel', 'cascade', 'telegram-intel', 'risk-dashboard'],
     variants: ['full'],
   },
   regionalNews: {

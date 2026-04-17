@@ -1028,3 +1028,436 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/* Tabs + factbook layouts                                                      */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+.cdp-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 10px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 80%, black 20%);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  position: sticky;
+  top: 56px;
+  z-index: 3;
+}
+
+.cdp-tabs::-webkit-scrollbar {
+  height: 6px;
+}
+
+.cdp-tabs::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.cdp-tab {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cdp-tab:hover {
+  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 10%, transparent);
+  color: var(--text);
+}
+
+.cdp-tab-active {
+  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 22%, transparent);
+  color: var(--accent-blue, #60a5fa);
+  box-shadow: inset 0 -2px 0 var(--accent-blue, #60a5fa);
+}
+
+.cdp-pane[hidden] {
+  display: none !important;
+}
+
+.cdp-pane-factbook,
+.cdp-pane-overview {
+  display: block;
+}
+
+.cdp-pane-factbook .cdp-card {
+  margin-bottom: 10px;
+}
+
+.cdp-fb-pane-inner,
+.cdp-fb-pane-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cdp-fb-stack-v {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cdp-fb-card .cdp-card-body {
+  gap: 10px;
+}
+
+.cdp-fb-subhead {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.cdp-fb-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.cdp-fb-grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.cdp-fb-grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.cdp-fb-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 85%, black 15%);
+}
+
+.cdp-fb-tile-value {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.cdp-fb-tile-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.cdp-fb-tile-year {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.cdp-fb-value-big {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.cdp-fb-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cdp-fb-hero-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+  word-break: break-word;
+}
+
+.cdp-fb-hero-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.cdp-fb-hero-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cdp-fb-coords {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.cdp-fb-stack-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cdp-fb-stack {
+  display: flex;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 50%, black 50%);
+}
+
+.cdp-fb-stack-seg {
+  display: block;
+  height: 100%;
+}
+
+.cdp-fb-stack-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.cdp-fb-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.cdp-fb-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.cdp-fb-legend-label {
+  color: var(--text-muted);
+}
+
+.cdp-fb-legend-pct {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cdp-fb-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cdp-fb-bar-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 28%) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.cdp-fb-bar-label {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cdp-fb-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 50%, black 50%);
+  overflow: hidden;
+}
+
+.cdp-fb-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  border-radius: 4px;
+}
+
+.cdp-fb-bar-val {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cdp-fb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cdp-fb-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-blue, #60a5fa) 30%, transparent);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cdp-fb-chip-muted {
+  display: inline-flex;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.cdp-fb-person {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 85%, black 15%);
+}
+
+.cdp-fb-person-role {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.cdp-fb-person-name {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.cdp-fb-callout {
+  padding: 10px 12px 10px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-left-width: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cdp-fb-callout-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.cdp-fb-callout-body {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.cdp-fb-callout-info {
+  border-left-color: var(--accent-blue, #60a5fa);
+}
+
+.cdp-fb-callout-warn {
+  border-left-color: var(--semantic-elevated, #eab308);
+  background: color-mix(in srgb, var(--semantic-elevated, #eab308) 8%, var(--surface));
+}
+
+.cdp-fb-callout-danger {
+  border-left-color: var(--semantic-critical, #ef4444);
+  background: color-mix(in srgb, var(--semantic-critical, #ef4444) 8%, var(--surface));
+}
+
+.cdp-fb-prose {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.cdp-fb-details {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  padding: 0;
+  overflow: hidden;
+}
+
+.cdp-fb-summary {
+  list-style: none;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cdp-fb-summary::-webkit-details-marker {
+  display: none;
+}
+
+.cdp-fb-summary::before {
+  content: "\25B8";
+  color: var(--text-faint);
+  transition: transform 0.15s;
+  display: inline-block;
+}
+
+.cdp-fb-details[open] > .cdp-fb-summary::before {
+  transform: rotate(90deg);
+}
+
+.cdp-fb-details[open] > .cdp-fb-summary {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cdp-fb-details > *:not(.cdp-fb-summary) {
+  padding: 10px 12px 12px;
+}
+
+.cdp-fb-kv {
+  font-size: 12px;
+  color: var(--text);
+  padding: 2px 0;
+}
+
+@media (max-width: 620px) {
+  .cdp-fb-grid-3 {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+  .cdp-fb-bar-row {
+    grid-template-columns: minmax(70px, 36%) 1fr auto;
+  }
+  .cdp-fb-hero-value {
+    font-size: 22px;
+  }
+}

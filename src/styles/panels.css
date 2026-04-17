@@ -2105,9 +2105,9 @@
   display: none;
 }
 
-/* Base state for placeholder */
+/* Placeholder shown when no panels are present */
 .map-bottom-grid::after {
-  content: 'Drop panels here to move them below the map';
+  content: '⬇  Drag panels here to pin them below the map';
   position: absolute;
   top: 50%;
   left: 50%;
@@ -2124,13 +2124,13 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 1px;
-  opacity: 0.4;
+  opacity: 0.45;
   pointer-events: none;
   transition: opacity 0.2s;
 }
 
-/* Hide placeholder if there are panels */
-.map-bottom-grid:not(:empty)::after {
+/* Hide placeholder once at least one panel is present */
+.map-bottom-grid:has(.panel)::after {
   opacity: 0;
 }
 

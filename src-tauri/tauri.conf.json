@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "World Monitor",
+  "productName": "EdgePannel",
   "mainBinaryName": "world-monitor",
   "version": "0.1.0",
-  "identifier": "app.worldmonitor.desktop",
+  "identifier": "app.edgepannel.desktop",
   "build": {
     "beforeDevCommand": "npm run build:sidecar-sebuf && npm run dev",
     "beforeBuildCommand": "npm run build:desktop",
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "World Monitor",
+        "title": "EdgePannel",
         "width": 1440,
         "height": 900,
         "minWidth": 1200,
@@ -42,8 +42,8 @@
       "appimage"
     ],
     "category": "Productivity",
-    "shortDescription": "World Monitor desktop app (supports World and Tech variants)",
-    "longDescription": "World Monitor desktop app for real-time global intelligence. Build with VITE_VARIANT=tech to package Tech Monitor branding and dataset defaults.",
+    "shortDescription": "EdgePannel desktop app (supports World and Tech variants)",
+    "longDescription": "EdgePannel desktop app for real-time global intelligence. Build with VITE_VARIANT=tech to package Tech Monitor branding and dataset defaults.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

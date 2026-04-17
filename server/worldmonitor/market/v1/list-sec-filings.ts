@@ -12,7 +12,7 @@ import type {
 import { cachedFetchJson } from '../../../_shared/redis';
 import { parseStringArray } from './_shared';
 
-const SEC_USER_AGENT = 'WorldMonitor/1.0 (contact@worldmonitor.io)';
+const SEC_USER_AGENT = 'EdgePannel/1.0 (contact@worldmonitor.io)';
 const REDIS_CACHE_KEY_PREFIX = 'market:sec-filings:v1';
 const REDIS_CACHE_TTL = 1800; // 30 minutes
 const UPSTREAM_TIMEOUT_MS = 10_000;
