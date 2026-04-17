@@ -2355,7 +2355,8 @@ export class DeckGLMap {
       pickable: true,
       billboard: true,
       getColor: (d: IranEvent) => {
-        const tier = d.confidenceTier as ConfidenceTier;
+        // confidenceTier is a planned proto field; access safely for forward compat
+        const tier = (d as IranEvent & { confidenceTier?: ConfidenceTier }).confidenceTier;
         if (tier && CONFIDENCE_TIERS[tier]) {
           const hex = CONFIDENCE_TIERS[tier].color;
           const r = parseInt(hex.slice(1, 3), 16);

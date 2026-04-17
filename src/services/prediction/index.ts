@@ -97,6 +97,7 @@ export async function getPredictionMarketDetail(
   try {
     const response = await client.getPredictionMarketDetail({
       slug: trimmed,
+      eventId: '',
       bookDepth: options?.bookDepth ?? 10,
       tradeLimit: options?.tradeLimit ?? 20,
       refresh: options?.refresh ?? false,

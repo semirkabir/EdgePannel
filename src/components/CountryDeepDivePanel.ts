@@ -8,7 +8,7 @@ import type { PredictionMarket } from '@/services/prediction';
 import type { AssetType, NewsItem, RelatedAsset } from '@/types';
 import { sanitizeUrl, escapeHtml } from '@/utils/sanitize';
 import { getCSSColor } from '@/utils';
-import { getRegimeTypeColor, getRiskColor, type CountryGovernanceData, type GemRiskScore } from '@/services/data360';
+import { getRegimeTypeColor, type CountryGovernanceData } from '@/services/data360';
 import { applyArticleLinkDataset } from '@/services/article-open';
 import { PORTS } from '@/config/ports';
 import { haversineKm } from '@/utils/geo';
@@ -712,7 +712,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     riskProfileBody.append(this.makeLoading('Loading risk profile…'));
     briefBody.append(this.makeLoading(t('countryBrief.generatingBrief')));
 
-    bodyGrid.append(signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, governanceCard, briefCard);
+    bodyGrid.append(signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, governanceCard, riskProfileCard, briefCard);
     shell.append(header, scoreCard, bodyGrid);
     this.content.append(shell);
   }
@@ -978,6 +978,13 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       polityRow.append(polityLabel, polityBar, polityValue, polityRange);
       this.governanceBody.append(polityRow);
     }
+  }
+
+  /** Populate the GEM / Data360 seismic risk section. Stub until Data360 RPC is wired. */
+  public updateRiskProfile(countryCode: string): void {
+    if (!this.riskProfileBody) return;
+    this.riskProfileBody.replaceChildren();
+    this.riskProfileBody.append(this.makeEmpty(`No GEM risk data for ${countryCode}`));
   }
 
   private renderRadarChart(vdem: CountryGovernanceData['vdem']): HTMLElement {

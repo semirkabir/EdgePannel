@@ -33,6 +33,7 @@ const BASE_LAYERS: MapLayers = {
   tradeRoutes: false, ciiChoropleth: false, governanceChoropleth: false, dayNight: false,
   miningSites: false, processingPlants: false, commodityPorts: false,
   aptGroups: false,
+  gemRisk: false, democracy: false, socialProgress: false,
 };
 
 // ============================================

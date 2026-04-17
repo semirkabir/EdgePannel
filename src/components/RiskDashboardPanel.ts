@@ -106,11 +106,6 @@ export class RiskDashboardPanel extends Panel {
     return Math.round(100 - risk);
   }
 
-  private formatComponent(value: number | null): string {
-    if (value === null) return '—';
-    return Math.round(value).toString();
-  }
-
   private render(): void {
     if (this.rankings.length === 0) {
       this.showError(t('common.noDataAvailable') ?? 'No risk data available');

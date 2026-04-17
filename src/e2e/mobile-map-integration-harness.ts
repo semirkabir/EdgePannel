@@ -136,6 +136,9 @@ const layers = {
   processingPlants: false,
   commodityPorts: false,
   aptGroups: false,
+  gemRisk: false,
+  democracy: false,
+  socialProgress: false,
 };
 
 await initI18n();

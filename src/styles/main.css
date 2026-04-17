@@ -9630,8 +9630,8 @@ a.prediction-link:hover {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 16px;
-  padding: 10px 16px 12px;
+  gap: 10px;
+  padding: 5px 10px 6px;
   background: var(--surface);
 }
 
@@ -18738,16 +18738,16 @@ button.cluster-flight-item:focus-visible {
 }
 
 .deckgl-legend .legend-icon {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 .deckgl-legend .legend-icon svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   display: block;
 }
 
@@ -24721,9 +24721,9 @@ body:has(.tauri-titlebar) .breaking-news-container {
 .map-tray-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 6px 10px;
+  gap: 6px;
+  min-height: 22px;
+  padding: 3px 8px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -24745,14 +24745,14 @@ body:has(.tauri-titlebar) .breaking-news-container {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  font-size: 14px;
+  font-size: 11px;
   line-height: 1;
   cursor: var(--wm-cursor-pointer);
 }

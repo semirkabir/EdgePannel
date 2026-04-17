@@ -1533,12 +1533,6 @@ export class EventHandlerManager implements AppModule {
   private static readonly WS_SOURCES = new Set(['ais', 'opensky', 'wingbits', 'polymarket', 'predictions']);
   private static readonly RSS_SOURCES = new Set(['rss', 'gdelt_doc', 'pizzint', 'outages', 'cyber_threats', 'gpsjam', 'webcams', 'security_advisories']);
 
-  private static readonly SOURCE_GROUPS: { label: string; type: string; ids: Set<string> }[] = [
-    { label: 'WebSocket', type: 'wss', ids: EventHandlerManager.WS_SOURCES },
-    { label: 'RSS / Feed', type: 'rss', ids: EventHandlerManager.RSS_SOURCES },
-    { label: 'REST API',  type: 'api', ids: new Set<string>() }, // catch-all for the rest
-  ];
-
   private setupStatusDropdown(): void {
     const indicator = document.querySelector<HTMLElement>('.status-indicator');
     if (!indicator) return;
