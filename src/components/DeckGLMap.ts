@@ -522,6 +522,9 @@ export class DeckGLMap {
   private customCategories: CustomCategory[] = loadCustomCategories();
   private usedFallbackStyle = false;
   private _globeProjection = false;
+  private _spinGlobeRaf: number | null = null;
+  private _spinPaused = false;
+  private _spinResumeTimer: ReturnType<typeof setTimeout> | null = null;
   private _globeNativeSources: string[] = [];
   private _globeNativeLayers: string[] = [];
   private _globeNativeImages: string[] = [];
@@ -6728,13 +6731,19 @@ export class DeckGLMap {
       this.maplibreMap.setMaxPitch(85);
       (this.maplibreMap as any).dragRotate?.enable();
       (this.maplibreMap as any).touchPitch?.enable();
-    } else if (MAP_INTERACTION_MODE === 'flat') {
-      // Restore flat-mode constraints
-      this.maplibreMap.setMaxPitch(0);
-      this.maplibreMap.setPitch(0);
-      this.maplibreMap.setBearing(0);
-      (this.maplibreMap as any).dragRotate?.disable();
-      (this.maplibreMap as any).touchPitch?.disable();
+      this.container.classList.add('globe-projection');
+      this._startGlobeSpin();
+    } else {
+      this.container.classList.remove('globe-projection');
+      this._stopGlobeSpin();
+      if (MAP_INTERACTION_MODE === 'flat') {
+        // Restore flat-mode constraints
+        this.maplibreMap.setMaxPitch(0);
+        this.maplibreMap.setPitch(0);
+        this.maplibreMap.setBearing(0);
+        (this.maplibreMap as any).dragRotate?.disable();
+        (this.maplibreMap as any).touchPitch?.disable();
+      }
     }
 
     this.maplibreMap.resize();
@@ -6744,6 +6753,68 @@ export class DeckGLMap {
     } else {
       this._removeGlobeNativeLayers();
       this.render(); // Restore deck.gl layers
+    }
+  }
+
+  private _startGlobeSpin(): void {
+    this._stopGlobeSpin();
+    this._spinPaused = false;
+
+    const canvas = this.maplibreMap?.getCanvas();
+    if (!canvas) return;
+
+    const pauseSpin = () => {
+      this._spinPaused = true;
+      if (this._spinResumeTimer) clearTimeout(this._spinResumeTimer);
+    };
+    const schedulResume = () => {
+      if (this._spinResumeTimer) clearTimeout(this._spinResumeTimer);
+      this._spinResumeTimer = setTimeout(() => {
+        this._spinPaused = false;
+      }, 60_000);
+    };
+
+    canvas.addEventListener('mousedown', pauseSpin);
+    canvas.addEventListener('touchstart', pauseSpin, { passive: true });
+    canvas.addEventListener('mouseup', schedulResume);
+    canvas.addEventListener('touchend', schedulResume, { passive: true });
+    // Store cleanup refs on the canvas so _stopGlobeSpin can remove them
+    (canvas as any)._wmSpinHandlers = { pauseSpin, schedulResume };
+
+    const SPIN_DEG_PER_MS = 0.0015;
+    let last = 0;
+    const tick = (now: number) => {
+      if (!this._globeProjection || !this.maplibreMap) return;
+      if (!this._spinPaused) {
+        const dt = last ? Math.min(now - last, 100) : 0;
+        if (dt > 0) {
+          const c = this.maplibreMap.getCenter();
+          this.maplibreMap.setCenter([c.lng - SPIN_DEG_PER_MS * dt, c.lat]);
+        }
+      }
+      last = now;
+      this._spinGlobeRaf = requestAnimationFrame(tick);
+    };
+    this._spinGlobeRaf = requestAnimationFrame(tick);
+  }
+
+  private _stopGlobeSpin(): void {
+    if (this._spinGlobeRaf != null) {
+      cancelAnimationFrame(this._spinGlobeRaf);
+      this._spinGlobeRaf = null;
+    }
+    if (this._spinResumeTimer) {
+      clearTimeout(this._spinResumeTimer);
+      this._spinResumeTimer = null;
+    }
+    const canvas = this.maplibreMap?.getCanvas();
+    if (canvas && (canvas as any)._wmSpinHandlers) {
+      const { pauseSpin, schedulResume } = (canvas as any)._wmSpinHandlers;
+      canvas.removeEventListener('mousedown', pauseSpin);
+      canvas.removeEventListener('touchstart', pauseSpin);
+      canvas.removeEventListener('mouseup', schedulResume);
+      canvas.removeEventListener('touchend', schedulResume);
+      delete (canvas as any)._wmSpinHandlers;
     }
   }
 
@@ -6934,6 +7005,8 @@ export class DeckGLMap {
       clearTimeout(this.styleLoadTimeoutId);
       this.styleLoadTimeoutId = null;
     }
+    this._stopGlobeSpin();
+    this.container.classList.remove('globe-projection');
     this.stopPulseAnimation();
     this.stopDayNightTimer();
     this.manageCableFlowAnimation(false);

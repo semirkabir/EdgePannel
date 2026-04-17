@@ -921,7 +921,7 @@ select optgroup {
   top: calc(100% + 4px);
   left: 0;
   z-index: 10100;
-  min-width: 160%;
+  min-width: 100%;
   max-height: 280px;
   overflow-y: auto;
   background: var(--surface, #141414);
@@ -3441,12 +3441,10 @@ body.panel-resize-active iframe {
 }
 
 .panel-info-tooltip {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
+  position: fixed;
   transform: translateX(-50%);
-  background: var(--border-subtle);
-  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 10px 12px;
   font-size: 11px;
@@ -6170,6 +6168,10 @@ body.playback-mode #shellGuidanceStrip {
   /* Let the map library handle all touch gestures (pinch-zoom, pan)
      instead of the browser intercepting them on mobile/Android */
   touch-action: none;
+}
+
+.map-container.globe-projection {
+  background: #000 url('/textures/night-sky.png') center / cover no-repeat;
 }
 
 .map-wrapper {
@@ -16193,7 +16195,8 @@ button.cluster-flight-item:focus-visible {
   top: 0;
   right: 0;
   width: 300px;
-  background: var(--panel-bg);
+  background: var(--panel-bg, #111827);
+  background-color: var(--panel-bg, #111827);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
@@ -16207,7 +16210,7 @@ button.cluster-flight-item:focus-visible {
 }
 
 .intel-notif-popup.visible {
-  opacity: var(--notif-opacity, 1);
+  opacity: 1;
 }
 
 .intel-notif-popup.leaving {

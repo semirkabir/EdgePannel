@@ -178,6 +178,7 @@ export class Panel {
   protected panelId: string;
   private abortController: AbortController = new AbortController();
   private tooltipCloseHandler: (() => void) | null = null;
+  private infoTooltipEl: HTMLElement | null = null;
   private resizeHandle: HTMLElement | null = null;
   private isResizing = false;
   private startY = 0;
@@ -244,13 +245,22 @@ export class Panel {
 
       const tooltip = h('div', { className: 'panel-info-tooltip' });
       tooltip.appendChild(safeHtml(options.infoTooltip));
+      // Append to body so it escapes panel's overflow:hidden / contain
+      document.body.appendChild(tooltip);
+      this.infoTooltipEl = tooltip;
 
-      const showTooltip = () => tooltip.classList.add('visible');
+      const positionTooltip = () => {
+        const r = infoBtn.getBoundingClientRect();
+        tooltip.style.left = `${r.left + r.width / 2}px`;
+        tooltip.style.top = `${r.bottom + 8}px`;
+      };
+
+      const showTooltip = () => { positionTooltip(); tooltip.classList.add('visible'); };
       const hideTooltip = () => tooltip.classList.remove('visible');
 
       infoBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        tooltip.classList.toggle('visible');
+        if (tooltip.classList.contains('visible')) { hideTooltip(); } else { showTooltip(); }
       });
 
       this.tooltipCloseHandler = () => tooltip.classList.remove('visible');
@@ -266,7 +276,6 @@ export class Panel {
         hideTooltip();
       });
       infoWrapper.appendChild(infoBtn);
-      infoWrapper.appendChild(tooltip);
       headerLeft.appendChild(infoWrapper);
     }
 

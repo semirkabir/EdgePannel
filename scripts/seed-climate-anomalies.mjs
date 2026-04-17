@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 
-import { loadEnvFile, CHROME_UA, runSeed } from './_seed-utils.mjs';
+import { loadEnvFile, runSeed, sleep } from './_seed-utils.mjs';
+import { chunkItems, fetchOpenMeteoArchiveBatch } from './_open-meteo-archive.mjs';
 
 loadEnvFile(import.meta.url);
 
 const CANONICAL_KEY = 'climate:anomalies:v1';
 const CACHE_TTL = 10800; // 3h
+const ANOMALY_BATCH_SIZE = 8;
+const ANOMALY_BATCH_DELAY_MS = 750;
 
 const ZONES = [
   { name: 'Ukraine', lat: 48.4, lon: 31.2 },
@@ -51,19 +54,9 @@ function classifyType(tempDelta, precipDelta) {
   return 'ANOMALY_TYPE_COLD';
 }
 
-async function fetchZone(zone, startDate, endDate) {
-  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${zone.lat}&longitude=${zone.lon}&start_date=${startDate}&end_date=${endDate}&daily=temperature_2m_mean,precipitation_sum&timezone=UTC`;
-
-  const resp = await fetch(url, {
-    headers: { 'User-Agent': CHROME_UA },
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!resp.ok) throw new Error(`Open-Meteo ${resp.status} for ${zone.name}`);
-
-  const data = await resp.json();
-
-  const rawTemps = data.daily?.temperature_2m_mean ?? [];
-  const rawPrecips = data.daily?.precipitation_sum ?? [];
+function buildAnomaly(zone, data, startDate, endDate) {
+  const rawTemps = data?.daily?.temperature_2m_mean ?? [];
+  const rawPrecips = data?.daily?.precipitation_sum ?? [];
   const temps = [];
   const precips = [];
   for (let i = 0; i < rawTemps.length; i++) {
@@ -98,17 +91,26 @@ async function fetchClimateAnomalies() {
   const endDate = new Date().toISOString().slice(0, 10);
   const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const results = await Promise.allSettled(
-    ZONES.map((zone) => fetchZone(zone, startDate, endDate)),
-  );
-
   const anomalies = [];
-  for (const r of results) {
-    if (r.status === 'fulfilled') {
-      if (r.value != null) anomalies.push(r.value);
-    } else {
-      console.log(`  [CLIMATE] ${r.reason?.message ?? r.reason}`);
+  for (const batch of chunkItems(ZONES, ANOMALY_BATCH_SIZE)) {
+    try {
+      const payloads = await fetchOpenMeteoArchiveBatch(batch, {
+        startDate,
+        endDate,
+        daily: ['temperature_2m_mean', 'precipitation_sum'],
+        timeoutMs: 20_000,
+        maxRetries: 4,
+        retryBaseMs: 3_000,
+        label: `anomalies batch (${batch.map((zone) => zone.name).join(', ')})`,
+      });
+      for (let i = 0; i < batch.length; i++) {
+        const anomaly = buildAnomaly(batch[i], payloads[i], startDate, endDate);
+        if (anomaly) anomalies.push(anomaly);
+      }
+    } catch (err) {
+      console.log(`  [CLIMATE] ${err?.message ?? err}`);
     }
+    await sleep(ANOMALY_BATCH_DELAY_MS);
   }
 
   return { anomalies, pagination: undefined };

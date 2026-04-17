@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 import { readFileSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024; // 5MB per key
@@ -201,6 +203,41 @@ export async function writeExtraKey(key, data, ttl) {
 
 export function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+const { resolveProxyString, resolveProxyStringConnect } = createRequire(import.meta.url)('./_proxy-utils.cjs');
+
+export function resolveProxy() {
+  return resolveProxyString();
+}
+
+export function resolveProxyForConnect() {
+  return resolveProxyStringConnect();
+}
+
+export function curlFetch(url, proxyAuth, headers = {}) {
+  const args = ['-sS', '--compressed', '--max-time', '15', '-L'];
+  if (proxyAuth) {
+    const proxyUrl = /^https?:\/\//i.test(proxyAuth) ? proxyAuth : `http://${proxyAuth}`;
+    args.push('-x', proxyUrl);
+  }
+  for (const [k, v] of Object.entries(headers)) args.push('-H', `${k}: ${v}`);
+  args.push('-w', '\n%{http_code}');
+  args.push(url);
+  const raw = execFileSync('curl', args, { encoding: 'utf8', timeout: 20000, stdio: ['pipe', 'pipe', 'pipe'] });
+  const nl = raw.lastIndexOf('\n');
+  const status = parseInt(raw.slice(nl + 1).trim(), 10);
+  if (status < 200 || status >= 300) throw Object.assign(new Error(`HTTP ${status}`), { status });
+  return raw.slice(0, nl);
+}
+
+export async function httpsProxyFetchRaw(url, proxyAuth, { accept = '*/*', timeoutMs = 20_000 } = {}) {
+  const { proxyFetch, parseProxyConfig } = createRequire(import.meta.url)('./_proxy-utils.cjs');
+  const proxyConfig = parseProxyConfig(proxyAuth);
+  if (!proxyConfig) throw new Error('Invalid proxy auth string');
+  const result = await proxyFetch(url, proxyConfig, { accept, timeoutMs, headers: { 'User-Agent': CHROME_UA } });
+  if (!result.ok) throw Object.assign(new Error(`HTTP ${result.status}`), { status: result.status });
+  return { buffer: result.buffer, contentType: result.contentType };
 }
 
 export function parseYahooChart(data, symbol) {

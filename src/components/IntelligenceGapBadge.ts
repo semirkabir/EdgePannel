@@ -523,7 +523,7 @@ export class IntelligenceFindingsBadge {
       popup.style.setProperty('--notif-offset-x', `${depth * 6}px`);
       popup.style.setProperty('--notif-scale', `${Math.max(0.84, 1 - depth * 0.045)}`);
       popup.style.setProperty('--notif-rotate-x', `${Math.min(18, depth * 4)}deg`);
-      popup.style.setProperty('--notif-opacity', `${Math.max(0.38, 1 - depth * 0.16)}`);
+      popup.style.setProperty('--notif-opacity', '1');
       popup.style.zIndex = String(11500 - depth);
       popup.classList.toggle('intel-notif-popup-stacked', depth > 0);
     });
