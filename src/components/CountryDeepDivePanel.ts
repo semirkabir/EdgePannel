@@ -183,7 +183,9 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.currentCode = code;
     this.currentName = country;
     this.economicIndicators = [];
+    this.macroCards = [];
     this.infrastructureByType.clear();
+    this.currentHeadlineCount = 0;
     this.renderSkeleton(country, code, score, signals);
     this.open();
   }
@@ -198,6 +200,9 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.close();
     this.currentCode = null;
     this.currentName = null;
+    this.economicIndicators = [];
+    this.macroCards = [];
+    this.currentHeadlineCount = 0;
     this.onCloseCallback?.();
     this.onStateChangeCallback?.({ visible: false, maximized: false });
   }
@@ -846,7 +851,27 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.economicBody.replaceChildren();
 
     if (this.macroCards.length === 0) {
-      this.economicBody.append(this.makeEmpty(t('countryBrief.noIndicators')));
+      if (this.economicIndicators.length > 0) {
+        const fallbackGrid = this.el('div', 'cdp-macro-grid');
+        for (const indicator of this.economicIndicators) {
+          const el = this.el('div', 'cdp-macro-card');
+          const header = this.el('div', 'cdp-macro-header');
+          const label = this.el('span', 'cdp-macro-label', indicator.label);
+          header.append(label);
+          if (indicator.trend !== 'flat') {
+            const arrow = this.el('span', `cdp-macro-trend cdp-macro-trend--${indicator.trend}`, indicator.trend === 'up' ? '▲' : '▼');
+            header.append(arrow);
+          }
+          const value = this.el('div', 'cdp-macro-value', indicator.value);
+          const source = indicator.source ? this.el('div', 'cdp-macro-year', indicator.source) : null;
+          el.append(header, value);
+          if (source) el.append(source);
+          fallbackGrid.append(el);
+        }
+        this.economicBody.append(fallbackGrid);
+      } else {
+        this.economicBody.append(this.makeEmpty(t('countryBrief.noIndicators')));
+      }
       return;
     }
 

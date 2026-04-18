@@ -23,7 +23,7 @@ import { STOCK_EXCHANGES, FINANCIAL_CENTERS, CENTRAL_BANKS, COMMODITY_HUBS } fro
 import { ENTITY_REGISTRY } from '@/config/entities';
 import { trackSearchResultSelected, trackCountrySelected } from '@/services/analytics';
 import { t } from '@/services/i18n';
-import { saveToStorage, setTheme } from '@/utils';
+import { saveToStorage, setThemeWithLinkedMap } from '@/utils';
 import { CountryIntelManager } from '@/app/country-intel';
 import { searchPredictions } from '@/services/prediction';
 import { getCachedSanctions } from '@/services/sanctions';
@@ -474,7 +474,7 @@ export class SearchManager implements AppModule {
 
       case 'view':
         if (action === 'dark' || action === 'light') {
-          setTheme(action);
+          setThemeWithLinkedMap(action);
         } else if (action === 'fullscreen') {
           if (document.fullscreenElement) {
             try { void document.exitFullscreen()?.catch(() => {}); } catch {}

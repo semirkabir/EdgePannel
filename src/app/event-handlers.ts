@@ -15,7 +15,7 @@ import {
   saveToStorage,
   ExportPanel,
   getCurrentTheme,
-  setTheme,
+  setThemeWithLinkedMap,
 } from '@/utils';
 import {
   IDLE_PAUSE_MS,
@@ -371,7 +371,7 @@ export class EventHandlerManager implements AppModule {
 
     document.getElementById('headerThemeToggle')?.addEventListener('click', () => {
       const next = getCurrentTheme() === 'dark' ? 'light' : 'dark';
-      setTheme(next);
+      setThemeWithLinkedMap(next);
       this.updateHeaderThemeIcon();
       trackThemeChanged(next);
     });
@@ -526,7 +526,7 @@ export class EventHandlerManager implements AppModule {
     document.getElementById('mobileMenuTheme')?.addEventListener('click', () => {
       this.closeMobileMenu();
       const next = getCurrentTheme() === 'dark' ? 'light' : 'dark';
-      setTheme(next);
+      setThemeWithLinkedMap(next);
       this.updateHeaderThemeIcon();
       trackThemeChanged(next);
     });

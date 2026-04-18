@@ -1,4 +1,5 @@
 import { invalidateColorCache } from './theme-colors';
+import { setUnifiedThemeForMode, type MapColorMode } from '@/config/basemap';
 
 export type Theme = 'dark' | 'light';
 export type ThemePreference = 'auto' | 'dark' | 'light';
@@ -133,6 +134,12 @@ export function setTheme(theme: Theme): void {
     meta.content = theme === 'dark' ? '#0a0f0a' : (variant === 'happy' ? '#FAFAF5' : '#f8f9fa');
   }
   window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme } }));
+}
+
+export function setThemeWithLinkedMap(theme: Theme): void {
+  const nextMapTheme = setUnifiedThemeForMode(theme as MapColorMode);
+  window.dispatchEvent(new CustomEvent('map-theme-changed', { detail: { theme: nextMapTheme } }));
+  setTheme(theme);
 }
 
 /**

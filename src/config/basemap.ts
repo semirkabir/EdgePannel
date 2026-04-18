@@ -14,7 +14,7 @@ export type CustomTheme = 'smooth_dark' | 'toner' | 'smooth_light' | 'toner_lite
 export type MapTheme = PmtilesTheme | OpenFreeMapTheme | CartoTheme | CustomTheme;
 export type MapProvider = 'pmtiles' | 'auto' | 'openfreemap' | 'carto' | 'custom';
 
-const PMTILES_URL = (import.meta.env.VITE_PMTILES_URL ?? '').trim();
+const PMTILES_URL = ((import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_PMTILES_URL ?? '').trim();
 const HAS_PMTILES_URL = PMTILES_URL.length > 0;
 
 const MAP_PROVIDER_STORAGE_KEY = 'wm-map-provider';
@@ -39,6 +39,8 @@ export interface UnifiedThemeOption {
   provider: MapProvider;
   theme: string;
 }
+
+export type MapColorMode = 'dark' | 'light';
 
 function buildUnifiedOptions(): UnifiedThemeOption[] {
   const opts: UnifiedThemeOption[] = [
@@ -65,6 +67,27 @@ function buildUnifiedOptions(): UnifiedThemeOption[] {
 
 export const UNIFIED_THEME_OPTIONS: UnifiedThemeOption[] = buildUnifiedOptions();
 
+const UNIFIED_THEME_MODE_GROUP: Record<MapColorMode, UnifiedThemeOption['group']> = {
+  dark: 'Dark',
+  light: 'Light',
+};
+
+const UNIFIED_THEME_MODE_PAIRS: Partial<Record<string, Partial<Record<MapColorMode, string>>>> = {
+  'carto:dark-matter': { light: 'carto:voyager' },
+  'carto:voyager': { dark: 'carto:dark-matter' },
+  'custom:toner': { light: 'custom:toner_lite' },
+  'custom:toner_lite': { dark: 'custom:toner' },
+  'pmtiles:black': { light: 'pmtiles:white' },
+  'pmtiles:white': { dark: 'pmtiles:black' },
+  'pmtiles:dark': { light: 'pmtiles:light' },
+  'pmtiles:light': { dark: 'pmtiles:dark' },
+  'pmtiles:grayscale': { light: 'pmtiles:light' },
+};
+
+function getUnifiedThemeOption(value: string): UnifiedThemeOption | undefined {
+  return UNIFIED_THEME_OPTIONS.find((option) => option.value === value);
+}
+
 export function resolveUnifiedTheme(value: string): { provider: MapProvider; theme: string } {
   const sep = value.indexOf(':');
   if (sep < 0) return { provider: 'custom', theme: 'toner' }; // Obsidian
@@ -84,6 +107,31 @@ export function getUnifiedTheme(): string {
     if (UNIFIED_THEME_OPTIONS.some(o => o.value === candidate)) return candidate;
   }
   return 'custom:toner'; // Obsidian
+}
+
+export function getUnifiedThemeForMode(mode: MapColorMode, currentValue = getUnifiedTheme()): string {
+  const currentOption = getUnifiedThemeOption(currentValue);
+  const targetGroup = UNIFIED_THEME_MODE_GROUP[mode];
+  if (!currentOption) {
+    return UNIFIED_THEME_OPTIONS.find((option) => option.group === targetGroup)?.value ?? currentValue;
+  }
+  if (currentOption.group === targetGroup) return currentValue;
+
+  const explicitPair = UNIFIED_THEME_MODE_PAIRS[currentValue]?.[mode];
+  if (explicitPair && getUnifiedThemeOption(explicitPair)) return explicitPair;
+
+  const providerPair = UNIFIED_THEME_OPTIONS.find((option) =>
+    option.provider === currentOption.provider && option.group === targetGroup
+  );
+  if (providerPair) return providerPair.value;
+
+  return UNIFIED_THEME_OPTIONS.find((option) => option.group === targetGroup)?.value ?? currentValue;
+}
+
+export function setUnifiedThemeForMode(mode: MapColorMode): string {
+  const next = getUnifiedThemeForMode(mode);
+  setUnifiedTheme(next);
+  return next;
 }
 
 export interface ThemePaintOverride {
