@@ -190,6 +190,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.currentCode = code;
     this.currentName = country;
     this.economicIndicators = [];
+    this.macroCards = [];
     this.infrastructureByType.clear();
     this.activeTab = 'overview';
     this.tabButtons.clear();
@@ -462,7 +463,9 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
 
   public updateEconomicIndicators(indicators: CountryDeepDiveEconomicIndicator[]): void {
     this.economicIndicators = indicators;
-    this.renderEconomicIndicators();
+    if (this.macroCards.length > 0) {
+      this.renderEconomicIndicators();
+    }
   }
 
   public updateScore(score: CountryScore | null, signals: CountryBriefSignals, ciiAvailability?: CardAvailability): void {
@@ -724,7 +727,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     riskProfileBody.append(this.makeLoading('Loading risk profile…'));
     briefBody.append(this.makeLoading(t('countryBrief.generatingBrief')));
 
-    bodyGrid.append(signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, governanceCard, riskProfileCard, briefCard);
+    bodyGrid.append(briefCard, signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, governanceCard, riskProfileCard);
 
     const tabBar = this.renderTabBar();
     const overviewPane = this.el('div', 'cdp-pane cdp-pane-overview');

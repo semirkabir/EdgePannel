@@ -25,6 +25,18 @@ const DESKTOP_RELEASES_URL = 'https://github.com/koala73/worldmonitor/releases';
 
 const HEADER_TZ_KEY = 'worldmonitor-header-timezone';
 const HEADER_FMT_KEY = 'worldmonitor-header-clock-format';
+const HEADER_DATE_FMT_KEY = 'worldmonitor-header-date-format';
+
+export type HeaderDateFormat = 'dd-mon-yyyy' | 'mm/dd/yy' | 'mm/dd/yyyy' | 'dd/mm/yy' | 'dd/mm/yyyy' | 'yyyy-mm-dd';
+
+const HEADER_DATE_FORMAT_OPTIONS: Array<{ value: HeaderDateFormat; label: string }> = [
+  { value: 'dd-mon-yyyy', label: 'DD Mon YYYY' },
+  { value: 'mm/dd/yy', label: 'MM/DD/YY' },
+  { value: 'mm/dd/yyyy', label: 'MM/DD/YYYY' },
+  { value: 'dd/mm/yy', label: 'DD/MM/YY' },
+  { value: 'dd/mm/yyyy', label: 'DD/MM/YYYY' },
+  { value: 'yyyy-mm-dd', label: 'YYYY-MM-DD' },
+];
 
 export function getHeaderTimezone(): string {
   return localStorage.getItem(HEADER_TZ_KEY) || 'UTC';
@@ -40,6 +52,15 @@ export function getClockFormat(): '12h' | '24h' {
 
 export function setClockFormat(fmt: '12h' | '24h'): void {
   localStorage.setItem(HEADER_FMT_KEY, fmt);
+}
+
+export function getHeaderDateFormat(): HeaderDateFormat {
+  const stored = localStorage.getItem(HEADER_DATE_FMT_KEY) as HeaderDateFormat | null;
+  return HEADER_DATE_FORMAT_OPTIONS.some((option) => option.value === stored) ? stored as HeaderDateFormat : 'dd-mon-yyyy';
+}
+
+export function setHeaderDateFormat(fmt: HeaderDateFormat): void {
+  localStorage.setItem(HEADER_DATE_FMT_KEY, fmt);
 }
 
 const TIMEZONE_OPTIONS: { value: string; label: string; group: string }[] = [
@@ -159,7 +180,7 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
   let html = '';
 
   // ── Display group ──
-  html += `<details class="wm-pref-group" open>`;
+  html += `<details class="wm-pref-group">`;
   html += `<summary>${t('preferences.display')}</summary>`;
   html += `<div class="wm-pref-group-content">`;
 
@@ -172,16 +193,11 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
       <div class="ai-flow-toggle-desc">${t('preferences.themeDesc')}</div>
     </div>
   </div>`;
-  html += `<select class="unified-settings-select" id="us-theme">`;
-  for (const opt of [
-    { value: 'auto', label: t('preferences.themeAuto') },
-    { value: 'dark', label: t('preferences.themeDark') },
-    { value: 'light', label: t('preferences.themeLight') },
-  ] as { value: ThemePreference; label: string }[]) {
-    const selected = opt.value === currentThemePref ? ' selected' : '';
-    html += `<option value="${opt.value}"${selected}>${escapeHtml(opt.label)}</option>`;
-  }
-  html += `</select>`;
+  html += `<div class="us-theme-preview-grid">`;
+  html += renderThemePreviewCard('dark', t('preferences.themeDark'), 'Low-light interface', currentThemePref);
+  html += renderThemePreviewCard('light', t('preferences.themeLight'), 'Bright interface', currentThemePref);
+  html += renderThemePreviewCard('auto', t('preferences.themeAuto'), 'Follow system setting', currentThemePref);
+  html += `</div>`;
 
   html += `<div class="ai-flow-toggle-row">
     <div class="ai-flow-toggle-label-wrap">
@@ -278,6 +294,7 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
   // Clock (timezone + format inline)
   const currentTz = getHeaderTimezone();
   const currentFmt = getClockFormat();
+  const currentDateFmt = getHeaderDateFormat();
   html += `<div class="ai-flow-toggle-row">
     <div class="ai-flow-toggle-label-wrap">
       <div class="ai-flow-toggle-label">${t('preferences.clock')}</div>
@@ -313,6 +330,18 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
   </select>`;
 
   html += `</div>`;
+
+  html += `<div class="ai-flow-toggle-row">
+    <div class="ai-flow-toggle-label-wrap">
+      <div class="ai-flow-toggle-label">Date format</div>
+      <div class="ai-flow-toggle-desc">Choose how the date appears in the header clock.</div>
+    </div>
+  </div>`;
+  html += `<select class="unified-settings-select us-clock-date" id="us-header-date-format">`;
+  for (const opt of HEADER_DATE_FORMAT_OPTIONS) {
+    html += `<option value="${opt.value}"${opt.value === currentDateFmt ? ' selected' : ''}>${escapeHtml(opt.label)}</option>`;
+  }
+  html += `</select>`;
 
   // Language
   html += `<div class="ai-flow-section-label">${t('header.languageLabel')}</div>`;
@@ -446,6 +475,11 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
           markDirty();
           return;
         }
+        if (target.id === 'us-header-date-format') {
+          setHeaderDateFormat(target.value as HeaderDateFormat);
+          markDirty();
+          return;
+        }
         if (target.id === 'us-stream-quality') {
           setStreamQuality(target.value as StreamQuality);
           markDirty();
@@ -453,11 +487,6 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
         }
         if (target.id === 'us-globe-visual-preset') {
           setGlobeVisualPreset(target.value as GlobeVisualPreset);
-          markDirty();
-          return;
-        }
-        if (target.id === 'us-theme') {
-          setThemePreference(target.value as ThemePreference);
           markDirty();
           return;
         }
@@ -525,6 +554,14 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
 
       container.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
+        const themeCard = target.closest<HTMLElement>('.us-theme-preview-card');
+        if (themeCard?.dataset.themePreference) {
+          const value = themeCard.dataset.themePreference as ThemePreference;
+          setThemePreference(value);
+          syncThemePreviewState(container, value);
+          markDirty();
+          return;
+        }
         const fontCard = target.closest<HTMLElement>('.us-font-preview-card');
         if (fontCard?.dataset.fontPreference) {
           const value = fontCard.dataset.fontPreference as FontPreference;
@@ -647,9 +684,34 @@ function renderCursorPreviewCard(
   `;
 }
 
+function renderThemePreviewCard(value: ThemePreference, title: string, subtitle: string, current: ThemePreference): string {
+  const active = current === value ? ' active' : '';
+  return `
+    <button type="button" class="us-theme-preview-card${active}" data-theme-preference="${value}" aria-pressed="${current === value ? 'true' : 'false'}">
+      <div class="us-font-preview-top">
+        <span class="us-font-preview-title">${escapeHtml(title)}</span>
+        <span class="us-font-preview-subtitle">${escapeHtml(subtitle)}</span>
+      </div>
+      <div class="us-theme-preview-sample us-theme-preview-sample-${value}">
+        <span class="us-theme-preview-topbar"></span>
+        <span class="us-theme-preview-line us-theme-preview-line-primary"></span>
+        <span class="us-theme-preview-line us-theme-preview-line-secondary"></span>
+      </div>
+    </button>
+  `;
+}
+
 function syncFontPreviewState(container: HTMLElement, value: FontPreference): void {
   container.querySelectorAll<HTMLElement>('.us-font-preview-card').forEach((card) => {
     card.classList.toggle('active', card.dataset.fontPreference === value);
+  });
+}
+
+function syncThemePreviewState(container: HTMLElement, value: ThemePreference): void {
+  container.querySelectorAll<HTMLElement>('.us-theme-preview-card').forEach((card) => {
+    const active = card.dataset.themePreference === value;
+    card.classList.toggle('active', active);
+    card.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
 }
 

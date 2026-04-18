@@ -72,8 +72,11 @@ export function upgradeSelect(select: HTMLSelectElement): void {
   if (cls.contains('us-clock-tz')) {
     wrap.style.cssText += 'flex:1 1 0;min-width:0;';
   }
-  if (cls.contains('us-clock-format')) {
+  if (cls.contains('us-clock-fmt') || cls.contains('us-clock-format')) {
     wrap.style.cssText += 'width:60px;';
+  }
+  if (cls.contains('us-clock-date')) {
+    wrap.style.cssText += 'width:180px;max-width:100%;';
   }
   // margin-top for settings selects
   if (cls.contains('unified-settings-select') || cls.contains('unified-settings-lang-select')) {

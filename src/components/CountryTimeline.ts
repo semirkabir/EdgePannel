@@ -42,7 +42,7 @@ export class CountryTimeline {
     this.container = container;
     this.createTooltip();
     this.resizeObserver = new ResizeObserver(() => {
-      if (this.currentEvents.length > 0) this.render(this.currentEvents);
+      this.render(this.currentEvents);
     });
     this.resizeObserver.observe(this.container);
 
@@ -54,7 +54,7 @@ export class CountryTimeline {
       }
       this.createTooltip();
       // Re-render chart with new colors
-      if (this.currentEvents.length > 0) this.render(this.currentEvents);
+      this.render(this.currentEvents);
     };
     window.addEventListener('theme-changed', this.handleThemeChange);
   }
