@@ -207,7 +207,7 @@ async function buildPredictionMarketDetailFallback(
     tokenId ? fetchBroadPriceHistory(tokenId, options?.signal) : Promise.resolve([]),
     tokenId ? fetchJson<{ price?: string | number; side?: string }>(`https://clob.polymarket.com/last-trade-price?token_id=${encodeURIComponent(tokenId)}`, options?.signal) : Promise.resolve(null),
     conditionId ? fetchJson<Array<{ side?: string; size?: number; price?: number; timestamp?: number }>>(`https://data-api.polymarket.com/trades?market=${encodeURIComponent(conditionId)}&limit=${tradeLimit}&offset=0&takerOnly=true`, options?.signal) : Promise.resolve(null),
-    conditionId ? fetchJson<Array<{ holders?: Array<{ proxyWallet?: string; amount?: number; outcomeIndex?: number; name?: string; pseudonym?: string; profileImage?: string }> }>>(`https://data-api.polymarket.com/holders?market=${encodeURIComponent(conditionId)}&limit=5`, options?.signal) : Promise.resolve(null),
+    conditionId ? fetchJson<Array<{ holders?: Array<{ proxyWallet?: string; amount?: number; outcomeIndex?: number; name?: string; pseudonym?: string; profileImage?: string }> }>>(`https://data-api.polymarket.com/holders?market=${encodeURIComponent(conditionId)}&limit=10`, options?.signal) : Promise.resolve(null),
     marketId ? fetchJson<Array<{ body?: string; createdAt?: string; reactionCount?: number; userAddress?: string; profile?: { name?: string; pseudonym?: string; profileImage?: string } }>>(`${GAMMA_API}/comments?parent_entity_type=market&parent_entity_id=${encodeURIComponent(marketId)}&limit=10&order=createdAt&ascending=false`, options?.signal) : Promise.resolve(null),
   ]);
 
@@ -254,7 +254,8 @@ async function buildPredictionMarketDetailFallback(
       timestamp: parseEpochMillis(trade.timestamp),
     })),
     history: historyData,
-    holders: (holdersData?.[0]?.holders || []).map((holder) => ({
+    // Flatten all envelopes: [0] = YES holders, [1] = NO holders.
+    holders: (holdersData || []).flatMap((envelope) => envelope.holders ?? []).map((holder) => ({
       address: holder.proxyWallet || '',
       label: holder.name || holder.pseudonym || `${holder.proxyWallet?.slice(0, 6) ?? ''}…${holder.proxyWallet?.slice(-4) ?? ''}`,
       profileImage: holder.profileImage || '',

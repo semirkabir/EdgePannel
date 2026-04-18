@@ -213,7 +213,7 @@ async function buildPredictionDetail(
     tokenId ? fetchBroadPriceHistory(tokenId) : Promise.resolve([]),
     tokenId ? fetchJson<{ price?: string | number; side?: string }>(`${CLOB_BASE}/last-trade-price?token_id=${encodeURIComponent(tokenId)}`) : Promise.resolve(null),
     conditionId ? fetchJson<DataTradeResponse[]>(`${DATA_BASE}/trades?market=${encodeURIComponent(conditionId)}&limit=${tradeLimit}&offset=0&takerOnly=true`) : Promise.resolve(null),
-    conditionId ? fetchJson<DataHolderEnvelope[]>(`${DATA_BASE}/holders?market=${encodeURIComponent(conditionId)}&limit=5`) : Promise.resolve(null),
+    conditionId ? fetchJson<DataHolderEnvelope[]>(`${DATA_BASE}/holders?market=${encodeURIComponent(conditionId)}&limit=10`) : Promise.resolve(null),
     marketId ? fetchJson<GammaCommentResponse[]>(`${GAMMA_BASE}/comments?parent_entity_type=market&parent_entity_id=${encodeURIComponent(marketId)}&limit=10&order=createdAt&ascending=false`) : Promise.resolve(null),
   ]);
 
@@ -266,15 +266,18 @@ async function buildPredictionDetail(
     }))
     : [];
 
-  const holders: PredictionMarketHolder[] = Array.isArray(holdersData) && holdersData[0]?.holders
-    ? holdersData[0].holders.map((holder) => ({
-      address: holder.proxyWallet || '',
-      label: holder.name || holder.pseudonym || `${holder.proxyWallet?.slice(0, 6) ?? ''}…${holder.proxyWallet?.slice(-4) ?? ''}`,
-      profileImage: holder.profileImage || '',
-      shares: parseNumber(holder.amount),
-      value: parseNumber(holder.amount) * (holder.outcomeIndex === 0 ? yesPrice : noPrice),
-      side: holder.outcomeIndex === 0 ? 'yes' : 'no',
-    }))
+  // Flatten all envelopes: [0] = YES holders, [1] = NO holders.
+  const holders: PredictionMarketHolder[] = Array.isArray(holdersData)
+    ? holdersData
+        .flatMap((envelope) => envelope.holders ?? [])
+        .map((holder) => ({
+          address: holder.proxyWallet || '',
+          label: holder.name || holder.pseudonym || `${holder.proxyWallet?.slice(0, 6) ?? ''}…${holder.proxyWallet?.slice(-4) ?? ''}`,
+          profileImage: holder.profileImage || '',
+          shares: parseNumber(holder.amount),
+          value: parseNumber(holder.amount) * (holder.outcomeIndex === 0 ? yesPrice : noPrice),
+          side: holder.outcomeIndex === 0 ? 'yes' : 'no',
+        }))
     : [];
 
   const comments: PredictionMarketComment[] = Array.isArray(commentsData)

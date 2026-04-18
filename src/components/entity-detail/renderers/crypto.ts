@@ -268,7 +268,6 @@ const TAB_DEFS = [
 export class CryptoRenderer implements EntityRenderer {
   renderSkeleton(data: unknown, ctx: EntityRenderContext): HTMLElement {
     const coin = data as CryptoData;
-    const positive = coin.change >= 0;
     const container = ctx.el('div', 'edp-generic edp-crypto-detail');
 
     // Header
@@ -280,16 +279,6 @@ export class CryptoRenderer implements EntityRenderer {
 
     // TradingView chart
     container.append(ctx.el('div', 'edp-tradingview-widget'));
-
-    // Live price ticker
-    const ticker = ctx.el('div', 'crypto-live-ticker');
-    const dot = ctx.el('span', 'crypto-live-dot');
-    const priceEl = ctx.el('span', 'crypto-live-price', '$' + formatPrice(coin.price));
-    priceEl.dataset['livePrice'] = '1';
-    const changeEl = ctx.el('span', `crypto-live-change ${positive ? 'is-positive' : 'is-negative'}`,
-      (positive ? '+' : '') + coin.change.toFixed(2) + '% 24h');
-    ticker.append(dot, priceEl, changeEl);
-    container.append(ticker);
 
     // Tab bar + panels with loading placeholders
     const tabBar   = ctx.el('div', 'crypto-tab-bar');

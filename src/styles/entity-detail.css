@@ -1361,16 +1361,76 @@
 .edp-prediction-book-row {
   padding: 7px 8px;
   border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+  --depth-pct: 0%;
+}
+
+/* Liquidity depth bar — fills from the right, sized by --depth-pct set inline. */
+.edp-prediction-book-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--depth-pct);
+  pointer-events: none;
+  z-index: 0;
+  transition: width 0.2s ease-out;
+}
+
+.edp-prediction-book-row > * {
+  position: relative;
+  z-index: 1;
 }
 
 .edp-prediction-book-row.is-bid {
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.22), rgba(34, 197, 94, 0.06));
+  background: transparent;
   border-left: 2px solid rgba(34, 197, 94, 0.55);
 }
 
+.edp-prediction-book-row.is-bid::before {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.06), rgba(34, 197, 94, 0.26));
+}
+
 .edp-prediction-book-row.is-ask {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.22), rgba(239, 68, 68, 0.06));
+  background: transparent;
   border-left: 2px solid rgba(239, 68, 68, 0.55);
+}
+
+.edp-prediction-book-row.is-ask::before {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.06), rgba(239, 68, 68, 0.26));
+}
+
+/* Live stream indicator (pulses when connected). */
+.edp-prediction-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edp-prediction-live-pill .edp-prediction-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.edp-prediction-live-pill.is-live .edp-prediction-live-dot {
+  background: #22c55e;
+  animation: edp-live-pulse 1.6s ease-in-out infinite;
+}
+
+.edp-prediction-live-pill.is-live .edp-prediction-metric-value {
+  color: #86efac;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+@keyframes edp-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+  50%      { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
 }
 
 .edp-prediction-book-col {
@@ -4021,68 +4081,6 @@
 
 .edp-crypto-detail .edp-auto-hero-credit {
   display: none;
-}
-
-/* ── Live price ticker ── */
-.crypto-live-ticker {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 90%, black 10%);
-  margin-bottom: 10px;
-}
-
-.crypto-live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-ghost);
-  flex-shrink: 0;
-  transition: background 0.2s;
-}
-
-.crypto-live-dot.is-live {
-  animation: crypto-pulse 1.2s ease-out;
-}
-
-.crypto-live-dot.is-buy  { background: var(--accent-green, #22c55e); }
-.crypto-live-dot.is-sell { background: var(--accent-red,   #ef4444); }
-
-@keyframes crypto-pulse {
-  0%   { transform: scale(1.8); opacity: 0.6; }
-  100% { transform: scale(1);   opacity: 1; }
-}
-
-.crypto-live-price {
-  font-size: 18px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  transition: color 0.15s;
-}
-
-.crypto-live-price.flash-up   { color: var(--accent-green, #22c55e); }
-.crypto-live-price.flash-down { color: var(--accent-red,   #ef4444); }
-
-.crypto-live-change {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 20px;
-  font-variant-numeric: tabular-nums;
-}
-
-.crypto-live-change.is-positive {
-  color: var(--accent-green, #22c55e);
-  background: color-mix(in srgb, var(--accent-green, #22c55e) 14%, transparent);
-}
-
-.crypto-live-change.is-negative {
-  color: var(--accent-red, #ef4444);
-  background: color-mix(in srgb, var(--accent-red, #ef4444) 14%, transparent);
 }
 
 /* ── Crypto tabs ── */

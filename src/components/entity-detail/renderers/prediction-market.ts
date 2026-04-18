@@ -1,4 +1,5 @@
 import { getPredictionMarketDetail } from '@/services/prediction';
+import { subscribeToOrderbook, type LiveBookSnapshot } from '@/services/polymarket-orderbook-ws';
 import { row } from '../types';
 import type { EntityRenderer, EntityRenderContext } from '../types';
 
@@ -77,6 +78,8 @@ export interface PredictionMarketPanelData {
   holders?: Record<string, MarketHolder[]>;
   comments?: Record<string, MarketComment[]>;
   recentTrades?: MarketTrade[];
+  /** CLOB token IDs — [0] is YES, [1] is NO. Used to open a live book stream. */
+  tokenIds?: string[];
   orderBook?: {
     bids: OrderLevel[];
     asks: OrderLevel[];
@@ -174,6 +177,7 @@ export class PredictionMarketRenderer implements EntityRenderer {
         endDate: closesAt,
       }],
       polymarketUrl: detail.market.url || input.url || `https://polymarket.com/market/${mappedSlug}`,
+      tokenIds: detail.market.tokenIds || [],
       priceHistory: {
         [mappedSlug]: (detail.history || []).map((point) => ({
           timestamp: point.timestamp,
@@ -318,8 +322,10 @@ function buildTradingTabs(
 ): HTMLElement | null {
   const tabs: Array<{ id: string; label: string; content: HTMLElement; count?: number }> = [];
 
-  if ((data.orderBook?.bids.length || 0) > 0 || (data.orderBook?.asks.length || 0) > 0) {
-    tabs.push({ id: 'book', label: 'Book', content: buildOrderBook(ctx, data.orderBook) });
+  const liveTokenId = data.tokenIds?.[0] || '';
+  const hasSnapshot = (data.orderBook?.bids.length || 0) > 0 || (data.orderBook?.asks.length || 0) > 0;
+  if (liveTokenId || hasSnapshot) {
+    tabs.push({ id: 'book', label: 'Book', content: buildOrderBook(ctx, data.orderBook, liveTokenId) });
   }
   if ((data.recentTrades?.length || 0) > 0) {
     tabs.push({ id: 'flow', label: 'Flow', content: buildOrderFlow(ctx, data.recentTrades || [], data.orderBook) });
@@ -389,37 +395,119 @@ function getPreferredTabId(data: PredictionMarketPanelData, comments: MarketComm
   return 'comments';
 }
 
-function buildOrderBook(ctx: EntityRenderContext, orderBook: PredictionMarketPanelData['orderBook']): HTMLElement {
+function buildOrderBook(
+  ctx: EntityRenderContext,
+  orderBook: PredictionMarketPanelData['orderBook'],
+  liveTokenId: string,
+): HTMLElement {
   const wrap = ctx.el('div', 'edp-prediction-book');
-  if (!orderBook) return wrap;
+
+  // Header meta row (Tick / Min / Updated) — rebuilt in paint() so Updated stays fresh.
   const meta = ctx.el('div', 'edp-prediction-detail-meta');
-  meta.append(
-    makeMetricPill(ctx, 'Tick', orderBook.tickSize || '—'),
-    makeMetricPill(ctx, 'Min', orderBook.minOrderSize || '—'),
-    makeMetricPill(ctx, 'Updated', orderBook.updatedAt ? formatTime(orderBook.updatedAt) : '—'),
-  );
   wrap.append(meta);
 
+  // Ladder shell — inner DOM is swapped wholesale on every snapshot.
   const ladder = ctx.el('div', 'edp-prediction-book-stack');
-  const asks = ctx.el('div', 'edp-prediction-book-side is-asks');
-  const spread = ctx.el('div', 'edp-prediction-book-spread');
-  const bids = ctx.el('div', 'edp-prediction-book-side is-bids');
-  asks.append(buildBookHeader(ctx, 'Asks'));
-  for (const ask of [...orderBook.asks].sort((a, b) => b.price - a.price)) asks.append(buildBookRow(ctx, ask, 'SELL'));
-  spread.append(
-    makeFactCard(ctx, 'Best Bid', formatPricePct(orderBook.bids[0]?.price)),
-    makeFactCard(ctx, 'Best Ask', formatPricePct(orderBook.asks[0]?.price)),
-    makeFactCard(
-      ctx,
-      'Spread',
-      orderBook.bids[0] && orderBook.asks[0] ? formatPricePct(orderBook.asks[0].price - orderBook.bids[0].price) : '—',
-    ),
-  );
-  bids.append(buildBookHeader(ctx, 'Bids'));
-  for (const bid of orderBook.bids) bids.append(buildBookRow(ctx, bid, 'BUY'));
-  ladder.append(asks, spread, bids);
   wrap.append(ladder);
+
+  // Current book state — seeded from server snapshot, overwritten by WS.
+  let bids: OrderLevel[] = orderBook?.bids ?? [];
+  let asks: OrderLevel[] = orderBook?.asks ?? [];
+  let tickSize = orderBook?.tickSize || '';
+  let minOrderSize = orderBook?.minOrderSize || '';
+  let updatedAt = orderBook?.updatedAt ?? 0;
+  let isLive = false;
+
+  const paint = (): void => {
+    meta.replaceChildren(
+      buildLiveIndicator(ctx, isLive),
+      makeMetricPill(ctx, 'Tick', tickSize || '—'),
+      makeMetricPill(ctx, 'Min', minOrderSize || '—'),
+      makeMetricPill(ctx, 'Updated', updatedAt ? formatTime(updatedAt) : '—'),
+    );
+
+    const asksSide = ctx.el('div', 'edp-prediction-book-side is-asks');
+    const bidsSide = ctx.el('div', 'edp-prediction-book-side is-bids');
+    const spread = ctx.el('div', 'edp-prediction-book-spread');
+
+    // Depth bar normalisation uses the biggest level across both sides.
+    const maxSize = Math.max(
+      ...asks.map((l) => l.size),
+      ...bids.map((l) => l.size),
+      1,
+    );
+
+    asksSide.append(buildBookHeader(ctx, 'Asks'));
+    // Asks: descending so the best (lowest) ask sits adjacent to the spread strip.
+    for (const ask of [...asks].sort((a, b) => b.price - a.price)) {
+      asksSide.append(buildBookRow(ctx, ask, 'SELL', maxSize));
+    }
+
+    const bestBid = bids[0];
+    const bestAsk = asks[0];
+    spread.append(
+      makeFactCard(ctx, 'Best Bid', formatPricePct(bestBid?.price)),
+      makeFactCard(ctx, 'Best Ask', formatPricePct(bestAsk?.price)),
+      makeFactCard(
+        ctx,
+        'Spread',
+        bestBid && bestAsk ? formatPricePct(bestAsk.price - bestBid.price) : '—',
+      ),
+    );
+
+    bidsSide.append(buildBookHeader(ctx, 'Bids'));
+    for (const bid of bids) bidsSide.append(buildBookRow(ctx, bid, 'BUY', maxSize));
+
+    ladder.replaceChildren(asksSide, spread, bidsSide);
+  };
+
+  paint();
+
+  // Live WebSocket subscription — only wired if we have a token id.
+  if (liveTokenId) {
+    const apply = (snapshot: LiveBookSnapshot): void => {
+      bids = snapshot.bids.slice(0, 10);
+      asks = snapshot.asks.slice(0, 10);
+      if (snapshot.tickSize) tickSize = snapshot.tickSize;
+      if (snapshot.minOrderSize) minOrderSize = snapshot.minOrderSize;
+      updatedAt = snapshot.timestamp || Date.now();
+      isLive = true;
+      paint();
+    };
+    const unsubscribe = subscribeToOrderbook(liveTokenId, apply);
+    attachDisconnectCleanup(wrap, unsubscribe);
+  }
+
   return wrap;
+}
+
+/**
+ * Calls `cleanup` once the element is removed from the document. Uses a
+ * single MutationObserver on document.body — good enough for panels that
+ * rebuild via replaceChildren(), which fires a parent-level mutation.
+ */
+function attachDisconnectCleanup(target: HTMLElement, cleanup: () => void): void {
+  if (typeof MutationObserver === 'undefined') return;
+  let done = false;
+  const finish = (): void => {
+    if (done) return;
+    done = true;
+    try { cleanup(); } catch { /* ignore */ }
+    observer.disconnect();
+  };
+  const observer = new MutationObserver(() => {
+    if (!target.isConnected) finish();
+  });
+  // Observe the whole document subtree so reparenting anywhere gets noticed.
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+function buildLiveIndicator(ctx: EntityRenderContext, isLive: boolean): HTMLElement {
+  const pill = ctx.el('div', `edp-prediction-metric edp-prediction-live-pill${isLive ? ' is-live' : ''}`);
+  const dot = ctx.el('span', 'edp-prediction-live-dot');
+  const label = ctx.el('span', 'edp-prediction-metric-value', isLive ? 'LIVE' : 'Connecting…');
+  pill.append(dot, label);
+  return pill;
 }
 
 function buildBookHeader(ctx: EntityRenderContext, label: string): HTMLElement {
@@ -433,8 +521,12 @@ function buildBookHeader(ctx: EntityRenderContext, label: string): HTMLElement {
   return rowEl;
 }
 
-function buildBookRow(ctx: EntityRenderContext, level: OrderLevel, side: string): HTMLElement {
+function buildBookRow(ctx: EntityRenderContext, level: OrderLevel, side: string, maxSize = 0): HTMLElement {
   const rowEl = ctx.el('div', `edp-prediction-book-row ${side === 'BUY' ? 'is-bid' : 'is-ask'}`);
+  if (maxSize > 0 && level.size > 0) {
+    const pct = Math.max(4, Math.min(100, (level.size / maxSize) * 100));
+    rowEl.style.setProperty('--depth-pct', `${pct}%`);
+  }
   const total = level.price * level.size;
   const sideClass = side === 'BUY' ? 'is-buy' : 'is-sell';
   rowEl.append(

@@ -57,14 +57,14 @@ export interface TabDef {
 export const FACTBOOK_TABS: TabDef[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'geography', label: 'Geography' },
-  { id: 'people', label: 'People & Society' },
+  { id: 'people', label: 'People' },
   { id: 'government', label: 'Government' },
   { id: 'economy', label: 'Economy' },
   { id: 'energy', label: 'Energy' },
-  { id: 'communications', label: 'Communications' },
-  { id: 'transportation', label: 'Transportation' },
-  { id: 'military', label: 'Military & Security' },
-  { id: 'transnational', label: 'Transnational Issues' },
+  { id: 'communications', label: 'Comms' },
+  { id: 'transportation', label: 'Transport' },
+  { id: 'military', label: 'Military' },
+  { id: 'transnational', label: 'Issues' },
 ];
 
 /** Main dispatcher — returns a pane element for a given tab. */

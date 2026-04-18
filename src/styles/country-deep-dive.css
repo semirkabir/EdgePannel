@@ -834,9 +834,9 @@
   }
 
   .cdp-tab {
-    min-height: 50px;
-    padding: 6px 4px;
-    font-size: 8px;
+    min-height: 30px;
+    padding: 6px 10px;
+    font-size: 10px;
   }
 }
 
@@ -1044,55 +1044,91 @@
 /* ──────────────────────────────────────────────────────────────────────────── */
 
 .cdp-tabs {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
-  padding: 6px;
-  margin: 10px 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 80%, black 20%);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 0 2px;
+  margin: 8px 0 10px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
   position: sticky;
   top: 56px;
   z-index: 3;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+  /* Fade edges to hint at horizontal scroll */
+  mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+}
+
+.cdp-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .cdp-tab {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   font-family: var(--font-body);
   min-width: 0;
-  min-height: 48px;
-  padding: 6px 6px;
+  min-height: 32px;
+  padding: 8px 12px;
   border: none;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border-radius: 0;
+  background: transparent;
   color: var(--text-muted);
-  font-size: clamp(8px, 1.45vw, 9px);
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
   text-transform: none;
-  letter-spacing: 0;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  white-space: normal;
+  white-space: nowrap;
   line-height: 1.2;
   text-align: center;
-  text-wrap: balance;
-  overflow-wrap: normal;
-  word-break: keep-all;
-  hyphens: none;
-  transition: background 0.15s, color 0.15s;
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.cdp-tab::after {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.2s ease;
 }
 
 .cdp-tab:hover {
-  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 10%, transparent);
   color: var(--text);
+  background: transparent;
 }
 
 .cdp-tab-active {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--accent);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.cdp-tab-active::after {
+  transform: scaleX(1);
+}
+
+.cdp-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 4px;
 }
 
 .cdp-pane[hidden] {

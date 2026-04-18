@@ -80,7 +80,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private briefBody: HTMLElement | null = null;
   private timelineBody: HTMLElement | null = null;
   private scoreCard: HTMLElement | null = null;
-  private activeTab: TabId = 'overview';
+  private activeTab: TabId = '' as TabId;  // '' sentinel forces first setActiveTab call to paint
   private tabButtons = new Map<TabId, HTMLButtonElement>();
   private tabPanes = new Map<TabId, HTMLElement>();
   private factbookLoadedFor: string | null = null;
@@ -193,7 +193,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.macroCards = [];
     this.infrastructureByType.clear();
     this.currentHeadlineCount = 0;
-    this.activeTab = 'overview';
+    this.activeTab = '' as TabId;  // reset so next setActiveTab('overview') isn't swallowed by the guard
     this.tabButtons.clear();
     this.tabPanes.clear();
     this.factbookLoadedFor = null;
@@ -777,6 +777,10 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       const active = id === tab;
       btn.classList.toggle('cdp-tab-active', active);
       btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      if (active) {
+        // Keep the active tab visible within the scroll strip
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
     }
     for (const [id, pane] of this.tabPanes) {
       pane.hidden = id !== tab;
