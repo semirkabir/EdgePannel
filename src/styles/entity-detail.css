@@ -1151,16 +1151,16 @@
   text-decoration: none;
   font-size: 12px;
   font-weight: 700;
-  color: color-mix(in srgb, var(--accent-blue, #60a5fa) 90%, white 10%);
-  border: 1px solid color-mix(in srgb, var(--accent-blue, #60a5fa) 28%, transparent);
-  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 14%, transparent);
+  color: color-mix(in srgb, var(--accent) 90%, white 10%);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .edp-prediction-market-link:hover,
 .edp-prediction-trade-btn:hover {
   color: white;
-  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 24%, transparent);
-  border-color: color-mix(in srgb, var(--accent-blue, #60a5fa) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .edp-prediction-tabs-shell {
@@ -3985,6 +3985,304 @@
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Crypto panel: compact coin icon hero ── */
+.edp-crypto-detail {
+  position: relative;
+}
+
+.edp-crypto-detail .edp-auto-hero {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--surface) 80%, black 20%);
+  box-shadow: none;
+  z-index: 1;
+}
+
+.edp-crypto-detail .edp-auto-hero::after {
+  display: none;
+}
+
+.edp-crypto-detail .edp-auto-hero-img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  padding: 8px;
+  background: transparent;
+}
+
+.edp-crypto-detail .edp-auto-hero-credit {
+  display: none;
+}
+
+/* ── Live price ticker ── */
+.crypto-live-ticker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 90%, black 10%);
+  margin-bottom: 10px;
+}
+
+.crypto-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-ghost);
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.crypto-live-dot.is-live {
+  animation: crypto-pulse 1.2s ease-out;
+}
+
+.crypto-live-dot.is-buy  { background: var(--accent-green, #22c55e); }
+.crypto-live-dot.is-sell { background: var(--accent-red,   #ef4444); }
+
+@keyframes crypto-pulse {
+  0%   { transform: scale(1.8); opacity: 0.6; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+.crypto-live-price {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  transition: color 0.15s;
+}
+
+.crypto-live-price.flash-up   { color: var(--accent-green, #22c55e); }
+.crypto-live-price.flash-down { color: var(--accent-red,   #ef4444); }
+
+.crypto-live-change {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.crypto-live-change.is-positive {
+  color: var(--accent-green, #22c55e);
+  background: color-mix(in srgb, var(--accent-green, #22c55e) 14%, transparent);
+}
+
+.crypto-live-change.is-negative {
+  color: var(--accent-red, #ef4444);
+  background: color-mix(in srgb, var(--accent-red, #ef4444) 14%, transparent);
+}
+
+/* ── Crypto tabs ── */
+.crypto-tab-bar {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.crypto-tab {
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.crypto-tab:hover {
+  color: var(--text);
+}
+
+.crypto-tab.is-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.crypto-tab-panel {
+  min-height: 200px;
+}
+
+.crypto-tab-pane {
+  padding-top: 4px;
+}
+
+.crypto-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Outlook banner ── */
+.crypto-outlook {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.crypto-outlook.is-positive { color: var(--accent-green, #22c55e); }
+.crypto-outlook.is-negative { color: var(--accent-red,   #ef4444); }
+
+/* ── Order book ── */
+.crypto-ob-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.crypto-ob-headers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.crypto-ob-side-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.crypto-ob-side-label.is-bid {
+  color: var(--accent-green, #22c55e);
+  background: color-mix(in srgb, var(--accent-green, #22c55e) 12%, transparent);
+}
+
+.crypto-ob-side-label.is-ask {
+  color: var(--accent-red, #ef4444);
+  background: color-mix(in srgb, var(--accent-red, #ef4444) 12%, transparent);
+}
+
+.crypto-ob-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.crypto-ob-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.crypto-ob-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+
+.crypto-ob-bar {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  pointer-events: none;
+  transition: width 0.4s ease;
+}
+
+.crypto-ob-bar.is-bid { background: color-mix(in srgb, var(--accent-green, #22c55e) 10%, transparent); }
+.crypto-ob-bar.is-ask { background: color-mix(in srgb, var(--accent-red,   #ef4444) 10%, transparent); }
+
+.crypto-ob-price {
+  position: relative;
+  font-weight: 600;
+}
+
+.crypto-ob-price.is-bid { color: var(--accent-green, #22c55e); }
+.crypto-ob-price.is-ask { color: var(--accent-red,   #ef4444); }
+
+.crypto-ob-qty {
+  position: relative;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+/* ── Trade feed ── */
+.crypto-trade-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.crypto-trade-header {
+  display: grid;
+  grid-template-columns: 70px 1fr 70px 44px;
+  gap: 4px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.crypto-trade-hcol {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.crypto-trade-feed {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.crypto-trade-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 70px 44px;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.15s;
+}
+
+.crypto-trade-row.is-buy  { background: color-mix(in srgb, var(--accent-green, #22c55e) 5%, transparent); }
+.crypto-trade-row.is-sell { background: color-mix(in srgb, var(--accent-red,   #ef4444) 5%, transparent); }
+
+.crypto-trade-time  { color: var(--text-muted); }
+.crypto-trade-price { font-weight: 600; color: var(--text); }
+.crypto-trade-size  { color: var(--text-dim); }
+
+.crypto-trade-side {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.crypto-trade-side.is-buy  { color: var(--accent-green, #22c55e); background: color-mix(in srgb, var(--accent-green, #22c55e) 14%, transparent); }
+.crypto-trade-side.is-sell { color: var(--accent-red,   #ef4444); background: color-mix(in srgb, var(--accent-red,   #ef4444) 14%, transparent); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ENTITY DETAIL PANEL — REDESIGN

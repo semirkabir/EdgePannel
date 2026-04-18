@@ -126,7 +126,7 @@ if (!skipNodeRuntime) {
       NODE_TARGET: nodeTarget
     },
     stdio: 'inherit',
-    shell: process.platform === 'win32'
+    shell: false
   });
   if (downloadResult.error) {
     console.error(downloadResult.error.message);

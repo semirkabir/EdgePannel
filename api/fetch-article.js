@@ -2,6 +2,7 @@ import { getCorsHeaders, isDisallowedOrigin } from './_cors.js';
 import { validateApiKey } from './_api-key.js';
 import { checkRateLimit } from './_rate-limit.js';
 import { redisGet, redisSet } from './_redis.js';
+import { isGoogleNewsUrl, resolveGoogleNewsUrl } from './_google-news-resolver.js';
 
 export const config = { runtime: 'edge' };
 
@@ -273,8 +274,27 @@ export default async function handler(req) {
     });
   }
 
-  // Check Redis cache
-  const cacheKey = `article:v1:${articleUrl}`;
+  // Resolve Google News wrapper URLs to the real publisher URL before fetching.
+  let effectiveUrl = articleUrl;
+  if (isGoogleNewsUrl(articleUrl)) {
+    try {
+      effectiveUrl = await resolveGoogleNewsUrl(articleUrl);
+    } catch (error) {
+      console.error('[fetch-article] Google News resolve failed:', articleUrl, error.message);
+      const negKey = `article:v1:${articleUrl}`;
+      try { await redisSet(negKey, JSON.stringify('__NEG__'), NEGATIVE_CACHE_TTL); } catch { /* ignore */ }
+      return new Response(JSON.stringify({
+        error: 'Could not resolve Google News URL',
+        url: articleUrl,
+      }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS', ...corsHeaders },
+      });
+    }
+  }
+
+  // Check Redis cache (keyed by effectiveUrl so Google News links share cache with direct fetches)
+  const cacheKey = `article:v1:${effectiveUrl}`;
   try {
     const cached = await redisGet(cacheKey);
     if (cached) {
@@ -297,7 +317,7 @@ export default async function handler(req) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
-    const response = await fetch(articleUrl, {
+    const response = await fetch(effectiveUrl, {
       signal: controller.signal,
       headers: {
         'User-Agent': CHROME_UA,
@@ -318,11 +338,11 @@ export default async function handler(req) {
     }
 
     const html = await response.text();
-    const article = extractArticle(html, articleUrl);
+    const article = extractArticle(html, effectiveUrl);
 
     if (!article.content || article.content.length < 100) {
       try { await redisSet(cacheKey, JSON.stringify('__NEG__'), NEGATIVE_CACHE_TTL); } catch { /* ignore */ }
-      return new Response(JSON.stringify({ error: 'Could not extract article content', url: articleUrl }), {
+      return new Response(JSON.stringify({ error: 'Could not extract article content', url: effectiveUrl }), {
         status: 422,
         headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS', ...corsHeaders },
       });
@@ -344,7 +364,7 @@ export default async function handler(req) {
       content: article.content,
       markdown: markdownContent,
       imageUrl: article.imageUrl,
-      url: articleUrl,
+      url: effectiveUrl,
     };
     try { await redisSet(cacheKey, JSON.stringify(cacheData), ARTICLE_CACHE_TTL); } catch { /* ignore */ }
 
@@ -354,7 +374,7 @@ export default async function handler(req) {
       byline: article.byline,
       content: outputFormat === 'markdown' && markdownContent ? markdownContent : article.content,
       imageUrl: article.imageUrl,
-      url: articleUrl,
+      url: effectiveUrl,
       format: outputFormat,
     };
 
@@ -369,7 +389,7 @@ export default async function handler(req) {
     });
   } catch (error) {
     const isTimeout = error.name === 'AbortError';
-    console.error('[fetch-article] Error:', articleUrl, error.message);
+    console.error('[fetch-article] Error:', effectiveUrl, error.message);
 
     // Cache the failure briefly
     try {
@@ -378,7 +398,7 @@ export default async function handler(req) {
 
     return new Response(JSON.stringify({
       error: isTimeout ? 'Article fetch timeout' : 'Failed to fetch article',
-      url: articleUrl,
+      url: effectiveUrl,
     }), {
       status: isTimeout ? 504 : 502,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
