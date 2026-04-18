@@ -173,14 +173,14 @@ export function createDomainGateway(
 
     // --- Auth tier detection ---
     // Clients can send a Firebase ID token in the Authorization header or
-    // via the custom X-WorldMonitor-Token header (easier for Vercel edge
+    // via the custom X-EdgePannel-Token header (easier for Vercel edge
     // functions that don't parse Authorization Bearer).
     let userTier: UserTier = 'anonymous';
     let userId = '';
 
     if (FIREBASE_PROJECT_ID) {
       const authHeader = request.headers.get('authorization') || '';
-      const customToken = request.headers.get('x-worldmonitor-token') || '';
+      const customToken = request.headers.get('x-edgepannel-token') || '';
       const idToken = authHeader.startsWith('Bearer ')
         ? authHeader.slice(7).trim()
         : customToken.trim();

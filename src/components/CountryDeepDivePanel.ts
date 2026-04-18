@@ -8,7 +8,7 @@ import type { PredictionMarket } from '@/services/prediction';
 import type { AssetType, NewsItem, RelatedAsset } from '@/types';
 import { sanitizeUrl, escapeHtml } from '@/utils/sanitize';
 import { getCSSColor } from '@/utils';
-import { getRegimeTypeColor, getRiskColor, type CountryGovernanceData, type GemRiskScore } from '@/services/data360';
+import { getRegimeTypeColor, type CountryGovernanceData } from '@/services/data360';
 import { applyArticleLinkDataset } from '@/services/article-open';
 import { PORTS } from '@/config/ports';
 import { haversineKm } from '@/utils/geo';
@@ -24,6 +24,8 @@ import type {
   StockIndexData,
 } from './CountryBriefPanel';
 import type { MapContainer } from './MapContainer';
+import { loadFactbook, type FactbookData } from '@/services/factbook';
+import { FACTBOOK_TABS, renderFactbookTab, type TabId } from './country-factbook';
 
 type ThreatLevel = 'critical' | 'high' | 'medium' | 'low' | 'info';
 type TrendDirection = 'up' | 'down' | 'flat';
@@ -78,6 +80,11 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private briefBody: HTMLElement | null = null;
   private timelineBody: HTMLElement | null = null;
   private scoreCard: HTMLElement | null = null;
+  private activeTab: TabId = 'overview';
+  private tabButtons = new Map<TabId, HTMLButtonElement>();
+  private tabPanes = new Map<TabId, HTMLElement>();
+  private factbookLoadedFor: string | null = null;
+  private factbookData: FactbookData | null = null;
 
   private readonly handleGlobalKeydown = (event: KeyboardEvent): void => {
     if (!this.panel.classList.contains('active')) return;
@@ -186,6 +193,11 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.macroCards = [];
     this.infrastructureByType.clear();
     this.currentHeadlineCount = 0;
+    this.activeTab = 'overview';
+    this.tabButtons.clear();
+    this.tabPanes.clear();
+    this.factbookLoadedFor = null;
+    this.factbookData = null;
     this.renderSkeleton(country, code, score, signals);
     this.open();
   }
@@ -455,7 +467,9 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
 
   public updateEconomicIndicators(indicators: CountryDeepDiveEconomicIndicator[]): void {
     this.economicIndicators = indicators;
-    this.renderEconomicIndicators();
+    if (this.macroCards.length > 0) {
+      this.renderEconomicIndicators();
+    }
   }
 
   public updateScore(score: CountryScore | null, signals: CountryBriefSignals, ciiAvailability?: CardAvailability): void {
@@ -717,9 +731,81 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     riskProfileBody.append(this.makeLoading('Loading risk profile…'));
     briefBody.append(this.makeLoading(t('countryBrief.generatingBrief')));
 
-    bodyGrid.append(signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, governanceCard, briefCard);
-    shell.append(header, scoreCard, bodyGrid);
+    bodyGrid.append(briefCard, signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, governanceCard, riskProfileCard);
+
+    const tabBar = this.renderTabBar();
+    const overviewPane = this.el('div', 'cdp-pane cdp-pane-overview');
+    overviewPane.dataset.tabId = 'overview';
+    overviewPane.append(scoreCard, bodyGrid);
+    this.tabPanes.set('overview', overviewPane);
+
+    shell.append(header, tabBar, overviewPane);
+    for (const def of FACTBOOK_TABS) {
+      if (def.id === 'overview') continue;
+      const pane = this.el('div', 'cdp-pane cdp-pane-factbook');
+      pane.dataset.tabId = def.id;
+      pane.hidden = true;
+      this.tabPanes.set(def.id, pane);
+      shell.append(pane);
+    }
+    this.setActiveTab('overview');
     this.content.append(shell);
+  }
+
+  private renderTabBar(): HTMLElement {
+    this.tabButtons.clear();
+    const bar = this.el('nav', 'cdp-tabs');
+    bar.setAttribute('role', 'tablist');
+    bar.setAttribute('aria-label', 'Country sections');
+    for (const def of FACTBOOK_TABS) {
+      const btn = this.el('button', 'cdp-tab', def.label) as HTMLButtonElement;
+      btn.type = 'button';
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', 'false');
+      btn.dataset.tabId = def.id;
+      btn.addEventListener('click', () => this.setActiveTab(def.id));
+      this.tabButtons.set(def.id, btn);
+      bar.append(btn);
+    }
+    return bar;
+  }
+
+  private setActiveTab(tab: TabId): void {
+    if (this.activeTab === tab) return;
+    this.activeTab = tab;
+    for (const [id, btn] of this.tabButtons) {
+      const active = id === tab;
+      btn.classList.toggle('cdp-tab-active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
+    for (const [id, pane] of this.tabPanes) {
+      pane.hidden = id !== tab;
+    }
+    if (tab !== 'overview') {
+      void this.ensureFactbookTabRendered(tab);
+    }
+  }
+
+  private async ensureFactbookTabRendered(tab: TabId): Promise<void> {
+    const pane = this.tabPanes.get(tab);
+    const code = this.currentCode;
+    const name = this.currentName ?? code ?? 'this country';
+    if (!pane || !code) return;
+    if (pane.dataset.renderedFor === code) return;
+    pane.replaceChildren(this.makeLoading('Loading factbook data…'));
+
+    if (this.factbookLoadedFor !== code) {
+      this.factbookLoadedFor = code;
+      try {
+        this.factbookData = await loadFactbook(code);
+      } catch {
+        this.factbookData = null;
+      }
+    }
+    if (this.currentCode !== code) return;
+
+    pane.replaceChildren(renderFactbookTab(tab, this.factbookData, name));
+    pane.dataset.renderedFor = code;
   }
 
   private renderInitialSignals(signals: CountryBriefSignals): void {
@@ -1003,6 +1089,13 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       polityRow.append(polityLabel, polityBar, polityValue, polityRange);
       this.governanceBody.append(polityRow);
     }
+  }
+
+  /** Populate the GEM / Data360 seismic risk section. Stub until Data360 RPC is wired. */
+  public updateRiskProfile(countryCode: string): void {
+    if (!this.riskProfileBody) return;
+    this.riskProfileBody.replaceChildren();
+    this.riskProfileBody.append(this.makeEmpty(`No GEM risk data for ${countryCode}`));
   }
 
   private renderRadarChart(vdem: CountryGovernanceData['vdem']): HTMLElement {

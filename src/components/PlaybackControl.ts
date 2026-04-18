@@ -435,7 +435,7 @@ export class PlaybackControl {
   private updateOldestLabel(): void {
     const label = this.panel.querySelector('.playback-oldest-label') as HTMLElement;
     if (!label || this.timestamps.length === 0) return;
-    label.textContent = formatRelative(this.timestamps[0]);
+    label.textContent = formatRelative(this.timestamps[0]!);
   }
 
   private updateTimeDisplay(): void {

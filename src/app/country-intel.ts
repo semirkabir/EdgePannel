@@ -525,7 +525,9 @@ export class CountryIntelManager implements AppModule {
     }
 
     this.ctx.countryTimeline = new CountryTimeline(mount);
-    const recentEvents = events.filter(e => e.timestamp >= sevenDaysAgo);
+    const recentEvents = events
+      .filter((e) => Number.isFinite(e.timestamp) && e.timestamp >= sevenDaysAgo)
+      .sort((a, b) => a.timestamp - b.timestamp);
     this.ctx.countryTimeline.render(recentEvents);
     console.debug('[CountryBrief] Timeline events rendered', {
       code,

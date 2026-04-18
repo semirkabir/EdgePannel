@@ -10,12 +10,12 @@ interface ExportData {
   timestamp: number;
 }
 
-export function exportToJSON(data: ExportData, filename = 'worldmonitor-export'): void {
+export function exportToJSON(data: ExportData, filename = 'edgepannel-export'): void {
   const jsonStr = JSON.stringify(data, null, 2);
   downloadFile(jsonStr, `${filename}.json`, 'application/json');
 }
 
-export function exportToCSV(data: ExportData, filename = 'worldmonitor-export'): void {
+export function exportToCSV(data: ExportData, filename = 'edgepannel-export'): void {
   const lines: string[] = [];
 
   if (data.news && data.news.length > 0) {
@@ -255,7 +255,7 @@ export class ExportPanel {
   private download(canvas: HTMLCanvasElement): void {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const link = document.createElement('a');
-    link.download = `worldmonitor-${timestamp}.png`;
+    link.download = `edgepannel-${timestamp}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
     showShellNotification('Screenshot downloaded', 'success');
@@ -278,7 +278,7 @@ export class ExportPanel {
     const win = window.open();
     if (win) {
       win.document.write(`<img src="${dataUrl}" style="max-width:100%;display:block">`);
-      win.document.title = 'WorldMonitor Snapshot';
+      win.document.title = 'EdgePannel Snapshot';
     }
   }
 
@@ -288,9 +288,9 @@ export class ExportPanel {
       try {
         const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/png'));
         if (blob) {
-          const file = new File([blob], 'worldmonitor-snapshot.png', { type: 'image/png' });
+          const file = new File([blob], 'edgepannel-snapshot.png', { type: 'image/png' });
           if (navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], text: 'WorldMonitor Snapshot' });
+            await navigator.share({ files: [file], text: 'EdgePannel Snapshot' });
             return;
           }
         }
@@ -310,7 +310,7 @@ export class ExportPanel {
           showShellNotification('Image copied — paste it into your tweet', 'info', 4000);
         } catch { /* clipboard not available */ }
       }
-      const text = encodeURIComponent('WorldMonitor — Real-time global intelligence');
+      const text = encodeURIComponent('EdgePannel — Real-time global intelligence');
       window.open(`https://x.com/intent/tweet?text=${text}`, '_blank', 'noopener,width=600,height=450');
     }, 'image/png');
   }

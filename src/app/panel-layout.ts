@@ -807,9 +807,6 @@ export class PanelLayoutManager implements AppModule {
     this.ctx.newsPanels['gov'] = govPanel;
     this.ctx.panels['gov'] = govPanel;
 
-    // Intel Feed - uses GDELT real-time events (RSS-based version reserved for Pro)
-    const intelPanel = new GdeltIntelPanel();
-    this.ctx.panels['intel'] = intelPanel;
 
     const cryptoPanel = new CryptoPanel();
     cryptoPanel.setOnCoinClick((coin) => {
@@ -954,7 +951,7 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels[panelKey] = panel;
     }
 
-    if (SITE_VARIANT === 'full') {
+    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'conflicts') {
       const gdeltIntelPanel = new GdeltIntelPanel();
       this.ctx.panels['gdelt-intel'] = gdeltIntelPanel;
 

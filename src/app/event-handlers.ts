@@ -63,7 +63,35 @@ import {
   setMobileHelpDismissed,
   setPanelDensityPreference,
 } from './ui-preferences';
-import { getHeaderTimezone, getClockFormat } from '@/services/preferences-content';
+import { getHeaderTimezone, getClockFormat, getHeaderDateFormat, type HeaderDateFormat } from '@/services/preferences-content';
+
+function getDatePart(parts: Intl.DateTimeFormatPart[], type: string): string {
+  return parts.find((part) => part.type === type)?.value ?? '';
+}
+
+function formatHeaderDate(dateParts: Intl.DateTimeFormatPart[], monthNameParts: Intl.DateTimeFormatPart[], format: HeaderDateFormat): string {
+  const day = getDatePart(dateParts, 'day');
+  const month = getDatePart(dateParts, 'month');
+  const year = getDatePart(dateParts, 'year');
+  const yearShort = year.slice(-2);
+  const monthShort = getDatePart(monthNameParts, 'month');
+
+  switch (format) {
+    case 'mm/dd/yy':
+      return `${month}/${day}/${yearShort}`;
+    case 'mm/dd/yyyy':
+      return `${month}/${day}/${year}`;
+    case 'dd/mm/yy':
+      return `${day}/${month}/${yearShort}`;
+    case 'dd/mm/yyyy':
+      return `${day}/${month}/${year}`;
+    case 'yyyy-mm-dd':
+      return `${year}-${month}-${day}`;
+    case 'dd-mon-yyyy':
+    default:
+      return `${day} ${monthShort} ${year}`;
+  }
+}
 
 function formatClockTime(tz: string): string {
   const now = new Date();
@@ -71,18 +99,27 @@ function formatClockTime(tz: string): string {
     ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
     : tz;
   const use12h = getClockFormat() === '12h';
+  const dateFormat = getHeaderDateFormat();
   try {
-    const parts = new Intl.DateTimeFormat('en-GB', {
+    const dateParts = new Intl.DateTimeFormat('en-GB', {
       timeZone: resolvedTz,
-      weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
+      weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
+    }).formatToParts(now);
+    const monthNameParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: resolvedTz,
+      month: 'short',
+    }).formatToParts(now);
+    const timeParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: resolvedTz,
       hour: '2-digit', minute: '2-digit', second: '2-digit',
       hour12: use12h, timeZoneName: 'short',
     }).formatToParts(now);
-    const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+    const dateText = formatHeaderDate(dateParts, monthNameParts, dateFormat);
+    const weekday = getDatePart(dateParts, 'weekday');
     const time = use12h
-      ? `${get('hour')}:${get('minute')}:${get('second')} ${get('dayPeriod')}`
-      : `${get('hour')}:${get('minute')}:${get('second')}`;
-    return `${get('weekday')}, ${get('day')} ${get('month')} ${get('year')} ${time} ${get('timeZoneName')}`;
+      ? `${getDatePart(timeParts, 'hour')}:${getDatePart(timeParts, 'minute')}:${getDatePart(timeParts, 'second')} ${getDatePart(timeParts, 'dayPeriod')}`
+      : `${getDatePart(timeParts, 'hour')}:${getDatePart(timeParts, 'minute')}:${getDatePart(timeParts, 'second')}`;
+    return `${weekday}, ${dateText} ${time} ${getDatePart(timeParts, 'timeZoneName')}`;
   } catch {
     return now.toUTCString().replace('GMT', 'UTC');
   }
@@ -1532,12 +1569,6 @@ export class EventHandlerManager implements AppModule {
   // Sources that use a persistent WebSocket connection (true "live")
   private static readonly WS_SOURCES = new Set(['ais', 'opensky', 'wingbits', 'polymarket', 'predictions']);
   private static readonly RSS_SOURCES = new Set(['rss', 'gdelt_doc', 'pizzint', 'outages', 'cyber_threats', 'gpsjam', 'webcams', 'security_advisories']);
-
-  private static readonly SOURCE_GROUPS: { label: string; type: string; ids: Set<string> }[] = [
-    { label: 'WebSocket', type: 'wss', ids: EventHandlerManager.WS_SOURCES },
-    { label: 'RSS / Feed', type: 'rss', ids: EventHandlerManager.RSS_SOURCES },
-    { label: 'REST API',  type: 'api', ids: new Set<string>() }, // catch-all for the rest
-  ];
 
   private setupStatusDropdown(): void {
     const indicator = document.querySelector<HTMLElement>('.status-indicator');

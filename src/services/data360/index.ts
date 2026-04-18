@@ -9,7 +9,6 @@
 
 import {
   EconomicServiceClient,
-  ApiError,
   type GetData360DataResponse,
   type GetData360DataRequest,
   type Data360DataPoint as ProtoData360DataPoint,

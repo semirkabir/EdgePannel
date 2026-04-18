@@ -269,6 +269,9 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   processingPlants: false,
   commodityPorts: false,
   aptGroups: false,
+  gemRisk: false,
+  democracy: false,
+  socialProgress: false,
 };
 
 // Mobile defaults for tech variant
@@ -321,12 +324,16 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   tradeRoutes: false,
   iranAttacks: false,
   ciiChoropleth: false,
+  governanceChoropleth: false,
   dayNight: false,
   // Commodity variant layers (disabled in tech variant)
   miningSites: false,
   processingPlants: false,
   commodityPorts: false,
   aptGroups: false,
+  gemRisk: false,
+  democracy: false,
+  socialProgress: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

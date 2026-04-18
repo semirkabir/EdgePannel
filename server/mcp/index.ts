@@ -1,5 +1,5 @@
 /**
- * MCP (Model Context Protocol) server for WorldMonitor data APIs.
+ * MCP (Model Context Protocol) server for EdgePannel data APIs.
  *
  * Exposes all data endpoints as MCP tools so AI agents can query real-time
  * data programmatically.  Runs as a standalone process (stdio transport) or
@@ -22,7 +22,7 @@ import { ApiKeyInfo, API_KEY_LIMITS, getApiKeyInfo, incrementKeyUsage } from './
 
 // --- Tool registry ---------------------------------------------------
 
-/** All MCP tools, mapped from WorldMonitor RPC endpoints. */
+/** All MCP tools, mapped from EdgePannel RPC endpoints. */
 const TOOL_REGISTRY: Array<{
   tool: Tool;
   handler: (args: Record<string, unknown>, apiKey: string) => Promise<unknown>;
@@ -285,7 +285,7 @@ endpointTool(
 // --- MCP Server ------------------------------------------------------
 
 const server = new Server(
-  { name: 'worldmonitor', version: '0.1.0' },
+  { name: 'edgepannel', version: '0.1.0' },
   { capabilities: { tools: {} } },
 );
 
@@ -300,7 +300,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const apiKey = (request.params as any).apiKey || (request.params as any)._meta?.apiKey;
   if (!apiKey) {
     return {
-      content: [{ type: 'text', text: JSON.stringify({ error: 'Missing API key. Provide your WorldMonitor API key.' }) }],
+      content: [{ type: 'text', text: JSON.stringify({ error: 'Missing API key. Provide your EdgePannel API key.' }) }],
       isError: true,
     };
   }
@@ -370,7 +370,7 @@ async function main() {
     // Stdio mode — for Claude Desktop, Cursor, etc.
     const stdioTransport = new StdioServerTransport();
     await server.connect(stdioTransport);
-    console.error('[MCP] WorldMonitor server started (stdio mode)');
+    console.error('[MCP] EdgePannel server started (stdio mode)');
   }
 }
 

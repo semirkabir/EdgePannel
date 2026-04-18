@@ -130,6 +130,9 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   processingPlants:         def('processingPlants',         ICONS.factory,   'processingPlants',       'Processing Plants'),
   commodityPorts:           def('commodityPorts',           ICONS.anchor,    'commodityPorts',         'Commodity Ports'),
   aptGroups:                def('aptGroups',                ICONS.shield,    'aptGroups',              'APT Groups'),
+  gemRisk:                  def('gemRisk',                  ICONS.globe,     'gemRisk',                'Seismic Risk',        ['flat', 'globe']),
+  democracy:                def('democracy',                ICONS.building,  'democracy',              'Democracy Index',     ['flat', 'globe']),
+  socialProgress:           def('socialProgress',           ICONS.star,      'socialProgress',         'Social Progress',     ['flat', 'globe']),
 };
 
 // ── Weather category icon/color/label maps ───────────────────────────────────

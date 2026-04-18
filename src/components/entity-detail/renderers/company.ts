@@ -183,7 +183,7 @@ export class CompanyRenderer implements EntityRenderer {
       priceTarget, recommendations, insiderTxns, optionChain, ownership, earningsSurprises,
     ] = await Promise.allSettled([
       client.listMarketQuotes({ symbols: [ticker] }, { signal }),
-      client.listSecFilings({ ticker, limit: 30 }, { signal }),
+      client.listSecFilings({ ticker, filingTypes: [], limit: 30 }, { signal }),
       fetchCompanyProfile(ticker),
       fetchCompanyMetrics(ticker),
       fetchCompanyPeers(ticker),

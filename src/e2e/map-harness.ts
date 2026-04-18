@@ -187,6 +187,9 @@ const allLayersEnabled: MapLayers = {
   processingPlants: false,
   commodityPorts: false,
   aptGroups: false,
+  gemRisk: false,
+  democracy: false,
+  socialProgress: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -234,10 +237,16 @@ const allLayersDisabled: MapLayers = {
   renewableInstallations: false,
   tradeRoutes: false,
   iranAttacks: false,
-ciiChoropleth: false,
+  ciiChoropleth: false,
   governanceChoropleth: false,
   dayNight: false,
+  miningSites: false,
+  processingPlants: false,
+  commodityPorts: false,
   aptGroups: false,
+  gemRisk: false,
+  democracy: false,
+  socialProgress: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: Array<{

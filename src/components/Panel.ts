@@ -1103,6 +1103,10 @@ export class Panel {
       document.removeEventListener('click', this.tooltipCloseHandler);
       this.tooltipCloseHandler = null;
     }
+    if (this.infoTooltipEl) {
+      this.infoTooltipEl.remove();
+      this.infoTooltipEl = null;
+    }
     this.removeRowTouchDocumentListeners();
     if (this.onTouchMove) {
       this.onTouchMove = null;
