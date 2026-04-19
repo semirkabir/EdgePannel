@@ -26,6 +26,8 @@ function getPrimaryName(obj: EntityRecord): string | null {
 }
 
 function buildSearchQueries(type: PopupType, data: unknown): string[] {
+  if (type === 'article') return [];
+
   const obj = (data ?? {}) as EntityRecord;
   const name = getPrimaryName(obj);
   const country = getString(obj.country);

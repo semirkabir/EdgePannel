@@ -219,7 +219,7 @@ export class EntityDetailPanel {
 
   private injectHeroImage(image: EntityHeroImage | null): void {
     if (!image) return;
-    if (this.content.querySelector('.edp-flight-media, .edp-nuclear-photo, .edp-base-photo, .edp-vessel-photo, .edp-vessel-wiki-wrap, .edp-auto-hero')) return;
+    if (this.content.querySelector('.edp-flight-media, .edp-nuclear-photo, .edp-base-photo, .edp-vessel-photo, .edp-vessel-wiki-wrap, .edp-article-hero, .edp-auto-hero')) return;
 
     const hero = this.el('section', 'edp-auto-hero');
     const img = this.el('img', 'edp-auto-hero-img') as HTMLImageElement;

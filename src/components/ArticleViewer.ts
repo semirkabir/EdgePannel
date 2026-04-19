@@ -99,18 +99,23 @@ export class ArticleViewer {
   }
 
   private renderArticle(article: ArticleContent, container: Element): void {
-    const domain = this.extractDomain(this.articleUrl);
+    const domain = article.siteName || this.extractDomain(this.articleUrl);
     const heroImage = article.imageUrl
       ? `<div class="article-hero-image"><img src="${escapeHtml(article.imageUrl)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
       : '';
 
-    const bylineHtml = article.byline
-      ? `<div class="article-byline">${escapeHtml(article.byline)}</div>`
+    const metaParts = [article.byline, this.formatPublishedAt(article.publishedTime)].filter(Boolean);
+    const bylineHtml = metaParts.length > 0
+      ? `<div class="article-byline">${escapeHtml(metaParts.join(' • '))}</div>`
       : '';
 
     const cachedBadge = article.cached
       ? `<span class="article-cached-badge">${t('components.articleViewer.cached')}</span>`
       : '';
+    const resolvedTitle = article.title || this.articleTitle;
+
+    const titleEl = this.panel.getElement().querySelector('.panel-header-left .panel-title');
+    if (titleEl) titleEl.textContent = resolvedTitle;
 
     container.innerHTML = `
       <div class="article-reader">
@@ -118,7 +123,7 @@ export class ArticleViewer {
           <span class="article-reader-source">${escapeHtml(domain)}</span>
           ${cachedBadge}
         </div>
-        <h2 class="article-reader-title">${escapeHtml(article.title || this.articleTitle)}</h2>
+        <h2 class="article-reader-title">${escapeHtml(resolvedTitle)}</h2>
         ${bylineHtml}
         ${heroImage}
         <div class="article-reader-content">${article.content}</div>
@@ -150,6 +155,19 @@ export class ArticleViewer {
     } catch {
       return url;
     }
+  }
+
+  private formatPublishedAt(value?: string): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   }
 
   /**

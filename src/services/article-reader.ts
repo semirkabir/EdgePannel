@@ -5,6 +5,8 @@ const CLIENT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 export interface ArticleContent {
   title: string;
   byline: string;
+  siteName?: string;
+  publishedTime?: string;
   content: string;
   imageUrl: string;
   url: string;
@@ -75,6 +77,8 @@ async function doFetchArticle(articleUrl: string): Promise<ArticleContent | Arti
   return {
     title: data.title || '',
     byline: data.byline || '',
+    siteName: data.siteName || '',
+    publishedTime: data.publishedTime || '',
     content: data.content || '',
     imageUrl: data.imageUrl || '',
     url: data.url || articleUrl,

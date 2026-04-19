@@ -1,27 +1,316 @@
+import { Readability } from '@mozilla/readability';
+import { DOMParser } from 'linkedom';
 import { getCorsHeaders, isDisallowedOrigin } from './_cors.js';
 import { validateApiKey } from './_api-key.js';
 import { checkRateLimit } from './_rate-limit.js';
 import { redisGet, redisSet } from './_redis.js';
 import { isGoogleNewsUrl, resolveGoogleNewsUrl } from './_google-news-resolver.js';
 
-export const config = { runtime: 'edge' };
-
 const ARTICLE_CACHE_TTL = 900; // 15 minutes
 const NEGATIVE_CACHE_TTL = 120; // 2 minutes for failed fetches
 
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const MIN_CONTENT_LENGTH = 80;
+const MIN_FALLBACK_PARAGRAPH_LENGTH = 40;
+const MIN_IMAGE_DIMENSION = 64;
+const MAX_PARAGRAPHS = 40;
 
-// DOMParser polyfill for Node.js environment
-let DOMParser, TurndownService;
-try {
-  DOMParser = globalThis.DOMParser || (await import('linkedom')).DOMParser;
-} catch {
-  try {
-    const { DOMParser: dp } = await import('linkedom');
-    DOMParser = dp;
-  } catch {
-    // Fallback - will throw error if used
+let TurndownService;
+
+const REMOVE_SELECTORS = [
+  'script',
+  'style',
+  'template',
+  'iframe',
+  'canvas',
+  'svg',
+  'form',
+  'input',
+  'button',
+  'select',
+  'textarea',
+  'nav',
+  'footer',
+  'aside',
+  '.sidebar',
+  '.advertisement',
+  '.ad',
+  '.ads',
+  '.promo',
+  '.newsletter',
+  '.subscription',
+  '.related',
+  '.recommended',
+  '.comments',
+  '.social-share',
+  '.share-buttons',
+  '.outbrain',
+  '.taboola',
+  '[role="navigation"]',
+  '[role="complementary"]',
+  '[role="banner"]',
+  '[aria-label*="share" i]',
+  '[aria-label*="related" i]',
+  '[class*="share" i]',
+  '[class*="social" i]',
+  '[class*="newsletter" i]',
+  '[class*="subscribe" i]',
+  '[class*="promo" i]',
+  '[class*="recommended" i]',
+  '[class*="related" i]',
+];
+
+const META_SITE_NAME_SELECTORS = [
+  'meta[property="og:site_name"]',
+  'meta[name="application-name"]',
+];
+
+const META_TITLE_SELECTORS = [
+  'meta[property="og:title"]',
+  'meta[name="twitter:title"]',
+  'meta[name="title"]',
+];
+
+const META_AUTHOR_SELECTORS = [
+  'meta[name="author"]',
+  'meta[property="author"]',
+  'meta[property="article:author"]',
+  'meta[name="parsely-author"]',
+  'meta[name="dc.creator"]',
+];
+
+const META_PUBLISHED_SELECTORS = [
+  'meta[property="article:published_time"]',
+  'meta[name="article:published_time"]',
+  'meta[name="pubdate"]',
+  'meta[name="publish-date"]',
+  'meta[name="publication_date"]',
+  'meta[name="date"]',
+  'meta[itemprop="datePublished"]',
+];
+
+const META_IMAGE_SELECTORS = [
+  'meta[property="og:image"]',
+  'meta[name="twitter:image"]',
+  'meta[name="twitter:image:src"]',
+];
+
+const LAZY_IMAGE_ATTRS = [
+  'src',
+  'data-src',
+  'data-original',
+  'data-lazy-src',
+  'data-td-src-property',
+  'data-image',
+  'data-url',
+];
+
+function normalizeText(value) {
+  if (!value) return '';
+  return String(value).replace(/\s+/g, ' ').trim();
+}
+
+function parseHtml(html) {
+  const parser = new DOMParser();
+  return parser.parseFromString(html, 'text/html');
+}
+
+function ensureBaseTag(doc, baseUrl) {
+  let head = doc.head;
+  if (!head) {
+    head = doc.createElement('head');
+    if (doc.documentElement.firstChild) doc.documentElement.insertBefore(head, doc.documentElement.firstChild);
+    else doc.documentElement.append(head);
   }
+
+  let base = head.querySelector('base');
+  if (!base) {
+    base = doc.createElement('base');
+    head.prepend(base);
+  }
+  base.setAttribute('href', baseUrl);
+}
+
+function absolutizeUrl(rawUrl, baseUrl) {
+  if (!rawUrl) return '';
+  try {
+    const value = new URL(String(rawUrl).trim(), baseUrl);
+    if (value.protocol !== 'http:' && value.protocol !== 'https:') return '';
+    return value.toString();
+  } catch {
+    return '';
+  }
+}
+
+function getMetaContent(doc, selectors) {
+  for (const selector of selectors) {
+    const value = doc.querySelector(selector)?.getAttribute('content');
+    const normalized = normalizeText(value);
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+function getPublishedTime(doc) {
+  const metaTime = getMetaContent(doc, META_PUBLISHED_SELECTORS);
+  if (metaTime) return metaTime;
+
+  const timeEl = doc.querySelector('time[datetime]');
+  return normalizeText(timeEl?.getAttribute('datetime'));
+}
+
+function getCandidateImageUrl(doc, baseUrl) {
+  const metaImage = getMetaContent(doc, META_IMAGE_SELECTORS);
+  const normalizedMetaImage = absolutizeUrl(metaImage, baseUrl);
+  if (normalizedMetaImage) return normalizedMetaImage;
+
+  for (const img of doc.querySelectorAll('img')) {
+    const src = normalizeImageSource(img, baseUrl);
+    if (!src) continue;
+    if (isTinyImage(img)) continue;
+    return src;
+  }
+
+  return '';
+}
+
+function isTinyImage(img) {
+  const width = Number.parseInt(img.getAttribute('width') || '0', 10);
+  const height = Number.parseInt(img.getAttribute('height') || '0', 10);
+  return (width > 0 && width < MIN_IMAGE_DIMENSION) || (height > 0 && height < MIN_IMAGE_DIMENSION);
+}
+
+function normalizeImageSource(img, baseUrl) {
+  for (const attr of LAZY_IMAGE_ATTRS) {
+    const value = img.getAttribute(attr);
+    const normalized = absolutizeUrl(value, baseUrl);
+    if (normalized) {
+      img.setAttribute('src', normalized);
+      return normalized;
+    }
+  }
+
+  const srcset = img.getAttribute('srcset') || img.getAttribute('data-srcset');
+  if (srcset) {
+    const first = srcset.split(',')[0]?.trim().split(/\s+/)[0] || '';
+    const normalized = absolutizeUrl(first, baseUrl);
+    if (normalized) {
+      img.setAttribute('src', normalized);
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function pruneDocument(doc) {
+  for (const selector of REMOVE_SELECTORS) {
+    try {
+      doc.querySelectorAll(selector).forEach((el) => el.remove());
+    } catch {
+      // Ignore invalid selectors for parser edge cases.
+    }
+  }
+}
+
+function normalizeDocument(doc, baseUrl) {
+  ensureBaseTag(doc, baseUrl);
+  pruneDocument(doc);
+
+  doc.querySelectorAll('a[href]').forEach((anchor) => {
+    const href = absolutizeUrl(anchor.getAttribute('href') || '', baseUrl);
+    if (href) anchor.setAttribute('href', href);
+    else anchor.removeAttribute('href');
+  });
+
+  doc.querySelectorAll('img').forEach((img) => {
+    const src = normalizeImageSource(img, baseUrl);
+    if (!src || isTinyImage(img)) {
+      img.remove();
+      return;
+    }
+    img.setAttribute('loading', 'lazy');
+  });
+
+  return doc;
+}
+
+function extractMetadata(doc, baseUrl) {
+  const title = getMetaContent(doc, META_TITLE_SELECTORS)
+    || normalizeText(doc.querySelector('h1')?.textContent)
+    || normalizeText(doc.title);
+  const byline = getMetaContent(doc, META_AUTHOR_SELECTORS)
+    || normalizeText(doc.querySelector('[rel="author"]')?.textContent)
+    || normalizeText(doc.querySelector('[class*="author" i], [class*="byline" i]')?.textContent);
+  const siteName = getMetaContent(doc, META_SITE_NAME_SELECTORS);
+  const publishedTime = getPublishedTime(doc);
+  const imageUrl = getCandidateImageUrl(doc, baseUrl);
+
+  return {
+    title,
+    byline,
+    siteName,
+    publishedTime,
+    imageUrl,
+  };
+}
+
+function getContentImageUrl(contentHtml, baseUrl) {
+  if (!contentHtml) return '';
+  const contentDoc = parseHtml(`<html><body>${contentHtml}</body></html>`);
+  normalizeDocument(contentDoc, baseUrl);
+  return getCandidateImageUrl(contentDoc, baseUrl);
+}
+
+function buildFallbackArticle(doc, baseUrl, metadata = extractMetadata(doc, baseUrl)) {
+  const wrapper = doc.createElement('div');
+  const paragraphs = Array.from(doc.querySelectorAll('p'))
+    .map((node) => normalizeText(node.textContent))
+    .filter((text) => text.length >= MIN_FALLBACK_PARAGRAPH_LENGTH)
+    .slice(0, MAX_PARAGRAPHS);
+
+  for (const paragraph of paragraphs) {
+    const p = doc.createElement('p');
+    p.textContent = paragraph;
+    wrapper.append(p);
+  }
+
+  const content = wrapper.innerHTML.trim();
+  if (!content || normalizeText(wrapper.textContent).length < MIN_CONTENT_LENGTH) {
+    return null;
+  }
+
+  return {
+    title: metadata.title,
+    byline: metadata.byline,
+    siteName: metadata.siteName,
+    publishedTime: metadata.publishedTime,
+    imageUrl: metadata.imageUrl,
+    content,
+  };
+}
+
+export function parseArticleHtml(html, baseUrl) {
+  const normalizedDoc = normalizeDocument(parseHtml(html), baseUrl);
+  const metadata = extractMetadata(normalizedDoc, baseUrl);
+
+  const readabilityDoc = normalizeDocument(parseHtml(html), baseUrl);
+  const article = new Readability(readabilityDoc, {
+    keepClasses: false,
+  }).parse();
+
+  if (article && normalizeText(article.textContent).length >= MIN_CONTENT_LENGTH && normalizeText(article.content).length > 0) {
+    return {
+      title: normalizeText(article.title) || metadata.title,
+      byline: normalizeText(article.byline) || metadata.byline,
+      siteName: normalizeText(article.siteName) || metadata.siteName,
+      publishedTime: normalizeText(article.publishedTime) || metadata.publishedTime,
+      imageUrl: metadata.imageUrl || getContentImageUrl(article.content, baseUrl),
+      content: article.content,
+    };
+  }
+
+  return buildFallbackArticle(normalizedDoc, baseUrl, metadata);
 }
 
 async function getTurndown() {
@@ -33,168 +322,6 @@ async function getTurndown() {
   } catch {
     return null;
   }
-}
-
-/**
- * Minimal readability-like extraction that works in edge runtime.
- * @mozilla/readability requires JSDOM which is too heavy for edge functions.
- * This extracts article content using DOMParser (available in edge runtime).
- */
-function extractArticle(html, baseUrl) {
-  if (!DOMParser) {
-    throw new Error('DOMParser not available');
-  }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-
-  // Fix relative URLs
-  const base = doc.createElement('base');
-  base.href = baseUrl;
-  doc.head.prepend(base);
-
-  // Remove unwanted elements
-  const removeSelectors = [
-    'script', 'style', 'nav', 'header', 'footer', 'aside',
-    '.sidebar', '.ad', '.advertisement', '.social-share', '.share-buttons',
-    '.comments', '.related', '.newsletter', '.subscription', '.popup',
-    '.cookie', '.banner', '.promo', '.sponsored', '.outbrain', '.taboola',
-    '#comments', '#sidebar', '#nav', '#header', '#footer',
-    '[role="navigation"]', '[role="complementary"]', '[role="banner"]',
-    '[class*="social-"]', '[class*="share-"]', '[class*="ad-"]',
-    '[class*="newsletter"]', '[class*="subscribe"]', '[class*="popup"]',
-    '[class*="cookie"]', '[class*="banner"]', '[class*="promo"]',
-  ];
-  removeSelectors.forEach(sel => {
-    try {
-      doc.querySelectorAll(sel).forEach(el => el.remove());
-    } catch { /* ignore invalid selectors */ }
-  });
-
-  // Try to find article content
-  let articleContent = null;
-  const articleSelectors = [
-    'article',
-    '[role="article"]',
-    '.article-body',
-    '.article-content',
-    '.post-content',
-    '.entry-content',
-    '.story-body',
-    '.story-content',
-    '.article__body',
-    '.content__article-body',
-    '#article-body',
-    '.articleText',
-    '.article-body-text',
-    '.post-body',
-    '.entry',
-    '.content',
-    'main',
-    '[role="main"]',
-    '.article',
-    '.post',
-    '.story',
-    '.entry-text',
-    '.article-copy',
-    '.article-text',
-    '.post-text',
-    '.story-text',
-    '#content',
-    '.content-body',
-    '.article-wrapper',
-    '.post-wrapper',
-    '.story-content-wrapper',
-    '[data-component="article-body"]',
-    '[data-content="article"]',
-    '.article__content',
-    '.article-body__content',
-    '.story__body',
-    '.entry__content',
-    '.post__content',
-    '.article_main',
-    '.article_detail',
-  ];
-
-  for (const selector of articleSelectors) {
-    const el = doc.querySelector(selector);
-    if (el && el.innerHTML.length > 200) {
-      articleContent = el;
-      break;
-    }
-  }
-
-  // Fallback: use body if no article element found
-  if (!articleContent) {
-    articleContent = doc.body;
-  }
-
-  // If still not enough content, try to find any element with substantial text
-  if (!articleContent || articleContent.innerHTML.length < 100) {
-    const paragraphs = doc.querySelectorAll('p');
-    let combinedContent = '';
-    for (const p of paragraphs) {
-      if (p.textContent.trim().length > 50) {
-        combinedContent += `<p>${p.innerHTML}</p>`;
-      }
-    }
-    if (combinedContent.length > 100) {
-      const wrapper = doc.createElement('div');
-      wrapper.innerHTML = combinedContent;
-      articleContent = wrapper;
-    }
-  }
-
-  // Extract metadata
-  const title = doc.querySelector('meta[property="og:title"]')?.content
-    || doc.querySelector('meta[name="title"]')?.content
-    || doc.querySelector('h1')?.textContent
-    || '';
-
-  const byline = doc.querySelector('[class*="author"]')?.textContent?.trim()
-    || doc.querySelector('[class*="byline"]')?.textContent?.trim()
-    || '';
-
-  const imageUrl = doc.querySelector('meta[property="og:image"]')?.content
-    || doc.querySelector('meta[name="twitter:image"]')?.content
-    || articleContent?.querySelector('img')?.src
-    || '';
-
-  // Clean up the content
-  if (articleContent) {
-    // Remove empty paragraphs
-    articleContent.querySelectorAll('p').forEach(p => {
-      if (!p.textContent.trim()) p.remove();
-    });
-
-    // Ensure images have proper src
-    articleContent.querySelectorAll('img').forEach(img => {
-      const src = img.getAttribute('src');
-      if (src && !src.startsWith('http') && !src.startsWith('data:')) {
-        try {
-          img.src = new URL(src, baseUrl).href;
-        } catch { /* ignore invalid URLs */ }
-      }
-      // Remove tiny tracking pixels
-      const width = parseInt(img.getAttribute('width') || '0');
-      const height = parseInt(img.getAttribute('height') || '0');
-      if ((width > 0 && width < 50) || (height > 0 && height < 50)) {
-        img.remove();
-      }
-    });
-
-    // Make links open in new tab
-    articleContent.querySelectorAll('a').forEach(a => {
-      a.setAttribute('target', '_blank');
-      a.setAttribute('rel', 'noopener');
-    });
-  }
-
-  return {
-    title: title.trim(),
-    byline: byline.trim(),
-    content: articleContent?.innerHTML || '',
-    imageUrl: imageUrl || '',
-  };
 }
 
 export default async function handler(req) {
@@ -229,9 +356,8 @@ export default async function handler(req) {
   const rateLimitResponse = await checkRateLimit(req, corsHeaders);
   if (rateLimitResponse) return rateLimitResponse;
 
-  // Extract URL from query params (GET) or body (POST)
   let articleUrl;
-  let outputFormat = 'html'; // default
+  let outputFormat = 'html';
   if (req.method === 'GET') {
     const requestUrl = new URL(req.url);
     articleUrl = requestUrl.searchParams.get('url');
@@ -249,7 +375,6 @@ export default async function handler(req) {
     }
   }
 
-  // Validate format
   if (!['html', 'markdown'].includes(outputFormat)) {
     return new Response(JSON.stringify({ error: 'Invalid format: use html or markdown' }), {
       status: 400,
@@ -264,7 +389,6 @@ export default async function handler(req) {
     });
   }
 
-  // Validate URL
   try {
     new URL(articleUrl);
   } catch {
@@ -274,46 +398,54 @@ export default async function handler(req) {
     });
   }
 
-  // Resolve Google News wrapper URLs to the real publisher URL before fetching.
   let effectiveUrl = articleUrl;
-  if (isGoogleNewsUrl(articleUrl)) {
-    try {
-      effectiveUrl = await resolveGoogleNewsUrl(articleUrl);
-    } catch (error) {
-      console.error('[fetch-article] Google News resolve failed:', articleUrl, error.message);
-      const negKey = `article:v1:${articleUrl}`;
-      try { await redisSet(negKey, JSON.stringify('__NEG__'), NEGATIVE_CACHE_TTL); } catch { /* ignore */ }
-      return new Response(JSON.stringify({
-        error: 'Could not resolve Google News URL',
-        url: articleUrl,
-      }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS', ...corsHeaders },
-      });
-    }
-  }
-
-  // Check Redis cache (keyed by effectiveUrl so Google News links share cache with direct fetches)
-  const cacheKey = `article:v1:${effectiveUrl}`;
+  let cacheKey = '';
   try {
-    const cached = await redisGet(cacheKey);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (parsed === '__NEG__') {
-        return new Response(JSON.stringify({ error: 'Failed to fetch article', cached: true }), {
+    if (isGoogleNewsUrl(articleUrl)) {
+      try {
+        effectiveUrl = await resolveGoogleNewsUrl(articleUrl);
+      } catch (error) {
+        console.error('[fetch-article] Google News resolve failed:', articleUrl, error.message);
+        const negKey = `article:v2:${articleUrl}`;
+        try { await redisSet(negKey, JSON.stringify('__NEG__'), NEGATIVE_CACHE_TTL); } catch { /* ignore */ }
+        return new Response(JSON.stringify({
+          error: 'Could not resolve Google News URL',
+          url: articleUrl,
+        }), {
           status: 502,
+          headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS', ...corsHeaders },
+        });
+      }
+    }
+
+    cacheKey = `article:v2:${effectiveUrl}`;
+    try {
+      const cached = await redisGet(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed === '__NEG__') {
+          return new Response(JSON.stringify({ error: 'Failed to fetch article', cached: true, url: effectiveUrl }), {
+            status: 502,
+            headers: { 'Content-Type': 'application/json', 'X-Cache': 'HIT', ...corsHeaders },
+          });
+        }
+
+        const payload = {
+          ...parsed,
+          content: outputFormat === 'markdown' && parsed.markdown ? parsed.markdown : parsed.content,
+          format: outputFormat,
+          cached: true,
+        };
+
+        return new Response(JSON.stringify(payload), {
+          status: 200,
           headers: { 'Content-Type': 'application/json', 'X-Cache': 'HIT', ...corsHeaders },
         });
       }
-      return new Response(JSON.stringify({ ...parsed, cached: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', 'X-Cache': 'HIT', ...corsHeaders },
-      });
+    } catch {
+      // Redis unavailable, proceed without shared cache.
     }
-  } catch { /* Redis unavailable, proceed with fetch */ }
 
-  // Fetch article HTML
-  try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
@@ -329,18 +461,17 @@ export default async function handler(req) {
     clearTimeout(timeout);
 
     if (!response.ok) {
-      const errorResult = { error: `HTTP ${response.status}` };
       try { await redisSet(cacheKey, JSON.stringify('__NEG__'), NEGATIVE_CACHE_TTL); } catch { /* ignore */ }
-      return new Response(JSON.stringify(errorResult), {
+      return new Response(JSON.stringify({ error: `HTTP ${response.status}`, url: effectiveUrl }), {
         status: response.status,
         headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS', ...corsHeaders },
       });
     }
 
     const html = await response.text();
-    const article = extractArticle(html, effectiveUrl);
+    const article = parseArticleHtml(html, effectiveUrl);
 
-    if (!article.content || article.content.length < 100) {
+    if (!article || !article.content || normalizeText(article.content).length < MIN_CONTENT_LENGTH) {
       try { await redisSet(cacheKey, JSON.stringify('__NEG__'), NEGATIVE_CACHE_TTL); } catch { /* ignore */ }
       return new Response(JSON.stringify({ error: 'Could not extract article content', url: effectiveUrl }), {
         status: 422,
@@ -348,7 +479,6 @@ export default async function handler(req) {
       });
     }
 
-    // Convert to markdown if requested
     let markdownContent = null;
     if (outputFormat === 'markdown') {
       const turndown = await getTurndown();
@@ -357,24 +487,26 @@ export default async function handler(req) {
       }
     }
 
-    // Cache the result (both HTML and markdown)
     const cacheData = {
-      title: article.title,
-      byline: article.byline,
+      title: article.title || '',
+      byline: article.byline || '',
+      siteName: article.siteName || '',
+      publishedTime: article.publishedTime || '',
       content: article.content,
       markdown: markdownContent,
-      imageUrl: article.imageUrl,
+      imageUrl: article.imageUrl || '',
       url: effectiveUrl,
     };
     try { await redisSet(cacheKey, JSON.stringify(cacheData), ARTICLE_CACHE_TTL); } catch { /* ignore */ }
 
-    // Return the requested format
     const responseData = {
-      title: article.title,
-      byline: article.byline,
-      content: outputFormat === 'markdown' && markdownContent ? markdownContent : article.content,
-      imageUrl: article.imageUrl,
-      url: effectiveUrl,
+      title: cacheData.title,
+      byline: cacheData.byline,
+      siteName: cacheData.siteName,
+      publishedTime: cacheData.publishedTime,
+      content: outputFormat === 'markdown' && markdownContent ? markdownContent : cacheData.content,
+      imageUrl: cacheData.imageUrl,
+      url: cacheData.url,
       format: outputFormat,
     };
 
@@ -391,10 +523,11 @@ export default async function handler(req) {
     const isTimeout = error.name === 'AbortError';
     console.error('[fetch-article] Error:', effectiveUrl, error.message);
 
-    // Cache the failure briefly
     try {
-      await redisSet(cacheKey, JSON.stringify('__NEG__'), NEGATIVE_CACHE_TTL);
-    } catch { /* ignore cache write failures */ }
+      if (cacheKey) await redisSet(cacheKey, JSON.stringify('__NEG__'), NEGATIVE_CACHE_TTL);
+    } catch {
+      // Ignore cache write failures.
+    }
 
     return new Response(JSON.stringify({
       error: isTimeout ? 'Article fetch timeout' : 'Failed to fetch article',

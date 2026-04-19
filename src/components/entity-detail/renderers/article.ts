@@ -1,7 +1,7 @@
 import { fetchArticle, type ArticleContent, type ArticleError } from '@/services/article-reader';
 import type { ArticleDetailData } from '@/services/article-open';
 import { sanitizeUrl } from '@/utils/sanitize';
-import { rawHtml, replaceChildren } from '@/utils/dom-utils';
+import { clearChildren, rawHtml, replaceChildren } from '@/utils/dom-utils';
 import type { EntityRenderer, EntityRenderContext } from '../types';
 
 interface ArticleEnrichedData {
@@ -15,6 +15,8 @@ const SAFE_TAGS = new Set([
   'table', 'tbody', 'td', 'th', 'thead', 'tr', 'ul',
 ]);
 const SAFE_ATTRS = new Set(['alt', 'class', 'colspan', 'href', 'loading', 'rel', 'rowspan', 'src', 'target', 'title']);
+const DROP_WITH_CONTENT_TAGS = new Set(['aside', 'button', 'footer', 'form', 'header', 'iframe', 'input', 'nav', 'noscript', 'script', 'style']);
+const MIN_IMAGE_DIMENSION = 64;
 
 function extractDomain(url: string): string {
   try {
@@ -31,6 +33,7 @@ function formatPublishedAt(value?: string): string {
   return date.toLocaleString(undefined, {
     month: 'short',
     day: 'numeric',
+    year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -40,10 +43,18 @@ function sanitizeArticleHtml(html: string): DocumentFragment {
   const fragment = rawHtml(html);
   const walk = (parent: Element | DocumentFragment): void => {
     for (const node of Array.from(parent.childNodes)) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (!node.textContent?.trim()) parent.removeChild(node);
+        continue;
+      }
       if (node.nodeType !== Node.ELEMENT_NODE) continue;
       const el = node as HTMLElement;
       const tag = el.tagName.toLowerCase();
       if (!SAFE_TAGS.has(tag)) {
+        if (DROP_WITH_CONTENT_TAGS.has(tag)) {
+          parent.removeChild(el);
+          continue;
+        }
         while (el.firstChild) parent.insertBefore(el.firstChild, el);
         parent.removeChild(el);
         continue;
@@ -65,6 +76,12 @@ function sanitizeArticleHtml(html: string): DocumentFragment {
       }
       if (tag === 'img') {
         const safeSrc = sanitizeUrl(el.getAttribute('src') || '');
+        const width = Number.parseInt(el.getAttribute('width') || '0', 10);
+        const height = Number.parseInt(el.getAttribute('height') || '0', 10);
+        if ((width > 0 && width < MIN_IMAGE_DIMENSION) || (height > 0 && height < MIN_IMAGE_DIMENSION)) {
+          el.remove();
+          continue;
+        }
         if (!safeSrc) {
           el.remove();
           continue;
@@ -74,6 +91,9 @@ function sanitizeArticleHtml(html: string): DocumentFragment {
         (el as HTMLImageElement).referrerPolicy = 'no-referrer';
       }
       walk(el);
+      if ((tag === 'p' || tag === 'div' || tag === 'span') && !el.querySelector('img') && !el.textContent?.trim()) {
+        el.remove();
+      }
     }
   };
   walk(fragment);
@@ -97,8 +117,10 @@ export class ArticleRenderer implements EntityRenderer {
     const header = ctx.el('section', 'edp-header edp-header-card edp-article-header');
     header.append(ctx.el('div', 'edp-article-source', article.source || extractDomain(article.url)));
     header.append(ctx.el('h2', 'edp-title edp-article-title', article.title));
+    const meta = ctx.el('div', 'edp-article-header-meta');
     const publishedAt = formatPublishedAt(article.publishedAt);
-    if (publishedAt) header.append(ctx.el('div', 'edp-subtitle edp-article-date', publishedAt));
+    if (publishedAt) meta.append(ctx.el('span', 'edp-article-header-date', publishedAt));
+    if (meta.childElementCount > 0) header.append(meta);
     header.append(buildExternalLink(ctx, article));
     container.append(header);
 
@@ -132,20 +154,24 @@ export class ArticleRenderer implements EntityRenderer {
       return;
     }
 
-    const articleWrap = ctx.el('article', 'edp-article-reader');
-    const byline = result.byline.trim();
     const resolvedTitle = result.title.trim() || article.title;
-    const resolvedSource = article.source || extractDomain(article.url);
+    const resolvedSource = result.siteName?.trim() || article.source || extractDomain(article.url);
+    const byline = result.byline.trim();
+    const publishedAt = formatPublishedAt(result.publishedTime || article.publishedAt);
 
-    const meta = ctx.el('div', 'edp-article-meta');
-    meta.append(ctx.el('span', 'edp-article-meta-source', resolvedSource));
-    if (byline) meta.append(ctx.el('span', 'edp-article-meta-byline', byline));
-    articleWrap.append(meta);
-
-    if (resolvedTitle && resolvedTitle !== article.title) {
-      articleWrap.append(ctx.el('h3', 'edp-article-resolved-title', resolvedTitle));
+    const sourceEl = container.querySelector<HTMLElement>('.edp-article-source');
+    if (sourceEl) sourceEl.textContent = resolvedSource;
+    const titleEl = container.querySelector<HTMLElement>('.edp-article-title');
+    if (titleEl) titleEl.textContent = resolvedTitle;
+    const headerMeta = container.querySelector<HTMLElement>('.edp-article-header-meta');
+    if (headerMeta) {
+      clearChildren(headerMeta);
+      if (byline) headerMeta.append(ctx.el('span', 'edp-article-header-credit', byline));
+      if (publishedAt) headerMeta.append(ctx.el('span', 'edp-article-header-date', publishedAt));
+      if (headerMeta.childElementCount === 0) headerMeta.remove();
     }
 
+    const articleWrap = ctx.el('article', 'edp-article-reader');
     if (result.imageUrl) {
       const hero = ctx.el('div', 'edp-article-hero');
       const image = ctx.el('img', 'edp-article-hero-img') as HTMLImageElement;
