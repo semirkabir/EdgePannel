@@ -633,7 +633,14 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     const shell = this.el('div', 'cdp-shell');
     const header = this.el('header', 'cdp-header');
     const left = this.el('div', 'cdp-header-left');
-    const flag = this.el('span', 'cdp-flag', CountryDeepDivePanel.toFlagEmoji(code));
+    const flag = this.el('span', 'cdp-flag');
+    const flagImg = document.createElement('img');
+    flagImg.className = 'cdp-flag-img';
+    flagImg.src = `https://flagcdn.com/${code.toLowerCase()}.svg`;
+    flagImg.alt = code.toUpperCase();
+    flagImg.referrerPolicy = 'no-referrer';
+    flagImg.onerror = () => { flag.textContent = code.toUpperCase(); flagImg.remove(); };
+    flag.append(flagImg);
     const titleWrap = this.el('div', 'cdp-title-wrap');
     const name = this.el('h2', 'cdp-country-name', country);
     const subtitle = this.el('div', 'cdp-country-subtitle', `${code.toUpperCase()} • Country Intelligence`);

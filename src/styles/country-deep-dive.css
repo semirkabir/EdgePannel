@@ -214,8 +214,21 @@
 }
 
 .cdp-flag {
-  font-size: 26px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  /* fallback text size if image fails to load */
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cdp-flag-img {
+  width: 32px;
+  height: auto;
+  border-radius: 3px;
+  object-fit: cover;
+  display: block;
 }
 
 .cdp-title-wrap {
