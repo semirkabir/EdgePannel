@@ -31,6 +31,28 @@ export interface StatTileOpts {
   hint?: string;
 }
 
+/**
+ * Shorten verbose unit suffixes that CIA Factbook values embed in their text.
+ * Applied before rendering in small stat tiles so they don't overflow.
+ *   "23.2% of total population"         → "23.2%"
+ *   "29.08 births/1,000 population"     → "29.08/1K"
+ *   "0.14 physicians/1,000 population"  → "0.14/1K"
+ *   "195 deaths/100,000 live births"    → "195/100K"
+ */
+export function abbreviateStat(val: string | undefined): string | undefined {
+  if (!val) return val;
+  const s = val
+    .replace(/\s+of\s+total\s+population\b/gi, '')
+    .replace(/\s+\w+\/1,000\s+population\b/gi, '/1K')
+    .replace(/\/1,000\s+population\b/gi, '/1K')
+    .replace(/\s+\w+\/100,000\s+live\s+births\b/gi, '/100K')
+    .replace(/\/100,000\s+live\s+births\b/gi, '/100K')
+    .replace(/\s+\w+\/100,000\s+population\b/gi, '/100K')
+    .replace(/\/100,000\s+population\b/gi, '/100K')
+    .trim();
+  return s || val;
+}
+
 export function statTile(label: string, value: string | undefined, opts: StatTileOpts = {}): HTMLElement {
   const tile = el('div', 'cdp-fb-tile');
   const valueEl = el('div', 'cdp-fb-tile-value', value && value.trim() ? value : '—');

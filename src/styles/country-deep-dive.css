@@ -1212,6 +1212,7 @@
 .cdp-fb-grid {
   display: grid;
   gap: 8px;
+  container-type: inline-size;
 }
 
 .cdp-fb-grid-2 {
@@ -1235,10 +1236,10 @@
 }
 
 .cdp-fb-tile-value {
-  font-size: 17px;
+  font-size: clamp(13px, 3.5cqw, 16px);
   font-weight: 700;
   color: var(--text);
-  line-height: 1.2;
+  line-height: 1.25;
   word-break: break-word;
 }
 

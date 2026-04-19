@@ -21,6 +21,7 @@ import {
 } from '@/services/factbook';
 import {
   PALETTE,
+  abbreviateStat,
   calloutCard,
   chipRow,
   collapsible,
@@ -241,8 +242,8 @@ function renderPeople(data: FactbookData): HTMLElement | null {
   // Vitals
   const vitals: Array<HTMLElement | null> = [
     statTile('Life expectancy', takeValue(fbText(sec, 'Life expectancy at birth', 'total population'))),
-    statTile('Urbanization', takeValue(fbText(sec, 'Urbanization', 'urban population'))),
-    statTile('Birth rate', takeValue(fbText(sec, 'Birth rate'))),
+    statTile('Urbanization', abbreviateStat(takeValue(fbText(sec, 'Urbanization', 'urban population')))),
+    statTile('Birth rate', abbreviateStat(takeValue(fbText(sec, 'Birth rate')))),
   ].filter((t) => t && (t.querySelector('.cdp-fb-tile-value')?.textContent ?? '—') !== '—');
   if (vitals.length > 0) {
     const card = sectionCard('Vitals', tileGrid(3, vitals));
@@ -251,9 +252,9 @@ function renderPeople(data: FactbookData): HTMLElement | null {
 
   // Health & education
   const health: Array<HTMLElement | null> = [
-    statTile('Physician density', takeValue(fbText(sec, 'Physician density'))),
-    statTile('Hospital beds', takeValue(fbText(sec, 'Hospital bed density'))),
-    statTile('Maternal mortality', takeValue(fbText(sec, 'Maternal mortality ratio'))),
+    statTile('Physician density', abbreviateStat(takeValue(fbText(sec, 'Physician density')))),
+    statTile('Hospital beds', abbreviateStat(takeValue(fbText(sec, 'Hospital bed density')))),
+    statTile('Maternal mortality', abbreviateStat(takeValue(fbText(sec, 'Maternal mortality ratio')))),
     statTile(
       'School life expectancy',
       takeValue(fbText(sec, 'School life expectancy (primary to tertiary education)', 'total')),
