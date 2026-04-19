@@ -771,29 +771,41 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       bar.append(btn);
     }
 
+    // Scroll-left chevron — hidden when at start
+    const arrowLeft = this.el('button', 'cdp-tabs-arrow cdp-tabs-arrow--left') as HTMLButtonElement;
+    arrowLeft.type = 'button';
+    arrowLeft.setAttribute('aria-label', 'Scroll tabs left');
+    arrowLeft.setAttribute('aria-hidden', 'true');
+    arrowLeft.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M9 2l-5 5 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    arrowLeft.hidden = true;
+    arrowLeft.addEventListener('click', () => {
+      bar.scrollBy({ left: -140, behavior: 'smooth' });
+    });
+
     // Scroll-right chevron — hidden when no overflow
-    const arrow = this.el('button', 'cdp-tabs-arrow') as HTMLButtonElement;
-    arrow.type = 'button';
-    arrow.setAttribute('aria-label', 'Scroll tabs');
-    arrow.setAttribute('aria-hidden', 'true');
-    arrow.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    arrow.addEventListener('click', () => {
+    const arrowRight = this.el('button', 'cdp-tabs-arrow cdp-tabs-arrow--right') as HTMLButtonElement;
+    arrowRight.type = 'button';
+    arrowRight.setAttribute('aria-label', 'Scroll tabs right');
+    arrowRight.setAttribute('aria-hidden', 'true');
+    arrowRight.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    arrowRight.addEventListener('click', () => {
       bar.scrollBy({ left: 140, behavior: 'smooth' });
     });
 
-    const syncArrow = (): void => {
-      const hasMore = bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 4;
-      arrow.hidden = !hasMore;
+    const syncArrows = (): void => {
+      const { scrollLeft, clientWidth, scrollWidth } = bar;
+      arrowLeft.hidden = scrollLeft <= 4;
+      arrowRight.hidden = scrollLeft + clientWidth >= scrollWidth - 4;
     };
 
-    bar.addEventListener('scroll', syncArrow, { passive: true });
+    bar.addEventListener('scroll', syncArrows, { passive: true });
     // Re-check on resize (e.g. panel width changes)
-    const ro = new ResizeObserver(syncArrow);
+    const ro = new ResizeObserver(syncArrows);
     ro.observe(bar);
     // Initial state after browser has laid out
-    requestAnimationFrame(syncArrow);
+    requestAnimationFrame(syncArrows);
 
-    wrap.append(bar, arrow);
+    wrap.append(arrowLeft, bar, arrowRight);
     return wrap;
   }
 

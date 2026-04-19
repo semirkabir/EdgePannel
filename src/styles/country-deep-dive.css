@@ -1070,16 +1070,16 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
   scroll-behavior: smooth;
-  /* Left fade only — right fade would fight with the arrow */
-  mask-image: linear-gradient(to right, transparent 0, black 12px, black 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0, black 12px, black 100%);
+  /* Fade both edges so overflow is always hinted */
+  mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
 }
 
 .cdp-tabs::-webkit-scrollbar {
   display: none;
 }
 
-/* Right-scroll chevron */
+/* Shared styles for both scroll chevrons */
 .cdp-tabs-arrow {
   flex-shrink: 0;
   display: flex;
@@ -1091,8 +1091,16 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 0;
-  transition: color 0.15s, opacity 0.15s;
-  /* Soft left shadow to blend with scroll overflow */
+  transition: color 0.15s;
+}
+
+.cdp-tabs-arrow--left {
+  /* Shadow bleeds rightward into the tab strip */
+  box-shadow: 8px 0 12px 4px var(--bg, #0a0a0a);
+}
+
+.cdp-tabs-arrow--right {
+  /* Shadow bleeds leftward into the tab strip */
   box-shadow: -8px 0 12px 4px var(--bg, #0a0a0a);
 }
 
