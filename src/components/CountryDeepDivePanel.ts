@@ -754,9 +754,12 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
 
   private renderTabBar(): HTMLElement {
     this.tabButtons.clear();
+
+    const wrap = this.el('div', 'cdp-tabs-wrap');
     const bar = this.el('nav', 'cdp-tabs');
     bar.setAttribute('role', 'tablist');
     bar.setAttribute('aria-label', 'Country sections');
+
     for (const def of FACTBOOK_TABS) {
       const btn = this.el('button', 'cdp-tab', def.label) as HTMLButtonElement;
       btn.type = 'button';
@@ -767,7 +770,31 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       this.tabButtons.set(def.id, btn);
       bar.append(btn);
     }
-    return bar;
+
+    // Scroll-right chevron — hidden when no overflow
+    const arrow = this.el('button', 'cdp-tabs-arrow') as HTMLButtonElement;
+    arrow.type = 'button';
+    arrow.setAttribute('aria-label', 'Scroll tabs');
+    arrow.setAttribute('aria-hidden', 'true');
+    arrow.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    arrow.addEventListener('click', () => {
+      bar.scrollBy({ left: 140, behavior: 'smooth' });
+    });
+
+    const syncArrow = (): void => {
+      const hasMore = bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 4;
+      arrow.hidden = !hasMore;
+    };
+
+    bar.addEventListener('scroll', syncArrow, { passive: true });
+    // Re-check on resize (e.g. panel width changes)
+    const ro = new ResizeObserver(syncArrow);
+    ro.observe(bar);
+    // Initial state after browser has laid out
+    requestAnimationFrame(syncArrow);
+
+    wrap.append(bar, arrow);
+    return wrap;
   }
 
   private setActiveTab(tab: TabId): void {

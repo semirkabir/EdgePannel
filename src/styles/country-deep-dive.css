@@ -829,7 +829,7 @@
     grid-template-columns: 1fr;
   }
 
-  .cdp-tabs {
+  .cdp-tabs-wrap {
     top: 52px;
   }
 
@@ -1043,30 +1043,64 @@
 /* Tabs + factbook layouts                                                      */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-.cdp-tabs {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 2px;
-  padding: 0 2px;
-  margin: 8px 0 10px;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
+/* Wrapper handles sticky + lays out [nav | arrow] */
+.cdp-tabs-wrap {
   position: sticky;
   top: 56px;
   z-index: 3;
+  display: flex;
+  align-items: stretch;
+  margin: 8px 0 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg, #0a0a0a);
+}
+
+.cdp-tabs {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 0 2px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
   scroll-behavior: smooth;
-  /* Fade edges to hint at horizontal scroll */
-  mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+  /* Left fade only — right fade would fight with the arrow */
+  mask-image: linear-gradient(to right, transparent 0, black 12px, black 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 12px, black 100%);
 }
 
 .cdp-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Right-scroll chevron */
+.cdp-tabs-arrow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s, opacity 0.15s;
+  /* Soft left shadow to blend with scroll overflow */
+  box-shadow: -8px 0 12px 4px var(--bg, #0a0a0a);
+}
+
+.cdp-tabs-arrow:hover {
+  color: var(--text);
+}
+
+.cdp-tabs-arrow[hidden] {
   display: none;
 }
 
