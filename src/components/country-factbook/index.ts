@@ -521,52 +521,177 @@ function buildAreaComparison(countryName: string, totalAreaText: string | undefi
   return wrap;
 }
 
-function buildElevationProfile(highText: string | undefined, meanText: string | undefined, lowText: string | undefined): HTMLElement | null {
+const EVEREST_HEIGHT_M = 8849;
+
+function svgText(attrs: Record<string, string>, content: string): SVGTextElement {
+  const node = svgEl('text', attrs);
+  node.textContent = content;
+  return node;
+}
+
+/**
+ * Vertical elevation chart: shows the country's lowest→highest range as one
+ * pillar, benchmarked against Mount Everest (8,849 m) as a second pillar.
+ * A sea-level line and peak/base markers anchor the comparison.
+ */
+function buildElevationProfile(
+  countryName: string,
+  highText: string | undefined,
+  _meanText: string | undefined,
+  lowText: string | undefined,
+): HTMLElement | null {
   const high = extractNumber(highText);
-  const mean = extractNumber(meanText);
   const low = extractNumber(lowText);
-  if (!Number.isFinite(high) || !Number.isFinite(mean) || !Number.isFinite(low)) return null;
+  if (!Number.isFinite(high) || !Number.isFinite(low)) return null;
 
   const wrap = el('div', 'cdp-fb-elevation');
-  const svg = svgEl('svg', { viewBox: '0 0 320 120', class: 'cdp-fb-elevation-svg', role: 'img', 'aria-label': 'Elevation profile' });
-  const floorY = 98;
-  const topPad = 14;
-  const min = Math.min(low, mean, high);
-  const max = Math.max(low, mean, high);
-  const range = Math.max(1, max - min);
-  const points = [
-    { x: 28, y: topPad + ((max - low) / range) * 72, label: 'Lowest', value: lowText ?? '' },
-    { x: 160, y: topPad + ((max - mean) / range) * 72, label: 'Mean', value: meanText ?? '' },
-    { x: 292, y: topPad + ((max - high) / range) * 72, label: 'Highest', value: highText ?? '' },
-  ];
 
-  svg.append(
-    svgEl('line', { x1: '20', y1: String(floorY), x2: '300', y2: String(floorY), class: 'cdp-fb-elevation-axis' }),
-    svgEl('path', {
-      d: `M 20 ${floorY} L ${points[0]!.x} ${points[0]!.y} L ${points[1]!.x} ${points[1]!.y} L ${points[2]!.x} ${points[2]!.y} L 300 ${floorY} Z`,
-      class: 'cdp-fb-elevation-fill',
-    }),
-    svgEl('polyline', {
-      points: points.map((point) => `${point.x},${point.y}`).join(' '),
-      class: 'cdp-fb-elevation-line',
-    }),
-  );
+  const svgWidth = 320;
+  const svgHeight = 280;
+  // Generous top padding so the icon + label above the Everest pillar don't clip.
+  const topPad = 60;
+  const bottomPad = 36;
+  const chartHeight = svgHeight - topPad - bottomPad;
 
-  for (const point of points) {
-    svg.append(svgEl('circle', { cx: String(point.x), cy: String(point.y), r: '4', class: 'cdp-fb-elevation-dot' }));
+  const maxElev = EVEREST_HEIGHT_M;
+  const minElev = Math.min(0, low);
+  const range = Math.max(1, maxElev - minElev);
+  const yFor = (elev: number) => topPad + ((maxElev - elev) / range) * chartHeight;
+
+  const svg = svgEl('svg', {
+    viewBox: `0 0 ${svgWidth} ${svgHeight}`,
+    class: 'cdp-fb-elevation-svg',
+    role: 'img',
+    'aria-label': `${countryName} elevation compared to Mount Everest`,
+  });
+
+  // Sea level reference line across the full chart width.
+  const seaY = yFor(0);
+  svg.append(svgEl('line', {
+    x1: '16', y1: String(seaY), x2: String(svgWidth - 16), y2: String(seaY),
+    class: 'cdp-fb-elevation-sealevel',
+  }));
+  svg.append(svgText({
+    x: String(svgWidth - 16),
+    y: String(seaY - 5),
+    class: 'cdp-fb-elevation-sealevel-label',
+    'text-anchor': 'end',
+  }, 'Sea level'));
+
+  // Country pillar (left)
+  const countryX = 96;
+  const countryTopY = yFor(high);
+  const countryBottomY = yFor(low);
+  svg.append(svgEl('line', {
+    x1: String(countryX), y1: String(countryBottomY),
+    x2: String(countryX), y2: String(countryTopY),
+    class: 'cdp-fb-elevation-country-line',
+  }));
+  svg.append(svgEl('circle', {
+    cx: String(countryX), cy: String(countryTopY),
+    r: '5', class: 'cdp-fb-elevation-peak-dot',
+  }));
+  svg.append(svgEl('circle', {
+    cx: String(countryX), cy: String(countryBottomY),
+    r: '5', class: 'cdp-fb-elevation-base-dot',
+  }));
+  svg.append(svgText({
+    x: String(countryX),
+    y: String(countryTopY - 10),
+    class: 'cdp-fb-elevation-country-label',
+    'text-anchor': 'middle',
+  }, `${formatCompactNumber(high)} m`));
+  if (low < 0) {
+    svg.append(svgText({
+      x: String(countryX),
+      y: String(countryBottomY + 14),
+      class: 'cdp-fb-elevation-country-base-label',
+      'text-anchor': 'middle',
+    }, `${formatCompactNumber(low)} m`));
   }
+  // Caption = the selected country name (truncated if very long).
+  const countryCaption = countryName.length > 18 ? `${countryName.slice(0, 17)}…` : countryName;
+  svg.append(svgText({
+    x: String(countryX),
+    y: String(svgHeight - 14),
+    class: 'cdp-fb-elevation-caption',
+    'text-anchor': 'middle',
+  }, countryCaption));
+
+  // Everest pillar (right) — benchmark
+  const everestX = 224;
+  const everestTopY = yFor(EVEREST_HEIGHT_M);
+  const everestBottomY = yFor(0);
+  svg.append(svgEl('line', {
+    x1: String(everestX), y1: String(everestBottomY),
+    x2: String(everestX), y2: String(everestTopY),
+    class: 'cdp-fb-elevation-everest-line',
+  }));
+  // Two-peak mountain silhouette sitting on top of the Everest pillar.
+  const iconW = 26; // half-width of the icon
+  const iconH = 32; // total height
+  const baseY = everestTopY;
+  const peakPath = [
+    `M ${everestX - iconW} ${baseY}`,
+    `L ${everestX - iconW * 0.45} ${baseY - iconH * 0.55}`,
+    `L ${everestX - iconW * 0.15} ${baseY - iconH * 0.3}`,
+    `L ${everestX + iconW * 0.1} ${baseY - iconH}`,
+    `L ${everestX + iconW * 0.4} ${baseY - iconH * 0.55}`,
+    `L ${everestX + iconW} ${baseY}`,
+    'Z',
+  ].join(' ');
+  svg.append(svgEl('path', {
+    d: peakPath,
+    class: 'cdp-fb-elevation-everest-peak',
+  }));
+  // Snow cap on the main (taller) peak.
+  const snowPath = [
+    `M ${everestX - iconW * 0.12} ${baseY - iconH * 0.72}`,
+    `L ${everestX + iconW * 0.1} ${baseY - iconH}`,
+    `L ${everestX + iconW * 0.28} ${baseY - iconH * 0.68}`,
+    `L ${everestX + iconW * 0.18} ${baseY - iconH * 0.6}`,
+    `L ${everestX + iconW * 0.05} ${baseY - iconH * 0.78}`,
+    `L ${everestX - iconW * 0.02} ${baseY - iconH * 0.65}`,
+    'Z',
+  ].join(' ');
+  svg.append(svgEl('path', {
+    d: snowPath,
+    class: 'cdp-fb-elevation-everest-snow',
+  }));
+  // Height label above the icon.
+  svg.append(svgText({
+    x: String(everestX),
+    y: String(baseY - iconH - 8),
+    class: 'cdp-fb-elevation-everest-label',
+    'text-anchor': 'middle',
+  }, `${formatCompactNumber(EVEREST_HEIGHT_M)} m`));
+  svg.append(svgText({
+    x: String(everestX),
+    y: String(svgHeight - 14),
+    class: 'cdp-fb-elevation-caption',
+    'text-anchor': 'middle',
+  }, 'Mt. Everest'));
 
   wrap.append(svg);
+
+  // Legend below: highest, lowest, ratio-to-Everest.
+  const pctOfEverest = Math.max(0, (high / EVEREST_HEIGHT_M) * 100);
   const legend = el('div', 'cdp-fb-elevation-legend');
-  for (const point of points) {
+  const makeItem = (label: string, value: string): HTMLElement => {
     const item = el('div', 'cdp-fb-elevation-item');
     item.append(
-      el('div', 'cdp-fb-elevation-label', point.label),
-      el('div', 'cdp-fb-elevation-value', takeValue(point.value)),
+      el('div', 'cdp-fb-elevation-label', label),
+      el('div', 'cdp-fb-elevation-value', value),
     );
-    legend.append(item);
-  }
+    return item;
+  };
+  legend.append(
+    makeItem('Highest', takeValue(highText) || `${formatCompactNumber(high)} m`),
+    makeItem('Lowest', takeValue(lowText) || `${formatCompactNumber(low)} m`),
+    makeItem('vs. Everest', `${pctOfEverest.toFixed(1)}%`),
+  );
   wrap.append(legend);
+
   return wrap;
 }
 
@@ -678,11 +803,6 @@ function parseCountryMentions(text: string | undefined, withCounts = false, excl
 
 // ─── Geography ────────────────────────────────────────────────────────────────
 
-interface ParsedCoordinates {
-  lat: number;
-  lon: number;
-}
-
 interface PopulationBracket {
   label: string;
   pct: number;
@@ -716,134 +836,6 @@ const HEALTH_WORLD_MEDIANS = {
 } as const;
 
 const WORLD_POPULATION_ESTIMATE = 8_200_000_000;
-
-function parseCoordinates(text: string | undefined): ParsedCoordinates | null {
-  if (!text) return null;
-  const matches = [...normalizeFactbookText(text).matchAll(/(\d{1,3})(?:\s+(\d{1,2}))?(?:\s+(\d{1,2}(?:\.\d+)?))?\s*([NSEW])/gi)];
-  if (matches.length < 2) return null;
-  const toDecimal = (match: RegExpMatchArray): number => {
-    const degrees = Number.parseFloat(match[1] ?? '0');
-    const minutes = Number.parseFloat(match[2] ?? '0');
-    const seconds = Number.parseFloat(match[3] ?? '0');
-    const dir = (match[4] ?? '').toUpperCase();
-    const sign = dir === 'S' || dir === 'W' ? -1 : 1;
-    return sign * (degrees + (minutes / 60) + (seconds / 3600));
-  };
-  return {
-    lat: toDecimal(matches[0]!),
-    lon: toDecimal(matches[1]!),
-  };
-}
-
-function formatCoordinate(coord: number, positive: string, negative: string): string {
-  const abs = Math.abs(coord);
-  const decimals = abs >= 100 ? 1 : 2;
-  return `${abs.toFixed(decimals)}\u00B0${coord >= 0 ? positive : negative}`;
-}
-
-function describeCoordinates(coords: ParsedCoordinates): string {
-  return `${formatCoordinate(coords.lat, 'N', 'S')} • ${formatCoordinate(coords.lon, 'E', 'W')}`;
-}
-
-function projectWorld(coords: ParsedCoordinates, width: number, height: number): { x: number; y: number } {
-  return {
-    x: ((coords.lon + 180) / 360) * width,
-    y: ((90 - coords.lat) / 180) * height,
-  };
-}
-
-function buildLocatorMap(
-  primaryCoordsText: string | undefined,
-  options: { primaryLabel: string; secondaryCoordsText?: string | undefined; secondaryLabel?: string } = { primaryLabel: 'Location' },
-): HTMLElement | null {
-  const primary = parseCoordinates(primaryCoordsText);
-  if (!primary) return null;
-  const secondary = parseCoordinates(options.secondaryCoordsText);
-  const width = 320;
-  const height = 160;
-  const primaryPoint = projectWorld(primary, width, height);
-  const secondaryPoint = secondary ? projectWorld(secondary, width, height) : null;
-
-  const wrap = el('div', 'cdp-fb-locator');
-  const svg = svgEl('svg', {
-    viewBox: `0 0 ${width} ${height}`,
-    class: 'cdp-fb-locator-svg',
-    role: 'img',
-    'aria-label': secondary
-      ? `${options.primaryLabel} and ${options.secondaryLabel ?? 'reference'} locator`
-      : `${options.primaryLabel} locator`,
-  });
-
-  svg.append(
-    svgEl('rect', { x: '0', y: '0', width: String(width), height: String(height), rx: '16', class: 'cdp-fb-locator-bg' }),
-  );
-
-  for (const lon of [-120, -60, 0, 60, 120]) {
-    const x = ((lon + 180) / 360) * width;
-    svg.append(svgEl('line', {
-      x1: x.toFixed(1),
-      y1: '10',
-      x2: x.toFixed(1),
-      y2: String(height - 10),
-      class: 'cdp-fb-locator-grid',
-    }));
-  }
-  for (const lat of [-60, -30, 0, 30, 60]) {
-    const y = ((90 - lat) / 180) * height;
-    svg.append(svgEl('line', {
-      x1: '12',
-      y1: y.toFixed(1),
-      x2: String(width - 12),
-      y2: y.toFixed(1),
-      class: lat === 0 ? 'cdp-fb-locator-grid cdp-fb-locator-grid-emphasis' : 'cdp-fb-locator-grid',
-    }));
-  }
-
-  if (secondaryPoint) {
-    svg.append(svgEl('line', {
-      x1: primaryPoint.x.toFixed(1),
-      y1: primaryPoint.y.toFixed(1),
-      x2: secondaryPoint.x.toFixed(1),
-      y2: secondaryPoint.y.toFixed(1),
-      class: 'cdp-fb-locator-link',
-    }));
-    svg.append(svgEl('circle', {
-      cx: secondaryPoint.x.toFixed(1),
-      cy: secondaryPoint.y.toFixed(1),
-      r: '5.5',
-      class: 'cdp-fb-locator-dot-secondary',
-    }));
-  }
-
-  svg.append(svgEl('circle', {
-    cx: primaryPoint.x.toFixed(1),
-    cy: primaryPoint.y.toFixed(1),
-    r: '6',
-    class: 'cdp-fb-locator-dot',
-  }));
-
-  wrap.append(svg);
-
-  const legend = el('div', 'cdp-fb-locator-legend');
-  const primaryMeta = el('div', 'cdp-fb-locator-meta');
-  primaryMeta.append(
-    el('div', 'cdp-fb-locator-label', options.primaryLabel),
-    el('div', 'cdp-fb-locator-value', describeCoordinates(primary)),
-  );
-  legend.append(primaryMeta);
-
-  if (secondary) {
-    const secondaryMeta = el('div', 'cdp-fb-locator-meta');
-    secondaryMeta.append(
-      el('div', 'cdp-fb-locator-label', options.secondaryLabel ?? 'Reference'),
-      el('div', 'cdp-fb-locator-value', describeCoordinates(secondary)),
-    );
-    legend.append(secondaryMeta);
-  }
-
-  wrap.append(legend);
-  return wrap;
-}
 
 function parsePopulationBracket(label: string, text: string | undefined): PopulationBracket | null {
   const clean = normalizeFactbookText(text);
@@ -1192,8 +1184,6 @@ function renderGeography(data: FactbookData, country: string): HTMLElement | nul
   const coords = fbText(sec, 'Geographic coordinates');
   if (loc || coords) {
     const body = el('div', 'cdp-fb-stack-v');
-    const locator = buildLocatorMap(coords, { primaryLabel: 'Country center' });
-    if (locator) body.append(locator);
     if (loc) body.append(prose(loc)!);
     if (coords) body.append(el('div', 'cdp-fb-coords', `📍 ${coords}`));
     const card = sectionCard('Location', body);
@@ -1227,16 +1217,9 @@ function renderGeography(data: FactbookData, country: string): HTMLElement | nul
   const highPointText = fbText(sec, 'Elevation', 'highest point');
   const lowPointText = fbText(sec, 'Elevation', 'lowest point');
   const meanElevationText = fbText(sec, 'Elevation', 'mean elevation');
-  const elev: Array<HTMLElement | null> = [
-    statTile('Highest point', takeValue(highPointText)),
-    statTile('Lowest point', takeValue(lowPointText)),
-    statTile('Mean elevation', takeValue(meanElevationText)),
-  ].filter((t) => t && (t.querySelector('.cdp-fb-tile-value')?.textContent ?? '—') !== '—');
-  if (elev.length > 0) {
-    const card = sectionCard('Elevation', combine([
-      buildElevationProfile(highPointText, meanElevationText, lowPointText),
-      tileGrid(3, elev),
-    ]));
+  const elevProfile = buildElevationProfile(country, highPointText, meanElevationText, lowPointText);
+  if (elevProfile) {
+    const card = sectionCard('Elevation', elevProfile);
     if (card) stack.append(card);
   }
 
@@ -1454,15 +1437,8 @@ function renderGovernment(data: FactbookData): HTMLElement | null {
   const capName = fbText(sec, 'Capital', 'name');
   const capCoords = fbText(sec, 'Capital', 'geographic coordinates');
   const capTz = fbText(sec, 'Capital', 'time difference');
-  const countryCoords = fbText(data.Geography, 'Geographic coordinates');
   if (capName) {
     const body = el('div', 'cdp-fb-stack-v');
-    const locator = buildLocatorMap(capCoords, {
-      primaryLabel: capName,
-      secondaryCoordsText: countryCoords,
-      secondaryLabel: 'Country center',
-    });
-    if (locator) body.append(locator);
     body.append(el('div', 'cdp-fb-hero-value', capName));
     const meta: string[] = [];
     if (capCoords) meta.push(`📍 ${capCoords}`);

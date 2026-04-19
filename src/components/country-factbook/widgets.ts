@@ -207,8 +207,10 @@ export function collapsible(summary: string, bodyNode: HTMLElement, openByDefaul
 
 export function prose(text: string | undefined, className = 'cdp-fb-prose'): HTMLElement | null {
   if (!text || !text.trim()) return null;
+  const cleaned = stripNoteHtml(text);
+  if (!cleaned) return null;
   const p = el('div', className);
-  p.textContent = text.trim();
+  p.textContent = cleaned;
   return p;
 }
 
