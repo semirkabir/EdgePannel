@@ -643,7 +643,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     flag.append(flagImg);
     const titleWrap = this.el('div', 'cdp-title-wrap');
     const name = this.el('h2', 'cdp-country-name', country);
-    const subtitle = this.el('div', 'cdp-country-subtitle', `${code.toUpperCase()} • Country Intelligence`);
+    const subtitle = this.el('div', 'cdp-country-subtitle', `${code.toUpperCase()} • Country Brief`);
     titleWrap.append(name, subtitle);
     left.append(flag, titleWrap);
 
