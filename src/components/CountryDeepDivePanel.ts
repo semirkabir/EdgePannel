@@ -57,7 +57,6 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private isMaximizedState = false;
   private onCloseCallback?: () => void;
   private onStateChangeCallback?: (state: { visible: boolean; maximized: boolean }) => void;
-  private onShareStory?: (code: string, name: string) => void;
   private map: MapContainer | null;
   private abortController: AbortController = new AbortController();
   private lastFocusedElement: HTMLElement | null = null;
@@ -143,9 +142,6 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.map = map;
   }
 
-  public setShareStoryHandler(handler: (code: string, name: string) => void): void {
-    this.onShareStory = handler;
-  }
 
   public get signal(): AbortSignal {
     return this.abortController.signal;
@@ -672,15 +668,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       }).catch(() => {});
     });
 
-    const storyButton = this.el('button', 'cdp-action-btn', 'Story') as HTMLButtonElement;
-    storyButton.setAttribute('type', 'button');
-    storyButton.addEventListener('click', () => {
-      if (this.onShareStory && this.currentCode && this.currentName) {
-        this.onShareStory(this.currentCode, this.currentName);
-      }
-    });
-
-    right.append(shareBtn, maxBtn, storyButton);
+    right.append(shareBtn, maxBtn);
     header.append(left, right);
 
     const scoreCard = this.el('section', 'cdp-card cdp-score-card');

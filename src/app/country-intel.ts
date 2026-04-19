@@ -76,10 +76,6 @@ export class CountryIntelManager implements AppModule {
   private setupCountryIntel(): void {
     if (!this.ctx.map) return;
     this.ctx.countryBriefPage = new CountryDeepDivePanel(this.ctx.map);
-    this.ctx.countryBriefPage.setShareStoryHandler((code, name) => {
-      this.ctx.countryBriefPage?.hide();
-      this.openCountryStory(code, name);
-    });
     this.ctx.map.onCountryClicked(async (countryClick) => {
       // Close entity detail panel when opening country brief
       this.ctx.entityDetailPanel?.hide();
