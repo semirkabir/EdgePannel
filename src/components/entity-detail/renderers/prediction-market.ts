@@ -248,7 +248,6 @@ export class PredictionMarketRenderer implements EntityRenderer {
     factGrid.append(
       makeFactCard(ctx, 'Total Volume', formatVolume(data.totalVolume)),
       makeFactCard(ctx, 'Liquidity', formatVolume(data.liquidity || 0)),
-      makeFactCard(ctx, 'Spread', formatPricePct(data.spread)),
     );
     overviewBody.append(factGrid);
 
@@ -596,10 +595,10 @@ function buildRecentTrades(ctx: EntityRenderContext, trades: MarketTrade[]): HTM
 }
 
 function buildHolders(ctx: EntityRenderContext, holders: MarketHolder[]): HTMLElement {
-  const wrap = ctx.el('div', 'edp-prediction-holders');
+  const wrap = ctx.el('div', 'edp-prediction-holders edp-prediction-holders-columns');
 
-  const yesHolders = holders.filter(h => h.side === 'yes').slice(0, 5);
-  const noHolders = holders.filter(h => h.side === 'no').slice(0, 5);
+  const yesHolders = holders.filter(h => h.side === 'yes').slice(0, 10);
+  const noHolders = holders.filter(h => h.side === 'no').slice(0, 10);
 
   if (yesHolders.length > 0) {
     const yesSection = ctx.el('div', 'edp-prediction-holders-content');

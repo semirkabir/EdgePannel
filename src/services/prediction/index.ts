@@ -146,7 +146,9 @@ function parseEpochMillis(value: unknown): number {
 
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T | null> {
   try {
-    const response = await fetch(url, { headers: { Accept: 'application/json' }, signal });
+    const timeout = AbortSignal.timeout(8000);
+    const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: combined });
     if (!response.ok) return null;
     return response.json() as Promise<T>;
   } catch {
