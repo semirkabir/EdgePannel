@@ -435,6 +435,7 @@ export class App {
     this.eventHandlers = new EventHandlerManager(this.state, {
       updateSearchIndex: () => this.searchManager.updateSearchIndex(),
       loadAllData: () => this.dataLoader.loadAllData(),
+      loadDataForPanel: (panelKey) => { void this.dataLoader.loadDataForPanel(panelKey); },
       flushStaleRefreshes: () => this.refreshScheduler.flushStaleRefreshes(),
       setHiddenSince: (ts) => this.refreshScheduler.setHiddenSince(ts),
       loadDataForLayer: (layer) => { void this.dataLoader.loadDataForLayer(layer as keyof MapLayers); },
@@ -469,7 +470,7 @@ export class App {
     await initI18n();
     initAuth();
     const aiFlow = getAiFlowSettings();
-    if (aiFlow.browserModel || isDesktopRuntime()) {
+    if (aiFlow.browserModel) {
       await mlWorker.init();
       if (BETA_MODE) mlWorker.loadModel('summarization-beta').catch(() => { });
     }
@@ -497,7 +498,7 @@ export class App {
         } else {
           mlWorker.unloadModel('embeddings').catch(() => { });
           const s = getAiFlowSettings();
-          if (!s.browserModel && !isDesktopRuntime()) {
+          if (!s.browserModel) {
             mlWorker.terminate();
           }
         }
@@ -703,21 +704,66 @@ export class App {
       const intervals = isLoggedIn() ? REFRESH_INTERVALS : REFRESH_INTERVALS_ANON;
       
       // Always refresh news for all variants
-      this.refreshScheduler.scheduleRefresh('news', () => this.dataLoader.loadNews(), intervals.feeds);
+      this.refreshScheduler.scheduleRefresh(
+        'news',
+        () => this.dataLoader.loadNews(),
+        intervals.feeds,
+        () => this.dataLoader.hasActiveNewsConsumer(),
+      );
 
       // Happy variant only refreshes news -- skip all geopolitical/financial/military refreshes
       if (SITE_VARIANT !== 'happy') {
         const refreshes = [
-          ...(isLocalDevTaskEnabled('markets') ? [{ name: 'markets', fn: () => this.dataLoader.loadMarkets(), intervalMs: intervals.markets }] : []),
-          { name: 'predictions', fn: () => this.dataLoader.loadPredictions(), intervalMs: intervals.predictions },
-          ...(isLocalDevTaskEnabled('pizzint') ? [{ name: 'pizzint', fn: () => this.dataLoader.loadPizzInt(), intervalMs: intervals.pizzint }] : []),
+          ...(isLocalDevTaskEnabled('markets') ? [{
+            name: 'markets',
+            fn: () => this.dataLoader.loadMarkets(),
+            intervalMs: intervals.markets,
+            condition: () => this.dataLoader.hasActiveMarketsConsumer(),
+          }] : []),
+          {
+            name: 'predictions',
+            fn: () => this.dataLoader.loadPredictions(),
+            intervalMs: intervals.predictions,
+            condition: () => this.dataLoader.hasActivePredictionConsumer(),
+          },
+          ...(isLocalDevTaskEnabled('pizzint') ? [{
+            name: 'pizzint',
+            fn: () => this.dataLoader.loadPizzInt(),
+            intervalMs: intervals.pizzint,
+            condition: () => this.dataLoader.hasActivePizzIntConsumer(),
+          }] : []),
           { name: 'natural', fn: () => this.dataLoader.loadNatural(), intervalMs: intervals.natural, condition: () => this.state.mapLayers.natural },
           { name: 'weather', fn: () => this.dataLoader.loadWeatherAlerts(), intervalMs: intervals.weather, condition: () => this.state.mapLayers.weather },
-          ...(isLocalDevTaskEnabled('fred') ? [{ name: 'fred', fn: () => this.dataLoader.loadFredData(), intervalMs: intervals.fred }] : []),
-          ...(isLocalDevTaskEnabled('oil') ? [{ name: 'oil', fn: () => this.dataLoader.loadOilAnalytics(), intervalMs: intervals.oil }] : []),
-          ...(isLocalDevTaskEnabled('spending') ? [{ name: 'spending', fn: () => this.dataLoader.loadGovernmentSpending(), intervalMs: intervals.spending }] : []),
-          ...(isLocalDevTaskEnabled('bis') ? [{ name: 'bis', fn: () => this.dataLoader.loadBisData(), intervalMs: intervals.bis }] : []),
-          { name: 'firms', fn: () => this.dataLoader.loadFirmsData(), intervalMs: intervals.firms },
+          ...(isLocalDevTaskEnabled('fred') ? [{
+            name: 'fred',
+            fn: () => this.dataLoader.loadFredData(),
+            intervalMs: intervals.fred,
+            condition: () => this.dataLoader.hasActiveEconomicConsumer(),
+          }] : []),
+          ...(isLocalDevTaskEnabled('oil') ? [{
+            name: 'oil',
+            fn: () => this.dataLoader.loadOilAnalytics(),
+            intervalMs: intervals.oil,
+            condition: () => this.dataLoader.hasActiveEconomicConsumer(),
+          }] : []),
+          ...(isLocalDevTaskEnabled('spending') ? [{
+            name: 'spending',
+            fn: () => this.dataLoader.loadGovernmentSpending(),
+            intervalMs: intervals.spending,
+            condition: () => this.dataLoader.hasActiveEconomicConsumer(),
+          }] : []),
+          ...(isLocalDevTaskEnabled('bis') ? [{
+            name: 'bis',
+            fn: () => this.dataLoader.loadBisData(),
+            intervalMs: intervals.bis,
+            condition: () => this.dataLoader.hasActiveEconomicConsumer(),
+          }] : []),
+          {
+            name: 'firms',
+            fn: () => this.dataLoader.loadFirmsData(),
+            intervalMs: intervals.firms,
+            condition: () => this.dataLoader.hasActiveFirmsConsumer(),
+          },
           { name: 'ais', fn: () => this.dataLoader.loadAisSignals(), intervalMs: intervals.ais, condition: () => this.state.mapLayers.ais },
           { name: 'cables', fn: () => this.dataLoader.loadCableActivity(), intervalMs: intervals.cables, condition: () => this.state.mapLayers.cables },
           { name: 'cableHealth', fn: () => this.dataLoader.loadCableHealth(), intervalMs: intervals.cableHealth, condition: () => this.state.mapLayers.cables },
@@ -740,8 +786,22 @@ export class App {
       // WTO trade policy data
       if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
         const tradeInterval = isLoggedIn() ? 10 * 60 * 1000 : 30 * 60 * 1000;
-        if (isLocalDevTaskEnabled('tradePolicy')) this.refreshScheduler.scheduleRefresh('tradePolicy', () => this.dataLoader.loadTradePolicy(), tradeInterval);
-        if (isLocalDevTaskEnabled('supplyChain')) this.refreshScheduler.scheduleRefresh('supplyChain', () => this.dataLoader.loadSupplyChain(), tradeInterval);
+        if (isLocalDevTaskEnabled('tradePolicy')) {
+          this.refreshScheduler.scheduleRefresh(
+            'tradePolicy',
+            () => this.dataLoader.loadTradePolicy(),
+            tradeInterval,
+            () => this.dataLoader.hasActiveTradePolicyConsumer(),
+          );
+        }
+        if (isLocalDevTaskEnabled('supplyChain')) {
+          this.refreshScheduler.scheduleRefresh(
+            'supplyChain',
+            () => this.dataLoader.loadSupplyChain(),
+            tradeInterval,
+            () => this.dataLoader.hasActiveSupplyChainConsumer(),
+          );
+        }
       }
 
       // Telegram Intel
@@ -760,7 +820,7 @@ export class App {
           if (military) this.state.intelligenceCache.military = military;
           if (iranEvents) this.state.intelligenceCache.iranEvents = iranEvents;
           return this.dataLoader.loadIntelligenceSignals();
-        }, isLoggedIn() ? 15 * 60 * 1000 : 30 * 60 * 1000);
+        }, isLoggedIn() ? 15 * 60 * 1000 : 30 * 60 * 1000, () => this.dataLoader.hasActiveIntelligenceConsumer());
       }
     };
 

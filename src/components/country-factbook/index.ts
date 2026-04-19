@@ -1147,16 +1147,18 @@ function buildGauge(
     }));
   }
 
-  const body = el('div', 'cdp-fb-gauge-body');
-  body.append(
+  const figure = el('div', 'cdp-fb-gauge-figure');
+  const center = el('div', 'cdp-fb-gauge-center');
+  center.append(
     el('div', 'cdp-fb-gauge-value', options.valueText),
     el('div', 'cdp-fb-gauge-label', options.label),
   );
-  if (options.note) {
-    body.append(el('div', 'cdp-fb-gauge-note', options.note));
-  }
+  figure.append(svg, center);
 
-  wrap.append(svg, body);
+  wrap.append(figure);
+  if (options.note) {
+    wrap.append(el('div', 'cdp-fb-gauge-note', options.note));
+  }
 
   if ((options.markers ?? []).length > 0) {
     const legend = el('div', 'cdp-fb-gauge-legend');
@@ -1296,6 +1298,20 @@ function renderPeople(data: FactbookData): HTMLElement | null {
   const ageMid = extractPercent(fbText(sec, 'Age structure', '15-64 years'));
   const ageOld = extractPercent(fbText(sec, 'Age structure', '65 years and over'));
   const median = takeValue(fbText(sec, 'Median age', 'total'));
+  const peopleVitals: Array<HTMLElement | null> = [
+    median ? statTile('Median age', median) : null,
+    statTile('Life expectancy', takeValue(fbText(sec, 'Life expectancy at birth', 'total population'))),
+    statTile(
+      'Urbanization',
+      abbreviateStat(takeValue(fbText(sec, 'Urbanization', 'urban population'))),
+      { valueClassName: 'cdp-fb-tile-value-compact' },
+    ),
+    statTile(
+      'Birth rate',
+      abbreviateStat(takeValue(fbText(sec, 'Birth rate'))),
+      { valueClassName: 'cdp-fb-tile-value-compact' },
+    ),
+  ].filter((t) => t && (t.querySelector('.cdp-fb-tile-value')?.textContent ?? '—') !== '—');
   const pyramid = buildPopulationPyramid([
     parsePopulationBracket('0–14', fbText(sec, 'Age structure', '0-14 years')),
     parsePopulationBracket('15–64', fbText(sec, 'Age structure', '15-64 years')),
@@ -1313,11 +1329,25 @@ function renderPeople(data: FactbookData): HTMLElement | null {
         ]),
       );
     }
-    if (median) {
-      body.append(tileGrid(2, [statTile('Median age', median)]));
+    if (peopleVitals.length > 0) {
+      const vitalsGrid = el('div', 'cdp-fb-grid cdp-fb-grid-4');
+      peopleVitals.forEach((tile) => {
+        if (tile) vitalsGrid.append(tile);
+      });
+      body.append(vitalsGrid);
     }
     const card = sectionCard('Age structure', body);
     if (card) stack.append(card);
+  }
+
+  // Ethnic groups — bar chart when percentages are available, prose fallback otherwise
+  const ethnicPcts = parseLabeledPercents(fbText(sec, 'Ethnic groups'));
+  if (ethnicPcts.length > 0) {
+    const card = sectionCard('Ethnic groups', labeledBars(ethnicPcts));
+    if (card) stack.append(card);
+  } else {
+    const ethnicRaw = fbText(sec, 'Ethnic groups');
+    if (ethnicRaw) stack.append(collapsible('Ethnic groups', prose(ethnicRaw) ?? el('div')));
   }
 
   // Languages
@@ -1331,17 +1361,6 @@ function renderPeople(data: FactbookData): HTMLElement | null {
   const rels = parseLabeledPercents(fbText(sec, 'Religions'));
   if (rels.length > 0) {
     const card = sectionCard('Religions', labeledBars(rels));
-    if (card) stack.append(card);
-  }
-
-  // Vitals
-  const vitals: Array<HTMLElement | null> = [
-    statTile('Life expectancy', takeValue(fbText(sec, 'Life expectancy at birth', 'total population'))),
-    statTile('Urbanization', abbreviateStat(takeValue(fbText(sec, 'Urbanization', 'urban population')))),
-    statTile('Birth rate', abbreviateStat(takeValue(fbText(sec, 'Birth rate')))),
-  ].filter((t) => t && (t.querySelector('.cdp-fb-tile-value')?.textContent ?? '—') !== '—');
-  if (vitals.length > 0) {
-    const card = sectionCard('Vitals', tileGrid(3, vitals));
     if (card) stack.append(card);
   }
 
@@ -1379,16 +1398,6 @@ function renderPeople(data: FactbookData): HTMLElement | null {
   if (health.length > 0) {
     const card = sectionCard('Health & education', tileGrid(2, health));
     if (card) stack.append(card);
-  }
-
-  // Ethnic groups — bar chart when percentages are available, prose fallback otherwise
-  const ethnicPcts = parseLabeledPercents(fbText(sec, 'Ethnic groups'));
-  if (ethnicPcts.length > 0) {
-    const card = sectionCard('Ethnic groups', labeledBars(ethnicPcts));
-    if (card) stack.append(card);
-  } else {
-    const ethnicRaw = fbText(sec, 'Ethnic groups');
-    if (ethnicRaw) stack.append(collapsible('Ethnic groups', prose(ethnicRaw) ?? el('div')));
   }
 
   return stack.childElementCount > 0 ? stack : null;

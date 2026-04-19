@@ -128,6 +128,7 @@ function formatClockTime(tz: string): string {
 export interface EventHandlerCallbacks {
   updateSearchIndex: () => void;
   loadAllData: () => Promise<void>;
+  loadDataForPanel: (panelKey: string) => void;
   flushStaleRefreshes: () => void;
   setHiddenSince: (ts: number) => void;
   loadDataForLayer: (layer: string) => void;
@@ -873,6 +874,7 @@ export class EventHandlerManager implements AppModule {
           trackPanelToggled(key, config.enabled);
           saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
           this.applyPanelSettings();
+          if (config.enabled) this.callbacks.loadDataForPanel(key);
         }
       },
       getDisabledSources: () => this.ctx.disabledSources,

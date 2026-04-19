@@ -14,6 +14,7 @@ const MIN_CONTENT_LENGTH = 80;
 const MIN_FALLBACK_PARAGRAPH_LENGTH = 40;
 const MIN_IMAGE_DIMENSION = 64;
 const MAX_PARAGRAPHS = 40;
+const DOCUMENT_POSITION_FOLLOWING = 4;
 
 let TurndownService;
 
@@ -104,6 +105,8 @@ const LAZY_IMAGE_ATTRS = [
   'data-image',
   'data-url',
 ];
+const DUPLICATE_LEAD_TEXT_THRESHOLD = 40;
+const EMPTY_CONTAINER_TAGS = new Set(['div', 'figure', 'p', 'section', 'span']);
 
 function normalizeText(value) {
   if (!value) return '';
@@ -203,6 +206,98 @@ function normalizeImageSource(img, baseUrl) {
   return '';
 }
 
+function getImageIdentity(rawUrl, baseUrl) {
+  const normalized = absolutizeUrl(rawUrl, baseUrl);
+  if (!normalized) return '';
+  try {
+    const pathname = new URL(normalized).pathname;
+    const filename = pathname.split('/').filter(Boolean).pop() || '';
+    let stem = filename;
+    for (let i = 0; i < 3; i += 1) {
+      const next = stem.replace(/\.(avif|webp|png|jpe?g)$/i, '');
+      if (next === stem) break;
+      stem = next;
+    }
+    return stem.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function imageUrlsLikelyMatch(leftUrl, rightUrl, baseUrl) {
+  const left = absolutizeUrl(leftUrl, baseUrl);
+  const right = absolutizeUrl(rightUrl, baseUrl);
+  if (!left || !right) return false;
+  if (left === right) return true;
+
+  const leftId = getImageIdentity(left, baseUrl);
+  const rightId = getImageIdentity(right, baseUrl);
+  return leftId.length >= 8 && leftId === rightId;
+}
+
+function isPlaceholderImage(img) {
+  const src = normalizeText(img.getAttribute('src'));
+  const alt = normalizeText(img.getAttribute('alt'));
+  const ariaLabel = normalizeText(img.getAttribute('aria-label'));
+  if (!src) return false;
+  return (
+    /placeholder/i.test(src)
+    || /image unavailable/i.test(alt)
+    || /image unavailable/i.test(ariaLabel)
+  );
+}
+
+function removeEmptyContainers(root) {
+  let removed = true;
+  while (removed) {
+    removed = false;
+    for (const el of Array.from(root.querySelectorAll('*')).reverse()) {
+      const tag = el.tagName.toLowerCase();
+      if (!EMPTY_CONTAINER_TAGS.has(tag)) continue;
+      if (el.querySelector('img, video, iframe, table, ul, ol, blockquote, pre, hr')) continue;
+      if (normalizeText(el.textContent)) continue;
+      el.remove();
+      removed = true;
+    }
+  }
+}
+
+function stripDuplicateLeadImage(contentHtml, baseUrl, heroImageUrl) {
+  if (!contentHtml) return contentHtml;
+
+  const contentDoc = parseHtml(`<html><body>${contentHtml}</body></html>`);
+  normalizeDocument(contentDoc, baseUrl);
+
+  contentDoc.querySelectorAll('img').forEach((img) => {
+    if (isPlaceholderImage(img)) img.remove();
+  });
+
+  const normalizedHero = absolutizeUrl(heroImageUrl, baseUrl);
+  if (normalizedHero) {
+    const firstMeaningfulParagraph = Array.from(contentDoc.querySelectorAll('p'))
+      .find((paragraph) => normalizeText(paragraph.textContent).length >= DUPLICATE_LEAD_TEXT_THRESHOLD);
+
+    for (const img of contentDoc.querySelectorAll('img')) {
+      const src = absolutizeUrl(img.getAttribute('src') || '', baseUrl);
+      if (!src || !imageUrlsLikelyMatch(src, normalizedHero, baseUrl)) continue;
+
+      const appearsBeforeText = !firstMeaningfulParagraph
+        || Boolean(firstMeaningfulParagraph.compareDocumentPosition(img) & DOCUMENT_POSITION_FOLLOWING);
+      if (!appearsBeforeText) continue;
+
+      const leadBlock = img.closest('figure')
+        || img.closest('[data-component="image-block"]')
+        || img.closest('p')
+        || img.parentElement;
+      leadBlock?.remove();
+      break;
+    }
+  }
+
+  removeEmptyContainers(contentDoc.body);
+  return contentDoc.body.innerHTML.trim();
+}
+
 function pruneDocument(doc) {
   for (const selector of REMOVE_SELECTORS) {
     try {
@@ -300,13 +395,14 @@ export function parseArticleHtml(html, baseUrl) {
   }).parse();
 
   if (article && normalizeText(article.textContent).length >= MIN_CONTENT_LENGTH && normalizeText(article.content).length > 0) {
+    const imageUrl = metadata.imageUrl || getContentImageUrl(article.content, baseUrl);
     return {
       title: normalizeText(article.title) || metadata.title,
       byline: normalizeText(article.byline) || metadata.byline,
       siteName: normalizeText(article.siteName) || metadata.siteName,
       publishedTime: normalizeText(article.publishedTime) || metadata.publishedTime,
-      imageUrl: metadata.imageUrl || getContentImageUrl(article.content, baseUrl),
-      content: article.content,
+      imageUrl,
+      content: stripDuplicateLeadImage(article.content, baseUrl, imageUrl),
     };
   }
 

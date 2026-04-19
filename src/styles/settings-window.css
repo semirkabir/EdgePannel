@@ -5,23 +5,23 @@
 *::-webkit-scrollbar { display: none; }
 .settings-shell {
   --settings-bg: var(--bg-secondary);
-  --settings-surface: var(--surface-hover);
-  --settings-surface-inset: var(--surface);
-  --settings-border: var(--overlay-medium);
-  --settings-border-strong: var(--overlay-heavy);
-  --settings-text: #e8eaed;
-  --settings-text-secondary: #9aa0a6;
-  --settings-accent: var(--semantic-info);
-  --settings-green: #34d399;
-  --settings-yellow: #fbbf24;
+  --settings-surface: var(--ui-surface-elevated);
+  --settings-surface-inset: var(--ui-surface-inset);
+  --settings-border: var(--frame-border);
+  --settings-border-strong: var(--frame-border-strong);
+  --settings-text: var(--text);
+  --settings-text-secondary: var(--text-dim);
+  --settings-accent: var(--accent);
+  --settings-green: var(--semantic-normal);
+  --settings-yellow: var(--semantic-elevated);
   --settings-red: var(--semantic-critical);
-  --settings-blue: #60a5fa;
+  --settings-blue: var(--accent);
   --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', 'Fira Code', 'DejaVu Sans Mono', 'Liberation Mono', monospace;
 
   height: 100vh;
   background: var(--settings-bg);
   color: var(--settings-text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   padding: 0;
   box-sizing: border-box;
@@ -48,9 +48,10 @@
   border: 1px solid var(--settings-border-strong);
   border-radius: 6px;
   color: var(--settings-text);
-  font-family: 'Montserrat', sans-serif;
+  font-family: inherit;
   font-weight: 600;
   font-size: 10px;
+  letter-spacing: 0.01em;
   padding: 6px 28px 6px 10px;
   cursor: pointer;
   transition: border-color 0.15s;
@@ -90,7 +91,7 @@
   width: 100%;
   max-height: 280px;
   overflow-y: auto;
-  background: #1e1e2e;
+  background: var(--settings-surface);
   border: 1px solid var(--settings-border-strong);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
@@ -120,17 +121,18 @@
   cursor: pointer;
   border-radius: 3px;
   border: 1px solid transparent;
-  background: #1e1e2e;
+  background: transparent;
   transition: background 0.15s ease, border-color 0.15s ease;
-  font-family: 'Montserrat', sans-serif;
+  font-family: inherit;
   font-weight: 600;
   font-size: 10px;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--settings-text);
 }
 
 .wm-opt:hover {
-  background: #1e1e2e;
+  background: var(--settings-surface-inset);
+  border-color: var(--settings-border);
 }
 
 .wm-opt--sel {
@@ -152,15 +154,15 @@
 .wm-opt-text {
   flex: 1;
   color: var(--settings-text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: inherit;
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.01em;
 }
 
 .wm-optgrp {
   padding: 6px 12px 4px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;

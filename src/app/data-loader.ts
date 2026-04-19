@@ -227,6 +227,102 @@ export class DataLoaderManager implements AppModule {
     this.callbacks = callbacks;
   }
 
+  private isPanelEnabled(key: string): boolean {
+    return this.ctx.panelSettings[key]?.enabled === true;
+  }
+
+  private isMapLayerEnabled(layer: keyof MapLayers): boolean {
+    return this.ctx.mapLayers[layer] === true;
+  }
+
+  private isNewsPanelEnabled(category: string): boolean {
+    return this.isPanelEnabled(category) || this.isPanelEnabled(`${category}-news`);
+  }
+
+  public hasActiveNewsConsumer(): boolean {
+    return Object.keys(this.ctx.newsPanels).some((category) => this.isNewsPanelEnabled(category))
+      || this.isPanelEnabled('insights')
+      || this.isPanelEnabled('monitors')
+      || this.isMapLayerEnabled('conflicts')
+      || this.isMapLayerEnabled('hotspots')
+      || (this.ctx.countryBriefPage?.isVisible?.() ?? false)
+      || (this.ctx.findingPanel?.isVisible?.() ?? false);
+  }
+
+  public hasActiveMarketsConsumer(): boolean {
+    return this.isPanelEnabled('markets')
+      || this.isPanelEnabled('commodities')
+      || this.isPanelEnabled('heatmap')
+      || this.isPanelEnabled('crypto');
+  }
+
+  public hasActivePredictionConsumer(): boolean {
+    return this.isPanelEnabled('polymarket')
+      || (this.ctx.predictionBriefPage?.isVisible?.() ?? false);
+  }
+
+  public hasActiveEconomicConsumer(): boolean {
+    return this.isPanelEnabled('economic');
+  }
+
+  public hasActiveTradePolicyConsumer(): boolean {
+    return this.isPanelEnabled('trade-policy');
+  }
+
+  public hasActiveSupplyChainConsumer(): boolean {
+    return this.isPanelEnabled('supply-chain');
+  }
+
+  public hasActiveSanctionsConsumer(): boolean {
+    return this.isPanelEnabled('sanctions-tracker') || this.isMapLayerEnabled('sanctions');
+  }
+
+  public hasActiveSolarWeatherConsumer(): boolean {
+    return this.isPanelEnabled('solar-weather');
+  }
+
+  public hasActiveFirmsConsumer(): boolean {
+    return this.isPanelEnabled('satellite-fires') || this.isMapLayerEnabled('fires');
+  }
+
+  public hasActiveCiiConsumer(): boolean {
+    return this.isPanelEnabled('cii')
+      || this.isMapLayerEnabled('ciiChoropleth')
+      || (this.ctx.countryBriefPage?.isVisible?.() ?? false);
+  }
+
+  public hasActiveIntelligenceConsumer(): boolean {
+    return this.hasActiveCiiConsumer()
+      || this.isPanelEnabled('strategic-posture')
+      || this.isPanelEnabled('ucdp-events')
+      || this.isPanelEnabled('population-exposure')
+      || this.isPanelEnabled('oref-sirens')
+      || this.isMapLayerEnabled('military')
+      || this.isMapLayerEnabled('protests')
+      || this.isMapLayerEnabled('ucdpEvents')
+      || this.isMapLayerEnabled('displacement')
+      || this.isMapLayerEnabled('climate')
+      || this.isMapLayerEnabled('gpsJamming')
+      || this.isMapLayerEnabled('iranAttacks')
+      || (this.ctx.countryBriefPage?.isVisible?.() ?? false);
+  }
+
+  public hasActivePizzIntConsumer(): boolean {
+    return !!this.ctx.pizzintIndicator;
+  }
+
+  private async runOnDemand(name: string, fn: () => Promise<void>): Promise<void> {
+    if (this.ctx.isDestroyed || this.ctx.inFlight.has(name)) return;
+    this.ctx.inFlight.add(name);
+    try {
+      await fn();
+    } catch (e) {
+      if (!this.ctx.isDestroyed) console.error(`[App] ${name} failed:`, e);
+    } finally {
+      this.ctx.inFlight.delete(name);
+    }
+  }
+
   init(): void {
     this.boundMarketWatchlistHandler = () => {
       void this.loadMarkets();
@@ -389,22 +485,44 @@ export class DataLoaderManager implements AppModule {
 
     // Happy variant only loads news data -- skip all geopolitical/financial/military data
     if (SITE_VARIANT !== 'happy') {
-      if (isLocalDevTaskEnabled('markets')) tasks.push({ name: 'markets', task: runGuarded('markets', () => this.loadMarkets()) });
-      tasks.push({ name: 'predictions', task: runGuarded('predictions', () => this.loadPredictions()) });
-      if (isLocalDevTaskEnabled('pizzint')) tasks.push({ name: 'pizzint', task: runGuarded('pizzint', () => this.loadPizzInt()) });
-      if (isLocalDevTaskEnabled('fred')) tasks.push({ name: 'fred', task: runGuarded('fred', () => this.loadFredData()) });
-      if (isLocalDevTaskEnabled('oil')) tasks.push({ name: 'oil', task: runGuarded('oil', () => this.loadOilAnalytics()) });
-      if (isLocalDevTaskEnabled('spending')) tasks.push({ name: 'spending', task: runGuarded('spending', () => this.loadGovernmentSpending()) });
-      if (isLocalDevTaskEnabled('bis')) tasks.push({ name: 'bis', task: runGuarded('bis', () => this.loadBisData()) });
+      if (isLocalDevTaskEnabled('markets') && this.hasActiveMarketsConsumer()) {
+        tasks.push({ name: 'markets', task: runGuarded('markets', () => this.loadMarkets()) });
+      }
+      if (this.hasActivePredictionConsumer()) {
+        tasks.push({ name: 'predictions', task: runGuarded('predictions', () => this.loadPredictions()) });
+      }
+      if (isLocalDevTaskEnabled('pizzint') && this.hasActivePizzIntConsumer()) {
+        tasks.push({ name: 'pizzint', task: runGuarded('pizzint', () => this.loadPizzInt()) });
+      }
+      if (isLocalDevTaskEnabled('fred') && this.hasActiveEconomicConsumer()) {
+        tasks.push({ name: 'fred', task: runGuarded('fred', () => this.loadFredData()) });
+      }
+      if (isLocalDevTaskEnabled('oil') && this.hasActiveEconomicConsumer()) {
+        tasks.push({ name: 'oil', task: runGuarded('oil', () => this.loadOilAnalytics()) });
+      }
+      if (isLocalDevTaskEnabled('spending') && this.hasActiveEconomicConsumer()) {
+        tasks.push({ name: 'spending', task: runGuarded('spending', () => this.loadGovernmentSpending()) });
+      }
+      if (isLocalDevTaskEnabled('bis') && this.hasActiveEconomicConsumer()) {
+        tasks.push({ name: 'bis', task: runGuarded('bis', () => this.loadBisData()) });
+      }
 
       // Trade policy data (FULL and FINANCE only)
       if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
-        if (isLocalDevTaskEnabled('tradePolicy')) tasks.push({ name: 'tradePolicy', task: runGuarded('tradePolicy', () => this.loadTradePolicy()) });
-        if (isLocalDevTaskEnabled('supplyChain')) tasks.push({ name: 'supplyChain', task: runGuarded('supplyChain', () => this.loadSupplyChain()) });
+        if (isLocalDevTaskEnabled('tradePolicy') && this.hasActiveTradePolicyConsumer()) {
+          tasks.push({ name: 'tradePolicy', task: runGuarded('tradePolicy', () => this.loadTradePolicy()) });
+        }
+        if (isLocalDevTaskEnabled('supplyChain') && this.hasActiveSupplyChainConsumer()) {
+          tasks.push({ name: 'supplyChain', task: runGuarded('supplyChain', () => this.loadSupplyChain()) });
+        }
       }
 
-      tasks.push({ name: 'sanctions', task: runGuarded('sanctions', () => this.loadSanctions()) });
-      tasks.push({ name: 'solarWeather', task: runGuarded('solarWeather', () => this.loadSolarWeather()) });
+      if (this.hasActiveSanctionsConsumer()) {
+        tasks.push({ name: 'sanctions', task: runGuarded('sanctions', () => this.loadSanctions()) });
+      }
+      if (this.hasActiveSolarWeatherConsumer()) {
+        tasks.push({ name: 'solarWeather', task: runGuarded('solarWeather', () => this.loadSolarWeather()) });
+      }
     }
 
     // Progress charts data (happy variant only)
@@ -454,7 +572,7 @@ export class DataLoaderManager implements AppModule {
       });
     }
 
-    if (SITE_VARIANT === 'full') {
+    if (SITE_VARIANT === 'full' && this.hasActiveCiiConsumer()) {
       try {
         let hasStartupCiiRender = false;
         const persistedLiveScores = getPersistedLiveCountryScores().filter((score) => score.score > 0);
@@ -472,10 +590,14 @@ export class DataLoaderManager implements AppModule {
           this.ctx.map?.setLayerReady('ciiChoropleth', true);
         }
       } catch { /* non-fatal */ }
-      if (isLocalDevTaskEnabled('intelligence')) tasks.push({ name: 'intelligence', task: runGuarded('intelligence', () => this.loadIntelligenceSignals()) });
+      if (isLocalDevTaskEnabled('intelligence') && this.hasActiveIntelligenceConsumer()) {
+        tasks.push({ name: 'intelligence', task: runGuarded('intelligence', () => this.loadIntelligenceSignals()) });
+      }
     }
 
-    if (SITE_VARIANT === 'full') tasks.push({ name: 'firms', task: runGuarded('firms', () => this.loadFirmsData()) });
+    if (SITE_VARIANT === 'full' && this.hasActiveFirmsConsumer()) {
+      tasks.push({ name: 'firms', task: runGuarded('firms', () => this.loadFirmsData()) });
+    }
     if (this.ctx.mapLayers.natural) tasks.push({ name: 'natural', task: runGuarded('natural', () => this.loadNatural()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
@@ -490,7 +612,9 @@ export class DataLoaderManager implements AppModule {
     }
 
     // Load WB governance baselines and economic vulnerability for CII scoring
-    tasks.push({ name: 'governanceBaselines', task: runGuarded('governanceBaselines', () => this.loadGovernanceBaselines()) });
+    if (this.hasActiveCiiConsumer()) {
+      tasks.push({ name: 'governanceBaselines', task: runGuarded('governanceBaselines', () => this.loadGovernanceBaselines()) });
+    }
 
     // Progress bar: track completions reactively (tasks already started above)
     const progressEl = document.getElementById('loading-progress');
@@ -606,6 +730,76 @@ export class DataLoaderManager implements AppModule {
     } finally {
       this.ctx.inFlight.delete(layer);
       this.ctx.map?.setLayerLoading(layer, false);
+    }
+  }
+
+  async loadDataForPanel(panelKey: string): Promise<void> {
+    if (this.isNewsPanelEnabled(panelKey) || this.ctx.newsPanels[panelKey]) {
+      await this.runOnDemand('news', () => this.loadNews());
+      return;
+    }
+
+    switch (panelKey) {
+      case 'insights':
+      case 'monitors':
+      case 'gdelt-intel':
+      case 'deduction':
+        await this.runOnDemand('news', () => this.loadNews());
+        return;
+      case 'markets':
+      case 'commodities':
+      case 'heatmap':
+      case 'crypto':
+        await this.runOnDemand('markets', () => this.loadMarkets());
+        return;
+      case 'polymarket':
+        await this.runOnDemand('predictions', () => this.loadPredictions());
+        return;
+      case 'economic':
+        await Promise.all([
+          this.runOnDemand('fred', () => this.loadFredData()),
+          this.runOnDemand('oil', () => this.loadOilAnalytics()),
+          this.runOnDemand('spending', () => this.loadGovernmentSpending()),
+          this.runOnDemand('bis', () => this.loadBisData()),
+        ]);
+        return;
+      case 'trade-policy':
+        await this.runOnDemand('tradePolicy', () => this.loadTradePolicy());
+        return;
+      case 'supply-chain':
+        await this.runOnDemand('supplyChain', () => this.loadSupplyChain());
+        return;
+      case 'sanctions-tracker':
+        await this.runOnDemand('sanctions', () => this.loadSanctions());
+        return;
+      case 'solar-weather':
+        await this.runOnDemand('solarWeather', () => this.loadSolarWeather());
+        return;
+      case 'satellite-fires':
+        await this.runOnDemand('firms', () => this.loadFirmsData());
+        return;
+      case 'cii':
+        await Promise.all([
+          this.runOnDemand('governanceBaselines', () => this.loadGovernanceBaselines()),
+          this.runOnDemand('intelligence', () => this.loadIntelligenceSignals()),
+        ]);
+        return;
+      case 'strategic-posture':
+      case 'ucdp-events':
+      case 'population-exposure':
+      case 'oref-sirens':
+        await this.runOnDemand('intelligence', () => this.loadIntelligenceSignals());
+        return;
+      case 'telegram-intel':
+        await this.runOnDemand('telegram-intel', () => this.loadTelegramIntel());
+        return;
+      case 'tech-readiness': {
+        const panel = this.ctx.panels['tech-readiness'] as TechReadinessPanel | undefined;
+        await panel?.refresh();
+        return;
+      }
+      default:
+        return;
     }
   }
 

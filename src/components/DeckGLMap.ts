@@ -3164,12 +3164,24 @@ export class DeckGLMap {
     });
   }
 
+  private hasActivePulseConsumer(): boolean {
+    return this.state.layers.conflicts
+      || this.state.layers.hotspots
+      || this.state.layers.protests
+      || this.state.layers.positiveEvents
+      || this.state.layers.kindness;
+  }
+
   private needsPulseAnimation(now = Date.now()): boolean {
-    return this.hasRecentNews(now)
-      || this.hasRecentRiot(now)
-      || this.hotspots.some(h => h.hasBreaking)
-      || this.positiveEvents.some(e => e.count > 10)
-      || this.kindnessPoints.some(p => p.type === 'real');
+    if (!this.hasActivePulseConsumer()) return false;
+
+    const hasNewsPulse = (this.state.layers.conflicts || this.state.layers.hotspots)
+      && (this.hasRecentNews(now) || this.hotspots.some(h => h.hasBreaking));
+    const hasProtestPulse = this.state.layers.protests && this.hasRecentRiot(now);
+    const hasPositivePulse = this.state.layers.positiveEvents && this.positiveEvents.some(e => e.count > 10);
+    const hasKindnessPulse = this.state.layers.kindness && this.kindnessPoints.some(p => p.type === 'real');
+
+    return hasNewsPulse || hasProtestPulse || hasPositivePulse || hasKindnessPulse;
   }
 
   private syncPulseAnimation(now = Date.now()): void {
@@ -6722,7 +6734,6 @@ export class DeckGLMap {
       (this.maplibreMap as any).dragRotate?.enable();
       (this.maplibreMap as any).touchPitch?.enable();
       this.container.classList.add('globe-projection');
-      this._startGlobeSpin();
     } else {
       this.container.classList.remove('globe-projection');
       this._stopGlobeSpin();

@@ -55,6 +55,45 @@ const FALLBACK_ARTICLE_HTML = `
   </html>
 `;
 
+const BBC_DUPLICATE_LEAD_HTML = `
+  <!doctype html>
+  <html lang="en">
+    <head>
+      <title>BBC-style Story</title>
+      <meta property="og:title" content="BBC-style Story" />
+      <meta property="og:site_name" content="BBC News" />
+      <meta property="og:image" content="https://example.com/images/asset-1234567890.jpg" />
+    </head>
+    <body>
+      <main>
+        <article>
+          <div data-component="image-block">
+            <figure>
+              <div>
+                <p>
+                  <img src="https://static.files.bbci.co.uk/grey-placeholder.png" aria-label="image unavailable" />
+                  <img src="/images/asset-1234567890.jpg.webp" width="1200" height="700" alt="Lead image" />
+                  <span>BBC News</span>
+                </p>
+              </div>
+            </figure>
+          </div>
+          <div data-component="text-block">
+            <p>The lead paragraph has enough content to count as article body text and should remain after cleanup.</p>
+          </div>
+          <div data-component="text-block">
+            <p>A second paragraph ensures Readability keeps the article instead of collapsing it into a stub.</p>
+          </div>
+          <figure>
+            <img src="/images/body.jpg" width="1200" height="700" alt="Body image" />
+            <figcaption>Later image stays in the story.</figcaption>
+          </figure>
+        </article>
+      </main>
+    </body>
+  </html>
+`;
+
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -140,6 +179,18 @@ test('parseArticleHtml falls back to paragraph mode when Readability cannot isol
   assert.match(article.content, /Fallback paragraph two adds another block/);
   assert.doesNotMatch(article.content, /Subscribe now/);
   assert.doesNotMatch(article.content, /<script/i);
+});
+
+test('parseArticleHtml removes BBC-style placeholder images and duplicated lead media from content', () => {
+  const article = parseArticleHtml(BBC_DUPLICATE_LEAD_HTML, 'https://example.com/world/story');
+
+  assert.ok(article);
+  assert.equal(article.imageUrl, 'https://example.com/images/asset-1234567890.jpg');
+  assert.doesNotMatch(article.content, /grey-placeholder\.png/);
+  assert.doesNotMatch(article.content, /Lead image/);
+  assert.match(article.content, /The lead paragraph has enough content/);
+  assert.match(article.content, /https:\/\/example\.com\/images\/body\.jpg/);
+  assert.match(article.content, /Later image stays in the story/);
 });
 
 test('handler stores successful article extraction in shared cache and serves cache hits', async () => {

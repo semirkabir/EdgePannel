@@ -44,7 +44,7 @@ const BASE_LAYERS: MapLayers = {
 const FULL_PANELS: Record<string, PanelConfig> = {
   map:                   p1('Global Map'),
   'live-news':           p1('Live News'),
-  'live-webcams':        p1('Live Webcams'),
+  'live-webcams':        { name: 'Live Webcams', enabled: false, priority: 1 },
   insights:              p1('AI Insights'),
   'strategic-posture':   p1('AI Strategic Posture'),
   cii:                   p1d('Country Instability', 'enhanced'),
@@ -353,7 +353,7 @@ const CONFLICTS_PANELS: Record<string, PanelConfig> = {
   'telegram-intel':      p2d('Telegram Intel', 'locked'),
   'security-advisories': p2('Security Advisories'),
   'oref-sirens':         p2d('Israel Sirens', 'locked'),
-  'live-webcams':        p2('Live Webcams'),
+  'live-webcams':        { name: 'Live Webcams', enabled: false, priority: 2 },
   energy:                p2('Energy & Resources'),
   'satellite-fires':     p2('Fires & Operational Risk'),
   climate:               p2('Climate Anomalies'),

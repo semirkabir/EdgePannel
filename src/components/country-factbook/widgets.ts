@@ -29,6 +29,7 @@ export function stripNoteHtml(text: string | undefined): string {
 export interface StatTileOpts {
   year?: string;
   hint?: string;
+  valueClassName?: string;
 }
 
 /**
@@ -55,7 +56,11 @@ export function abbreviateStat(val: string | undefined): string | undefined {
 
 export function statTile(label: string, value: string | undefined, opts: StatTileOpts = {}): HTMLElement {
   const tile = el('div', 'cdp-fb-tile');
-  const valueEl = el('div', 'cdp-fb-tile-value', value && value.trim() ? value : '—');
+  const valueEl = el(
+    'div',
+    opts.valueClassName ? `cdp-fb-tile-value ${opts.valueClassName}` : 'cdp-fb-tile-value',
+    value && value.trim() ? value : '—',
+  );
   const labelEl = el('div', 'cdp-fb-tile-label', label);
   tile.append(valueEl, labelEl);
   if (opts.year) {

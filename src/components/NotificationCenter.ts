@@ -34,6 +34,7 @@ interface NotificationItem {
 const STORAGE_KEY = 'wm-notif-center-v1';
 const MAX_ITEMS = 200;
 const POLL_INTERVAL_MS = 30_000;
+const POLL_STOP_GRACE_MS = 60_000;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -84,6 +85,7 @@ export class NotificationCenter {
   private seenFindingIds = new Set<string>();
   private open = false;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollStopTimeout: ReturnType<typeof setTimeout> | null = null;
   private onLocClick: ((lat: number, lon: number) => void) | null = null;
   private onFindingClick: ((signal: CorrelationSignal) => void) | null = null;
   private onAlertClick: ((alert: UnifiedAlert) => void) | null = null;
@@ -169,16 +171,6 @@ export class NotificationCenter {
     document.addEventListener('keydown', this.onKeyDown);
     document.addEventListener('click', this.onDocClick);
 
-    // Start polling signal aggregator
-    this.pollTimer = setInterval(() => {
-      this.pollSignals();
-      this.pollFindings();
-    }, POLL_INTERVAL_MS);
-    // Initial poll after a short delay to let data load
-    setTimeout(() => {
-      this.pollSignals();
-      this.pollFindings();
-    }, 5_000);
   }
 
   mount(parent: HTMLElement, before?: HTMLElement | null): void {
@@ -194,8 +186,38 @@ export class NotificationCenter {
     document.removeEventListener('wm:intelligence-updated', this.onIntelUpdate);
     document.removeEventListener('keydown', this.onKeyDown);
     document.removeEventListener('click', this.onDocClick);
-    if (this.pollTimer) clearInterval(this.pollTimer);
+    this.stopPolling();
+    if (this.pollStopTimeout) clearTimeout(this.pollStopTimeout);
     this.el.remove();
+  }
+
+  private ensurePollingStarted(): void {
+    if (this.pollStopTimeout) {
+      clearTimeout(this.pollStopTimeout);
+      this.pollStopTimeout = null;
+    }
+    if (this.pollTimer) return;
+
+    this.pollSignals();
+    this.pollFindings();
+    this.pollTimer = setInterval(() => {
+      this.pollSignals();
+      this.pollFindings();
+    }, POLL_INTERVAL_MS);
+  }
+
+  private schedulePollingStop(): void {
+    if (this.pollStopTimeout) clearTimeout(this.pollStopTimeout);
+    this.pollStopTimeout = setTimeout(() => {
+      this.pollStopTimeout = null;
+      if (!this.open) this.stopPolling();
+    }, POLL_STOP_GRACE_MS);
+  }
+
+  private stopPolling(): void {
+    if (!this.pollTimer) return;
+    clearInterval(this.pollTimer);
+    this.pollTimer = null;
   }
 
   setLocationClickHandler(handler: (lat: number, lon: number) => void): void {
@@ -409,6 +431,7 @@ export class NotificationCenter {
       this.permissionRequested = true;
       requestNotificationPermission();
     }
+    this.ensurePollingStarted();
     this.open = true;
     this.dropdownEl.style.display = '';
     this.renderList();
@@ -418,6 +441,7 @@ export class NotificationCenter {
   private close(): void {
     this.open = false;
     this.dropdownEl.classList.remove('active');
+    this.schedulePollingStop();
     setTimeout(() => { if (!this.open) this.dropdownEl.style.display = 'none'; }, 200);
   }
 

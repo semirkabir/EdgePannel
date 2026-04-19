@@ -86,7 +86,7 @@
   height: 44px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #8b2020;
+  background: var(--ui-danger-tint);
   color: var(--text);
   font-size: 14px;
   line-height: 1;
@@ -1200,20 +1200,23 @@
   min-height: 32px;
   padding: 0 12px;
   margin-left: auto;
-  border-radius: 999px;
+  border-radius: 8px;
   text-decoration: none;
   font-size: 12px;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--accent) 90%, white 10%);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-weight: 600;
+  font-family: var(--font-body);
+  letter-spacing: 0.01em;
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--frame-border));
+  background: var(--ui-accent-tint);
+  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
 }
 
 .edp-prediction-market-link:hover,
 .edp-prediction-trade-btn:hover {
-  color: white;
-  background: color-mix(in srgb, var(--accent) 24%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--text);
+  background: var(--ui-accent-tint-strong);
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--frame-border));
 }
 
 .edp-prediction-tabs-shell {
@@ -1244,11 +1247,11 @@
   border: none;
   background: transparent;
   color: var(--text-faint);
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
   cursor: pointer;
   position: relative;
   transition: color 0.15s ease;
@@ -1269,13 +1272,13 @@
 }
 
 .edp-prediction-tab:hover {
-  background: transparent;
+  background: var(--overlay-subtle);
   color: var(--text);
 }
 
 .edp-prediction-tab.is-active {
   color: var(--accent);
-  background: transparent;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .edp-prediction-tab.is-active::after {
@@ -4390,18 +4393,19 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid var(--border);
-  background: #8b2020;
+  border: 1px solid color-mix(in srgb, var(--semantic-critical) 42%, var(--frame-border));
+  background: var(--ui-danger-tint);
   color: var(--text);
+  font-family: var(--font-body);
   font-size: 14px;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
   transition: color 0.12s, background 0.12s, border-color 0.12s;
 }
 
 .edp-close:hover {
   color: var(--text);
-  background: var(--overlay-subtle);
-  border-color: var(--frame-border);
+  background: var(--ui-danger-tint-strong);
+  border-color: color-mix(in srgb, var(--semantic-critical) 56%, var(--frame-border));
   transform: none;
 }
 
@@ -4473,11 +4477,11 @@
   margin: 0 0 16px;
   padding: 18px;
   border-radius: 14px;
-  border-color: var(--frame-border);
+  border-color: var(--ui-border-strong);
   background:
     radial-gradient(circle at top left, rgba(var(--status-live-rgb, 99,102,241), 0.10) 0%, transparent 60%),
-    color-mix(in srgb, var(--surface) 94%, transparent);
-  box-shadow: none;
+    var(--ui-surface-elevated);
+  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
 }
 
 /* ── Title: large, bold, high contrast ── */
@@ -4504,8 +4508,8 @@
   border-radius: 5px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.07em;
-  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  font-family: var(--font-body);
 }
 
 .edp-badge-tier {
@@ -4519,7 +4523,7 @@
   border-radius: 12px;
   padding: 14px;
   margin-bottom: 10px;
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  background: var(--ui-surface-elevated);
   border-color: var(--frame-border);
   box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
 }
@@ -4536,7 +4540,7 @@
   padding: 11px;
   border-radius: 10px;
   gap: 6px;
-  background: color-mix(in srgb, var(--bg) 30%, var(--surface) 70%);
+  background: var(--ui-surface-inset);
   border-color: var(--frame-border);
 }
 
@@ -4666,24 +4670,25 @@
   border-radius: 0;
   background: transparent;
   color: var(--text-faint);
-  font-size: 10px;
-  font-weight: 700;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  transition: color 0.12s, border-color 0.12s;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
   margin-bottom: -1px;
 }
 
 .cp-tab:hover {
-  color: var(--text-dim);
-  background: transparent;
+  color: var(--text);
+  background: var(--overlay-subtle);
   border-bottom-color: var(--frame-border-strong);
 }
 
 .cp-tab-active {
   color: var(--status-live, #6366f1);
-  background: transparent;
+  background: color-mix(in srgb, var(--status-live, #6366f1) 8%, transparent);
   border-bottom-color: var(--status-live, #6366f1);
 }
 
@@ -4846,12 +4851,12 @@
 }
 
 [data-theme="light"] .edp-close {
-  color: rgba(0,0,0,0.45);
+  color: rgba(0,0,0,0.55);
 }
 
 [data-theme="light"] .edp-close:hover {
   color: rgba(0,0,0,0.85);
-  background: rgba(0,0,0,0.06);
+  background: color-mix(in srgb, var(--semantic-critical) 10%, white 90%);
 }
 
 [data-theme="light"] .edp-sec-type-badge {

@@ -21,6 +21,18 @@
   --ctrl-bg-hover: rgba(255, 255, 255, 0.06);
   --ctrl-bg-active: rgba(255, 255, 255, 0.09);
   --ctrl-bg-pressed: rgba(255, 255, 255, 0.02);
+  --ui-surface-elevated: color-mix(in srgb, var(--surface) 92%, black 8%);
+  --ui-surface-inset: color-mix(in srgb, var(--bg) 28%, var(--surface) 72%);
+  --ui-border-strong: color-mix(in srgb, var(--border) 78%, transparent);
+  --ui-accent-tint: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --ui-accent-tint-strong: color-mix(in srgb, var(--accent) 24%, var(--surface));
+  --ui-success-tint: color-mix(in srgb, var(--semantic-normal) 14%, var(--surface));
+  --ui-success-tint-strong: color-mix(in srgb, var(--semantic-normal) 22%, var(--surface));
+  --ui-danger-tint: color-mix(in srgb, var(--semantic-critical) 12%, var(--surface));
+  --ui-danger-tint-strong: color-mix(in srgb, var(--semantic-critical) 18%, var(--surface));
+  --ui-button-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  --ui-button-shadow-hover: 0 10px 22px rgba(0, 0, 0, 0.24);
+  --ui-focus-ring: 0 0 0 2px color-mix(in srgb, var(--accent) 75%, white 25%);
 
   /* Framing */
   --frame-border: rgba(255, 255, 255, 0.08);
@@ -78,6 +90,10 @@
   --ctrl-bg-hover: rgba(0, 0, 0, 0.06);
   --ctrl-bg-active: rgba(0, 0, 0, 0.09);
   --ctrl-bg-pressed: rgba(0, 0, 0, 0.02);
+  --ui-surface-elevated: color-mix(in srgb, var(--surface) 92%, white 8%);
+  --ui-surface-inset: color-mix(in srgb, var(--bg) 72%, var(--surface) 28%);
+  --ui-button-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  --ui-button-shadow-hover: 0 8px 18px rgba(0, 0, 0, 0.12);
   --frame-border: rgba(0, 0, 0, 0.1);
   --frame-border-strong: rgba(0, 0, 0, 0.2);
   --frame-border-subtle: rgba(0, 0, 0, 0.05);
@@ -888,6 +904,7 @@ select optgroup {
   cursor: var(--wm-cursor-pointer);
   transition: border-color 0.15s;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .wm-sel-btn:hover {
@@ -959,15 +976,16 @@ select optgroup {
   cursor: var(--wm-cursor-pointer);
   border-radius: 3px;
   border: 1px solid transparent;
-  background: var(--bg);
-  transition: background 0.15s ease, border-color 0.15s ease;
+  background: var(--ui-surface-elevated);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   font-size: 10px;
-  text-transform: uppercase;
+  font-family: inherit;
   color: var(--text);
 }
 
 .wm-opt:hover {
   background: var(--overlay-subtle, rgba(255,255,255,0.06));
+  border-color: var(--frame-border);
 }
 
 .wm-opt--sel {
@@ -992,12 +1010,12 @@ select optgroup {
   font-family: inherit;
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.01em;
 }
 
 .wm-optgrp {
   padding: 6px 12px 4px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
@@ -4451,37 +4469,40 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 .webcam-region-btn,
 .webcam-view-btn {
   padding: 4px 8px;
-  background: transparent;
-  border: 1px solid var(--border);
+  background: var(--ui-surface-elevated);
+  border: 1px solid var(--frame-border);
   color: var(--text-dim);
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 10px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  text-transform: none;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
 }
 
 .webcam-region-btn:hover,
 .webcam-view-btn:hover {
-  border-color: var(--text-dim);
+  background: var(--ctrl-bg-hover);
+  border-color: var(--frame-border-strong);
   color: var(--text);
 }
 
 .webcam-region-btn.active {
-  background: var(--red);
-  border-color: var(--red);
-  color: white;
+  background: var(--ui-accent-tint-strong);
+  border-color: color-mix(in srgb, var(--accent) 56%, var(--frame-border));
+  color: var(--text);
 }
 
 .webcam-view-btn.active {
-  background: var(--red);
-  border-color: var(--red);
-  color: white;
+  background: var(--ui-accent-tint-strong);
+  border-color: color-mix(in srgb, var(--accent) 56%, var(--frame-border));
+  color: var(--text);
 }
 
 .webcam-grid {
@@ -19980,19 +20001,35 @@ button.cluster-flight-item:focus-visible {
   margin-bottom: 24px;
 }
 
+.profile-login-btn,
+.profile-logout-btn,
+.profile-add-account-btn,
+.profile-2fa-btn,
+.profile-action-btn,
+.profile-share-btn,
+.profile-upgrade-btn {
+  font: inherit;
+  font-family: var(--font-body);
+  letter-spacing: 0.01em;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
 .profile-login-btn {
-  background: var(--text);
-  color: var(--bg);
-  border: none;
+  background: var(--ui-accent-tint-strong);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, var(--border));
   padding: 12px 24px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   cursor: var(--wm-cursor-pointer);
+  box-shadow: var(--ui-button-shadow);
 }
 
 .profile-login-btn:hover {
-  opacity: 0.9;
+  background: color-mix(in srgb, var(--accent) 32%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
+  box-shadow: var(--ui-button-shadow-hover);
 }
 
 .profile-features {
@@ -20024,8 +20061,10 @@ button.cluster-flight-item:focus-visible {
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
+  background: var(--ui-surface-elevated);
+  border: 1px solid var(--frame-border);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
   margin-bottom: 20px;
 }
 
@@ -20050,7 +20089,7 @@ button.cluster-flight-item:focus-visible {
 }
 
 .profile-logout-btn {
-  background: transparent;
+  background: var(--overlay-subtle);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 8px 16px;
@@ -20059,7 +20098,8 @@ button.cluster-flight-item:focus-visible {
 }
 
 .profile-logout-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--overlay-light);
+  border-color: var(--text-faint);
 }
 
 .profile-section {
@@ -20092,7 +20132,7 @@ button.cluster-flight-item:focus-visible {
 .profile-feature-list li {
   padding: 8px 0;
   font-size: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--frame-border-subtle);
 }
 
 .profile-preference {
@@ -20134,8 +20174,9 @@ button.cluster-flight-item:focus-visible {
   gap: 14px;
   padding: 14px 16px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.025));
+  border: 1px solid var(--frame-border);
+  background: var(--ui-surface-elevated);
+  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
 }
 
 .profile-linked-icon,
@@ -20146,8 +20187,8 @@ button.cluster-flight-item:focus-visible {
   width: 34px;
   height: 34px;
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: var(--ui-accent-tint);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
   flex-shrink: 0;
 }
 
@@ -20173,11 +20214,11 @@ button.cluster-flight-item:focus-visible {
 }
 
 .profile-linked-status.connected {
-  color: #86efac;
+  color: var(--semantic-normal);
 }
 
 .profile-linked-check {
-  color: #86efac;
+  color: var(--semantic-normal);
   font-size: 16px;
   font-weight: 700;
 }
@@ -20197,19 +20238,18 @@ button.cluster-flight-item:focus-visible {
   margin-top: 12px;
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1px solid rgba(96, 165, 250, 0.24);
-  background: rgba(37, 99, 235, 0.12);
-  color: #dbeafe;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: var(--ui-accent-tint);
+  color: var(--text);
   font-size: 13px;
   font-weight: 600;
   cursor: var(--wm-cursor-pointer);
-  transition: background 0.15s, border-color 0.15s;
 }
 
 .profile-add-account-btn:hover,
 .profile-2fa-btn:hover {
-  background: rgba(37, 99, 235, 0.18);
-  border-color: rgba(96, 165, 250, 0.4);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
 }
 
 .profile-2fa-btn {
@@ -20228,13 +20268,14 @@ button.cluster-flight-item:focus-visible {
   border-radius: 6px;
   font-size: 13px;
   cursor: var(--wm-cursor-pointer);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
+  background: var(--ui-surface-elevated);
+  border: 1px solid var(--frame-border);
   color: var(--text);
 }
 
 .profile-action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--overlay-light);
+  border-color: var(--text-faint);
 }
 
 .profile-action-btn.danger {
@@ -20243,7 +20284,7 @@ button.cluster-flight-item:focus-visible {
 }
 
 .profile-action-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: color-mix(in srgb, var(--semantic-critical) 12%, var(--surface));
 }
 
 .profile-action-btn.small {
@@ -20255,7 +20296,7 @@ button.cluster-flight-item:focus-visible {
 .profile-community-section {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--frame-border-subtle);
 }
 
 .profile-community-section h5 {
@@ -20278,12 +20319,12 @@ button.cluster-flight-item:focus-visible {
 }
 
 .profile-referral-code {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--ui-surface-inset);
+  border: 1px solid var(--frame-border);
   padding: 10px 12px;
   border-radius: 8px;
   font-size: 13px;
-  font-family: monospace;
+  font-family: var(--font-mono);
   flex: 1;
   color: var(--text);
 }
@@ -20300,11 +20341,10 @@ button.cluster-flight-item:focus-visible {
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--frame-border);
   cursor: var(--wm-cursor-pointer);
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
-  transition: background 0.15s;
+  background: var(--ui-surface-elevated);
 }
 
 @media (max-width: 700px) {
@@ -20505,20 +20545,21 @@ button.cluster-flight-item:focus-visible {
 
 .profile-plan-card {
   padding: 16px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--ui-surface-elevated);
+  border: 1px solid var(--frame-border);
+  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
 }
 
 .profile-plan-card.featured {
-  border-color: rgba(59, 130, 246, 0.5);
-  background: rgba(59, 130, 246, 0.05);
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }
 
 .profile-plan-card.current {
-  border-color: rgba(34, 197, 94, 0.55);
-  background: rgba(34, 197, 94, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.12);
+  border-color: color-mix(in srgb, var(--semantic-normal) 52%, var(--border));
+  background: color-mix(in srgb, var(--semantic-normal) 8%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--semantic-normal) 22%, transparent);
 }
 
 .profile-plan-card h5 {
@@ -20558,25 +20599,25 @@ button.cluster-flight-item:focus-visible {
   font-size: 13px;
   font-weight: 700;
   cursor: var(--wm-cursor-pointer);
-  background: linear-gradient(180deg, #2f6bff 0%, #1f56e5 100%);
-  border: 1px solid rgba(96, 165, 250, 0.45);
-  color: #fff;
-  box-shadow: 0 8px 18px rgba(31, 86, 229, 0.22);
-  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  background: var(--ui-accent-tint-strong);
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, var(--border));
+  color: var(--text);
+  box-shadow: var(--ui-button-shadow);
 }
 
 .profile-upgrade-btn:hover {
-  background: linear-gradient(180deg, #3b7bff 0%, #285fe8 100%);
-  border-color: rgba(147, 197, 253, 0.65);
+  background: color-mix(in srgb, var(--accent) 34%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--border));
+  box-shadow: var(--ui-button-shadow-hover);
 }
 
 .profile-upgrade-btn[disabled] {
   cursor: var(--wm-cursor-default);
   opacity: 1;
-  color: #d1fae5;
-  background: linear-gradient(180deg, #15803d 0%, #166534 100%);
-  border-color: rgba(74, 222, 128, 0.45);
-  box-shadow: 0 8px 18px rgba(22, 101, 52, 0.2);
+  color: color-mix(in srgb, var(--semantic-normal) 62%, white 38%);
+  background: var(--ui-success-tint-strong);
+  border-color: color-mix(in srgb, var(--semantic-normal) 48%, var(--border));
+  box-shadow: var(--ui-button-shadow);
 }
 
 /* ============ Auth Modal ============ */

@@ -111,7 +111,9 @@ export function stripYearTag(text: string | undefined): string {
 export function takeValue(text: string | undefined): string {
   if (!text) return '';
   const paren = text.indexOf('(');
-  return (paren > 0 ? text.slice(0, paren) : text).trim();
+  return (paren > 0 ? text.slice(0, paren) : text)
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .trim();
 }
 
 /**
