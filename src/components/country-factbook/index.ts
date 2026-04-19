@@ -265,11 +265,14 @@ function renderPeople(data: FactbookData): HTMLElement | null {
     if (card) stack.append(card);
   }
 
-  // Ethnic groups (collapsible, since often long)
-  const ethnic = fbText(sec, 'Ethnic groups');
-  if (ethnic) {
-    const body = prose(ethnic) ?? el('div');
-    stack.append(collapsible('Ethnic groups', body));
+  // Ethnic groups — bar chart when percentages are available, prose fallback otherwise
+  const ethnicPcts = parseLabeledPercents(fbText(sec, 'Ethnic groups'));
+  if (ethnicPcts.length > 0) {
+    const card = sectionCard('Ethnic groups', labeledBars(ethnicPcts));
+    if (card) stack.append(card);
+  } else {
+    const ethnicRaw = fbText(sec, 'Ethnic groups');
+    if (ethnicRaw) stack.append(collapsible('Ethnic groups', prose(ethnicRaw) ?? el('div')));
   }
 
   return stack.childElementCount > 0 ? stack : null;
