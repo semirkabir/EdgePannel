@@ -92,7 +92,7 @@ const ISO3_TO_ISO2: Record<string, string> = {
   USA:'US', URY:'UY', UZB:'UZ', VEN:'VE', VNM:'VN', YEM:'YE', ZMB:'ZM',
   ZWE:'ZW', EST:'EE', SVK:'SK', SVN:'SI', CYP:'CY', MLT:'MT', CIV:'CI',
   LBY:'LY', KGZ:'KG', TJK:'TJ', MAC:'MO', BRN:'BN', PSE:'PS', XKX:'XK',
-  TTO:'TT', SUR:'SR', GMB:'GM', GNQ:'GQ', MDA:'MD', GEO:'GE', ISL:'IS',
+  TTO:'TT', SUR:'SR', GMB:'GM', GNQ:'GQ', MDA:'MD', GEO:'GE',
 };
 
 function normalizeRefArea(refArea: string): string {

@@ -194,5 +194,38 @@ export class ArticleRenderer implements EntityRenderer {
     articleWrap.append(footer);
 
     replaceChildren(host, articleWrap);
+
+    // Reading progress indicator — thin track on the right edge of the panel
+    const scrollEl = container.closest<HTMLElement>('.edp-panel-content');
+    const shell = scrollEl?.parentElement;
+    if (scrollEl && shell) {
+      const track = document.createElement('div');
+      track.className = 'edp-article-progress-track';
+      const thumb = document.createElement('div');
+      thumb.className = 'edp-article-progress-thumb';
+      track.append(thumb);
+      shell.append(track);
+
+      const update = (): void => {
+        const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+        const scrollable = scrollHeight - clientHeight;
+        if (scrollable <= 0) { track.style.opacity = '0'; return; }
+        track.style.opacity = '1';
+        const thumbH = Math.max(24, (clientHeight / scrollHeight) * clientHeight);
+        const maxTop = clientHeight - thumbH;
+        const top = (scrollTop / scrollable) * maxTop;
+        thumb.style.height = thumbH + 'px';
+        thumb.style.transform = `translateY(${top}px)`;
+      };
+
+      scrollEl.addEventListener('scroll', update, { passive: true });
+      // Initial render — wait one frame for layout
+      requestAnimationFrame(update);
+
+      ctx.signal.addEventListener('abort', () => {
+        scrollEl.removeEventListener('scroll', update);
+        track.remove();
+      }, { once: true });
+    }
   }
 }

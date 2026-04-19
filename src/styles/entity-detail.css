@@ -50,6 +50,32 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+/* Reading progress indicator (article renderer only) */
+.edp-article-progress-track {
+  position: absolute;
+  right: 3px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.edp-article-progress-thumb {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 2px;
+  transition: transform 0.08s linear, height 0.08s linear;
 }
 
 .edp-close {
@@ -2535,6 +2561,8 @@
   color: color-mix(in srgb, var(--accent-blue, #60a5fa) 88%, white 12%);
   background: color-mix(in srgb, var(--accent-blue, #60a5fa) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent-blue, #60a5fa) 28%, transparent);
+  margin-bottom: 10px;
+  margin-left: -2px;
 }
 
 .edp-article-title {
