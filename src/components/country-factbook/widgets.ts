@@ -79,6 +79,15 @@ export interface StackSegment {
   color: string;
 }
 
+export type ChipTone = 'default' | 'info' | 'success' | 'warn' | 'danger' | 'neutral';
+
+export interface ChipSpec {
+  label: string;
+  icon?: string;
+  title?: string;
+  tone?: ChipTone;
+}
+
 /**
  * Horizontal stacked bar. Percentages are rendered proportionally to their sum
  * (so 58.9 + 18.2 + 9.9 + ... renders correctly even without hitting 100 exactly).
@@ -130,14 +139,40 @@ export function labeledBars(rows: Array<{ label: string; pct: number }>, max = 8
   return wrap;
 }
 
-export function chipRow(items: string[], emptyLabel?: string): HTMLElement {
+function chipToneClass(base: string, tone: ChipTone | undefined): string {
+  const resolved = tone && tone !== 'default' ? ` ${base}-${tone}` : '';
+  return `${base}${resolved}`;
+}
+
+function makeChip(spec: ChipSpec, className = 'cdp-fb-chip'): HTMLElement {
+  const chip = el('span', chipToneClass(className, spec.tone));
+  if (spec.title) chip.title = spec.title;
+  if (spec.icon) chip.append(el('span', 'cdp-fb-chip-icon', spec.icon));
+  chip.append(el('span', 'cdp-fb-chip-label', spec.label));
+  return chip;
+}
+
+export function chipRow(items: Array<string | ChipSpec>, emptyLabel?: string): HTMLElement {
   const wrap = el('div', 'cdp-fb-chips');
   if (items.length === 0) {
     if (emptyLabel) wrap.append(el('span', 'cdp-fb-chip-muted', emptyLabel));
     return wrap;
   }
   for (const item of items) {
-    wrap.append(el('span', 'cdp-fb-chip', item));
+    wrap.append(typeof item === 'string' ? makeChip({ label: item }) : makeChip(item));
+  }
+  return wrap;
+}
+
+export function badge(spec: string | ChipSpec): HTMLElement {
+  return typeof spec === 'string' ? makeChip({ label: spec }, 'cdp-fb-badge') : makeChip(spec, 'cdp-fb-badge');
+}
+
+export function badgeRow(items: Array<string | ChipSpec | null | undefined>): HTMLElement {
+  const wrap = el('div', 'cdp-fb-badges');
+  for (const item of items) {
+    if (!item) continue;
+    wrap.append(badge(item));
   }
   return wrap;
 }
