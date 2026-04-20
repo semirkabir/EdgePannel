@@ -64,6 +64,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private infrastructureByType = new Map<AssetType, RelatedAsset[]>();
   private maximizeButton: HTMLButtonElement | null = null;
   private currentHeadlineCount = 0;
+  private currentMarkets: PredictionMarket[] = [];
 
   private signalsBody: HTMLElement | null = null;
   private signalBreakdownBody: HTMLElement | null = null;
@@ -189,6 +190,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.macroCards = [];
     this.infrastructureByType.clear();
     this.currentHeadlineCount = 0;
+    this.currentMarkets = [];
     this.activeTab = '' as TabId;  // reset so next setActiveTab('overview') isn't swallowed by the guard
     this.tabButtons.clear();
     this.tabPanes.clear();
@@ -211,6 +213,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.economicIndicators = [];
     this.macroCards = [];
     this.currentHeadlineCount = 0;
+    this.currentMarkets = [];
     this.onCloseCallback?.();
     this.onStateChangeCallback?.({ visible: false, maximized: false });
   }
@@ -529,6 +532,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   public updateMarkets(markets: PredictionMarket[], availability?: CardAvailability): void {
     if (!this.marketsBody) return;
     this.marketsBody.replaceChildren();
+    this.currentMarkets = markets.slice(0, 5);
 
     if (markets.length === 0) {
       const emptyText = (availability && !availability.available && availability.reason)
@@ -540,22 +544,13 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
 
     for (const market of markets.slice(0, 5)) {
       const item = this.el('div', 'cdp-market-item');
-      item.style.cursor = 'pointer';
-      item.addEventListener('click', () => {
-        import('@/app/app-context').then(() => {
-          const panel = (window as any).__entityDetailPanel;
-          if (panel) {
-            panel.show('predictionMarket', {
-              title: market.title,
-              slug: market.slug || '',
-              category: 'geopolitics',
-              volume: market.volume,
-              endDate: market.endDate,
-              closed: false,
-              url: market.url,
-            });
-          }
-        });
+      item.setAttribute('role', 'button');
+      item.setAttribute('tabindex', '0');
+      item.addEventListener('click', () => this.openPredictionMarketDetail(market));
+      item.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        this.openPredictionMarketDetail(market);
       });
 
       const top = this.el('div', 'cdp-market-top');
@@ -699,7 +694,16 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     const [militaryCard, militaryBody] = this.sectionCard(t('countryBrief.militaryActivity'));
     const [infraCard, infraBody] = this.sectionCard(t('countryBrief.infrastructure'));
     const [economicCard, economicBody] = this.sectionCard(t('countryBrief.economicIndicators'));
-    const [marketsCard, marketsBody] = this.sectionCard(t('countryBrief.predictionMarkets'));
+    const [marketsCard, marketsBody] = this.sectionCard(t('countryBrief.predictionMarkets'), {
+      onClick: () => {
+        if (this.openDashboardPanel('polymarket')) return;
+        const leadMarket = this.currentMarkets[0];
+        if (leadMarket) {
+          this.openPredictionMarketDetail(leadMarket);
+        }
+      },
+      ariaLabel: 'Open prediction markets panel',
+    });
     const [governanceCard, governanceBody] = this.sectionCard(t('countryBrief.governanceDemocracy') ?? 'Governance & Democracy');
     const [riskProfileCard, riskProfileBody] = this.sectionCard('GEM Risk Profile');
     const [briefCard, briefBody] = this.sectionCard(t('countryBrief.intelBrief'));
@@ -822,6 +826,36 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     if (tab !== 'overview') {
       void this.ensureFactbookTabRendered(tab);
     }
+  }
+
+  private openDashboardPanel(panelId: string): boolean {
+    const selector = `[data-panel="${CSS.escape(panelId)}"]`;
+    const panel = document.querySelector<HTMLElement>(selector);
+    if (!panel) return false;
+
+    this.hide();
+    requestAnimationFrame(() => {
+      panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      panel.classList.add('flash-highlight');
+      window.setTimeout(() => panel.classList.remove('flash-highlight'), 1500);
+    });
+    return true;
+  }
+
+  private openPredictionMarketDetail(market: PredictionMarket): void {
+    void import('@/app/app-context').then(() => {
+      const panel = (window as any).__entityDetailPanel;
+      if (!panel) return;
+      panel.show('predictionMarket', {
+        title: market.title,
+        slug: market.slug || '',
+        category: 'geopolitics',
+        volume: market.volume,
+        endDate: market.endDate,
+        closed: false,
+        url: market.url,
+      });
+    });
   }
 
   private async ensureFactbookTabRendered(tab: TabId): Promise<void> {
@@ -1336,12 +1370,25 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     return panel;
   }
 
-  private sectionCard(title: string): [HTMLElement, HTMLElement] {
+  private sectionCard(
+    title: string,
+    options?: { onClick?: () => void; ariaLabel?: string },
+  ): [HTMLElement, HTMLElement] {
     const card = this.el('section', 'cdp-card');
-    const heading = this.el('h3', 'cdp-card-title', title);
+    const heading = options?.onClick
+      ? this.buildCardTitleButton(title, options.onClick, options.ariaLabel)
+      : this.el('h3', 'cdp-card-title', title);
     const body = this.el('div', 'cdp-card-body');
     card.append(heading, body);
     return [card, body];
+  }
+
+  private buildCardTitleButton(title: string, onClick: () => void, ariaLabel?: string): HTMLButtonElement {
+    const button = this.el('button', 'cdp-card-title cdp-card-title-btn', title) as HTMLButtonElement;
+    button.type = 'button';
+    if (ariaLabel) button.setAttribute('aria-label', ariaLabel);
+    button.addEventListener('click', onClick);
+    return button;
   }
 
   private metric(label: string, value: string, chipClass: string): HTMLElement {

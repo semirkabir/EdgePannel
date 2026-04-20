@@ -308,6 +308,42 @@
   font-family: var(--font-body);
 }
 
+.cdp-card-title-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s ease;
+}
+
+.cdp-card-title-btn::after {
+  content: '->';
+  font-size: 11px;
+  color: var(--text-faint);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.cdp-card-title-btn:hover {
+  color: var(--text);
+}
+
+.cdp-card-title-btn:hover::after {
+  color: var(--accent);
+  transform: translate(1px, -1px);
+}
+
+.cdp-card-title-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .cdp-card-body {
   display: flex;
   flex-direction: column;
@@ -555,6 +591,22 @@
 
 .cdp-news-item:hover {
   border-color: var(--text-faint);
+}
+
+.cdp-market-item {
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.cdp-market-item:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  transform: translateY(-1px);
+}
+
+.cdp-market-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .cdp-signal-line,
@@ -1183,11 +1235,20 @@
   background: var(--overlay-subtle);
 }
 
+.cdp-tab:hover::after {
+  transform: scaleX(0.6);
+}
+
 .cdp-tab-active {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   box-shadow: none;
   font-weight: 600;
+}
+
+.cdp-tab-active:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
 }
 
 .cdp-tab-active::after {
