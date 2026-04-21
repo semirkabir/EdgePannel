@@ -88,6 +88,20 @@ export class InstitutionRenderer implements EntityRenderer {
 
   async enrich(data: unknown, _signal: AbortSignal): Promise<InstitutionEnriched> {
     const d = data as InstitutionData;
+    if (!d.cik) {
+      return {
+        name: d.name || 'Unknown Institution',
+        cik: '',
+        holdings: [],
+        totalHoldings: 0,
+        totalValue: 0,
+        filingDate: '',
+        topHoldings: [],
+        sectorBreakdown: [],
+        deltas: [],
+        insights: ['CIK identifier is required to fetch SEC 13F holdings data for this institution.'],
+      };
+    }
     const holdingsResp = await fetchInstitutionalHoldings(d.cik);
     const sectorBreakdown = computeInstitutionStructure(holdingsResp.holdings);
     const deltas = computeLargestTradeDeltas(holdingsResp.holdings);
@@ -157,6 +171,20 @@ export class InstitutionRenderer implements EntityRenderer {
   }
 
   private renderTopHoldings(content: HTMLElement, data: InstitutionEnriched, ctx: EntityRenderContext): void {
+    if (!data.cik) {
+      const [card, body] = ctx.sectionCard('Holdings Unavailable');
+      const callout = ctx.el('div', 'edp-callout edp-callout-attention edp-callout-text');
+      callout.textContent = 'CIK identifier is not available for this institution. Holdings data requires a valid SEC CIK number.';
+      body.append(callout);
+      const searchLink = ctx.el('a', 'edp-wiki-link') as HTMLAnchorElement;
+      searchLink.href = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(data.name)}&owner=include&count=40`;
+      searchLink.target = '_blank';
+      searchLink.rel = 'noopener noreferrer';
+      searchLink.textContent = `Search EDGAR for "${data.name}"`;
+      body.append(searchLink);
+      content.append(card);
+      return;
+    }
     if (data.holdings.length === 0) {
       content.append(ctx.makeEmpty('No 13F holdings available for this filer.'));
       return;

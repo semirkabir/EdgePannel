@@ -387,7 +387,11 @@ export class NewsClusteringPipeline {
           }
           this.ctx.newsStore.setHappyAllItems(this.ctx.newsStore.happyAllItems.concat(items));
         }
-        collectedNews.push(...items);
+        // Exclude secFilings from clustering/insights — they are regulatory form
+        // submissions, not news stories, and have their own dedicated panel flow.
+        if (categories[idx]?.key !== 'secFilings') {
+          collectedNews.push(...items);
+        }
       } else {
         console.error(`[App] News category ${categories[idx]?.key} failed:`, result.reason);
       }

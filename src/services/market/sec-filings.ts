@@ -22,7 +22,7 @@ export interface FilingsFilter {
 const SEC_13F_ATOM_URL = 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=13F&output=atom&count=100&owner=include';
 
 const FILINGS_CACHE_TTL = 30 * 60 * 1000;
-const filingsCache: { entries: SecFilingEntry[]; timestamp: number } | null = null;
+let filingsCache: { entries: SecFilingEntry[]; timestamp: number } | null = null;
 
 function parseFilingType(title: string): string {
   const match = title.match(/^(\d+F[A-Z/0-9-]*)\s/i);
@@ -36,6 +36,16 @@ function extractCikFromId(id: string): string {
 
 function extractCikFromSummary(summary: string): string {
   const match = summary.match(/CIK[:\s]*(\d+)/i);
+  return match ? match[1]! : '';
+}
+
+function extractCikFromLink(link: string): string {
+  const match = link.match(/\/data\/(\d{6,10})\//i);
+  return match ? match[1]! : '';
+}
+
+function extractCikFromTitle(title: string): string {
+  const match = title.match(/\((\d{6,10})\)/);
   return match ? match[1]! : '';
 }
 
@@ -84,9 +94,11 @@ export async function fetchSec13FFeed(): Promise<SecFilingEntry[]> {
       if (Number.isNaN(filedAt.getTime())) continue;
 
       let cik = extractCikFromId(id);
+      if (!cik) cik = extractCikFromLink(link);
+      if (!cik) cik = extractCikFromTitle(title);
       if (!cik) cik = extractCikFromSummary(summary);
 
-      let filerName = title.replace(/^13F[A-Z/0-9-]*\s*-\s*/i, '').replace(/\s*\(CIK[^)]*\)/, '').trim();
+      let filerName = title.replace(/^13F[A-Z/0-9-]*\s*-\s*/i, '').replace(/\s*\(\d{6,10}\)/g, '').replace(/\s*\(Filer\)/i, '').trim();
       if (!filerName) filerName = title;
 
       results.push({
@@ -101,7 +113,7 @@ export async function fetchSec13FFeed(): Promise<SecFilingEntry[]> {
       });
     }
 
-    (filingsCache as typeof filingsCache) = { entries: results, timestamp: Date.now() };
+    filingsCache = { entries: results, timestamp: Date.now() };
     return results;
   } catch (e) {
     console.error('[sec-filings] Failed to fetch 13F feed:', e);

@@ -242,7 +242,7 @@ export class PortfolioPanel extends Panel {
       return `
         <div class="pf-congress-row">
           <div class="pf-cg-header">
-            <span class="pf-cg-name">${escapeHtml(trade.politician)}</span>
+            <span class="pf-cg-name" data-politician="${escapeHtml(trade.politician)}">${escapeHtml(trade.politician)}</span>
             <span class="pf-cg-party" style="color:${partyColor}">${escapeHtml(trade.party.charAt(0))}</span>
             <span class="pf-cg-chamber">${escapeHtml(trade.chamber)}</span>
             <span class="pf-cg-date">${escapeHtml(trade.transactionDate)}</span>
@@ -277,9 +277,8 @@ export class PortfolioPanel extends Panel {
 
     contentEl.querySelectorAll<HTMLElement>('.pf-cg-name').forEach(el => {
       el.addEventListener('click', () => {
-        const row = el.closest('.pf-congress-row');
-        if (!row) return;
-        const trade = this.congressCache?.find(t => t.politician === el.textContent?.trim());
+        const politicianName = el.dataset.politician || el.textContent?.trim() || '';
+        const trade = this.congressCache?.find(t => t.politician === politicianName);
         if (!trade) return;
         document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
           detail: {
@@ -415,13 +414,11 @@ export class PortfolioPanel extends Panel {
     listEl.querySelectorAll<HTMLElement>('.pf-filing-row').forEach(row => {
       row.addEventListener('click', (e) => {
         if ((e.target as HTMLElement).closest('.pf-filing-link')) return;
-        const cik = row.dataset.cik;
-        const name = row.dataset.name;
-        if (cik) {
-          document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
-            detail: { type: 'institution', data: { name: name || '', cik } },
-          }));
-        }
+        const cik = row.dataset.cik || '';
+        const name = row.dataset.name || '';
+        document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+          detail: { type: 'institution', data: { name, cik } },
+        }));
       });
     });
   }

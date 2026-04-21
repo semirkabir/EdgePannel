@@ -165,7 +165,7 @@ export async function fetchInstitutionalHoldings(cik: string): Promise<Instituti
   const url = new URL('/api/portfolio-data', window.location.origin);
   url.searchParams.set('source', '13f-holdings');
   url.searchParams.set('cik', cik);
-  const resp = await fetch(url.toString());
+  const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(20_000) });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
 }

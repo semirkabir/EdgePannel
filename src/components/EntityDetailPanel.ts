@@ -102,7 +102,14 @@ export class EntityDetailPanel {
             });
           }
         })
-        .catch(() => { /* enrichment failed silently */ });
+        .catch((err) => {
+          if (signal.aborted || this.currentData !== data) return;
+          console.error('[EntityDetailPanel] Enrichment failed:', err);
+          const errorEl = document.createElement('div');
+          errorEl.className = 'edp-error-banner';
+          errorEl.textContent = 'Failed to load details. Please try again later.';
+          this.content.append(errorEl);
+        });
     }
   }
 

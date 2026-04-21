@@ -178,7 +178,8 @@ async function handle13FHoldings(cik, cors) {
   }
 
   const data = await resp.json();
-  const recent = data.recent || {};
+  // SEC submissions API nests recent filings under `filings.recent`, not top-level `recent`
+  const recent = data.filings?.recent || {};
   const forms = recent.form || [];
   const filingDates = recent.filingDate || [];
   const accessions = recent.accessionNumber || [];
@@ -188,11 +189,14 @@ async function handle13FHoldings(cik, cors) {
   const holdings = [];
   let latestFilingDate = '';
   let latestAccession = '';
+  let latestPrimaryDoc = '';
 
   for (let i = 0; i < forms.length; i++) {
-    if (forms[i] === '13F-HR' || forms[i] === '13F-HR/A') {
+    const form = (forms[i] || '').trim().toUpperCase();
+    if (form === '13F-HR' || form === '13F-HR/A') {
       latestFilingDate = filingDates[i] || '';
       latestAccession = accessions[i] || '';
+      latestPrimaryDoc = primaryDocs[i] || '';
       break;
     }
   }
@@ -202,8 +206,10 @@ async function handle13FHoldings(cik, cors) {
     const cleanAccession = latestAccession.replace(/-/g, '');
     const holdingsUrl = `https://data.sec.gov/Archives/edgar/data/${paddedCik}/${cleanAccession}`;
 
+    let infoTableName = '';
+
     try {
-      // Get the filing index to find the infotable XML
+      // Strategy 1: Use index.json to discover the infoTable file name
       const indexResp = await fetch(`${holdingsUrl}/index.json`, {
         headers: { 'User-Agent': SEC_UA, 'Accept': 'application/json' },
         signal: AbortSignal.timeout(UPSTREAM_TIMEOUT),
@@ -212,44 +218,77 @@ async function handle13FHoldings(cik, cors) {
       if (indexResp.ok) {
         const indexData = await indexResp.json();
         const items = indexData.directory?.item || [];
-        const infoTable = items.find(item =>
-          item.name && (item.name.includes('infotable') || item.name.includes('INFOTABLE')) && item.name.endsWith('.xml')
+        const infoTableItem = items.find(item =>
+          item.name && (/infotable/i.test(item.name) || /form13f/i.test(item.name)) && item.name.endsWith('.xml')
         );
-
-        if (infoTable) {
-          const xmlResp = await fetch(`${holdingsUrl}/${infoTable.name}`, {
-            headers: { 'User-Agent': SEC_UA },
-            signal: AbortSignal.timeout(UPSTREAM_TIMEOUT),
-          });
-
-          if (xmlResp.ok) {
-            const xmlText = await xmlResp.text();
-            // Parse XML holdings (simple regex extraction for key fields)
-            const infoTableRegex = /<infoTable>([\s\S]*?)<\/infoTable>/gi;
-            let match;
-            while ((match = infoTableRegex.exec(xmlText)) !== null) {
-              const entry = match[1];
-              const nameMatch = entry.match(/<nameOfIssuer>(.*?)<\/nameOfIssuer>/i);
-              const titleMatch = entry.match(/<titleOfClass>(.*?)<\/titleOfClass>/i);
-              const cusipMatch = entry.match(/<cusip>(.*?)<\/cusip>/i);
-              const valueMatch = entry.match(/<value>(.*?)<\/value>/i);
-              const sharesMatch = entry.match(/<sshPrnamt>(.*?)<\/sshPrnamt>/i);
-
-              if (nameMatch) {
-                holdings.push({
-                  issuer: nameMatch[1],
-                  title: titleMatch?.[1] || '',
-                  cusip: cusipMatch?.[1] || '',
-                  value: valueMatch ? parseInt(valueMatch[1]) * 1000 : 0, // Values in thousands
-                  shares: sharesMatch ? parseInt(sharesMatch[1]) : 0,
-                });
-              }
-            }
-          }
+        if (infoTableItem) {
+          infoTableName = infoTableItem.name;
         }
       }
     } catch (e) {
-      console.warn('[Portfolio] 13F holdings parse error:', e.message);
+      console.warn('[Portfolio] index.json lookup failed:', e.message);
+    }
+
+    // Strategy 2: Fallback to common filenames if index.json didn't help
+    if (!infoTableName && latestPrimaryDoc) {
+      const primary = latestPrimaryDoc.trim();
+      if (/\.xml$/i.test(primary)) {
+        infoTableName = primary;
+      }
+    }
+
+    // Strategy 3: Hardcoded common names
+    if (!infoTableName) {
+      const commonNames = ['form13fInfoTable.xml', 'primary_doc.xml', 'Infotable.xml'];
+      for (const name of commonNames) {
+        try {
+          const probeResp = await fetch(`${holdingsUrl}/${name}`, {
+            headers: { 'User-Agent': SEC_UA },
+            signal: AbortSignal.timeout(8000),
+          });
+          if (probeResp.ok) {
+            infoTableName = name;
+            break;
+          }
+        } catch { /* ignore probe failure */ }
+      }
+    }
+
+    // Fetch and parse the holdings XML
+    if (infoTableName) {
+      try {
+        const xmlResp = await fetch(`${holdingsUrl}/${infoTableName}`, {
+          headers: { 'User-Agent': SEC_UA },
+          signal: AbortSignal.timeout(UPSTREAM_TIMEOUT),
+        });
+
+        if (xmlResp.ok) {
+          const xmlText = await xmlResp.text();
+          // Match <infoTable> or namespaced <n1:infoTable> etc.
+          const infoTableRegex = /<(\w+:)?infoTable[^>]*>([\s\S]*?)<\/(\w+:)?infoTable>/gi;
+          let match;
+          while ((match = infoTableRegex.exec(xmlText)) !== null) {
+            const entry = match[2];
+            const nameMatch = entry.match(/<(\w+:)?nameOfIssuer[^>]*>(.*?)<\/(\w+:)?nameOfIssuer>/i);
+            const titleMatch = entry.match(/<(\w+:)?titleOfClass[^>]*>(.*?)<\/(\w+:)?titleOfClass>/i);
+            const cusipMatch = entry.match(/<(\w+:)?cusip[^>]*>(.*?)<\/(\w+:)?cusip>/i);
+            const valueMatch = entry.match(/<(\w+:)?value[^>]*>(.*?)<\/(\w+:)?value>/i);
+            const sharesMatch = entry.match(/<(\w+:)?sshPrnamt[^>]*>(.*?)<\/(\w+:)?sshPrnamt>/i);
+
+            if (nameMatch) {
+              holdings.push({
+                issuer: nameMatch[2],
+                title: titleMatch?.[2] || '',
+                cusip: cusipMatch?.[2] || '',
+                value: valueMatch ? parseInt(valueMatch[2]) * 1000 : 0, // Values in thousands
+                shares: sharesMatch ? parseInt(sharesMatch[2]) : 0,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[Portfolio] 13F holdings parse error:', e.message);
+      }
     }
   }
 

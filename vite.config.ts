@@ -722,6 +722,49 @@ function rssProxyPlugin(): Plugin {
   };
 }
 
+function portfolioDataPlugin(): Plugin {
+  return {
+    name: 'portfolio-data-proxy',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/portfolio-data')) return next();
+
+        try {
+          const { default: handler } = await import('./api/portfolio-data.js');
+          const port = server.config.server.port || 3000;
+          const requestUrl = new URL(req.url, `http://localhost:${port}`);
+
+          const headers = new Headers();
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (typeof value === 'string') {
+              headers.set(key, value);
+            } else if (Array.isArray(value)) {
+              headers.set(key, value.join(', '));
+            }
+          }
+
+          const request = new Request(requestUrl.toString(), {
+            method: req.method,
+            headers,
+          });
+
+          const response = await handler(request);
+          res.statusCode = response.status;
+          response.headers.forEach((value: string, key: string) => {
+            res.setHeader(key, value);
+          });
+          res.end(await response.text());
+        } catch (error) {
+          console.error('[portfolio-data-proxy] Error:', error);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Failed to load portfolio data' }));
+        }
+      });
+    },
+  };
+}
+
 function fetchArticlePlugin(): Plugin {
   return {
     name: 'fetch-article-proxy',
@@ -976,6 +1019,7 @@ export default defineConfig({
     aisSnapshotPlugin(),
     rssProxyPlugin(),
     fetchArticlePlugin(),
+    portfolioDataPlugin(),
     weatherProxyPlugin(),
     planespottersProxyPlugin(),
     usaSpendingProxyPlugin(),

@@ -52,7 +52,8 @@
 .pf-congress-list { display: flex; flex-direction: column; gap: 4px; }
 .pf-congress-row { padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--border) 50%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--surface) 92%, black 8%); }
 .pf-cg-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.pf-cg-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.pf-cg-name { font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; }
+.pf-cg-name:hover { text-decoration: underline; }
 .pf-cg-party { font-size: 11px; font-weight: 700; }
 .pf-cg-chamber { font-size: 10px; color: var(--text-dim); padding: 1px 6px; border-radius: 3px; background: color-mix(in srgb, var(--surface) 85%, black 15%); }
 .pf-cg-date { font-size: 11px; color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
