@@ -1,4 +1,5 @@
 import type { TemporalAnomaly } from './temporal-baseline';
+import type { ManagedService } from './managed-service';
 
 /**
  * SupplementalSignalBus
@@ -49,12 +50,28 @@ const SEVERITY_RANK: Record<SupplementalSignal['severity'], number> = {
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
-class SupplementalSignalBus {
+class SupplementalSignalBus implements ManagedService {
   private store = new Map<string, SupplementalSignal[]>();
   private history = new Map<string, Array<{ ts: number; count: number }>>();
   private anomalies = new Map<string, SupplementalAnomaly>();
   private baselines = new Map<string, { mean: number; stdDev: number; sourceName: string }>();
   private listeners: EmitListener[] = [];
+
+  init(): void {
+    this.store.clear();
+    this.history.clear();
+    this.anomalies.clear();
+    this.baselines.clear();
+    this.listeners = [];
+  }
+
+  destroy(): void {
+    this.store.clear();
+    this.history.clear();
+    this.anomalies.clear();
+    this.baselines.clear();
+    this.listeners = [];
+  }
 
   emit(sourceId: string, signals: SupplementalSignal[]): void {
     this.store.set(sourceId, signals);

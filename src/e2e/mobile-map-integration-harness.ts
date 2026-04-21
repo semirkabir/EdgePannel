@@ -138,7 +138,6 @@ const layers = {
   aptGroups: false,
   gemRisk: false,
   democracy: false,
-  socialProgress: false,
 };
 
 await initI18n();

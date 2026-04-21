@@ -5,6 +5,7 @@
  * Logs analysis to console for comparison & improvement
  */
 
+import type { ManagedService } from './managed-service';
 import { mlWorker } from './ml-worker';
 import type { ClusteredEvent } from '@/types';
 
@@ -72,10 +73,22 @@ const BUSINESS_DEMOTE = [
   'quarterly', 'profit', 'investor', 'ipo', 'funding', 'valuation',
 ];
 
-class ParallelAnalysisService {
+class ParallelAnalysisService implements ManagedService {
   private lastReport: AnalysisReport | null = null;
   private recentEmbeddings: Map<string, number[]> = new Map();
   private analysisCount = 0;
+
+  init(): void {
+    this.lastReport = null;
+    this.recentEmbeddings.clear();
+    this.analysisCount = 0;
+  }
+
+  destroy(): void {
+    this.lastReport = null;
+    this.recentEmbeddings.clear();
+    this.analysisCount = 0;
+  }
 
   async analyzeHeadlines(clusters: ClusteredEvent[]): Promise<AnalysisReport> {
 

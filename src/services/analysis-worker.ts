@@ -3,6 +3,7 @@
  * Provides typed async interface to the analysis Web Worker.
  */
 
+import type { ManagedService } from './managed-service';
 import type { NewsItem, ClusteredEvent, MarketData } from '@/types';
 import type { PredictionMarket } from '@/services/prediction';
 import type { CorrelationSignal } from './correlation';
@@ -28,7 +29,7 @@ interface CorrelationResult {
 
 type WorkerResult = ClusterResult | CorrelationResult | { type: 'ready' };
 
-class AnalysisWorkerManager {
+class AnalysisWorkerManager implements ManagedService {
   private worker: Worker | null = null;
   private pendingRequests: Map<string, PendingRequest<unknown>> = new Map();
   private requestIdCounter = 0;
@@ -39,6 +40,20 @@ class AnalysisWorkerManager {
   private readyTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private static readonly READY_TIMEOUT_MS = 10000; // 10 seconds to become ready
+
+  /**
+   * ManagedService init — initialize the worker
+   */
+  init(): void {
+    this.initWorker();
+  }
+
+  /**
+   * ManagedService destroy — terminate the worker
+   */
+  destroy(): void {
+    this.terminate();
+  }
 
   /**
    * Initialize the worker. Called lazily on first use.

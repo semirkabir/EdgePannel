@@ -571,3 +571,27 @@ export function aggregateThreats(
     source: 'keyword',
   };
 }
+
+export function init(): void {
+  keywordRegexCache.clear();
+  batchPaused = false;
+  batchInFlight = false;
+  if (batchTimer) {
+    clearTimeout(batchTimer);
+    batchTimer = null;
+  }
+  lastRequestAt = 0;
+  batchQueue.length = 0;
+}
+
+export function destroy(): void {
+  keywordRegexCache.clear();
+  batchPaused = false;
+  batchInFlight = false;
+  if (batchTimer) {
+    clearTimeout(batchTimer);
+    batchTimer = null;
+  }
+  lastRequestAt = 0;
+  batchQueue.length = 0;
+}

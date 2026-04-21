@@ -89,6 +89,7 @@ import {
   GULF_INVESTMENTS,
   PROCESSING_PLANTS,
   COMMODITY_PORTS as COMMODITY_GEO_PORTS,
+  MINING_SITES,
 } from '@/config';
 import type { GulfInvestment } from '@/types';
 import { resolveTradeRouteSegments, TRADE_ROUTES as TRADE_ROUTES_LIST, type TradeRouteSegment } from '@/config/trade-routes';
@@ -485,6 +486,18 @@ export class DeckGLMap {
   // Governance choropleth data
   private governanceScoresMap: Map<string, { index: number; level: string }> = new Map();
   private governanceScoresVersion = 0;
+
+  // Sanctions choropleth data
+  private sanctionsCountriesMap: Map<string, 'severe' | 'high' | 'moderate'> = new Map();
+  private sanctionsVersion = 0;
+
+  // Democracy choropleth data
+  private democracyScoresMap: Map<string, { score: number; regimeType: string }> = new Map();
+  private democracyVersion = 0;
+
+  // GemRisk choropleth data
+  private gemRiskScoresMap: Map<string, { compositeRisk: number; rank: number }> = new Map();
+  private gemRiskVersion = 0;
 
   // Country highlight state
   private countryGeoJsonLoaded = false;
@@ -1607,7 +1620,7 @@ export class DeckGLMap {
 
     // Commodity variant layers — mine sites, processing plants, export ports
     if (mapLayers.miningSites) {
-      // TODO: re-enable when createMiningSitesLayer is restored
+      layers.push(this.createMiningSitesLayer());
     }
     if (mapLayers.processingPlants) {
       layers.push(this.createProcessingPlantsLayer());
@@ -1693,6 +1706,21 @@ export class DeckGLMap {
     if (mapLayers.governanceChoropleth) {
       const govLayer = this.createGovernanceChoroplethLayer();
       if (govLayer) layers.push(govLayer);
+    }
+    // Sanctions choropleth
+    if (mapLayers.sanctions) {
+      const sancLayer = this.createSanctionsChoroplethLayer();
+      if (sancLayer) layers.push(sancLayer);
+    }
+    // Democracy Index choropleth
+    if (mapLayers.democracy) {
+      const demLayer = this.createDemocracyChoroplethLayer();
+      if (demLayer) layers.push(demLayer);
+    }
+    // GEM Risk choropleth
+    if (mapLayers.gemRisk) {
+      const gemLayer = this.createGemRiskChoroplethLayer();
+      if (gemLayer) layers.push(gemLayer);
     }
     // Phase 8: Species recovery zones
     if (mapLayers.speciesRecovery && this.speciesRecoveryZones.length > 0) {
@@ -2812,6 +2840,22 @@ export class DeckGLMap {
     });
   }
 
+  private createMiningSitesLayer(): IconLayer {
+    return new IconLayer({
+      id: 'mining-sites-layer',
+      data: MINING_SITES,
+      getPosition: (d) => [d.lon, d.lat],
+      getIcon: () => 'mineral',
+      iconAtlas: '/icons/minerals.png',
+      iconMapping: { mineral: { x: 0, y: 0, width: 512, height: 512, mask: false } },
+      getSize: 18,
+      sizeMinPixels: 10,
+      sizeMaxPixels: 24,
+      pickable: true,
+      billboard: true,
+    });
+  }
+
   // Tech variant layers
   private createStartupHubsLayer(): IconLayer {
     return new IconLayer({
@@ -3489,6 +3533,107 @@ export class DeckGLMap {
     });
   }
 
+  private static readonly SANCTION_LEVEL_COLORS: Record<string, [number, number, number, number]> = {
+    severe:   [255, 0, 0, 90],
+    high:     [255, 100, 0, 64],
+    moderate: [255, 200, 0, 51],
+  };
+
+  private static readonly SANCTION_LEVEL_HEX: Record<string, string> = {
+    severe: '#ff0000', high: '#ff6400', moderate: '#ffc800',
+  };
+
+  private createSanctionsChoroplethLayer(): GeoJsonLayer | null {
+    if (!this.countriesGeoJsonData || this.sanctionsCountriesMap.size === 0) return null;
+    const sanctions = this.sanctionsCountriesMap;
+    const colors = DeckGLMap.SANCTION_LEVEL_COLORS;
+    return new GeoJsonLayer({
+      id: 'sanctions-choropleth-layer',
+      data: this.countriesGeoJsonData,
+      filled: true,
+      stroked: true,
+      getFillColor: (feature: { properties?: Record<string, unknown> }) => {
+        const code = feature.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const level = code ? sanctions.get(code) : undefined;
+        return level ? (colors[level] ?? [0, 0, 0, 0]) : [0, 0, 0, 0];
+      },
+      getLineColor: [80, 80, 80, 80] as [number, number, number, number],
+      getLineWidth: 1,
+      lineWidthMinPixels: 0.5,
+      pickable: true,
+      updateTriggers: { getFillColor: [this.sanctionsVersion] },
+    });
+  }
+
+  private static readonly DEMOCRACY_LEVEL_COLORS: Record<string, [number, number, number, number]> = {
+    'Full Democracy':  [30, 140, 50, 140],
+    'Democracy':       [80, 180, 80, 130],
+    'Hybrid Regime':   [220, 200, 50, 135],
+    'Autocracy':       [200, 40, 20, 155],
+  };
+
+  private static readonly DEMOCRACY_LEVEL_HEX: Record<string, string> = {
+    'Full Democracy': '#16a34a', 'Democracy': '#22c55e', 'Hybrid Regime': '#eab308', 'Autocracy': '#dc2626',
+  };
+
+  private createDemocracyChoroplethLayer(): GeoJsonLayer | null {
+    if (!this.countriesGeoJsonData || this.democracyScoresMap.size === 0) return null;
+    const scores = this.democracyScoresMap;
+    const colors = DeckGLMap.DEMOCRACY_LEVEL_COLORS;
+    return new GeoJsonLayer({
+      id: 'democracy-choropleth-layer',
+      data: this.countriesGeoJsonData,
+      filled: true,
+      stroked: true,
+      getFillColor: (feature: { properties?: Record<string, unknown> }) => {
+        const code = feature.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const entry = code ? scores.get(code) : undefined;
+        return entry ? (colors[entry.regimeType] ?? [0, 0, 0, 0]) : [0, 0, 0, 0];
+      },
+      getLineColor: [80, 80, 80, 80] as [number, number, number, number],
+      getLineWidth: 1,
+      lineWidthMinPixels: 0.5,
+      pickable: true,
+      updateTriggers: { getFillColor: [this.democracyVersion] },
+    });
+  }
+
+  private static readonly GEM_RISK_COLORS: Record<string, [number, number, number, number]> = {
+    low:      [40, 180, 60, 130],
+    moderate: [220, 200, 50, 135],
+    high:     [230, 120, 30, 145],
+    critical: [180, 30, 20, 160],
+  };
+
+  private static readonly GEM_RISK_HEX: Record<string, string> = {
+    low: '#22c55e', moderate: '#eab308', high: '#f59e0b', critical: '#dc2626',
+  };
+
+  private createGemRiskChoroplethLayer(): GeoJsonLayer | null {
+    if (!this.countriesGeoJsonData || this.gemRiskScoresMap.size === 0) return null;
+    const scores = this.gemRiskScoresMap;
+    const colors = DeckGLMap.GEM_RISK_COLORS;
+    return new GeoJsonLayer({
+      id: 'gem-risk-choropleth-layer',
+      data: this.countriesGeoJsonData,
+      filled: true,
+      stroked: true,
+      getFillColor: (feature: { properties?: Record<string, unknown> }) => {
+        const code = feature.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const entry = code ? scores.get(code) : undefined;
+        if (!entry) return [0, 0, 0, 0] as [number, number, number, number];
+        const risk = entry.compositeRisk;
+        const level = risk < 25 ? 'low' : risk < 50 ? 'moderate' : risk < 75 ? 'high' : 'critical';
+        return colors[level] ?? [0, 0, 0, 0];
+      },
+      getLineColor: [80, 80, 80, 80] as [number, number, number, number],
+      getLineWidth: 1,
+      lineWidthMinPixels: 0.5,
+      pickable: true,
+      updateTriggers: { getFillColor: [this.gemRiskVersion] },
+    });
+  }
+
   private createSpeciesRecoveryLayer(): IconLayer {
     return new IconLayer({
       id: 'species-recovery-layer',
@@ -3743,6 +3888,32 @@ export class DeckGLMap {
         if (!govEntry) return { html: `<div class="deckgl-tooltip"><strong>${text(govName)}</strong><br/><span style="opacity:.7">No governance data</span></div>` };
         const govColor = DeckGLMap.GOV_LEVEL_HEX[govEntry.level] ?? '#888';
         return { html: `<div class="deckgl-tooltip"><strong>${text(govName)}</strong><br/>Governance: <span style="color:${govColor};font-weight:600">${govEntry.index.toFixed(1)}/100</span><br/><span style="text-transform:capitalize;opacity:.7">${text(govEntry.level)}</span></div>` };
+      }
+      case 'sanctions-choropleth-layer': {
+        const sancName = obj.properties?.name ?? 'Unknown';
+        const sancCode = obj.properties?.['ISO3166-1-Alpha-2'];
+        const sancLevel = sancCode ? this.sanctionsCountriesMap.get(sancCode as string) : undefined;
+        if (!sancLevel) return { html: `<div class="deckgl-tooltip"><strong>${text(sancName)}</strong><br/><span style="opacity:.7">Not sanctioned</span></div>` };
+        const sancColor = DeckGLMap.SANCTION_LEVEL_HEX[sancLevel] ?? '#888';
+        return { html: `<div class="deckgl-tooltip"><strong>${text(sancName)}</strong><br/><span style="color:${sancColor};font-weight:600;text-transform:capitalize">${sancLevel} sanctions</span></div>` };
+      }
+      case 'democracy-choropleth-layer': {
+        const demName = obj.properties?.name ?? 'Unknown';
+        const demCode = obj.properties?.['ISO3166-1-Alpha-2'];
+        const demEntry = demCode ? this.democracyScoresMap.get(demCode as string) : undefined;
+        if (!demEntry) return { html: `<div class="deckgl-tooltip"><strong>${text(demName)}</strong><br/><span style="opacity:.7">No democracy data</span></div>` };
+        const demColor = DeckGLMap.DEMOCRACY_LEVEL_HEX[demEntry.regimeType] ?? '#888';
+        return { html: `<div class="deckgl-tooltip"><strong>${text(demName)}</strong><br/>Democracy: <span style="color:${demColor};font-weight:600">${demEntry.score.toFixed(1)}/100</span><br/><span style="opacity:.7">${text(demEntry.regimeType)}</span></div>` };
+      }
+      case 'gem-risk-choropleth-layer': {
+        const gemName = obj.properties?.name ?? 'Unknown';
+        const gemCode = obj.properties?.['ISO3166-1-Alpha-2'];
+        const gemEntry = gemCode ? this.gemRiskScoresMap.get(gemCode as string) : undefined;
+        if (!gemEntry) return { html: `<div class="deckgl-tooltip"><strong>${text(gemName)}</strong><br/><span style="opacity:.7">No risk data</span></div>` };
+        const risk = gemEntry.compositeRisk;
+        const gemLevel = risk < 25 ? 'low' : risk < 50 ? 'moderate' : risk < 75 ? 'high' : 'critical';
+        const gemColor = DeckGLMap.GEM_RISK_HEX[gemLevel] ?? '#888';
+        return { html: `<div class="deckgl-tooltip"><strong>${text(gemName)}</strong><br/>Risk: <span style="color:${gemColor};font-weight:600">${risk.toFixed(1)}/100</span><br/><span style="opacity:.7;text-transform:capitalize">${gemLevel} (Rank #${gemEntry.rank})</span></div>` };
       }
       case 'species-recovery-layer': {
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.commonName)}</strong><br/>${text(obj.recoveryZone?.name ?? obj.region)}<br/><span style="opacity:.7">Status: ${text(obj.recoveryStatus)}</span></div>` };
@@ -4062,6 +4233,9 @@ export class DeckGLMap {
       'species-recovery-layer': 'speciesRecovery',
       'renewable-installations-layer': 'renewableInstallation',
       'governance-choropleth-layer': 'governanceCountry',
+      'sanctions-choropleth-layer': 'sanctionsCountry',
+      'democracy-choropleth-layer': 'democracyCountry',
+      'gem-risk-choropleth-layer': 'gemRiskCountry',
     };
 
     const popupType = layerToPopupType[layerId];
@@ -4237,6 +4411,9 @@ export class DeckGLMap {
       'species-recovery-layer': 'speciesRecovery',
       'renewable-installations-layer': 'renewableInstallation',
       'governance-choropleth-layer': 'governanceCountry',
+      'sanctions-choropleth-layer': 'sanctionsCountry',
+      'democracy-choropleth-layer': 'democracyCountry',
+      'gem-risk-choropleth-layer': 'gemRiskCountry',
     };
 
     if (layerId.startsWith('marketplace-layer-')) {
@@ -4609,7 +4786,26 @@ export class DeckGLMap {
     searchInput.placeholder = 'Search layers';
     searchInput.setAttribute('aria-label', 'Search layers');
     searchWrap.appendChild(searchInput);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'map-tray-search-clear';
+    clearBtn.type = 'button';
+    clearBtn.innerHTML = '&times;';
+    clearBtn.setAttribute('aria-label', 'Clear search');
+    clearBtn.style.display = 'none';
+    searchWrap.appendChild(clearBtn);
     layersPanel.appendChild(searchWrap);
+
+    const filterCount = document.createElement('div');
+    filterCount.className = 'map-tray-filter-count';
+    filterCount.style.display = 'none';
+    layersPanel.appendChild(filterCount);
+
+    clearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      searchInput.dispatchEvent(new Event('input'));
+      searchInput.focus();
+    });
 
     // Build layer list
     const list = document.createElement('div');
@@ -4625,6 +4821,7 @@ export class DeckGLMap {
       const toggle = document.createElement('label');
       toggle.className = `layer-toggle${isLocked ? ' layer-toggle-locked' : ''}`;
       toggle.dataset.layer = key;
+      toggle.dataset.layerName = label;
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
@@ -4703,30 +4900,7 @@ export class DeckGLMap {
     };
 
     const applyLayerFilter = () => {
-      const query = searchInput.value.trim().toLowerCase();
-      let visibleCount = 0;
-      let visibleCustomCount = 0;
-      let visibleMarketplaceCount = 0;
-
-      list.querySelectorAll<HTMLElement>('.layer-toggle').forEach((toggle) => {
-        const labelText = toggle.querySelector('.toggle-label')?.textContent?.toLowerCase() ?? '';
-        const matches = !query || labelText.includes(query);
-        toggle.style.display = matches ? '' : 'none';
-        if (matches) {
-          visibleCount += 1;
-          if (toggle.classList.contains('custom-category-item')) visibleCustomCount += 1;
-          if (toggle.classList.contains('marketplace-layer-item')) visibleMarketplaceCount += 1;
-        }
-      });
-
-      list.querySelectorAll<HTMLElement>('.custom-category-divider').forEach((divider) => {
-        divider.style.display = visibleCustomCount > 0 ? '' : 'none';
-      });
-      list.querySelectorAll<HTMLElement>('.marketplace-layer-divider').forEach((divider) => {
-        divider.style.display = visibleMarketplaceCount > 0 ? '' : 'none';
-      });
-
-      noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+      this.applyLayerTrayFilter(layersPanel);
     };
 
     searchInput.addEventListener('input', () => {
@@ -4782,17 +4956,56 @@ export class DeckGLMap {
     const list = layersPanel.querySelector<HTMLElement>('.toggle-list');
     const searchInput = layersPanel.querySelector<HTMLInputElement>('.map-tray-search-input');
     const noResults = layersPanel.querySelector<HTMLElement>('.map-tray-empty');
+    const filterCount = layersPanel.querySelector<HTMLElement>('.map-tray-filter-count');
+    const clearBtn = layersPanel.querySelector<HTMLButtonElement>('.map-tray-search-clear');
     if (!list || !searchInput || !noResults) return;
 
     const query = searchInput.value.trim().toLowerCase();
+    const totalToggles = list.querySelectorAll<HTMLElement>('.layer-toggle').length;
     let visibleCount = 0;
     let visibleCustomCount = 0;
     let visibleMarketplaceCount = 0;
 
     list.querySelectorAll<HTMLElement>('.layer-toggle').forEach((toggle) => {
-      const labelText = toggle.querySelector('.toggle-label')?.textContent?.toLowerCase() ?? '';
+      const layerName = toggle.dataset.layerName || toggle.querySelector('.toggle-label')?.textContent || '';
+      const labelText = layerName.toLowerCase();
       const matches = !query || labelText.includes(query);
       toggle.style.display = matches ? '' : 'none';
+
+      const labelSpan = toggle.querySelector<HTMLElement>('.toggle-label');
+      if (labelSpan && toggle.dataset.layerName) {
+        const hasProBadge = labelSpan.querySelector('.layer-pro-badge') !== null;
+        const isLocked = toggle.classList.contains('layer-toggle-locked');
+        const cleanName = toggle.dataset.layerName;
+
+        labelSpan.innerHTML = '';
+        if (matches && query) {
+          const idx = cleanName.toLowerCase().indexOf(query);
+          if (idx >= 0) {
+            const before = cleanName.slice(0, idx);
+            const matchText = cleanName.slice(idx, idx + query.length);
+            const after = cleanName.slice(idx + query.length);
+            if (before) labelSpan.appendChild(document.createTextNode(before));
+            const mark = document.createElement('mark');
+            mark.className = 'search-highlight';
+            mark.textContent = matchText;
+            labelSpan.appendChild(mark);
+            if (after) labelSpan.appendChild(document.createTextNode(after));
+            if (isLocked) labelSpan.appendChild(document.createTextNode(' 🔒'));
+          }
+        } else {
+          labelSpan.appendChild(document.createTextNode(cleanName));
+          if (isLocked) labelSpan.appendChild(document.createTextNode(' 🔒'));
+        }
+
+        if (hasProBadge) {
+          const badge = document.createElement('span');
+          badge.className = 'layer-pro-badge';
+          badge.textContent = 'PRO';
+          labelSpan.appendChild(badge);
+        }
+      }
+
       if (matches) {
         visibleCount += 1;
         if (toggle.classList.contains('custom-category-item')) visibleCustomCount += 1;
@@ -4808,6 +5021,19 @@ export class DeckGLMap {
     });
 
     noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+
+    if (filterCount) {
+      if (query && totalToggles > 0) {
+        filterCount.textContent = `Showing ${visibleCount} of ${totalToggles} layers`;
+        filterCount.style.display = 'block';
+      } else {
+        filterCount.style.display = 'none';
+      }
+    }
+
+    if (clearBtn) {
+      clearBtn.style.display = query ? '' : 'none';
+    }
   }
 
   /** Render custom category items into the toggle list */
@@ -4831,6 +5057,7 @@ export class DeckGLMap {
       const item = document.createElement('div');
       item.className = 'custom-category-item layer-toggle';
       item.dataset.catId = cat.id;
+      item.dataset.layerName = cat.name;
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
@@ -4924,6 +5151,7 @@ export class DeckGLMap {
       const item = document.createElement('label');
       item.className = 'layer-toggle marketplace-layer-item';
       item.dataset.marketplaceLayer = layer.itemId;
+      item.dataset.layerName = layer.name;
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
@@ -6017,6 +6245,24 @@ export class DeckGLMap {
     this.governanceScoresMap = new Map(scores.map(s => [s.code, { index: s.index, level: s.level }]));
     this.governanceScoresVersion++;
     this.render('governanceChoropleth');
+  }
+
+  public setSanctionsCountries(countries: Map<string, 'severe' | 'high' | 'moderate'>): void {
+    this.sanctionsCountriesMap = countries;
+    this.sanctionsVersion++;
+    this.render('sanctions');
+  }
+
+  public setDemocracyScores(scores: Array<{ code: string; score: number; regimeType: string }>): void {
+    this.democracyScoresMap = new Map(scores.map(s => [s.code, { score: s.score, regimeType: s.regimeType }]));
+    this.democracyVersion++;
+    this.render('democracy');
+  }
+
+  public setGemRiskScores(scores: Array<{ code: string; compositeRisk: number; rank: number }>): void {
+    this.gemRiskScoresMap = new Map(scores.map(s => [s.code, { compositeRisk: s.compositeRisk, rank: s.rank }]));
+    this.gemRiskVersion++;
+    this.render('gemRisk');
   }
 
   public setSpeciesRecoveryZones(species: SpeciesRecovery[]): void {

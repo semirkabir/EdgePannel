@@ -273,8 +273,10 @@ export class NewsPanel extends Panel {
     // Create summarize button
     this.summaryBtn = document.createElement('button');
     this.summaryBtn.className = 'panel-summarize-btn';
-    this.summaryBtn.innerHTML = '✨';
-    this.summaryBtn.title = t('components.newsPanel.summarize');
+    this.summaryBtn.type = 'button';
+    this.summaryBtn.innerHTML = '<span class="panel-summarize-icon-wrap" aria-hidden="true">✨</span>';
+    this.summaryBtn.title = 'Generate AI summary';
+    this.summaryBtn.setAttribute('aria-label', 'Generate AI summary');
     this.summaryBtn.addEventListener('click', () => this.handleSummarize());
 
     // Insert before count element (use inherited this.header directly)
@@ -290,6 +292,9 @@ export class NewsPanel extends Panel {
     if (this.isSummarizing || !this.summaryContainer || !this.summaryBtn) return;
     if (this.currentHeadlines.length === 0) return;
 
+    // Clear any previous error state
+    this.clearSummaryButtonError();
+
     // Check cache first (include variant, version, and language)
     const currentLang = getCurrentLanguage();
     const cacheKey = `panel_summary_v3_${SITE_VARIANT}_${this.panelId}_${currentLang}`;
@@ -301,7 +306,7 @@ export class NewsPanel extends Panel {
 
     // Show loading state
     this.isSummarizing = true;
-    this.summaryBtn.innerHTML = '<span class="panel-summarize-spinner"></span>';
+    this.summaryBtn.innerHTML = `<span class="panel-summarize-spinner" aria-hidden="true"></span><span class="panel-summarize-loading-text">${t('components.newsPanel.generatingSummary')}</span>`;
     this.summaryBtn.disabled = true;
     this.summaryContainer.style.display = 'block';
     this.summaryContainer.innerHTML = `<div class="panel-summary-loading">${t('components.newsPanel.generatingSummary')}</div>`;
@@ -321,18 +326,35 @@ export class NewsPanel extends Panel {
       } else {
         this.summaryContainer.innerHTML = `<div class="panel-summary-error">${t('components.newsPanel.summaryError')}</div>`;
         setTimeout(() => this.hideSummary(), 3000);
+        this.setSummaryButtonError();
       }
     } catch {
       if (!this.element?.isConnected) return;
       this.summaryContainer.innerHTML = `<div class="panel-summary-error">${t('components.newsPanel.summaryFailed')}</div>`;
       setTimeout(() => this.hideSummary(), 3000);
+      this.setSummaryButtonError();
     } finally {
       this.isSummarizing = false;
       if (this.summaryBtn) {
-        this.summaryBtn.innerHTML = '✨';
         this.summaryBtn.disabled = false;
       }
     }
+  }
+
+  private setSummaryButtonError(): void {
+    if (!this.summaryBtn) return;
+    this.summaryBtn.classList.add('has-error');
+    this.summaryBtn.title = 'Summary failed. Click to retry.';
+    this.summaryBtn.setAttribute('aria-label', 'Summary failed. Click to retry.');
+    this.summaryBtn.innerHTML = '<span class="panel-summarize-icon-wrap" aria-hidden="true">✨</span>';
+  }
+
+  private clearSummaryButtonError(): void {
+    if (!this.summaryBtn) return;
+    this.summaryBtn.classList.remove('has-error');
+    this.summaryBtn.title = 'Generate AI summary';
+    this.summaryBtn.setAttribute('aria-label', 'Generate AI summary');
+    this.summaryBtn.innerHTML = '<span class="panel-summarize-icon-wrap" aria-hidden="true">✨</span>';
   }
 
   private async handleTranslate(element: HTMLElement, text: string): Promise<void> {
@@ -401,6 +423,7 @@ export class NewsPanel extends Panel {
       if (this.summaryContainer?.style.display === 'block') {
         this.hideSummary();
       }
+      this.clearSummaryButtonError();
     }
   }
 

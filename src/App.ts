@@ -43,6 +43,10 @@ import { RefreshScheduler } from '@/app/refresh-scheduler';
 import { PanelLayoutManager } from '@/app/panel-layout';
 import { DataLoaderManager } from '@/app/data-loader';
 import { EventHandlerManager } from '@/app/event-handlers';
+import { NewsClusteringPipeline } from '@/app/news-clustering-pipeline';
+import { SignalPublisher } from '@/app/signal-publisher';
+import { DataRenderer } from '@/app/data-renderer';
+import { createEventBus, createNewsStore, createIntelligenceStore, createUIStore, createMapStore } from '@/app/index';
 import { resolveUserRegion, resolvePreciseUserCoordinates, type PreciseCoordinates } from '@/utils/user-location';
 import { MarketplaceManager } from '@/app/marketplace-manager';
 
@@ -58,6 +62,9 @@ export class App {
 
   private panelLayout: PanelLayoutManager;
   private dataLoader: DataLoaderManager;
+  private newsPipeline: NewsClusteringPipeline;
+  private signalPublisher: SignalPublisher;
+  private dataRenderer: DataRenderer;
   private eventHandlers: EventHandlerManager;
   private searchManager: SearchManager;
   private countryIntel: CountryIntelManager;
@@ -345,6 +352,13 @@ export class App {
 
     const disabledSources = new Set(loadFromStorage<string[]>(STORAGE_KEYS.disabledFeeds, []));
 
+    // Create modular state slices (P1)
+    const eventBus = createEventBus();
+    const newsStore = createNewsStore(eventBus);
+    const intelligenceStore = createIntelligenceStore(eventBus);
+    const uiStore = createUIStore(eventBus);
+    const mapStore = createMapStore(eventBus);
+
     // Build shared state object
     this.state = {
       map: null,
@@ -400,6 +414,11 @@ export class App {
       initialUrlState,
       PANEL_ORDER_KEY,
       PANEL_SPANS_KEY,
+      eventBus,
+      newsStore,
+      intelligenceStore,
+      uiStore,
+      mapStore,
     };
 
     // Instantiate modules (callbacks wired after all modules exist)
@@ -408,9 +427,52 @@ export class App {
     this.entityIntel = new EntityIntelManager(this.state);
     this.desktopUpdater = new DesktopUpdater(this.state);
 
+    // Create the new modular pipeline
+    this.newsPipeline = new NewsClusteringPipeline(this.state, {
+      callPanel: (key, method, ...args) => {
+        const panel = this.state.panels[key];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const obj = panel as any;
+        if (obj && typeof obj[method] === 'function') obj[method](...args);
+      },
+      flashMapForNews: (items) => this.dataLoader.flashMapForNews(items),
+      updateSearchIndex: () => this.searchManager.updateSearchIndex(),
+      refreshCiiAndBrief: () => this.countryIntel.refreshOpenBrief(),
+      tryFetchDigest: () => this.dataLoader.tryFetchDigest(),
+    });
+
+    this.signalPublisher = new SignalPublisher(this.state, {
+      callPanel: (key, method, ...args) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const obj = this.state.panels[key] as any;
+        if (obj && typeof obj[method] === 'function') obj[method](...args);
+      },
+      refreshOpenCountryBrief: () => this.countryIntel.refreshOpenBrief(),
+      renderCriticalBanner: (postures) => this.panelLayout.renderCriticalBanner(postures as import('@/services/military-surge').TheaterPostureSummary[]),
+      updateSearchIndex: () => this.searchManager.updateSearchIndex(),
+      markIntelligenceSourceFetched: (source) => this.dataLoader.markIntelligenceSourceFetched(source),
+      refreshCiiAndBrief: () => this.countryIntel.refreshOpenBrief(),
+      shouldFetchIntelligenceSource: (source, isStatic) => this.dataLoader.shouldFetchIntelligenceSource(source, isStatic),
+    });
+
+    this.dataRenderer = new DataRenderer(this.state, {
+      callPanel: (key, method, ...args) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const obj = this.state.panels[key] as any;
+        if (obj && typeof obj[method] === 'function') obj[method](...args);
+      },
+      publishSupplementalSignals: (opts) => this.signalPublisher.publishSupplementalSignals(opts),
+      clearSupplementalSignals: (sourceId, dataSourceId, error) => this.signalPublisher.clearSupplementalSignals(sourceId, dataSourceId, error),
+      refreshCiiAndBrief: () => this.countryIntel.refreshOpenBrief(),
+      updateSearchIndex: () => this.searchManager.updateSearchIndex(),
+    });
+
     this.dataLoader = new DataLoaderManager(this.state, {
       renderCriticalBanner: (postures) => this.panelLayout.renderCriticalBanner(postures),
       refreshOpenCountryBrief: () => this.countryIntel.refreshOpenBrief(),
+      newsPipeline: this.newsPipeline,
+      signalPublisher: this.signalPublisher,
+      dataRenderer: this.dataRenderer,
     });
 
     this.searchManager = new SearchManager(this.state, {
@@ -458,6 +520,9 @@ export class App {
       this.entityIntel,
       this.marketplace,
       this.searchManager,
+      this.dataRenderer,
+      this.signalPublisher,
+      this.newsPipeline,
       this.dataLoader,
       this.refreshScheduler,
       this.eventHandlers,

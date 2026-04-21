@@ -1147,9 +1147,24 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
   scroll-behavior: smooth;
-  /* Fade both edges so overflow is always hinted */
+  scroll-snap-type: x mandatory;
   mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
   -webkit-mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+}
+
+.cdp-tabs-wrap--start .cdp-tabs {
+  mask-image: linear-gradient(to right, black 0, black calc(100% - 12px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 12px), transparent 100%);
+}
+
+.cdp-tabs-wrap--end .cdp-tabs {
+  mask-image: linear-gradient(to right, transparent 0, black 12px, black 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 12px, black 100%);
+}
+
+.cdp-tabs-wrap--start.cdp-tabs-wrap--end .cdp-tabs {
+  mask-image: none;
+  -webkit-mask-image: none;
 }
 
 .cdp-tabs::-webkit-scrollbar {
@@ -1162,7 +1177,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  width: 44px;
+  min-height: 44px;
   border: none;
   background: transparent;
   color: var(--text-muted);
@@ -1214,6 +1230,7 @@
   text-align: center;
   position: relative;
   transition: color 0.15s ease, background 0.15s ease;
+  scroll-snap-align: start;
 }
 
 .cdp-tab::after {

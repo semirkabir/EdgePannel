@@ -100,11 +100,22 @@ function getCountryName(code: string): string {
   return getCountryNameByCode(code) || code;
 }
 
-class SignalAggregator {
+import type { ManagedService } from './managed-service';
+
+class SignalAggregator implements ManagedService {
   private signals: GeoSignal[] = [];
   private readonly WINDOW_MS = 24 * 60 * 60 * 1000;
-  // Tracks which source event type each temporal anomaly signal came from
   private temporalSourceMap = new WeakMap<GeoSignal, string>();
+
+  init(): void {
+    this.signals = [];
+    this.temporalSourceMap = new WeakMap();
+  }
+
+  destroy(): void {
+    this.signals = [];
+    this.temporalSourceMap = new WeakMap();
+  }
 
   private clearSignalType(type: SignalType): void {
     this.signals = this.signals.filter(s => s.type !== type);

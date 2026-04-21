@@ -189,7 +189,6 @@ const allLayersEnabled: MapLayers = {
   aptGroups: false,
   gemRisk: false,
   democracy: false,
-  socialProgress: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -246,7 +245,6 @@ const allLayersDisabled: MapLayers = {
   aptGroups: false,
   gemRisk: false,
   democracy: false,
-  socialProgress: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: Array<{

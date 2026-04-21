@@ -343,6 +343,9 @@ export function saveChannelsToStorage(channels: LiveChannel[]): void {
   saveToStorage(STORAGE_KEYS.liveChannels, { order, custom, displayNameOverrides });
 }
 
+type PlayerState = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
+type PlayerBackend = 'youtube' | 'hls' | 'embed' | null;
+
 export class LiveNewsPanel extends Panel {
   private static apiPromise: Promise<void> | null = null;
   private channels: LiveChannel[] = [];
@@ -364,6 +367,13 @@ export class LiveNewsPanel extends Panel {
   private idleDetectionEnabled = false;
   private alwaysOn = getLiveStreamsAlwaysOn();
   private unsubscribeStreamSettings: (() => void) | null = null;
+
+  // Unified player state
+  private playerState: PlayerState = 'idle';
+  private currentBackend: PlayerBackend = null;
+  private playerStateMessage = '';
+  private playerShellEl: HTMLDivElement | null = null;
+  private backendBadgeEl: HTMLDivElement | null = null;
 
   // YouTube Player API state
   private player: YouTubePlayer | null = null;
@@ -444,6 +454,81 @@ export class LiveNewsPanel extends Panel {
     container.appendChild(playBtn);
     container.addEventListener('click', () => this.triggerInit());
     this.content.appendChild(container);
+  }
+
+  // Unified player state management
+  private setPlayerState(state: PlayerState, message?: string): void {
+    this.playerState = state;
+    this.playerStateMessage = message || '';
+    this.renderPlayerShell();
+  }
+
+  private renderPlayerShell(): void {
+    if (!this.playerShellEl) {
+      this.playerShellEl = document.createElement('div');
+      this.playerShellEl.className = 'live-news-player-shell';
+      this.playerShellEl.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--panel-bg);z-index:2;transition:opacity 0.2s ease;';
+    }
+
+    const show = this.playerState === 'loading' || this.playerState === 'error';
+    this.playerShellEl.style.opacity = show ? '1' : '0';
+    this.playerShellEl.style.pointerEvents = show ? 'auto' : 'none';
+
+    if (!show) return;
+
+    if (this.playerState === 'loading') {
+      const channelName = this.getChannelDisplayName(this.activeChannel);
+      const backendLabel = this.currentBackend ? `(${this.currentBackend.toUpperCase()})` : '';
+      this.playerShellEl.innerHTML = `
+        <div class="live-news-shell-spinner"></div>
+        <div class="live-news-shell-text">${t('components.liveNews.loadingChannel', { name: escapeHtml(channelName) })} ${backendLabel}</div>
+      `;
+    } else if (this.playerState === 'error') {
+      const msg = this.playerStateMessage || t('components.liveNews.playerError');
+      this.playerShellEl.innerHTML = `
+        <div class="live-news-shell-error-icon">⚠</div>
+        <div class="live-news-shell-error-title">${t('components.liveNews.failedToLoad')}</div>
+        <div class="live-news-shell-error-msg">${escapeHtml(msg)}</div>
+        <button class="live-news-shell-retry offline-retry">${t('common.retry')}</button>
+      `;
+      const retryBtn = this.playerShellEl.querySelector('.live-news-shell-retry');
+      retryBtn?.addEventListener('click', () => {
+        this.setPlayerState('loading');
+        void this.initializePlayer();
+      });
+    }
+
+    // Ensure shell is in the player container
+    if (this.playerContainer && !this.playerContainer.contains(this.playerShellEl)) {
+      this.playerContainer.appendChild(this.playerShellEl);
+    }
+  }
+
+  private updateBackendBadge(backend: PlayerBackend): void {
+    this.currentBackend = backend;
+    if (!this.backendBadgeEl) {
+      this.backendBadgeEl = document.createElement('div');
+      this.backendBadgeEl.className = 'live-news-backend-badge';
+      this.backendBadgeEl.style.cssText = 'position:absolute;top:8px;right:8px;z-index:3;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;text-transform:uppercase;pointer-events:none;transition:background 0.2s,color 0.2s;';
+    }
+    if (!backend) {
+      this.backendBadgeEl.style.display = 'none';
+      return;
+    }
+    this.backendBadgeEl.style.display = 'block';
+    this.backendBadgeEl.textContent = backend;
+    const colorMap: Record<string, { bg: string; text: string }> = {
+      youtube: { bg: 'rgba(255,0,0,0.15)', text: '#ff4444' },
+      hls: { bg: 'rgba(0,150,255,0.15)', text: '#44aaff' },
+      embed: { bg: 'rgba(100,100,100,0.15)', text: '#aaaaaa' },
+    };
+    const colors = colorMap[backend] ?? colorMap.embed;
+    this.backendBadgeEl.style.background = colors!.bg;
+    this.backendBadgeEl.style.color = colors!.text;
+
+    if (this.playerContainer && !this.playerContainer.contains(this.backendBadgeEl)) {
+      this.playerContainer.appendChild(this.backendBadgeEl);
+    }
   }
 
   private setupLazyInit(): void {
@@ -1389,29 +1474,38 @@ export class LiveNewsPanel extends Panel {
   private async initializePlayer(): Promise<void> {
     if (!this.useDesktopEmbedProxy && !this.nativeVideoElement && this.player) return;
 
+    this.setPlayerState('loading');
     const useFallbackVideo = this.activeChannel.useFallbackOnly || this.forceFallbackVideoForNextInit;
     this.forceFallbackVideoForNextInit = false;
-    await this.resolveChannelVideo(this.activeChannel, useFallbackVideo);
-    if (!this.element?.isConnected) return;
 
-    if (this.getDirectHlsUrl(this.activeChannel.id) || this.getProxiedHlsUrl(this.activeChannel.id)) {
-      this.renderNativeHlsPlayer();
-      return;
-    }
+    try {
+      await this.resolveChannelVideo(this.activeChannel, useFallbackVideo);
+      if (!this.element?.isConnected) return;
 
-    if (!this.activeChannel.videoId || !/^[\w-]{10,12}$/.test(this.activeChannel.videoId)) {
-      this.showOfflineMessage(this.activeChannel);
-      return;
-    }
+      if (this.getDirectHlsUrl(this.activeChannel.id) || this.getProxiedHlsUrl(this.activeChannel.id)) {
+        this.updateBackendBadge('hls');
+        this.renderNativeHlsPlayer();
+        this.setPlayerState('playing');
+        return;
+      }
 
-    if (this.useDesktopEmbedProxy) {
-      this.renderDesktopEmbed(true);
-      return;
-    }
+      if (!this.activeChannel.videoId || !/[\w-]{10,12}/.test(this.activeChannel.videoId)) {
+        this.showOfflineMessage(this.activeChannel);
+        this.setPlayerState('error', 'Invalid video ID');
+        return;
+      }
 
-    await LiveNewsPanel.loadYouTubeApi();
-    if (!this.element?.isConnected) return;
-    if (this.player || !this.playerElement || !window.YT?.Player) return;
+      if (this.useDesktopEmbedProxy) {
+        this.updateBackendBadge('embed');
+        this.renderDesktopEmbed(true);
+        this.setPlayerState('playing');
+        return;
+      }
+
+      this.updateBackendBadge('youtube');
+      await LiveNewsPanel.loadYouTubeApi();
+      if (!this.element?.isConnected) return;
+      if (this.player || !this.playerElement || !window.YT?.Player) return;
 
     this.player = new window.YT!.Player(this.playerElement, {
       host: 'https://www.youtube.com',
@@ -1438,6 +1532,7 @@ export class LiveNewsPanel extends Panel {
           if (iframe) iframe.referrerPolicy = 'strict-origin-when-cross-origin';
           const quality = getStreamQuality();
           if (quality !== 'auto') this.player?.setPlaybackQuality?.(quality);
+          this.setPlayerState('playing');
           this.syncPlayerState();
           this.startMuteSyncPolling();
         },
@@ -1464,16 +1559,22 @@ export class LiveNewsPanel extends Panel {
             this.destroyPlayer();
             this.ensurePlayerContainer();
             this.renderDesktopEmbed(true);
+            this.setPlayerState('playing');
             return;
           }
 
           this.destroyPlayer();
+          this.setPlayerState('error', `YouTube error ${errorCode}`);
           this.showEmbedError(this.activeChannel, errorCode);
         },
       },
     });
 
     this.startBotCheckTimeout();
+    } catch (err) {
+      this.setPlayerState('error', String(err));
+      console.error('[LiveNews] Player initialization failed:', err);
+    }
   }
 
   private startBotCheckTimeout(): void {

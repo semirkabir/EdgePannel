@@ -690,3 +690,23 @@ export function unsuppressTrendingTerm(term: string): TrendingConfig {
 export function getTrackedTermCount(): number {
   return termFrequency.size;
 }
+
+export function init(): void {
+  termFrequency.clear();
+  seenHeadlines.clear();
+  pendingSignals.length = 0;
+  activeSpikeTerms.clear();
+  autoSummaryRuns.length = 0;
+  cachedConfig = null;
+  lastBaselineRefreshMs = 0;
+}
+
+export function destroy(): void {
+  termFrequency.clear();
+  seenHeadlines.clear();
+  pendingSignals.length = 0;
+  activeSpikeTerms.clear();
+  autoSummaryRuns.length = 0;
+  cachedConfig = null;
+  lastBaselineRefreshMs = 0;
+}

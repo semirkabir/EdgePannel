@@ -53,18 +53,42 @@ make breaking   # Check proto breaking changes
 
 **World Monitor** is a real-time intelligence dashboard built with **Preact + TypeScript + Vite**, with desktop support via **Tauri**.
 
+### Modular Design (Updated)
+
+The codebase uses a **modular manager architecture** with clear ownership boundaries:
+
+#### State Slices (`src/app/stores/`)
+- **NewsStore** — `allNews`, `newsByCategory`, `happyAllItems`. Single writer, emits `news:*` events.
+- **IntelligenceStore** — `latestMarkets`, `latestPredictions`, `latestClusters`, `cyberThreatsCache`, `cache`. Emits `intelligence:*` events.
+- **UIStore** — `panelSettings`, `mapLayers`, `currentTimeRange`, `isIdle`, `isPlaybackMode`, `disabledSources`, `inFlight`. Emits `ui:*` events.
+- **MapStore** — `map` container reference, `initialUrlState`. Emits `map:initialized`.
+
+#### Communication
+- **EventBus** (`src/app/event-bus.ts`) — lightweight pub/sub with `on/once/off/emit`, error isolation, unsubscribe returns. All stores use it for change notification.
+- **Panel interfaces** (`src/app/panel-interfaces.ts`) — 16 renderable interfaces replacing 56+ type-casts. Renderers look up by interface, not string key.
+
+#### Data Loading (Split from monolithic DataLoaderManager)
+- **DataLoaderManager** (`src/app/data-loader.ts`, 759 lines) — fetch orchestration, task scheduling, circuit breakers, staleness tracking, consumer gating. Delegates to the 3 specialized modules below.
+- **NewsClusteringPipeline** (`src/app/news-clustering-pipeline.ts`, 686 lines) — news loading, Jaccard clustering, categorization, happy-variant pipeline, time-range filtering
+- **SignalPublisher** (`src/app/signal-publisher.ts`, 1091 lines) — supplemental bus publishing, CII refresh, intelligence signal aggregation, military/protest/outage loading
+- **DataRenderer** (`src/app/data-renderer.ts`, 761 lines) — panel rendering calls via interface-based dispatch, market/prediction/economic data loading
+
+#### Service Layer
+- **ManagedService interface** (`src/services/managed-service.ts`) — all singleton services implement `init()/destroy()`. `ManagedServiceRegistry` manages lifecycle.
+- **Economic service** decomposed into `fred.ts`, `eia.ts`, `worldbank.ts`, `bis.ts` with barrel re-export for backward compat.
+
 ### Variant System
-Five variants are built from a single codebase: `full`, `tech`, `finance`, `happy`, `commodity`. Selected at build time via `VITE_VARIANT` env var. Each variant has its own feeds, map layers, panel layouts, and geo points of interest. CSS uses `[data-variant]` selectors for runtime theming.
+Five variants are built from a single codebase: `full`, `tech`, `finance`, `happy`, `commodity`. `SITE_VARIANT` is injected at build time via Vite `define`, enabling tree-shaking of dead variant code. Runtime hostname detection still works for web builds. CSS uses `[data-variant]` selectors for theming.
 
 ### Module Lifecycle
-All major components implement `{ init(), destroy() }` via the `AppModule` interface. Central `AppContext` (in `src/app/app-context.ts`) holds all managers and shared state — this is the main coordination point, not a Redux-style store.
+All major components implement `{ init(), destroy() }` via the `AppModule` interface. Central `AppContext` (in `src/app/app-context.ts`) holds all managers, stores, and shared state.
 
 ### Data Flow
-1. **DataLoaderManager** (`src/app/data-loader.ts`) orchestrates parallel fetches from 17 domain services in `src/services/`
-2. **analysis-core.ts** performs pure signal detection (clustering, sentiment, velocity)
-3. **AnalysisWorker** (`src/workers/ml.worker.ts`) offloads heavy computation (ONNX inference) to a Web Worker
-4. **RefreshScheduler** (`src/app/refresh-scheduler.ts`) manages smart polling with exponential backoff, pauses on tab hidden
-5. Results flow into AppContext, triggering component re-renders
+1. **DataLoaderManager** orchestrates parallel fetches from 17+ domain services
+2. **NewsClusteringPipeline** handles news loading, clustering, categorization
+3. **SignalPublisher** manages supplemental bus, CII refresh, intelligence aggregation
+4. **DataRenderer** dispatches data to panels via interface contracts
+5. Stores emit events on change — subscribers react automatically (no manual callback wiring)
 6. User interactions go through **EventHandlerManager** (`src/app/event-handlers.ts`)
 
 ### Maps
@@ -74,7 +98,8 @@ Dual map engine: **globe.gl** (3D globe + Three.js) and **deck.gl** (2D WebGL fl
 Proto-first design with 138 `.proto` files across 22 services. Code generation via sebuf produces TypeScript clients in `src/generated/`. Firebase auth middleware in `src/services/api-auth-fetch.ts` attaches ID tokens to `/api/` requests.
 
 ### Key Directories
-- `src/app/` — Application managers (state coordination layer)
+- `src/app/` — Application managers and state stores (state coordination layer)
+- `src/app/stores/` — Owned state slices (news, intelligence, UI, map)
 - `src/components/` — Preact UI components (60+ panels)
 - `src/services/` — Domain services organized by topic (aviation, climate, conflict, cyber, maritime, military, news, etc.)
 - `src/config/` — Static configs, feed definitions, geo data, panel layouts (tree-shaken per variant)
@@ -84,7 +109,7 @@ Proto-first design with 138 `.proto` files across 22 services. Code generation v
 - `src/styles/` — CSS with variant-specific themes
 
 ### Intelligence Systems
-- **News Clustering:** Jaccard similarity on tokenized titles (threshold 0.4) in analysis-core.ts
+- **News Clustering:** Jaccard similarity on tokenized titles (threshold 0.4)
 - **Threat Classification:** Fast keyword classifier with async ML override
 - **CII (Country Instability Index):** 5-tier composite score from multiple signal sources
 - **Headline Memory:** Client-side ONNX embeddings stored in IndexedDB
@@ -94,6 +119,7 @@ Proto-first design with 138 `.proto` files across 22 services. Code generation v
 - Circuit breaker pattern for failed service calls
 - Brotli pre-compression for static assets
 - Bundle size budgets enforced in CI
+- Variant tree-shaking eliminates dead code at build time
 
 ## Tech Stack
 

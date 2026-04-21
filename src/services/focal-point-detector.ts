@@ -8,6 +8,7 @@
  * = CRITICAL focal point with rich narrative for AI
  */
 
+import type { ManagedService } from './managed-service';
 import type { ClusteredEvent, FocalPoint, FocalPointSummary, EntityMention } from '@/types';
 import type { SignalSummary, CountrySignalCluster, SignalType } from './signal-aggregator';
 import { extractEntitiesFromClusters, type NewsEntityContext } from './entity-extraction';
@@ -37,8 +38,16 @@ const SIGNAL_TYPE_ICONS: Record<SignalType, string> = {
   supplemental: '🧩',
 };
 
-class FocalPointDetector {
+class FocalPointDetector implements ManagedService {
   private lastSummary: FocalPointSummary | null = null;
+
+  init(): void {
+    this.lastSummary = null;
+  }
+
+  destroy(): void {
+    this.lastSummary = null;
+  }
 
   /**
    * Check if entity name/alias appears in headline title (case-insensitive)

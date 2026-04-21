@@ -388,6 +388,13 @@ class MLWorkerManager {
   }
 
   /**
+   * ManagedService destroy alias
+   */
+  destroy(): void {
+    this.cleanup();
+  }
+
+  /**
    * Check if ML features are available
    */
   get isAvailable(): boolean {

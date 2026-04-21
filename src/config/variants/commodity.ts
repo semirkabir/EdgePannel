@@ -115,7 +115,6 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   governanceChoropleth: false,
   gemRisk: false,
   democracy: false,
-  socialProgress: false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -178,7 +177,6 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   governanceChoropleth: false,
   gemRisk: false,
   democracy: false,
-  socialProgress: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

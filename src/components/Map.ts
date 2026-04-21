@@ -45,6 +45,10 @@ import {
   FINANCIAL_CENTERS,
   CENTRAL_BANKS,
   COMMODITY_HUBS,
+  GULF_INVESTMENTS,
+  MINING_SITES,
+  PROCESSING_PLANTS,
+  COMMODITY_PORTS,
 } from '@/config';
 import { tokenizeForMatch, matchKeyword, findMatchingKeywords } from '@/utils/keyword-match';
 import { MapPopup } from './MapPopup';
@@ -387,6 +391,11 @@ export class MapComponent {
       'economic',
       'waterways',
       'ciiChoropleth',
+      'startupHubs', 'techHQs', 'accelerators', 'cloudRegions', 'techEvents',
+      'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments',
+      'positiveEvents', 'kindness', 'happiness', 'speciesRecovery', 'renewableInstallations',
+      'miningSites', 'processingPlants', 'commodityPorts',
+      'democracy', 'gemRisk',
     ];
     const techLayers: (keyof MapLayers)[] = [
       'cables', 'datacenters', 'outages',
@@ -395,7 +404,7 @@ export class MapComponent {
       'economic',
     ];
     const financeLayers: (keyof MapLayers)[] = [
-      'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs',
+      'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments',
       'cables', 'pipelines', 'outages',
       'sanctions', 'economic', 'waterways',
       'natural', 'weather',
@@ -2341,6 +2350,153 @@ export class MapComponent {
           this.popup.show({
             type: 'commodityHub',
             data: hub,
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        });
+
+        this.overlays.appendChild(div);
+      });
+    }
+
+    // Gulf FDI Investments markers
+    if (this.state.layers.gulfInvestments) {
+      GULF_INVESTMENTS.forEach((inv) => {
+        const pos = projection([inv.lon, inv.lat]);
+        if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
+
+        const div = document.createElement('div');
+        div.className = `map-marker gulf-investment-marker type-${inv.sector}`;
+        div.style.left = `${pos[0]}px`;
+        div.style.top = `${pos[1]}px`;
+        div.style.zIndex = '38';
+        div.appendChild(this.createSharedIcon('gulfInvestments', 'map-marker-icon'));
+        const usd = inv.investmentUSD != null
+          ? (inv.investmentUSD >= 1000 ? `$${(inv.investmentUSD / 1000).toFixed(1)}B` : `$${inv.investmentUSD}M`)
+          : 'Undisclosed';
+        div.title = `${inv.assetName} - ${inv.investingEntity} (${usd})`;
+
+        if (this.state.zoom >= 3) {
+          const label = document.createElement('span');
+          label.className = 'map-marker-label';
+          label.textContent = inv.assetName;
+          div.appendChild(label);
+        }
+
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rect = this.container.getBoundingClientRect();
+          this.popup.show({
+            type: 'gulfInvestment',
+            data: inv,
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        });
+
+        this.overlays.appendChild(div);
+      });
+    }
+
+    // Mining Sites markers
+    if (this.state.layers.miningSites) {
+      MINING_SITES.forEach((site) => {
+        const pos = projection([site.lon, site.lat]);
+        if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
+
+        const div = document.createElement('div');
+        div.className = `map-marker mining-site-marker type-${site.mineral}`;
+        div.style.left = `${pos[0]}px`;
+        div.style.top = `${pos[1]}px`;
+        div.style.zIndex = '38';
+        div.appendChild(this.createSharedIcon('miningSites', 'map-marker-icon'));
+        div.title = `${site.name} - ${site.mineral} (${site.country})`;
+
+        if (this.state.zoom >= 3) {
+          const label = document.createElement('span');
+          label.className = 'map-marker-label';
+          label.textContent = site.name;
+          div.appendChild(label);
+        }
+
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rect = this.container.getBoundingClientRect();
+          this.popup.show({
+            type: 'mineral',
+            data: site,
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        });
+
+        this.overlays.appendChild(div);
+      });
+    }
+
+    // Processing Plants markers
+    if (this.state.layers.processingPlants) {
+      PROCESSING_PLANTS.forEach((plant) => {
+        const pos = projection([plant.lon, plant.lat]);
+        if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
+
+        const div = document.createElement('div');
+        div.className = `map-marker processing-plant-marker type-${plant.type}`;
+        div.style.left = `${pos[0]}px`;
+        div.style.top = `${pos[1]}px`;
+        div.style.zIndex = '38';
+        div.appendChild(this.createSharedIcon('processingPlants', 'map-marker-icon'));
+        div.title = `${plant.name} - ${plant.type} (${plant.country})`;
+
+        if (this.state.zoom >= 3) {
+          const label = document.createElement('span');
+          label.className = 'map-marker-label';
+          label.textContent = plant.name;
+          div.appendChild(label);
+        }
+
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rect = this.container.getBoundingClientRect();
+          this.popup.show({
+            type: 'mineral',
+            data: plant,
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        });
+
+        this.overlays.appendChild(div);
+      });
+    }
+
+    // Commodity Ports markers
+    if (this.state.layers.commodityPorts) {
+      COMMODITY_PORTS.forEach((port) => {
+        const pos = projection([port.lon, port.lat]);
+        if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
+
+        const div = document.createElement('div');
+        div.className = `map-marker commodity-port-marker type-${port.commodities?.[0] || 'general'}`;
+        div.style.left = `${pos[0]}px`;
+        div.style.top = `${pos[1]}px`;
+        div.style.zIndex = '38';
+        div.appendChild(this.createSharedIcon('commodityPorts', 'map-marker-icon'));
+        div.title = `${port.name} - ${port.country}`;
+
+        if (this.state.zoom >= 3) {
+          const label = document.createElement('span');
+          label.className = 'map-marker-label';
+          label.textContent = port.name;
+          div.appendChild(label);
+        }
+
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rect = this.container.getBoundingClientRect();
+          this.popup.show({
+            type: 'commodityPort',
+            data: port,
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
           });

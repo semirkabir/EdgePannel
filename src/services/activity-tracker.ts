@@ -3,6 +3,8 @@
  * Tracks new items in panels to show "new" badges and highlights.
  */
 
+import type { ManagedService } from './managed-service';
+
 export interface ActivityState {
   /** IDs of items the user has "seen" (panel was visible or scrolled to) */
   seenIds: Set<string>;
@@ -20,10 +22,18 @@ export const NEW_TAG_DURATION_MS = 2 * 60 * 1000;
 /** Duration for highlight glow effect (30 seconds) */
 export const HIGHLIGHT_DURATION_MS = 30 * 1000;
 
-class ActivityTracker {
+class ActivityTracker implements ManagedService {
   private panels: Map<string, ActivityState> = new Map();
   private observers: Map<string, IntersectionObserver> = new Map();
   private onChangeCallbacks: Map<string, (newCount: number) => void> = new Map();
+
+  init(): void {
+    this.clear();
+  }
+
+  destroy(): void {
+    this.clear();
+  }
 
   /**
    * Initialize tracking for a panel

@@ -26,6 +26,11 @@ import type { SpeciesComebackPanel } from '@/components/SpeciesComebackPanel';
 import type { RenewableEnergyPanel } from '@/components/RenewableEnergyPanel';
 import type { TvModeController } from '@/services/tv-mode';
 import type { MarketplaceManager } from './marketplace-manager';
+import type { AppEventBus } from './event-bus';
+import type { NewsStore } from './stores/news-store';
+import type { IntelligenceStore } from './stores/intelligence-store';
+import type { UIStore } from './stores/ui-store';
+import type { MapStore } from './stores/map-store';
 
 export interface CountryBriefSignals {
   criticalNews: number;
@@ -132,4 +137,11 @@ export interface AppContext {
   initialUrlState: ParsedMapUrlState | null;
   readonly PANEL_ORDER_KEY: string;
   readonly PANEL_SPANS_KEY: string;
+
+  // Modular state slices (P1)
+  eventBus: AppEventBus;
+  newsStore: NewsStore;
+  intelligenceStore: IntelligenceStore;
+  uiStore: UIStore;
+  mapStore: MapStore;
 }

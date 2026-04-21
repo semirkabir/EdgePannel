@@ -2,6 +2,29 @@
 
 All notable changes to World Monitor are documented here.
 
+## [Unreleased]
+
+### Architecture — Modular Refactoring
+
+- **Event Bus** — lightweight pub/sub (`AppEventBus`) replaces direct callback wiring between modules
+- **Owned state slices** — `NewsStore`, `IntelligenceStore`, `UIStore`, `MapStore` each have a single writer and emit events on change
+- **Panel interfaces** — 16 renderable interfaces (`MarketRenderable`, `CryptoRenderable`, etc.) replace 56+ string-key type-casts
+- **DataLoaderManager split** — decomposed into `NewsClusteringPipeline`, `SignalPublisher`, and `DataRenderer` modules with dependency injection
+- **Service decomposition** — `economic/index.ts` (936 lines) split into `fred.ts`, `eia.ts`, `worldbank.ts`, `bis.ts`
+- **ManagedService interface** — 10 singleton services now implement `init()/destroy()` lifecycle with `ManagedServiceRegistry`
+- **Variant tree-shaking** — `SITE_VARIANT` injected at build time via Vite `define`, eliminating dead variant code from bundles
+- **AppContext extended** — now includes `eventBus`, `newsStore`, `intelligenceStore`, `uiStore`, `mapStore` alongside legacy fields for backward compat
+
+### Cleanup
+
+- Removed 8.2 MB temp file (`tmp-marketplace-check.js`)
+- Removed `docs/Docs_To_Review/` (17 draft documentation files)
+- Removed stale plan files, test artifacts, and `.DS_Store` files
+- Removed generic boilerplate docs (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`)
+- Removed 85 PNG visual regression test snapshots
+
+---
+
 ## [2.5.25] - 2026-03-04
 
 ### Changed

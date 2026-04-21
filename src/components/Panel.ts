@@ -354,15 +354,31 @@ export class Panel {
 
     // Add resize handle
     this.resizeHandle = document.createElement('div');
-    this.resizeHandle.className = 'panel-resize-handle';
+    this.resizeHandle.className = 'panel-resize-handle panel-resize-handle-touch';
     this.resizeHandle.title = t('components.panel.dragToResize');
+    this.resizeHandle.setAttribute('aria-label', 'Resize panel');
+
+    const rowGrip = document.createElement('span');
+    rowGrip.className = 'panel-resize-handle-grip';
+    rowGrip.setAttribute('aria-hidden', 'true');
+    rowGrip.textContent = '⋯';
+    this.resizeHandle.appendChild(rowGrip);
+
     this.element.appendChild(this.resizeHandle);
     this.setupResizeHandlers();
 
     // Right-edge handle for width resizing
     this.colResizeHandle = document.createElement('div');
-    this.colResizeHandle.className = 'panel-col-resize-handle';
+    this.colResizeHandle.className = 'panel-col-resize-handle panel-col-resize-handle-touch';
     this.colResizeHandle.title = t('components.panel.dragToResize');
+    this.colResizeHandle.setAttribute('aria-label', 'Resize panel');
+
+    const colGrip = document.createElement('span');
+    colGrip.className = 'panel-col-resize-handle-grip';
+    colGrip.setAttribute('aria-hidden', 'true');
+    colGrip.textContent = '⋮';
+    this.colResizeHandle.appendChild(colGrip);
+
     this.element.appendChild(this.colResizeHandle);
     this.setupColResizeHandlers();
 

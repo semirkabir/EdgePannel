@@ -80,7 +80,7 @@ const def = (
 ): LayerDefinition => ({ key, icon, i18nSuffix, fallbackLabel, renderers, ...(premium && { premium }) });
 
 export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
-  iranAttacks:              def('iranAttacks',              ICONS.target,    'iranAttacks',            'Iran Attacks', [], _desktop ? 'locked' : undefined),
+  iranAttacks:              def('iranAttacks',              ICONS.target,    'iranAttacks',            'Iran Attacks', ['flat', 'globe'], _desktop ? 'locked' : undefined),
   hotspots:                 def('hotspots',                 '<img src="/icons/spy-icon.png" width="16" height="16" style="display:block;object-fit:contain" />', 'intelHotspots', 'Intel Hotspots'),
   conflicts:                def('conflicts',                ICONS.flags,     'conflictZones',          'Conflict Zones'),
   bases:                    def('bases',                    ICONS.fort,      'militaryBases',          'Military Bases'),
@@ -110,7 +110,7 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   ciiChoropleth:            def('ciiChoropleth',            ICONS.globe,     'ciiChoropleth',          'CII Instability', ['flat', 'globe'], _desktop ? 'enhanced' : undefined),
   governanceChoropleth:    def('governanceChoropleth',    ICONS.shield,    'governanceChoropleth',   'Governance Quality', ['flat', 'globe']),
   dayNight:                 def('dayNight',                 ICONS.sunMoon,   'dayNight',               'Day/Night', ['flat']),
-  sanctions:                def('sanctions',                ICONS.ban,       'sanctions',              'Sanctions', []),
+  sanctions:                def('sanctions',                ICONS.ban,       'sanctions',              'Sanctions', ['flat', 'globe']),
   startupHubs:              def('startupHubs',              ICONS.spark,     'startupHubs',            'Startup Hubs'),
   techHQs:                  def('techHQs',                  ICONS.building,  'techHQs',                'Tech HQs'),
   accelerators:             def('accelerators',             ICONS.bolt,      'accelerators',           'Accelerators'),
@@ -132,7 +132,6 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   aptGroups:                def('aptGroups',                ICONS.shield,    'aptGroups',              'APT Groups'),
   gemRisk:                  def('gemRisk',                  ICONS.globe,     'gemRisk',                'Seismic Risk',        ['flat', 'globe']),
   democracy:                def('democracy',                ICONS.building,  'democracy',              'Democracy Index',     ['flat', 'globe']),
-  socialProgress:           def('socialProgress',           ICONS.star,      'socialProgress',         'Social Progress',     ['flat', 'globe']),
 };
 
 // ── Weather category icon/color/label maps ───────────────────────────────────
@@ -204,6 +203,13 @@ export function resolveLayerAccentColor(key: keyof MapLayers, theme: 'light' | '
     case 'processingPlants': return light ? '#525252' : '#d4d4d8';
     case 'commodityPorts': return light ? '#0f766e' : '#5eead4';
     case 'aptGroups': return light ? '#991b1b' : '#f87171';
+    case 'iranAttacks': return light ? '#b91c1c' : '#fb7185';
+    case 'sanctions': return light ? '#dc2626' : '#fca5a5';
+    case 'democracy': return light ? '#1d4ed8' : '#93c5fd';
+    case 'gemRisk': return light ? '#c2410c' : '#fb923c';
+    case 'miningSites': return light ? '#92400e' : '#fdba74';
+    case 'processingPlants': return light ? '#525252' : '#d4d4d8';
+    case 'commodityPorts': return light ? '#0f766e' : '#5eead4';
     case 'conflicts':
     case 'ucdpEvents': return light ? '#b91c1c' : '#f87171';
     case 'bases':
@@ -228,6 +234,11 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'outages', 'cyberThreats', 'aptGroups', 'natural', 'fires',
     'waterways', 'economic', 'minerals', 'gpsJamming',
     'ciiChoropleth', 'governanceChoropleth', 'dayNight',
+    'startupHubs', 'techHQs', 'accelerators', 'cloudRegions', 'techEvents',
+    'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments',
+    'positiveEvents', 'kindness', 'happiness', 'speciesRecovery', 'renewableInstallations',
+    'miningSites', 'processingPlants', 'commodityPorts',
+    'iranAttacks', 'sanctions', 'democracy', 'gemRisk',
   ],
   tech: [
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions',

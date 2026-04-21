@@ -959,10 +959,13 @@ function youtubeLivePlugin(): Plugin {
   };
 }
 
+const buildVariant = process.env.VITE_VARIANT || 'full';
+
 export default defineConfig({
   envPrefix: ['VITE_'],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    SITE_VARIANT: JSON.stringify(buildVariant),
   },
   plugins: [
     htmlVariantPlugin(),

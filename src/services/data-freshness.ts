@@ -126,9 +126,32 @@ const SOURCE_METADATA: Record<DataSourceId, { name: string; requiredForRisk: boo
   webcams: { name: 'Live Webcams (Windy)', requiredForRisk: false, panelId: 'live-webcams' },
 };
 
-class DataFreshnessTracker {
+import type { ManagedService } from './managed-service';
+
+class DataFreshnessTracker implements ManagedService {
   private sources: Map<DataSourceId, DataSourceState> = new Map();
   private listeners: Set<() => void> = new Set();
+
+  init(): void {
+    this.listeners.clear();
+    for (const [id, meta] of Object.entries(SOURCE_METADATA)) {
+      this.sources.set(id as DataSourceId, {
+        id: id as DataSourceId,
+        name: meta.name,
+        lastUpdate: null,
+        lastError: null,
+        itemCount: 0,
+        enabled: true,
+        status: 'no_data',
+        requiredForRisk: meta.requiredForRisk,
+      });
+    }
+  }
+
+  destroy(): void {
+    this.listeners.clear();
+    this.sources.clear();
+  }
 
   constructor() {
     // Initialize all sources

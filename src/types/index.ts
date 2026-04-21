@@ -597,7 +597,6 @@ export interface MapLayers {
   // Democracy & Governance layers (Data360)
   gemRisk: boolean;
   democracy: boolean;
-  socialProgress: boolean;
 }
 
 export interface AIDataCenter {

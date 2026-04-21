@@ -791,18 +791,58 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       bar.scrollBy({ left: 140, behavior: 'smooth' });
     });
 
-    const syncArrows = (): void => {
+    const updateScrollState = (): void => {
       const { scrollLeft, clientWidth, scrollWidth } = bar;
-      arrowLeft.hidden = scrollLeft <= 4;
-      arrowRight.hidden = scrollLeft + clientWidth >= scrollWidth - 4;
+      const atStart = scrollLeft <= 4;
+      const atEnd = scrollLeft + clientWidth >= scrollWidth - 4;
+      arrowLeft.hidden = atStart;
+      arrowRight.hidden = atEnd;
+      wrap.classList.toggle('cdp-tabs-wrap--start', atStart);
+      wrap.classList.toggle('cdp-tabs-wrap--end', atEnd);
     };
 
-    bar.addEventListener('scroll', syncArrows, { passive: true });
+    bar.addEventListener('scroll', updateScrollState, { passive: true });
     // Re-check on resize (e.g. panel width changes)
-    const ro = new ResizeObserver(syncArrows);
+    const ro = new ResizeObserver(updateScrollState);
     ro.observe(bar);
     // Initial state after browser has laid out
-    requestAnimationFrame(syncArrows);
+    requestAnimationFrame(updateScrollState);
+
+    // Touch swipe support
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartScrollLeft = 0;
+    let isSwiping = false;
+
+    bar.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0]!;
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      touchStartScrollLeft = bar.scrollLeft;
+      isSwiping = true;
+    }, { passive: true });
+
+    bar.addEventListener('touchmove', (e) => {
+      if (!isSwiping || e.touches.length !== 1) return;
+      const touch = e.touches[0]!;
+      const dx = touchStartX - touch.clientX;
+      const dy = touchStartY - touch.clientY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 5) {
+        e.preventDefault();
+        bar.scrollLeft = touchStartScrollLeft + dx;
+      }
+    }, { passive: false });
+
+    bar.addEventListener('touchend', (e) => {
+      if (!isSwiping) return;
+      isSwiping = false;
+      const touch = e.changedTouches[0]!;
+      const dx = touchStartX - touch.clientX;
+      if (Math.abs(dx) >= 50) {
+        bar.scrollTo({ left: bar.scrollLeft, behavior: 'smooth' });
+      }
+    }, { passive: true });
 
     wrap.append(arrowLeft, bar, arrowRight);
     return wrap;
