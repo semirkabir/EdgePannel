@@ -269,6 +269,10 @@ export const VARIANT_FEEDS: Record<string, Record<string, ServerFeed[]>> = {
       { name: 'Private Equity', url: gn('("private equity" OR Blackstone OR KKR OR Apollo OR Carlyle) when:3d') },
       { name: 'Sovereign Wealth', url: gn('("sovereign wealth fund" OR "pension fund" OR "institutional investor") when:7d') },
     ],
+    secFilings: [
+      { name: 'SEC 13F Filings', url: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=13F&output=atom&count=100&owner=include' },
+      { name: 'SEC 13F-HR', url: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=13F-HR&output=atom&count=40' },
+    ],
     analysis: [
       { name: 'Market Outlook', url: gn('("market outlook" OR "stock market forecast" OR "bull market" OR "bear market") when:3d') },
       { name: 'Risk & Volatility', url: gn('(VIX OR "market volatility" OR "risk off" OR "market correction") when:3d') },

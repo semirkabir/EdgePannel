@@ -36,6 +36,8 @@ import { AircraftRenderer } from '@/components/entity-detail/renderers/aircraft'
 import { SpaceportRenderer } from '@/components/entity-detail/renderers/spaceport';
 import { CompanyRenderer } from '@/components/entity-detail/renderers/company';
 import { CryptoRenderer } from '@/components/entity-detail/renderers/crypto';
+import { CongressPoliticianRenderer } from '@/components/entity-detail/renderers/congress-politician';
+import { InstitutionRenderer } from '@/components/entity-detail/renderers/institution';
 import { WeatherAlertRenderer } from '@/components/entity-detail/renderers/weather';
 import { APTGroupRenderer } from '@/components/entity-detail/renderers/apt';
 import { PredictionMarketRenderer } from '@/components/entity-detail/renderers/prediction-market';
@@ -152,6 +154,8 @@ export class EntityIntelManager implements AppModule {
       spaceport: new SpaceportRenderer(),
       company: new CompanyRenderer(),
       crypto: new CryptoRenderer(),
+      congressPolitician: new CongressPoliticianRenderer(),
+      institution: new InstitutionRenderer(),
       weather: new WeatherAlertRenderer(),
       apt: new APTGroupRenderer(),
       predictionMarket: new PredictionMarketRenderer(),

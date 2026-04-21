@@ -592,7 +592,7 @@ export class DeckGLMap {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
       this.maplibreMap.resize();
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
-      this.maplibreMap.triggerRepaint();
+    this.maplibreMap?.triggerRepaint();
     }, 150);
     this.debouncedFetchBases = debounce(() => this.fetchServerBases(), 300);
     this.debouncedFetchAircraft = debounce(() => this.fetchViewportAircraft(), 500);
@@ -5539,8 +5539,10 @@ export class DeckGLMap {
     }
 
     if (activeLayerDefs.length === 0 && activeMarketplaceLayers.length === 0) {
-      itemsRoot.innerHTML = '<span class="legend-item"><span class="legend-label">No active layers</span></span>';
+      itemsRoot.style.display = 'none';
+      itemsRoot.innerHTML = '';
     } else {
+      itemsRoot.style.display = '';
       itemsRoot.innerHTML = activeLayerDefs
         .flatMap((def) => {
           // Expand weather layer into per-category entries based on active alerts
@@ -5627,8 +5629,8 @@ export class DeckGLMap {
     }
   }
 
-  private updateLayers(): void {
-    if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
+  private updateLayers(force = false): void {
+    if (!force && (this.renderPaused || this.webglLost || !this.maplibreMap)) return;
     this.manageCableFlowAnimation(this.state.layers.cables);
     const startTime = performance.now();
     const dirty = this.dirtyLayers.size > 0 ? new Set(this.dirtyLayers) : undefined;
@@ -5636,7 +5638,7 @@ export class DeckGLMap {
     try {
       this.deckOverlay?.setProps({ layers: this.buildLayers(dirty) });
     } catch { /* map may be mid-teardown (null.getProjection) */ }
-    this.maplibreMap.triggerRepaint();
+    this.maplibreMap?.triggerRepaint();
     const elapsed = performance.now() - startTime;
     if (import.meta.env.DEV && elapsed > 16) {
       console.warn(`[DeckGLMap] updateLayers took ${elapsed.toFixed(2)}ms (>16ms budget), dirty=${dirty ? [...dirty].join(',') : 'full'}`);
@@ -6477,9 +6479,20 @@ export class DeckGLMap {
       this.state.layers[layer] = true;
       const toggle = this.container.querySelector(`.layer-toggle[data-layer="${layer}"] input`) as HTMLInputElement;
       if (toggle) toggle.checked = true;
-      this.render();
+      this.updateLayers(true);
       this.onLayerChange?.(layer, true, 'programmatic');
       this.enforceLayerLimit();
+    }
+  }
+
+  // Disable layer programmatically
+  public disableLayer(layer: keyof MapLayers): void {
+    if (this.state.layers[layer]) {
+      this.state.layers[layer] = false;
+      const toggle = this.container.querySelector(`.layer-toggle[data-layer="${layer}"] input`) as HTMLInputElement;
+      if (toggle) toggle.checked = false;
+      this.updateLayers(true);
+      this.onLayerChange?.(layer, false, 'programmatic');
     }
   }
 

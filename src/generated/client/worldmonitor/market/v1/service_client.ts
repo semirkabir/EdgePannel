@@ -187,6 +187,26 @@ export interface SecFiling {
   issuerCik: string;
 }
 
+export interface ListHistoricalPricesRequest {
+  symbols: string[];
+  months: number;
+}
+
+export interface ListHistoricalPricesResponse {
+  series: PriceSeries[];
+}
+
+export interface PriceSeries {
+  symbol: string;
+  prices: DailyPrice[];
+}
+
+export interface DailyPrice {
+  date: string;
+  close: number;
+  volume: number;
+}
+
 export interface FieldViolation {
   field: string;
   description: string;
@@ -456,6 +476,32 @@ export class MarketServiceClient {
     }
 
     return await resp.json() as ListSecFilingsResponse;
+  }
+
+  async listHistoricalPrices(req: ListHistoricalPricesRequest, options?: MarketServiceCallOptions): Promise<ListHistoricalPricesResponse> {
+    let path = "/api/market/v1/list-historical-prices";
+    const params = new URLSearchParams();
+    if (req.symbols != null && req.symbols !== "") params.set("symbols", String(req.symbols));
+    if (req.months != null && req.months !== 0) params.set("months", String(req.months));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as ListHistoricalPricesResponse;
   }
 
   private async handleError(resp: Response): Promise<never> {

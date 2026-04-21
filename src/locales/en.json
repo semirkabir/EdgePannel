@@ -312,6 +312,19 @@
     "airlineIntel": "Airline Intelligence",
     "sanctions": "Sanctions Tracker"
   },
+  "portfolio": {
+    "visualizer": "Visualizer",
+    "performance": "Performance",
+    "correlations": "Correlations",
+    "visualizerEmpty": "Add positions in the My Portfolio tab to see performance analytics.",
+    "totalReturn": "Total Return",
+    "cagr": "CAGR",
+    "maxDrawdown": "Max Drawdown",
+    "sharpe": "Sharpe",
+    "avgCorrelation": "Avg Correlation",
+    "mostCorrelated": "Most Correlated",
+    "leastCorrelated": "Least Correlated"
+  },
   "commands": {
     "prefixes": {
       "map": "Map",

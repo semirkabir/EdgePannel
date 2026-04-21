@@ -187,6 +187,26 @@ export interface SecFiling {
   issuerCik: string;
 }
 
+export interface ListHistoricalPricesRequest {
+  symbols: string[];
+  months: number;
+}
+
+export interface ListHistoricalPricesResponse {
+  series: PriceSeries[];
+}
+
+export interface PriceSeries {
+  symbol: string;
+  prices: DailyPrice[];
+}
+
+export interface DailyPrice {
+  date: string;
+  close: number;
+  volume: number;
+}
+
 export interface FieldViolation {
   field: string;
   description: string;
@@ -241,6 +261,7 @@ export interface MarketServiceHandler {
   getCountryStockIndex(ctx: ServerContext, req: GetCountryStockIndexRequest): Promise<GetCountryStockIndexResponse>;
   listGulfQuotes(ctx: ServerContext, req: ListGulfQuotesRequest): Promise<ListGulfQuotesResponse>;
   listSecFilings(ctx: ServerContext, req: ListSecFilingsRequest): Promise<ListSecFilingsResponse>;
+  listHistoricalPrices(ctx: ServerContext, req: ListHistoricalPricesRequest): Promise<ListHistoricalPricesResponse>;
 }
 
 export function createMarketServiceRoutes(
@@ -632,6 +653,54 @@ export function createMarketServiceRoutes(
 
           const result = await handler.listSecFilings(ctx, body);
           return new Response(JSON.stringify(result as ListSecFilingsResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/market/v1/list-historical-prices",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const url = new URL(req.url, "http://localhost");
+          const params = url.searchParams;
+          const body: ListHistoricalPricesRequest = {
+            symbols: params.get("symbols") ?? "",
+            months: Number(params.get("months") ?? "0"),
+          };
+          if (options?.validateRequest) {
+            const bodyViolations = options.validateRequest("listHistoricalPrices", body);
+            if (bodyViolations) {
+              throw new ValidationError(bodyViolations);
+            }
+          }
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.listHistoricalPrices(ctx, body);
+          return new Response(JSON.stringify(result as ListHistoricalPricesResponse), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });

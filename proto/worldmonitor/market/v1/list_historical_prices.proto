@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package worldmonitor.market.v1;
+
+import "sebuf/http/annotations.proto";
+
+// ListHistoricalPricesRequest specifies symbols and time range for historical prices.
+message ListHistoricalPricesRequest {
+  // Ticker symbols to retrieve (e.g., ["AAPL", "GOOGL"]). Max 20.
+  repeated string symbols = 1 [(sebuf.http.query) = { name: "symbols" }];
+
+  // Number of months of history (1-60, default 24).
+  int32 months = 2 [(sebuf.http.query) = { name: "months" }];
+}
+
+// DailyPrice represents a single day's closing price.
+message DailyPrice {
+  // Date in YYYY-MM-DD format.
+  string date = 1;
+
+  // Closing price.
+  float close = 2;
+
+  // Trading volume.
+  int64 volume = 3;
+}
+
+// PriceSeries is a time series of daily prices for one symbol.
+message PriceSeries {
+  // The ticker symbol.
+  string symbol = 1;
+
+  // Ordered daily prices (oldest first).
+  repeated DailyPrice prices = 2;
+}
+
+// ListHistoricalPricesResponse contains historical price series for requested symbols.
+message ListHistoricalPricesResponse {
+  // Price series per symbol.
+  repeated PriceSeries series = 1;
+}

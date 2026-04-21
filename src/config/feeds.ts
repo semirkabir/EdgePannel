@@ -855,6 +855,10 @@ const FINANCE_FEEDS: Record<string, Feed[]> = {
     { name: 'Private Equity', url: rss('https://news.google.com/rss/search?q=("private+equity"+OR+Blackstone+OR+KKR+OR+Apollo+OR+Carlyle)+when:3d&hl=en-US&gl=US&ceid=US:en') },
     { name: 'Sovereign Wealth', url: rss('https://news.google.com/rss/search?q=("sovereign+wealth+fund"+OR+"pension+fund"+OR+"institutional+investor")+when:7d&hl=en-US&gl=US&ceid=US:en') },
   ],
+  secFilings: [
+    { name: 'SEC 13F Filings', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=13F&output=atom&count=100&owner=include') },
+    { name: 'SEC 13F-HR', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=13F-HR&output=atom&count=40') },
+  ],
   analysis: [
     { name: 'Market Outlook', url: rss('https://news.google.com/rss/search?q=("market+outlook"+OR+"stock+market+forecast"+OR+"bull+market"+OR+"bear+market")+when:3d&hl=en-US&gl=US&ceid=US:en') },
     { name: 'Risk & Volatility', url: rss('https://news.google.com/rss/search?q=(VIX+OR+"market+volatility"+OR+"risk+off"+OR+"market+correction")+when:3d&hl=en-US&gl=US&ceid=US:en') },
@@ -1036,7 +1040,7 @@ export const SOURCE_REGION_MAP: Record<string, { labelKey: string; feedKeys: str
   commoditiesRegion: { labelKey: 'header.sourceRegionCommodities', feedKeys: ['commodities'] },
   cryptoDigital: { labelKey: 'header.sourceRegionCryptoDigital', feedKeys: ['crypto', 'fintech'] },
   centralBanksEcon: { labelKey: 'header.sourceRegionCentralBanks', feedKeys: ['centralbanks', 'economic'] },
-  dealsCorpFin: { labelKey: 'header.sourceRegionDeals', feedKeys: ['institutional', 'derivatives'] },
+  dealsCorpFin: { labelKey: 'header.sourceRegionDeals', feedKeys: ['institutional', 'secFilings', 'derivatives'] },
   finRegulation: { labelKey: 'header.sourceRegionFinRegulation', feedKeys: ['regulation'] },
   gulfMena: { labelKey: 'header.sourceRegionGulfMena', feedKeys: ['gccNews'] },
 };

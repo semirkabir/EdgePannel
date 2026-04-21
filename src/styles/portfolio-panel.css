@@ -66,6 +66,8 @@
 .pf-cg-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; opacity: 0.7; }
 
 /* Institutional holdings */
+.pf-inst-section { margin-bottom: 14px; }
+.pf-inst-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
 .pf-inst-header { padding: 10px 0; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
 .pf-inst-name { display: block; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
 .pf-inst-meta { font-size: 11px; color: var(--text-dim); }
@@ -82,11 +84,52 @@
 .pf-hold-pct-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.3s ease; }
 .pf-hold-pct { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; width: 40px; text-align: right; }
 
-/* Notable investors */
-.pf-notable-header { font-size: 12px; color: var(--text-dim); margin-bottom: 12px; line-height: 1.4; }
-.pf-notable-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.pf-notable-card { padding: 12px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--surface) 92%, black 8%); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-.pf-notable-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.pf-notable-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
-.pf-notable-desc { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
-.pf-notable-action { font-size: 11px; color: var(--accent); font-weight: 600; }
+/* Toolbar */
+.pf-toolbar { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.pf-toolbar-search { flex: 1; min-width: 120px; }
+.pf-toolbar-select { flex: 0 0 auto; min-width: 90px; max-width: 130px; }
+
+/* Filing rows */
+.pf-filings-list { display: flex; flex-direction: column; gap: 3px; max-height: 300px; overflow-y: auto; }
+.pf-filing-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; background: color-mix(in srgb, var(--surface) 92%, black 8%); cursor: pointer; transition: background 0.15s, border-color 0.15s; border: 1px solid transparent; }
+.pf-filing-row:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.pf-filing-type-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+.pf-filing-type-hr { background: color-mix(in srgb, var(--green, #22c55e) 15%, transparent); color: var(--green, #22c55e); }
+.pf-filing-type-nt { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.pf-filing-type-amend { background: color-mix(in srgb, #f59e0b 15%, transparent); color: #f59e0b; }
+.pf-filing-type-other { background: color-mix(in srgb, var(--text-dim) 15%, transparent); color: var(--text-dim); }
+.pf-filing-info { flex: 1; min-width: 0; }
+.pf-filing-name { display: block; font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-filing-cik { font-size: 10px; color: var(--text-dim); }
+.pf-filing-date { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+.pf-filing-link { font-size: 13px; color: var(--accent); text-decoration: none; flex-shrink: 0; }
+.pf-filing-link:hover { text-decoration: underline; }
+
+/* Compact notable investor cards */
+.pf-notable-compact-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf-notable-compact-card { padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--surface) 92%, black 8%); cursor: pointer; transition: border-color 0.15s, background 0.15s; min-width: 0; }
+.pf-notable-compact-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.pf-notable-compact-name { font-size: 11px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.pf-notable-compact-desc { font-size: 10px; color: var(--text-dim); white-space: nowrap; }
+
+/* ─── Visualizer Tab ──────────────────────────────────────────────────────── */
+
+.pf-viz-tab-bar { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in srgb, var(--surface) 88%, black 12%); margin-bottom: 10px; }
+.pf-viz-subtab { flex: 1; padding: 6px 4px; border: none; border-radius: 6px; background: transparent; color: var(--text-dim); font-size: 11px; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 0.03em; transition: background 0.15s, color 0.15s; white-space: nowrap; }
+.pf-viz-subtab:hover { color: var(--text); background: color-mix(in srgb, var(--surface) 95%, white 5%); }
+.pf-viz-subtab-active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+
+.pf-viz-chart { width: 100%; min-height: 200px; position: relative; }
+.pf-viz-tooltip { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 11px; color: var(--text); pointer-events: none; z-index: 10; white-space: nowrap; }
+
+.pf-viz-summary { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.pf-viz-card { flex: 1; min-width: 80px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in srgb, var(--surface) 92%, black 8%); text-align: center; }
+.pf-viz-label { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 4px; }
+.pf-viz-val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+
+.pf-viz-corr-scroll { overflow-x: auto; margin-bottom: 10px; }
+.pf-viz-corr-grid { display: grid; gap: 1px; font-size: 10px; }
+.pf-corr-empty { width: 48px; }
+.pf-corr-header { font-size: 9px; font-weight: 700; color: var(--text-dim); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px; }
+.pf-corr-row-label { font-size: 9px; font-weight: 700; color: var(--text-dim); display: flex; align-items: center; justify-content: flex-end; padding-right: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-corr-cell { font-size: 9px; font-weight: 600; color: var(--text); display: flex; align-items: center; justify-content: center; border-radius: 3px; min-height: 28px; cursor: default; font-variant-numeric: tabular-nums; }

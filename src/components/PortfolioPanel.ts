@@ -4,21 +4,34 @@ import { t } from '@/services/i18n';
 import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
 import {
   fetchCongressTrades,
-  fetchInstitutionalHoldings,
   getUserPositions,
   addUserPosition,
   removeUserPosition,
   NOTABLE_INVESTORS,
+  fetchHistoricalPrices,
+  computePortfolioPerformance,
+  computeCorrelationMatrix,
   type CongressTrade,
+  type PriceSeries,
+  type PerformanceResult,
 } from '@/services/market/portfolio';
+import {
+  fetchSec13FFeed,
+  filterFilings,
+  sortFilings,
+  type SecFilingEntry,
+  type FilingsSort,
+  type FilingsFilter,
+} from '@/services/market/sec-filings';
 
-type Tab = 'portfolio' | 'congress' | 'institutions' | 'notable';
+type Tab = 'portfolio' | 'congress' | 'institutions' | 'visualizer';
+type VisualizerSubTab = 'performance' | 'correlations';
 
 const TAB_LABELS: Record<Tab, string> = {
   portfolio: 'My Portfolio',
   congress: 'Congress',
   institutions: 'Institutions',
-  notable: 'Notable',
+  visualizer: t('portfolio.visualizer') || 'Visualizer',
 };
 
 const client = new MarketServiceClient('', {
@@ -29,7 +42,14 @@ export class PortfolioPanel extends Panel {
   private activeTab: Tab = 'portfolio';
   private congressCache: CongressTrade[] | null = null;
   private congressFilter = '';
-  private institutionCik: string = NOTABLE_INVESTORS[0]!.cik;
+  private vizSubTab: VisualizerSubTab = 'performance';
+  private vizCache: { series: PriceSeries[] | null; timestamp: number } = { series: null, timestamp: 0 };
+  private vizAbort: AbortController | null = null;
+  private filingsCache: SecFilingEntry[] | null = null;
+  private filingsSort: FilingsSort = 'newest';
+  private filingsTypeFilter = 'all';
+  private filingsDateRange: FilingsFilter['dateRange'] = 'all';
+  private filingsSearch = '';
 
   constructor() {
     super({
@@ -58,7 +78,6 @@ export class PortfolioPanel extends Panel {
     `;
     this.setContentNow(shell);
 
-    // Tab click handlers
     this.content.querySelectorAll<HTMLElement>('.pf-tab').forEach(btn => {
       btn.addEventListener('click', () => {
         this.activeTab = btn.dataset.tab as Tab;
@@ -79,7 +98,7 @@ export class PortfolioPanel extends Panel {
         case 'portfolio': await this.renderPortfolioTab(contentEl); break;
         case 'congress': await this.renderCongressTab(contentEl); break;
         case 'institutions': await this.renderInstitutionsTab(contentEl); break;
-        case 'notable': this.renderNotableTab(contentEl); break;
+        case 'visualizer': await this.renderVisualizerTab(contentEl); break;
       }
     } catch (err) {
       contentEl.innerHTML = `<div class="pf-error">Error loading data: ${escapeHtml(String(err))}</div>`;
@@ -91,7 +110,6 @@ export class PortfolioPanel extends Panel {
   private async renderPortfolioTab(contentEl: HTMLElement): Promise<void> {
     const positions = getUserPositions();
 
-    // Fetch live quotes for all positions
     const quotes = new Map<string, { price: number; change: number }>();
     if (positions.length > 0) {
       try {
@@ -171,7 +189,6 @@ export class PortfolioPanel extends Panel {
       ` : '<div class="pf-empty">No positions yet. Add a stock above to start tracking your portfolio.</div>'}
     `;
 
-    // Add position handler
     const addBtn = contentEl.querySelector('#pf-add-btn');
     addBtn?.addEventListener('click', () => {
       const symbolInput = contentEl.querySelector('#pf-add-symbol') as HTMLInputElement;
@@ -185,7 +202,6 @@ export class PortfolioPanel extends Panel {
       this.renderTabContent();
     });
 
-    // Remove handlers
     contentEl.querySelectorAll<HTMLElement>('.pf-remove-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -258,113 +274,460 @@ export class PortfolioPanel extends Panel {
         this.renderTabContent();
       }, 300);
     });
+
+    contentEl.querySelectorAll<HTMLElement>('.pf-cg-name').forEach(el => {
+      el.addEventListener('click', () => {
+        const row = el.closest('.pf-congress-row');
+        if (!row) return;
+        const trade = this.congressCache?.find(t => t.politician === el.textContent?.trim());
+        if (!trade) return;
+        document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+          detail: {
+            type: 'congressPolitician',
+            data: {
+              name: trade.politician,
+              party: trade.party,
+              chamber: trade.chamber,
+              district: trade.district,
+              state: trade.state,
+            },
+          },
+        }));
+      });
+    });
   }
 
   // ─── Institutions Tab ────────────────────────────────────────────────────
 
   private async renderInstitutionsTab(contentEl: HTMLElement): Promise<void> {
-    const selectorHtml = NOTABLE_INVESTORS.map(inv =>
-      `<option value="${escapeHtml(inv.cik)}"${inv.cik === this.institutionCik ? ' selected' : ''}>${escapeHtml(inv.name)} (${escapeHtml(inv.description)})</option>`
-    ).join('');
-
     contentEl.innerHTML = `
-      <div class="pf-filter-bar">
-        <select class="pf-select" id="pf-institution-select">${selectorHtml}</select>
+      <div class="pf-toolbar" id="pf-inst-toolbar">
+        <input type="text" class="pf-input pf-toolbar-search" id="pf-filings-search" placeholder="Search filings\u2026" value="${escapeHtml(this.filingsSearch)}" />
+        <select class="pf-select pf-toolbar-select" id="pf-filings-sort">
+          <option value="newest"${this.filingsSort === 'newest' ? ' selected' : ''}>Newest</option>
+          <option value="oldest"${this.filingsSort === 'oldest' ? ' selected' : ''}>Oldest</option>
+          <option value="name"${this.filingsSort === 'name' ? ' selected' : ''}>Name A-Z</option>
+        </select>
+        <select class="pf-select pf-toolbar-select" id="pf-filings-type">
+          <option value="all"${this.filingsTypeFilter === 'all' ? ' selected' : ''}>All Types</option>
+          <option value="13F-HR"${this.filingsTypeFilter === '13F-HR' ? ' selected' : ''}>13F-HR</option>
+          <option value="13F-NT"${this.filingsTypeFilter === '13F-NT' ? ' selected' : ''}>13F-NT</option>
+          <option value="13F-HR/A"${this.filingsTypeFilter === '13F-HR/A' ? ' selected' : ''}>13F-HR/A</option>
+        </select>
+        <select class="pf-select pf-toolbar-select" id="pf-filings-date">
+          <option value="all"${this.filingsDateRange === 'all' ? ' selected' : ''}>All Dates</option>
+          <option value="7d"${this.filingsDateRange === '7d' ? ' selected' : ''}>7 Days</option>
+          <option value="30d"${this.filingsDateRange === '30d' ? ' selected' : ''}>30 Days</option>
+          <option value="quarter"${this.filingsDateRange === 'quarter' ? ' selected' : ''}>Quarter</option>
+        </select>
       </div>
-      <div id="pf-holdings-content"><div class="pf-loading">Loading 13F holdings\u2026</div></div>
+
+      <div class="pf-inst-section pf-inst-filings" id="pf-inst-filings">
+        <div class="pf-inst-section-label">Live 13F Filings</div>
+        <div id="pf-filings-list" class="pf-filings-list"><div class="pf-loading">Loading filings\u2026</div></div>
+      </div>
+
+      <div class="pf-inst-section pf-inst-notable">
+        <div class="pf-inst-section-label">Quick Access &mdash; Notable Investors</div>
+        <div class="pf-notable-compact-grid" id="pf-notable-grid">
+          ${this.renderNotableCards()}
+        </div>
+      </div>
     `;
 
-    const select = contentEl.querySelector('#pf-institution-select') as HTMLSelectElement;
-    select?.addEventListener('change', () => {
-      this.institutionCik = select.value;
-      this.loadInstitutionHoldings(contentEl);
+    this.bindToolbarEvents(contentEl);
+    this.bindNotableCardEvents(contentEl);
+    await this.renderFilingsList(contentEl);
+  }
+
+  private bindToolbarEvents(contentEl: HTMLElement): void {
+    const searchInput = contentEl.querySelector('#pf-filings-search') as HTMLInputElement;
+    let debounce: ReturnType<typeof setTimeout>;
+    searchInput?.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        this.filingsSearch = searchInput.value.trim();
+        this.renderFilingsList(contentEl);
+      }, 300);
     });
 
-    await this.loadInstitutionHoldings(contentEl);
+    const sortSelect = contentEl.querySelector('#pf-filings-sort') as HTMLSelectElement;
+    sortSelect?.addEventListener('change', () => {
+      this.filingsSort = sortSelect.value as FilingsSort;
+      this.renderFilingsList(contentEl);
+    });
+
+    const typeSelect = contentEl.querySelector('#pf-filings-type') as HTMLSelectElement;
+    typeSelect?.addEventListener('change', () => {
+      this.filingsTypeFilter = typeSelect.value;
+      this.renderFilingsList(contentEl);
+    });
+
+    const dateSelect = contentEl.querySelector('#pf-filings-date') as HTMLSelectElement;
+    dateSelect?.addEventListener('change', () => {
+      this.filingsDateRange = dateSelect.value as FilingsFilter['dateRange'];
+      this.renderFilingsList(contentEl);
+    });
   }
 
-  private async loadInstitutionHoldings(contentEl: HTMLElement): Promise<void> {
-    const holdingsDiv = contentEl.querySelector('#pf-holdings-content') as HTMLElement | null;
-    if (!holdingsDiv) return;
-    holdingsDiv.innerHTML = '<div class="pf-loading">Loading 13F holdings\u2026</div>';
+  private async renderFilingsList(contentEl: HTMLElement): Promise<void> {
+    const listEl = contentEl.querySelector('#pf-filings-list') as HTMLElement;
+    if (!listEl) return;
 
-    try {
-      const data = await fetchInstitutionalHoldings(this.institutionCik);
-
-      if (data.holdings.length === 0) {
-        holdingsDiv.innerHTML = '<div class="pf-empty">No holdings data available for this filer.</div>';
-        return;
-      }
-
-      const totalValue = data.holdings.reduce((sum, h) => sum + h.value, 0);
-
-      const rows = data.holdings.map((h, i) => {
-        const pct = totalValue > 0 ? (h.value / totalValue) * 100 : 0;
-        return `
-          <div class="pf-holding-row">
-            <span class="pf-hold-rank">${i + 1}</span>
-            <div class="pf-hold-info">
-              <span class="pf-hold-name">${escapeHtml(h.issuer)}</span>
-              <span class="pf-hold-title">${escapeHtml(h.title)}</span>
-            </div>
-            <div class="pf-hold-data">
-              <span class="pf-hold-value">$${formatLargeNum(h.value)}</span>
-              <span class="pf-hold-shares">${h.shares.toLocaleString()} shr</span>
-              <div class="pf-hold-pct-bar">
-                <div class="pf-hold-pct-fill" style="width:${Math.min(pct, 100)}%"></div>
-              </div>
-              <span class="pf-hold-pct">${pct.toFixed(1)}%</span>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      holdingsDiv.innerHTML = `
-        <div class="pf-inst-header">
-          <span class="pf-inst-name">${escapeHtml(data.name)}</span>
-          <span class="pf-inst-meta">Filed: ${escapeHtml(data.filingDate)} \u00b7 ${data.totalHoldings} positions \u00b7 AUM: $${formatLargeNum(totalValue)}</span>
-        </div>
-        <div class="pf-holdings-list">${rows}</div>
-      `;
-    } catch (err) {
-      holdingsDiv.innerHTML = `<div class="pf-error">Failed to load holdings: ${escapeHtml(String(err))}</div>`;
+    if (!this.filingsCache) {
+      this.filingsCache = await fetchSec13FFeed();
     }
-  }
 
-  // ─── Notable Tab ─────────────────────────────────────────────────────────
+    let entries = filterFilings(this.filingsCache, {
+      type: this.filingsTypeFilter,
+      dateRange: this.filingsDateRange,
+      search: this.filingsSearch,
+    });
+    entries = sortFilings(entries, this.filingsSort);
 
-  private renderNotableTab(contentEl: HTMLElement): void {
-    const cards = NOTABLE_INVESTORS.map(inv => `
-      <div class="pf-notable-card" data-cik="${escapeHtml(inv.cik)}">
-        <div class="pf-notable-name">${escapeHtml(inv.name)}</div>
-        <div class="pf-notable-desc">${escapeHtml(inv.description)}</div>
-        <div class="pf-notable-action">View Holdings \u2192</div>
-      </div>
-    `).join('');
+    if (entries.length === 0) {
+      listEl.innerHTML = '<div class="pf-empty">No 13F filings found matching your filters.</div>';
+      return;
+    }
 
-    contentEl.innerHTML = `
-      <div class="pf-notable-header">Notable investors and fund managers with public 13F filings.</div>
-      <div class="pf-notable-grid">${cards}</div>
-    `;
+    const rows = entries.slice(0, 50).map(entry => {
+      const typeClass = entry.filingType === '13F-HR' ? 'pf-filing-type-hr'
+        : entry.filingType === '13F-NT' ? 'pf-filing-type-nt'
+        : entry.filingType === '13F-HR/A' ? 'pf-filing-type-amend'
+        : 'pf-filing-type-other';
+      const dateStr = entry.filedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
 
-    contentEl.querySelectorAll<HTMLElement>('.pf-notable-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const cik = card.dataset.cik;
+      return `
+        <div class="pf-filing-row" data-cik="${escapeHtml(entry.cik)}" data-name="${escapeHtml(entry.filerName)}">
+          <span class="pf-filing-type-badge ${typeClass}">${escapeHtml(entry.filingType)}</span>
+          <div class="pf-filing-info">
+            <span class="pf-filing-name">${escapeHtml(entry.filerName)}</span>
+            <span class="pf-filing-cik">CIK: ${escapeHtml(entry.cik || '\u2014')}</span>
+          </div>
+          <span class="pf-filing-date">${dateStr}</span>
+          ${entry.url ? `<a class="pf-filing-link" href="${escapeHtml(entry.url)}" target="_blank" rel="noopener noreferrer" title="View on EDGAR">\u2197</a>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    listEl.innerHTML = rows;
+
+    listEl.querySelectorAll<HTMLElement>('.pf-filing-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.pf-filing-link')) return;
+        const cik = row.dataset.cik;
+        const name = row.dataset.name;
         if (cik) {
-          this.institutionCik = cik;
-          this.activeTab = 'institutions';
-          this.renderShell();
-          this.renderTabContent();
+          document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+            detail: { type: 'institution', data: { name: name || '', cik } },
+          }));
         }
       });
     });
   }
+
+  private renderNotableCards(): string {
+    return NOTABLE_INVESTORS.map(inv => `
+      <div class="pf-notable-compact-card" data-cik="${escapeHtml(inv.cik)}" title="${escapeHtml(inv.name)} \u2014 ${escapeHtml(inv.description)}">
+        <div class="pf-notable-compact-name">${escapeHtml(inv.name.split(' ')[0] ?? inv.name)}</div>
+        <div class="pf-notable-compact-desc">${escapeHtml(inv.description)}</div>
+      </div>
+    `).join('');
+  }
+
+  private bindNotableCardEvents(contentEl: HTMLElement): void {
+    contentEl.querySelectorAll<HTMLElement>('.pf-notable-compact-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const cik = card.dataset.cik;
+        const inv = NOTABLE_INVESTORS.find(i => i.cik === cik);
+        if (cik) {
+          document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+            detail: { type: 'institution', data: { name: inv?.name || '', cik } },
+          }));
+        }
+      });
+    });
+  }
+
+  // ─── Visualizer Tab ──────────────────────────────────────────────────────
+
+  private async renderVisualizerTab(contentEl: HTMLElement): Promise<void> {
+    const positions = getUserPositions();
+    if (positions.length === 0) {
+      contentEl.innerHTML = `
+        <div class="pf-empty">
+          ${t('portfolio.visualizerEmpty') || 'Add positions in the My Portfolio tab to see performance analytics.'}
+        </div>
+      `;
+      return;
+    }
+
+    const subTabBar = `
+      <div class="pf-viz-tab-bar">
+        <button class="pf-viz-subtab${this.vizSubTab === 'performance' ? ' pf-viz-subtab-active' : ''}" data-subtab="performance">${t('portfolio.performance') || 'Performance'}</button>
+        <button class="pf-viz-subtab${this.vizSubTab === 'correlations' ? ' pf-viz-subtab-active' : ''}" data-subtab="correlations">${t('portfolio.correlations') || 'Correlations'}</button>
+      </div>
+    `;
+
+    contentEl.innerHTML = `${subTabBar}<div id="pf-viz-content"><div class="pf-loading">Loading historical data\u2026</div></div>`;
+
+    contentEl.querySelectorAll<HTMLElement>('.pf-viz-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.vizSubTab = btn.dataset.subtab as VisualizerSubTab;
+        contentEl.querySelectorAll('.pf-viz-subtab').forEach(b => b.classList.remove('pf-viz-subtab-active'));
+        btn.classList.add('pf-viz-subtab-active');
+        this.renderVizSubContent(contentEl);
+      });
+    });
+
+    await this.fetchVizData(positions);
+    this.renderVizSubContent(contentEl);
+  }
+
+  private async fetchVizData(positions: { symbol: string }[]): Promise<void> {
+    const cacheAge = Date.now() - this.vizCache.timestamp;
+    if (this.vizCache.series && cacheAge < 5 * 60_000) return;
+
+    this.vizAbort?.abort();
+    this.vizAbort = new AbortController();
+
+    try {
+      const months = this.vizSubTab === 'correlations' ? 12 : 24;
+      const series = await fetchHistoricalPrices(
+        positions.map(p => p.symbol),
+        months,
+      );
+      this.vizCache = { series, timestamp: Date.now() };
+    } catch {
+      this.vizCache = { series: [], timestamp: Date.now() };
+    }
+  }
+
+  private renderVizSubContent(contentEl: HTMLElement): void {
+    const vizContent = contentEl.querySelector('#pf-viz-content') as HTMLElement | null;
+    if (!vizContent) return;
+
+    if (!this.vizCache.series || this.vizCache.series.length === 0) {
+      vizContent.innerHTML = '<div class="pf-empty">No historical data available for your positions.</div>';
+      return;
+    }
+
+    if (this.vizSubTab === 'performance') {
+      this.renderPerformanceSubTab(vizContent);
+    } else {
+      this.renderCorrelationsSubTab(vizContent);
+    }
+  }
+
+  private renderPerformanceSubTab(contentEl: HTMLElement): void {
+    const positions = getUserPositions();
+    const perf = computePortfolioPerformance(positions, this.vizCache.series!);
+
+    if (perf.dates.length === 0) {
+      contentEl.innerHTML = '<div class="pf-empty">Not enough data to compute performance.</div>';
+      return;
+    }
+
+    const fmt = (n: number, decimals = 2) => n.toFixed(decimals);
+    const retClass = perf.totalReturn >= 0 ? 'pf-positive' : 'pf-negative';
+    const retSign = perf.totalReturn >= 0 ? '+' : '';
+
+    contentEl.innerHTML = `
+      <div class="pf-viz-chart" id="pf-perf-chart"></div>
+      <div class="pf-viz-summary">
+        <div class="pf-viz-card">
+          <span class="pf-viz-label">${t('portfolio.totalReturn') || 'Total Return'}</span>
+          <span class="pf-viz-val ${retClass}">${retSign}${fmt(perf.totalReturn)}%</span>
+        </div>
+        <div class="pf-viz-card">
+          <span class="pf-viz-label">${t('portfolio.cagr') || 'CAGR'}</span>
+          <span class="pf-viz-val ${perf.cagr >= 0 ? 'pf-positive' : 'pf-negative'}">${fmt(perf.cagr)}%</span>
+        </div>
+        <div class="pf-viz-card">
+          <span class="pf-viz-label">${t('portfolio.maxDrawdown') || 'Max Drawdown'}</span>
+          <span class="pf-viz-val pf-negative">${fmt(perf.maxDrawdown)}%</span>
+        </div>
+        <div class="pf-viz-card">
+          <span class="pf-viz-label">${t('portfolio.sharpe') || 'Sharpe'}</span>
+          <span class="pf-viz-val">${fmt(perf.sharpe)}</span>
+        </div>
+      </div>
+    `;
+
+    this.drawPerformanceChart(contentEl.querySelector('#pf-perf-chart') as HTMLElement, perf);
+  }
+
+  private drawPerformanceChart(container: HTMLElement | null, perf: PerformanceResult): void {
+    if (!container || perf.dates.length < 2) return;
+
+    import('d3').then(d3 => {
+      const width = container.clientWidth || 400;
+      const height = 200;
+      const margin = { top: 10, right: 10, bottom: 20, left: 50 };
+      const innerW = width - margin.left - margin.right;
+      const innerH = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .style('overflow', 'visible');
+
+      const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const allValues = [...perf.values, perf.costBasis];
+      const xScale = d3.scaleLinear()
+        .domain([0, perf.dates.length - 1])
+        .range([0, innerW]);
+      const yScale = d3.scaleLinear()
+        .domain([d3.min(allValues)! * 0.95, d3.max(allValues)! * 1.05])
+        .range([innerH, 0]);
+
+      const areaGen = d3.area<number>()
+        .x((_, i) => xScale(i))
+        .y0(innerH)
+        .y1(d => yScale(d))
+        .curve(d3.curveMonotoneX);
+
+      const lineGen = d3.line<number>()
+        .x((_, i) => xScale(i))
+        .y(d => yScale(d))
+        .curve(d3.curveMonotoneX);
+
+      g.append('path')
+        .datum(perf.values)
+        .attr('fill', 'rgba(59, 130, 246, 0.15)')
+        .attr('d', areaGen);
+
+      g.append('path')
+        .datum(perf.values)
+        .attr('fill', 'none')
+        .attr('stroke', '#3b82f6')
+        .attr('stroke-width', 1.5)
+        .attr('d', lineGen);
+
+      const cbY = yScale(perf.costBasis);
+      g.append('line')
+        .attr('x1', 0).attr('x2', innerW)
+        .attr('y1', cbY).attr('y2', cbY)
+        .attr('stroke', 'var(--text-dim, #888)')
+        .attr('stroke-dasharray', '4,3')
+        .attr('stroke-width', 1);
+
+      const xAxis = d3.axisBottom(xScale)
+        .ticks(5)
+        .tickFormat((d: d3.NumberValue) => {
+          const idx = Math.round(Number(d));
+          return idx >= 0 && idx < perf.dates.length ? perf.dates[idx]!.slice(5) : '';
+        });
+      g.append('g')
+        .attr('transform', `translate(0,${innerH})`)
+        .call(xAxis)
+        .selectAll('text')
+        .attr('fill', 'var(--text-dim, #888)')
+        .style('font-size', '9px');
+      g.selectAll('.domain, .tick line').attr('stroke', 'var(--border, #333)');
+
+      const yAxis = d3.axisLeft(yScale).ticks(4).tickFormat((d: d3.NumberValue) => `$${(Number(d) / 1000).toFixed(1)}k`);
+      g.append('g')
+        .call(yAxis)
+        .selectAll('text')
+        .attr('fill', 'var(--text-dim, #888)')
+        .style('font-size', '9px');
+      g.selectAll('.domain, .tick line').attr('stroke', 'var(--border, #333)');
+
+      const tooltip = d3.select(container).append('div')
+        .attr('class', 'pf-viz-tooltip')
+        .style('opacity', 0);
+      const focus = g.append('g').style('display', 'none');
+      focus.append('circle').attr('r', 3).attr('fill', '#3b82f6');
+      focus.append('line').attr('class', 'pf-viz-focus-line')
+        .attr('y1', 0).attr('y2', innerH)
+        .attr('stroke', 'var(--text-dim, #555)').attr('stroke-dasharray', '2,2').attr('stroke-width', 0.5);
+
+      svg.append('rect')
+        .attr('width', width).attr('height', height)
+        .attr('fill', 'transparent')
+        .on('mousemove', (event: MouseEvent) => {
+          const [mx] = d3.pointer(event);
+          const idx = Math.round(xScale.invert(mx - margin.left));
+          if (idx < 0 || idx >= perf.values.length) return;
+          const val = perf.values[idx]!;
+          focus.style('display', null)
+            .attr('transform', `translate(${xScale(idx)},${yScale(val)})`);
+          focus.select('line.pf-viz-focus-line').attr('x1', 0).attr('x2', 0);
+          tooltip.style('opacity', 1)
+            .html(`<strong>${perf.dates[idx]}</strong><br/>$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<br/>${val >= perf.costBasis ? '+' : ''}${((val - perf.costBasis) / perf.costBasis * 100).toFixed(1)}%`)
+            .style('left', `${Math.min(mx + 10, width - 160)}px`)
+            .style('top', `${event.offsetY - 30}px`);
+        })
+        .on('mouseleave', () => {
+          focus.style('display', 'none');
+          tooltip.style('opacity', 0);
+        });
+    }).catch(() => {
+      container.innerHTML = '<div class="pf-empty">Chart rendering unavailable.</div>';
+    });
+  }
+
+  private renderCorrelationsSubTab(contentEl: HTMLElement): void {
+    const positions = getUserPositions();
+    const corr = computeCorrelationMatrix(positions, this.vizCache.series!);
+    const n = corr.symbols.length;
+
+    if (n < 2 || corr.matrix.length === 0) {
+      contentEl.innerHTML = '<div class="pf-empty">Need at least 2 positions with price history to compute correlations.</div>';
+      return;
+    }
+
+    const cellSize = Math.min(48, Math.floor((contentEl.clientWidth - 60) / n));
+
+    const html = `
+      <div class="pf-viz-corr-scroll">
+        <div class="pf-viz-corr-grid" style="grid-template-columns: 48px repeat(${n}, ${cellSize}px);" id="pf-corr-grid">
+          <div class="pf-corr-empty"></div>
+          ${corr.symbols.map(s => `<div class="pf-corr-header">${escapeHtml(s)}</div>`).join('')}
+          ${corr.matrix.map((row, i) => `
+            <div class="pf-corr-row-label">${escapeHtml(corr.symbols[i]!)}</div>
+            ${row.map((val, j) => {
+              const r = i < j ? (corr.matrix[j]![i]! + val) / 2 : val;
+              const color = corrColor(r);
+              return `<div class="pf-corr-cell" style="background:${color}" data-i="${i}" data-j="${j}" title="${corr.symbols[i]} / ${corr.symbols[j]}: ${val.toFixed(2)}">${val.toFixed(2)}</div>`;
+            }).join('')}
+          `).join('')}
+        </div>
+      </div>
+      <div class="pf-viz-summary">
+        <div class="pf-viz-card">
+          <span class="pf-viz-label">${t('portfolio.avgCorrelation') || 'Avg Correlation'}</span>
+          <span class="pf-viz-val">${corr.average.toFixed(2)}</span>
+        </div>
+        <div class="pf-viz-card">
+          <span class="pf-viz-label">${t('portfolio.mostCorrelated') || 'Most Correlated'}</span>
+          <span class="pf-viz-val">${corr.maxPair[0] && corr.maxPair[1] ? `${corr.maxPair[0]}/${corr.maxPair[1]}` : '\u2014'} (${corr.maxPair[2].toFixed(2)})</span>
+        </div>
+        <div class="pf-viz-card">
+          <span class="pf-viz-label">${t('portfolio.leastCorrelated') || 'Least Correlated'}</span>
+          <span class="pf-viz-val">${corr.minPair[0] && corr.minPair[1] ? `${corr.minPair[0]}/${corr.minPair[1]}` : '\u2014'} (${corr.minPair[2].toFixed(2)})</span>
+        </div>
+      </div>
+    `;
+    contentEl.innerHTML = html;
+  }
 }
 
-function formatLargeNum(value: number): string {
-  if (value >= 1e12) return (value / 1e12).toFixed(2) + 'T';
-  if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
-  if (value >= 1e6) return (value / 1e6).toFixed(1) + 'M';
-  if (value >= 1e3) return (value / 1e3).toFixed(1) + 'K';
-  return value.toFixed(0);
+function corrColor(val: number): string {
+  if (val >= 0) {
+    const t = Math.min(val, 1);
+    const r = Math.round(220 - t * 188);
+    const g = Math.round(220 - t * 80);
+    const b = Math.round(220 + t * 36);
+    return `rgb(${r},${g},${b})`;
+  }
+  const t = Math.min(-val, 1);
+  const r = Math.round(220 + t * 19);
+  const g = Math.round(220 - t * 120);
+  const b = Math.round(220 - t * 120);
+  return `rgb(${r},${g},${b})`;
 }
+

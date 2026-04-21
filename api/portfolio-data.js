@@ -255,6 +255,7 @@ async function handle13FHoldings(cik, cors) {
 
   // Sort by value descending
   holdings.sort((a, b) => b.value - a.value);
+  const totalValue = holdings.reduce((sum, holding) => sum + holding.value, 0);
 
   const result = {
     name: data.name || '',
@@ -262,6 +263,7 @@ async function handle13FHoldings(cik, cors) {
     filingDate: latestFilingDate,
     holdings: holdings.slice(0, 50), // Top 50 positions
     totalHoldings: holdings.length,
+    totalValue,
   };
 
   setCache(cacheKey, result);

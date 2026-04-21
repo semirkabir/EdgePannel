@@ -455,10 +455,12 @@ export class MapComponent {
       status.textContent = activeLayers.length === 0 ? 'No active layers' : `${activeLayers.length} active`;
     }
     if (activeLayers.length === 0) {
-      itemsRoot.innerHTML = '<div class="map-legend-item"><span class="map-legend-empty">No active layers</span></div>';
+      itemsRoot.style.display = 'none';
+      itemsRoot.innerHTML = '';
       return;
     }
 
+    itemsRoot.style.display = '';
     const theme = this.getThemeMode();
     itemsRoot.innerHTML = activeLayers
       .map((layer) => {
@@ -3623,9 +3625,20 @@ export class MapComponent {
       } else {
         delete this.layerZoomOverrides[layer];
       }
-      const btn = document.querySelector(`[data-layer="${layer}"]`);
+      const btn = this.container.querySelector(`[data-layer="${layer}"]`);
       btn?.classList.add('active');
       this.onLayerChange?.(layer, true, 'programmatic');
+      this.render();
+    }
+  }
+
+  public disableLayer(layer: keyof MapLayers): void {
+    if (this.state.layers[layer]) {
+      this.state.layers[layer] = false;
+      delete this.layerZoomOverrides[layer];
+      const btn = this.container.querySelector(`[data-layer="${layer}"]`);
+      btn?.classList.remove('active');
+      this.onLayerChange?.(layer, false, 'programmatic');
       this.render();
     }
   }

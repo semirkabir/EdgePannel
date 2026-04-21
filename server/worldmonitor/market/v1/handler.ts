@@ -10,6 +10,7 @@
  *   - ListEtfFlows          (Yahoo Finance BTC spot ETF flow estimates)
  *   - GetCountryStockIndex  (Yahoo Finance national stock indices)
  *   - ListGulfQuotes        (Yahoo Finance GCC indices, currencies, oil)
+ *   - ListHistoricalPrices  (Yahoo Finance historical daily OHLCV)
  */
 
 import type { MarketServiceHandler } from '../../../../src/generated/server/worldmonitor/market/v1/service_server';
@@ -22,6 +23,7 @@ import { listEtfFlows } from './list-etf-flows';
 import { getCountryStockIndex } from './get-country-stock-index';
 import { listGulfQuotes } from './list-gulf-quotes';
 import { listSecFilings } from './list-sec-filings';
+import { listHistoricalPrices } from './list-historical-prices';
 
 export const marketHandler: MarketServiceHandler = {
   listMarketQuotes,
@@ -33,4 +35,5 @@ export const marketHandler: MarketServiceHandler = {
   getCountryStockIndex,
   listGulfQuotes,
   listSecFilings,
+  listHistoricalPrices,
 };

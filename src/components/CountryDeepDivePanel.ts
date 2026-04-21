@@ -5,7 +5,7 @@ import type { CountryScore } from '@/services/country-instability';
 import { t } from '@/services/i18n';
 import { getCountryInfrastructure, getNearbyInfrastructure } from '@/services/related-assets';
 import type { PredictionMarket } from '@/services/prediction';
-import type { AssetType, NewsItem, RelatedAsset } from '@/types';
+import type { AssetType, NewsItem, RelatedAsset, MapLayers } from '@/types';
 import { sanitizeUrl, escapeHtml } from '@/utils/sanitize';
 import { getCSSColor } from '@/utils';
 import { getRegimeTypeColor, type CountryGovernanceData } from '@/services/data360';
@@ -40,6 +40,14 @@ const INFRA_ICONS: Record<AssetType, string> = {
   nuclear: '☢️',
 };
 
+const ASSET_LAYER_MAP: Record<AssetType, keyof MapLayers> = {
+  pipeline: 'pipelines',
+  cable: 'cables',
+  datacenter: 'datacenters',
+  base: 'bases',
+  nuclear: 'nuclear',
+};
+
 const SEVERITY_ORDER: Record<ThreatLevel, number> = {
   critical: 4,
   high: 3,
@@ -62,6 +70,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private lastFocusedElement: HTMLElement | null = null;
   private economicIndicators: CountryDeepDiveEconomicIndicator[] = [];
   private infrastructureByType = new Map<AssetType, RelatedAsset[]>();
+  private activeInfraLayer: AssetType | null = null;
   private maximizeButton: HTMLButtonElement | null = null;
   private currentHeadlineCount = 0;
   private currentMarkets: PredictionMarket[] = [];
@@ -189,6 +198,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.economicIndicators = [];
     this.macroCards = [];
     this.infrastructureByType.clear();
+    this.activeInfraLayer = null;
     this.currentHeadlineCount = 0;
     this.currentMarkets = [];
     this.activeTab = '' as TabId;  // reset so next setActiveTab('overview') isn't swallowed by the guard
@@ -1319,6 +1329,16 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
 
   private highlightInfrastructure(type: AssetType): void {
     if (!this.map) return;
+
+    // Switch map layer: disable previous infrastructure layer, enable new one
+    if (this.activeInfraLayer && this.activeInfraLayer !== type) {
+      const prevLayer = ASSET_LAYER_MAP[this.activeInfraLayer];
+      if (prevLayer) this.map.disableLayer(prevLayer);
+    }
+    const nextLayer = ASSET_LAYER_MAP[type];
+    if (nextLayer) this.map.enableLayer(nextLayer);
+    this.activeInfraLayer = type;
+
     const assets = this.infrastructureByType.get(type) ?? [];
     if (assets.length === 0) return;
     this.map.flashAssets(type, assets.map((asset) => asset.id));

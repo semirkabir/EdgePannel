@@ -747,6 +747,14 @@ export class MapContainer {
     }
   }
 
+  public disableLayer(layer: keyof MapLayers): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.disableLayer(layer);
+    } else {
+      this.svgMap?.disableLayer(layer);
+    }
+  }
+
   public triggerHotspotClick(id: string): void {
     if (this.useDeckGL) {
       this.deckGLMap?.triggerHotspotClick(id);

@@ -77,6 +77,14 @@ function buildSearchQueries(type: PopupType, data: unknown): string[] {
     case 'company':
       if (name) queries.add(`${name} company`);
       break;
+    case 'congressPolitician':
+      if (name) queries.add(`${name} politician`);
+      if (name) queries.add(`${name} congress`);
+      break;
+    case 'institution':
+      if (name) queries.add(`${name} company`);
+      if (name) queries.add(`${name} investment`);
+      break;
     case 'stockExchange':
       if (name) queries.add(`${name} stock exchange`);
       break;

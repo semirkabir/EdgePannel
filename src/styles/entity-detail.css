@@ -4915,3 +4915,342 @@
   font-family: var(--font-mono);
   letter-spacing: -0.02em;
 }
+
+/* ── Profile tab bar ───────────────────────────────────────────────── */
+.edp-portfolio-tab-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-bottom: 14px;
+}
+
+.edp-portfolio-tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.edp-portfolio-tab {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.edp-portfolio-tab::after {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.2s ease;
+}
+
+.edp-portfolio-tab:hover {
+  background: var(--overlay-subtle);
+  color: var(--text);
+}
+
+.edp-portfolio-tab-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.edp-portfolio-tab-active::after {
+  transform: scaleX(1);
+}
+
+.edp-portfolio-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Politician / Institution profile summary ───────────────────────── */
+.edp-politician-profile .edp-trade-stats,
+.edp-institution-profile .edp-trade-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.edp-stat-positive {
+  border-color: rgba(34, 197, 94, 0.22) !important;
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.04)) !important;
+}
+
+.edp-stat-negative {
+  border-color: rgba(239, 68, 68, 0.22) !important;
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.04)) !important;
+}
+
+/* ── Holdings table ─────────────────────────────────────────────────── */
+.edp-holdings-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edp-holdings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(60px, 0.8fr) minmax(46px, 0.4fr) minmax(64px, 0.6fr);
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 90%, black 10%);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.edp-holdings-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edp-holdings-detail {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edp-holdings-bar-wrap {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--border) 62%, transparent);
+}
+
+.edp-holdings-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #60a5fa, #22d3ee);
+}
+
+.edp-holdings-pct,
+.edp-sector-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.edp-holdings-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Sector bars ────────────────────────────────────────────────────── */
+.edp-sector-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edp-sector-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(46px, 0.4fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.edp-sector-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edp-sector-bar-wrap {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--border) 62%, transparent);
+}
+
+.edp-sector-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f59e0b, #facc15);
+}
+
+/* ── Disclosure rows ────────────────────────────────────────────────── */
+.edp-disclosure-row {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 90%, black 10%);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.edp-disclosure-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--surface) 65%, black 35%);
+  color: var(--text-faint);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.edp-disclosure-badge-buy {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.18);
+}
+
+.edp-disclosure-badge-sell {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.18);
+}
+
+.edp-disclosure-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.edp-disclosure-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.edp-disclosure-detail {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edp-disclosure-date {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── AUM section ────────────────────────────────────────────────────── */
+.edp-aum-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.edp-aum-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--bg) 24%, var(--surface) 76%);
+}
+
+.edp-aum-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.edp-aum-card-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.edp-aum-card-note {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.edp-aum-chart-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* ── Performance chart container ─────────────────────────────────────── */
+.edp-performance-chart {
+  width: 100%;
+  min-height: 200px;
+  position: relative;
+}
+
+.edp-performance-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .edp-performance-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .edp-aum-grid,
+  .edp-aum-chart-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .edp-politician-profile .edp-trade-stats,
+  .edp-institution-profile .edp-trade-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .edp-holdings-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(46px, 0.4fr);
+  }
+
+  .edp-holdings-bar-wrap,
+  .edp-holdings-val {
+    display: none;
+  }
+}

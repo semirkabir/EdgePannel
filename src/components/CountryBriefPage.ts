@@ -61,6 +61,7 @@ export class CountryBriefPage implements CountryBriefPanel {
   private currentSignals: CountryBriefSignals | null = null;
   private currentBrief: string | null = null;
   private currentHeadlines: NewsItem[] = [];
+  private currentMarkets: PredictionMarket[] = [];
   private onCloseCallback?: () => void;
   private onShareStory?: (code: string, name: string) => void;
   private onExportImage?: (code: string, name: string) => void;
@@ -155,10 +156,37 @@ export class CountryBriefPage implements CountryBriefPanel {
         return;
       }
 
+      // Prediction market item click
+      const marketItem = target.closest('.cb-market-item') as HTMLElement | null;
+      if (marketItem) {
+        // Let external link clicks through without opening detail panel
+        if (target.closest('.cb-market-link')) return;
+        const idx = parseInt(marketItem.dataset.marketIdx || '0', 10);
+        const market = this.currentMarkets[idx];
+        if (market) {
+          this.openPredictionMarketDetail(market);
+        }
+        return;
+      }
+
       // Clicking anywhere else closes the export menu if open
       const exportMenu = this.overlay.querySelector('.cb-export-menu');
       if (exportMenu && !exportMenu.classList.contains('hidden')) {
         exportMenu.classList.add('hidden');
+      }
+    });
+
+    this.overlay.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const target = e.target as HTMLElement;
+      const marketItem = target.closest('.cb-market-item') as HTMLElement | null;
+      if (!marketItem) return;
+      if (target.closest('.cb-market-link')) return;
+      e.preventDefault();
+      const idx = parseInt(marketItem.dataset.marketIdx || '0', 10);
+      const market = this.currentMarkets[idx];
+      if (market) {
+        this.openPredictionMarketDetail(market);
       }
     });
 
@@ -520,19 +548,21 @@ export class CountryBriefPage implements CountryBriefPanel {
     const section = this.overlay.querySelector('.cb-markets-content');
     if (!section) return;
 
+    this.currentMarkets = markets.slice(0, 3);
+
     if (markets.length === 0) {
       section.innerHTML = `<span class="cb-empty">${t('modals.countryBrief.noMarkets')}</span>`;
       return;
     }
 
-    section.innerHTML = markets.slice(0, 3).map(m => {
+    section.innerHTML = markets.slice(0, 3).map((m, i) => {
       const pct = Math.round(m.yesPrice);
       const noPct = 100 - pct;
       const vol = m.volume ? `$${(m.volume / 1000).toFixed(0)}k vol` : '';
       const safeUrl = sanitizeUrl(m.url || '');
       const link = safeUrl ? ` <a href="${safeUrl}" target="_blank" rel="noopener" class="cb-market-link">↗</a>` : '';
       return `
-        <div class="cb-market-item">
+        <div class="cb-market-item" data-market-idx="${i}" role="button" tabindex="0">
           <div class="cb-market-title">${escapeHtml(m.title.slice(0, 100))}${link}</div>
           <div class="market-bar">
             <div class="market-yes" style="width:${pct}%">${pct}%</div>
@@ -723,6 +753,22 @@ export class CountryBriefPage implements CountryBriefPanel {
     }
     if (format === 'json') exportCountryBriefJSON(data);
     else exportCountryBriefCSV(data);
+  }
+
+  private openPredictionMarketDetail(market: PredictionMarket): void {
+    void import('@/app/app-context').then(() => {
+      const panel = (window as any).__entityDetailPanel;
+      if (!panel) return;
+      panel.show('predictionMarket', {
+        title: market.title,
+        slug: market.slug || '',
+        category: 'geopolitics',
+        volume: market.volume,
+        endDate: market.endDate,
+        closed: false,
+        url: market.url,
+      });
+    });
   }
 
   private exportPdf(): void {
