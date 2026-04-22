@@ -14,6 +14,7 @@ import { getIdToken, isFirebaseConfigured } from './firebase-auth';
  * the ID token hasn't expired (Firebase ID tokens last ~1 hour). */
 let cachedToken: string | null = null;
 let tokenExpiryMs = 0;
+const firebaseConfigured = isFirebaseConfigured();
 
 async function getIdTokenCached(): Promise<string | null> {
   if (cachedToken && Date.now() < tokenExpiryMs) return cachedToken;
@@ -43,7 +44,7 @@ globalThis.fetch = async function patchedFetch(
   // Only intercept /api/ requests — leave external fetch calls alone.
   const isApiCall = urlString.startsWith('/api/') || urlString.startsWith(window.location.origin + '/api/');
 
-  if (!isApiCall || !isFirebaseConfigured()) {
+  if (!isApiCall || !firebaseConfigured) {
     return originalFetch(input, init);
   }
 

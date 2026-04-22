@@ -1442,10 +1442,9 @@ export class DeckGLMap {
 
     // Military bases layer — always render individual markers
     const basesData = this.getBasesData();
-    console.log('[DeckGLMap] bases check: enabled=', mapLayers.bases, 'visible=', this.isLayerVisible('bases'), 'dataCount=', basesData.length);
-    if (mapLayers.bases && this.isLayerVisible('bases')) {
+    const basesVisible = mapLayers.bases && this.isLayerVisible('bases');
+    if (basesVisible) {
       layers.push(this.createBasesLayer());
-      console.log('[DeckGLMap] bases individual layer created:', basesData.length, 'bases');
     }
     layers.push(this.createEmptyGhost('bases-layer'));
 
@@ -6060,13 +6059,13 @@ export class DeckGLMap {
   public setMilitaryFlights(flights: MilitaryFlight[], clusters: MilitaryFlightCluster[] = []): void {
     this.militaryFlights = flights;
     this.militaryFlightClusters = clusters;
-    this.render('military');
+    this.render('military_flights');
   }
 
   public setMilitaryVessels(vessels: MilitaryVessel[], clusters: MilitaryVesselCluster[] = []): void {
     this.militaryVessels = vessels;
     this.militaryVesselClusters = clusters;
-    this.render('military');
+    this.render('military_vessels');
   }
 
   private fetchServerBases(): void {

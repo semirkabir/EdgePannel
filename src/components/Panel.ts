@@ -354,7 +354,7 @@ export class Panel {
 
     // Add resize handle
     this.resizeHandle = document.createElement('div');
-    this.resizeHandle.className = 'panel-resize-handle panel-resize-handle-touch';
+    this.resizeHandle.className = 'panel-resize-handle';
     this.resizeHandle.title = t('components.panel.dragToResize');
     this.resizeHandle.setAttribute('aria-label', 'Resize panel');
 
@@ -369,7 +369,7 @@ export class Panel {
 
     // Right-edge handle for width resizing
     this.colResizeHandle = document.createElement('div');
-    this.colResizeHandle.className = 'panel-col-resize-handle panel-col-resize-handle-touch';
+    this.colResizeHandle.className = 'panel-col-resize-handle';
     this.colResizeHandle.title = t('components.panel.dragToResize');
     this.colResizeHandle.setAttribute('aria-label', 'Resize panel');
 

@@ -7,6 +7,7 @@ import { ResearchServiceClient } from '@/generated/client/worldmonitor/research/
 import type { TechEvent } from '@/generated/client/worldmonitor/research/v1/service_client';
 import type { NewsItem, DeductContextDetail } from '@/types';
 import { buildNewsContext } from '@/utils/news-context';
+import { isLocalDevTaskEnabled } from '@/services/local-dev-stability';
 
 type ViewMode = 'upcoming' | 'conferences' | 'earnings' | 'all';
 
@@ -29,6 +30,15 @@ export class TechEventsPanel extends Panel {
     this.error = null;
     this.render();
 
+    if (!isLocalDevTaskEnabled('techEvents')) {
+      this.events = [];
+      this.loading = false;
+      this.error = t('common.failedToLoad');
+      this.render();
+      return;
+    }
+
+    let shouldRetry = false;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const data = await researchClient.listTechEvents({
@@ -44,7 +54,8 @@ export class TechEventsPanel extends Panel {
         this.setCount(data.conferenceCount);
         this.error = null;
 
-        if (this.events.length === 0 && attempt < 2) {
+        shouldRetry = this.events.length === 0;
+        if (shouldRetry && attempt < 2) {
           this.showRetrying(undefined, 15);
           await new Promise(r => setTimeout(r, 15_000));
           if (!this.element?.isConnected) return;
@@ -54,7 +65,9 @@ export class TechEventsPanel extends Panel {
       } catch (err) {
         if (this.isAbortError(err)) return;
         if (!this.element?.isConnected) return;
-        if (attempt < 2) {
+        const message = err instanceof Error ? err.message : String(err);
+        shouldRetry = !message.includes('404') && !message.includes('401') && !message.includes('403') && !message.includes('502');
+        if (attempt < 2 && shouldRetry) {
           this.showRetrying(undefined, 15);
           await new Promise(r => setTimeout(r, 15_000));
           if (!this.element?.isConnected) return;

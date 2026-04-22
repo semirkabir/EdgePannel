@@ -9,6 +9,7 @@ import type { AisDisruptionEvent, AisDensityZone, AisDisruptionType } from '@/ty
 import { dataFreshness } from '../data-freshness';
 import { isFeatureAvailable } from '../runtime-config';
 import { startSmartPollLoop, type SmartPollLoopHandle } from '../runtime';
+import { isLocalDevTaskEnabled } from '../local-dev-stability';
 
 // ---- Proto fallback (desktop safety when relay URL is unavailable) ----
 
@@ -117,6 +118,8 @@ let inFlight = false;
 let isPolling = false;
 let lastPollAt = 0;
 let lastSequence = 0;
+let relayCooldownUntil = 0;
+let relayFailureLogged = false;
 
 let latestDisruptions: AisDisruptionEvent[] = [];
 let latestDensity: AisDensityZone[] = [];
@@ -132,6 +135,7 @@ const SNAPSHOT_POLL_INTERVAL_MS = 60 * 1000;
 const SNAPSHOT_STALE_MS = 90 * 1000;
 const CALLBACK_RETENTION_MS = 2 * 60 * 60 * 1000; // 2 hours
 const MAX_CALLBACK_TRACKED_VESSELS = 20000;
+const RELAY_FAILURE_COOLDOWN_MS = 5 * 60 * 1000;
 
 // ---- Raw Relay URL (for candidate reports path) ----
 
@@ -178,6 +182,10 @@ function parseSnapshot(data: unknown): {
 // ---- Hybrid Fetch Strategy ----
 
 async function fetchRawRelaySnapshot(includeCandidates: boolean, signal?: AbortSignal): Promise<unknown> {
+  if (Date.now() < relayCooldownUntil) {
+    throw new Error('AIS raw relay snapshot temporarily unavailable');
+  }
+
   const query = `?candidates=${includeCandidates ? 'true' : 'false'}`;
 
   try {
@@ -194,10 +202,15 @@ async function fetchRawRelaySnapshot(includeCandidates: boolean, signal?: AbortS
   }
 
   if (isLocalhost) {
-    const local = await fetch(`${LOCAL_SNAPSHOT_FALLBACK}${query}`, { headers: { Accept: 'application/json' }, signal });
-    if (local.ok) return local.json();
+    try {
+      const local = await fetch(`${LOCAL_SNAPSHOT_FALLBACK}${query}`, { headers: { Accept: 'application/json' }, signal });
+      if (local.ok) return local.json();
+    } catch {
+      // Fall through to cooldown handling below.
+    }
   }
 
+  relayCooldownUntil = Date.now() + RELAY_FAILURE_COOLDOWN_MS;
   throw new Error('AIS raw relay snapshot unavailable');
 }
 
@@ -206,15 +219,30 @@ async function fetchSnapshotPayload(includeCandidates: boolean, signal?: AbortSi
     try {
       return await fetchRawRelaySnapshot(true, signal);
     } catch (candidateError) {
-      console.warn('[AIS] Candidate reports fetch failed, falling back to non-candidate snapshot:', (candidateError as Error).message);
+      if (!relayFailureLogged) {
+        console.warn('[AIS] Candidate reports unavailable, falling back to snapshot without candidates');
+        relayFailureLogged = true;
+      }
       // Fall through to non-candidate path which has proto fallback
     }
   }
 
   try {
     // Prefer direct relay path to avoid normal web traffic double-hop via Vercel.
-    return await fetchRawRelaySnapshot(false, signal);
+    const raw = await fetchRawRelaySnapshot(false, signal);
+    relayFailureLogged = false;
+    return raw;
   } catch (rawError) {
+    if (!isLocalDevTaskEnabled('intelligence')) {
+      return {
+        sequence: 0,
+        status: { connected: false, vessels: 0, messages: 0 },
+        disruptions: [],
+        density: [],
+        candidateReports: [],
+      };
+    }
+
     // Desktop fallback: use proto route when relay URL/local relay is unavailable.
     const response = await snapshotBreaker.execute(async () => {
       return client.getVesselSnapshot({ neLat: 0, neLon: 0, swLat: 0, swLon: 0 });

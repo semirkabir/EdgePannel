@@ -2796,7 +2796,7 @@ canvas,
   bottom: 0;
   left: 0;
   right: 0;
-  height: 44px;
+  height: 16px;
   cursor: row-resize;
   cursor: var(--wm-cursor-resize-v);
   background: transparent;
@@ -2837,7 +2837,7 @@ canvas,
   top: 0;
   right: 0;
   bottom: 0;
-  width: 44px;
+  width: 16px;
   cursor: col-resize;
   cursor: var(--wm-cursor-resize-h);
   background: transparent;
@@ -2894,6 +2894,15 @@ body.panel-resize-active iframe {
 .panel.col-resizing {
   cursor: var(--wm-cursor-resize-h);
   user-select: none;
+}
+
+@media (pointer: coarse) {
+  .panel-resize-handle {
+    min-height: 44px;
+  }
+  .panel-col-resize-handle {
+    min-width: 44px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -23470,6 +23479,12 @@ body:has(.tauri-titlebar) .breaking-news-container {
 .cb-market-item {
   padding: 6px 0;
   border-bottom: 1px solid var(--overlay-light);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cb-market-item:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
 .cb-market-item:last-child {
@@ -24360,6 +24375,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
   font-family: var(--font-body);
   transition: border-color 0.2s, color 0.2s;
   width: 100%;
+  order: 9999;
 }
 .add-widget-btn:hover { border-color: var(--text-dim); color: var(--text); }
 .add-widget-plus { font-size: 24px; line-height: 1; }

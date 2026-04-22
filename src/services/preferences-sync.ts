@@ -10,6 +10,7 @@
  */
 
 import { showShellNotification } from '@/app/shell-notifications';
+import { getCurrentAuthState, isLoggedIn } from '@/services/user-auth';
 
 // ---------------------------------------------------------------------------
 // Keys to persist — everything the user expects to "come back to"
@@ -133,6 +134,9 @@ function hasLayoutDiff(cloudPrefs: PrefsBlob): boolean {
 // ---------------------------------------------------------------------------
 
 async function fetchCloudPrefs(): Promise<PrefsBlob | null> {
+  const authState = getCurrentAuthState();
+  if (authState.loading || !isLoggedIn()) return null;
+
   try {
     const resp = await fetch('/api/prefs', { cache: 'no-store' });
     if (!resp.ok) return null;
@@ -144,12 +148,18 @@ async function fetchCloudPrefs(): Promise<PrefsBlob | null> {
 }
 
 async function pushCloudPrefs(prefs: PrefsBlob): Promise<void> {
+  const authState = getCurrentAuthState();
+  if (authState.loading || !isLoggedIn()) return;
+
   try {
-    await fetch('/api/prefs', {
+    const resp = await fetch('/api/prefs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prefs }),
     });
+    if (!resp.ok && resp.status !== 401) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
   } catch {
     // Silently ignore — local state is source of truth
   }

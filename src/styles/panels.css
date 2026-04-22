@@ -2516,6 +2516,18 @@
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
+.article-error-external--prominent {
+  font-size: 13px;
+  padding: 8px 18px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.article-error-external--prominent:hover {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
 /* ----------------------------------------------------------
    Democracy Panel
    ---------------------------------------------------------- */
@@ -3130,6 +3142,18 @@
 
 .article-error-external:hover {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.article-error-external--prominent {
+  font-size: 13px;
+  padding: 8px 18px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.article-error-external--prominent:hover {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 /* ----------------------------------------------------------

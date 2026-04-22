@@ -186,6 +186,24 @@ function sebufApiPlugin(): Plugin {
       intelligenceServerMod, intelligenceHandlerMod,
       marketServerMod, marketHandlerMod,
       predictionServerMod, predictionHandlerMod,
+      aviationServerMod, aviationHandlerMod,
+      climateServerMod, climateHandlerMod,
+      conflictServerMod, conflictHandlerMod,
+      cyberServerMod, cyberHandlerMod,
+      displacementServerMod, displacementHandlerMod,
+      givingServerMod, givingHandlerMod,
+      infrastructureServerMod, infrastructureHandlerMod,
+      maritimeServerMod, maritimeHandlerMod,
+      militaryServerMod, militaryHandlerMod,
+      naturalServerMod, naturalHandlerMod,
+      newsServerMod, newsHandlerMod,
+      positiveEventsServerMod, positiveEventsHandlerMod,
+      researchServerMod, researchHandlerMod,
+      seismologyServerMod, seismologyHandlerMod,
+      supplyChainServerMod, supplyChainHandlerMod,
+      tradeServerMod, tradeHandlerMod,
+      unrestServerMod, unrestHandlerMod,
+      wildfireServerMod, wildfireHandlerMod,
     ] = await Promise.all([
         import('./server/router'),
         import('./server/cors'),
@@ -198,14 +216,68 @@ function sebufApiPlugin(): Plugin {
         import('./server/worldmonitor/market/v1/handler'),
         import('./src/generated/server/worldmonitor/prediction/v1/service_server'),
         import('./server/worldmonitor/prediction/v1/handler'),
+        import('./src/generated/server/worldmonitor/aviation/v1/service_server'),
+        import('./server/worldmonitor/aviation/v1/handler'),
+        import('./src/generated/server/worldmonitor/climate/v1/service_server'),
+        import('./server/worldmonitor/climate/v1/handler'),
+        import('./src/generated/server/worldmonitor/conflict/v1/service_server'),
+        import('./server/worldmonitor/conflict/v1/handler'),
+        import('./src/generated/server/worldmonitor/cyber/v1/service_server'),
+        import('./server/worldmonitor/cyber/v1/handler'),
+        import('./src/generated/server/worldmonitor/displacement/v1/service_server'),
+        import('./server/worldmonitor/displacement/v1/handler'),
+        import('./src/generated/server/worldmonitor/giving/v1/service_server'),
+        import('./server/worldmonitor/giving/v1/handler'),
+        import('./src/generated/server/worldmonitor/infrastructure/v1/service_server'),
+        import('./server/worldmonitor/infrastructure/v1/handler'),
+        import('./src/generated/server/worldmonitor/maritime/v1/service_server'),
+        import('./server/worldmonitor/maritime/v1/handler'),
+        import('./src/generated/server/worldmonitor/military/v1/service_server'),
+        import('./server/worldmonitor/military/v1/handler'),
+        import('./src/generated/server/worldmonitor/natural/v1/service_server'),
+        import('./server/worldmonitor/natural/v1/handler'),
+        import('./src/generated/server/worldmonitor/news/v1/service_server'),
+        import('./server/worldmonitor/news/v1/handler'),
+        import('./src/generated/server/worldmonitor/positive_events/v1/service_server'),
+        import('./server/worldmonitor/positive-events/v1/handler'),
+        import('./src/generated/server/worldmonitor/research/v1/service_server'),
+        import('./server/worldmonitor/research/v1/handler'),
+        import('./src/generated/server/worldmonitor/seismology/v1/service_server'),
+        import('./server/worldmonitor/seismology/v1/handler'),
+        import('./src/generated/server/worldmonitor/supply_chain/v1/service_server'),
+        import('./server/worldmonitor/supply-chain/v1/handler'),
+        import('./src/generated/server/worldmonitor/trade/v1/service_server'),
+        import('./server/worldmonitor/trade/v1/handler'),
+        import('./src/generated/server/worldmonitor/unrest/v1/service_server'),
+        import('./server/worldmonitor/unrest/v1/handler'),
+        import('./src/generated/server/worldmonitor/wildfire/v1/service_server'),
+        import('./server/worldmonitor/wildfire/v1/handler'),
       ]);
 
     const serverOptions = { onError: errorMod.mapErrorToResponse };
     const allRoutes = [
+      ...aviationServerMod.createAviationServiceRoutes(aviationHandlerMod.aviationHandler, serverOptions),
+      ...climateServerMod.createClimateServiceRoutes(climateHandlerMod.climateHandler, serverOptions),
+      ...conflictServerMod.createConflictServiceRoutes(conflictHandlerMod.conflictHandler, serverOptions),
+      ...cyberServerMod.createCyberServiceRoutes(cyberHandlerMod.cyberHandler, serverOptions),
+      ...displacementServerMod.createDisplacementServiceRoutes(displacementHandlerMod.displacementHandler, serverOptions),
       ...economicServerMod.createEconomicServiceRoutes(economicHandlerMod.economicHandler, serverOptions),
+      ...givingServerMod.createGivingServiceRoutes(givingHandlerMod.givingHandler, serverOptions),
       ...intelligenceServerMod.createIntelligenceServiceRoutes(intelligenceHandlerMod.intelligenceHandler, serverOptions),
+      ...infrastructureServerMod.createInfrastructureServiceRoutes(infrastructureHandlerMod.infrastructureHandler, serverOptions),
+      ...maritimeServerMod.createMaritimeServiceRoutes(maritimeHandlerMod.maritimeHandler, serverOptions),
       ...marketServerMod.createMarketServiceRoutes(marketHandlerMod.marketHandler, serverOptions),
+      ...militaryServerMod.createMilitaryServiceRoutes(militaryHandlerMod.militaryHandler, serverOptions),
+      ...naturalServerMod.createNaturalServiceRoutes(naturalHandlerMod.naturalHandler, serverOptions),
+      ...newsServerMod.createNewsServiceRoutes(newsHandlerMod.newsHandler, serverOptions),
       ...predictionServerMod.createPredictionServiceRoutes(predictionHandlerMod.predictionHandler, serverOptions),
+      ...positiveEventsServerMod.createPositiveEventsServiceRoutes(positiveEventsHandlerMod.positiveEventsHandler, serverOptions),
+      ...researchServerMod.createResearchServiceRoutes(researchHandlerMod.researchHandler, serverOptions),
+      ...seismologyServerMod.createSeismologyServiceRoutes(seismologyHandlerMod.seismologyHandler, serverOptions),
+      ...supplyChainServerMod.createSupplyChainServiceRoutes(supplyChainHandlerMod.supplyChainHandler, serverOptions),
+      ...tradeServerMod.createTradeServiceRoutes(tradeHandlerMod.tradeHandler, serverOptions),
+      ...unrestServerMod.createUnrestServiceRoutes(unrestHandlerMod.unrestHandler, serverOptions),
+      ...wildfireServerMod.createWildfireServiceRoutes(wildfireHandlerMod.wildfireHandler, serverOptions),
     ];
     cachedCorsMod = corsMod;
     return routerMod.createRouter(allRoutes);
@@ -321,6 +393,49 @@ function sebufApiPlugin(): Plugin {
           res.end(await response.text());
         } catch (err) {
           console.error('[sebuf-api] Error:', err);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Internal server error' }));
+        }
+      });
+    },
+  };
+}
+
+function marketDataPlugin(): Plugin {
+  return {
+    name: 'market-data-proxy',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/market-data')) return next();
+
+        try {
+          const { default: handler } = await import('./api/market-data.js');
+          const port = server.config.server.port || 3000;
+          const requestUrl = new URL(req.url, `http://localhost:${port}`);
+
+          const headers = new Headers();
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (typeof value === 'string') {
+              headers.set(key, value);
+            } else if (Array.isArray(value)) {
+              headers.set(key, value.join(', '));
+            }
+          }
+
+          const webRequest = new Request(requestUrl.toString(), {
+            method: req.method,
+            headers,
+          });
+
+          const response = await handler(webRequest);
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => {
+            res.setHeader(key, value);
+          });
+          res.end(await response.text());
+        } catch (err) {
+          console.error('[market-data] Error:', err);
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ error: 'Internal server error' }));
@@ -1024,6 +1139,7 @@ export default defineConfig({
     planespottersProxyPlugin(),
     usaSpendingProxyPlugin(),
     youtubeLivePlugin(),
+    marketDataPlugin(),
     sebufApiPlugin(),
     brotliPrecompressPlugin(),
     VitePWA({
@@ -1630,42 +1746,6 @@ export default defineConfig({
         configure: (proxy) => {
           proxy.on('error', (err) => {
             console.log('ADS-B Exchange proxy error:', err.message);
-          });
-        },
-      },
-      // Market Data (Finnhub) - dev proxy for serverless function
-      '/api/market-data': {
-        target: 'https://finnhub.io/api/v1',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => {
-          const url = new URL(path, 'http://localhost');
-          const endpoint = url.searchParams.get('endpoint');
-          const symbol = url.searchParams.get('symbol');
-          const from = url.searchParams.get('from');
-          const to = url.searchParams.get('to');
-          const apiKey = process.env.FINNHUB_API_KEY || '';
-
-          switch (endpoint) {
-            case 'earnings-calendar':
-              return `/calendar/earnings?symbol=${symbol || ''}&from=${from || ''}&to=${to || ''}&token=${apiKey}`;
-            case 'ipo-calendar':
-              return `/calendar/ipo?from=${from || ''}&to=${to || ''}&token=${apiKey}`;
-            case 'insider-transactions':
-              return `/stock/insider-transactions?symbol=${symbol || ''}&token=${apiKey}`;
-            case 'social-sentiment':
-              return `/stock/social-sentiment?symbol=${symbol || ''}&token=${apiKey}`;
-            case 'recommendation-trends':
-              return `/stock/recommendation?symbol=${symbol || ''}&token=${apiKey}`;
-            case 'option-chain':
-              return `/stock/option-chain?symbol=${symbol || ''}&token=${apiKey}`;
-            default:
-              return `/quote?symbol=${symbol || ''}&token=${apiKey}`;
-          }
-        },
-        configure: (proxy) => {
-          proxy.on('error', (err) => {
-            console.log('Market data proxy error:', err.message);
           });
         },
       },

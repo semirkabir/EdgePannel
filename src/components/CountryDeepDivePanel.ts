@@ -65,6 +65,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private isMaximizedState = false;
   private onCloseCallback?: () => void;
   private onStateChangeCallback?: (state: { visible: boolean; maximized: boolean }) => void;
+  private onMarketClickCallback?: (market: PredictionMarket) => void;
   private map: MapContainer | null;
   private abortController: AbortController = new AbortController();
   private lastFocusedElement: HTMLElement | null = null;
@@ -893,9 +894,12 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   }
 
   private openPredictionMarketDetail(market: PredictionMarket): void {
-    void import('@/app/app-context').then(() => {
-      const panel = (window as any).__entityDetailPanel;
-      if (!panel) return;
+    if (this.onMarketClickCallback) {
+      this.onMarketClickCallback(market);
+      return;
+    }
+    const panel = (window as any).__entityDetailPanel;
+    if (panel) {
       panel.show('predictionMarket', {
         title: market.title,
         slug: market.slug || '',
@@ -905,7 +909,11 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
         closed: false,
         url: market.url,
       });
-    });
+    }
+  }
+
+  onMarketClick(cb: (market: PredictionMarket) => void): void {
+    this.onMarketClickCallback = cb;
   }
 
   private async ensureFactbookTabRendered(tab: TabId): Promise<void> {

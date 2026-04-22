@@ -1721,6 +1721,12 @@ export class PanelLayoutManager implements AppModule {
     this.addWidgetBtn.style.display = hasHidden ? '' : 'none';
   }
 
+  private ensureAddWidgetLast(grid: HTMLElement): void {
+    if (this.addWidgetBtn && this.addWidgetBtn.parentElement === grid) {
+      grid.appendChild(this.addWidgetBtn);
+    }
+  }
+
   private showAddWidgetOverlay(): void {
     document.querySelector('.add-widget-overlay')?.remove();
     const hidden = Object.entries(this.ctx.panelSettings)
@@ -2244,9 +2250,11 @@ export class PanelLayoutManager implements AppModule {
           }
         }
       }
+      this.ensureAddWidgetLast(currentTargetGrid);
     } else if (currentTargetGrid !== dragging.parentElement) {
       // Dragging over an empty or near-empty grid zone
       currentTargetGrid.appendChild(dragging);
+      this.ensureAddWidgetLast(currentTargetGrid);
     }
   }
 

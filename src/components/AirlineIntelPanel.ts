@@ -197,7 +197,11 @@ export class AirlineIntelPanel extends Panel {
     }
 
     private async refresh(): Promise<void> {
-        void this.loadOps();
+        const opsPromise = this.loadOps();
+        if (this.activeTab === 'ops') {
+            await opsPromise;
+            return;
+        }
         void this.loadTab(this.activeTab);
     }
 

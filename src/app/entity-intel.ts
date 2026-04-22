@@ -43,6 +43,7 @@ import { APTGroupRenderer } from '@/components/entity-detail/renderers/apt';
 import { PredictionMarketRenderer } from '@/components/entity-detail/renderers/prediction-market';
 import { ConflictRenderer } from '@/components/entity-detail/renderers/conflict';
 import { ArticleRenderer } from '@/components/entity-detail/renderers/article';
+import { CongressTradeRenderer } from '@/components/entity-detail/renderers/congress-trade';
 import { openArticleFromClick } from '@/services/article-open';
 
 export class EntityIntelManager implements AppModule {
@@ -160,6 +161,7 @@ export class EntityIntelManager implements AppModule {
       apt: new APTGroupRenderer(),
       predictionMarket: new PredictionMarketRenderer(),
       article: new ArticleRenderer(),
+      congressTrade: new CongressTradeRenderer(),
       governanceCountry: new GovernanceCountryRenderer(),
     };
   }

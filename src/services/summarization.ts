@@ -16,6 +16,7 @@ import { getCurrentLanguage } from './i18n';
 import { NewsServiceClient, type SummarizeArticleResponse } from '@/generated/client/worldmonitor/news/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { buildSummaryCacheKey } from '@/utils/summary-cache-key';
+import { isLocalDevTaskEnabled } from './local-dev-stability';
 
 export type SummarizationProvider = 'ollama' | 'groq' | 'openrouter' | 'browser' | 'cache';
 
@@ -37,8 +38,24 @@ export interface SummarizeOptions {
 
 const newsClient = new NewsServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
 const summaryBreaker = createCircuitBreaker<SummarizeArticleResponse>({ name: 'News Summarization', cacheTtlMs: 0 });
+const summaryCacheBreaker = createCircuitBreaker<{ summary: string; model?: string }>({ name: 'News Summary Cache', cacheTtlMs: 5 * 60 * 1000 });
 
 const emptySummaryFallback: SummarizeArticleResponse = { summary: '', provider: '', model: '', fallback: true, tokens: 0, error: '', errorType: '', status: 'SUMMARIZE_STATUS_UNSPECIFIED', statusDetail: '' };
+const emptySummaryCacheFallback = { summary: '', model: '' };
+let cloudSummariesUnavailableUntil = 0;
+
+function isCloudSummaryUnavailable(): boolean {
+  return Date.now() < cloudSummariesUnavailableUntil;
+}
+
+function markCloudSummaryUnavailable(): void {
+  cloudSummariesUnavailableUntil = Date.now() + 5 * 60 * 1000;
+}
+
+function isUnavailableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('404') || message.includes('401') || message.includes('502') || message.includes('Failed to fetch');
+}
 
 // ── Provider definitions ──
 
@@ -64,6 +81,7 @@ async function tryApiProvider(
   geoContext?: string,
   lang?: string,
 ): Promise<SummarizationResult | null> {
+  if (isCloudSummaryUnavailable()) return null;
   if (!isFeatureAvailable(providerDef.featureId)) return null;
   lastAttemptedProvider = providerDef.provider;
   try {
@@ -93,6 +111,7 @@ async function tryApiProvider(
       cached,
     };
   } catch (error) {
+    if (isUnavailableError(error)) markCloudSummaryUnavailable();
     console.warn(`[Summarization] ${providerDef.label} failed:`, error);
     return null;
   }
@@ -187,14 +206,22 @@ async function generateSummaryInternal(
   lang: string,
   options?: SummarizeOptions,
 ): Promise<SummarizationResult | null> {
-  if (!options?.skipCloudProviders) {
+  const cloudProvidersEnabled = !options?.skipCloudProviders
+    && !isCloudSummaryUnavailable()
+    && isLocalDevTaskEnabled('intelligence');
+
+  if (cloudProvidersEnabled) {
     try {
       const cacheKey = buildSummaryCacheKey(headlines, 'brief', geoContext, SITE_VARIANT, lang);
-      const cached = await newsClient.getSummarizeArticleCache({ cacheKey });
+      const cached = await summaryCacheBreaker.execute(async () => {
+        return newsClient.getSummarizeArticleCache({ cacheKey });
+      }, emptySummaryCacheFallback);
       if (cached.summary) {
         return { summary: cached.summary, provider: 'cache', model: cached.model || '', cached: true };
       }
-    } catch { /* cache lookup failed — proceed to provider chain */ }
+    } catch (error) {
+      if (isUnavailableError(error)) markCloudSummaryUnavailable();
+    }
   }
 
   if (BETA_MODE) {
@@ -251,7 +278,7 @@ async function generateSummaryInternal(
   const totalSteps = API_PROVIDERS.length + 1;
   let chainResult: SummarizationResult | null = null;
 
-  if (!options?.skipCloudProviders) {
+  if (cloudProvidersEnabled) {
     chainResult = await runApiChain(API_PROVIDERS, headlines, geoContext, lang, onProgress, 1, totalSteps);
   }
   if (chainResult) return chainResult;

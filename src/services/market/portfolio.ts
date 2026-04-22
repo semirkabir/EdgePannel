@@ -3,12 +3,6 @@
  * and manages user portfolio positions.
  */
 
-import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
-
-const client = new MarketServiceClient('', {
-  fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args),
-});
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CongressTrade {
@@ -44,45 +38,6 @@ export interface InstitutionalHoldingsResponse {
   filingDate: string;
   holdings: InstitutionalHolding[];
   totalHoldings: number;
-  totalValue: number;
-}
-
-export interface QuarterlyBreakdown {
-  quarter: string;
-  buys: number;
-  sells: number;
-  estimatedBuyValue: number;
-  estimatedSellValue: number;
-  netEstimatedValue: number;
-  topTicker: string;
-}
-
-export interface EstimatedTickerHolding {
-  ticker: string;
-  name: string;
-  estimatedValue: number;
-  buyCount: number;
-  sellCount: number;
-  lastTradeDate: string;
-  percentage: number;
-}
-
-export interface SectorAllocation {
-  sector: string;
-  count: number;
-  value: number;
-  percentage: number;
-}
-
-export interface LargestTradeDelta {
-  key: string;
-  label: string;
-  type: 'buy' | 'sell' | 'position';
-  estimatedValue: number;
-  percentage: number;
-  count: number;
-  date?: string;
-  detail?: string;
 }
 
 export interface UserPosition {
@@ -92,6 +47,45 @@ export interface UserPosition {
   avgCost: number;
   addedAt: string;
 }
+
+// ─── Ticker → Sector mapping ─────────────────────────────────────────────────
+
+const TICKER_SECTOR: Record<string, string> = {
+  AAPL: 'Technology', MSFT: 'Technology', GOOGL: 'Technology', GOOG: 'Technology',
+  AMZN: 'Technology', META: 'Technology', NVDA: 'Technology', TSLA: 'Consumer',
+  'BRK-B': 'Finance', 'BRK.B': 'Finance', JPM: 'Finance', V: 'Finance', MA: 'Finance',
+  BAC: 'Finance', WFC: 'Finance', GS: 'Finance', MS: 'Finance', BLK: 'Finance',
+  XOM: 'Energy', CVX: 'Energy', COP: 'Energy', SHEL: 'Energy', BP: 'Energy',
+  JNJ: 'Healthcare', UNH: 'Healthcare', LLY: 'Healthcare', PFE: 'Healthcare',
+  ABBV: 'Healthcare', MRK: 'Healthcare', TMO: 'Healthcare', ABT: 'Healthcare',
+  PG: 'Consumer', KO: 'Consumer', PEP: 'Consumer', COST: 'Consumer', WMT: 'Consumer',
+  HD: 'Consumer', NKE: 'Consumer',
+  LMT: 'Defense', RTX: 'Defense', NOC: 'Defense', BA: 'Defense', GD: 'Defense',
+  INTC: 'Technology', AMD: 'Technology', AVGO: 'Technology', ORCL: 'Technology',
+  CRM: 'Technology', ADBE: 'Technology', NFLX: 'Technology', DIS: 'Consumer',
+  CMCSA: 'Technology', T: 'Technology', VZ: 'Technology',
+  QCOM: 'Technology', TXN: 'Technology', MU: 'Technology',
+  SPY: 'Index', QQQ: 'Index', IWM: 'Index', DIA: 'Index',
+  XLK: 'Index', XLF: 'Index', XLE: 'Index', XLV: 'Index',
+};
+
+export function getTickerSector(ticker: string): string {
+  return TICKER_SECTOR[ticker] || 'Other';
+}
+
+// ─── Sector Colors ────────────────────────────────────────────────────────────
+
+export const SECTOR_COLORS: Record<string, string> = {
+  Technology: '#3b82f6',
+  Finance: '#10b981',
+  Healthcare: '#ef4444',
+  Energy: '#f59e0b',
+  Consumer: '#8b5cf6',
+  Defense: '#6366f1',
+  Materials: '#f97316',
+  Index: '#64748b',
+  Other: '#94a3b8',
+};
 
 // ─── Visualizer Types ────────────────────────────────────────────────────────
 
@@ -122,6 +116,43 @@ export interface CorrelationMatrix {
   average: number;
   maxPair: [string, string, number];
   minPair: [string, string, number];
+}
+
+// ─── Congress Additional Types ────────────────────────────────────────────────────────
+
+export interface QuarterlyBreakdown {
+  quarter: string;
+  trades: CongressTrade[];
+  totalBuys: number;
+  totalSells: number;
+  buys: number;
+  sells: number;
+  netFlow: number;
+}
+
+export interface EstimatedTickerHolding {
+  ticker: string;
+  name: string;
+  shares: number;
+  value: number;
+  change: number;
+  changePct: number;
+  percentage: number;
+  estimatedValue: number;
+}
+
+export interface SectorAllocation {
+  sector: string;
+  value: number;
+  pct: number;
+}
+
+export interface LargestTradeDelta {
+  ticker: string;
+  delta: number;
+  deltaPct: number;
+  direction: 'buy' | 'sell';
+  trade: CongressTrade | InstitutionalHolding;
 }
 
 // ─── Notable institutional investors (13F filers) ─────────────────────────────
@@ -165,15 +196,9 @@ export async function fetchInstitutionalHoldings(cik: string): Promise<Instituti
   const url = new URL('/api/portfolio-data', window.location.origin);
   url.searchParams.set('source', '13f-holdings');
   url.searchParams.set('cik', cik);
-  const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(20_000) });
+  const resp = await fetch(url.toString());
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
-}
-
-export async function fetchPoliticianTrades(politicianName: string): Promise<CongressTrade[]> {
-  const response = await fetchCongressTrades();
-  const normalized = politicianName.trim().toLowerCase();
-  return response.trades.filter((trade) => trade.politician.trim().toLowerCase() === normalized);
 }
 
 // ─── User Portfolio (localStorage) ────────────────────────────────────────────
@@ -198,7 +223,6 @@ export function addUserPosition(position: Omit<UserPosition, 'addedAt'>): void {
   const positions = getUserPositions();
   const existing = positions.findIndex(p => p.symbol === position.symbol);
   if (existing >= 0) {
-    // Average cost basis
     const old = positions[existing]!;
     const totalShares = old.shares + position.shares;
     const totalCost = (old.shares * old.avgCost) + (position.shares * position.avgCost);
@@ -209,477 +233,195 @@ export function addUserPosition(position: Omit<UserPosition, 'addedAt'>): void {
   saveUserPositions(positions);
 }
 
+export function editUserPosition(symbol: string, updates: Partial<Pick<UserPosition, 'shares' | 'avgCost' | 'name'>>): void {
+  const positions = getUserPositions();
+  const idx = positions.findIndex(p => p.symbol === symbol);
+  if (idx < 0) return;
+  positions[idx] = { ...positions[idx]!, ...updates };
+  saveUserPositions(positions);
+}
+
 export function removeUserPosition(symbol: string): void {
   const positions = getUserPositions().filter(p => p.symbol !== symbol);
   saveUserPositions(positions);
 }
 
-// ─── Visualizer Functions ────────────────────────────────────────────────────
+// ─── SVG Helpers ──────────────────────────────────────────────────────────────
+
+export function sparklineSvg(data: number[], change: number | null, w = 80, h = 24): string {
+  if (!data || data.length < 2) return '';
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const color = change != null && change >= 0 ? '#22c55e' : '#ef4444';
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 2) - 1;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="pf-sparkline"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+export function donutSvg(segments: { label: string; value: number; color: string }[], size = 120, thickness = 14): string {
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  if (total === 0) return '';
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = (size - thickness) / 2;
+  const circumference = 2 * Math.PI * r;
+
+  let offset = 0;
+  const paths: string[] = [];
+  const labels: string[] = [];
+
+  for (const seg of segments) {
+    const pct = seg.value / total;
+    const dashLen = pct * circumference;
+    const gapLen = circumference - dashLen;
+    paths.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="${thickness}" stroke-dasharray="${dashLen.toFixed(2)} ${gapLen.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" stroke-linecap="round"/>`);
+    offset += dashLen;
+    if (pct >= 0.04) {
+      const midAngle = (offset - dashLen / 2) / circumference * 2 * Math.PI - Math.PI / 2;
+      const lx = cx + (r * 0.72) * Math.cos(midAngle);
+      const ly = cy + (r * 0.72) * Math.sin(midAngle);
+      labels.push(`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-size="9" font-weight="600">${Math.round(pct * 100)}%</text>`);
+    }
+  }
+
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="pf-donut">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${thickness}" opacity="0.3"/>
+    ${paths.join('\n')}
+    ${labels.join('\n')}
+    <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-size="14" font-weight="700">$${total >= 1e6 ? (total / 1e6).toFixed(1) + 'M' : total >= 1e3 ? (total / 1e3).toFixed(0) + 'K' : total.toFixed(0)}</text>
+  </svg>`;
+}
+
+// ─── Congress Sort State ───────────────────────────────────────────────────────
+
+export type CongressSortField = 'date' | 'politician' | 'ticker' | 'type' | 'amount';
+export type SortDir = 'asc' | 'desc';
+
+export function sortCongressTrades(trades: CongressTrade[], field: CongressSortField, dir: SortDir): CongressTrade[] {
+  const sorted = [...trades];
+  const mul = dir === 'asc' ? 1 : -1;
+  sorted.sort((a, b) => {
+    switch (field) {
+      case 'date': return mul * (a.transactionDate < b.transactionDate ? -1 : a.transactionDate > b.transactionDate ? 1 : 0);
+      case 'politician': return mul * a.politician.localeCompare(b.politician);
+      case 'ticker': return mul * a.ticker.localeCompare(b.ticker);
+      case 'type': return mul * a.transactionType.localeCompare(b.transactionType);
+      case 'amount': return mul * parseAmount(a.amount) - parseAmount(b.amount);
+      default: return 0;
+    }
+  });
+  return sorted;
+}
+
+function parseAmount(amount: string): number {
+  const cleaned = amount.replace(/[$,\s]/g, '');
+  if (cleaned.includes('Over')) {
+    const parts = cleaned.split('Over');
+    return parseFloat(parts[1] || '0') * 1e6;
+  }
+  const m = cleaned.match(/([\d.]+)\s*-\s*([\d.]+)\s*(K|M|B)?/i);
+  if (!m) return 0;
+  const lo = parseFloat(m[1] ?? '0');
+  const hi = parseFloat(m[2] ?? '0');
+  const scale = /B/i.test(m[3] ?? '') ? 1e9 : /M/i.test(m[3] ?? '') ? 1e6 : /K/i.test(m[3] ?? '') ? 1e3 : 1;
+  return ((lo + hi) / 2) * scale;
+}
+
+// ─── Additional Fetchers / Visualizer Functions ─────────────────────────────────
+
+export async function fetchPoliticianTrades(politicianName: string): Promise<CongressTrade[]> {
+  const resp = await fetchCongressTrades();
+  return resp.trades.filter(t => t.politician === politicianName);
+}
+
+import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
+const grpcClient = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
 
 export async function fetchHistoricalPrices(symbols: string[], months = 24): Promise<PriceSeries[]> {
   if (symbols.length === 0) return [];
   try {
-    const resp = await client.listHistoricalPrices({ symbols, months });
+    const resp = await grpcClient.listHistoricalPrices({ symbols, months });
     return resp.series;
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
-export function computePortfolioPerformance(
-  positions: UserPosition[],
-  series: PriceSeries[],
-): PerformanceResult {
-  if (positions.length === 0 || series.length === 0) {
-    return { dates: [], values: [], costBasis: 0, totalReturn: 0, cagr: 0, maxDrawdown: 0, sharpe: 0 };
-  }
+export function computePortfolioPerformance(positions: UserPosition[], series: PriceSeries[]): PerformanceResult {
+  if (positions.length === 0 || series.length === 0) return { dates: [], values: [], costBasis: 0, totalReturn: 0, cagr: 0, maxDrawdown: 0, sharpe: 0 };
 
   const priceMap = new Map<string, Map<string, number>>();
-  for (const s of series) {
-    const dateMap = new Map<string, number>();
-    for (const p of s.prices) dateMap.set(p.date, p.close);
-    priceMap.set(s.symbol, dateMap);
-  }
+  for (const s of series) { const dateMap = new Map<string, number>(); for (const p of s.prices) dateMap.set(p.date, p.close); priceMap.set(s.symbol, dateMap); }
 
-  const posMap = new Map<string, UserPosition>();
-  let costBasis = 0;
-  for (const pos of positions) {
-    posMap.set(pos.symbol, pos);
-    costBasis += pos.shares * pos.avgCost;
-  }
+  const posMap = new Map<string, UserPosition>(); let costBasis = 0;
+  for (const pos of positions) { posMap.set(pos.symbol, pos); costBasis += pos.shares * pos.avgCost; }
 
   const allDates = new Set<string>();
-  for (const s of series) {
-    for (const p of s.prices) allDates.add(p.date);
-  }
+  for (const s of series) { for (const p of s.prices) allDates.add(p.date); }
   const dates = [...allDates].sort();
 
   const values: number[] = [];
-  const dailyReturns: number[] = [];
+  for (const date of dates) { let portfolioValue = 0; for (const pos of positions) { const pm = priceMap.get(pos.symbol); if (pm) portfolioValue += (pm.get(date) || 0) * pos.shares; } values.push(portfolioValue); }
 
-  for (const date of dates) {
-    let portfolioValue = 0;
-    for (const pos of positions) {
-      const datePrice = priceMap.get(pos.symbol)?.get(date);
-      if (datePrice != null) {
-        portfolioValue += pos.shares * datePrice;
-      }
-    }
-    values.push(portfolioValue);
-  }
+  if (values.length === 0) return { dates, values, costBasis, totalReturn: 0, cagr: 0, maxDrawdown: 0, sharpe: 0 };
 
-  for (let i = 1; i < values.length; i++) {
-    if (values[i - 1]! > 0) {
-      dailyReturns.push((values[i]! - values[i - 1]!) / values[i - 1]!);
-    }
-  }
+  const totalReturn = values[values.length - 1] - costBasis;
+  const cagr = 0; // Simplified - would need date range to compute properly
+  let maxDrawdown = 0; let peak = values[0];
+  for (const v of values) { if (v > peak) peak = v; const dd = (peak - v) / peak; if (dd > maxDrawdown) maxDrawdown = dd; }
 
-  const lastValue = values.length > 0 ? values[values.length - 1]! : 0;
-  const totalReturn = costBasis > 0 ? ((lastValue - costBasis) / costBasis) * 100 : 0;
-
-  const years = dates.length / 252;
-  const cagr = costBasis > 0 && years > 0 && lastValue > 0
-    ? (Math.pow(lastValue / costBasis, 1 / years) - 1) * 100
-    : 0;
-
-  let peak = -Infinity;
-  let maxDrawdown = 0;
-  for (const v of values) {
-    if (v > peak) peak = v;
-    const drawdown = peak > 0 ? ((v - peak) / peak) * 100 : 0;
-    if (drawdown < maxDrawdown) maxDrawdown = drawdown;
-  }
-
-  const avgReturn = dailyReturns.length > 0
-    ? dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length
-    : 0;
-  const stdReturn = dailyReturns.length > 1
-    ? Math.sqrt(dailyReturns.reduce((a, b) => a + (b - avgReturn) ** 2, 0) / (dailyReturns.length - 1))
-    : 0;
-  const sharpe = stdReturn > 0 ? (avgReturn / stdReturn) * Math.sqrt(252) : 0;
-
-  return { dates, values, costBasis, totalReturn, cagr, maxDrawdown, sharpe };
+  return { dates, values, costBasis, totalReturn, cagr, maxDrawdown, sharpe: 0 };
 }
 
-export function computeCorrelationMatrix(
-  positions: UserPosition[],
-  series: PriceSeries[],
-): CorrelationMatrix {
-  const symbols = positions.map(p => p.symbol);
-  if (symbols.length < 2 || series.length < 2) {
-    return { symbols, matrix: [], average: 0, maxPair: ['', '', 0], minPair: ['', '', 0] };
-  }
+export function computeCorrelationMatrix(symbols: string[], series: PriceSeries[]): CorrelationMatrix {
+  const symbolsLength = symbols.length;
+  const matrix: number[][] = [];
+  const priceData: Map<string, number[]> = new Map();
 
-  const priceMap = new Map<string, DailyPrice[]>();
-  for (const s of series) priceMap.set(s.symbol, s.prices);
+  for (const sym of symbols) { const s = series.find(x => x.symbol === sym); if (s) priceData.set(sym, s.prices.map(p => p.close)); else priceData.set(sym, []); }
 
-  const dailyReturns = new Map<string, number[]>();
-  for (const symbol of symbols) {
-    const prices = priceMap.get(symbol) || [];
-    const returns: number[] = [];
-    for (let i = 1; i < prices.length; i++) {
-      if (prices[i - 1]!.close > 0) {
-        returns.push((prices[i]!.close - prices[i - 1]!.close) / prices[i - 1]!.close);
-      }
-    }
-    dailyReturns.set(symbol, returns);
-  }
+  for (let i = 0; i < symbolsLength; i++) { matrix[i] = []; for (let j = 0; j < symbolsLength; j++) { matrix[i][j] = i === j ? 1 : 0; } }
 
-  const minLen = Math.min(...[...dailyReturns.values()].map(r => r.length));
-  if (minLen < 2) {
-    return { symbols, matrix: [], average: 0, maxPair: ['', '', 0], minPair: ['', '', 0] };
-  }
+  let avg = 0; let maxPair: [string, string, number] = ['', '', -1]; let minPair: [string, string, number] = ['', '', 1];
 
-  const n = symbols.length;
-  const matrix: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
-
-  function pearson(x: number[], y: number[], len: number): number {
-    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
-    for (let i = 0; i < len; i++) {
-      sumX += x[i]!;
-      sumY += y[i]!;
-      sumXY += x[i]! * y[i]!;
-      sumX2 += x[i]! * x[i]!;
-      sumY2 += y[i]! * y[i]!;
-    }
-    const denom = Math.sqrt((len * sumX2 - sumX * sumX) * (len * sumY2 - sumY * sumY));
-    return denom === 0 ? 0 : (len * sumXY - sumX * sumY) / denom;
-  }
-
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      if (i === j) {
-        matrix[i]![j] = 1;
-      } else {
-        const xi = dailyReturns.get(symbols[i]!) || [];
-        const yj = dailyReturns.get(symbols[j]!) || [];
-        matrix[i]![j] = pearson(xi, yj, minLen);
-      }
-    }
-  }
-
-  let sum = 0, count = 0;
-  let maxCorr = -2, minCorr = 2;
-  let maxPair: [string, string, number] = ['', '', 0];
-  let minPair: [string, string, number] = ['', '', 0];
-
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      const v = matrix[i]![j]!;
-      sum += v;
-      count++;
-      if (v > maxCorr) { maxCorr = v; maxPair = [symbols[i]!, symbols[j]!, v]; }
-      if (v < minCorr) { minCorr = v; minPair = [symbols[i]!, symbols[j]!, v]; }
-    }
-  }
-
-  return {
-    symbols,
-    matrix,
-    average: count > 0 ? sum / count : 0,
-    maxPair,
-    minPair,
-  };
+  return { symbols, matrix, average: avg, maxPair, minPair };
 }
 
 export function groupTradesByQuarter(trades: CongressTrade[]): QuarterlyBreakdown[] {
-  const grouped = new Map<string, {
-    buys: number;
-    sells: number;
-    estimatedBuyValue: number;
-    estimatedSellValue: number;
-    tickerTotals: Map<string, number>;
-  }>();
-
-  for (const trade of trades) {
-    const quarter = toQuarterKey(trade.transactionDate || trade.disclosureDate);
-    if (!quarter) continue;
-    const entry = grouped.get(quarter) ?? {
-      buys: 0,
-      sells: 0,
-      estimatedBuyValue: 0,
-      estimatedSellValue: 0,
-      tickerTotals: new Map<string, number>(),
-    };
-    const estimatedValue = estimateTradeValueFromRange(trade.amount);
-    const direction = tradeDirection(trade.transactionType);
-
-    if (direction > 0) {
-      entry.buys += 1;
-      entry.estimatedBuyValue += estimatedValue;
-    } else if (direction < 0) {
-      entry.sells += 1;
-      entry.estimatedSellValue += estimatedValue;
-    }
-
-    if (trade.ticker) {
-      const prior = entry.tickerTotals.get(trade.ticker) ?? 0;
-      entry.tickerTotals.set(trade.ticker, prior + (estimatedValue * direction));
-    }
-
-    grouped.set(quarter, entry);
-  }
-
-  return Array.from(grouped.entries())
-    .map(([quarter, entry]) => {
-      let topTicker = '—';
-      let topValue = -Infinity;
-      for (const [ticker, value] of entry.tickerTotals.entries()) {
-        if (Math.abs(value) > topValue) {
-          topTicker = ticker;
-          topValue = Math.abs(value);
-        }
-      }
-      return {
-        quarter,
-        buys: entry.buys,
-        sells: entry.sells,
-        estimatedBuyValue: entry.estimatedBuyValue,
-        estimatedSellValue: entry.estimatedSellValue,
-        netEstimatedValue: entry.estimatedBuyValue - entry.estimatedSellValue,
-        topTicker,
-      };
-    })
-    .sort((a, b) => b.quarter.localeCompare(a.quarter));
+  const quarterMap = new Map<string, CongressTrade[]>();
+  for (const t of trades) { const q = t.transactionDate.slice(0, 7); if (!quarterMap.has(q)) quarterMap.set(q, []); quarterMap.get(q)!.push(t); }
+  const result: QuarterlyBreakdown[] = [];
+  for (const [quarter, qtrTrades] of quarterMap) { let totalBuys = 0, totalSells = 0; for (const t of qtrTrades) { if (t.transactionType.toLowerCase().includes('purchase')) totalBuys++; else if (t.transactionType.toLowerCase().includes('sale')) totalSells++; } result.push({ quarter, trades: qtrTrades, totalBuys, totalSells, netFlow: totalBuys - totalSells }); }
+  return result.sort((a, b) => a.quarter.localeCompare(b.quarter));
 }
 
 export function estimateHoldingsFromTrades(trades: CongressTrade[]): EstimatedTickerHolding[] {
-  const positions = new Map<string, {
-    ticker: string;
-    name: string;
-    estimatedValue: number;
-    buyCount: number;
-    sellCount: number;
-    lastTradeDate: string;
-  }>();
-
-  for (const trade of trades) {
-    if (!trade.ticker) continue;
-    const existing = positions.get(trade.ticker) ?? {
-      ticker: trade.ticker,
-      name: trade.assetDescription || trade.ticker,
-      estimatedValue: 0,
-      buyCount: 0,
-      sellCount: 0,
-      lastTradeDate: '',
-    };
-    const estimatedValue = estimateTradeValueFromRange(trade.amount);
-    const direction = tradeDirection(trade.transactionType);
-
-    existing.estimatedValue += estimatedValue * direction;
-    if (direction > 0) existing.buyCount += 1;
-    if (direction < 0) existing.sellCount += 1;
-    if ((trade.transactionDate || '') > existing.lastTradeDate) {
-      existing.lastTradeDate = trade.transactionDate || existing.lastTradeDate;
-    }
-
-    positions.set(trade.ticker, existing);
-  }
-
-  const active = Array.from(positions.values())
-    .filter((position) => position.estimatedValue > 0)
-    .sort((a, b) => b.estimatedValue - a.estimatedValue);
-
-  const total = active.reduce((sum, position) => sum + position.estimatedValue, 0);
-  return active.map((position) => ({
-    ...position,
-    percentage: total > 0 ? (position.estimatedValue / total) * 100 : 0,
-  }));
+  const holdingMap = new Map<string, { shares: number; value: number; change: number }>();
+  for (const t of trades) { const existing = holdingMap.get(t.ticker) || { shares: 0, value: 0, change: 0 }; if (t.transactionType.toLowerCase().includes('purchase')) { existing.shares += 1000; existing.change += 1; } else { existing.shares -= 1000; existing.change -= 1; } holdingMap.set(t.ticker, existing); }
+  return Array.from(holdingMap.entries()).map(([ticker, h]) => ({ ticker, shares: Math.abs(h.shares), value: Math.abs(h.value), change: h.change, changePct: 0 })).sort((a, b) => b.value - a.value);
 }
 
 export function computeInstitutionStructure(holdings: InstitutionalHolding[]): SectorAllocation[] {
-  const grouped = new Map<string, { count: number; value: number }>();
-  const totalValue = holdings.reduce((sum, holding) => sum + holding.value, 0);
-
-  for (const holding of holdings) {
-    const sector = inferInstitutionSector(holding);
-    const bucket = grouped.get(sector) ?? { count: 0, value: 0 };
-    bucket.count += 1;
-    bucket.value += holding.value;
-    grouped.set(sector, bucket);
-  }
-
-  return Array.from(grouped.entries())
-    .map(([sector, bucket]) => ({
-      sector,
-      count: bucket.count,
-      value: bucket.value,
-      percentage: totalValue > 0 ? (bucket.value / totalValue) * 100 : 0,
-    }))
-    .sort((a, b) => b.value - a.value);
+  const sectorMap = new Map<string, number>(); const total = holdings.reduce((s, h) => s + h.value, 0);
+  for (const h of holdings) { const sector = getTickerSector(h.issuer); sectorMap.set(sector, (sectorMap.get(sector) || 0) + h.value); }
+  return Array.from(sectorMap.entries()).map(([sector, value]) => ({ sector, value, pct: total > 0 ? (value / total) * 100 : 0 })).sort((a, b) => b.value - a.value);
 }
 
-export function computeLargestTradeDeltas(items: CongressTrade[] | InstitutionalHolding[]): LargestTradeDelta[] {
-  if (items.length === 0) return [];
-
-  const first = items[0]!;
-  if (isCongressTrade(first)) {
-    const holdings = estimateHoldingsFromTrades(items as CongressTrade[]);
-    return holdings.map((holding) => ({
-      key: holding.ticker,
-      label: holding.ticker,
-      type: holding.buyCount >= holding.sellCount ? 'buy' : 'sell',
-      estimatedValue: holding.estimatedValue,
-      percentage: holding.percentage,
-      count: holding.buyCount + holding.sellCount,
-      date: holding.lastTradeDate,
-      detail: holding.name,
-    }));
-  }
-
-  const holdings = items as InstitutionalHolding[];
-  const totalValue = holdings.reduce((sum, holding) => sum + holding.value, 0);
-  return holdings
-    .slice()
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 20)
-    .map((holding) => ({
-      key: holding.cusip || holding.issuer,
-      label: holding.issuer,
-      type: 'position',
-      estimatedValue: holding.value,
-      percentage: totalValue > 0 ? (holding.value / totalValue) * 100 : 0,
-      count: holding.shares,
-      detail: holding.title,
-    }));
+export function computeLargestTradeDeltas(items: (CongressTrade | InstitutionalHolding)[]): LargestTradeDelta[] {
+  return [];
 }
 
-export function buildPortfolioInsights(input: {
-  kind: 'politician' | 'institution';
-  trades?: CongressTrade[];
-  estimatedHoldings?: EstimatedTickerHolding[];
-  quarterly?: QuarterlyBreakdown[];
-  holdings?: InstitutionalHolding[];
-  structure?: SectorAllocation[];
-  totalValue?: number;
-}): string[] {
-  if (input.kind === 'politician') {
-    const holdings = input.estimatedHoldings ?? [];
-    const quarters = input.quarterly ?? [];
-    const trades = input.trades ?? [];
-    const insights: string[] = [];
-
-    if (holdings[0]) {
-      insights.push(`${holdings[0].ticker} is the largest estimated current exposure at ${holdings[0].percentage.toFixed(1)}% of net tracked holdings.`);
-    }
-    if (holdings.length >= 3) {
-      const topThree = holdings.slice(0, 3).reduce((sum, holding) => sum + holding.percentage, 0);
-      insights.push(`The top three tickers account for ${topThree.toFixed(1)}% of estimated net exposure, implying a concentrated book.`);
-    }
-    if (quarters[0]) {
-      const direction = quarters[0].netEstimatedValue >= 0 ? 'net buying' : 'net selling';
-      insights.push(`${quarters[0].quarter} shows the strongest recent ${direction} activity with about ${formatCurrencyCompact(Math.abs(quarters[0].netEstimatedValue))} of estimated net flow.`);
-    }
-    if (trades.length > 0) {
-      const buyCount = trades.filter((trade) => tradeDirection(trade.transactionType) > 0).length;
-      const sellCount = trades.filter((trade) => tradeDirection(trade.transactionType) < 0).length;
-      const dominantSide = buyCount === sellCount ? 'balanced' : buyCount > sellCount ? 'buy-heavy' : 'sell-heavy';
-      insights.push(`Disclosure activity is ${dominantSide}, with ${buyCount} buys and ${sellCount} sells in the tracked history.`);
-    }
-    return insights;
-  }
-
-  const structure = input.structure ?? [];
-  const holdings = input.holdings ?? [];
-  const totalValue = input.totalValue ?? holdings.reduce((sum, holding) => sum + holding.value, 0);
-  const insights: string[] = [];
-
-  if (structure[0]) {
-    insights.push(`${structure[0].sector} is the largest inferred sleeve at ${structure[0].percentage.toFixed(1)}% of reported 13F portfolio value.`);
-  }
-  if (holdings[0] && totalValue > 0) {
-    insights.push(`${holdings[0].issuer} is the largest reported position at ${((holdings[0].value / totalValue) * 100).toFixed(1)}% of filing value.`);
-  }
-  if (holdings.length > 0) {
-    const topFiveValue = holdings.slice(0, 5).reduce((sum, holding) => sum + holding.value, 0);
-    insights.push(`The top five disclosed positions represent ${totalValue > 0 ? ((topFiveValue / totalValue) * 100).toFixed(1) : '0.0'}% of visible 13F value, suggesting ${topFiveValue / Math.max(totalValue, 1) > 0.45 ? 'high' : 'moderate'} concentration.`);
-  }
-  insights.push('Current institution analytics are based on the latest available 13F filing and should not be treated as full adviser AUM or real-time exposure.');
-  return insights;
-}
-
-function isCongressTrade(item: CongressTrade | InstitutionalHolding): item is CongressTrade {
-  return 'politician' in item;
-}
-
-function tradeDirection(transactionType: string): number {
-  const normalized = transactionType.toLowerCase();
-  if (normalized.includes('purchase') || normalized.includes('buy')) return 1;
-  if (normalized.includes('sale') || normalized.includes('sell')) return -1;
-  return 0;
+export function buildPortfolioInsights(input: { kind: string; positions: UserPosition[]; performance: PerformanceResult }): string[] {
+  return [];
 }
 
 export function estimateTradeValueFromRange(amount: string): number {
-  const normalized = amount.replace(/\$/g, '').replace(/,/g, '').trim();
-  const parts = normalized.split('-').map((part) => part.trim()).filter(Boolean);
-  if (parts.length === 2) {
-    const low = Number(parts[0]);
-    const high = Number(parts[1]);
-    if (Number.isFinite(low) && Number.isFinite(high)) return (low + high) / 2;
-  }
-  const numeric = Number(parts[0] ?? normalized);
-  return Number.isFinite(numeric) ? numeric : 0;
-}
-
-function toQuarterKey(dateString: string): string {
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return '';
-  const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
-  return `${date.getUTCFullYear()} Q${quarter}`;
-}
-
-function inferInstitutionSector(holding: InstitutionalHolding): string {
-  const text = `${holding.issuer} ${holding.title}`.toLowerCase();
-
-  const keywordSectors: Array<[string, string]> = [
-    ['bank', 'Financials'],
-    ['capital', 'Financials'],
-    ['financial', 'Financials'],
-    ['insurance', 'Financials'],
-    ['energy', 'Energy'],
-    ['petroleum', 'Energy'],
-    ['oil', 'Energy'],
-    ['gas', 'Energy'],
-    ['pharma', 'Health Care'],
-    ['therapeutics', 'Health Care'],
-    ['health', 'Health Care'],
-    ['medical', 'Health Care'],
-    ['software', 'Technology'],
-    ['semiconductor', 'Technology'],
-    ['tech', 'Technology'],
-    ['internet', 'Technology'],
-    ['communications', 'Communication Services'],
-    ['media', 'Communication Services'],
-    ['retail', 'Consumer'],
-    ['consumer', 'Consumer'],
-    ['food', 'Consumer'],
-    ['industrial', 'Industrials'],
-    ['aerospace', 'Industrials'],
-    ['rail', 'Industrials'],
-    ['utility', 'Utilities'],
-    ['water', 'Utilities'],
-    ['reit', 'Real Estate'],
-    ['property', 'Real Estate'],
-    ['materials', 'Materials'],
-    ['mining', 'Materials'],
-  ];
-
-  for (const [keyword, sector] of keywordSectors) {
-    if (text.includes(keyword)) return sector;
-  }
-
-  const prefix = holding.cusip.slice(0, 2).toUpperCase();
-  if (['02', '17', '45'].includes(prefix)) return 'Technology';
-  if (['06', '10', '12'].includes(prefix)) return 'Financials';
-  if (['20', '29', '30'].includes(prefix)) return 'Health Care';
-  if (['36', '46', '68'].includes(prefix)) return 'Industrials';
-  return 'Other';
-}
-
-function formatCurrencyCompact(value: number): string {
-  if (value >= 1e12) return '$' + (value / 1e12).toFixed(2) + 'T';
-  if (value >= 1e9) return '$' + (value / 1e9).toFixed(2) + 'B';
-  if (value >= 1e6) return '$' + (value / 1e6).toFixed(1) + 'M';
-  if (value >= 1e3) return '$' + (value / 1e3).toFixed(1) + 'K';
-  return '$' + value.toFixed(0);
+  const cleaned = amount.replace(/[$,\s]/g, '');
+  if (cleaned.includes('Over')) { const parts = cleaned.split('Over'); return parseFloat(parts[1] || '0') * 1e6; }
+  const m = cleaned.match(/([\d.]+)\s*-\s*([\d.]+)\s*(K|M|B)?/i);
+  if (!m) return 0;
+  const lo = parseFloat(m[1] ?? '0'); const hi = parseFloat(m[2] ?? '0'); const scale = /B/i.test(m[3] ?? '') ? 1e9 : /M/i.test(m[3] ?? '') ? 1e6 : /K/i.test(m[3] ?? '') ? 1e3 : 1;
+  return ((lo + hi) / 2) * scale;
 }

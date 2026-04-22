@@ -85,6 +85,8 @@ export class DataLoaderManager implements AppModule {
   private readonly digestBreakerCooldownMs = 5 * 60 * 1000;
   private readonly persistedDigestMaxAgeMs = 6 * 60 * 60 * 1000;
   private lastGoodDigest: ListFeedDigestResponse | null = null;
+  private digestInFlight: Promise<ListFeedDigestResponse | null> | null = null;
+  private digestFailureLogged = false;
   private supplementalListenersWired = false;
 
   constructor(ctx: AppContext, callbacks: DataLoaderCallbacks) {
@@ -225,6 +227,17 @@ export class DataLoaderManager implements AppModule {
   }
 
   public async tryFetchDigest(): Promise<ListFeedDigestResponse | null> {
+    if (this.digestInFlight) return this.digestInFlight;
+
+    this.digestInFlight = this.tryFetchDigestInternal();
+    try {
+      return await this.digestInFlight;
+    } finally {
+      this.digestInFlight = null;
+    }
+  }
+
+  private async tryFetchDigestInternal(): Promise<ListFeedDigestResponse | null> {
     const now = Date.now();
 
     if (this.digestBreaker.state === 'open') {
@@ -246,9 +259,13 @@ export class DataLoaderManager implements AppModule {
       this.lastGoodDigest = data;
       this.persistDigest(data);
       this.digestBreaker = { state: 'closed', failures: 0, cooldownUntil: 0 };
+      this.digestFailureLogged = false;
       return data;
     } catch (e) {
-      console.warn('[News] Digest fetch failed, using fallback:', e);
+      if (!this.digestFailureLogged) {
+        console.warn('[News] Digest fetch failed, using fallback');
+        this.digestFailureLogged = true;
+      }
       this.digestBreaker.failures++;
       if (this.digestBreaker.failures >= 2) {
         this.digestBreaker.state = 'open';

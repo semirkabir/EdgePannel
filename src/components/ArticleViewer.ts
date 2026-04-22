@@ -137,12 +137,21 @@ export class ArticleViewer {
   }
 
   private renderError(error: ArticleError, container: Element): void {
+    const blockedMatch = error.error.match(/\b(401|403|406|429)\b/);
+    const isBlocked = Boolean(blockedMatch);
+    const title = isBlocked
+      ? 'This site blocks external readers'
+      : t('components.articleViewer.failedToLoad');
+    const detail = isBlocked
+      ? `The publisher requires direct access (${blockedMatch![0]}). You can read the article on their site.`
+      : escapeHtml(error.error);
+
     container.innerHTML = `
       <div class="article-reader-error">
         <div class="article-error-icon">&#9888;</div>
-        <div class="article-error-title">${t('components.articleViewer.failedToLoad')}</div>
-        <div class="article-error-detail">${escapeHtml(error.error)}</div>
-        <a href="${sanitizeUrl(error.url)}" target="_blank" rel="noopener" class="article-error-external">
+        <div class="article-error-title">${title}</div>
+        <div class="article-error-detail">${detail}</div>
+        <a href="${sanitizeUrl(error.url)}" target="_blank" rel="noopener" class="article-error-external article-error-external--prominent">
           ${t('components.articleViewer.openOriginal')} &#8599;
         </a>
       </div>

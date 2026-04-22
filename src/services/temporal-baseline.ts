@@ -1,5 +1,7 @@
 import { InfrastructureServiceClient, type TemporalAnomaly as TemporalAnomalyProto } from '@/generated/client/worldmonitor/infrastructure/v1/service_client';
 import { getHydratedData } from '@/services/bootstrap';
+import { createCircuitBreaker } from '@/utils';
+import { isLocalDevTaskEnabled } from '@/services/local-dev-stability';
 
 export type KnownTemporalEventType =
   | 'military_flights'
@@ -22,6 +24,11 @@ export interface TemporalAnomaly {
 }
 
 const client = new InfrastructureServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
+const reportBreaker = createCircuitBreaker<void>({ name: 'Temporal Baseline Update', cacheTtlMs: 5 * 60 * 1000 });
+const checkBreakers = new Map<string, ReturnType<typeof createCircuitBreaker<TemporalAnomaly | null>>>();
+const checkInflight = new Map<string, Promise<TemporalAnomaly | null>>();
+let reportFailureLogged = false;
+const checkFailureLogged = new Set<string>();
 
 const TYPE_LABELS: Record<KnownTemporalEventType, string> = {
   military_flights: 'Military flights',
@@ -105,11 +112,28 @@ export async function fetchLiveAnomalies(): Promise<{ anomalies: TemporalAnomaly
 async function reportMetrics(
   updates: Array<{ type: TemporalEventType; region: string; count: number }>
 ): Promise<void> {
+  if (!isLocalDevTaskEnabled('temporalBaseline')) return;
+
   try {
-    await client.recordBaselineSnapshot({ updates });
+    await reportBreaker.execute(async () => {
+      await client.recordBaselineSnapshot({ updates });
+    }, undefined);
+    reportFailureLogged = false;
   } catch (e) {
-    console.warn('[TemporalBaseline] Update failed:', e);
+    if (!reportFailureLogged) {
+      console.warn('[TemporalBaseline] Update unavailable; using local fallback only');
+      reportFailureLogged = true;
+    }
   }
+}
+
+function getCheckBreaker(key: string) {
+  let breaker = checkBreakers.get(key);
+  if (!breaker) {
+    breaker = createCircuitBreaker<TemporalAnomaly | null>({ name: `Temporal Baseline ${key}`, cacheTtlMs: 5 * 60 * 1000 });
+    checkBreakers.set(key, breaker);
+  }
+  return breaker;
 }
 
 async function checkAnomaly(
@@ -117,9 +141,19 @@ async function checkAnomaly(
   region: string,
   count: number,
 ): Promise<TemporalAnomaly | null> {
+  if (!isLocalDevTaskEnabled('temporalBaseline')) return null;
+
+  const key = `${type}:${region}`;
+  const inflight = checkInflight.get(key);
+  if (inflight) return inflight;
+
+  const task = (async () => {
   try {
-    const data = await client.getTemporalBaseline({ type, region, count });
-    if (!data.anomaly) return null;
+    const data = await getCheckBreaker(key).execute(async () => {
+      return client.getTemporalBaseline({ type, region, count });
+    }, null);
+    if (!data?.anomaly) return null;
+    checkFailureLogged.delete(key);
 
     return {
       type,
@@ -131,8 +165,19 @@ async function checkAnomaly(
       message: formatAnomalyMessage(type, region, count, data.baseline?.mean ?? 0, data.anomaly.multiplier),
     };
   } catch (e) {
-    console.warn('[TemporalBaseline] Check failed:', e);
+    if (!checkFailureLogged.has(key)) {
+      console.warn(`[TemporalBaseline] Baseline check unavailable for ${key}`);
+      checkFailureLogged.add(key);
+    }
     return null;
+  }
+  })();
+
+  checkInflight.set(key, task);
+  try {
+    return await task;
+  } finally {
+    checkInflight.delete(key);
   }
 }
 

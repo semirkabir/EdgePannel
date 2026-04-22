@@ -143,11 +143,20 @@ export class ArticleRenderer implements EntityRenderer {
     if (!host) return;
 
     if ('error' in result) {
+      const blockedMatch = result.error.match(/\b(401|403|406|429)\b/);
+      const isBlocked = Boolean(blockedMatch);
+      const title = isBlocked
+        ? 'This site blocks external readers'
+        : 'Unable to load article';
+      const detail = isBlocked
+        ? `The publisher requires direct access (${blockedMatch![0]}). You can read the article on their site.`
+        : result.error;
+
       const errorWrap = ctx.el('div', 'edp-article-error');
       errorWrap.append(
         ctx.el('div', 'edp-article-error-icon', '⚠'),
-        ctx.el('div', 'edp-article-error-title', 'Unable to load article'),
-        ctx.el('div', 'edp-article-error-detail', result.error),
+        ctx.el('div', 'edp-article-error-title', title),
+        ctx.el('div', 'edp-article-error-detail', detail),
         buildExternalLink(ctx, article),
       );
       replaceChildren(host, errorWrap);

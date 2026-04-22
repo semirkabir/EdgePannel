@@ -1,6 +1,8 @@
 import { User } from 'firebase/auth';
 import { getFirebaseAuth, onAuthChange, isFirebaseConfigured, getCurrentUser, handleRedirectResult } from '@/services/firebase-auth';
 
+const AUTH_DEBUG = import.meta.env.DEV && import.meta.env.VITE_DEBUG_AUTH === '1';
+
 export type UserTier = 'free' | 'pro' | 'business' | 'enterprise';
 
 export interface AuthState {
@@ -42,7 +44,7 @@ export function initAuth(): void {
     if (user) {
       authState.user = user;
       authState.loading = false;
-      console.log('[Auth] User from redirect:', user.email);
+      if (AUTH_DEBUG) console.debug('[Auth] User from redirect:', user.email);
       notifyListeners();
       return;
     }
@@ -51,20 +53,20 @@ export function initAuth(): void {
     onAuthChange((user) => {
       authState.user = user;
       authState.loading = false;
-      console.log('[Auth] State changed:', { user: user?.email, uid: user?.uid, loading: false });
+      if (AUTH_DEBUG) console.debug('[Auth] State changed:', { user: user?.email, uid: user?.uid, loading: false });
       notifyListeners();
     });
     
     // Also check current user immediately
     const current = getCurrentUser();
-    console.log('[Auth] Current user on init:', current?.email);
+    if (AUTH_DEBUG) console.debug('[Auth] Current user on init:', current?.email);
   });
   
   // Initial state check after a delay
   setTimeout(() => {
     if (authState.loading) {
       authState.loading = false;
-      console.log('[Auth] Timeout - assuming no user');
+      if (AUTH_DEBUG) console.debug('[Auth] Timeout - assuming no user');
       notifyListeners();
     }
   }, 3000);

@@ -82,6 +82,18 @@ export class CountryIntelManager implements AppModule {
       this.ctx.countryTimeline?.destroy();
       this.ctx.countryTimeline = null;
     });
+
+    this.ctx.countryBriefPage!.onMarketClick((market) => {
+      this.ctx.entityDetailPanel?.show('predictionMarket', {
+        title: market.title,
+        slug: market.slug || '',
+        category: 'geopolitics',
+        volume: market.volume,
+        endDate: market.endDate,
+        closed: false,
+        url: market.url,
+      });
+    });
   }
 
   async openCountryBrief(lat: number, lon: number): Promise<void> {

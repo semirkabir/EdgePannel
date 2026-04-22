@@ -218,6 +218,8 @@ function getImageIdentity(rawUrl, baseUrl) {
       if (next === stem) break;
       stem = next;
     }
+    // Strip common CDN resize suffixes like -w800, _640x360, -custom1, etc.
+    stem = stem.replace(/[_-]\d+x\d+$/, '').replace(/[_-]w\d+$/, '').replace(/[_-]custom\d+$/, '');
     return stem.toLowerCase();
   } catch {
     return '';
@@ -232,7 +234,16 @@ function imageUrlsLikelyMatch(leftUrl, rightUrl, baseUrl) {
 
   const leftId = getImageIdentity(left, baseUrl);
   const rightId = getImageIdentity(right, baseUrl);
-  return leftId.length >= 8 && leftId === rightId;
+  if (leftId.length >= 8 && leftId === rightId) return true;
+
+  // Fallback: same base filename after stripping query params and resize tokens
+  try {
+    const leftName = new URL(left).pathname.split('/').pop()?.replace(/\.(avif|webp|png|jpe?g)$/i, '').toLowerCase() || '';
+    const rightName = new URL(right).pathname.split('/').pop()?.replace(/\.(avif|webp|png|jpe?g)$/i, '').toLowerCase() || '';
+    if (leftName.length >= 8 && leftName === rightName) return true;
+  } catch { /* ignore */ }
+
+  return false;
 }
 
 function isPlaceholderImage(img) {
@@ -262,6 +273,16 @@ function removeEmptyContainers(root) {
   }
 }
 
+function getDocumentOrderIndex(el, root) {
+  // Build a map of element -> document order index for reliable position comparison.
+  // This avoids linkedom compareDocumentPosition bugs with special elements like <picture>.
+  const all = root.querySelectorAll('*');
+  for (let i = 0; i < all.length; i += 1) {
+    if (all[i] === el) return i;
+  }
+  return -1;
+}
+
 function stripDuplicateLeadImage(contentHtml, baseUrl, heroImageUrl) {
   if (!contentHtml) return contentHtml;
 
@@ -274,23 +295,41 @@ function stripDuplicateLeadImage(contentHtml, baseUrl, heroImageUrl) {
 
   const normalizedHero = absolutizeUrl(heroImageUrl, baseUrl);
   if (normalizedHero) {
-    const firstMeaningfulParagraph = Array.from(contentDoc.querySelectorAll('p'))
-      .find((paragraph) => normalizeText(paragraph.textContent).length >= DUPLICATE_LEAD_TEXT_THRESHOLD);
+    const paragraphs = Array.from(contentDoc.querySelectorAll('p'))
+      .filter((p) => normalizeText(p.textContent).length >= DUPLICATE_LEAD_TEXT_THRESHOLD);
+    const firstMeaningfulParagraph = paragraphs[0];
+    const firstParaIndex = firstMeaningfulParagraph
+      ? getDocumentOrderIndex(firstMeaningfulParagraph, contentDoc.body)
+      : -1;
 
-    for (const img of contentDoc.querySelectorAll('img')) {
+    for (const img of Array.from(contentDoc.querySelectorAll('img'))) {
       const src = absolutizeUrl(img.getAttribute('src') || '', baseUrl);
       if (!src || !imageUrlsLikelyMatch(src, normalizedHero, baseUrl)) continue;
 
-      const appearsBeforeText = !firstMeaningfulParagraph
-        || Boolean(firstMeaningfulParagraph.compareDocumentPosition(img) & DOCUMENT_POSITION_FOLLOWING);
+      const imgIndex = getDocumentOrderIndex(img, contentDoc.body);
+      const appearsBeforeText = firstParaIndex === -1 || imgIndex < firstParaIndex;
       if (!appearsBeforeText) continue;
 
-      const leadBlock = img.closest('figure')
+      // Remove the entire block: prefer figure/image-block/picture, then p, then parent
+      let leadBlock = img.closest('figure')
         || img.closest('[data-component="image-block"]')
-        || img.closest('p')
-        || img.parentElement;
-      leadBlock?.remove();
-      break;
+        || img.closest('picture')
+        || img.closest('p');
+
+      // If parent is a bare wrapper with no other meaningful content, remove it too
+      if (!leadBlock) {
+        const parent = img.parentElement;
+        if (parent && parent !== contentDoc.body) {
+          const text = normalizeText(parent.textContent);
+          const hasOtherMedia = parent.querySelector('img, video, iframe') !== img;
+          if (!text && !hasOtherMedia) {
+            leadBlock = parent;
+          }
+        }
+      }
+
+      (leadBlock || img).remove();
+      // Do NOT break — keep scanning for additional responsive/lazy variants
     }
   }
 
@@ -549,8 +588,18 @@ export default async function handler(req) {
       signal: controller.signal,
       headers: {
         'User-Agent': CHROME_UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Cache-Control': 'max-age=0',
       },
       redirect: 'follow',
     });
