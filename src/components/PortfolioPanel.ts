@@ -11,6 +11,7 @@ import {
   removeUserPosition,
   NOTABLE_INVESTORS,
   type CongressTrade,
+  type InstitutionalHoldingsResponse,
   getTickerSector,
   SECTOR_COLORS,
   sparklineSvg,
@@ -21,28 +22,201 @@ import {
 } from '@/services/market/portfolio';
 import { setMarketWatchlistEntries, getMarketWatchlistEntries } from '@/services/market-watchlist';
 
-type Tab = 'portfolio' | 'congress' | 'institutions' | 'notable';
+type Tab = 'portfolio' | 'filings' | 'tools';
+type ToolCategoryKey = 'all' | 'planning' | 'research' | 'construction' | 'attribution' | 'lab';
+type ToolGroupKey =
+  | 'backtest-portfolio'
+  | 'factor-analysis'
+  | 'asset-analytics'
+  | 'monte-carlo-simulation'
+  | 'portfolio-optimization'
+  | 'tactical-asset-allocation'
+  | 'forward-testing';
+type ToolKey =
+  | 'backtest-asset-allocation'
+  | 'backtest-portfolio-core'
+  | 'backtest-dynamic-allocation'
+  | 'manager-performance-analysis'
+  | 'factor-regression'
+  | 'risk-factor-allocation'
+  | 'match-factor-exposures'
+  | 'principal-component-analysis'
+  | 'factor-statistics'
+  | 'fund-factor-regressions'
+  | 'fund-performance-attribution'
+  | 'fund-screener'
+  | 'fund-rankings'
+  | 'fund-performance'
+  | 'asset-correlations'
+  | 'asset-autocorrelation'
+  | 'asset-cointegration'
+  | 'monte-carlo-simulation-core'
+  | 'financial-goals'
+  | 'asset-liability-modeling'
+  | 'efficient-frontier'
+  | 'portfolio-optimization-core'
+  | 'black-litterman-model'
+  | 'rolling-optimization'
+  | 'market-valuation'
+  | 'moving-averages'
+  | 'momentum-rotation'
+  | 'dual-momentum'
+  | 'adaptive-allocation'
+  | 'target-volatility'
+  | 'walk-forward-testing'
+  | 'out-of-sample-validation'
+  | 'scenario-forward-testing';
+
+interface ToolCategory {
+  key: ToolCategoryKey;
+  label: string;
+}
+
+interface ToolItem {
+  key: ToolKey;
+  label: string;
+}
+
+interface ToolGroup {
+  key: ToolGroupKey;
+  title: string;
+  description: string;
+  categories: ToolCategoryKey[];
+  tools: ToolItem[];
+}
 
 const TAB_LABELS: Record<Tab, string> = {
   portfolio: 'My Portfolio',
-  congress: 'Congress',
-  institutions: 'Institutions',
-  notable: 'Notable',
+  filings: 'Public Filings',
+  tools: 'Tools',
 };
+
+const TOOL_CATEGORIES: ToolCategory[] = [
+  { key: 'all', label: 'All Functions' },
+  { key: 'planning', label: 'Financial Planning' },
+  { key: 'research', label: 'Research & Insights' },
+  { key: 'construction', label: 'Portfolio Construction' },
+  { key: 'attribution', label: 'Performance Attribution' },
+  { key: 'lab', label: 'Model Laboratory' },
+];
+
+const TOOL_GROUPS: ToolGroup[] = [
+  {
+    key: 'backtest-portfolio',
+    title: 'Backtest Portfolio',
+    description: 'Backtest a portfolio asset allocation and compare historical and realized returns and risk characteristics against benchmark and model portfolios.',
+    categories: ['all', 'construction', 'attribution'],
+    tools: [
+      { key: 'backtest-asset-allocation', label: 'Backtest Asset Allocation' },
+      { key: 'backtest-portfolio-core', label: 'Backtest Portfolio' },
+      { key: 'backtest-dynamic-allocation', label: 'Backtest Dynamic Allocation' },
+      { key: 'manager-performance-analysis', label: 'Manager Performance Analysis' },
+    ],
+  },
+  {
+    key: 'factor-analysis',
+    title: 'Factor Analysis',
+    description: 'Run factor and regression analysis to understand portfolio return drivers, factor exposures, and attribution against systematic risk premia.',
+    categories: ['all', 'research', 'attribution'],
+    tools: [
+      { key: 'factor-regression', label: 'Factor Regression' },
+      { key: 'risk-factor-allocation', label: 'Risk Factor Allocation' },
+      { key: 'match-factor-exposures', label: 'Match Factor Exposures' },
+      { key: 'principal-component-analysis', label: 'Principal Component Analysis' },
+      { key: 'factor-statistics', label: 'Factor Statistics' },
+      { key: 'fund-factor-regressions', label: 'Fund Factor Regressions' },
+      { key: 'fund-performance-attribution', label: 'Fund Performance Attribution' },
+    ],
+  },
+  {
+    key: 'asset-analytics',
+    title: 'Asset Analytics',
+    description: 'Screen funds, compare rankings, and inspect correlation structure across assets and funds before they enter a portfolio model.',
+    categories: ['all', 'research'],
+    tools: [
+      { key: 'fund-screener', label: 'Fund Screener' },
+      { key: 'fund-rankings', label: 'Fund Rankings' },
+      { key: 'fund-performance', label: 'Fund Performance' },
+      { key: 'asset-correlations', label: 'Asset Correlations' },
+      { key: 'asset-autocorrelation', label: 'Asset Autocorrelation' },
+      { key: 'asset-cointegration', label: 'Asset Cointegration' },
+    ],
+  },
+  {
+    key: 'monte-carlo-simulation',
+    title: 'Monte Carlo Simulation',
+    description: 'Model long-horizon portfolio outcomes using historical or forecast assumptions to test sustainability, goals, and liability coverage.',
+    categories: ['all', 'planning', 'lab'],
+    tools: [
+      { key: 'monte-carlo-simulation-core', label: 'Monte Carlo Simulation' },
+      { key: 'financial-goals', label: 'Financial Goals' },
+      { key: 'asset-liability-modeling', label: 'Asset Liability Modeling' },
+    ],
+  },
+  {
+    key: 'portfolio-optimization',
+    title: 'Portfolio Optimization',
+    description: 'Explore efficient frontier and optimizer workflows for risk-return trade-offs, constrained allocations, and view-based portfolio construction.',
+    categories: ['all', 'construction', 'lab'],
+    tools: [
+      { key: 'efficient-frontier', label: 'Efficient Frontier' },
+      { key: 'portfolio-optimization-core', label: 'Portfolio Optimization' },
+      { key: 'black-litterman-model', label: 'Black-Litterman Model' },
+      { key: 'rolling-optimization', label: 'Rolling Optimization' },
+    ],
+  },
+  {
+    key: 'tactical-asset-allocation',
+    title: 'Tactical Asset Allocation',
+    description: 'Compare tactical allocation rules using valuation, momentum, moving averages, and volatility-targeting frameworks.',
+    categories: ['all', 'construction', 'lab'],
+    tools: [
+      { key: 'market-valuation', label: 'Market Valuation' },
+      { key: 'moving-averages', label: 'Moving Averages' },
+      { key: 'momentum-rotation', label: 'Momentum Rotation' },
+      { key: 'dual-momentum', label: 'Dual Momentum' },
+      { key: 'adaptive-allocation', label: 'Adaptive Allocation' },
+      { key: 'target-volatility', label: 'Target Volatility' },
+    ],
+  },
+  {
+    key: 'forward-testing',
+    title: 'Forward Testing',
+    description: 'Reserve space for walk-forward validation and out-of-sample testing tools so strategies can graduate from research into live evaluation.',
+    categories: ['all', 'research', 'lab'],
+    tools: [
+      { key: 'walk-forward-testing', label: 'Walk-Forward Testing' },
+      { key: 'out-of-sample-validation', label: 'Out-of-Sample Validation' },
+      { key: 'scenario-forward-testing', label: 'Scenario Forward Testing' },
+    ],
+  },
+];
 
 const client = new MarketServiceClient('', {
   fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args),
 });
 
 type CongressFilter = { party: string; chamber: string; type: string };
+type FeaturedPolitician = {
+  name: string;
+  party: string;
+  chamber: 'House' | 'Senate';
+  state: string;
+  tradeCount: number;
+  latestDisclosure: string;
+};
 
 export class PortfolioPanel extends Panel {
   private activeTab: Tab = 'portfolio';
   private congressCache: CongressTrade[] | null = null;
-  private congressFilter = '';
+  private institutionHoldingsCache = new Map<string, InstitutionalHoldingsResponse>();
+  private filingsFilter = '';
   private congressFilters: CongressFilter = { party: '', chamber: '', type: '' };
   private congressSort: { field: CongressSortField; dir: SortDir } = { field: 'date', dir: 'desc' };
-  private institutionCik: string = NOTABLE_INVESTORS[0]!.cik;
+  private institutionCik: string | null = null;
+  private activeToolsCategory: ToolCategoryKey = 'all';
+  private activeToolGroup: ToolGroupKey | null = null;
+  private activeTool: ToolKey | null = null;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private editingSymbol: string | null = null;
 
@@ -105,9 +279,8 @@ export class PortfolioPanel extends Panel {
     try {
       switch (this.activeTab) {
         case 'portfolio': await this.renderPortfolioTab(contentEl); break;
-        case 'congress': await this.renderCongressTab(contentEl); break;
-        case 'institutions': await this.renderInstitutionsTab(contentEl); break;
-        case 'notable': this.renderNotableTab(contentEl); break;
+        case 'filings': await this.renderFilingsTab(contentEl); break;
+        case 'tools': this.renderToolsTab(contentEl); break;
       }
     } catch (err) {
       contentEl.innerHTML = `<div class="pf-error">Error loading data: ${escapeHtml(String(err))}</div>`;
@@ -357,22 +530,30 @@ export class PortfolioPanel extends Panel {
     });
   }
 
-  // ─── Congress Tab ────────────────────────────────────────────────────────
+  // ─── Public Filings Tab ──────────────────────────────────────────────────
 
-  private async renderCongressTab(contentEl: HTMLElement): Promise<void> {
+  private async renderFilingsTab(contentEl: HTMLElement): Promise<void> {
     if (!this.congressCache) {
       const resp = await fetchCongressTrades();
       this.congressCache = resp.trades;
     }
 
+    const query = this.filingsFilter.trim().toLowerCase();
+    const featuredInstitutions = NOTABLE_INVESTORS.filter(inv => this.matchesInstitution(inv, query));
+    const featuredPoliticians = this.getFeaturedPoliticians(this.congressCache)
+      .filter(pol => this.matchesPolitician(pol, query))
+      .slice(0, query ? 16 : 8);
+
     let trades = sortCongressTrades(this.congressCache, this.congressSort.field, this.congressSort.dir);
 
-    if (this.congressFilter) {
-      const f = this.congressFilter.toLowerCase();
+    if (query) {
       trades = trades.filter(tr =>
-        tr.politician.toLowerCase().includes(f) ||
-        tr.ticker.toLowerCase().includes(f) ||
-        tr.party.toLowerCase().includes(f)
+        tr.politician.toLowerCase().includes(query) ||
+        tr.ticker.toLowerCase().includes(query) ||
+        tr.party.toLowerCase().includes(query) ||
+        tr.assetDescription.toLowerCase().includes(query) ||
+        tr.chamber.toLowerCase().includes(query) ||
+        tr.state.toLowerCase().includes(query)
       );
     }
 
@@ -397,6 +578,24 @@ export class PortfolioPanel extends Panel {
       return this.congressSort.dir === 'asc' ? ' \u2191' : ' \u2193';
     };
 
+    const featuredInstitutionCards = featuredInstitutions.map(inv => `
+      <button class="pf-featured-card pf-featured-card-firm${this.institutionCik === inv.cik ? ' pf-featured-card-active' : ''}" data-featured-kind="institution" data-cik="${escapeHtml(inv.cik)}" data-name="${escapeHtml(inv.name)}">
+        <span class="pf-featured-eyebrow">Featured Firm</span>
+        <span class="pf-featured-name">${escapeHtml(inv.name)}</span>
+        <span class="pf-featured-meta">${escapeHtml(inv.description)}</span>
+        <span class="pf-featured-badge">13F Filing</span>
+      </button>
+    `).join('');
+
+    const featuredPoliticianCards = featuredPoliticians.map(pol => `
+      <button class="pf-featured-card pf-featured-card-politician" data-featured-kind="politician" data-name="${escapeHtml(pol.name)}" data-party="${escapeHtml(pol.party)}" data-chamber="${escapeHtml(pol.chamber)}" data-state="${escapeHtml(pol.state)}">
+        <span class="pf-featured-eyebrow">Featured Politician</span>
+        <span class="pf-featured-name">${escapeHtml(pol.name)}</span>
+        <span class="pf-featured-meta">${escapeHtml(pol.party)} \u00b7 ${escapeHtml(pol.chamber)}${pol.state ? ` \u00b7 ${escapeHtml(pol.state)}` : ''}</span>
+        <span class="pf-featured-badge">Congress Filing</span>
+      </button>
+    `).join('');
+
     const rows = trades.slice(0, 100).map(trade => {
       const isPurchase = trade.transactionType.toLowerCase().includes('purchase');
       const isSale = trade.transactionType.toLowerCase().includes('sale');
@@ -407,15 +606,18 @@ export class PortfolioPanel extends Panel {
       return `
         <div class="pf-congress-row" data-trade-idx="${escapeHtml(String(this.congressCache!.indexOf(trade)))}">
           <div class="pf-cg-header">
-            <span class="pf-cg-name">${escapeHtml(trade.politician)}</span>
+            <button class="pf-cg-name" data-name="${escapeHtml(trade.politician)}" data-party="${escapeHtml(trade.party)}" data-chamber="${escapeHtml(trade.chamber)}" data-state="${escapeHtml(trade.state)}">${escapeHtml(trade.politician)}</button>
             <span class="pf-cg-party" style="color:${partyColor}">${escapeHtml(trade.party.charAt(0))}</span>
             <span class="pf-cg-chamber">${escapeHtml(trade.chamber)}</span>
-            <span class="pf-cg-date">${escapeHtml(trade.transactionDate)}</span>
           </div>
           <div class="pf-cg-details">
             <span class="pf-cg-ticker ticker-link" data-ticker="${escapeHtml(trade.ticker)}" data-name="${escapeHtml(trade.assetDescription)}">${escapeHtml(trade.ticker)}</span>
             <span class="pf-cg-type ${typeClass}">${typeLabel}</span>
             <span class="pf-cg-amount">${escapeHtml(trade.amount)}</span>
+          </div>
+          <div class="pf-cg-meta">
+            <span class="pf-cg-date">Trade ${escapeHtml(trade.transactionDate)}</span>
+            <span class="pf-cg-filing">Congress filing ${escapeHtml(trade.disclosureDate)}</span>
           </div>
           ${trade.assetDescription ? `<div class="pf-cg-desc">${escapeHtml(trade.assetDescription.slice(0, 80))}</div>` : ''}
         </div>`;
@@ -423,7 +625,7 @@ export class PortfolioPanel extends Panel {
 
     contentEl.innerHTML = `
       <div class="pf-filter-bar">
-        <input type="text" class="pf-input" id="pf-congress-filter" placeholder="Filter by name, ticker, or party\u2026" value="${escapeHtml(this.congressFilter)}" />
+        <input type="text" class="pf-input" id="pf-filings-filter" placeholder="Search politicians, firms, tickers, or parties\u2026" value="${escapeHtml(this.filingsFilter)}" />
         <div class="pf-filter-chips">
           <button class="pf-chip${!this.congressFilters.party ? ' pf-chip-active' : ''}" data-filter="party" data-value="">All</button>
           <button class="pf-chip${this.congressFilters.party === 'Democrat' ? ' pf-chip-active' : ''}" data-filter="party" data-value="Democrat" style="--chip-color:#3b82f6">D</button>
@@ -434,6 +636,45 @@ export class PortfolioPanel extends Panel {
           <button class="pf-chip${this.congressFilters.type === 'sale' ? ' pf-chip-active pf-negative' : ''}" data-filter="type" data-value="sale">Sell</button>
         </div>
       </div>
+      <div class="pf-section">
+        <div class="pf-section-head">
+          <div>
+            <div class="pf-section-title">Featured Filers</div>
+            <div class="pf-section-subtitle">Congress disclosures and notable 13F firms in one view.</div>
+          </div>
+        </div>
+        <div class="pf-featured-stack">
+          <div class="pf-featured-group">
+            <div class="pf-featured-group-title">Featured Firms</div>
+            <div class="pf-featured-grid">${featuredInstitutionCards || '<div class="pf-empty">No firm matches.</div>'}</div>
+          </div>
+          <div class="pf-featured-group">
+            <div class="pf-featured-group-title">Featured Politicians</div>
+            <div class="pf-featured-grid">${featuredPoliticianCards || '<div class="pf-empty">No politician matches.</div>'}</div>
+          </div>
+        </div>
+      </div>
+      <div class="pf-section pf-inst-shell">
+        <div class="pf-section-head">
+          <div>
+            <div class="pf-section-title">Latest 13F Filing</div>
+            <div class="pf-section-subtitle">Select a featured firm above to load its most recent disclosed holdings.</div>
+          </div>
+          <div class="pf-inst-actions">
+            ${this.institutionCik ? '<button class="pf-inline-btn" id="pf-open-institution-detail" type="button">Open Profile</button><button class="pf-inline-btn-secondary" id="pf-clear-institution" type="button">Clear</button>' : ''}
+          </div>
+        </div>
+        <div id="pf-holdings-content">${this.institutionCik ? '<div class="pf-loading">Loading 13F holdings\u2026</div>' : '<div class="pf-empty">Choose a featured firm to load its latest 13F filing.</div>'}</div>
+      </div>
+      <div class="pf-section">
+        <div class="pf-section-head">
+          <div>
+            <div class="pf-section-title">Congress Filings</div>
+            <div class="pf-section-subtitle">Individual disclosures reported by members of Congress.</div>
+          </div>
+          <div class="pf-count">${trades.length} filings${trades.length > 100 ? ' (showing first 100)' : ''}</div>
+        </div>
+      </div>
       <div class="pf-congress-header">
         <button class="pf-sort-btn" data-sort="politician">Politician${sortIcon('politician')}</button>
         <button class="pf-sort-btn" data-sort="ticker">Ticker${sortIcon('ticker')}</button>
@@ -442,14 +683,13 @@ export class PortfolioPanel extends Panel {
         <button class="pf-sort-btn" data-sort="date">Date${sortIcon('date')}</button>
       </div>
       <div class="pf-congress-list">${rows || '<div class="pf-empty">No trades found</div>'}</div>
-      <div class="pf-count">${trades.length} trades${trades.length > 100 ? ' (showing first 100)' : ''}</div>
     `;
 
-    const filterInput = contentEl.querySelector('#pf-congress-filter') as HTMLInputElement;
-    let debounce: ReturnType<typeof setTimeout>;
+    const filterInput = contentEl.querySelector('#pf-filings-filter') as HTMLInputElement;
+    let debounce: number | undefined;
     filterInput?.addEventListener('input', () => {
-      clearTimeout(debounce);
-      debounce = setTimeout(() => { this.congressFilter = filterInput.value.trim(); this.renderTabContent(); }, 300);
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(() => { this.filingsFilter = filterInput.value.trim(); this.renderTabContent(); }, 300);
     });
 
     contentEl.querySelectorAll<HTMLElement>('.pf-chip').forEach(chip => {
@@ -485,6 +725,63 @@ export class PortfolioPanel extends Panel {
       });
     });
 
+    contentEl.querySelectorAll<HTMLElement>('.pf-featured-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const kind = card.dataset.featuredKind;
+        if (kind === 'institution') {
+          this.institutionCik = card.dataset.cik || null;
+          this.renderTabContent();
+          return;
+        }
+        const name = card.dataset.name;
+        if (name) {
+          const panel = (window as any).__entityDetailPanel;
+          panel?.show('congressPolitician', {
+            name,
+            party: card.dataset.party || '',
+            chamber: (card.dataset.chamber as 'House' | 'Senate') || 'House',
+            state: card.dataset.state || '',
+          });
+        }
+      });
+    });
+
+    const clearInstitutionBtn = contentEl.querySelector('#pf-clear-institution');
+    clearInstitutionBtn?.addEventListener('click', () => {
+      this.institutionCik = null;
+      this.renderTabContent();
+    });
+
+    const openInstitutionBtn = contentEl.querySelector('#pf-open-institution-detail');
+    openInstitutionBtn?.addEventListener('click', () => {
+      if (!this.institutionCik) return;
+      const institution = NOTABLE_INVESTORS.find(inv => inv.cik === this.institutionCik);
+      const panel = (window as any).__entityDetailPanel;
+      panel?.show('institution', {
+        name: institution?.name || 'Institution',
+        cik: this.institutionCik,
+      });
+    });
+
+    if (this.institutionCik) {
+      await this.loadInstitutionHoldings(contentEl);
+    }
+
+    contentEl.querySelectorAll<HTMLElement>('.pf-cg-name').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const name = el.dataset.name;
+        if (!name) return;
+        const panel = (window as any).__entityDetailPanel;
+        panel?.show('congressPolitician', {
+          name,
+          party: el.dataset.party || '',
+          chamber: (el.dataset.chamber as 'House' | 'Senate') || 'House',
+          state: el.dataset.state || '',
+        });
+      });
+    });
+
     contentEl.querySelectorAll<HTMLElement>('.pf-cg-ticker').forEach(el => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -498,36 +795,13 @@ export class PortfolioPanel extends Panel {
     });
   }
 
-  // ─── Institutions Tab ────────────────────────────────────────────────────
-
-  private async renderInstitutionsTab(contentEl: HTMLElement): Promise<void> {
-    const selectorHtml = NOTABLE_INVESTORS.map(inv =>
-      `<option value="${escapeHtml(inv.cik)}"${inv.cik === this.institutionCik ? ' selected' : ''}>${escapeHtml(inv.name)} (${escapeHtml(inv.description)})</option>`
-    ).join('');
-
-    contentEl.innerHTML = `
-      <div class="pf-filter-bar">
-        <select class="pf-select" id="pf-institution-select">${selectorHtml}</select>
-      </div>
-      <div id="pf-holdings-content"><div class="pf-loading">Loading 13F holdings\u2026</div></div>
-    `;
-
-    const select = contentEl.querySelector('#pf-institution-select') as HTMLSelectElement;
-    select?.addEventListener('change', () => {
-      this.institutionCik = select.value;
-      this.loadInstitutionHoldings(contentEl);
-    });
-
-    await this.loadInstitutionHoldings(contentEl);
-  }
-
   private async loadInstitutionHoldings(contentEl: HTMLElement): Promise<void> {
     const holdingsDiv = contentEl.querySelector('#pf-holdings-content') as HTMLElement | null;
-    if (!holdingsDiv) return;
+    if (!holdingsDiv || !this.institutionCik) return;
     holdingsDiv.innerHTML = '<div class="pf-loading">Loading 13F holdings\u2026</div>';
 
     try {
-      const data = await fetchInstitutionalHoldings(this.institutionCik);
+      const data = await this.getInstitutionHoldings(this.institutionCik);
 
       if (data.holdings.length === 0) {
         holdingsDiv.innerHTML = '<div class="pf-empty">No holdings data available for this filer.</div>';
@@ -573,7 +847,8 @@ export class PortfolioPanel extends Panel {
       holdingsDiv.innerHTML = `
         <div class="pf-inst-header">
           <span class="pf-inst-name">${escapeHtml(data.name)}</span>
-          <span class="pf-inst-meta">Filed: ${escapeHtml(data.filingDate)} \u00b7 ${data.totalHoldings} positions \u00b7 AUM: $${formatLargeNum(totalValue)}</span>
+          <span class="pf-inst-label">13F Filing</span>
+          <span class="pf-inst-meta">Filed ${escapeHtml(data.filingDate)} \u00b7 ${data.totalHoldings} positions \u00b7 13F value $${formatLargeNum(totalValue)}</span>
         </div>
         ${donutHtml}
         <div class="pf-holdings-list">${rows}</div>
@@ -583,32 +858,184 @@ export class PortfolioPanel extends Panel {
     }
   }
 
-  // ─── Notable Tab ─────────────────────────────────────────────────────────
+  private getFeaturedPoliticians(trades: CongressTrade[]): FeaturedPolitician[] {
+    const politicians = new Map<string, FeaturedPolitician>();
 
-  private renderNotableTab(contentEl: HTMLElement): void {
-    const cards = NOTABLE_INVESTORS.map(inv => `
-      <div class="pf-notable-card" data-cik="${escapeHtml(inv.cik)}">
-        <div class="pf-notable-name">${escapeHtml(inv.name)}</div>
-        <div class="pf-notable-desc">${escapeHtml(inv.description)}</div>
-        <div class="pf-notable-action">View Holdings \u2192</div>
-      </div>
+    for (const trade of trades) {
+      const existing = politicians.get(trade.politician);
+      if (existing) {
+        existing.tradeCount += 1;
+        if (trade.disclosureDate > existing.latestDisclosure) {
+          existing.latestDisclosure = trade.disclosureDate;
+        }
+        continue;
+      }
+
+      politicians.set(trade.politician, {
+        name: trade.politician,
+        party: trade.party,
+        chamber: trade.chamber,
+        state: trade.state,
+        tradeCount: 1,
+        latestDisclosure: trade.disclosureDate,
+      });
+    }
+
+    return Array.from(politicians.values()).sort((a, b) =>
+      b.tradeCount - a.tradeCount || b.latestDisclosure.localeCompare(a.latestDisclosure)
+    );
+  }
+
+  private matchesInstitution(investor: { name: string; description: string }, query: string): boolean {
+    if (!query) return true;
+    return investor.name.toLowerCase().includes(query) || investor.description.toLowerCase().includes(query);
+  }
+
+  private matchesPolitician(politician: FeaturedPolitician, query: string): boolean {
+    if (!query) return true;
+    return (
+      politician.name.toLowerCase().includes(query) ||
+      politician.party.toLowerCase().includes(query) ||
+      politician.chamber.toLowerCase().includes(query) ||
+      politician.state.toLowerCase().includes(query)
+    );
+  }
+
+  private async getInstitutionHoldings(cik: string): Promise<InstitutionalHoldingsResponse> {
+    const cached = this.institutionHoldingsCache.get(cik);
+    if (cached) return cached;
+    const data = await fetchInstitutionalHoldings(cik);
+    this.institutionHoldingsCache.set(cik, data);
+    return data;
+  }
+
+  // ─── Tools Tab ───────────────────────────────────────────────────────────
+
+  private renderToolsTab(contentEl: HTMLElement): void {
+    const visibleGroups = TOOL_GROUPS.filter(group =>
+      this.activeToolsCategory === 'all' || group.categories.includes(this.activeToolsCategory)
+    );
+
+    const selectedGroup = this.activeToolGroup
+      ? visibleGroups.find(group => group.key === this.activeToolGroup) || null
+      : null;
+    const selectedTool = this.activeTool
+      ? visibleGroups.flatMap(group => group.tools.map(tool => ({ group, tool }))).find(entry => entry.tool.key === this.activeTool) || null
+      : null;
+
+    const categoryRail = TOOL_CATEGORIES.map(category => `
+      <button class="pf-tools-category${category.key === this.activeToolsCategory ? ' pf-tools-category-active' : ''}" data-tools-category="${escapeHtml(category.key)}">
+        ${escapeHtml(category.label)}
+      </button>
     `).join('');
 
+    const cards = visibleGroups.map(group => {
+      const isSelectedGroup = selectedGroup?.key === group.key || selectedTool?.group.key === group.key;
+      const toolItems = group.tools.map(tool => `
+        <button class="pf-tool-link${selectedTool?.tool.key === tool.key ? ' pf-tool-link-active' : ''}" data-tool-group="${escapeHtml(group.key)}" data-tool-key="${escapeHtml(tool.key)}">
+          ${escapeHtml(tool.label)} <span class="pf-tool-link-arrow">\u203a</span>
+        </button>
+      `).join('');
+
+      return `
+        <section class="pf-tool-card${isSelectedGroup ? ' pf-tool-card-active' : ''}" data-tool-card="${escapeHtml(group.key)}">
+          <div class="pf-tool-card-head">
+            <span class="pf-tool-card-title">${escapeHtml(group.title)}</span>
+          </div>
+          <div class="pf-tool-card-rule"></div>
+          <p class="pf-tool-card-description">${escapeHtml(group.description)}</p>
+          <div class="pf-tool-link-list">${toolItems}</div>
+        </section>
+      `;
+    }).join('');
+
+    const detailTitle = selectedTool?.tool.label || 'Select a tool';
+    const detailGroup = selectedTool?.group.title || 'Tool Page';
+    const detailDescription = selectedTool
+      ? `This is the blank page shell for ${selectedTool.tool.label}. We can define its inputs, controls, charts, and outputs next.`
+      : 'Choose a specific tool from the catalog to open its page here.';
+
     contentEl.innerHTML = `
-      <div class="pf-notable-header">Notable investors and fund managers with public 13F filings.</div>
-      <div class="pf-notable-grid">${cards}</div>
+      <div class="pf-tools-shell">
+        <aside class="pf-tools-rail">
+          <div class="pf-tools-rail-head">
+            <div class="pf-tools-kicker">Tools</div>
+            <div class="pf-tools-heading">Select Solutions For</div>
+          </div>
+          <div class="pf-tools-category-list">${categoryRail}</div>
+        </aside>
+        <section class="pf-tools-main">
+          ${selectedTool ? `
+            <div class="pf-tools-detail pf-tools-detail-open">
+              <div class="pf-tools-detail-head">
+                <button class="pf-tools-back" id="pf-tools-back" type="button">\u2039 Back to catalog</button>
+                <span class="pf-tools-detail-badge">${escapeHtml(detailGroup)}</span>
+                <h3 class="pf-tools-detail-title">${escapeHtml(detailTitle)}</h3>
+                <p class="pf-tools-detail-copy">${escapeHtml(detailDescription)}</p>
+              </div>
+              <div class="pf-tool-page-shell">
+                <div class="pf-tool-page-toolbar">
+                  <div class="pf-tool-page-pill">${escapeHtml(selectedTool.group.title)}</div>
+                  <div class="pf-tool-page-pill pf-tool-page-pill-muted">${escapeHtml(selectedTool.tool.label)}</div>
+                </div>
+                <div class="pf-tool-page-body">
+                  <div class="pf-tool-page-canvas">Blank tool page</div>
+                </div>
+              </div>
+            </div>
+          ` : `
+            <section class="pf-tools-catalog">
+              <div class="pf-tools-catalog-head">
+                <div>
+                  <div class="pf-section-title">Tool Catalog</div>
+                  <div class="pf-section-subtitle">Portfolio research, optimization, backtesting, and planning workflows.</div>
+                </div>
+                <div class="pf-tools-count">${visibleGroups.length} sections</div>
+              </div>
+              <div class="pf-tools-grid">${cards || '<div class="pf-empty">No tools in this category yet.</div>'}</div>
+            </section>
+          `}
+        </section>
+      </div>
     `;
 
-    contentEl.querySelectorAll<HTMLElement>('.pf-notable-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const cik = card.dataset.cik;
-        if (cik) {
-          this.institutionCik = cik;
-          this.activeTab = 'institutions';
-          this.renderShell();
-          this.renderTabContent();
+    contentEl.querySelectorAll<HTMLElement>('[data-tools-category]').forEach(button => {
+      button.addEventListener('click', () => {
+        this.activeToolsCategory = button.dataset.toolsCategory as ToolCategoryKey;
+        const nextVisibleGroups = TOOL_GROUPS.filter(group =>
+          this.activeToolsCategory === 'all' || group.categories.includes(this.activeToolsCategory)
+        );
+        const stillVisible = this.activeTool ? nextVisibleGroups.some(group => group.tools.some(tool => tool.key === this.activeTool)) : false;
+        if (!stillVisible) {
+          this.activeTool = null;
+          this.activeToolGroup = null;
         }
+        this.renderTabContent();
       });
+    });
+
+    contentEl.querySelectorAll<HTMLElement>('[data-tool-group]').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.activeToolGroup = (button.dataset.toolGroup as ToolGroupKey) || null;
+        this.activeTool = (button.dataset.toolKey as ToolKey) || null;
+        this.renderTabContent();
+      });
+    });
+
+    contentEl.querySelectorAll<HTMLElement>('[data-tool-card]').forEach(card => {
+      card.addEventListener('click', () => {
+        const groupKey = card.dataset.toolCard as ToolGroupKey;
+        this.activeToolGroup = groupKey;
+        this.renderTabContent();
+      });
+    });
+
+    const backBtn = contentEl.querySelector('#pf-tools-back');
+    backBtn?.addEventListener('click', () => {
+      this.activeTool = null;
+      this.renderTabContent();
     });
   }
 
