@@ -20,6 +20,7 @@ import {
   collapsible,
   combine,
   el,
+  emptyMessage,
   labeledBars,
   PALETTE,
   personCard,
@@ -59,8 +60,11 @@ import {
   HAZARD_CHIP_RULES,
   mapItemsToChips,
   MILITARY_BRANCH_CHIP_RULES,
+  normalizePercentMetric,
+  normalizeQuantityMetric,
   parseCountryMentions,
   RESOURCE_CHIP_RULES,
+  resolveMetricEntry,
   splitList,
 } from './helpers';
 
@@ -481,29 +485,53 @@ export function renderEnergyTab(data: FactbookData): HTMLElement | null {
   if (!sec) return null;
   const stack = el('div', 'cdp-fb-stack-v');
 
-  const access = takeValue(fbText(sec, 'Electricity access', 'electrification - total population'));
-  const accessPct = extractPercent(fbText(sec, 'Electricity access', 'electrification - total population'));
-  const capacity = takeValue(fbText(sec, 'Electricity', 'installed generating capacity'));
-  const consumption = takeValue(fbText(sec, 'Electricity', 'consumption'));
+  const accessMetric = normalizePercentMetric(
+    fbText(sec, 'Electricity access', 'electrification - total population'),
+  );
+  const capacityMetric = normalizeQuantityMetric(
+    fbText(sec, 'Electricity', 'installed generating capacity'),
+    { preferCompact: false },
+  );
+  const consumptionMetric = normalizeQuantityMetric(
+    fbText(sec, 'Electricity', 'consumption'),
+    { preferCompact: false },
+  );
   const elecTiles: Array<HTMLElement | null> = [
-    access ? statTile('Access to electricity', access) : null,
-    capacity ? statTile('Installed capacity', capacity) : null,
-    consumption ? statTile('Consumption', consumption) : null,
+    Number.isFinite(accessMetric.value) && accessMetric.displayText ? statTile('Access to electricity', accessMetric.displayText, {
+      year: accessMetric.year,
+      hint: accessMetric.rawText,
+    }) : null,
+    Number.isFinite(capacityMetric.value) && capacityMetric.displayText ? statTile('Installed capacity', capacityMetric.displayText, {
+      year: capacityMetric.year,
+      hint: capacityMetric.rawText,
+    }) : null,
+    Number.isFinite(consumptionMetric.value) && consumptionMetric.displayText ? statTile('Consumption', consumptionMetric.displayText, {
+      year: consumptionMetric.year,
+      hint: consumptionMetric.rawText,
+    }) : null,
   ];
-  const accessGauge = Number.isFinite(accessPct)
-    ? buildGauge(accessPct, {
+  const accessGauge = Number.isFinite(accessMetric.value)
+    ? buildGauge(accessMetric.value!, {
       label: 'Electrification',
-      valueText: access ?? `${accessPct.toFixed(1)}%`,
+      valueText: accessMetric.displayText ?? `${accessMetric.value!.toFixed(1)}%`,
       note: 'Share of population with electricity access',
       max: 100,
-      tone: accessPct >= 95 ? 'good' : accessPct >= 75 ? 'info' : 'warn',
+      tone: accessMetric.value! >= 95 ? 'good' : accessMetric.value! >= 75 ? 'info' : 'warn',
     })
     : null;
-  if (accessGauge || elecTiles.some(Boolean)) {
-    const card = sectionCard('Electricity', combine([
+  const electricityInputsPresent = !!(
+    accessMetric.rawText
+    || capacityMetric.rawText
+    || consumptionMetric.rawText
+    || fbObj(sec, 'Electricity access')
+    || fbObj(sec, 'Electricity')
+  );
+  if (electricityInputsPresent) {
+    const electricityBody = combine([
       accessGauge,
-      tileGrid(3, elecTiles),
-    ]));
+      elecTiles.some(Boolean) ? tileGrid(3, elecTiles) : null,
+    ]) ?? emptyMessage('No chartable electricity metrics available for this country.');
+    const card = sectionCard('Electricity', electricityBody);
     if (card) stack.append(card);
   }
 
@@ -522,29 +550,37 @@ export function renderEnergyTab(data: FactbookData): HTMLElement | null {
     const segments = keyMap
       .map(([k, color]) => ({
         label: k.replace(/(^|\s)\S/g, (c) => c.toUpperCase()),
-        pct: extractPercent(fbText(sources, k)),
+        metric: normalizePercentMetric(fbText(sources, k)),
         color,
       }))
-      .filter((s) => Number.isFinite(s.pct) && s.pct > 0);
-    if (segments.length > 0) {
-      const card = sectionCard('Generation mix', combine([
-        buildDonutChart(segments, 'Power'),
-        stackedBar(segments),
-      ]));
-      if (card) stack.append(card);
-    }
+      .filter((s) => Number.isFinite(s.metric.value) && s.metric.value! > 0)
+      .map((s) => ({
+        label: s.label,
+        pct: s.metric.value!,
+        color: s.color,
+      }));
+    const card = sectionCard('Generation mix', combine([
+      buildDonutChart(segments, 'Power'),
+      segments.length > 0 ? stackedBar(segments) : null,
+    ]) ?? emptyMessage('Generation mix percentages are not available in a chartable format.'));
+    if (card) stack.append(card);
   }
 
-  const oilReserve = takeValue(fbText(sec, 'Petroleum', 'crude oil estimated reserves'));
-  const gasReserve = takeValue(fbText(sec, 'Natural gas', 'proven reserves'));
-  if (oilReserve || gasReserve) {
+  const oilReserve = normalizeQuantityMetric(fbText(sec, 'Petroleum', 'crude oil estimated reserves'), { preferCompact: false });
+  const gasReserve = normalizeQuantityMetric(fbText(sec, 'Natural gas', 'proven reserves'), { preferCompact: false });
+  if (oilReserve.displayText || gasReserve.displayText) {
     const card = sectionCard(
       'Reserves',
       tileGrid(2, [
-        oilReserve ? statTile('Crude oil', oilReserve) : null,
-        gasReserve ? statTile('Natural gas', gasReserve) : null,
-      ]),
-    );
+        oilReserve.displayText ? statTile('Crude oil', oilReserve.displayText, {
+          year: oilReserve.year,
+          hint: oilReserve.rawText,
+        }) : null,
+        gasReserve.displayText ? statTile('Natural gas', gasReserve.displayText, {
+          year: gasReserve.year,
+          hint: gasReserve.rawText,
+        }) : null,
+      ]));
     if (card) stack.append(card);
   }
 
@@ -700,33 +736,47 @@ export function renderMilitaryTab(data: FactbookData): HTMLElement | null {
   if (!sec) return null;
   const stack = el('div', 'cdp-fb-stack-v');
 
-  const spend = latestYearEntry(fbObj(sec, 'Military expenditures'), 'Military Expenditures');
-  const personnel = fbText(sec, 'Military and security service personnel strengths');
-  const spendPct = extractPercent(spend.text);
-  const spendGauge = Number.isFinite(spendPct)
-    ? buildGauge(spendPct, {
+  const spendEntry = resolveMetricEntry((sec as Record<string, unknown>)['Military expenditures'], 'Military Expenditures');
+  const spendMetric = normalizePercentMetric(spendEntry.rawText, {
+    contextPattern: /\bGDP\b/i,
+    suffix: ' of GDP',
+  });
+  const personnelMetric = normalizeQuantityMetric(
+    fbText(sec, 'Military and security service personnel strengths'),
+  );
+  const spendGauge = Number.isFinite(spendMetric.value)
+    ? buildGauge(spendMetric.value!, {
       label: 'Military spending',
-      valueText: takeValue(spend.text) || `${spendPct.toFixed(1)}%`,
+      valueText: spendMetric.displayText ?? `${spendMetric.value!.toFixed(1)}% of GDP`,
       note: 'Benchmarked against NATO target and world average',
-      max: Math.max(4, Math.ceil((Math.max(spendPct, 2.2) + 0.5) * 2) / 2),
+      max: Math.max(4, Math.ceil((Math.max(spendMetric.value!, 2.2) + 0.5) * 2) / 2),
       markers: [
         { value: 2, label: 'NATO target 2%' },
         { value: 2.2, label: 'World average 2.2%' },
       ],
-      tone: spendPct >= 2 ? 'good' : spendPct >= 1.2 ? 'info' : 'warn',
+      tone: spendMetric.value! >= 2 ? 'good' : spendMetric.value! >= 1.2 ? 'info' : 'warn',
     })
     : null;
   const tiles: Array<HTMLElement | null> = [
-    personnel ? statTile('Personnel', takeValue(personnel)) : null,
+    Number.isFinite(personnelMetric.value) && personnelMetric.displayText ? statTile('Personnel', personnelMetric.displayText, {
+      year: personnelMetric.year,
+      hint: personnelMetric.rawText,
+    }) : null,
   ];
-  if (spendGauge || tiles.some(Boolean)) {
-    if (spendGauge && spend.year) {
-      spendGauge.append(el('div', 'cdp-fb-tile-year', spend.year));
+  const spendAndSizeInputsPresent = !!(
+    spendEntry.rawText
+    || personnelMetric.rawText
+    || fbObj(sec, 'Military expenditures')
+    || fbText(sec, 'Military and security service personnel strengths')
+  );
+  if (spendAndSizeInputsPresent) {
+    if (spendGauge && spendMetric.year) {
+      spendGauge.append(el('div', 'cdp-fb-tile-year', spendMetric.year));
     }
     const card = sectionCard('Spend & size', combine([
       spendGauge,
-      tileGrid(2, tiles),
-    ]));
+      tiles.some(Boolean) ? tileGrid(2, tiles) : null,
+    ]) ?? emptyMessage('Military spending and personnel totals are not available in a chartable format.'));
     if (card) stack.append(card);
   }
 

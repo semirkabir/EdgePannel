@@ -95,7 +95,7 @@ export class WildfireServiceClient {
     if (req.start != null && req.start !== 0) params.set("start", String(req.start));
     if (req.end != null && req.end !== 0) params.set("end", String(req.end));
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
-    if (req.cursor != null && req.cursor !== "") params.set("cursor", String(req.cursor));
+    if (req.cursor != null && String(req.cursor) !== "") params.set("cursor", String(req.cursor));
     if (req.neLat != null && req.neLat !== 0) params.set("ne_lat", String(req.neLat));
     if (req.neLon != null && req.neLon !== 0) params.set("ne_lon", String(req.neLon));
     if (req.swLat != null && req.swLat !== 0) params.set("sw_lat", String(req.swLat));

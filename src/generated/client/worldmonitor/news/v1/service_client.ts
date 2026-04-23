@@ -143,7 +143,7 @@ export class NewsServiceClient {
   async getSummarizeArticleCache(req: GetSummarizeArticleCacheRequest, options?: NewsServiceCallOptions): Promise<SummarizeArticleResponse> {
     let path = "/api/news/v1/summarize-article-cache";
     const params = new URLSearchParams();
-    if (req.cacheKey != null && req.cacheKey !== "") params.set("cache_key", String(req.cacheKey));
+    if (req.cacheKey != null && String(req.cacheKey) !== "") params.set("cache_key", String(req.cacheKey));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -168,8 +168,8 @@ export class NewsServiceClient {
   async listFeedDigest(req: ListFeedDigestRequest, options?: NewsServiceCallOptions): Promise<ListFeedDigestResponse> {
     let path = "/api/news/v1/list-feed-digest";
     const params = new URLSearchParams();
-    if (req.variant != null && req.variant !== "") params.set("variant", String(req.variant));
-    if (req.lang != null && req.lang !== "") params.set("lang", String(req.lang));
+    if (req.variant != null && String(req.variant) !== "") params.set("variant", String(req.variant));
+    if (req.lang != null && String(req.lang) !== "") params.set("lang", String(req.lang));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {

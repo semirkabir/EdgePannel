@@ -1,7 +1,15 @@
 import { isLoggedIn } from '@/services/user-auth';
 import { loginWithGoogle } from '@/services/firebase-auth';
+import { canAccessFeature } from '@/services/feature-flags';
 
 let authModal: HTMLDivElement | null = null;
+const FEATURE_ALIASES: Record<string, string> = {
+  'add-widget': 'custom-panels',
+  'custom-widgets': 'custom-panels',
+  'export': 'export-data',
+  'marketplace': 'marketplace',
+  'save-layout': 'custom-panels',
+};
 
 export function initAuthModal(): void {
   if (authModal) return;
@@ -72,10 +80,11 @@ export function requireAuth(): boolean {
 }
 
 export function checkFeatureAccess(feature: string): boolean {
-  if (isLoggedIn()) {
+  const featureKey = FEATURE_ALIASES[feature] ?? feature;
+  if (canAccessFeature(featureKey)) {
     return true;
   }
-  
+
   const restrictedFeatures = [
     'watchlist',
     'save-layout', 
@@ -87,11 +96,15 @@ export function checkFeatureAccess(feature: string): boolean {
     'alert-rules',
     'marketplace',
   ];
-  
+
   if (restrictedFeatures.includes(feature)) {
+    if (isLoggedIn()) {
+      window.dispatchEvent(new CustomEvent('worldmonitor:open-profile'));
+      return false;
+    }
     showAuthModal();
     return false;
   }
-  
+
   return true;
 }

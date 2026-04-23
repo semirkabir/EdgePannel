@@ -316,9 +316,9 @@ export class AviationServiceClient {
     let path = "/api/aviation/v1/list-airport-delays";
     const params = new URLSearchParams();
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
-    if (req.cursor != null && req.cursor !== "") params.set("cursor", String(req.cursor));
-    if (req.region != null && req.region !== "") params.set("region", String(req.region));
-    if (req.minSeverity != null && req.minSeverity !== "") params.set("min_severity", String(req.minSeverity));
+    if (req.cursor != null && String(req.cursor) !== "") params.set("cursor", String(req.cursor));
+    if (req.region != null && String(req.region) !== "") params.set("region", String(req.region));
+    if (req.minSeverity != null && String(req.minSeverity) !== "") params.set("min_severity", String(req.minSeverity));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -343,7 +343,7 @@ export class AviationServiceClient {
   async getAirportOpsSummary(req: GetAirportOpsSummaryRequest, options?: AviationServiceCallOptions): Promise<GetAirportOpsSummaryResponse> {
     let path = "/api/aviation/v1/get-airport-ops-summary";
     const params = new URLSearchParams();
-    if (req.airports != null && req.airports !== "") params.set("airports", String(req.airports));
+    if (req.airports != null && String(req.airports) !== "") params.set("airports", String(req.airports));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -368,8 +368,8 @@ export class AviationServiceClient {
   async listAirportFlights(req: ListAirportFlightsRequest, options?: AviationServiceCallOptions): Promise<ListAirportFlightsResponse> {
     let path = "/api/aviation/v1/list-airport-flights";
     const params = new URLSearchParams();
-    if (req.airport != null && req.airport !== "") params.set("airport", String(req.airport));
-    if (req.direction != null && req.direction !== "") params.set("direction", String(req.direction));
+    if (req.airport != null && String(req.airport) !== "") params.set("airport", String(req.airport));
+    if (req.direction != null && String(req.direction) !== "") params.set("direction", String(req.direction));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
@@ -395,7 +395,7 @@ export class AviationServiceClient {
   async getCarrierOps(req: GetCarrierOpsRequest, options?: AviationServiceCallOptions): Promise<GetCarrierOpsResponse> {
     let path = "/api/aviation/v1/get-carrier-ops";
     const params = new URLSearchParams();
-    if (req.airports != null && req.airports !== "") params.set("airports", String(req.airports));
+    if (req.airports != null && String(req.airports) !== "") params.set("airports", String(req.airports));
     if (req.minFlights != null && req.minFlights !== 0) params.set("min_flights", String(req.minFlights));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
@@ -421,9 +421,9 @@ export class AviationServiceClient {
   async getFlightStatus(req: GetFlightStatusRequest, options?: AviationServiceCallOptions): Promise<GetFlightStatusResponse> {
     let path = "/api/aviation/v1/get-flight-status";
     const params = new URLSearchParams();
-    if (req.flightNumber != null && req.flightNumber !== "") params.set("flight_number", String(req.flightNumber));
-    if (req.date != null && req.date !== "") params.set("date", String(req.date));
-    if (req.origin != null && req.origin !== "") params.set("origin", String(req.origin));
+    if (req.flightNumber != null && String(req.flightNumber) !== "") params.set("flight_number", String(req.flightNumber));
+    if (req.date != null && String(req.date) !== "") params.set("date", String(req.date));
+    if (req.origin != null && String(req.origin) !== "") params.set("origin", String(req.origin));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -448,8 +448,8 @@ export class AviationServiceClient {
   async trackAircraft(req: TrackAircraftRequest, options?: AviationServiceCallOptions): Promise<TrackAircraftResponse> {
     let path = "/api/aviation/v1/track-aircraft";
     const params = new URLSearchParams();
-    if (req.icao24 != null && req.icao24 !== "") params.set("icao24", String(req.icao24));
-    if (req.callsign != null && req.callsign !== "") params.set("callsign", String(req.callsign));
+    if (req.icao24 != null && String(req.icao24) !== "") params.set("icao24", String(req.icao24));
+    if (req.callsign != null && String(req.callsign) !== "") params.set("callsign", String(req.callsign));
     if (req.swLat != null && req.swLat !== 0) params.set("sw_lat", String(req.swLat));
     if (req.swLon != null && req.swLon !== 0) params.set("sw_lon", String(req.swLon));
     if (req.neLat != null && req.neLat !== 0) params.set("ne_lat", String(req.neLat));
@@ -478,16 +478,16 @@ export class AviationServiceClient {
   async searchFlightPrices(req: SearchFlightPricesRequest, options?: AviationServiceCallOptions): Promise<SearchFlightPricesResponse> {
     let path = "/api/aviation/v1/search-flight-prices";
     const params = new URLSearchParams();
-    if (req.origin != null && req.origin !== "") params.set("origin", String(req.origin));
-    if (req.destination != null && req.destination !== "") params.set("destination", String(req.destination));
-    if (req.departureDate != null && req.departureDate !== "") params.set("departure_date", String(req.departureDate));
-    if (req.returnDate != null && req.returnDate !== "") params.set("return_date", String(req.returnDate));
+    if (req.origin != null && String(req.origin) !== "") params.set("origin", String(req.origin));
+    if (req.destination != null && String(req.destination) !== "") params.set("destination", String(req.destination));
+    if (req.departureDate != null && String(req.departureDate) !== "") params.set("departure_date", String(req.departureDate));
+    if (req.returnDate != null && String(req.returnDate) !== "") params.set("return_date", String(req.returnDate));
     if (req.adults != null && req.adults !== 0) params.set("adults", String(req.adults));
-    if (req.cabin != null && req.cabin !== "") params.set("cabin", String(req.cabin));
+    if (req.cabin != null && String(req.cabin) !== "") params.set("cabin", String(req.cabin));
     if (req.nonstopOnly) params.set("nonstop_only", String(req.nonstopOnly));
     if (req.maxResults != null && req.maxResults !== 0) params.set("max_results", String(req.maxResults));
-    if (req.currency != null && req.currency !== "") params.set("currency", String(req.currency));
-    if (req.market != null && req.market !== "") params.set("market", String(req.market));
+    if (req.currency != null && String(req.currency) !== "") params.set("currency", String(req.currency));
+    if (req.market != null && String(req.market) !== "") params.set("market", String(req.market));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -512,7 +512,7 @@ export class AviationServiceClient {
   async listAviationNews(req: ListAviationNewsRequest, options?: AviationServiceCallOptions): Promise<ListAviationNewsResponse> {
     let path = "/api/aviation/v1/list-aviation-news";
     const params = new URLSearchParams();
-    if (req.entities != null && req.entities !== "") params.set("entities", String(req.entities));
+    if (req.entities != null && String(req.entities) !== "") params.set("entities", String(req.entities));
     if (req.windowHours != null && req.windowHours !== 0) params.set("window_hours", String(req.windowHours));
     if (req.maxItems != null && req.maxItems !== 0) params.set("max_items", String(req.maxItems));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");

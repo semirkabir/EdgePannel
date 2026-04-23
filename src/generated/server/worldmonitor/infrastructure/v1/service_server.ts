@@ -266,7 +266,7 @@ export function createInfrastructureServiceRoutes(
           const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: ListServiceStatusesRequest = {
-            status: params.get("status") ?? "",
+            status: (params.get("status") ?? "") as ServiceOperationalStatus,
           };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("listServiceStatuses", body);

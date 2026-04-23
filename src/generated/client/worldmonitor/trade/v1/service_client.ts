@@ -145,7 +145,7 @@ export class TradeServiceClient {
   async getTradeRestrictions(req: GetTradeRestrictionsRequest, options?: TradeServiceCallOptions): Promise<GetTradeRestrictionsResponse> {
     let path = "/api/trade/v1/get-trade-restrictions";
     const params = new URLSearchParams();
-    if (req.countries != null && req.countries !== "") params.set("countries", String(req.countries));
+    if (req.countries != null && String(req.countries) !== "") params.set("countries", String(req.countries));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
@@ -171,9 +171,9 @@ export class TradeServiceClient {
   async getTariffTrends(req: GetTariffTrendsRequest, options?: TradeServiceCallOptions): Promise<GetTariffTrendsResponse> {
     let path = "/api/trade/v1/get-tariff-trends";
     const params = new URLSearchParams();
-    if (req.reportingCountry != null && req.reportingCountry !== "") params.set("reporting_country", String(req.reportingCountry));
-    if (req.partnerCountry != null && req.partnerCountry !== "") params.set("partner_country", String(req.partnerCountry));
-    if (req.productSector != null && req.productSector !== "") params.set("product_sector", String(req.productSector));
+    if (req.reportingCountry != null && String(req.reportingCountry) !== "") params.set("reporting_country", String(req.reportingCountry));
+    if (req.partnerCountry != null && String(req.partnerCountry) !== "") params.set("partner_country", String(req.partnerCountry));
+    if (req.productSector != null && String(req.productSector) !== "") params.set("product_sector", String(req.productSector));
     if (req.years != null && req.years !== 0) params.set("years", String(req.years));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
@@ -199,8 +199,8 @@ export class TradeServiceClient {
   async getTradeFlows(req: GetTradeFlowsRequest, options?: TradeServiceCallOptions): Promise<GetTradeFlowsResponse> {
     let path = "/api/trade/v1/get-trade-flows";
     const params = new URLSearchParams();
-    if (req.reportingCountry != null && req.reportingCountry !== "") params.set("reporting_country", String(req.reportingCountry));
-    if (req.partnerCountry != null && req.partnerCountry !== "") params.set("partner_country", String(req.partnerCountry));
+    if (req.reportingCountry != null && String(req.reportingCountry) !== "") params.set("reporting_country", String(req.reportingCountry));
+    if (req.partnerCountry != null && String(req.partnerCountry) !== "") params.set("partner_country", String(req.partnerCountry));
     if (req.years != null && req.years !== 0) params.set("years", String(req.years));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
@@ -226,8 +226,8 @@ export class TradeServiceClient {
   async getTradeBarriers(req: GetTradeBarriersRequest, options?: TradeServiceCallOptions): Promise<GetTradeBarriersResponse> {
     let path = "/api/trade/v1/get-trade-barriers";
     const params = new URLSearchParams();
-    if (req.countries != null && req.countries !== "") params.set("countries", String(req.countries));
-    if (req.measureType != null && req.measureType !== "") params.set("measure_type", String(req.measureType));
+    if (req.countries != null && String(req.countries) !== "") params.set("countries", String(req.countries));
+    if (req.measureType != null && String(req.measureType) !== "") params.set("measure_type", String(req.measureType));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 

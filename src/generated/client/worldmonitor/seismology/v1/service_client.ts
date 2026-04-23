@@ -88,7 +88,7 @@ export class SeismologyServiceClient {
     if (req.start != null && req.start !== 0) params.set("start", String(req.start));
     if (req.end != null && req.end !== 0) params.set("end", String(req.end));
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
-    if (req.cursor != null && req.cursor !== "") params.set("cursor", String(req.cursor));
+    if (req.cursor != null && String(req.cursor) !== "") params.set("cursor", String(req.cursor));
     if (req.minMagnitude != null && req.minMagnitude !== 0) params.set("min_magnitude", String(req.minMagnitude));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 

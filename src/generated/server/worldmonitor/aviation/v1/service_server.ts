@@ -335,8 +335,8 @@ export function createAviationServiceRoutes(
           const body: ListAirportDelaysRequest = {
             pageSize: Number(params.get("page_size") ?? "0"),
             cursor: params.get("cursor") ?? "",
-            region: params.get("region") ?? "",
-            minSeverity: params.get("min_severity") ?? "",
+            region: (params.get("region") ?? "") as AirportRegion,
+            minSeverity: (params.get("min_severity") ?? "") as FlightDelaySeverity,
           };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("listAirportDelays", body);
@@ -383,7 +383,7 @@ export function createAviationServiceRoutes(
           const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: GetAirportOpsSummaryRequest = {
-            airports: params.get("airports") ?? "",
+            airports: (params.get("airports") ?? "").split(",").filter(Boolean),
           };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("getAirportOpsSummary", body);
@@ -431,7 +431,7 @@ export function createAviationServiceRoutes(
           const params = url.searchParams;
           const body: ListAirportFlightsRequest = {
             airport: params.get("airport") ?? "",
-            direction: params.get("direction") ?? "",
+            direction: (params.get("direction") ?? "") as FlightDirection,
             limit: Number(params.get("limit") ?? "0"),
           };
           if (options?.validateRequest) {
@@ -479,7 +479,7 @@ export function createAviationServiceRoutes(
           const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: GetCarrierOpsRequest = {
-            airports: params.get("airports") ?? "",
+            airports: (params.get("airports") ?? "").split(",").filter(Boolean),
             minFlights: Number(params.get("min_flights") ?? "0"),
           };
           if (options?.validateRequest) {
@@ -633,7 +633,7 @@ export function createAviationServiceRoutes(
             departureDate: params.get("departure_date") ?? "",
             returnDate: params.get("return_date") ?? "",
             adults: Number(params.get("adults") ?? "0"),
-            cabin: params.get("cabin") ?? "",
+            cabin: (params.get("cabin") ?? "") as CabinClass,
             nonstopOnly: params.get("nonstop_only") === "true",
             maxResults: Number(params.get("max_results") ?? "0"),
             currency: params.get("currency") ?? "",
@@ -684,7 +684,7 @@ export function createAviationServiceRoutes(
           const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: ListAviationNewsRequest = {
-            entities: params.get("entities") ?? "",
+            entities: (params.get("entities") ?? "").split(",").filter(Boolean),
             windowHours: Number(params.get("window_hours") ?? "0"),
             maxItems: Number(params.get("max_items") ?? "0"),
           };

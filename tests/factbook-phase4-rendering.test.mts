@@ -10,6 +10,10 @@ function loadFactbookFixture(code: string): FactbookData {
   return JSON.parse(raw) as FactbookData;
 }
 
+function cloneFactbookFixture(code: string): FactbookData {
+  return JSON.parse(JSON.stringify(loadFactbookFixture(code))) as FactbookData;
+}
+
 function installDom(): void {
   const { window, document } = parseHTML('<!doctype html><html><body></body></html>');
   Object.assign(globalThis, {
@@ -56,4 +60,44 @@ test('renders electricity and military benchmark gauges', () => {
   assert.match(military.textContent ?? '', /NATO target 2%/);
   assert.match(military.textContent ?? '', /World average 2.2%/i);
   assert.doesNotMatch(military.textContent ?? '', /&nbsp;/i);
+});
+
+test('normalizes electricity access percentages when the factbook uses percent words', () => {
+  installDom();
+  const fixture = cloneFactbookFixture('us');
+  const access = fixture.Energy?.['Electricity access'] as Record<string, { text?: string }> | undefined;
+  if (!access) throw new Error('Missing electricity access fixture');
+  access['electrification - total population'] = { text: '99.7 percent of population (2024 est.)' };
+
+  const energy = renderFactbookTab('energy', fixture, 'United States');
+
+  assert.equal(energy.querySelectorAll('.cdp-fb-gauge').length >= 1, true);
+  assert.match(energy.textContent ?? '', /99\.7%/);
+});
+
+test('renders a military spending gauge from direct-text GDP ranges', () => {
+  installDom();
+  const military = renderFactbookTab('military', loadFactbookFixture('kp'), 'North Korea');
+
+  assert.equal(military.querySelectorAll('.cdp-fb-gauge').length >= 1, true);
+  assert.match(military.textContent ?? '', /20–30% of GDP/);
+});
+
+test('shows explicit empty states when electricity and spend-size metrics are not chartable', () => {
+  installDom();
+
+  const energyFixture = cloneFactbookFixture('us');
+  const access = energyFixture.Energy?.['Electricity access'] as Record<string, { text?: string }> | undefined;
+  const electricity = energyFixture.Energy?.Electricity as Record<string, { text?: string }> | undefined;
+  if (!access || !electricity) throw new Error('Missing energy fixture');
+  access['electrification - total population'] = { text: 'nationwide access reported' };
+  electricity['installed generating capacity'] = { text: 'not available' };
+  electricity.consumption = { text: 'unreported' };
+
+  const energy = renderFactbookTab('energy', energyFixture, 'United States');
+  assert.match(energy.textContent ?? '', /No chartable electricity metrics available/i);
+
+  const militaryFixture = cloneFactbookFixture('ly');
+  const military = renderFactbookTab('military', militaryFixture, 'Libya');
+  assert.match(military.textContent ?? '', /Military spending and personnel totals are not available/i);
 });

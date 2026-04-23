@@ -206,7 +206,7 @@ export class IntelligenceServiceClient {
   async getRiskScores(req: GetRiskScoresRequest, options?: IntelligenceServiceCallOptions): Promise<GetRiskScoresResponse> {
     let path = "/api/intelligence/v1/get-risk-scores";
     const params = new URLSearchParams();
-    if (req.region != null && req.region !== "") params.set("region", String(req.region));
+    if (req.region != null && String(req.region) !== "") params.set("region", String(req.region));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -256,10 +256,10 @@ export class IntelligenceServiceClient {
   async classifyEvent(req: ClassifyEventRequest, options?: IntelligenceServiceCallOptions): Promise<ClassifyEventResponse> {
     let path = "/api/intelligence/v1/classify-event";
     const params = new URLSearchParams();
-    if (req.title != null && req.title !== "") params.set("title", String(req.title));
-    if (req.description != null && req.description !== "") params.set("description", String(req.description));
-    if (req.source != null && req.source !== "") params.set("source", String(req.source));
-    if (req.country != null && req.country !== "") params.set("country", String(req.country));
+    if (req.title != null && String(req.title) !== "") params.set("title", String(req.title));
+    if (req.description != null && String(req.description) !== "") params.set("description", String(req.description));
+    if (req.source != null && String(req.source) !== "") params.set("source", String(req.source));
+    if (req.country != null && String(req.country) !== "") params.set("country", String(req.country));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -284,7 +284,7 @@ export class IntelligenceServiceClient {
   async getCountryIntelBrief(req: GetCountryIntelBriefRequest, options?: IntelligenceServiceCallOptions): Promise<GetCountryIntelBriefResponse> {
     let path = "/api/intelligence/v1/get-country-intel-brief";
     const params = new URLSearchParams();
-    if (req.countryCode != null && req.countryCode !== "") params.set("country_code", String(req.countryCode));
+    if (req.countryCode != null && String(req.countryCode) !== "") params.set("country_code", String(req.countryCode));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -309,11 +309,11 @@ export class IntelligenceServiceClient {
   async searchGdeltDocuments(req: SearchGdeltDocumentsRequest, options?: IntelligenceServiceCallOptions): Promise<SearchGdeltDocumentsResponse> {
     let path = "/api/intelligence/v1/search-gdelt-documents";
     const params = new URLSearchParams();
-    if (req.query != null && req.query !== "") params.set("query", String(req.query));
+    if (req.query != null && String(req.query) !== "") params.set("query", String(req.query));
     if (req.maxRecords != null && req.maxRecords !== 0) params.set("max_records", String(req.maxRecords));
-    if (req.timespan != null && req.timespan !== "") params.set("timespan", String(req.timespan));
-    if (req.toneFilter != null && req.toneFilter !== "") params.set("tone_filter", String(req.toneFilter));
-    if (req.sort != null && req.sort !== "") params.set("sort", String(req.sort));
+    if (req.timespan != null && String(req.timespan) !== "") params.set("timespan", String(req.timespan));
+    if (req.toneFilter != null && String(req.toneFilter) !== "") params.set("tone_filter", String(req.toneFilter));
+    if (req.sort != null && String(req.sort) !== "") params.set("sort", String(req.sort));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {

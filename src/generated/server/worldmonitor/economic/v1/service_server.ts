@@ -442,7 +442,7 @@ export function createEconomicServiceRoutes(
           const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: GetEnergyPricesRequest = {
-            commodities: params.get("commodities") ?? "",
+            commodities: (params.get("commodities") ?? "").split(",").filter(Boolean),
           };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("getEnergyPrices", body);
@@ -526,7 +526,7 @@ export function createEconomicServiceRoutes(
           const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: GetEnergyCapacityRequest = {
-            energySources: params.get("energy_sources") ?? "",
+            energySources: (params.get("energy_sources") ?? "").split(",").filter(Boolean),
             years: Number(params.get("years") ?? "0"),
           };
           if (options?.validateRequest) {

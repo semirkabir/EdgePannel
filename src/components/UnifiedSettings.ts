@@ -42,6 +42,7 @@ export class UnifiedSettings {
   private currentUser: User | null = null;
   private authLoading = true;
   private currentTier: FeatureTier = 'free';
+  private readonly openProfileHandler: () => void;
 
   private readonly profilePlans: Array<{
     key: FeatureTier | 'enterprise';
@@ -79,6 +80,7 @@ export class UnifiedSettings {
 
   constructor(config: UnifiedSettingsConfig) {
     this.config = config;
+    this.openProfileHandler = () => this.open('profile');
 
     this.overlay = document.createElement('div');
     this.overlay.className = 'modal-overlay';
@@ -210,13 +212,14 @@ export class UnifiedSettings {
 
     this.render();
     document.body.appendChild(this.overlay);
+    window.addEventListener('worldmonitor:open-profile', this.openProfileHandler);
 
     console.log('[Settings] Subscribing to auth state');
     this.authUnsubscribe = subscribeToAuth((state) => {
       console.log('[Settings] Auth state received:', { user: state.user?.email, loading: state.loading, configured: state.isConfigured });
       this.currentUser = state.user as User | null;
       this.authLoading = state.loading;
-      if (!state.user) this.currentTier = 'free';
+      this.currentTier = state.user ? state.tier : 'free';
       if (this.activeTab === 'profile') {
         console.log('[Settings] Rendering profile tab');
         void this.renderProfileTab();
@@ -262,6 +265,7 @@ export class UnifiedSettings {
     this.prefsCleanup = null;
     this.authUnsubscribe?.();
     this.authUnsubscribe = null;
+    window.removeEventListener('worldmonitor:open-profile', this.openProfileHandler);
     document.removeEventListener('keydown', this.escapeHandler);
     this.overlay.remove();
   }

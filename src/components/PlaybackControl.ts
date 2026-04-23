@@ -3,19 +3,14 @@ import { t } from '@/services/i18n';
 import { checkFeatureAccess } from '@/services/auth-modal';
 import { isLoggedIn } from '@/services/user-auth';
 import { hasPaidSubscription } from '@/services/feature-flags';
+import { getPlaybackWindowMsForAccess } from '@/services/subscription-entitlements';
 
 const PLAYBACK_PANEL_CLOSE_DELAY_MS = 320;
 const PLAYBACK_PANEL_OFFSET_PX = 4;
 const SPEEDS = [0.5, 1, 2, 4] as const;
 
-const WINDOW_FREE_MS     = 48 * 60 * 60 * 1000;   // 48 h  — not logged in
-const WINDOW_LOGGEDIN_MS =  7 * 24 * 60 * 60 * 1000; //  7 d  — free account
-const WINDOW_PRO_MS      = 30 * 24 * 60 * 60 * 1000; // 30 d  — pro / business / enterprise
-
 function getPlaybackWindowMs(): number {
-  if (hasPaidSubscription()) return WINDOW_PRO_MS;
-  if (isLoggedIn())          return WINDOW_LOGGEDIN_MS;
-  return WINDOW_FREE_MS;
+  return getPlaybackWindowMsForAccess(isLoggedIn(), hasPaidSubscription());
 }
 
 interface TierInfo {

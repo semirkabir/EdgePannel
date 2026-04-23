@@ -171,9 +171,9 @@ export class PredictionServiceClient {
     let path = "/api/prediction/v1/list-prediction-markets";
     const params = new URLSearchParams();
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
-    if (req.cursor != null && req.cursor !== "") params.set("cursor", String(req.cursor));
-    if (req.category != null && req.category !== "") params.set("category", String(req.category));
-    if (req.query != null && req.query !== "") params.set("query", String(req.query));
+    if (req.cursor != null && String(req.cursor) !== "") params.set("cursor", String(req.cursor));
+    if (req.category != null && String(req.category) !== "") params.set("category", String(req.category));
+    if (req.query != null && String(req.query) !== "") params.set("query", String(req.query));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -198,8 +198,8 @@ export class PredictionServiceClient {
   async getPredictionMarketDetail(req: GetPredictionMarketDetailRequest, options?: PredictionServiceCallOptions): Promise<GetPredictionMarketDetailResponse> {
     let path = "/api/prediction/v1/get-prediction-market-detail";
     const params = new URLSearchParams();
-    if (req.slug != null && req.slug !== "") params.set("slug", String(req.slug));
-    if (req.eventId != null && req.eventId !== "") params.set("event_id", String(req.eventId));
+    if (req.slug != null && String(req.slug) !== "") params.set("slug", String(req.slug));
+    if (req.eventId != null && String(req.eventId) !== "") params.set("event_id", String(req.eventId));
     if (req.bookDepth != null && req.bookDepth !== 0) params.set("book_depth", String(req.bookDepth));
     if (req.tradeLimit != null && req.tradeLimit !== 0) params.set("trade_limit", String(req.tradeLimit));
     if (req.refresh) params.set("refresh", String(req.refresh));

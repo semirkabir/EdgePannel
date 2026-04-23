@@ -5,6 +5,7 @@
 
 import {
   fbText,
+  latestYearEntry,
   parseLabeledPercents,
   splitList,
 } from '@/services/factbook';
@@ -33,6 +34,13 @@ export interface AreaReference {
   label: string;
   areaSqKm: number;
   aliases?: string[];
+}
+
+export interface NormalizedMetricEntry {
+  rawText?: string;
+  displayText?: string;
+  value?: number;
+  year?: string;
 }
 
 interface CountryAliasDef {
@@ -231,6 +239,250 @@ export function svgText(attrs: Record<string, string>, content: string): SVGText
 
 export function formatCompactNumber(value: number): string {
   return new Intl.NumberFormat('en-US').format(Math.round(value));
+}
+
+function parseScaleWord(word: string | undefined): number {
+  switch ((word ?? '').toLowerCase()) {
+    case 'trillion': return 1e12;
+    case 'billion': return 1e9;
+    case 'million': return 1e6;
+    case 'thousand': return 1e3;
+    default: return 1;
+  }
+}
+
+function formatTrimmed(value: number, maximumFractionDigits = 1): string {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits,
+    minimumFractionDigits: 0,
+  }).format(value);
+}
+
+function extractTerminalYear(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  const match = text.match(/\((19|20)\d{2}(?:\s*est\.?)?\)\s*$/i);
+  return match ? match[0].match(/\d{4}/)?.[0] : undefined;
+}
+
+function normalizeMetricDisplayText(text: string | undefined): string | undefined {
+  const clean = normalizeFactbookText(text);
+  if (!clean) return undefined;
+  return clean
+    .replace(/\s*\((?:19|20)\d{2}(?:\s*est\.?)?\)\s*$/i, '')
+    .replace(/\bpercent\b/gi, '%')
+    .replace(/\btrillion\b/gi, 'T')
+    .replace(/\bbillion\b/gi, 'B')
+    .replace(/\bmillion\b/gi, 'M')
+    .replace(/\bthousand\b/gi, 'K')
+    .replace(/\bkilowatts?\b/gi, 'kW')
+    .replace(/\bkilowatt-hours?\b/gi, 'kWh')
+    .replace(/\bmegawatts?\b/gi, 'MW')
+    .replace(/\bgigawatts?\b/gi, 'GW')
+    .replace(/\bterawatt-hours?\b/gi, 'TWh')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function selectMetricScope(text: string, contextPattern: RegExp | undefined): string {
+  if (!contextPattern) return text;
+  const clauses = text.split(/\s*;\s*/).map((clause) => clause.trim()).filter(Boolean);
+  return clauses.find((clause) => contextPattern.test(clause)) ?? (contextPattern.test(text) ? text : '');
+}
+
+function normalizeRangeEdge(raw: string, counterpart: string, scale: number): number {
+  const parsed = Number.parseFloat(raw.replace(/,/g, ''));
+  if (!Number.isFinite(parsed)) return Number.NaN;
+  if (scale > 1) {
+    if (raw.includes(',') || parsed >= 1000) return parsed;
+    return parsed * scale;
+  }
+
+  const counterpartDigits = counterpart.replace(/[^\d]/g, '').length;
+  const rawDigits = raw.replace(/[^\d]/g, '').length;
+  if (!raw.includes(',') && counterpart.includes(',') && parsed < 1000 && counterpartDigits > rawDigits) {
+    return parsed * (10 ** (counterpartDigits - rawDigits));
+  }
+  return parsed;
+}
+
+function extractQuantityRange(text: string): { low: number; high: number } | null {
+  const range = text.match(/(\d[\d,]*(?:\.\d+)?)\s*(thousand|million|billion|trillion)?\s*(?:-|–|—|to)\s*(\d[\d,]*(?:\.\d+)?)\s*(thousand|million|billion|trillion)?/i);
+  if (!range) return null;
+
+  const leftScale = parseScaleWord(range[2] ?? range[4]);
+  const rightScale = parseScaleWord(range[4] ?? range[2]);
+  const low = normalizeRangeEdge(range[1]!, range[3]!, leftScale);
+  const high = normalizeRangeEdge(range[3]!, range[1]!, rightScale);
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+  return low <= high ? { low, high } : { low: high, high: low };
+}
+
+function extractSingleQuantity(text: string): number {
+  const single = text.match(/(\d[\d,]*(?:\.\d+)?)\s*(thousand|million|billion|trillion)?/i);
+  if (!single) return Number.NaN;
+  const value = Number.parseFloat(single[1]!.replace(/,/g, ''));
+  if (!Number.isFinite(value)) return Number.NaN;
+  return value * parseScaleWord(single[2]);
+}
+
+function formatCompactValue(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: value >= 100 ? 0 : 1,
+  }).format(value);
+}
+
+export function resolveMetricEntry(
+  node: unknown,
+  basename?: string,
+): NormalizedMetricEntry {
+  if (!node) return {};
+
+  if (typeof node === 'string') {
+    const rawText = normalizeFactbookText(node);
+    return rawText
+      ? {
+        rawText,
+        displayText: normalizeMetricDisplayText(rawText),
+        year: extractTerminalYear(rawText),
+      }
+      : {};
+  }
+
+  if (typeof node !== 'object') return {};
+  const obj = node as Record<string, unknown>;
+
+  if (basename) {
+    const latest = latestYearEntry(obj as Record<string, never>, basename);
+    const latestText = normalizeFactbookText(latest.text);
+    if (latestText) {
+      return {
+        rawText: latestText,
+        displayText: normalizeMetricDisplayText(latestText),
+        year: latest.year,
+      };
+    }
+  }
+
+  const directText = normalizeFactbookText(typeof obj.text === 'string' ? obj.text : undefined);
+  if (directText) {
+    return {
+      rawText: directText,
+      displayText: normalizeMetricDisplayText(directText),
+      year: extractTerminalYear(directText),
+    };
+  }
+
+  let fallback: NormalizedMetricEntry = {};
+  let fallbackYear = -1;
+
+  for (const [key, value] of Object.entries(obj)) {
+    const rawText = normalizeFactbookText(typeof value === 'string'
+      ? value
+      : (value && typeof value === 'object' && 'text' in value && typeof (value as { text?: unknown }).text === 'string')
+          ? (value as { text: string }).text
+          : undefined);
+    if (!rawText) continue;
+
+    const yearText = key.match(/\b(19|20)\d{2}\b/)?.[0] ?? extractTerminalYear(rawText);
+    const year = yearText ? Number.parseInt(yearText, 10) : -1;
+    if (year > fallbackYear) {
+      fallbackYear = year;
+      fallback = {
+        rawText,
+        displayText: normalizeMetricDisplayText(rawText),
+        year: yearText,
+      };
+    }
+  }
+
+  return fallback;
+}
+
+export function normalizePercentMetric(
+  text: string | undefined,
+  options: { contextPattern?: RegExp; suffix?: string } = {},
+): NormalizedMetricEntry {
+  const clean = normalizeFactbookText(text);
+  if (!clean) return {};
+
+  const scoped = selectMetricScope(clean, options.contextPattern);
+  const range = scoped.match(/(\d+(?:\.\d+)?)\s*(?:%|percent)?\s*(?:-|–|—|to)\s*(\d+(?:\.\d+)?)\s*(?:%|percent)/i);
+  const suffix = options.suffix ?? (/\bof GDP\b/i.test(scoped) ? ' of GDP' : '');
+  if (range) {
+    const low = Number.parseFloat(range[1]!);
+    const high = Number.parseFloat(range[2]!);
+    if (Number.isFinite(low) && Number.isFinite(high)) {
+      return {
+        rawText: clean,
+        displayText: `${formatTrimmed(low)}–${formatTrimmed(high)}%${suffix}`,
+        value: (low + high) / 2,
+        year: extractTerminalYear(clean),
+      };
+    }
+  }
+
+  const single = scoped.match(/(?:less than|under|up to|nearly|about|approximately|approx\.?|around|more than|over)?\s*(\d+(?:\.\d+)?)\s*(?:%|percent)/i);
+  if (!single) {
+    return {
+      rawText: clean,
+      displayText: normalizeMetricDisplayText(clean),
+      year: extractTerminalYear(clean),
+    };
+  }
+
+  const value = Number.parseFloat(single[1]!);
+  return Number.isFinite(value)
+    ? {
+      rawText: clean,
+      displayText: `${formatTrimmed(value)}%${suffix}`,
+      value,
+      year: extractTerminalYear(clean),
+    }
+    : {
+      rawText: clean,
+      displayText: normalizeMetricDisplayText(clean),
+      year: extractTerminalYear(clean),
+    };
+}
+
+export function normalizeQuantityMetric(
+  text: string | undefined,
+  options: { contextPattern?: RegExp; preferCompact?: boolean } = {},
+): NormalizedMetricEntry {
+  const clean = normalizeFactbookText(text);
+  if (!clean) return {};
+
+  const scoped = selectMetricScope(clean, options.contextPattern);
+  const range = extractQuantityRange(scoped);
+  if (range) {
+    return {
+      rawText: clean,
+      displayText: options.preferCompact === false
+        ? normalizeMetricDisplayText(clean)
+        : `${formatCompactValue(range.low)}–${formatCompactValue(range.high)}`,
+      value: (range.low + range.high) / 2,
+      year: extractTerminalYear(clean),
+    };
+  }
+
+  const value = extractSingleQuantity(scoped);
+  if (Number.isFinite(value)) {
+    return {
+      rawText: clean,
+      displayText: options.preferCompact === false
+        ? normalizeMetricDisplayText(clean)
+        : formatCompactValue(value),
+      value,
+      year: extractTerminalYear(clean),
+    };
+  }
+
+  return {
+    rawText: clean,
+    displayText: normalizeMetricDisplayText(clean),
+    year: extractTerminalYear(clean),
+  };
 }
 
 // ─── Chip Helpers ──────────────────────────────────────────────────────────────

@@ -292,13 +292,13 @@ export class MilitaryServiceClient {
     let path = "/api/military/v1/list-military-flights";
     const params = new URLSearchParams();
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
-    if (req.cursor != null && req.cursor !== "") params.set("cursor", String(req.cursor));
+    if (req.cursor != null && String(req.cursor) !== "") params.set("cursor", String(req.cursor));
     if (req.neLat != null && req.neLat !== 0) params.set("ne_lat", String(req.neLat));
     if (req.neLon != null && req.neLon !== 0) params.set("ne_lon", String(req.neLon));
     if (req.swLat != null && req.swLat !== 0) params.set("sw_lat", String(req.swLat));
     if (req.swLon != null && req.swLon !== 0) params.set("sw_lon", String(req.swLon));
-    if (req.operator != null && req.operator !== "") params.set("operator", String(req.operator));
-    if (req.aircraftType != null && req.aircraftType !== "") params.set("aircraft_type", String(req.aircraftType));
+    if (req.operator != null && String(req.operator) !== "") params.set("operator", String(req.operator));
+    if (req.aircraftType != null && String(req.aircraftType) !== "") params.set("aircraft_type", String(req.aircraftType));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -323,7 +323,7 @@ export class MilitaryServiceClient {
   async getTheaterPosture(req: GetTheaterPostureRequest, options?: MilitaryServiceCallOptions): Promise<GetTheaterPostureResponse> {
     let path = "/api/military/v1/get-theater-posture";
     const params = new URLSearchParams();
-    if (req.theater != null && req.theater !== "") params.set("theater", String(req.theater));
+    if (req.theater != null && String(req.theater) !== "") params.set("theater", String(req.theater));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -348,7 +348,7 @@ export class MilitaryServiceClient {
   async getAircraftDetails(req: GetAircraftDetailsRequest, options?: MilitaryServiceCallOptions): Promise<GetAircraftDetailsResponse> {
     let path = "/api/military/v1/get-aircraft-details";
     const params = new URLSearchParams();
-    if (req.icao24 != null && req.icao24 !== "") params.set("icao24", String(req.icao24));
+    if (req.icao24 != null && String(req.icao24) !== "") params.set("icao24", String(req.icao24));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -394,7 +394,7 @@ export class MilitaryServiceClient {
     return await resp.json() as GetAircraftDetailsBatchResponse;
   }
 
-  async getWingbitsStatus(req: GetWingbitsStatusRequest, options?: MilitaryServiceCallOptions): Promise<GetWingbitsStatusResponse> {
+  async getWingbitsStatus(_req: GetWingbitsStatusRequest, options?: MilitaryServiceCallOptions): Promise<GetWingbitsStatusResponse> {
     let path = "/api/military/v1/get-wingbits-status";
     const url = this.baseURL + path;
 
@@ -450,9 +450,9 @@ export class MilitaryServiceClient {
     if (req.swLat != null && req.swLat !== 0) params.set("sw_lat", String(req.swLat));
     if (req.swLon != null && req.swLon !== 0) params.set("sw_lon", String(req.swLon));
     if (req.zoom != null && req.zoom !== 0) params.set("zoom", String(req.zoom));
-    if (req.type != null && req.type !== "") params.set("type", String(req.type));
-    if (req.kind != null && req.kind !== "") params.set("kind", String(req.kind));
-    if (req.country != null && req.country !== "") params.set("country", String(req.country));
+    if (req.type != null && String(req.type) !== "") params.set("type", String(req.type));
+    if (req.kind != null && String(req.kind) !== "") params.set("kind", String(req.kind));
+    if (req.country != null && String(req.country) !== "") params.set("country", String(req.country));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {

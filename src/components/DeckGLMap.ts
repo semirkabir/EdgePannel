@@ -1441,7 +1441,6 @@ export class DeckGLMap {
 
 
     // Military bases layer — always render individual markers
-    const basesData = this.getBasesData();
     const basesVisible = mapLayers.bases && this.isLayerVisible('bases');
     if (basesVisible) {
       layers.push(this.createBasesLayer());
@@ -6992,6 +6991,7 @@ export class DeckGLMap {
       (this.maplibreMap as any).dragRotate?.enable();
       (this.maplibreMap as any).touchPitch?.enable();
       this.container.classList.add('globe-projection');
+      this._startGlobeSpin();
     } else {
       this.container.classList.remove('globe-projection');
       this._stopGlobeSpin();

@@ -19,7 +19,7 @@ export function getCorsHeaders(req, methods = 'GET, OPTIONS') {
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': methods,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-WorldMonitor-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-WorldMonitor-Key, X-WorldMonitor-Token',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
