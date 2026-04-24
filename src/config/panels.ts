@@ -214,7 +214,6 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   regulation:         p2('Financial Regulation'),
   institutional:      p2('Hedge Funds & PE'),
   analysis:           p2('Market Analysis'),
-  'etf-flows':        p2('BTC ETF Tracker'),
   stablecoins:        p2('Stablecoins'),
   'gcc-investments':  p2('GCC Investments'),
   gccNews:            p2('GCC Business News'),
@@ -502,7 +501,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   cryptoDigital: {
     labelKey: 'header.panelCatCryptoDigital',
-    panelKeys: ['crypto', 'crypto-news', 'etf-flows', 'stablecoins', 'fintech'],
+    panelKeys: ['crypto', 'crypto-news', 'stablecoins', 'fintech'],
     variants: ['finance'],
   },
   centralBanksEcon: {

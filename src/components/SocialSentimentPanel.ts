@@ -1,7 +1,7 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
-import { fetchSocialSentiment, fetchRecommendationTrends } from '@/services/market/finnhub-extra';
+import { getFinnhubConfigErrorMessage, fetchSocialSentiment, fetchRecommendationTrends } from '@/services/market/finnhub-extra';
 
 export class SocialSentimentPanel extends Panel {
   private currentSymbol = 'AAPL';
@@ -16,6 +16,12 @@ export class SocialSentimentPanel extends Panel {
 
   public async render(symbol?: string): Promise<void> {
     if (symbol) this.currentSymbol = symbol;
+
+    const configMessage = getFinnhubConfigErrorMessage();
+    if (configMessage) {
+      this.showConfigError(configMessage);
+      return;
+    }
 
     this.showLoading();
 
@@ -112,6 +118,11 @@ export class SocialSentimentPanel extends Panel {
         }, 500);
       });
     } catch (err) {
+      const message = getFinnhubConfigErrorMessage(err);
+      if (message) {
+        this.showConfigError(message);
+        return;
+      }
       this.showError(`Failed to load sentiment: ${err}`);
     }
   }

@@ -1,7 +1,7 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
-import { fetchInsiderTransactions } from '@/services/market/finnhub-extra';
+import { getFinnhubConfigErrorMessage, fetchInsiderTransactions } from '@/services/market/finnhub-extra';
 
 const TRANSACTION_LABELS: Record<string, string> = {
   P: 'Purchase',
@@ -34,6 +34,12 @@ export class InsiderTradingPanel extends Panel {
 
   public async render(symbol?: string): Promise<void> {
     if (symbol) this.currentSymbol = symbol;
+
+    const configMessage = getFinnhubConfigErrorMessage();
+    if (configMessage) {
+      this.showConfigError(configMessage);
+      return;
+    }
 
     this.showLoading();
 
@@ -90,6 +96,11 @@ export class InsiderTradingPanel extends Panel {
         }, 500);
       });
     } catch (err) {
+      const message = getFinnhubConfigErrorMessage(err);
+      if (message) {
+        this.showConfigError(message);
+        return;
+      }
       this.showError(`Failed to load insider transactions: ${err}`);
     }
   }

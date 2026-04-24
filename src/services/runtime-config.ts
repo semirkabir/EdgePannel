@@ -398,6 +398,21 @@ export function isFeatureAvailable(featureId: RuntimeFeatureId): boolean {
   return secrets.every(secretKey => getSecretState(secretKey).valid);
 }
 
+export function getMissingSecretMessage(key: RuntimeSecretKey): string {
+  return `${key} not configured — add in Settings`;
+}
+
+export function getMissingFeatureSecretMessage(featureId: RuntimeFeatureId): string | null {
+  if (!isDesktopRuntime()) return null;
+
+  const feature = RUNTIME_FEATURES.find(item => item.id === featureId);
+  if (!feature) return null;
+
+  const secrets = feature.desktopRequiredSecrets ?? feature.requiredSecrets;
+  const missingSecret = secrets.find(secretKey => !getSecretState(secretKey).valid);
+  return missingSecret ? getMissingSecretMessage(missingSecret) : null;
+}
+
 export function getEffectiveSecrets(feature: RuntimeFeatureDefinition): RuntimeSecretKey[] {
   return (isDesktopRuntime() && feature.desktopRequiredSecrets) ? feature.desktopRequiredSecrets : feature.requiredSecrets;
 }

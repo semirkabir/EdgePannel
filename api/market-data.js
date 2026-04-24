@@ -11,7 +11,7 @@ export default async function handler(req) {
   }
 
   if (!FINNHUB_API_KEY) {
-    return new Response(JSON.stringify({ error: 'Finnhub API key not configured' }), {
+    return new Response(JSON.stringify({ error: 'FINNHUB_API_KEY not configured — add in Settings' }), {
       status: 500,
       headers: { ...cors, 'Content-Type': 'application/json' },
     });

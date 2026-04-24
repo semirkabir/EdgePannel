@@ -8122,30 +8122,53 @@ body.playback-mode #shellGuidanceStrip {
   text-align: center;
   border-radius: 2px;
   background: var(--border);
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+  transition: filter 0.15s, transform 0.1s;
 }
 
-.heatmap-cell.up-3 {
-  background: var(--map-country);
+.heatmap-cell:hover {
+  filter: brightness(1.2);
+  transform: scale(1.03);
+  z-index: 1;
+  position: relative;
 }
 
-.heatmap-cell.up-2 {
-  background: var(--map-country);
+.heatmap-cell:focus-visible {
+  outline: 2px solid var(--text-dim);
+  outline-offset: 1px;
 }
 
 .heatmap-cell.up-1 {
-  background: var(--map-country);
+  background: rgba(68, 255, 136, 0.20);
+  color: #fff;
+}
+
+.heatmap-cell.up-2 {
+  background: rgba(68, 255, 136, 0.42);
+  color: #fff;
+}
+
+.heatmap-cell.up-3 {
+  background: rgba(68, 255, 136, 0.68);
+  color: #000;
 }
 
 .heatmap-cell.down-1 {
-  background: var(--surface);
+  background: rgba(255, 68, 68, 0.20);
+  color: #fff;
 }
 
 .heatmap-cell.down-2 {
-  background: var(--surface);
+  background: rgba(255, 68, 68, 0.42);
+  color: #fff;
 }
 
 .heatmap-cell.down-3 {
-  background: var(--surface);
+  background: rgba(255, 68, 68, 0.68);
+  color: #fff;
 }
 
 .sector-name {

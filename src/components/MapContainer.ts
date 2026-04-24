@@ -819,6 +819,14 @@ export class MapContainer {
     }
   }
 
+  public triggerRelatedAssetClick(asset: RelatedAsset): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.triggerRelatedAssetClick(asset);
+    } else {
+      this.svgMap?.triggerRelatedAssetClick(asset);
+    }
+  }
+
   public flashLocation(lat: number, lon: number, durationMs?: number): void {
     if (this.useDeckGL) {
       this.deckGLMap?.flashLocation(lat, lon, durationMs);

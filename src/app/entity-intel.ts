@@ -44,6 +44,7 @@ import { PredictionMarketRenderer } from '@/components/entity-detail/renderers/p
 import { ConflictRenderer } from '@/components/entity-detail/renderers/conflict';
 import { ArticleRenderer } from '@/components/entity-detail/renderers/article';
 import { CongressTradeRenderer } from '@/components/entity-detail/renderers/congress-trade';
+import { SectorRenderer } from '@/components/entity-detail/renderers/sector';
 import { openArticleFromClick } from '@/services/article-open';
 
 export class EntityIntelManager implements AppModule {
@@ -163,6 +164,7 @@ export class EntityIntelManager implements AppModule {
       article: new ArticleRenderer(),
       congressTrade: new CongressTradeRenderer(),
       governanceCountry: new GovernanceCountryRenderer(),
+      sector: new SectorRenderer(),
     };
   }
 

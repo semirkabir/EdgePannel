@@ -4,7 +4,6 @@ import { getCSSColor } from '@/utils';
 import type { CountryScore } from '@/services/country-instability';
 import type { NewsItem } from '@/types';
 import type { PredictionMarket } from '@/services/prediction';
-import type { AssetType } from '@/types';
 import type { CountryBriefSignals } from '@/app/app-context';
 import type { CountryBriefPanel, CountryIntelData, StockIndexData } from '@/components/CountryBriefPanel';
 import { getNearbyInfrastructure } from '@/services/related-assets';
@@ -18,7 +17,8 @@ import { ME_STRIKE_BOUNDS } from '@/services/country-geometry';
 import { formatBriefRichText } from './country-brief-format';
 import { buildArticleLinkAttributes } from '@/services/article-open';
 
-type BriefAssetType = AssetType | 'port';
+type BriefInfrastructureType = 'pipeline' | 'cable' | 'datacenter' | 'base' | 'nuclear';
+type BriefAssetType = BriefInfrastructureType | 'port';
 
 export class CountryBriefPage implements CountryBriefPanel {
   private static BRIEF_BOUNDS: Record<string, { n: number; s: number; e: number; w: number }> = {
@@ -634,9 +634,10 @@ export class CountryBriefPage implements CountryBriefPanel {
 
     const grouped = new Map<BriefAssetType, Array<{ name: string; distanceKm: number }>>();
     for (const a of assets) {
-      const list = grouped.get(a.type) || [];
+      const type = a.type as BriefInfrastructureType;
+      const list = grouped.get(type) || [];
       list.push({ name: a.name, distanceKm: a.distanceKm });
-      grouped.set(a.type, list);
+      grouped.set(type, list);
     }
     if (nearbyPorts.length > 0) {
       grouped.set('port', nearbyPorts.map(({ port, dist }) => ({ name: port.name, distanceKm: dist })));

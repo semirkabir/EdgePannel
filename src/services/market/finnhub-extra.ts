@@ -1,3 +1,19 @@
+import { getMissingFeatureSecretMessage, getMissingSecretMessage } from '@/services/runtime-config';
+
+export const FINNHUB_CONFIG_ERROR_MESSAGE = getMissingSecretMessage('FINNHUB_API_KEY');
+
+export function getFinnhubConfigErrorMessage(error?: unknown): string | null {
+  const desktopMessage = getMissingFeatureSecretMessage('finnhubMarkets');
+  if (desktopMessage) return desktopMessage;
+
+  if (error === undefined) return null;
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  return normalized.includes('finnhub') && normalized.includes('not configured')
+    ? FINNHUB_CONFIG_ERROR_MESSAGE
+    : null;
+}
+
 export interface EarningsEvent {
   symbol: string;
   name: string;

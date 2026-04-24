@@ -33,13 +33,14 @@ import { getMarketWatchlistEntries } from '@/services/market-watchlist';
 import { getHydratedData } from '@/services/bootstrap';
 import { dataFreshness } from '@/services/data-freshness';
 import { getCircuitBreakerCooldownInfo } from '@/utils';
-import { isFeatureAvailable } from '@/services/runtime-config';
+import { getMissingFeatureSecretMessage, getMissingSecretMessage, isFeatureAvailable } from '@/services/runtime-config';
 import { t } from '@/services/i18n';
 import { SECTORS, COMMODITIES } from '@/config';
 import { signalAggregator } from '@/services/signal-aggregator';
 import { supplementalBus } from '@/services/supplemental-signal-bus';
 import { ingestSatelliteFiresForCII } from '@/services/country-instability';
 import { matchCountryNamesInText } from '@/services/country-geometry';
+import { dataTaskScheduler } from './data-task-scheduler';
 import type { MarketPanel, HeatmapPanel, CommoditiesPanel, CryptoPanel, PredictionPanel, EconomicPanel, TradePolicyPanel, SupplyChainPanel, SanctionsTrackerPanel } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 
@@ -61,6 +62,7 @@ export interface DataRendererDeps {
 export class DataRenderer {
   private ctx: AppContext;
   private deps: DataRendererDeps;
+  private scheduledDelayedTasks = new Set<string>();
 
   constructor(ctx: AppContext, deps: DataRendererDeps) {
     this.ctx = ctx;
@@ -72,15 +74,26 @@ export class DataRenderer {
   }
 
   async loadMarkets(): Promise<void> {
+    await Promise.allSettled([
+      dataTaskScheduler.schedule('market:quotes', () => this.loadMarketQuotesPanel(), { priority: 'high', group: 'finnhub' }),
+      dataTaskScheduler.schedule('market:heatmap', () => this.loadHeatmapPanel(), { priority: 'high', group: 'finnhub' }),
+      dataTaskScheduler.schedule('market:commodities', () => this.loadCommoditiesPanel(), { priority: 'normal', group: 'finnhub' }),
+      dataTaskScheduler.schedule('market:crypto', () => this.loadCryptoPanel(), { priority: 'high', group: 'coingecko' }),
+    ]);
+  }
+
+  private getEffectiveMarketSymbols(): Array<{ symbol: string; name: string; display: string }> {
+    return getMarketWatchlistEntries().slice(0, 50).map(e => ({
+      symbol: e.symbol,
+      name: e.name || e.symbol,
+      display: e.display || e.symbol,
+    }));
+  }
+
+  private async loadMarketQuotesPanel(): Promise<void> {
     try {
       const customEntries = getMarketWatchlistEntries();
-      const effectiveSymbols = (() => {
-        return customEntries.slice(0, 50).map(e => ({
-          symbol: e.symbol,
-          name: e.name || e.symbol,
-          display: e.display || e.symbol
-        }));
-      })();
+      const effectiveSymbols = this.getEffectiveMarketSymbols();
 
       const hydratedMarkets = getHydratedData('marketQuotes') as import('@/generated/client/worldmonitor/market/v1/service_client').ListMarketQuotesResponse | undefined;
       let stocksResult: Awaited<ReturnType<typeof fetchMultipleStocks>>;
@@ -109,7 +122,7 @@ export class DataRenderer {
         (this.ctx.panels['markets'] as MarketPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
       }
 
-      const finnhubConfigMsg = 'FINNHUB_API_KEY not configured — add in Settings';
+      const finnhubConfigMsg = getMissingSecretMessage('FINNHUB_API_KEY');
 
       if (stocksResult.rateLimited && stocksResult.data.length === 0) {
         const rlMsg = 'Market data temporarily unavailable (rate limited) — retrying shortly';
@@ -122,36 +135,59 @@ export class DataRenderer {
       } else {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'ok' });
       }
+    } catch {
+      this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
+    }
+  }
 
+  private async loadHeatmapPanel(): Promise<void> {
+    const finnhubConfigMsg = getMissingSecretMessage('FINNHUB_API_KEY');
+    try {
       const hydratedSectors = getHydratedData('sectors') as import('@/generated/client/worldmonitor/market/v1/service_client').GetSectorSummaryResponse | undefined;
       if (hydratedSectors?.sectors?.length) {
-        const mapped = hydratedSectors.sectors.map((s) => ({ name: s.name, change: s.change }));
+        const mapped = hydratedSectors.sectors.map((s) => ({ symbol: s.symbol, name: s.name, change: s.change }));
         (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(mapped);
-      } else if (!stocksResult.skipped) {
-        const sectorsResult = await fetchMultipleStocks(
-          SECTORS.map((s) => ({ ...s, display: s.name })),
-          {
-            onBatch: (partialSectors) => {
-              (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(
-                partialSectors.map((s) => ({ name: s.name, change: s.change }))
-              );
-            },
-          }
-        );
-        (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(
-          sectorsResult.data.map((s) => ({ name: s.name, change: s.change }))
-        );
-      } else {
-        this.ctx.panels['heatmap']?.showConfigError(finnhubConfigMsg);
+        return;
       }
 
-      const commoditiesPanel = this.ctx.panels['commodities'] as CommoditiesPanel;
-      const mapCommodity = (c: MarketData) => ({ display: c.display, price: c.price, change: c.change, sparkline: c.sparkline });
+      const sectorsResult = await fetchMultipleStocks(
+        SECTORS.map((s) => ({ ...s, display: s.name })),
+        {
+          onBatch: (partialSectors) => {
+            (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(
+              partialSectors.map((s) => ({ symbol: s.symbol, name: s.name, change: s.change }))
+            );
+          },
+        }
+      );
+      const mapped = sectorsResult.data.map((s) => ({ symbol: s.symbol, name: s.name, change: s.change }));
+      if (mapped.some(s => s.change !== null)) {
+        (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(mapped);
+      } else if (sectorsResult.skipped) {
+        this.ctx.panels['heatmap']?.showConfigError(finnhubConfigMsg);
+      } else {
+        (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap([]);
+      }
+    } catch {
+      (this.ctx.panels['heatmap'] as HeatmapPanel)?.renderHeatmap([]);
+    }
+  }
 
+  private async loadCommoditiesPanel(): Promise<void> {
+    const commoditiesPanel = this.ctx.panels['commodities'] as CommoditiesPanel;
+    const mapCommodity = (c: MarketData) => ({ display: c.display, price: c.price, change: c.change, sparkline: c.sparkline });
+
+    const loadOnce = async (): Promise<Array<{ display: string; price: number | null; change: number | null; sparkline?: number[] }>> => {
+      const commoditiesResult = await fetchMultipleStocks(COMMODITIES, {
+        onBatch: (partial) => commoditiesPanel.renderCommodities(partial.map(mapCommodity)),
+        useCommodityBreaker: true,
+      });
+      return commoditiesResult.data.map(mapCommodity);
+    };
+
+    try {
       const hydratedCommodities = getHydratedData('commodityQuotes') as import('@/generated/client/worldmonitor/market/v1/service_client').ListMarketQuotesResponse | undefined;
-      let commoditiesLoaded = stocksResult.rateLimited && stocksResult.data.length === 0;
-
-      if (!commoditiesLoaded && hydratedCommodities?.quotes?.length) {
+      if (hydratedCommodities?.quotes?.length) {
         const symbolMetaMap = new Map(COMMODITIES.map((s) => [s.symbol, s]));
         const data = hydratedCommodities.quotes.map((q) => ({
           symbol: q.symbol,
@@ -164,41 +200,59 @@ export class DataRenderer {
         const mapped = data.map(mapCommodity);
         if (mapped.some(d => d.price !== null)) {
           commoditiesPanel.renderCommodities(mapped);
-          commoditiesLoaded = true;
+          return;
         }
       }
 
-      for (let attempt = 0; attempt < 3 && !commoditiesLoaded; attempt++) {
-        if (attempt > 0) {
-          commoditiesPanel.showRetrying();
-          await new Promise(r => setTimeout(r, 20_000));
+      const mapped = await loadOnce();
+      if (mapped.some(d => d.price !== null)) {
+        commoditiesPanel.renderCommodities(mapped);
+        return;
+      }
+
+      commoditiesPanel.showRetrying();
+      this.scheduleDelayedTask('market:commodities:retry:1', 20_000, 'finnhub', async () => {
+        const retry = await loadOnce();
+        if (retry.some(d => d.price !== null)) {
+          commoditiesPanel.renderCommodities(retry);
+          return;
         }
-        const commoditiesResult = await fetchMultipleStocks(COMMODITIES, {
-          onBatch: (partial) => commoditiesPanel.renderCommodities(partial.map(mapCommodity)),
-          useCommodityBreaker: true,
+        commoditiesPanel.showRetrying();
+        this.scheduleDelayedTask('market:commodities:retry:2', 20_000, 'finnhub', async () => {
+          const finalRetry = await loadOnce();
+          commoditiesPanel.renderCommodities(finalRetry);
         });
-        const mapped = commoditiesResult.data.map(mapCommodity);
-        if (mapped.some(d => d.price !== null)) {
-          commoditiesPanel.renderCommodities(mapped);
-          commoditiesLoaded = true;
-        }
-      }
-      if (!commoditiesLoaded) {
-        commoditiesPanel.renderCommodities([]);
-      }
+      });
     } catch {
-      this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
+      commoditiesPanel.showRetrying();
     }
+  }
 
+  private scheduleDelayedTask(name: string, delayMs: number, group: string, run: () => Promise<void>): void {
+    if (this.scheduledDelayedTasks.has(name)) return;
+    this.scheduledDelayedTasks.add(name);
+    setTimeout(() => {
+      void dataTaskScheduler.schedule(name, run, { priority: 'low', group })
+        .catch(() => {})
+        .finally(() => this.scheduledDelayedTasks.delete(name));
+    }, delayMs);
+  }
+
+  private async loadCryptoPanel(): Promise<void> {
     try {
       let crypto = await fetchCrypto();
       if (crypto.length === 0) {
         (this.ctx.panels['crypto'] as CryptoPanel).showRetrying();
-        await new Promise(r => setTimeout(r, 20_000));
-        crypto = await fetchCrypto();
+        this.scheduleDelayedTask('market:crypto:retry', 20_000, 'coingecko', async () => {
+          crypto = await fetchCrypto();
+          (this.ctx.panels['crypto'] as CryptoPanel).renderCrypto(crypto);
+          this.ctx.statusPanel?.updateApi('CoinGecko', { status: crypto.length > 0 ? 'ok' : 'error' });
+        });
+        this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'error' });
+        return;
       }
       (this.ctx.panels['crypto'] as CryptoPanel).renderCrypto(crypto);
-      this.ctx.statusPanel?.updateApi('CoinGecko', { status: crypto.length > 0 ? 'ok' : 'error' });
+      this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'ok' });
     } catch {
       this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'error' });
     }
@@ -254,21 +308,22 @@ export class DataRenderer {
 
       if (data.length === 0) {
         if (!isFeatureAvailable('economicFred')) {
-          economicPanel?.showConfigError(t('components.economic.fredKeyMissing'));
+          economicPanel?.showConfigError(getMissingSecretMessage('FRED_API_KEY'));
           this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
           return;
         }
         economicPanel?.showRetrying();
-        await new Promise(r => setTimeout(r, 20_000));
-        const retryData = await fetchFredData();
-        if (retryData.length === 0) {
-          economicPanel?.showError();
-          this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
-          return;
-        }
-        economicPanel?.update(retryData);
-        this.ctx.statusPanel?.updateApi('FRED', { status: 'ok' });
-        dataFreshness.recordUpdate('economic', retryData.length);
+        this.scheduleDelayedTask('economic:fred:retry', 20_000, 'economic', async () => {
+          const retryData = await fetchFredData();
+          if (retryData.length === 0) {
+            economicPanel?.showError();
+            this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
+            return;
+          }
+          economicPanel?.update(retryData);
+          this.ctx.statusPanel?.updateApi('FRED', { status: 'ok' });
+          dataFreshness.recordUpdate('economic', retryData.length);
+        });
         return;
       }
 
@@ -278,16 +333,21 @@ export class DataRenderer {
     } catch {
       if (isFeatureAvailable('economicFred')) {
         economicPanel?.showRetrying();
-        try {
-          await new Promise(r => setTimeout(r, 20_000));
-          const retryData = await fetchFredData();
-          if (retryData.length > 0) {
-            economicPanel?.update(retryData);
-            this.ctx.statusPanel?.updateApi('FRED', { status: 'ok' });
-            dataFreshness.recordUpdate('economic', retryData.length);
-            return;
-          }
-        } catch { /* fall through */ }
+        this.scheduleDelayedTask('economic:fred:retry', 20_000, 'economic', async () => {
+          try {
+            const retryData = await fetchFredData();
+            if (retryData.length > 0) {
+              economicPanel?.update(retryData);
+              this.ctx.statusPanel?.updateApi('FRED', { status: 'ok' });
+              dataFreshness.recordUpdate('economic', retryData.length);
+              return;
+            }
+          } catch { /* fall through */ }
+          this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
+          economicPanel?.showError();
+          economicPanel?.setLoading(false);
+        });
+        return;
       }
       this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
       economicPanel?.showError();
@@ -511,7 +571,9 @@ export class DataRenderer {
     try {
       const fireResult = await fetchAllFires(1);
       if (fireResult.skipped) {
-        this.ctx.panels['satellite-fires']?.showConfigError(t('panels.satelliteFires.noData'));
+        this.ctx.panels['satellite-fires']?.showConfigError(
+          getMissingFeatureSecretMessage('nasaFirms') ?? t('panels.satelliteFires.noData')
+        );
         this.ctx.statusPanel?.updateApi('FIRMS', { status: 'error' });
         return;
       }

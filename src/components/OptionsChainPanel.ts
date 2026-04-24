@@ -2,6 +2,7 @@ import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import {
+  getFinnhubConfigErrorMessage,
   fetchStockQuote,
   fetchOptionChain,
   type OptionContract,
@@ -22,6 +23,12 @@ export class OptionsChainPanel extends Panel {
 
   public async render(symbol?: string): Promise<void> {
     if (symbol) this.currentSymbol = symbol;
+
+    const configMessage = getFinnhubConfigErrorMessage();
+    if (configMessage) {
+      this.showConfigError(configMessage);
+      return;
+    }
 
     this.showLoading();
 
@@ -93,6 +100,11 @@ export class OptionsChainPanel extends Panel {
         void this.render();
       });
     } catch (err) {
+      const message = getFinnhubConfigErrorMessage(err);
+      if (message) {
+        this.showConfigError(message);
+        return;
+      }
       this.showError(`Failed to load options: ${err}`);
     }
   }

@@ -70,7 +70,29 @@ export interface ClusteredEvent {
   lang?: string;
 }
 
-export type AssetType = 'pipeline' | 'cable' | 'datacenter' | 'base' | 'nuclear';
+export type AssetType =
+  | 'pipeline'
+  | 'cable'
+  | 'datacenter'
+  | 'base'
+  | 'nuclear'
+  | 'irradiator'
+  | 'spaceport'
+  | 'waterway'
+  | 'economicCenter'
+  | 'aptGroup'
+  | 'mineral'
+  | 'startupHub'
+  | 'accelerator'
+  | 'cloudRegion'
+  | 'techHQ'
+  | 'stockExchange'
+  | 'financialCenter'
+  | 'centralBank'
+  | 'commodityHub'
+  | 'miningSite'
+  | 'processingPlant'
+  | 'commodityPort';
 
 export interface RelatedAsset {
   id: string;

@@ -174,6 +174,23 @@ export class MapComponent {
     datacenter: new Set(),
     base: new Set(),
     nuclear: new Set(),
+    irradiator: new Set(),
+    spaceport: new Set(),
+    waterway: new Set(),
+    economicCenter: new Set(),
+    aptGroup: new Set(),
+    mineral: new Set(),
+    startupHub: new Set(),
+    accelerator: new Set(),
+    cloudRegion: new Set(),
+    techHQ: new Set(),
+    stockExchange: new Set(),
+    financialCenter: new Set(),
+    centralBank: new Set(),
+    commodityHub: new Set(),
+    miningSite: new Set(),
+    processingPlant: new Set(),
+    commodityPort: new Set(),
   };
   private boundVisibilityHandler!: () => void;
   private handleThemeChange: () => void;
@@ -3614,6 +3631,31 @@ export class MapComponent {
       x: pos[0],
       y: pos[1],
     });
+  }
+
+  public triggerRelatedAssetClick(asset: RelatedAsset): void {
+    switch (asset.type) {
+      case 'pipeline':
+        this.triggerPipelineClick(asset.id);
+        break;
+      case 'cable':
+        this.triggerCableClick(asset.id);
+        break;
+      case 'datacenter':
+        this.triggerDatacenterClick(asset.id);
+        break;
+      case 'base':
+        this.triggerBaseClick(asset.id);
+        break;
+      case 'nuclear':
+        this.triggerNuclearClick(asset.id);
+        break;
+      case 'irradiator':
+        this.triggerIrradiatorClick(asset.id);
+        break;
+      default:
+        break;
+    }
   }
 
   public enableLayer(layer: keyof MapLayers): void {
