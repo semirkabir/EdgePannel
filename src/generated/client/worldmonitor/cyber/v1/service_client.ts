@@ -103,10 +103,10 @@ export class CyberServiceClient {
     if (req.start != null && req.start !== 0) params.set("start", String(req.start));
     if (req.end != null && req.end !== 0) params.set("end", String(req.end));
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
-    if (req.cursor != null && req.cursor !== "") params.set("cursor", String(req.cursor));
-    if (req.type != null && req.type !== "") params.set("type", String(req.type));
-    if (req.source != null && req.source !== "") params.set("source", String(req.source));
-    if (req.minSeverity != null && req.minSeverity !== "") params.set("min_severity", String(req.minSeverity));
+    if (req.cursor != null && String(req.cursor) !== "") params.set("cursor", String(req.cursor));
+    if (req.type != null && String(req.type) !== "") params.set("type", String(req.type));
+    if (req.source != null && String(req.source) !== "") params.set("source", String(req.source));
+    if (req.minSeverity != null && String(req.minSeverity) !== "") params.set("min_severity", String(req.minSeverity));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {

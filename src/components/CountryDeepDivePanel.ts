@@ -30,9 +30,11 @@ import { FACTBOOK_TABS, renderFactbookTab, type TabId } from './country-factbook
 type ThreatLevel = 'critical' | 'high' | 'medium' | 'low' | 'info';
 type TrendDirection = 'up' | 'down' | 'flat';
 
-const INFRA_TYPES: AssetType[] = ['pipeline', 'cable', 'datacenter', 'base', 'nuclear'];
+type CountryInfraAssetType = 'pipeline' | 'cable' | 'datacenter' | 'base' | 'nuclear';
 
-const INFRA_ICONS: Record<AssetType, string> = {
+const INFRA_TYPES: CountryInfraAssetType[] = ['pipeline', 'cable', 'datacenter', 'base', 'nuclear'];
+
+const INFRA_ICONS: Record<CountryInfraAssetType, string> = {
   pipeline: '🛢️',
   cable: '🌐',
   datacenter: '🖥️',
@@ -40,7 +42,7 @@ const INFRA_ICONS: Record<AssetType, string> = {
   nuclear: '☢️',
 };
 
-const ASSET_LAYER_MAP: Record<AssetType, keyof MapLayers> = {
+const ASSET_LAYER_MAP: Record<CountryInfraAssetType, keyof MapLayers> = {
   pipeline: 'pipelines',
   cable: 'cables',
   datacenter: 'datacenters',
@@ -71,7 +73,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private lastFocusedElement: HTMLElement | null = null;
   private economicIndicators: CountryDeepDiveEconomicIndicator[] = [];
   private infrastructureByType = new Map<AssetType, RelatedAsset[]>();
-  private activeInfraLayer: AssetType | null = null;
+  private activeInfraLayer: CountryInfraAssetType | null = null;
   private maximizeButton: HTMLButtonElement | null = null;
   private currentHeadlineCount = 0;
   private currentMarkets: PredictionMarket[] = [];
@@ -1335,7 +1337,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     return wrap;
   }
 
-  private highlightInfrastructure(type: AssetType): void {
+  private highlightInfrastructure(type: CountryInfraAssetType): void {
     if (!this.map) return;
 
     // Switch map layer: disable previous infrastructure layer, enable new one

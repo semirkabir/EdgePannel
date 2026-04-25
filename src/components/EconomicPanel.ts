@@ -5,8 +5,7 @@ import type { SpendingSummary } from '@/services/usa-spending';
 import { getChangeClass, formatChange, formatOilValue, getTrendIndicator, getTrendColor } from '@/services/economic';
 import { formatAwardAmount, getAwardTypeIcon } from '@/services/usa-spending';
 import { escapeHtml } from '@/utils/sanitize';
-import { isFeatureAvailable } from '@/services/runtime-config';
-import { isDesktopRuntime } from '@/services/runtime';
+import { getMissingFeatureSecretMessage } from '@/services/runtime-config';
 import { getCSSColor } from '@/utils';
 
 type TabId = 'indicators' | 'oil' | 'spending' | 'centralBanks';
@@ -130,8 +129,9 @@ export class EconomicPanel extends Panel {
 
   private renderIndicators(): string {
     if (this.fredData.length === 0) {
-      if (isDesktopRuntime() && !isFeatureAvailable('economicFred')) {
-        return `<div class="economic-empty">${t('components.economic.fredKeyMissing')}</div>`;
+      const configMessage = getMissingFeatureSecretMessage('economicFred');
+      if (configMessage) {
+        return `<div class="economic-empty">${escapeHtml(configMessage)}</div>`;
       }
       return `<div class="economic-empty">${t('components.economic.noIndicatorData')}</div>`;
     }

@@ -202,8 +202,8 @@ export class InfrastructureServiceClient {
     if (req.start != null && req.start !== 0) params.set("start", String(req.start));
     if (req.end != null && req.end !== 0) params.set("end", String(req.end));
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
-    if (req.cursor != null && req.cursor !== "") params.set("cursor", String(req.cursor));
-    if (req.country != null && req.country !== "") params.set("country", String(req.country));
+    if (req.cursor != null && String(req.cursor) !== "") params.set("cursor", String(req.cursor));
+    if (req.country != null && String(req.country) !== "") params.set("country", String(req.country));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -228,7 +228,7 @@ export class InfrastructureServiceClient {
   async listServiceStatuses(req: ListServiceStatusesRequest, options?: InfrastructureServiceCallOptions): Promise<ListServiceStatusesResponse> {
     let path = "/api/infrastructure/v1/list-service-statuses";
     const params = new URLSearchParams();
-    if (req.status != null && req.status !== "") params.set("status", String(req.status));
+    if (req.status != null && String(req.status) !== "") params.set("status", String(req.status));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -253,8 +253,8 @@ export class InfrastructureServiceClient {
   async getTemporalBaseline(req: GetTemporalBaselineRequest, options?: InfrastructureServiceCallOptions): Promise<GetTemporalBaselineResponse> {
     let path = "/api/infrastructure/v1/get-temporal-baseline";
     const params = new URLSearchParams();
-    if (req.type != null && req.type !== "") params.set("type", String(req.type));
-    if (req.region != null && req.region !== "") params.set("region", String(req.region));
+    if (req.type != null && String(req.type) !== "") params.set("type", String(req.type));
+    if (req.region != null && String(req.region) !== "") params.set("region", String(req.region));
     if (req.count != null && req.count !== 0) params.set("count", String(req.count));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
@@ -301,7 +301,7 @@ export class InfrastructureServiceClient {
     return await resp.json() as RecordBaselineSnapshotResponse;
   }
 
-  async getCableHealth(req: GetCableHealthRequest, options?: InfrastructureServiceCallOptions): Promise<GetCableHealthResponse> {
+  async getCableHealth(_req: GetCableHealthRequest, options?: InfrastructureServiceCallOptions): Promise<GetCableHealthResponse> {
     let path = "/api/infrastructure/v1/get-cable-health";
     const url = this.baseURL + path;
 
@@ -324,7 +324,7 @@ export class InfrastructureServiceClient {
     return await resp.json() as GetCableHealthResponse;
   }
 
-  async listTemporalAnomalies(req: ListTemporalAnomaliesRequest, options?: InfrastructureServiceCallOptions): Promise<ListTemporalAnomaliesResponse> {
+  async listTemporalAnomalies(_req: ListTemporalAnomaliesRequest, options?: InfrastructureServiceCallOptions): Promise<ListTemporalAnomaliesResponse> {
     let path = "/api/infrastructure/v1/list-temporal-anomalies";
     const url = this.baseURL + path;
 

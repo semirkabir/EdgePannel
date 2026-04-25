@@ -1,6 +1,6 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import { replayPendingCalls, clearAllPendingCalls } from '@/app/pending-panel-data';
-import type { RelatedAsset } from '@/types';
+import type { RelatedAsset, MapLayers } from '@/types';
 import type { TheaterPostureSummary } from '@/services/military-surge';
 import {
   MapContainer,
@@ -24,7 +24,6 @@ import {
   RuntimeConfigPanel,
   InsightsPanel,
   MacroSignalsPanel,
-  ETFFlowsPanel,
   StablecoinPanel,
   UcdpEventsPanel,
   InvestmentsPanel,
@@ -90,6 +89,30 @@ const CUSTOM_CATEGORIES_KEY = 'wm-custom-categories-v1';
 const NEWS_REFRESH_SWEEP_EVENT = 'wm:news-refresh-sweep';
 const APP_TIME_RANGE_STORAGE_KEY = 'wm:time-range';
 const APP_TIME_RANGE_EVENT = 'wm:time-range-changed';
+const RELATED_ASSET_LAYER_MAP: Record<RelatedAsset['type'], keyof MapLayers> = {
+  pipeline: 'pipelines',
+  cable: 'cables',
+  datacenter: 'datacenters',
+  base: 'bases',
+  nuclear: 'nuclear',
+  irradiator: 'irradiators',
+  spaceport: 'spaceports',
+  waterway: 'waterways',
+  economicCenter: 'economic',
+  aptGroup: 'aptGroups',
+  mineral: 'minerals',
+  startupHub: 'startupHubs',
+  accelerator: 'accelerators',
+  cloudRegion: 'cloudRegions',
+  techHQ: 'techHQs',
+  stockExchange: 'stockExchanges',
+  financialCenter: 'financialCenters',
+  centralBank: 'centralBanks',
+  commodityHub: 'commodityHubs',
+  miningSite: 'miningSites',
+  processingPlant: 'processingPlants',
+  commodityPort: 'commodityPorts',
+};
 
 function loadCustomCategories(): CustomCategory[] {
   try {
@@ -769,6 +792,11 @@ export class PanelLayoutManager implements AppModule {
     this.ctx.panels['finance'] = financePanel;
 
     const heatmapPanel = new HeatmapPanel();
+    heatmapPanel.setOnSectorClick((symbol, name, change) => {
+      document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+        detail: { type: 'sector', data: { symbol, name, change } },
+      }));
+    });
     this.ctx.panels['heatmap'] = heatmapPanel;
 
     const marketsPanel = new MarketPanel();
@@ -1104,7 +1132,6 @@ export class PanelLayoutManager implements AppModule {
       );
 
       this.ctx.panels['macro-signals'] = new MacroSignalsPanel();
-      this.ctx.panels['etf-flows'] = new ETFFlowsPanel();
       this.ctx.panels['stablecoins'] = new StablecoinPanel();
       this.ctx.panels['economic-calendar'] = new EconomicCalendarPanel();
       this.ctx.panels['sanctions-tracker'] = new SanctionsTrackerPanel();
@@ -2051,38 +2078,11 @@ export class PanelLayoutManager implements AppModule {
   private handleRelatedAssetClick(asset: RelatedAsset): void {
     if (!this.ctx.map) return;
 
-    switch (asset.type) {
-      case 'pipeline':
-        this.ctx.map.enableLayer('pipelines');
-        this.ctx.mapLayers.pipelines = true;
-        saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
-        this.ctx.map.triggerPipelineClick(asset.id);
-        break;
-      case 'cable':
-        this.ctx.map.enableLayer('cables');
-        this.ctx.mapLayers.cables = true;
-        saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
-        this.ctx.map.triggerCableClick(asset.id);
-        break;
-      case 'datacenter':
-        this.ctx.map.enableLayer('datacenters');
-        this.ctx.mapLayers.datacenters = true;
-        saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
-        this.ctx.map.triggerDatacenterClick(asset.id);
-        break;
-      case 'base':
-        this.ctx.map.enableLayer('bases');
-        this.ctx.mapLayers.bases = true;
-        saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
-        this.ctx.map.triggerBaseClick(asset.id);
-        break;
-      case 'nuclear':
-        this.ctx.map.enableLayer('nuclear');
-        this.ctx.mapLayers.nuclear = true;
-        saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
-        this.ctx.map.triggerNuclearClick(asset.id);
-        break;
-    }
+    const layer = RELATED_ASSET_LAYER_MAP[asset.type];
+    this.ctx.map.enableLayer(layer);
+    this.ctx.mapLayers[layer] = true;
+    saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
+    this.ctx.map.triggerRelatedAssetClick(asset);
   }
 
   private lazyPanel<T extends { getElement(): HTMLElement }>(

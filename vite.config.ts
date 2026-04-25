@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { resolve, dirname, extname } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
@@ -6,6 +6,16 @@ import { brotliCompress } from 'zlib';
 import { promisify } from 'util';
 import pkg from './package.json';
 import { VARIANT_META } from './src/config/variant-meta';
+
+function loadServerEnv(): void {
+  const mode = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+  const env = loadEnv(mode, process.cwd(), '');
+  for (const [key, value] of Object.entries(env)) {
+    process.env[key] ??= value;
+  }
+}
+
+loadServerEnv();
 
 const isE2E = process.env.VITE_E2E === '1';
 const isDesktopBuild = process.env.VITE_DESKTOP_RUNTIME === '1';

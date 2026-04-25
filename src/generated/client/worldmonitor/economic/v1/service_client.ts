@@ -322,7 +322,7 @@ export class EconomicServiceClient {
   async getFredSeries(req: GetFredSeriesRequest, options?: EconomicServiceCallOptions): Promise<GetFredSeriesResponse> {
     let path = "/api/economic/v1/get-fred-series";
     const params = new URLSearchParams();
-    if (req.seriesId != null && req.seriesId !== "") params.set("series_id", String(req.seriesId));
+    if (req.seriesId != null && String(req.seriesId) !== "") params.set("series_id", String(req.seriesId));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
@@ -348,11 +348,11 @@ export class EconomicServiceClient {
   async listWorldBankIndicators(req: ListWorldBankIndicatorsRequest, options?: EconomicServiceCallOptions): Promise<ListWorldBankIndicatorsResponse> {
     let path = "/api/economic/v1/list-world-bank-indicators";
     const params = new URLSearchParams();
-    if (req.indicatorCode != null && req.indicatorCode !== "") params.set("indicator_code", String(req.indicatorCode));
-    if (req.countryCode != null && req.countryCode !== "") params.set("country_code", String(req.countryCode));
+    if (req.indicatorCode != null && String(req.indicatorCode) !== "") params.set("indicator_code", String(req.indicatorCode));
+    if (req.countryCode != null && String(req.countryCode) !== "") params.set("country_code", String(req.countryCode));
     if (req.year != null && req.year !== 0) params.set("year", String(req.year));
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
-    if (req.cursor != null && req.cursor !== "") params.set("cursor", String(req.cursor));
+    if (req.cursor != null && String(req.cursor) !== "") params.set("cursor", String(req.cursor));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -377,7 +377,7 @@ export class EconomicServiceClient {
   async getEnergyPrices(req: GetEnergyPricesRequest, options?: EconomicServiceCallOptions): Promise<GetEnergyPricesResponse> {
     let path = "/api/economic/v1/get-energy-prices";
     const params = new URLSearchParams();
-    if (req.commodities != null && req.commodities !== "") params.set("commodities", String(req.commodities));
+    if (req.commodities != null && String(req.commodities) !== "") params.set("commodities", String(req.commodities));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -399,7 +399,7 @@ export class EconomicServiceClient {
     return await resp.json() as GetEnergyPricesResponse;
   }
 
-  async getMacroSignals(req: GetMacroSignalsRequest, options?: EconomicServiceCallOptions): Promise<GetMacroSignalsResponse> {
+  async getMacroSignals(_req: GetMacroSignalsRequest, options?: EconomicServiceCallOptions): Promise<GetMacroSignalsResponse> {
     let path = "/api/economic/v1/get-macro-signals";
     const url = this.baseURL + path;
 
@@ -425,7 +425,7 @@ export class EconomicServiceClient {
   async getEnergyCapacity(req: GetEnergyCapacityRequest, options?: EconomicServiceCallOptions): Promise<GetEnergyCapacityResponse> {
     let path = "/api/economic/v1/get-energy-capacity";
     const params = new URLSearchParams();
-    if (req.energySources != null && req.energySources !== "") params.set("energy_sources", String(req.energySources));
+    if (req.energySources != null && String(req.energySources) !== "") params.set("energy_sources", String(req.energySources));
     if (req.years != null && req.years !== 0) params.set("years", String(req.years));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
@@ -448,7 +448,7 @@ export class EconomicServiceClient {
     return await resp.json() as GetEnergyCapacityResponse;
   }
 
-  async getBisPolicyRates(req: GetBisPolicyRatesRequest, options?: EconomicServiceCallOptions): Promise<GetBisPolicyRatesResponse> {
+  async getBisPolicyRates(_req: GetBisPolicyRatesRequest, options?: EconomicServiceCallOptions): Promise<GetBisPolicyRatesResponse> {
     let path = "/api/economic/v1/get-bis-policy-rates";
     const url = this.baseURL + path;
 
@@ -471,7 +471,7 @@ export class EconomicServiceClient {
     return await resp.json() as GetBisPolicyRatesResponse;
   }
 
-  async getBisExchangeRates(req: GetBisExchangeRatesRequest, options?: EconomicServiceCallOptions): Promise<GetBisExchangeRatesResponse> {
+  async getBisExchangeRates(_req: GetBisExchangeRatesRequest, options?: EconomicServiceCallOptions): Promise<GetBisExchangeRatesResponse> {
     let path = "/api/economic/v1/get-bis-exchange-rates";
     const url = this.baseURL + path;
 
@@ -494,7 +494,7 @@ export class EconomicServiceClient {
     return await resp.json() as GetBisExchangeRatesResponse;
   }
 
-  async getBisCredit(req: GetBisCreditRequest, options?: EconomicServiceCallOptions): Promise<GetBisCreditResponse> {
+  async getBisCredit(_req: GetBisCreditRequest, options?: EconomicServiceCallOptions): Promise<GetBisCreditResponse> {
     let path = "/api/economic/v1/get-bis-credit";
     const url = this.baseURL + path;
 
@@ -544,12 +544,12 @@ export class EconomicServiceClient {
   async getData360Data(req: GetData360DataRequest, options?: EconomicServiceCallOptions): Promise<GetData360DataResponse> {
     let path = "/api/economic/v1/get-data360-data";
     const params = new URLSearchParams();
-    if (req.databaseId != null && req.databaseId !== "") params.set("database_id", String(req.databaseId));
-    if (req.indicator != null && req.indicator !== "") params.set("indicator", String(req.indicator));
-    if (req.refArea != null && req.refArea !== "") params.set("ref_area", String(req.refArea));
+    if (req.databaseId != null && String(req.databaseId) !== "") params.set("database_id", String(req.databaseId));
+    if (req.indicator != null && String(req.indicator) !== "") params.set("indicator", String(req.indicator));
+    if (req.refArea != null && String(req.refArea) !== "") params.set("ref_area", String(req.refArea));
     if (req.timePeriodFrom != null && req.timePeriodFrom !== 0) params.set("time_period_from", String(req.timePeriodFrom));
     if (req.timePeriodTo != null && req.timePeriodTo !== 0) params.set("time_period_to", String(req.timePeriodTo));
-    if (req.freq != null && req.freq !== "") params.set("freq", String(req.freq));
+    if (req.freq != null && String(req.freq) !== "") params.set("freq", String(req.freq));
     if (req.isLatestData) params.set("is_latest_data", String(req.isLatestData));
     if (req.top != null && req.top !== 0) params.set("top", String(req.top));
     if (req.skip != null && req.skip !== 0) params.set("skip", String(req.skip));

@@ -92,7 +92,6 @@ export const COMMANDS: Command[] = [
   { id: 'panel:heatmap', keywords: ['heatmap', 'sector heatmap'], label: 'Panel: Sector Heatmap', icon: '\u{1F5FA}\uFE0F', category: 'panels' },
   { id: 'panel:ai', keywords: ['ai', 'ml', 'artificial intelligence'], label: 'Panel: AI/ML', icon: '\u{1F916}', category: 'panels' },
   { id: 'panel:macro-signals', keywords: ['macro', 'macro signals', 'liquidity'], label: 'Panel: Market Radar', icon: '\u{1F4C9}', category: 'panels' },
-  { id: 'panel:etf-flows', keywords: ['etf', 'etf flows', 'fund flows'], label: 'Panel: BTC ETF Tracker', icon: '\u{1F4B9}', category: 'panels' },
   { id: 'panel:stablecoins', keywords: ['stablecoins', 'usdt', 'usdc'], label: 'Panel: Stablecoins', icon: '\u{1FA99}', category: 'panels' },
   { id: 'panel:monitors', keywords: ['monitors', 'my monitors', 'watchlist'], label: 'Panel: My Monitors', icon: '\u{1F4CB}', category: 'panels' },
 

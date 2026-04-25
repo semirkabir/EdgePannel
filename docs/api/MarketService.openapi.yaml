@@ -299,6 +299,46 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
+    /api/market/v1/list-historical-prices:
+        get:
+            tags:
+                - MarketService
+            summary: ListHistoricalPrices
+            description: ListHistoricalPrices retrieves historical daily prices for specified symbols.
+            operationId: ListHistoricalPrices
+            parameters:
+                - name: symbols
+                  in: query
+                  description: Ticker symbols to retrieve (e.g., ["AAPL", "GOOGL"]). Max 20.
+                  required: false
+                  schema:
+                    type: string
+                - name: months
+                  in: query
+                  description: Number of months of history (1-60, default 24).
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListHistoricalPricesResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
         Error:
@@ -813,3 +853,50 @@ components:
                 issuerCik:
                     type: string
             description: SecFiling represents a single SEC EDGAR filing.
+        ListHistoricalPricesRequest:
+            type: object
+            properties:
+                symbols:
+                    type: array
+                    items:
+                        type: string
+                        description: Ticker symbols to retrieve (e.g., ["AAPL", "GOOGL"]). Max 20.
+                months:
+                    type: integer
+                    format: int32
+                    description: Number of months of history (1-60, default 24).
+            description: ListHistoricalPricesRequest specifies symbols and time range for historical prices.
+        ListHistoricalPricesResponse:
+            type: object
+            properties:
+                series:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/PriceSeries'
+            description: ListHistoricalPricesResponse contains historical price series for requested symbols.
+        PriceSeries:
+            type: object
+            properties:
+                symbol:
+                    type: string
+                    description: The ticker symbol.
+                prices:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/DailyPrice'
+            description: PriceSeries is a time series of daily prices for one symbol.
+        DailyPrice:
+            type: object
+            properties:
+                date:
+                    type: string
+                    description: Date in YYYY-MM-DD format.
+                close:
+                    type: number
+                    format: float
+                    description: Closing price.
+                volume:
+                    type: string
+                    format: int64
+                    description: Trading volume.
+            description: DailyPrice represents a single day's closing price.

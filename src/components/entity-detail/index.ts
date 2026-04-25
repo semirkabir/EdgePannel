@@ -16,3 +16,5 @@ export { CommodityPortRenderer } from './renderers/commodity-port';
 export { GpsJammingRenderer } from './renderers/gps-jamming';
 export { CiiCountryRenderer } from './renderers/cii-country';
 export { GovernanceCountryRenderer } from './renderers/governance-country';
+export { SectorRenderer } from './renderers/sector';
+export type { SectorData } from './renderers/sector';

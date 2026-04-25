@@ -26,6 +26,7 @@ import { fetchGivingSummary } from '@/services/giving';
 import { fetchHappinessScores } from '@/services/happiness-data';
 import { fetchRenewableInstallations } from '@/services/renewable-installations';
 import { getPersistentCache, setPersistentCache } from '@/services/persistent-cache';
+import { dataTaskScheduler } from './data-task-scheduler';
 
 const NEWS_REFRESH_SWEEP_EVENT = 'wm:news-refresh-sweep';
 
@@ -290,7 +291,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadAllData(): Promise<void> {
-    const runGuarded = async (name: string, fn: () => Promise<void>): Promise<void> => {
+    const runGuarded = (name: string, fn: () => Promise<void>, priority: 'high' | 'normal' | 'low' = 'normal'): Promise<void> => dataTaskScheduler.schedule(name, async () => {
       if (this.ctx.isDestroyed || this.ctx.inFlight.has(name)) return;
       this.ctx.inFlight.add(name);
       try {
@@ -300,15 +301,15 @@ export class DataLoaderManager implements AppModule {
       } finally {
         this.ctx.inFlight.delete(name);
       }
-    };
+    }, { priority });
 
     const tasks: Array<{ name: string; task: Promise<void> }> = [
-      { name: 'news', task: runGuarded('news', () => this.loadNews()) },
+      { name: 'news', task: runGuarded('news', () => this.loadNews(), 'high') },
     ];
 
     if (SITE_VARIANT !== 'happy') {
       if (isLocalDevTaskEnabled('markets') && this.hasActiveMarketsConsumer()) {
-        tasks.push({ name: 'markets', task: runGuarded('markets', () => this.loadMarkets()) });
+        tasks.push({ name: 'markets', task: runGuarded('markets', () => this.loadMarkets(), 'high') });
       }
     }
 
@@ -341,7 +342,7 @@ export class DataLoaderManager implements AppModule {
           const data = givingResult.data;
           this.callPanel('giving', 'setData', data);
           if (data.platforms.length > 0) dataFreshness.recordUpdate('giving', data.platforms.length);
-        }),
+        }, 'low'),
       });
     }
 

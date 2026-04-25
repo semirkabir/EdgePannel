@@ -525,6 +525,23 @@ export class DeckGLMap {
     datacenter: new Set(),
     base: new Set(),
     nuclear: new Set(),
+    irradiator: new Set(),
+    spaceport: new Set(),
+    waterway: new Set(),
+    economicCenter: new Set(),
+    aptGroup: new Set(),
+    mineral: new Set(),
+    startupHub: new Set(),
+    accelerator: new Set(),
+    cloudRegion: new Set(),
+    techHQ: new Set(),
+    stockExchange: new Set(),
+    financialCenter: new Set(),
+    centralBank: new Set(),
+    commodityHub: new Set(),
+    miningSite: new Set(),
+    processingPlant: new Set(),
+    commodityPort: new Set(),
   };
 
   private renderScheduled = false;
@@ -1441,7 +1458,6 @@ export class DeckGLMap {
 
 
     // Military bases layer — always render individual markers
-    const basesData = this.getBasesData();
     const basesVisible = mapLayers.bases && this.isLayerVisible('bases');
     if (basesVisible) {
       layers.push(this.createBasesLayer());
@@ -6613,6 +6629,85 @@ export class DeckGLMap {
     }
   }
 
+  public triggerRelatedAssetClick(asset: RelatedAsset): void {
+    switch (asset.type) {
+      case 'pipeline':
+        this.triggerPipelineClick(asset.id);
+        return;
+      case 'cable':
+        this.triggerCableClick(asset.id);
+        return;
+      case 'datacenter':
+        this.triggerDatacenterClick(asset.id);
+        return;
+      case 'base':
+        this.triggerBaseClick(asset.id);
+        return;
+      case 'nuclear':
+        this.triggerNuclearClick(asset.id);
+        return;
+      case 'irradiator':
+        this.triggerIrradiatorClick(asset.id);
+        return;
+      case 'spaceport':
+        this.showRelatedPointPopup('spaceport', SPACEPORTS.find(item => item.id === asset.id));
+        return;
+      case 'waterway':
+        this.showRelatedPointPopup('waterway', STRATEGIC_WATERWAYS.find(item => item.id === asset.id));
+        return;
+      case 'economicCenter':
+        this.showRelatedPointPopup('economic', ECONOMIC_CENTERS.find(item => item.id === asset.id));
+        return;
+      case 'aptGroup':
+        this.showRelatedPointPopup('apt', APT_GROUPS.find(item => item.id === asset.id));
+        return;
+      case 'mineral':
+        this.showRelatedPointPopup('mineral', CRITICAL_MINERALS.find(item => item.id === asset.id));
+        return;
+      case 'startupHub':
+        this.showRelatedPointPopup('startupHub', STARTUP_HUBS.find(item => item.id === asset.id));
+        return;
+      case 'accelerator':
+        this.showRelatedPointPopup('accelerator', ACCELERATORS.find(item => item.id === asset.id));
+        return;
+      case 'cloudRegion':
+        this.showRelatedPointPopup('cloudRegion', CLOUD_REGIONS.find(item => item.id === asset.id));
+        return;
+      case 'techHQ':
+        this.showRelatedPointPopup('techHQ', TECH_HQS.find(item => item.id === asset.id));
+        return;
+      case 'stockExchange':
+        this.showRelatedPointPopup('stockExchange', STOCK_EXCHANGES.find(item => item.id === asset.id));
+        return;
+      case 'financialCenter':
+        this.showRelatedPointPopup('financialCenter', FINANCIAL_CENTERS.find(item => item.id === asset.id));
+        return;
+      case 'centralBank':
+        this.showRelatedPointPopup('centralBank', CENTRAL_BANKS.find(item => item.id === asset.id));
+        return;
+      case 'commodityHub':
+        this.showRelatedPointPopup('commodityHub', COMMODITY_HUBS.find(item => item.id === asset.id));
+        return;
+      case 'miningSite':
+        this.showRelatedPointPopup('mineral', MINING_SITES.find(item => item.id === asset.id));
+        return;
+      case 'processingPlant':
+        this.showRelatedPointPopup('mineral', PROCESSING_PLANTS.find(item => item.id === asset.id));
+        return;
+      case 'commodityPort':
+        this.showRelatedPointPopup('commodityPort', COMMODITY_GEO_PORTS.find(item => item.id === asset.id));
+        return;
+    }
+  }
+
+  private showRelatedPointPopup(type: PopupType, data: unknown): void {
+    const point = data as { lat?: number; lon?: number } | undefined;
+    if (!point || typeof point.lat !== 'number' || typeof point.lon !== 'number') return;
+    const screenPos = this.projectToScreen(point.lat, point.lon);
+    const { x, y } = screenPos || this.getContainerCenter();
+    this.popup.show({ type, data: data as never, x, y });
+  }
+
   public flashLocation(lat: number, lon: number, durationMs = 2000): void {
     // Don't pan - project coordinates to screen position
     const screenPos = this.projectToScreen(lat, lon);
@@ -6992,6 +7087,7 @@ export class DeckGLMap {
       (this.maplibreMap as any).dragRotate?.enable();
       (this.maplibreMap as any).touchPitch?.enable();
       this.container.classList.add('globe-projection');
+      this._startGlobeSpin();
     } else {
       this.container.classList.remove('globe-projection');
       this._stopGlobeSpin();

@@ -852,6 +852,23 @@ export class NewsPanel extends Panel {
       datacenter: 'modals.countryBrief.infra.datacenter',
       base: 'modals.countryBrief.infra.base',
       nuclear: 'modals.countryBrief.infra.nuclear',
+      irradiator: 'components.deckgl.layers.gammaIrradiators',
+      spaceport: 'components.deckgl.layers.spaceports',
+      waterway: 'components.deckgl.layers.strategicWaterways',
+      economicCenter: 'components.deckgl.layers.economicCenters',
+      aptGroup: 'components.deckgl.layers.aptGroups',
+      mineral: 'components.deckgl.layers.criticalMinerals',
+      startupHub: 'components.deckgl.layers.startupHubs',
+      accelerator: 'components.deckgl.layers.accelerators',
+      cloudRegion: 'components.deckgl.layers.cloudRegions',
+      techHQ: 'components.deckgl.layers.techHQs',
+      stockExchange: 'components.deckgl.layers.stockExchanges',
+      financialCenter: 'components.deckgl.layers.financialCenters',
+      centralBank: 'components.deckgl.layers.centralBanks',
+      commodityHub: 'components.deckgl.layers.commodityHubs',
+      miningSite: 'components.deckgl.layers.miningSites',
+      processingPlant: 'components.deckgl.layers.processingPlants',
+      commodityPort: 'components.deckgl.layers.commodityPorts',
     };
     return t(keyMap[type]);
   }

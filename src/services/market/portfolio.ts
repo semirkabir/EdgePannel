@@ -103,7 +103,7 @@ export const SECTOR_COLORS: Record<string, string> = {
 export interface DailyPrice {
   date: string;
   close: number;
-  volume: number;
+  volume: string;
 }
 
 export interface PriceSeries {
@@ -155,17 +155,48 @@ export interface EstimatedTickerHolding {
 export interface SectorAllocation {
   sector: string;
   value: number;
+<<<<<<< HEAD
+=======
+  pct: number;
+>>>>>>> 00f9bd2324ca92494ed44598f56754315a6bf63b
   percentage: number;
 }
 
 export interface LargestTradeDelta {
+<<<<<<< HEAD
   label: string;
   detail: string;
+=======
+  ticker: string;
+  label: string;
+  detail: string;
+  delta: number;
+  deltaPct: number;
+>>>>>>> 00f9bd2324ca92494ed44598f56754315a6bf63b
   percentage: number;
   estimatedValue: number;
   direction: 'buy' | 'sell';
   ticker: string;
 }
+
+export type PortfolioInsightInput =
+  | {
+      kind: 'politician';
+      trades: CongressTrade[];
+      estimatedHoldings: EstimatedTickerHolding[];
+      quarterly: QuarterlyBreakdown[];
+    }
+  | {
+      kind: 'institution';
+      holdings: InstitutionalHolding[];
+      structure: SectorAllocation[];
+      totalValue: number;
+    }
+  | {
+      kind: 'user';
+      positions: UserPosition[];
+      performance: PerformanceResult;
+    };
 
 // ─── Notable institutional investors (13F filers) ─────────────────────────────
 
@@ -210,7 +241,14 @@ export async function fetchInstitutionalHoldings(cik: string): Promise<Instituti
   url.searchParams.set('cik', cik);
   const resp = await fetch(url.toString());
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  return resp.json();
+  const data = await resp.json() as Omit<InstitutionalHoldingsResponse, 'totalValue'> & { totalValue?: number };
+  const holdings = data.holdings ?? [];
+  return {
+    ...data,
+    holdings,
+    totalHoldings: data.totalHoldings ?? holdings.length,
+    totalValue: data.totalValue ?? holdings.reduce((sum, holding) => sum + holding.value, 0),
+  };
 }
 
 // ─── User Portfolio (localStorage) ────────────────────────────────────────────
@@ -382,7 +420,15 @@ export function computePortfolioPerformance(positions: UserPosition[], series: P
   const totalReturn = (values[values.length - 1] ?? 0) - costBasis;
   const cagr = 0; // Simplified - would need date range to compute properly
   let maxDrawdown = 0; let peak = values[0] ?? 0;
+<<<<<<< HEAD
   for (const v of values) { if (v > peak) peak = v; const dd = (peak - v) / peak; if (dd > maxDrawdown) maxDrawdown = dd; }
+=======
+  for (const v of values) {
+    if (v > peak) peak = v;
+    const dd = peak > 0 ? (peak - v) / peak : 0;
+    if (dd > maxDrawdown) maxDrawdown = dd;
+  }
+>>>>>>> 00f9bd2324ca92494ed44598f56754315a6bf63b
 
   return { dates, values, costBasis, totalReturn, cagr, maxDrawdown, sharpe: 0 };
 }
@@ -393,11 +439,20 @@ export function computeCorrelationMatrix(symbols: string[], _series: PriceSeries
     Array.from({ length: symbolsLength }, () => 0)
   );
 
+<<<<<<< HEAD
   for (let i = 0; i < symbolsLength; i++) {
     const row = matrix[i]!;
     for (let j = 0; j < symbolsLength; j++) {
       row[j] = i === j ? 1 : 0;
     }
+=======
+  for (const sym of symbols) { const s = series.find(x => x.symbol === sym); if (s) priceData.set(sym, s.prices.map(p => p.close)); else priceData.set(sym, []); }
+
+  for (let i = 0; i < symbolsLength; i++) {
+    const row: number[] = [];
+    for (let j = 0; j < symbolsLength; j++) row[j] = i === j ? 1 : 0;
+    matrix[i] = row;
+>>>>>>> 00f9bd2324ca92494ed44598f56754315a6bf63b
   }
 
   let avg = 0; let maxPair: [string, string, number] = ['', '', -1]; let minPair: [string, string, number] = ['', '', 1];
@@ -429,6 +484,7 @@ export function groupTradesByQuarter(trades: CongressTrade[]): QuarterlyBreakdow
 }
 
 export function estimateHoldingsFromTrades(trades: CongressTrade[]): EstimatedTickerHolding[] {
+<<<<<<< HEAD
   const holdingMap = new Map<string, { shares: number; value: number; change: number }>();
   for (const t of trades) { const existing = holdingMap.get(t.ticker) || { shares: 0, value: 0, change: 0 }; if (t.transactionType.toLowerCase().includes('purchase')) { existing.shares += 1000; existing.change += 1; } else { existing.shares -= 1000; existing.change -= 1; } holdingMap.set(t.ticker, existing); }
   const holdings = Array.from(holdingMap.entries()).map(([ticker, h]) => ({
@@ -448,10 +504,51 @@ export function estimateHoldingsFromTrades(trades: CongressTrade[]): EstimatedTi
       percentage: totalEstimatedValue > 0 ? (holding.estimatedValue / totalEstimatedValue) * 100 : 0,
     }))
     .sort((a, b) => b.estimatedValue - a.estimatedValue);
+=======
+  const holdingMap = new Map<string, { name: string; shares: number; grossValue: number; netValue: number; change: number }>();
+  for (const t of trades) {
+    if (!t.ticker) continue;
+    const existing = holdingMap.get(t.ticker) || {
+      name: t.assetDescription || t.ticker,
+      shares: 0,
+      grossValue: 0,
+      netValue: 0,
+      change: 0,
+    };
+    const estimatedValue = estimateTradeValueFromRange(t.amount);
+    const isSale = t.transactionType.toLowerCase().includes('sale');
+    const direction = isSale ? -1 : 1;
+    existing.name = existing.name || t.assetDescription || t.ticker;
+    existing.shares += direction * 1000;
+    existing.grossValue += estimatedValue;
+    existing.netValue += direction * estimatedValue;
+    existing.change += direction;
+    holdingMap.set(t.ticker, existing);
+  }
+
+  const rows = Array.from(holdingMap.entries()).map(([ticker, h]) => {
+    const value = Math.abs(h.netValue) > 0 ? Math.abs(h.netValue) : h.grossValue;
+    return {
+      ticker,
+      name: h.name,
+      shares: Math.abs(h.shares),
+      value,
+      change: h.change,
+      changePct: h.grossValue > 0 ? (h.netValue / h.grossValue) * 100 : 0,
+      percentage: 0,
+      estimatedValue: value,
+    };
+  });
+
+  const totalValue = rows.reduce((sum, row) => sum + row.value, 0);
+  for (const row of rows) row.percentage = totalValue > 0 ? (row.value / totalValue) * 100 : 0;
+  return rows.sort((a, b) => b.value - a.value);
+>>>>>>> 00f9bd2324ca92494ed44598f56754315a6bf63b
 }
 
 export function computeInstitutionStructure(holdings: InstitutionalHolding[]): SectorAllocation[] {
   const sectorMap = new Map<string, number>(); const total = holdings.reduce((s, h) => s + h.value, 0);
+<<<<<<< HEAD
   for (const h of holdings) {
     const sector = getTickerSector((h.ticker || h.issuer || '').toUpperCase());
     sectorMap.set(sector, (sectorMap.get(sector) || 0) + h.value);
@@ -574,6 +671,87 @@ export function buildPortfolioInsights(input:
     bullets.push(`Latest modeled portfolio value is $${lastValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}.`);
   }
   return bullets.length > 0 ? bullets : ['Portfolio insights will populate after positions and historical performance data are available.'];
+=======
+  for (const h of holdings) { const sector = getTickerSector(h.issuer); sectorMap.set(sector, (sectorMap.get(sector) || 0) + h.value); }
+  return Array.from(sectorMap.entries()).map(([sector, value]) => {
+    const percentage = total > 0 ? (value / total) * 100 : 0;
+    return { sector, value, pct: percentage, percentage };
+  }).sort((a, b) => b.value - a.value);
+}
+
+export function computeLargestTradeDeltas(items: (CongressTrade | InstitutionalHolding)[]): LargestTradeDelta[] {
+  const total = items.reduce((sum, item) => {
+    if ('value' in item) return sum + item.value;
+    return sum + estimateTradeValueFromRange(item.amount);
+  }, 0);
+
+  return items
+    .map((item): LargestTradeDelta => {
+      if ('value' in item) {
+        const percentage = total > 0 ? (item.value / total) * 100 : 0;
+        return {
+          ticker: item.cusip || item.issuer,
+          label: item.issuer,
+          detail: item.title,
+          delta: item.value,
+          deltaPct: percentage,
+          percentage,
+          estimatedValue: item.value,
+          direction: 'buy',
+          trade: item,
+        };
+      }
+
+      const estimatedValue = estimateTradeValueFromRange(item.amount);
+      const isSale = item.transactionType.toLowerCase().includes('sale');
+      const percentage = total > 0 ? (estimatedValue / total) * 100 : 0;
+      return {
+        ticker: item.ticker,
+        label: item.ticker || item.assetDescription,
+        detail: `${item.transactionType} · ${item.politician}`,
+        delta: isSale ? -estimatedValue : estimatedValue,
+        deltaPct: percentage,
+        percentage,
+        estimatedValue,
+        direction: isSale ? 'sell' : 'buy',
+        trade: item,
+      };
+    })
+    .sort((a, b) => b.estimatedValue - a.estimatedValue)
+    .slice(0, 10);
+}
+
+export function buildPortfolioInsights(input: PortfolioInsightInput): string[] {
+  if (input.kind === 'politician') {
+    const insights: string[] = [];
+    const tradeCount = input.trades.length;
+    const topHolding = input.estimatedHoldings[0];
+    const activeQuarter = [...input.quarterly].sort((a, b) => b.trades.length - a.trades.length)[0];
+    insights.push(`${tradeCount} disclosed transaction${tradeCount === 1 ? '' : 's'} are included in this estimate.`);
+    if (topHolding) insights.push(`${topHolding.ticker} is the largest estimated exposure at ${topHolding.percentage.toFixed(1)}% of mapped activity.`);
+    if (activeQuarter) insights.push(`${activeQuarter.quarter} was the most active period with ${activeQuarter.trades.length} trade${activeQuarter.trades.length === 1 ? '' : 's'}.`);
+    return insights;
+  }
+
+  if (input.kind === 'institution') {
+    const insights: string[] = [];
+    const topSector = input.structure[0];
+    const topHolding = input.holdings[0];
+    insights.push(`${input.holdings.length} disclosed 13F position${input.holdings.length === 1 ? '' : 's'} total ${formatPortfolioCurrency(input.totalValue)}.`);
+    if (topHolding && input.totalValue > 0) {
+      insights.push(`${topHolding.issuer} is the largest disclosed position at ${((topHolding.value / input.totalValue) * 100).toFixed(1)}% of reported value.`);
+    }
+    if (topSector) insights.push(`${topSector.sector} is the largest inferred sector allocation at ${topSector.percentage.toFixed(1)}%.`);
+    return insights;
+  }
+
+  const insights: string[] = [];
+  insights.push(`${input.positions.length} saved position${input.positions.length === 1 ? '' : 's'} in the user portfolio.`);
+  if (input.performance.values.length > 1) {
+    insights.push(`Estimated total return is ${formatPortfolioCurrency(input.performance.totalReturn)} with ${(input.performance.maxDrawdown * 100).toFixed(1)}% max drawdown.`);
+  }
+  return insights;
+>>>>>>> 00f9bd2324ca92494ed44598f56754315a6bf63b
 }
 
 export function estimateTradeValueFromRange(amount: string): number {
@@ -584,3 +762,13 @@ export function estimateTradeValueFromRange(amount: string): number {
   const lo = parseFloat(m[1] ?? '0'); const hi = parseFloat(m[2] ?? '0'); const scale = /B/i.test(m[3] ?? '') ? 1e9 : /M/i.test(m[3] ?? '') ? 1e6 : /K/i.test(m[3] ?? '') ? 1e3 : 1;
   return ((lo + hi) / 2) * scale;
 }
+<<<<<<< HEAD
+=======
+
+function formatPortfolioCurrency(value: number): string {
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `$${(value / 1e3).toFixed(1)}K`;
+  return `$${value.toFixed(0)}`;
+}
+>>>>>>> 00f9bd2324ca92494ed44598f56754315a6bf63b

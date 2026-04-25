@@ -68,6 +68,7 @@ import { enrichEventsWithExposure } from '@/services/population-exposure';
 import { onOrefAlertsUpdate, startOrefPolling, stopOrefPolling } from '@/services/oref-alerts';
 import { savePersistedLiveCountryScores } from '@/services/cached-risk-scores';
 import { isDesktopRuntime } from '@/services/runtime';
+import { getMissingFeatureSecretMessage } from '@/services/runtime-config';
 import { debounce } from '@/utils';
 import { getHydratedData } from '@/services/bootstrap';
 import type { UcdpEventsPanel, StrategicPosturePanel, CIIPanel } from '@/components';
@@ -997,10 +998,12 @@ export class SignalPublisher {
   async loadFirmsData(): Promise<void> {
     try {
       const { fetchAllFires, flattenFires, computeRegionStats, toMapFires } = await import('@/services/wildfires');
-      const { t } = await import('@/services/i18n');
       const fireResult = await fetchAllFires(1);
       if (fireResult.skipped) {
-        this.ctx.panels['satellite-fires']?.showConfigError(t('panels.satelliteFires.noData'));
+        const { t } = await import('@/services/i18n');
+        this.ctx.panels['satellite-fires']?.showConfigError(
+          getMissingFeatureSecretMessage('nasaFirms') ?? t('panels.satelliteFires.noData')
+        );
         this.ctx.statusPanel?.updateApi('FIRMS', { status: 'error' });
         return;
       }

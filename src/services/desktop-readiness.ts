@@ -91,7 +91,7 @@ export const DESKTOP_PARITY_FEATURES: DesktopParityFeature[] = [
     id: 'market-panel',
     panel: 'MarketPanel',
     serviceFiles: ['src/services/market/index.ts', 'src/services/prediction/index.ts'],
-    apiRoutes: ['/api/market/v1/list-crypto-quotes', '/api/market/v1/list-stablecoin-markets', '/api/market/v1/list-etf-flows'],
+    apiRoutes: ['/api/market/v1/list-crypto-quotes', '/api/market/v1/list-stablecoin-markets'],
     apiHandlers: ['server/worldmonitor/market/v1/handler.ts'],
     locality: 'fully-local',
     fallback: 'Multi-source market fetchers degrade to remaining providers and cached values.',

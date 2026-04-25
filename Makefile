@@ -55,6 +55,7 @@ lint: ## Lint protobuf files
 generate: clean ## Generate code from proto definitions
 	@mkdir -p $(GEN_CLIENT_DIR) $(GEN_SERVER_DIR) $(DOCS_API_DIR)
 	cd $(PROTO_DIR) && buf generate
+	node scripts/postprocess-sebuf-generated.mjs
 	@echo "Code generation complete!"
 
 breaking: ## Check for breaking changes against main

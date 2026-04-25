@@ -115,9 +115,9 @@ export function createCyberServiceRoutes(
             end: Number(params.get("end") ?? "0"),
             pageSize: Number(params.get("page_size") ?? "0"),
             cursor: params.get("cursor") ?? "",
-            type: params.get("type") ?? "",
-            source: params.get("source") ?? "",
-            minSeverity: params.get("min_severity") ?? "",
+            type: (params.get("type") ?? "") as CyberThreatType,
+            source: (params.get("source") ?? "") as CyberThreatSource,
+            minSeverity: (params.get("min_severity") ?? "") as CriticalityLevel,
           };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("listCyberThreats", body);

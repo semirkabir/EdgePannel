@@ -7,8 +7,7 @@ import type {
 } from '@/services/trade';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
-import { isFeatureAvailable } from '@/services/runtime-config';
-import { isDesktopRuntime } from '@/services/runtime';
+import { getMissingFeatureSecretMessage } from '@/services/runtime-config';
 
 type TabId = 'restrictions' | 'tariffs' | 'flows' | 'barriers';
 
@@ -53,9 +52,9 @@ export class TradePolicyPanel extends Panel {
   }
 
   private render(): void {
-    // Check for API key
-    if (isDesktopRuntime() && !isFeatureAvailable('wtoTrade')) {
-      this.setContent(`<div class="economic-empty">${t('components.tradePolicy.apiKeyMissing')}</div>`);
+    const configMessage = getMissingFeatureSecretMessage('wtoTrade');
+    if (configMessage) {
+      this.showConfigError(configMessage);
       return;
     }
 

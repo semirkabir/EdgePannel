@@ -325,11 +325,17 @@ export class MarketPanel extends Panel {
 }
 
 export class HeatmapPanel extends Panel {
+  private onSectorClick?: (symbol: string, name: string, change: number | null) => void;
+
   constructor() {
     super({ id: 'heatmap', title: t('panels.heatmap') });
   }
 
-  public renderHeatmap(data: Array<{ name: string; change: number | null }>): void {
+  public setOnSectorClick(cb: (symbol: string, name: string, change: number | null) => void): void {
+    this.onSectorClick = cb;
+  }
+
+  public renderHeatmap(data: Array<{ symbol: string; name: string; change: number | null }>): void {
     const validData = data.filter((d) => d.change !== null);
 
     if (validData.length === 0) {
@@ -339,19 +345,28 @@ export class HeatmapPanel extends Panel {
 
     const html =
       '<div class="heatmap">' +
-      validData
-        .map(
-          (sector) => `
-        <div class="heatmap-cell ${getHeatmapClass(sector.change!)}">
+      validData.map((sector) => `
+        <button type="button" class="heatmap-cell ${getHeatmapClass(sector.change!)}"
+          aria-label="${escapeHtml(sector.name)}: ${escapeHtml(formatChange(sector.change!))}">
           <div class="sector-name">${escapeHtml(sector.name)}</div>
-          <div class="sector-change ${getChangeClass(sector.change!)}">${formatChange(sector.change!)}</div>
-        </div>
-      `
-        )
-        .join('') +
+          <div class="sector-change ${getChangeClass(sector.change!)}">${escapeHtml(formatChange(sector.change!))}</div>
+        </button>
+      `).join('') +
       '</div>';
 
-    this.setContent(html);
+    this.setContentNow(html);
+    this.bindSectorClicks(validData);
+  }
+
+  private bindSectorClicks(data: Array<{ symbol: string; name: string; change: number | null }>): void {
+    const cells = this.content.querySelectorAll<HTMLButtonElement>('.heatmap-cell');
+    cells.forEach((cell, i) => {
+      const sector = data[i];
+      if (!sector) return;
+      cell.addEventListener('click', () => {
+        this.onSectorClick?.(sector.symbol, sector.name, sector.change);
+      });
+    });
   }
 }
 

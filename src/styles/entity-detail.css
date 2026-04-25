@@ -5246,6 +5246,110 @@
   margin-top: 10px;
 }
 
+/* ── Sector profile ────────────────────────────────────────────────────── */
+.edp-badge-danger {
+  background: color-mix(in srgb, var(--red, #ff4444) 15%, transparent);
+  color: var(--red, #ff4444);
+  border-color: color-mix(in srgb, var(--red, #ff4444) 30%, transparent);
+}
+
+/* ── Sector treemap ────────────────────────────────────────────────────── */
+.edp-sector-treemap-wrap {
+  padding: 0 2px 8px;
+}
+
+.edp-sector-treemap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--surface);
+}
+
+.edp-sector-tile {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  cursor: pointer;
+  font-family: inherit;
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+  color: var(--text);
+  padding: 0;
+  transition: filter 0.12s;
+}
+
+.edp-sector-tile:hover {
+  filter: brightness(1.22);
+  z-index: 10;
+}
+
+.edp-sector-tile:focus-visible {
+  outline: 2px solid var(--text-dim);
+  outline-offset: -2px;
+  z-index: 10;
+}
+
+.edp-sector-tile-inner {
+  display: flex;
+  flex-direction: column;
+  padding: 3px 4px;
+  overflow: hidden;
+  width: 100%;
+  gap: 1px;
+}
+
+.edp-sector-tile-ticker {
+  font-size: 11px;
+  font-weight: 700;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.edp-sector-tile-change {
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.edp-sector-tile-change.up   { color: var(--green, #44ff88); }
+.edp-sector-tile-change.down { color: var(--red,   #ff4444); }
+
+.edp-sector-tile-price {
+  font-size: 10px;
+  color: inherit;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.edp-sector-tile-mcap {
+  font-size: 9px;
+  color: inherit;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+/* Intensity fill colors */
+.edp-sector-tile.sector-tile-up-1   { background: rgba(68, 255, 136, 0.18); color: #e0ffe0; }
+.edp-sector-tile.sector-tile-up-2   { background: rgba(68, 255, 136, 0.40); color: #ffffff; }
+.edp-sector-tile.sector-tile-up-3   { background: rgba(68, 255, 136, 0.68); color: #001400; }
+.edp-sector-tile.sector-tile-down-1 { background: rgba(255,  68,  68, 0.18); color: #ffe0e0; }
+.edp-sector-tile.sector-tile-down-2 { background: rgba(255,  68,  68, 0.40); color: #ffffff; }
+.edp-sector-tile.sector-tile-down-3 { background: rgba(255,  68,  68, 0.68); color: #ffffff; }
+
+/* Override change label color on dark green tile */
+.edp-sector-tile.sector-tile-up-3 .edp-sector-tile-change.up { color: #004400; }
+
 /* ── Performance chart container ─────────────────────────────────────── */
 .edp-performance-chart {
   width: 100%;

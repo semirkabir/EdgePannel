@@ -1,7 +1,7 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
-import { fetchEarningsCalendar } from '@/services/market/finnhub-extra';
+import { getFinnhubConfigErrorMessage, fetchEarningsCalendar } from '@/services/market/finnhub-extra';
 
 export class EarningsCalendarPanel extends Panel {
   private filterSymbol = '';
@@ -28,6 +28,12 @@ export class EarningsCalendarPanel extends Panel {
     const days = this.filterRange === 'week' ? 7 : 30;
     const from = new Date().toISOString().split('T')[0];
     const to = new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
+
+    const configMessage = getFinnhubConfigErrorMessage();
+    if (configMessage) {
+      this.showConfigError(configMessage);
+      return;
+    }
 
     this.showLoading();
 
@@ -97,6 +103,11 @@ export class EarningsCalendarPanel extends Panel {
         }, 400);
       });
     } catch (err) {
+      const message = getFinnhubConfigErrorMessage(err);
+      if (message) {
+        this.showConfigError(message);
+        return;
+      }
       this.showError(`Failed to load earnings: ${err}`);
     }
   }

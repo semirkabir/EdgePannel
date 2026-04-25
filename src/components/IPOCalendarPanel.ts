@@ -1,7 +1,7 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
-import { fetchIPOCalendar } from '@/services/market/finnhub-extra';
+import { getFinnhubConfigErrorMessage, fetchIPOCalendar } from '@/services/market/finnhub-extra';
 
 export class IPOCalendarPanel extends Panel {
   private filterRange: 'month' | 'quarter' = 'month';
@@ -18,6 +18,12 @@ export class IPOCalendarPanel extends Panel {
     const days = this.filterRange === 'month' ? 30 : 90;
     const from = new Date().toISOString().split('T')[0];
     const to = new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
+
+    const configMessage = getFinnhubConfigErrorMessage();
+    if (configMessage) {
+      this.showConfigError(configMessage);
+      return;
+    }
 
     this.showLoading();
 
@@ -70,6 +76,11 @@ export class IPOCalendarPanel extends Panel {
         this.render();
       });
     } catch (err) {
+      const message = getFinnhubConfigErrorMessage(err);
+      if (message) {
+        this.showConfigError(message);
+        return;
+      }
       this.showError(`Failed to load IPO calendar: ${err}`);
     }
   }

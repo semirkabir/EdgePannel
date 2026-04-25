@@ -1,85 +1,29 @@
-import { InfrastructureServiceClient, type TemporalAnomaly as TemporalAnomalyProto } from '@/generated/client/worldmonitor/infrastructure/v1/service_client';
+import {
+  InfrastructureServiceClient,
+  type GetTemporalBaselineResponse,
+  type TemporalAnomaly as TemporalAnomalyProto,
+} from '@/generated/client/worldmonitor/infrastructure/v1/service_client';
 import { getHydratedData } from '@/services/bootstrap';
 import { createCircuitBreaker } from '@/utils';
 import { isLocalDevTaskEnabled } from '@/services/local-dev-stability';
+import {
+  mapServerAnomaly,
+  mapTemporalBaselineResponse,
+  type TemporalAnomaly,
+  type TemporalEventType,
+} from '@/services/temporal-baseline-core';
 
-export type KnownTemporalEventType =
-  | 'military_flights'
-  | 'vessels'
-  | 'protests'
-  | 'news'
-  | 'ais_gaps'
-  | 'satellite_fires';
-
-export type TemporalEventType = KnownTemporalEventType | (string & {});
-
-export interface TemporalAnomaly {
-  type: TemporalEventType;
-  region: string;
-  currentCount: number;
-  expectedCount: number;
-  zScore: number;
-  message: string;
-  severity: 'medium' | 'high' | 'critical';
-}
+export { mapTemporalBaselineResponse };
+export type { KnownTemporalEventType, TemporalAnomaly, TemporalEventType } from '@/services/temporal-baseline-core';
 
 const client = new InfrastructureServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
 const reportBreaker = createCircuitBreaker<void>({ name: 'Temporal Baseline Update', cacheTtlMs: 5 * 60 * 1000 });
-const checkBreakers = new Map<string, ReturnType<typeof createCircuitBreaker<TemporalAnomaly | null>>>();
+const checkBreakers = new Map<string, ReturnType<typeof createCircuitBreaker<GetTemporalBaselineResponse | null>>>();
 const checkInflight = new Map<string, Promise<TemporalAnomaly | null>>();
 let reportFailureLogged = false;
 const checkFailureLogged = new Set<string>();
 
-const TYPE_LABELS: Record<KnownTemporalEventType, string> = {
-  military_flights: 'Military flights',
-  vessels: 'Naval vessels',
-  protests: 'Protests',
-  news: 'News velocity',
-  ais_gaps: 'Dark ship activity',
-  satellite_fires: 'Satellite fire detections',
-};
-
-const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'];
-
 const SERVER_TYPES = new Set<string>(['news', 'satellite_fires']);
-
-function getTypeLabel(type: TemporalEventType): string {
-  return TYPE_LABELS[type as KnownTemporalEventType] ?? type.replace(/_/g, ' ');
-}
-
-function formatAnomalyMessage(
-  type: TemporalEventType,
-  _region: string,
-  count: number,
-  mean: number,
-  multiplier: number,
-): string {
-  const now = new Date();
-  const weekday = WEEKDAY_NAMES[now.getUTCDay()];
-  const month = MONTH_NAMES[now.getUTCMonth() + 1];
-  const mult = multiplier < 10 ? `${multiplier.toFixed(1)}x` : `${Math.round(multiplier)}x`;
-  return `${getTypeLabel(type)} ${mult} normal for ${weekday} (${month}) - ${count} vs baseline ${Math.round(mean)}`;
-}
-
-function getSeverity(zScore: number): 'medium' | 'high' | 'critical' {
-  if (zScore >= 3.0) return 'critical';
-  if (zScore >= 2.0) return 'high';
-  return 'medium';
-}
-
-function mapServerAnomaly(a: TemporalAnomalyProto): TemporalAnomaly {
-  return {
-    type: a.type as TemporalEventType,
-    region: a.region,
-    currentCount: a.currentCount,
-    expectedCount: a.expectedCount,
-    zScore: a.zScore,
-    severity: getSeverity(a.zScore),
-    message: a.message,
-  };
-}
 
 export function consumeServerAnomalies(): { anomalies: TemporalAnomaly[]; trackedTypes: string[] } {
   const raw = getHydratedData('temporalAnomalies') as {
@@ -130,7 +74,7 @@ async function reportMetrics(
 function getCheckBreaker(key: string) {
   let breaker = checkBreakers.get(key);
   if (!breaker) {
-    breaker = createCircuitBreaker<TemporalAnomaly | null>({ name: `Temporal Baseline ${key}`, cacheTtlMs: 5 * 60 * 1000 });
+    breaker = createCircuitBreaker<GetTemporalBaselineResponse | null>({ name: `Temporal Baseline ${key}`, cacheTtlMs: 5 * 60 * 1000 });
     checkBreakers.set(key, breaker);
   }
   return breaker;
@@ -152,18 +96,10 @@ async function checkAnomaly(
     const data = await getCheckBreaker(key).execute(async () => {
       return client.getTemporalBaseline({ type, region, count });
     }, null);
-    if (!data?.anomaly) return null;
+    const anomaly = mapTemporalBaselineResponse(type, region, count, data);
+    if (!anomaly) return null;
     checkFailureLogged.delete(key);
-
-    return {
-      type,
-      region,
-      currentCount: count,
-      expectedCount: Math.round(data.baseline?.mean ?? 0),
-      zScore: data.anomaly.zScore,
-      severity: getSeverity(data.anomaly.zScore),
-      message: formatAnomalyMessage(type, region, count, data.baseline?.mean ?? 0, data.anomaly.multiplier),
-    };
+    return anomaly;
   } catch (e) {
     if (!checkFailureLogged.has(key)) {
       console.warn(`[TemporalBaseline] Baseline check unavailable for ${key}`);
