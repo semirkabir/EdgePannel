@@ -209,6 +209,7 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
     ${renderFontPreviewCard('inter',   'Inter',   'Clean sans-serif · recommended', 'Edge Intelligence — live signals updated', currentFontPref)}
     ${renderFontPreviewCard('theme',   'Console', 'Monospace terminal', 'CURRENT SITUATION UPDATE // SIGNALS STABLE', currentFontPref)}
     ${renderFontPreviewCard('article', 'System',  'Native sans-serif', 'Current situation update: signals stable.', currentFontPref)}
+    ${renderFontPreviewCard('poppins', 'Anthropic', 'Geometric sans-serif', 'Edge Intelligence — live signals updated', currentFontPref)}
   </div>`;
 
   const currentAccentPref = getAccentColor();

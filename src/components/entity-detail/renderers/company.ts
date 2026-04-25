@@ -1,5 +1,6 @@
 import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
-import type { MarketQuote, SecFiling } from '@/generated/client/worldmonitor/market/v1/service_client';
+import type { MarketQuote, PriceSeries, SecFiling } from '@/generated/client/worldmonitor/market/v1/service_client';
+import { ColorType, createChart, type AreaData, type CandlestickData, type Time, type UTCTimestamp } from 'lightweight-charts';
 import { row } from '../types';
 import type { EntityRenderer, EntityRenderContext } from '../types';
 import { sanitizeUrl } from '@/utils/sanitize';
@@ -37,6 +38,7 @@ interface CompanyEnriched {
   ticker: string;
   name: string;
   quote: MarketQuote | null;
+  historicalPrices: PriceSeries | null;
   filings: SecFiling[];
   companyName: string;
   profile: CompanyProfile | null;
@@ -72,6 +74,16 @@ const FILING_TYPE_CLASS: Record<string, string> = {
   '8-K': 'edp-sec-type-badge edp-sec-type-current',
 };
 
+const CHART_RANGES = [
+  { id: '1H', bars: 48 },
+  { id: '1D', bars: 60 },
+  { id: '1W', bars: 52 },
+  { id: '1M', bars: 24 },
+] as const;
+type ChartRange = typeof CHART_RANGES[number]['id'];
+type ChartKind = 'area' | 'candles';
+type HistoricalClose = { date: string; close: number };
+
 function fmtChange(change: number): string {
   return (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
 }
@@ -96,6 +108,10 @@ function fmtLargeNumber(value: number): string {
   return '$' + value.toFixed(0);
 }
 
+function fmtFinnhubMarketCap(value: number): string {
+  return fmtLargeNumber(value * 1_000_000);
+}
+
 function fmtShares(value: number): string {
   if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
   if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
@@ -112,23 +128,353 @@ function fmtPercent(value: number | undefined): string {
   return fmtMetric(value, '%');
 }
 
-function injectTradingViewWidget(container: HTMLElement, ticker: string): void {
+function rangePointCount(range: ChartRange): number {
+  const option = CHART_RANGES.find(item => item.id === range);
+  return option?.bars ?? 60;
+}
+
+function buildFallbackCloses(quote: MarketQuote | null, range: ChartRange): number[] {
+  if (!quote?.price || !Number.isFinite(quote.price)) return [];
+  const current = quote.price;
+  const prior = quote.change ? current / (1 + quote.change / 100) : current * 0.995;
+  const count = rangePointCount(range);
+  const swing = Math.max(Math.abs(current - prior), current * 0.006);
+  return Array.from({ length: count }, (_, index) => {
+    const progress = count <= 1 ? 1 : index / (count - 1);
+    const trend = prior + (current - prior) * progress;
+    const waveCount = range === '1H' || range === '1D' ? 4 : 7;
+    const wave = Math.sin(progress * Math.PI * waveCount) * swing * 0.22;
+    return index === count - 1 ? current : trend + wave;
+  });
+}
+
+function isoDateNDaysAgo(daysAgo: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  return date.toISOString().slice(0, 10);
+}
+
+function unixTimeMinutesAgo(minutesAgo: number): UTCTimestamp {
+  return Math.floor((Date.now() - minutesAgo * 60 * 1000) / 1000) as UTCTimestamp;
+}
+
+function isoDateNMonthsAgo(monthsAgo: number): string {
+  const date = new Date();
+  date.setMonth(date.getMonth() - monthsAgo, 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function rangeTimeForIndex(range: ChartRange, total: number, index: number): Time {
+  const remaining = total - 1 - index;
+  if (range === '1H') return unixTimeMinutesAgo(remaining * 60);
+  if (range === '1D') return isoDateNDaysAgo(remaining);
+  if (range === '1W') return isoDateNDaysAgo(remaining * 7);
+  return isoDateNMonthsAgo(remaining);
+}
+
+function getHistoricalCloses(data: CompanyEnriched): HistoricalClose[] {
+  return [...(data.historicalPrices?.prices ?? [])]
+    .filter(price => Number.isFinite(price.close))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(price => ({ date: price.date, close: price.close }));
+}
+
+function addSyntheticWicks(candle: CandlestickData): CandlestickData {
+  const spread = Math.max(Math.abs(candle.close - candle.open), candle.close * 0.0025);
+  return {
+    ...candle,
+    high: Math.max(candle.high, candle.open, candle.close) + spread * 0.35,
+    low: Math.min(candle.low, candle.open, candle.close) - spread * 0.35,
+  };
+}
+
+function candlesFromClosePoints(points: Array<{ time: Time; value: number }>): CandlestickData[] {
+  return points.map((point, index) => {
+    const previousClose = index > 0 ? points[index - 1]!.value : point.value;
+    return addSyntheticWicks({
+      time: point.time,
+      open: previousClose,
+      high: Math.max(previousClose, point.value),
+      low: Math.min(previousClose, point.value),
+      close: point.value,
+    });
+  });
+}
+
+function weekStartIso(dateText: string): string {
+  const date = new Date(`${dateText}T00:00:00Z`);
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() - day + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function aggregateHistoricalCandles(closes: HistoricalClose[], range: ChartRange): CandlestickData[] {
+  if (range === '1H' || closes.length < 2) return [];
+  if (range === '1D') {
+    return candlesFromClosePoints(closes.slice(-rangePointCount(range)).map(point => ({
+      time: point.date,
+      value: point.close,
+    })));
+  }
+
+  const grouped = new Map<string, HistoricalClose[]>();
+  for (const point of closes) {
+    const key = range === '1W' ? weekStartIso(point.date) : `${point.date.slice(0, 7)}-01`;
+    const bucket = grouped.get(key) ?? [];
+    bucket.push(point);
+    grouped.set(key, bucket);
+  }
+
+  return Array.from(grouped.entries()).map(([time, bucket]) => {
+    const ordered = bucket.sort((a, b) => a.date.localeCompare(b.date));
+    const values = ordered.map(point => point.close);
+    return addSyntheticWicks({
+      time,
+      open: values[0]!,
+      high: Math.max(...values),
+      low: Math.min(...values),
+      close: values[values.length - 1]!,
+    });
+  }).slice(-rangePointCount(range));
+}
+
+function fallbackCandles(data: CompanyEnriched, range: ChartRange): CandlestickData[] {
+  const sparkline = data.quote?.sparkline ?? [];
+  if (sparkline.length >= 2) {
+    const selected = sparkline.slice(-Math.min(sparkline.length, Math.max(2, rangePointCount(range))));
+    return candlesFromClosePoints(selected.map((value, index) => ({
+      time: rangeTimeForIndex(range, selected.length, index),
+      value,
+    })));
+  }
+
+  const fallback = buildFallbackCloses(data.quote, range);
+  return candlesFromClosePoints(fallback.map((value, index) => ({
+    time: rangeTimeForIndex(range, fallback.length, index),
+    value,
+  })));
+}
+
+function getSnapshotCandlestickData(data: CompanyEnriched, range: ChartRange): CandlestickData[] {
+  const historical = aggregateHistoricalCandles(getHistoricalCloses(data), range);
+  return historical.length >= 2 ? historical : fallbackCandles(data, range);
+}
+
+function getSnapshotChartData(data: CompanyEnriched, range: ChartRange): AreaData[] {
+  return getSnapshotCandlestickData(data, range).map(candle => ({
+    time: candle.time,
+    value: candle.close,
+  }));
+}
+
+function chartKindIconMarkup(kind: ChartKind): string {
+  if (kind === 'candles') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3v18M17 3v18M5 8h4v7H5zM15 5h4v6h-4z"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 17l6-6 4 4 8-9"/></svg>';
+}
+
+function makeChartRangeControls(): HTMLElement {
+  const controls = document.createElement('div');
+  controls.className = 'edp-tv-chart-controls';
+  const ranges = document.createElement('div');
+  ranges.className = 'edp-tv-chart-ranges';
+  for (const option of CHART_RANGES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `edp-tv-range-btn${option.id === '1D' ? ' is-active' : ''}`;
+    button.dataset.range = option.id;
+    button.textContent = option.id;
+    ranges.append(button);
+  }
+
+  const types = document.createElement('div');
+  types.className = 'edp-tv-chart-types';
+  for (const [kind, label] of [['area', 'Area'], ['candles', 'Candles']] as const) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `edp-tv-kind-btn${kind === 'area' ? ' is-active' : ''}`;
+    button.dataset.kind = kind;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    const icon = document.createElement('span');
+    icon.className = `edp-tv-kind-icon edp-tv-kind-icon-${kind}`;
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = chartKindIconMarkup(kind);
+    button.append(icon);
+    types.append(button);
+  }
+
+  controls.append(types, ranges);
+  return controls;
+}
+
+function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, positive: boolean): void {
+  const controls = makeChartRangeControls();
+  const chartEl = document.createElement('div');
+  chartEl.className = 'edp-tv-lightweight-chart';
+  parent.append(controls, chartEl);
+
+  requestAnimationFrame(() => {
+    if (!chartEl.isConnected) return;
+
+    const styles = getComputedStyle(document.documentElement);
+    const textColor = styles.getPropertyValue('--text-dim').trim() || '#8b949e';
+    const lineColor = positive ? '#22c55e' : '#ef4444';
+    let activeRange: ChartRange = '1D';
+    let activeKind: ChartKind = 'area';
+    let activeSeries: ReturnType<typeof chart.addAreaSeries> | ReturnType<typeof chart.addCandlestickSeries> | null = null;
+
+    const chart = createChart(chartEl, {
+      width: chartEl.clientWidth || 240,
+      height: chartEl.clientHeight || 180,
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor,
+        attributionLogo: false,
+      },
+      grid: {
+        vertLines: { visible: false },
+        horzLines: { color: 'rgba(255,255,255,0.08)' },
+      },
+      rightPriceScale: {
+        visible: true,
+        borderVisible: false,
+        scaleMargins: { top: 0.12, bottom: 0.12 },
+      },
+      timeScale: {
+        visible: true,
+        borderVisible: false,
+        timeVisible: false,
+      },
+      crosshair: {
+        vertLine: { visible: false },
+        horzLine: { visible: false },
+      },
+      handleScroll: false,
+      handleScale: false,
+    });
+
+    const renderChart = (range: ChartRange, kind: ChartKind) => {
+      activeRange = range;
+      activeKind = kind;
+      controls.querySelectorAll<HTMLButtonElement>('.edp-tv-range-btn').forEach(button => {
+        button.classList.toggle('is-active', button.dataset.range === range);
+      });
+      controls.querySelectorAll<HTMLButtonElement>('.edp-tv-kind-btn').forEach(button => {
+        button.classList.toggle('is-active', button.dataset.kind === kind);
+      });
+
+      if (activeSeries) chart.removeSeries(activeSeries);
+      if (kind === 'candles') {
+        const candleSeries = chart.addCandlestickSeries({
+          upColor: '#22c55e',
+          downColor: '#ef4444',
+          borderVisible: false,
+          wickUpColor: '#22c55e',
+          wickDownColor: '#ef4444',
+          priceLineVisible: false,
+          lastValueVisible: false,
+        });
+        candleSeries.setData(getSnapshotCandlestickData(data, range));
+        activeSeries = candleSeries;
+      } else {
+        const areaSeries = chart.addAreaSeries({
+          lineColor,
+          topColor: positive ? 'rgba(34, 197, 94, 0.34)' : 'rgba(239, 68, 68, 0.34)',
+          bottomColor: 'rgba(255,255,255,0)',
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+        });
+        areaSeries.setData(getSnapshotChartData(data, range));
+        activeSeries = areaSeries;
+      }
+      chart.timeScale().fitContent();
+    };
+    renderChart(activeRange, activeKind);
+
+    controls.addEventListener('click', (event) => {
+      const rangeButton = (event.target as HTMLElement).closest<HTMLButtonElement>('.edp-tv-range-btn');
+      const kindButton = (event.target as HTMLElement).closest<HTMLButtonElement>('.edp-tv-kind-btn');
+      const range = rangeButton?.dataset.range as ChartRange | undefined;
+      const kind = kindButton?.dataset.kind as ChartKind | undefined;
+      if (range) renderChart(range, activeKind);
+      if (kind) renderChart(activeRange, kind);
+    });
+
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      chart.applyOptions({
+        width: Math.max(120, Math.floor(entry.contentRect.width)),
+        height: Math.max(120, Math.floor(entry.contentRect.height)),
+      });
+      chart.timeScale().fitContent();
+    });
+    resizeObserver.observe(chartEl);
+  });
+}
+
+function renderLocalMarketSnapshot(wrap: Element, data: CompanyEnriched): void {
+  const quote = data.quote;
+  wrap.classList.add('edp-tradingview-fallback-active');
+  const price = quote?.price != null ? fmtPrice(quote.price) : 'Quote unavailable';
+  const change = quote?.change ?? null;
+  const changeClass = change == null ? '' : change >= 0 ? 'edp-positive' : 'edp-negative';
+  const changeText = change == null ? '' : fmtChange(change);
+  const marketCap = data.profile?.marketCapitalization
+    ? `MCAP ${fmtFinnhubMarketCap(data.profile.marketCapitalization)}`
+    : '';
+  const exchange = data.profile?.exchange || 'Market snapshot';
+
+  wrap.textContent = '';
+  const card = document.createElement('div');
+  card.className = 'edp-tv-fallback-card';
+  const quoteCol = document.createElement('div');
+  quoteCol.className = 'edp-tv-fallback-quote';
+
+  const priceEl = document.createElement('div');
+  priceEl.className = 'edp-tv-fallback-price';
+  priceEl.textContent = price;
+  quoteCol.append(priceEl);
+
+  if (changeText) {
+    const changeEl = document.createElement('div');
+    changeEl.className = `edp-tv-fallback-change ${changeClass}`.trim();
+    changeEl.textContent = changeText;
+    quoteCol.append(changeEl);
+  }
+
+  const metaEl = document.createElement('div');
+  metaEl.className = 'edp-tv-fallback-meta';
+  metaEl.textContent = [marketCap, exchange].filter(Boolean).join(' - ');
+  quoteCol.append(metaEl);
+
+  card.append(quoteCol);
+  appendLightweightChart(card, data, (change ?? 0) >= 0);
+  wrap.append(card);
+}
+
+function renderMarketSnapshot(container: HTMLElement, data: CompanyEnriched): void {
   const wrap = container.querySelector('.edp-tradingview-widget');
   if (!wrap) return;
-  const script = document.createElement('script');
-  script.type = 'text/javascript';
-  script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
-  script.async = true;
-  script.textContent = JSON.stringify({
-    symbol: ticker,
-    width: '100%',
-    height: 220,
-    colorTheme: 'dark',
-    isTransparent: true,
-    dateRange: '1M',
-    locale: 'en',
-  });
-  wrap.appendChild(script);
+  renderLocalMarketSnapshot(wrap, data);
+}
+
+async function settleInBatches<T>(
+  tasks: Array<() => Promise<T>>,
+  batchSize = 3,
+): Promise<Array<PromiseSettledResult<T>>> {
+  const results: Array<PromiseSettledResult<T>> = [];
+  for (let i = 0; i < tasks.length; i += batchSize) {
+    const batch = tasks.slice(i, i + batchSize);
+    results.push(...await Promise.allSettled(batch.map(task => task())));
+  }
+  return results;
+}
+
+function settledValue<T>(result: PromiseSettledResult<unknown> | undefined, fallback: T): T {
+  return result?.status === 'fulfilled' ? result.value as T : fallback;
 }
 
 export class CompanyRenderer implements EntityRenderer {
@@ -152,12 +498,6 @@ export class CompanyRenderer implements EntityRenderer {
     const tvWrap = ctx.el('div', 'edp-tradingview-widget');
     container.append(tvWrap);
 
-    // Quote summary bar (always visible)
-    const quoteBar = ctx.el('div', 'cp-quote-bar');
-    quoteBar.dataset.slot = 'quote-bar';
-    quoteBar.append(ctx.makeLoading('Loading quote…'));
-    container.append(quoteBar);
-
     // Tabs
     const tabBar = ctx.el('div', 'cp-tab-bar');
     for (const tab of TABS) {
@@ -180,54 +520,61 @@ export class CompanyRenderer implements EntityRenderer {
   async enrich(data: unknown, signal: AbortSignal): Promise<CompanyEnriched> {
     const { ticker, name } = data as CompanyData;
 
-    const [
-      quotesResp, filingsResp, profile, metrics, peers, news,
-      priceTarget, recommendations, insiderTxns, optionChain, ownership, earningsSurprises,
-    ] = await Promise.allSettled([
+    const [quotesResp, filingsResp, historicalResp] = await Promise.allSettled([
       client.listMarketQuotes({ symbols: [ticker] }, { signal }),
       client.listSecFilings({ ticker, filingTypes: [], limit: 30 }, { signal }),
-      fetchCompanyProfile(ticker),
-      fetchCompanyMetrics(ticker),
-      fetchCompanyPeers(ticker),
-      fetchCompanyNews(ticker),
-      fetchPriceTarget(ticker),
-      fetchRecommendationTrends(ticker),
-      fetchInsiderTransactions(ticker),
-      fetchOptionChain(ticker),
-      fetchCompanyInstitutionHolders13F(ticker),
-      fetchEarningsSurprises(ticker),
+      client.listHistoricalPrices({ symbols: [ticker], months: 12 }, { signal }),
+    ]);
+
+    const [
+      profile, metrics, peers, news,
+      priceTarget, recommendations, insiderTxns, optionChain, ownership, earningsSurprises,
+    ] = await settleInBatches<unknown>([
+      () => fetchCompanyProfile(ticker),
+      () => fetchCompanyMetrics(ticker),
+      () => fetchCompanyPeers(ticker),
+      () => fetchCompanyNews(ticker),
+      () => fetchPriceTarget(ticker),
+      () => fetchRecommendationTrends(ticker),
+      () => fetchInsiderTransactions(ticker),
+      () => fetchOptionChain(ticker),
+      () => fetchCompanyInstitutionHolders13F(ticker),
+      () => fetchEarningsSurprises(ticker),
     ]);
 
     const quote = quotesResp.status === 'fulfilled'
       ? (quotesResp.value.quotes.find(q => q.symbol === ticker) ?? quotesResp.value.quotes[0] ?? null)
       : null;
     const filings = filingsResp.status === 'fulfilled' ? filingsResp.value.filings : [];
+    const historicalPrices = historicalResp.status === 'fulfilled'
+      ? (historicalResp.value.series.find(s => s.symbol === ticker) ?? historicalResp.value.series[0] ?? null)
+      : null;
     const companyName = filingsResp.status === 'fulfilled' ? (filingsResp.value.companyName ?? name) : name;
 
     return {
       ticker,
       name,
       quote,
+      historicalPrices,
       filings,
       companyName,
-      profile: profile.status === 'fulfilled' ? profile.value : null,
-      metrics: metrics.status === 'fulfilled' ? metrics.value : null,
-      peers: peers.status === 'fulfilled' ? peers.value : [],
-      news: news.status === 'fulfilled' ? news.value : [],
-      priceTarget: priceTarget.status === 'fulfilled' ? priceTarget.value : null,
-      recommendations: recommendations.status === 'fulfilled' ? recommendations.value : [],
-      insiderTxns: insiderTxns.status === 'fulfilled' ? insiderTxns.value : [],
-      optionChain: optionChain.status === 'fulfilled' ? optionChain.value : [],
-      ownership: ownership.status === 'fulfilled' ? ownership.value : [],
-      earningsSurprises: earningsSurprises.status === 'fulfilled' ? earningsSurprises.value : [],
+      profile: settledValue<CompanyProfile | null>(profile, null),
+      metrics: settledValue<CompanyMetrics | null>(metrics, null),
+      peers: settledValue<string[]>(peers, []),
+      news: settledValue<CompanyNewsItem[]>(news, []),
+      priceTarget: settledValue<PriceTarget | null>(priceTarget, null),
+      recommendations: settledValue<RecommendationTrend[]>(recommendations, []),
+      insiderTxns: settledValue<InsiderTransaction[]>(insiderTxns, []),
+      optionChain: settledValue<OptionChainExpiry[]>(optionChain, []),
+      ownership: settledValue<CompanyInstitutionHolder[]>(ownership, []),
+      earningsSurprises: settledValue<EarningsSurprise[]>(earningsSurprises, []),
     };
   }
 
   renderEnriched(container: HTMLElement, enrichedData: unknown, ctx: EntityRenderContext): void {
     const data = enrichedData as CompanyEnriched;
 
-    // Inject TradingView widget
-    injectTradingViewWidget(container, data.ticker);
+    renderMarketSnapshot(container, data);
 
     // Update header with company name from profile
     const displayName = data.profile?.name || data.companyName || data.name;
@@ -246,9 +593,6 @@ export class CompanyRenderer implements EntityRenderer {
       }
     }
 
-    // Render quote bar
-    this.renderQuoteBar(container, data, ctx);
-
     // Render initial tab
     this.activeTab = 'overview';
     this.activeOptionExpiry = 0;
@@ -265,32 +609,6 @@ export class CompanyRenderer implements EntityRenderer {
       btn.classList.add('cp-tab-active');
       this.renderTabContent(container, data, ctx);
     });
-  }
-
-  private renderQuoteBar(container: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-    const bar = container.querySelector('[data-slot="quote-bar"]');
-    if (!bar) return;
-    bar.replaceChildren();
-
-    if (!data.quote) {
-      bar.append(ctx.makeEmpty('Quote unavailable'));
-      return;
-    }
-
-    bar.append(ctx.el('span', 'cp-qb-price', fmtPrice(data.quote.price)));
-
-    const changeClass = data.quote.change >= 0 ? 'cp-qb-change cp-positive' : 'cp-qb-change cp-negative';
-    bar.append(ctx.el('span', changeClass, fmtChange(data.quote.change)));
-
-    if (data.profile?.marketCapitalization) {
-      bar.append(ctx.el('span', 'cp-qb-meta', 'MCap ' + fmtLargeNumber(data.profile.marketCapitalization * 1e6)));
-    }
-    if (data.profile?.exchange) {
-      bar.append(ctx.el('span', 'cp-qb-meta', data.profile.exchange));
-    }
-    if (data.quote.sparkline && data.quote.sparkline.length > 1) {
-      bar.append(buildSparkline(ctx, data.quote.sparkline, data.quote.change >= 0));
-    }
   }
 
   private renderTabContent(container: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
@@ -1076,32 +1394,6 @@ function formatExpiry(dateStr: string): string {
   } catch {
     return dateStr;
   }
-}
-
-function buildSparkline(ctx: EntityRenderContext, data: number[], positive: boolean): HTMLElement {
-  const wrap = ctx.el('div', 'edp-sparkline-wrap cp-qb-sparkline');
-  const W = 120, H = 30;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * W;
-    const y = H - ((v - min) / range) * H;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.setAttribute('width', '120');
-  svg.setAttribute('height', String(H));
-  svg.style.display = 'block';
-  const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  polyline.setAttribute('points', pts);
-  polyline.setAttribute('fill', 'none');
-  polyline.setAttribute('stroke', positive ? '#22c55e' : '#ef4444');
-  polyline.setAttribute('stroke-width', '1.5');
-  svg.appendChild(polyline);
-  wrap.appendChild(svg);
-  return wrap;
 }
 
 function buildFilingRow(ctx: EntityRenderContext, filing: SecFiling): HTMLElement {

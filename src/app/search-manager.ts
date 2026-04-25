@@ -6,7 +6,7 @@ import type { MapView } from '@/components';
 import type { Command } from '@/config/commands';
 import { SearchModal } from '@/components';
 import { CIIPanel } from '@/components';
-import { SITE_VARIANT, STORAGE_KEYS } from '@/config';
+import { MARKET_SYMBOLS, SITE_VARIANT, STORAGE_KEYS } from '@/config';
 import { LAYER_PRESETS, LAYER_KEY_MAP } from '@/config/commands';
 import { calculateCII, TIER1_COUNTRIES } from '@/services/country-instability';
 import { CURATED_COUNTRIES } from '@/config/countries';
@@ -205,14 +205,8 @@ export class SearchManager implements AppModule {
 
     this.ctx.searchModal.registerSource('country', this.buildCountrySearchItems());
 
-    this.ctx.searchModal.registerSource('company', ENTITY_REGISTRY
-      .filter(e => e.type === 'company' || e.type === 'index')
-      .map(e => ({
-        id: e.id,
-        title: e.name,
-        subtitle: [e.id, e.sector, ...(e.keywords?.slice(0, 3) ?? [])].filter(Boolean).join(' · '),
-        data: { ticker: e.id, name: e.name },
-      })));
+    this.ctx.searchModal.registerSource('company', this.buildCompanySearchItems());
+    this.ctx.searchModal.registerAsyncSource('company', async (query) => this.buildTickerFallbackSearchItems(query), { limit: 1 });
 
     if (this.ctx.marketplace) {
       this.ctx.searchModal.registerSource('marketplace', this.ctx.marketplace.getSearchItems());
@@ -553,6 +547,7 @@ export class SearchManager implements AppModule {
     if (!this.ctx.searchModal) return;
 
     this.ctx.searchModal.registerSource('country', this.buildCountrySearchItems());
+    this.ctx.searchModal.registerSource('company', this.buildCompanySearchItems());
 
     const newsItems = this.ctx.allNews.slice(0, 500).map(n => ({
       id: n.link,
@@ -620,5 +615,87 @@ export class SearchManager implements AppModule {
         data: { code, name },
       };
     });
+  }
+
+  private buildCompanySearchItems(): { id: string; title: string; subtitle: string; searchText: string; data: { ticker: string; name: string } }[] {
+    const itemsBySymbol = new Map<string, { id: string; title: string; subtitle: string; searchText: string; data: { ticker: string; name: string } }>();
+
+    for (const entity of ENTITY_REGISTRY) {
+      if (entity.type !== 'company' && entity.type !== 'index') continue;
+      const searchTerms = [
+        ...this.symbolSearchVariants(entity.id),
+        entity.name,
+        entity.sector,
+        ...(entity.aliases ?? []),
+        ...(entity.keywords ?? []),
+      ].filter(Boolean);
+
+      itemsBySymbol.set(entity.id.toUpperCase(), {
+        id: entity.id,
+        title: entity.name,
+        subtitle: [entity.id, entity.sector].filter(Boolean).join(' - '),
+        searchText: searchTerms.join(' '),
+        data: { ticker: entity.id, name: entity.name },
+      });
+    }
+
+    for (const market of MARKET_SYMBOLS) {
+      const key = market.symbol.toUpperCase();
+      if (itemsBySymbol.has(key)) continue;
+      itemsBySymbol.set(key, {
+        id: market.symbol,
+        title: market.name,
+        subtitle: [market.display, market.symbol, 'Market symbol'].filter(Boolean).join(' - '),
+        searchText: [...this.symbolSearchVariants(market.symbol), ...this.symbolSearchVariants(market.display), market.name].filter(Boolean).join(' '),
+        data: { ticker: market.symbol, name: market.name },
+      });
+    }
+
+    return Array.from(itemsBySymbol.values());
+  }
+
+  private buildTickerFallbackSearchItems(query: string): { id: string; title: string; subtitle: string; searchText: string; data: { ticker: string; name: string } }[] {
+    const ticker = this.normalizeTickerQuery(query);
+    if (!ticker) return [];
+
+    const normalizedQuery = query.trim().toLowerCase();
+    const knownItems = this.buildCompanySearchItems();
+    if (knownItems.some(item => this.companySearchText(item).includes(normalizedQuery))) return [];
+
+    const tickerKey = this.normalizeSymbolKey(ticker);
+    const knownSymbols = new Set(knownItems.map(item => this.normalizeSymbolKey(item.data.ticker)));
+    if (knownSymbols.has(tickerKey)) return [];
+
+    return [{
+      id: `ticker-${ticker}`,
+      title: ticker,
+      subtitle: 'Ticker symbol',
+      searchText: ticker,
+      data: { ticker, name: ticker },
+    }];
+  }
+
+  private normalizeTickerQuery(query: string): string | null {
+    const ticker = query.trim().toUpperCase();
+    if (!/^[A-Z][A-Z0-9]{0,5}([.-][A-Z0-9]{1,4})?$/.test(ticker)) return null;
+    return ticker;
+  }
+
+  private normalizeSymbolKey(symbol: string): string {
+    return symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  private symbolSearchVariants(symbol: string | undefined): string[] {
+    if (!symbol) return [];
+    const variants = new Set<string>([symbol]);
+    if (symbol.startsWith('^')) variants.add(symbol.slice(1));
+    if (symbol.includes('-')) variants.add(symbol.replace(/-/g, '.'));
+    if (symbol.includes('.')) variants.add(symbol.replace(/\./g, '-'));
+    variants.add(this.normalizeSymbolKey(symbol));
+    return Array.from(variants);
+  }
+
+  private companySearchText(item: { title: string; subtitle?: string; searchText?: string }): string {
+    return [item.title, item.subtitle, item.searchText].filter(Boolean).join(' ').toLowerCase();
   }
 }

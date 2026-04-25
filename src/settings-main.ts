@@ -233,11 +233,13 @@ function renderOverview(area: HTMLElement): void {
         <option value="inter"${getFontPreference() === 'inter' ? ' selected' : ''}>Inter — clean sans-serif (recommended)</option>
         <option value="theme"${getFontPreference() === 'theme' ? ' selected' : ''}>Console — monospace terminal</option>
         <option value="article"${getFontPreference() === 'article' ? ' selected' : ''}>System — native sans-serif</option>
+        <option value="poppins"${getFontPreference() === 'poppins' ? ' selected' : ''}>Anthropic — geometric sans-serif</option>
       </select>
       <div class="settings-font-preview-grid">
         ${renderFontPreviewCard('inter',   'Inter',   'Clean sans-serif · recommended', 'Edge Intelligence — live signals updated')}
         ${renderFontPreviewCard('theme',   'Console', 'Monospace terminal',             'CURRENT SITUATION UPDATE // SIGNALS STABLE')}
         ${renderFontPreviewCard('article', 'System',  'Native sans-serif',              'Current situation update: signals stable.')}
+        ${renderFontPreviewCard('poppins', 'Anthropic', 'Geometric sans-serif',         'Edge Intelligence — live signals updated')}
       </div>
     </section>
 

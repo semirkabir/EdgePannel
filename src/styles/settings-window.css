@@ -567,6 +567,13 @@
   font-size: 14px;
 }
 
+.settings-font-preview-sample-poppins {
+  font-family: var(--font-poppins);
+  font-size: 13.5px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
 /* ── Accent card layout modifier ── */
 .settings-accent-card {
   flex-direction: column;

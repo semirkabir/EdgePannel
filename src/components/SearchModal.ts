@@ -65,7 +65,7 @@ export interface SearchResult {
 
 interface SearchableSource {
   type: SearchResultType;
-  items: { id: string; title: string; subtitle?: string; data: unknown }[];
+  items: { id: string; title: string; subtitle?: string; searchText?: string; data: unknown }[];
 }
 
 interface AsyncSearchSource {
@@ -334,16 +334,30 @@ export class SearchModal {
       for (const item of source.items) {
         const titleLower = item.title.toLowerCase();
         const subtitleLower = item.subtitle?.toLowerCase() || '';
+        const searchTextLower = item.searchText?.toLowerCase() || '';
+        const searchableText = [titleLower, subtitleLower, searchTextLower].filter(Boolean).join(' ');
+        const terms = searchableText.split(/\s+/).filter(Boolean);
+        const normalizedQuery = query.replace(/[^a-z0-9]/g, '');
+        const normalizedTerms = terms.map(term => term.replace(/[^a-z0-9]/g, '')).filter(Boolean);
+        const matchesCompany = normalizedQuery.length > 0
+          && (terms.some(term => term === query || term.startsWith(query))
+            || normalizedTerms.some(term => term === normalizedQuery || term.startsWith(normalizedQuery)));
+        const matchesSource = source.type === 'company'
+          ? matchesCompany
+          : searchableText.includes(query);
 
-        if (titleLower.includes(query) || subtitleLower.includes(query)) {
-          const isPrefix = titleLower.startsWith(query) || subtitleLower.startsWith(query);
+        if (matchesSource) {
+          const isExact = terms.includes(query);
+          const isPrefix = titleLower.startsWith(query)
+            || subtitleLower.startsWith(query)
+            || terms.some(term => term.startsWith(query));
           const result = {
             type: source.type,
             id: item.id,
             title: item.title,
             subtitle: item.subtitle,
             data: item.data,
-            _score: isPrefix ? 2 : 1,
+            _score: isExact ? 3 : isPrefix ? 2 : 1,
           } as SearchResult & { _score: number };
 
           if (!byType.has(source.type)) byType.set(source.type, []);
@@ -353,12 +367,12 @@ export class SearchModal {
     }
 
     const priority: SearchResultType[] = [
-      'news', 'prediction', 'market', 'earthquake', 'outage',
+      'news', 'prediction', 'company', 'market', 'earthquake', 'outage',
       'conflict', 'hotspot', 'country',
       'sanction',
       'base', 'pipeline', 'cable', 'datacenter', 'nuclear', 'irradiator',
       'techcompany', 'ailab', 'startup', 'techevent', 'techhq', 'accelerator',
-      'exchange', 'financialcenter', 'centralbank', 'commodityhub', 'company',
+      'exchange', 'financialcenter', 'centralbank', 'commodityhub',
       'marketplace',
     ];
 
@@ -367,7 +381,7 @@ export class SearchModal {
     for (const type of priority) {
       const matches = byType.get(type) || [];
       matches.sort((a, b) => b._score - a._score);
-      const limit = this.isMobile ? 2 : (type === 'news' ? 6 : type === 'prediction' ? 5 : type === 'country' ? 4 : 3);
+      const limit = this.isMobile ? (type === 'company' ? 3 : 2) : (type === 'news' ? 6 : type === 'prediction' ? 5 : type === 'company' ? 5 : type === 'country' ? 4 : 3);
       this.results.push(...matches.slice(0, limit));
       if (this.results.length >= maxResults) break;
     }

@@ -3,7 +3,7 @@ import { setUnifiedThemeForMode, type MapColorMode } from '@/config/basemap';
 
 export type Theme = 'dark' | 'light';
 export type ThemePreference = 'auto' | 'dark' | 'light';
-export type FontPreference = 'inter' | 'theme' | 'article';
+export type FontPreference = 'inter' | 'theme' | 'article' | 'poppins';
 export type AccentColor = 'indigo' | 'emerald' | 'amber' | 'sky' | 'rose' | 'zinc';
 
 const STORAGE_KEY = 'worldmonitor-theme';
@@ -38,7 +38,7 @@ export function getThemePreference(): ThemePreference {
 export function getFontPreference(): FontPreference {
   try {
     const stored = localStorage.getItem(FONT_STORAGE_KEY);
-    if (stored === 'inter' || stored === 'theme' || stored === 'article') return stored;
+    if (stored === 'inter' || stored === 'theme' || stored === 'article' || stored === 'poppins') return stored;
   } catch { /* noop */ }
   return DEFAULT_FONT;
 }

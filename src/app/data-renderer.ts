@@ -35,7 +35,7 @@ import { dataFreshness } from '@/services/data-freshness';
 import { getCircuitBreakerCooldownInfo } from '@/utils';
 import { getMissingFeatureSecretMessage, getMissingSecretMessage, isFeatureAvailable } from '@/services/runtime-config';
 import { t } from '@/services/i18n';
-import { SECTORS, COMMODITIES } from '@/config';
+import { SECTORS, COMMODITIES, MARKET_SYMBOLS } from '@/config';
 import { signalAggregator } from '@/services/signal-aggregator';
 import { supplementalBus } from '@/services/supplemental-signal-bus';
 import { ingestSatelliteFiresForCII } from '@/services/country-instability';
@@ -83,7 +83,10 @@ export class DataRenderer {
   }
 
   private getEffectiveMarketSymbols(): Array<{ symbol: string; name: string; display: string }> {
-    return getMarketWatchlistEntries().slice(0, 50).map(e => ({
+    const entries = getMarketWatchlistEntries();
+    const symbols = entries.length > 0 ? entries : MARKET_SYMBOLS;
+
+    return symbols.slice(0, 50).map(e => ({
       symbol: e.symbol,
       name: e.name || e.symbol,
       display: e.display || e.symbol,

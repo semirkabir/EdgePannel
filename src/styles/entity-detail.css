@@ -2997,6 +2997,143 @@
   min-height: 220px;
 }
 
+.edp-tradingview-widget:not(:has(iframe)) {
+  min-height: 0;
+  margin: 0;
+  background: transparent;
+}
+
+.edp-tradingview-widget.edp-tradingview-fallback-active,
+.edp-tradingview-widget:has(iframe) {
+  min-height: 220px;
+  margin: 0 0 12px;
+  background: var(--surface);
+}
+
+.edp-tradingview-widget.edp-tradingview-load-failed iframe {
+  display: none;
+}
+
+.edp-tv-fallback-card {
+  min-height: 320px;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface), transparent 8%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.edp-tv-fallback-quote {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.edp-tv-fallback-price {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+
+.edp-tv-fallback-change {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.edp-tv-fallback-meta {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.edp-tv-chart-controls {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.edp-tv-chart-ranges,
+.edp-tv-chart-types {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edp-tv-range-btn,
+.edp-tv-kind-btn {
+  min-width: 34px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--surface), transparent 12%);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.edp-tv-kind-btn {
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+.edp-tv-kind-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+}
+
+.edp-tv-kind-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.edp-tv-range-btn:hover,
+.edp-tv-range-btn.is-active,
+.edp-tv-kind-btn:hover,
+.edp-tv-kind-btn.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 82%);
+  color: var(--text);
+}
+
+.edp-tv-lightweight-chart {
+  width: 100%;
+  height: 180px;
+  min-width: 0;
+}
+
+.edp-tv-lightweight-chart a#tv-attr-logo {
+  display: none !important;
+}
+
 /* ── Price change colors ────────────────────────────────────────────── */
 
 .edp-positive { color: #22c55e; }
@@ -4615,6 +4752,16 @@
   border-radius: 10px;
   margin-bottom: 10px;
   overflow: hidden;
+}
+
+.edp-tradingview-widget:not(:has(iframe)) {
+  margin-bottom: 0;
+}
+
+.edp-tradingview-widget.edp-tradingview-fallback-active {
+  min-height: 320px;
+  margin-bottom: 10px;
+  background: var(--surface);
 }
 
 /* ── Company profile: quote bar gets the lead ── */

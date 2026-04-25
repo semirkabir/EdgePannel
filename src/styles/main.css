@@ -326,6 +326,7 @@
   /* Font stack */
   --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', 'Fira Code', 'DejaVu Sans Mono', 'Liberation Mono', monospace;
   --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-poppins: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-body-theme: var(--font-mono);
   --font-body-article: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-body-selected: var(--font-inter);
@@ -343,6 +344,10 @@
 
 [data-font-preference="article"] {
   --font-body-selected: var(--font-body-article);
+}
+
+[data-font-preference="poppins"] {
+  --font-body-selected: var(--font-poppins);
 }
 
 [dir="rtl"] {
@@ -20039,6 +20044,13 @@ button.cluster-flight-item:focus-visible {
 .us-font-preview-sample-article {
   font-family: var(--font-body-article);
   font-size: 14px;
+}
+
+.us-font-preview-sample-poppins {
+  font-family: var(--font-poppins);
+  font-size: 13.5px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 .us-theme-preview-sample {
