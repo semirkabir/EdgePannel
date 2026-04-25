@@ -1,4 +1,5 @@
 import { Panel } from './Panel';
+import type { PopupType } from './MapPopup';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
@@ -11,15 +12,18 @@ import {
   removeUserPosition,
   NOTABLE_INVESTORS,
   type CongressTrade,
-  type InstitutionalHoldingsResponse,
   getTickerSector,
   SECTOR_COLORS,
   sparklineSvg,
   donutSvg,
-  sortCongressTrades,
-  type CongressSortField,
-  type SortDir,
 } from '@/services/market/portfolio';
+import { fetchSec13FFeed, type SecFilingEntry } from '@/services/market/sec-filings';
+import {
+  getFeaturedInstitutionResults,
+  normalizeInstitutionName,
+  searchInstitutions13F,
+  type InstitutionSearchResult,
+} from '@/services/market/normalized-13f';
 import { setMarketWatchlistEntries, getMarketWatchlistEntries } from '@/services/market-watchlist';
 
 type Tab = 'portfolio' | 'filings' | 'tools';
@@ -196,23 +200,23 @@ const client = new MarketServiceClient('', {
   fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args),
 });
 
-type CongressFilter = { party: string; chamber: string; type: string };
-type FeaturedPolitician = {
+type FirmFilter = 'all' | 'thirteen_filers';
+type PeopleFilter = 'all' | 'public_figures' | 'politicians';
+type FeaturedPerson = {
   name: string;
   party: string;
   chamber: 'House' | 'Senate';
   state: string;
   tradeCount: number;
   latestDisclosure: string;
+  category: 'politician' | 'public_figure';
 };
 
 export class PortfolioPanel extends Panel {
   private activeTab: Tab = 'portfolio';
   private congressCache: CongressTrade[] | null = null;
-  private institutionHoldingsCache = new Map<string, InstitutionalHoldingsResponse>();
   private filingsFilter = '';
-  private congressFilters: CongressFilter = { party: '', chamber: '', type: '' };
-  private congressSort: { field: CongressSortField; dir: SortDir } = { field: 'date', dir: 'desc' };
+  private featuredFilters: { firms: FirmFilter; people: PeopleFilter } = { firms: 'all', people: 'all' };
   private institutionCik: string | null = null;
   private activeToolsCategory: ToolCategoryKey = 'all';
   private activeToolGroup: ToolGroupKey | null = null;
@@ -236,7 +240,7 @@ export class PortfolioPanel extends Panel {
   private startAutoRefresh(): void {
     this.stopAutoRefresh();
     this.refreshTimer = setInterval(() => {
-      if (this.activeTab === 'portfolio' && document.visibilityState === 'visible') {
+      if ((this.activeTab === 'portfolio' || this.activeTab === 'filings') && document.visibilityState === 'visible') {
         this.renderTabContent();
       }
     }, 60_000);
@@ -523,8 +527,7 @@ export class PortfolioPanel extends Panel {
         const ticker = el.dataset.ticker;
         const name = el.dataset.name;
         if (ticker) {
-          const panel = (window as any).__entityDetailPanel;
-          panel?.show('company', { ticker, name: name || ticker });
+          this.openEntityDetail('company', { ticker, name: name || ticker });
         }
       });
     });
@@ -538,14 +541,50 @@ export class PortfolioPanel extends Panel {
       this.congressCache = resp.trades;
     }
 
+    this.startAutoRefresh();
+
+    const getFeaturedInitials = (name: string): string => {
+      const parts = name.split(/[\s.&'-]+/).filter(Boolean);
+      const initials = parts.slice(0, 2).map(part => part[0]?.toUpperCase() ?? '').join('');
+      return initials || name.slice(0, 2).toUpperCase();
+    };
+
+    const formatRelativeTime = (value: string | Date): string => {
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return 'Just now';
+      const diff = Math.max(0, Date.now() - date.getTime());
+      const minutes = Math.floor(diff / 60_000);
+      if (minutes < 1) return 'Just now';
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    };
+
+    const formatFiledDate = (value: string | Date): string => {
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return 'Unknown';
+      return date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    };
+
+    const secFeed = await fetchSec13FFeed();
     const query = this.filingsFilter.trim().toLowerCase();
-    const featuredInstitutions = NOTABLE_INVESTORS.filter(inv => this.matchesInstitution(inv, query));
-    const featuredPoliticians = this.getFeaturedPoliticians(this.congressCache)
-      .filter(pol => this.matchesPolitician(pol, query))
+
+    const featuredInstitutions = (query
+      ? await searchInstitutions13F(this.filingsFilter, { recentFilings: secFeed, limit: 16 })
+      : getFeaturedInstitutionResults(secFeed).slice(0, 8))
+      .filter(inv => this.matchesFirmFilter(inv));
+    const featuredPeople = this.getFeaturedPeople(this.congressCache)
+      .filter(person => this.matchesPerson(person, query))
+      .filter(person => this.matchesPeopleFilter(person))
       .slice(0, query ? 16 : 8);
 
-    let trades = sortCongressTrades(this.congressCache, this.congressSort.field, this.congressSort.dir);
-
+    let trades = [...this.congressCache];
     if (query) {
       trades = trades.filter(tr =>
         tr.politician.toLowerCase().includes(query) ||
@@ -556,172 +595,214 @@ export class PortfolioPanel extends Panel {
         tr.state.toLowerCase().includes(query)
       );
     }
-
-    if (this.congressFilters.party) {
-      trades = trades.filter(tr => tr.party === this.congressFilters.party);
-    }
-    if (this.congressFilters.chamber) {
-      trades = trades.filter(tr => tr.chamber === this.congressFilters.chamber);
-    }
-    if (this.congressFilters.type) {
-      const tf = this.congressFilters.type;
-      trades = trades.filter(tr => {
-        const t = tr.transactionType.toLowerCase();
-        if (tf === 'purchase') return t.includes('purchase');
-        if (tf === 'sale') return t.includes('sale');
-        return true;
-      });
+    if (this.featuredFilters.people === 'public_figures') {
+      trades = [];
     }
 
-    const sortIcon = (field: CongressSortField) => {
-      if (this.congressSort.field !== field) return ' \u2195';
-      return this.congressSort.dir === 'asc' ? ' \u2191' : ' \u2193';
-    };
+    const institutionMatchSet = new Set(
+      featuredInstitutions.map(inv => inv.cik || normalizeInstitutionName(inv.name)).filter(Boolean)
+    );
+    const tickerQueryMatches = featuredInstitutions.filter(inv => inv.matchReason === 'ticker');
+    const selected13FFeedSource = tickerQueryMatches.length > 0
+      ? secFeed.filter(entry =>
+        institutionMatchSet.has(entry.cik) ||
+        institutionMatchSet.has(normalizeInstitutionName(entry.filerName))
+      )
+      : secFeed;
+    const skipTextFilter = tickerQueryMatches.length > 0;
+    let top13FFeed = (selected13FFeedSource.length > 0 ? selected13FFeedSource : secFeed)
+      .filter(entry =>
+        skipTextFilter ||
+        !query ||
+        entry.filerName.toLowerCase().includes(query) ||
+        entry.cik.includes(query) ||
+        entry.filingType.toLowerCase().includes(query)
+      )
+      .sort((a, b) => b.filedAt.getTime() - a.filedAt.getTime())
+      .slice(0, 6);
+
+    if (top13FFeed.length === 0) {
+      const fallbackTargets = featuredInstitutions
+        .slice(0, 6)
+        .filter(inv => inv.cik)
+        .map(inv => ({ cik: inv.cik, name: inv.name }));
+
+      if (fallbackTargets.length > 0) {
+        const fallbackHistory = await Promise.all(
+          fallbackTargets.map(async (target) => {
+            try {
+              const historyResp = await fetchInstitutionalHoldings(target.cik);
+              return (historyResp.filingHistory || []).map((entry): SecFilingEntry => ({
+                id: entry.id,
+                title: `${entry.filingType} - ${historyResp.name || target.name}`,
+                filerName: historyResp.name || target.name,
+                cik: target.cik,
+                filingType: entry.filingType,
+                filedAt: new Date(entry.acceptedAt || entry.filingDate || Date.now()),
+                url: entry.url,
+                description: '',
+              }));
+            } catch {
+              return [];
+            }
+          }),
+        );
+
+        top13FFeed = fallbackHistory
+          .flat()
+          .filter(entry => !Number.isNaN(entry.filedAt.getTime()))
+          .sort((a, b) => b.filedAt.getTime() - a.filedAt.getTime())
+          .slice(0, 6);
+      }
+    }
+
+    const liveCongressTrades = [...trades]
+      .sort((a, b) =>
+        `${b.disclosureDate}T23:59:59Z`.localeCompare(`${a.disclosureDate}T23:59:59Z`) ||
+        b.transactionDate.localeCompare(a.transactionDate)
+      )
+      .slice(0, 6);
 
     const featuredInstitutionCards = featuredInstitutions.map(inv => `
       <button class="pf-featured-card pf-featured-card-firm${this.institutionCik === inv.cik ? ' pf-featured-card-active' : ''}" data-featured-kind="institution" data-cik="${escapeHtml(inv.cik)}" data-name="${escapeHtml(inv.name)}">
-        <span class="pf-featured-eyebrow">Featured Firm</span>
+        <span class="pf-featured-avatar" aria-hidden="true">${escapeHtml(getFeaturedInitials(inv.name))}</span>
         <span class="pf-featured-name">${escapeHtml(inv.name)}</span>
-        <span class="pf-featured-meta">${escapeHtml(inv.description)}</span>
-        <span class="pf-featured-badge">13F Filing</span>
+        <span class="pf-featured-meta">${escapeHtml(this.getInstitutionSubtitle(inv))}</span>
       </button>
     `).join('');
 
-    const featuredPoliticianCards = featuredPoliticians.map(pol => `
-      <button class="pf-featured-card pf-featured-card-politician" data-featured-kind="politician" data-name="${escapeHtml(pol.name)}" data-party="${escapeHtml(pol.party)}" data-chamber="${escapeHtml(pol.chamber)}" data-state="${escapeHtml(pol.state)}">
-        <span class="pf-featured-eyebrow">Featured Politician</span>
-        <span class="pf-featured-name">${escapeHtml(pol.name)}</span>
-        <span class="pf-featured-meta">${escapeHtml(pol.party)} \u00b7 ${escapeHtml(pol.chamber)}${pol.state ? ` \u00b7 ${escapeHtml(pol.state)}` : ''}</span>
-        <span class="pf-featured-badge">Congress Filing</span>
+    const featuredPeopleCards = featuredPeople.map(person => `
+      <button class="pf-featured-card pf-featured-card-person" data-featured-kind="person" data-name="${escapeHtml(person.name)}" data-party="${escapeHtml(person.party)}" data-chamber="${escapeHtml(person.chamber)}" data-state="${escapeHtml(person.state)}">
+        <span class="pf-featured-avatar" aria-hidden="true">${escapeHtml(getFeaturedInitials(person.name))}</span>
+        <span class="pf-featured-name">${escapeHtml(person.name)}</span>
+        <span class="pf-featured-meta">${escapeHtml(person.party)} \u00b7 ${escapeHtml(person.chamber)}${person.state ? ` \u00b7 ${escapeHtml(person.state)}` : ''}</span>
       </button>
     `).join('');
 
-    const rows = trades.slice(0, 100).map(trade => {
+    const secFeedRows = top13FFeed.map((entry: SecFilingEntry) => `
+      <div class="pf-filing-row">
+        <span class="pf-filing-info">
+          <span class="pf-filing-name">${escapeHtml(entry.filerName)}</span>
+          <span class="pf-filing-cik">CIK ${escapeHtml(entry.cik || 'N/A')} \u00b7 ${escapeHtml(formatRelativeTime(entry.filedAt))}</span>
+        </span>
+        <span class="pf-filing-type-badge ${entry.filingType.includes('/A') ? 'pf-filing-type-amend' : entry.filingType.includes('NT') ? 'pf-filing-type-nt' : 'pf-filing-type-hr'}">${escapeHtml(entry.filingType)}</span>
+        <span class="pf-filing-date">${escapeHtml(formatFiledDate(entry.filedAt))}</span>
+        <button class="pf-row-open-btn" type="button" title="Open in right panel" aria-label="Open in right panel" data-open-kind="institution" data-cik="${escapeHtml(entry.cik)}" data-name="${escapeHtml(entry.filerName)}">\u2197</button>
+      </div>
+    `).join('');
+
+    const congressFeedRows = liveCongressTrades.map(trade => {
       const isPurchase = trade.transactionType.toLowerCase().includes('purchase');
       const isSale = trade.transactionType.toLowerCase().includes('sale');
-      const typeClass = isPurchase ? 'pf-positive' : isSale ? 'pf-negative' : '';
-      const typeLabel = isPurchase ? 'BUY' : isSale ? 'SELL' : escapeHtml(trade.transactionType);
-      const partyColor = trade.party === 'Republican' ? '#ef4444' : trade.party === 'Democrat' ? '#3b82f6' : '#888';
+      const typeBadgeClass = isPurchase ? 'pf-filing-type-hr' : isSale ? 'pf-filing-type-amend' : 'pf-filing-type-other';
+      const typeLabel = isPurchase ? 'BUY' : isSale ? 'SELL' : trade.transactionType.toUpperCase();
+      const companyLabel = trade.ticker || trade.assetDescription || trade.politician;
+      const companyMeta = [trade.politician, trade.party, trade.chamber].filter(Boolean).join(' \u00b7 ');
 
       return `
-        <div class="pf-congress-row" data-trade-idx="${escapeHtml(String(this.congressCache!.indexOf(trade)))}">
-          <div class="pf-cg-header">
-            <button class="pf-cg-name" data-name="${escapeHtml(trade.politician)}" data-party="${escapeHtml(trade.party)}" data-chamber="${escapeHtml(trade.chamber)}" data-state="${escapeHtml(trade.state)}">${escapeHtml(trade.politician)}</button>
-            <span class="pf-cg-party" style="color:${partyColor}">${escapeHtml(trade.party.charAt(0))}</span>
-            <span class="pf-cg-chamber">${escapeHtml(trade.chamber)}</span>
-          </div>
-          <div class="pf-cg-details">
-            <span class="pf-cg-ticker ticker-link" data-ticker="${escapeHtml(trade.ticker)}" data-name="${escapeHtml(trade.assetDescription)}">${escapeHtml(trade.ticker)}</span>
-            <span class="pf-cg-type ${typeClass}">${typeLabel}</span>
-            <span class="pf-cg-amount">${escapeHtml(trade.amount)}</span>
-          </div>
-          <div class="pf-cg-meta">
-            <span class="pf-cg-date">Trade ${escapeHtml(trade.transactionDate)}</span>
-            <span class="pf-cg-filing">Congress filing ${escapeHtml(trade.disclosureDate)}</span>
-          </div>
-          ${trade.assetDescription ? `<div class="pf-cg-desc">${escapeHtml(trade.assetDescription.slice(0, 80))}</div>` : ''}
+        <div class="pf-filing-row pf-congress-filing-row">
+          <span class="pf-filing-info">
+            <span class="pf-filing-name">${escapeHtml(companyLabel)}</span>
+            <span class="pf-filing-cik">${escapeHtml(companyMeta)}</span>
+          </span>
+          <span class="pf-filing-type-badge ${typeBadgeClass}">${escapeHtml(typeLabel)}</span>
+          <span class="pf-filing-date">${escapeHtml(formatFiledDate(`${trade.disclosureDate}T23:59:59Z`))}</span>
+          <button class="pf-row-open-btn" type="button" title="Open in right panel" aria-label="Open in right panel" data-open-kind="${trade.ticker ? 'company' : 'congressTrade'}" data-trade-idx="${escapeHtml(String(this.congressCache!.indexOf(trade)))}" data-ticker="${escapeHtml(trade.ticker)}" data-name="${escapeHtml(trade.assetDescription || trade.ticker || trade.politician)}">\u2197</button>
         </div>`;
     }).join('');
 
     contentEl.innerHTML = `
       <div class="pf-filter-bar">
-        <input type="text" class="pf-input" id="pf-filings-filter" placeholder="Search politicians, firms, tickers, or parties\u2026" value="${escapeHtml(this.filingsFilter)}" />
-        <div class="pf-filter-chips">
-          <button class="pf-chip${!this.congressFilters.party ? ' pf-chip-active' : ''}" data-filter="party" data-value="">All</button>
-          <button class="pf-chip${this.congressFilters.party === 'Democrat' ? ' pf-chip-active' : ''}" data-filter="party" data-value="Democrat" style="--chip-color:#3b82f6">D</button>
-          <button class="pf-chip${this.congressFilters.party === 'Republican' ? ' pf-chip-active' : ''}" data-filter="party" data-value="Republican" style="--chip-color:#ef4444">R</button>
-          <span class="pf-chip-sep">|</span>
-          <button class="pf-chip${!this.congressFilters.type ? ' pf-chip-active' : ''}" data-filter="type" data-value="">All</button>
-          <button class="pf-chip${this.congressFilters.type === 'purchase' ? ' pf-chip-active pf-positive' : ''}" data-filter="type" data-value="purchase">Buy</button>
-          <button class="pf-chip${this.congressFilters.type === 'sale' ? ' pf-chip-active pf-negative' : ''}" data-filter="type" data-value="sale">Sell</button>
+        <input type="text" class="pf-input" id="pf-filings-filter" placeholder="Search people, firms, tickers, or parties..." value="${escapeHtml(this.filingsFilter)}" />
+        <div class="pf-filter-groups">
+          <div class="pf-filter-group">
+            <span class="pf-filter-group-label">Firms</span>
+            <div class="pf-filter-chips">
+              <button class="pf-chip${this.featuredFilters.firms === 'all' ? ' pf-chip-active' : ''}" data-filter-group="firms" data-value="all">All</button>
+              <button class="pf-chip${this.featuredFilters.firms === 'thirteen_filers' ? ' pf-chip-active' : ''}" data-filter-group="firms" data-value="thirteen_filers">13F Filers</button>
+            </div>
+          </div>
+          <div class="pf-filter-group">
+            <span class="pf-filter-group-label">People</span>
+            <div class="pf-filter-chips">
+              <button class="pf-chip${this.featuredFilters.people === 'all' ? ' pf-chip-active' : ''}" data-filter-group="people" data-value="all">All</button>
+              <button class="pf-chip${this.featuredFilters.people === 'public_figures' ? ' pf-chip-active' : ''}" data-filter-group="people" data-value="public_figures">Public Figures</button>
+              <button class="pf-chip${this.featuredFilters.people === 'politicians' ? ' pf-chip-active' : ''}" data-filter-group="people" data-value="politicians">Politicians</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="pf-section">
         <div class="pf-section-head">
           <div>
             <div class="pf-section-title">Featured Filers</div>
-            <div class="pf-section-subtitle">Congress disclosures and notable 13F firms in one view.</div>
+            <div class="pf-section-subtitle">Notable firms and people in one view.</div>
           </div>
         </div>
         <div class="pf-featured-stack">
           <div class="pf-featured-group">
-            <div class="pf-featured-group-title">Featured Firms</div>
-            <div class="pf-featured-grid">${featuredInstitutionCards || '<div class="pf-empty">No firm matches.</div>'}</div>
+            <div class="pf-featured-group-head">
+              <div class="pf-featured-group-title">Firms</div>
+              <div class="pf-featured-group-meta">${featuredInstitutions.length} shown</div>
+            </div>
+            <div class="pf-featured-row">${featuredInstitutionCards || '<div class="pf-empty">No firm matches.</div>'}</div>
           </div>
           <div class="pf-featured-group">
-            <div class="pf-featured-group-title">Featured Politicians</div>
-            <div class="pf-featured-grid">${featuredPoliticianCards || '<div class="pf-empty">No politician matches.</div>'}</div>
+            <div class="pf-featured-group-head">
+              <div class="pf-featured-group-title">People</div>
+              <div class="pf-featured-group-meta">${featuredPeople.length} shown</div>
+            </div>
+            <div class="pf-featured-row">${featuredPeopleCards || '<div class="pf-empty">No people matches.</div>'}</div>
           </div>
         </div>
       </div>
-      <div class="pf-section pf-inst-shell">
-        <div class="pf-section-head">
-          <div>
-            <div class="pf-section-title">Latest 13F Filing</div>
-            <div class="pf-section-subtitle">Select a featured firm above to load its most recent disclosed holdings.</div>
+      <div class="pf-filings-grid">
+        <div class="pf-section pf-inst-shell pf-live-card">
+          <div class="pf-section-head">
+            <div>
+              <div class="pf-section-title">Latest 13F Filings</div>
+              <div class="pf-section-subtitle">${tickerQueryMatches.length > 0 ? `Recent 13F filers tied to ${escapeHtml(this.filingsFilter.trim().toUpperCase())}.` : 'Live SEC 13F filings, listed as they post.'}</div>
+            </div>
+            <div class="pf-count">${top13FFeed.length} shown</div>
           </div>
-          <div class="pf-inst-actions">
-            ${this.institutionCik ? '<button class="pf-inline-btn" id="pf-open-institution-detail" type="button">Open Profile</button><button class="pf-inline-btn-secondary" id="pf-clear-institution" type="button">Clear</button>' : ''}
-          </div>
+          <div class="pf-filings-list">${secFeedRows || '<div class="pf-mini-empty">No recent 13F filings match the current filters.</div>'}</div>
         </div>
-        <div id="pf-holdings-content">${this.institutionCik ? '<div class="pf-loading">Loading 13F holdings\u2026</div>' : '<div class="pf-empty">Choose a featured firm to load its latest 13F filing.</div>'}</div>
-      </div>
-      <div class="pf-section">
-        <div class="pf-section-head">
-          <div>
-            <div class="pf-section-title">Congress Filings</div>
-            <div class="pf-section-subtitle">Individual disclosures reported by members of Congress.</div>
+        <div class="pf-section pf-inst-shell pf-live-card pf-congress-shell">
+          <div class="pf-section-head">
+            <div>
+              <div class="pf-section-title">Congress Filings</div>
+              <div class="pf-section-subtitle">Live congressional trade disclosures, with direct jumps into the right panel.</div>
+            </div>
+            <div class="pf-count">${liveCongressTrades.length} live</div>
           </div>
-          <div class="pf-count">${trades.length} filings${trades.length > 100 ? ' (showing first 100)' : ''}</div>
+          <div class="pf-congress-list pf-congress-feed">${congressFeedRows || '<div class="pf-mini-empty">No congressional filings match the current filters.</div>'}</div>
         </div>
       </div>
-      <div class="pf-congress-header">
-        <button class="pf-sort-btn" data-sort="politician">Politician${sortIcon('politician')}</button>
-        <button class="pf-sort-btn" data-sort="ticker">Ticker${sortIcon('ticker')}</button>
-        <button class="pf-sort-btn" data-sort="type">Type${sortIcon('type')}</button>
-        <button class="pf-sort-btn" data-sort="amount">Amount${sortIcon('amount')}</button>
-        <button class="pf-sort-btn" data-sort="date">Date${sortIcon('date')}</button>
-      </div>
-      <div class="pf-congress-list">${rows || '<div class="pf-empty">No trades found</div>'}</div>
     `;
 
     const filterInput = contentEl.querySelector('#pf-filings-filter') as HTMLInputElement;
     let debounce: number | undefined;
     filterInput?.addEventListener('input', () => {
       window.clearTimeout(debounce);
-      debounce = window.setTimeout(() => { this.filingsFilter = filterInput.value.trim(); this.renderTabContent(); }, 300);
+      debounce = window.setTimeout(() => {
+        this.filingsFilter = filterInput.value.trim();
+        this.renderTabContent();
+      }, 300);
     });
 
     contentEl.querySelectorAll<HTMLElement>('.pf-chip').forEach(chip => {
       chip.addEventListener('click', () => {
-        const filterType = chip.dataset.filter as keyof CongressFilter;
+        const filterGroup = chip.dataset.filterGroup;
         const value = chip.dataset.value;
-        if (filterType) { (this.congressFilters as any)[filterType] = value; }
-        this.renderTabContent();
-      });
-    });
+        if (!filterGroup || !value) return;
 
-    contentEl.querySelectorAll<HTMLElement>('.pf-sort-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const field = btn.dataset.sort as CongressSortField;
-        if (this.congressSort.field === field) {
-          this.congressSort.dir = this.congressSort.dir === 'asc' ? 'desc' : 'asc';
-        } else {
-          this.congressSort = { field, dir: 'desc' };
+        if (filterGroup === 'firms') {
+          this.featuredFilters.firms = value as FirmFilter;
+        } else if (filterGroup === 'people') {
+          this.featuredFilters.people = value as PeopleFilter;
         }
-        this.renderTabContent();
-      });
-    });
 
-    contentEl.querySelectorAll<HTMLElement>('.pf-congress-row').forEach(row => {
-      row.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('.ticker-link, .pf-sort-btn, button, a')) return;
-        const idx = parseInt(row.dataset.tradeIdx || '0', 10);
-        const trade = this.congressCache?.[idx];
-        if (trade) {
-          const panel = (window as any).__entityDetailPanel;
-          panel?.show('congressTrade', trade);
-        }
+        void this.renderTabContent();
       });
     });
 
@@ -730,13 +811,14 @@ export class PortfolioPanel extends Panel {
         const kind = card.dataset.featuredKind;
         if (kind === 'institution') {
           this.institutionCik = card.dataset.cik || null;
-          this.renderTabContent();
+          this.openInstitutionDetail(this.institutionCik, card.dataset.name || 'Institution');
+          void this.renderTabContent();
           return;
         }
+
         const name = card.dataset.name;
         if (name) {
-          const panel = (window as any).__entityDetailPanel;
-          panel?.show('congressPolitician', {
+          this.openEntityDetail('congressPolitician', {
             name,
             party: card.dataset.party || '',
             chamber: (card.dataset.chamber as 'House' | 'Senate') || 'House',
@@ -746,123 +828,44 @@ export class PortfolioPanel extends Panel {
       });
     });
 
-    const clearInstitutionBtn = contentEl.querySelector('#pf-clear-institution');
-    clearInstitutionBtn?.addEventListener('click', () => {
-      this.institutionCik = null;
-      this.renderTabContent();
-    });
-
-    const openInstitutionBtn = contentEl.querySelector('#pf-open-institution-detail');
-    openInstitutionBtn?.addEventListener('click', () => {
-      if (!this.institutionCik) return;
-      const institution = NOTABLE_INVESTORS.find(inv => inv.cik === this.institutionCik);
-      const panel = (window as any).__entityDetailPanel;
-      panel?.show('institution', {
-        name: institution?.name || 'Institution',
-        cik: this.institutionCik,
-      });
-    });
-
-    if (this.institutionCik) {
-      await this.loadInstitutionHoldings(contentEl);
-    }
-
-    contentEl.querySelectorAll<HTMLElement>('.pf-cg-name').forEach(el => {
-      el.addEventListener('click', (e) => {
+    contentEl.querySelectorAll<HTMLElement>('.pf-row-open-btn').forEach(button => {
+      button.addEventListener('click', (e) => {
         e.stopPropagation();
-        const name = el.dataset.name;
-        if (!name) return;
-        const panel = (window as any).__entityDetailPanel;
-        panel?.show('congressPolitician', {
-          name,
-          party: el.dataset.party || '',
-          chamber: (el.dataset.chamber as 'House' | 'Senate') || 'House',
-          state: el.dataset.state || '',
-        });
-      });
-    });
+        const openKind = button.dataset.openKind;
 
-    contentEl.querySelectorAll<HTMLElement>('.pf-cg-ticker').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const ticker = el.dataset.ticker;
-        const name = el.dataset.name;
-        if (ticker) {
-          const panel = (window as any).__entityDetailPanel;
-          panel?.show('company', { ticker, name: name || ticker });
+        if (openKind === 'institution') {
+          this.openEntityDetail('institution', {
+            name: button.dataset.name || 'Institution',
+            cik: button.dataset.cik || '',
+          });
+          return;
+        }
+
+        if (openKind === 'company') {
+          const ticker = button.dataset.ticker;
+          if (ticker) {
+            this.openEntityDetail('company', {
+              ticker,
+              name: button.dataset.name || ticker,
+            });
+          }
+          return;
+        }
+
+        const idx = parseInt(button.dataset.tradeIdx || '-1', 10);
+        const trade = idx >= 0 ? this.congressCache?.[idx] : null;
+        if (trade) {
+          this.openEntityDetail('congressTrade', trade);
         }
       });
     });
   }
 
-  private async loadInstitutionHoldings(contentEl: HTMLElement): Promise<void> {
-    const holdingsDiv = contentEl.querySelector('#pf-holdings-content') as HTMLElement | null;
-    if (!holdingsDiv || !this.institutionCik) return;
-    holdingsDiv.innerHTML = '<div class="pf-loading">Loading 13F holdings\u2026</div>';
-
-    try {
-      const data = await this.getInstitutionHoldings(this.institutionCik);
-
-      if (data.holdings.length === 0) {
-        holdingsDiv.innerHTML = '<div class="pf-empty">No holdings data available for this filer.</div>';
-        return;
-      }
-
-      const totalValue = data.holdings.reduce((sum, h) => sum + h.value, 0);
-      const sectorMap = new Map<string, number>();
-      for (const h of data.holdings) {
-        const sector = getTickerSector(h.issuer.split(' ')[0] || h.issuer);
-        sectorMap.set(sector, (sectorMap.get(sector) || 0) + h.value);
-      }
-
-      const donutSegments = Array.from(sectorMap.entries())
-        .map(([label, value]) => ({ label, value, color: (SECTOR_COLORS as Record<string, string>)[label] ?? SECTOR_COLORS.Other! }))
-        .sort((a, b) => b.value - a.value);
-
-      const donutHtml = donutSegments.length > 1
-        ? `<div class="pf-donut-wrap">${donutSvg(donutSegments, 120, 14)}<div class="pf-donut-legend">${donutSegments.map(s => `<span class="pf-donut-legend-item"><span class="pf-donut-dot" style="background:${s.color}"></span>${escapeHtml(s.label)}</span>`).join('')}</div></div>`
-        : '';
-
-      const rows = data.holdings.map((h, i) => {
-        const pct = totalValue > 0 ? (h.value / totalValue) * 100 : 0;
-        return `
-          <div class="pf-holding-row">
-            <span class="pf-hold-rank">${i + 1}</span>
-            <div class="pf-hold-info">
-              <span class="pf-hold-name">${escapeHtml(h.issuer)}</span>
-              <span class="pf-hold-title">${escapeHtml(h.title)}</span>
-            </div>
-            <div class="pf-hold-data">
-              <span class="pf-hold-value">$${formatLargeNum(h.value)}</span>
-              <span class="pf-hold-shares">${h.shares.toLocaleString()} shr</span>
-              <div class="pf-hold-pct-bar">
-                <div class="pf-hold-pct-fill" style="width:${Math.min(pct, 100)}%"></div>
-              </div>
-              <span class="pf-hold-pct">${pct.toFixed(1)}%</span>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      holdingsDiv.innerHTML = `
-        <div class="pf-inst-header">
-          <span class="pf-inst-name">${escapeHtml(data.name)}</span>
-          <span class="pf-inst-label">13F Filing</span>
-          <span class="pf-inst-meta">Filed ${escapeHtml(data.filingDate)} \u00b7 ${data.totalHoldings} positions \u00b7 13F value $${formatLargeNum(totalValue)}</span>
-        </div>
-        ${donutHtml}
-        <div class="pf-holdings-list">${rows}</div>
-      `;
-    } catch (err) {
-      holdingsDiv.innerHTML = `<div class="pf-error">Failed to load holdings: ${escapeHtml(String(err))}</div>`;
-    }
-  }
-
-  private getFeaturedPoliticians(trades: CongressTrade[]): FeaturedPolitician[] {
-    const politicians = new Map<string, FeaturedPolitician>();
+  private getFeaturedPeople(trades: CongressTrade[]): FeaturedPerson[] {
+    const people = new Map<string, FeaturedPerson>();
 
     for (const trade of trades) {
-      const existing = politicians.get(trade.politician);
+      const existing = people.get(trade.politician);
       if (existing) {
         existing.tradeCount += 1;
         if (trade.disclosureDate > existing.latestDisclosure) {
@@ -871,46 +874,86 @@ export class PortfolioPanel extends Panel {
         continue;
       }
 
-      politicians.set(trade.politician, {
+      people.set(trade.politician, {
         name: trade.politician,
         party: trade.party,
         chamber: trade.chamber,
         state: trade.state,
         tradeCount: 1,
         latestDisclosure: trade.disclosureDate,
+        category: 'politician',
       });
     }
 
-    return Array.from(politicians.values()).sort((a, b) =>
+    return Array.from(people.values()).sort((a, b) =>
       b.tradeCount - a.tradeCount || b.latestDisclosure.localeCompare(a.latestDisclosure)
     );
   }
 
-  private matchesInstitution(investor: { name: string; description: string }, query: string): boolean {
-    if (!query) return true;
-    return investor.name.toLowerCase().includes(query) || investor.description.toLowerCase().includes(query);
+  private matchesFirmFilter(_investor: InstitutionSearchResult): boolean {
+    switch (this.featuredFilters.firms) {
+      case 'all':
+      case 'thirteen_filers':
+      default:
+        return true;
+    }
   }
 
-  private matchesPolitician(politician: FeaturedPolitician, query: string): boolean {
+  private matchesPerson(person: FeaturedPerson, query: string): boolean {
     if (!query) return true;
     return (
-      politician.name.toLowerCase().includes(query) ||
-      politician.party.toLowerCase().includes(query) ||
-      politician.chamber.toLowerCase().includes(query) ||
-      politician.state.toLowerCase().includes(query)
+      person.name.toLowerCase().includes(query) ||
+      person.party.toLowerCase().includes(query) ||
+      person.chamber.toLowerCase().includes(query) ||
+      person.state.toLowerCase().includes(query)
     );
   }
 
-  private async getInstitutionHoldings(cik: string): Promise<InstitutionalHoldingsResponse> {
-    const cached = this.institutionHoldingsCache.get(cik);
-    if (cached) return cached;
-    const data = await fetchInstitutionalHoldings(cik);
-    this.institutionHoldingsCache.set(cik, data);
-    return data;
+  private matchesPeopleFilter(person: FeaturedPerson): boolean {
+    switch (this.featuredFilters.people) {
+      case 'public_figures':
+        return person.category === 'public_figure';
+      case 'politicians':
+        return person.category === 'politician';
+      case 'all':
+      default:
+        return true;
+    }
   }
 
-  // ─── Tools Tab ───────────────────────────────────────────────────────────
+  private getInstitutionSubtitle(institution: InstitutionSearchResult): string {
+    if (institution.relatedTicker) {
+      return institution.subtitle;
+    }
+    if (institution.subtitle) {
+      return institution.subtitle;
+    }
+    if (institution.latestFilingDate) {
+      return `Latest filed ${new Date(institution.latestFilingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+    return 'Known 13F filer';
+  }
 
+  private openInstitutionDetail(cik: string | null, name = 'Institution'): void {
+    if (!cik) {
+      this.openEntityDetail('institution', { name, cik: '' });
+      return;
+    }
+    const institution = NOTABLE_INVESTORS.find(inv => inv.cik === cik);
+    this.openEntityDetail('institution', {
+      name: institution?.name || name,
+      cik,
+    });
+  }
+
+  private openEntityDetail(type: PopupType, data: unknown): void {
+    document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+      detail: { type, data },
+    }));
+
+    const fallback = (window as any).__entityDetailPanel;
+    fallback?.show?.(type, data);
+  }
   private renderToolsTab(contentEl: HTMLElement): void {
     const visibleGroups = TOOL_GROUPS.filter(group =>
       this.activeToolsCategory === 'all' || group.categories.includes(this.activeToolsCategory)
@@ -1043,12 +1086,4 @@ export class PortfolioPanel extends Panel {
     this.stopAutoRefresh();
     super.destroy();
   }
-}
-
-function formatLargeNum(value: number): string {
-  if (value >= 1e12) return (value / 1e12).toFixed(2) + 'T';
-  if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
-  if (value >= 1e6) return (value / 1e6).toFixed(1) + 'M';
-  if (value >= 1e3) return (value / 1e3).toFixed(1) + 'K';
-  return value.toFixed(0);
 }

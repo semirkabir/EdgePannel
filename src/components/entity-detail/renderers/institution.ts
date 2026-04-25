@@ -1,12 +1,15 @@
 import type { EntityRenderer, EntityRenderContext } from '../types';
 import {
-  fetchInstitutionalHoldings,
+  buildPortfolioInsights,
   computeInstitutionStructure,
   computeLargestTradeDeltas,
-  buildPortfolioInsights,
-  type InstitutionalHoldingsResponse,
   type SectorAllocation,
 } from '@/services/market/portfolio';
+import {
+  fetchInstitution13FProfile,
+  type InstitutionFilingHistoryEntry,
+  type InstitutionHoldingMapped,
+} from '@/services/market/normalized-13f';
 
 interface InstitutionData {
   name: string;
@@ -16,16 +19,17 @@ interface InstitutionData {
 interface InstitutionEnriched {
   name: string;
   cik: string;
-  holdings: InstitutionalHoldingsResponse['holdings'];
+  filingDate: string;
+  filingCadence: string;
+  holdings: InstitutionHoldingMapped[];
+  topHoldings: InstitutionHoldingMapped[];
+  filingHistory: InstitutionFilingHistoryEntry[];
   totalHoldings: number;
   totalValue: number;
-  filingDate: string;
-  topHoldings: InstitutionalHoldingsResponse['holdings'];
+  mappedValueCoverage: number;
   sectorBreakdown: SectorAllocation[];
   deltas: ReturnType<typeof computeLargestTradeDeltas>;
   insights: string[];
-  wikiSummary?: string;
-  wikiUrl?: string;
 }
 
 const TABS = ['holdings', 'trades', 'insights', 'structure', 'performance', 'aum', 'filings'] as const;
@@ -49,6 +53,17 @@ function fmtLargeNumber(value: number): string {
   return '$' + value.toFixed(0);
 }
 
+function fmtDate(value: string): string {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 export class InstitutionRenderer implements EntityRenderer {
   private activeTab: TabId = 'holdings';
 
@@ -59,13 +74,13 @@ export class InstitutionRenderer implements EntityRenderer {
     const header = ctx.el('div', 'edp-header');
     header.append(ctx.el('h2', 'edp-title', name || 'Institution'));
     const badgeRow = ctx.el('div', 'edp-badge-row');
-    badgeRow.append(ctx.badge(`CIK ${cik || '—'}`, 'edp-badge'));
+    badgeRow.append(ctx.badge(`CIK ${cik || '-'}`, 'edp-badge'));
     header.append(badgeRow);
 
     const summary = ctx.el('div', 'edp-trade-stats');
-    summary.append(makeStatCard(ctx, '13F Value', '—'));
-    summary.append(makeStatCard(ctx, 'Holdings', '—'));
-    summary.append(makeStatCard(ctx, 'Filing Date', '—'));
+    summary.append(makeStatCard(ctx, '13F Value', '-'));
+    summary.append(makeStatCard(ctx, 'Holdings', '-'));
+    summary.append(makeStatCard(ctx, 'Filing Date', '-'));
     header.append(summary);
     container.append(header);
 
@@ -80,7 +95,7 @@ export class InstitutionRenderer implements EntityRenderer {
 
     const tabContent = ctx.el('div', 'edp-portfolio-tab-content');
     tabContent.dataset.slot = 'tab-content';
-    tabContent.append(ctx.makeLoading('Loading 13F data…'));
+    tabContent.append(ctx.makeLoading('Loading 13F data...'));
     container.append(tabContent);
 
     return container;
@@ -92,34 +107,43 @@ export class InstitutionRenderer implements EntityRenderer {
       return {
         name: d.name || 'Unknown Institution',
         cik: '',
+        filingDate: '',
+        filingCadence: 'No recent 13F history',
         holdings: [],
+        topHoldings: [],
+        filingHistory: [],
         totalHoldings: 0,
         totalValue: 0,
-        filingDate: '',
-        topHoldings: [],
+        mappedValueCoverage: 0,
         sectorBreakdown: [],
         deltas: [],
-        insights: ['CIK identifier is required to fetch SEC 13F holdings data for this institution.'],
+        insights: ['CIK identifier is required to fetch normalized 13F history for this institution.'],
       };
     }
-    const holdingsResp = await fetchInstitutionalHoldings(d.cik);
-    const sectorBreakdown = computeInstitutionStructure(holdingsResp.holdings);
-    const deltas = computeLargestTradeDeltas(holdingsResp.holdings);
+
+    const profile = await fetchInstitution13FProfile(d.cik, d.name);
+    const sectorBreakdown = computeInstitutionStructure(profile.mappedHoldings);
+    const deltas = computeLargestTradeDeltas(profile.mappedHoldings);
     const insights = buildPortfolioInsights({
       kind: 'institution',
-      holdings: holdingsResp.holdings,
+      holdings: profile.mappedHoldings,
       structure: sectorBreakdown,
-      totalValue: holdingsResp.totalValue,
+      totalValue: profile.totalValue,
+      filingHistory: profile.filingHistory,
+      mappedValueCoverage: profile.mappedValueCoverage,
     });
 
     return {
-      name: holdingsResp.name || d.name,
+      name: profile.name || d.name,
       cik: d.cik,
-      holdings: holdingsResp.holdings,
-      totalHoldings: holdingsResp.totalHoldings,
-      totalValue: holdingsResp.totalValue,
-      filingDate: holdingsResp.filingDate,
-      topHoldings: holdingsResp.holdings.slice(0, 10),
+      filingDate: profile.filingDate,
+      filingCadence: profile.filingCadence,
+      holdings: profile.mappedHoldings,
+      topHoldings: profile.mappedHoldings.slice(0, 10),
+      filingHistory: profile.filingHistory,
+      totalHoldings: profile.totalHoldings,
+      totalValue: profile.totalValue,
+      mappedValueCoverage: profile.mappedValueCoverage,
       sectorBreakdown,
       deltas,
       insights,
@@ -132,12 +156,24 @@ export class InstitutionRenderer implements EntityRenderer {
     const titleEl = container.querySelector('.edp-title');
     if (titleEl) titleEl.textContent = data.name;
 
+    const badgeRow = container.querySelector('.edp-badge-row');
+    if (badgeRow) {
+      badgeRow.replaceChildren();
+      badgeRow.append(ctx.badge(`CIK ${data.cik || '-'}`, 'edp-badge'));
+      if (data.filingCadence) {
+        badgeRow.append(ctx.badge(data.filingCadence, 'edp-badge edp-badge-dim'));
+      }
+      if (data.mappedValueCoverage > 0) {
+        badgeRow.append(ctx.badge(`${data.mappedValueCoverage.toFixed(0)}% ticker mapped`, 'edp-badge edp-badge-status'));
+      }
+    }
+
     const summary = container.querySelector('.edp-trade-stats');
     if (summary) {
       summary.replaceChildren();
       summary.append(makeStatCard(ctx, '13F Value', fmtLargeNumber(data.totalValue)));
       summary.append(makeStatCard(ctx, 'Holdings', `${data.totalHoldings}`));
-      summary.append(makeStatCard(ctx, 'Filing Date', data.filingDate || '—'));
+      summary.append(makeStatCard(ctx, 'Filing Date', data.filingDate ? fmtDate(data.filingDate) : '-'));
     }
 
     this.activeTab = 'holdings';
@@ -185,24 +221,36 @@ export class InstitutionRenderer implements EntityRenderer {
       content.append(card);
       return;
     }
+
     if (data.holdings.length === 0) {
       content.append(ctx.makeEmpty('No 13F holdings available for this filer.'));
       return;
     }
+
     const [card, body] = ctx.sectionCard('Reported 13F Positions');
+    const subnote = ctx.el('p', 'edp-description');
+    subnote.textContent = data.mappedValueCoverage > 0
+      ? `${data.mappedValueCoverage.toFixed(1)}% of disclosed value is currently normalized to tickers for profile enrichment.`
+      : 'Holdings loaded from SEC 13F data. Ticker mapping coverage is still limited for this manager.';
+    body.append(subnote);
+
     const grid = ctx.el('div', 'edp-holdings-table');
-    for (const h of data.topHoldings) {
-      const pct = data.totalValue > 0 ? (h.value / data.totalValue) * 100 : 0;
+    for (const holding of data.topHoldings) {
       const rowEl = ctx.el('div', 'edp-holdings-row');
-      rowEl.append(ctx.el('span', 'edp-holdings-name', h.issuer));
-      rowEl.append(ctx.el('span', 'edp-holdings-detail', h.title));
+      rowEl.append(ctx.el('span', 'edp-holdings-name', holding.issuer));
+      const detailParts = [
+        holding.ticker || '',
+        holding.title,
+        holding.cusip ? `CUSIP ${holding.cusip}` : '',
+      ].filter(Boolean);
+      rowEl.append(ctx.el('span', 'edp-holdings-detail', detailParts.join(' · ')));
       const barWrap = ctx.el('div', 'edp-holdings-bar-wrap');
       const bar = ctx.el('div', 'edp-holdings-bar');
-      bar.style.width = `${Math.min(pct, 100)}%`;
+      bar.style.width = `${Math.min(holding.valuePct, 100)}%`;
       barWrap.append(bar);
       rowEl.append(barWrap);
-      rowEl.append(ctx.el('span', 'edp-holdings-pct', pct.toFixed(1) + '%'));
-      rowEl.append(ctx.el('span', 'edp-holdings-val', fmtLargeNumber(h.value)));
+      rowEl.append(ctx.el('span', 'edp-holdings-pct', holding.valuePct.toFixed(1) + '%'));
+      rowEl.append(ctx.el('span', 'edp-holdings-val', fmtLargeNumber(holding.value)));
       grid.append(rowEl);
     }
     body.append(grid);
@@ -212,20 +260,20 @@ export class InstitutionRenderer implements EntityRenderer {
   private renderLargestTrades(content: HTMLElement, data: InstitutionEnriched, ctx: EntityRenderContext): void {
     const [card, body] = ctx.sectionCard('Largest Disclosed Positions');
     if (data.deltas.length === 0) {
-      body.append(ctx.makeEmpty('Only a single 13F snapshot is available; historical deltas require prior filings.'));
+      body.append(ctx.makeEmpty('Only a single 13F snapshot is available; historical deltas require prior normalized filings.'));
     } else {
       const list = ctx.el('div', 'edp-holdings-table');
-      for (const d of data.deltas) {
+      for (const delta of data.deltas) {
         const rowEl = ctx.el('div', 'edp-holdings-row');
-        rowEl.append(ctx.el('span', 'edp-holdings-name', d.label));
-        rowEl.append(ctx.el('span', 'edp-holdings-detail', d.detail || ''));
+        rowEl.append(ctx.el('span', 'edp-holdings-name', delta.label));
+        rowEl.append(ctx.el('span', 'edp-holdings-detail', delta.detail || ''));
         const barWrap = ctx.el('div', 'edp-holdings-bar-wrap');
         const bar = ctx.el('div', 'edp-holdings-bar');
-        bar.style.width = `${Math.min(d.percentage, 100)}%`;
+        bar.style.width = `${Math.min(delta.percentage, 100)}%`;
         barWrap.append(bar);
         rowEl.append(barWrap);
-        rowEl.append(ctx.el('span', 'edp-holdings-pct', d.percentage.toFixed(1) + '%'));
-        rowEl.append(ctx.el('span', 'edp-holdings-val', fmtLargeNumber(d.estimatedValue)));
+        rowEl.append(ctx.el('span', 'edp-holdings-pct', delta.percentage.toFixed(1) + '%'));
+        rowEl.append(ctx.el('span', 'edp-holdings-val', fmtLargeNumber(delta.estimatedValue)));
         list.append(rowEl);
       }
       body.append(list);
@@ -235,9 +283,9 @@ export class InstitutionRenderer implements EntityRenderer {
 
   private renderInsights(content: HTMLElement, data: InstitutionEnriched, ctx: EntityRenderContext): void {
     const [card, body] = ctx.sectionCard('Observations');
-    for (const b of data.insights) {
+    for (const bullet of data.insights) {
       const p = ctx.el('p', 'edp-description');
-      p.textContent = b;
+      p.textContent = bullet;
       body.append(p);
     }
     content.append(card);
@@ -247,15 +295,15 @@ export class InstitutionRenderer implements EntityRenderer {
     const [card, body] = ctx.sectionCard('Inferred Sector Allocation');
     if (data.sectorBreakdown.length > 0) {
       const list = ctx.el('div', 'edp-sector-bars');
-      for (const s of data.sectorBreakdown) {
+      for (const sector of data.sectorBreakdown) {
         const rowEl = ctx.el('div', 'edp-sector-row');
-        rowEl.append(ctx.el('span', 'edp-sector-label', s.sector));
+        rowEl.append(ctx.el('span', 'edp-sector-label', sector.sector));
         const barWrap = ctx.el('div', 'edp-sector-bar-wrap');
         const bar = ctx.el('div', 'edp-sector-bar');
-        bar.style.width = `${Math.min(s.percentage, 100)}%`;
+        bar.style.width = `${Math.min(sector.percentage, 100)}%`;
         barWrap.append(bar);
         rowEl.append(barWrap);
-        rowEl.append(ctx.el('span', 'edp-sector-pct', s.percentage.toFixed(1) + '%'));
+        rowEl.append(ctx.el('span', 'edp-sector-pct', sector.percentage.toFixed(1) + '%'));
         list.append(rowEl);
       }
       body.append(list);
@@ -265,11 +313,33 @@ export class InstitutionRenderer implements EntityRenderer {
     content.append(card);
   }
 
-  private renderPerformance(content: HTMLElement, _data: InstitutionEnriched, ctx: EntityRenderContext): void {
+  private renderPerformance(content: HTMLElement, data: InstitutionEnriched, ctx: EntityRenderContext): void {
     const [card, body] = ctx.sectionCard('Performance History');
     const note = ctx.el('div', 'edp-callout edp-callout-attention edp-callout-text');
-    note.textContent = 'Performance cannot be accurately estimated without mapping 13F issuers to tickers and their corresponding historical prices. This tab will be enabled once ticker mapping is available.';
+    note.textContent = data.mappedValueCoverage > 0
+      ? `Ticker mapping now covers ${data.mappedValueCoverage.toFixed(1)}% of disclosed value. That is enough to enrich holdings context, but we still need a fuller mapped history before showing an institution-level performance curve.`
+      : 'Performance cannot be estimated yet because the latest 13F snapshot does not include enough reliable ticker mapping.';
     body.append(note);
+
+    const mapped = data.topHoldings.filter(holding => holding.ticker).slice(0, 6);
+    if (mapped.length > 0) {
+      const grid = ctx.el('div', 'edp-holdings-table');
+      for (const holding of mapped) {
+        const rowEl = ctx.el('div', 'edp-holdings-row');
+        rowEl.append(ctx.el('span', 'edp-holdings-name', holding.ticker));
+        rowEl.append(ctx.el('span', 'edp-holdings-detail', holding.issuer));
+        const barWrap = ctx.el('div', 'edp-holdings-bar-wrap');
+        const bar = ctx.el('div', 'edp-holdings-bar');
+        bar.style.width = `${Math.min(holding.valuePct, 100)}%`;
+        barWrap.append(bar);
+        rowEl.append(barWrap);
+        rowEl.append(ctx.el('span', 'edp-holdings-pct', holding.valuePct.toFixed(1) + '%'));
+        rowEl.append(ctx.el('span', 'edp-holdings-val', fmtLargeNumber(holding.value)));
+        grid.append(rowEl);
+      }
+      body.append(grid);
+    }
+
     content.append(card);
   }
 
@@ -277,19 +347,19 @@ export class InstitutionRenderer implements EntityRenderer {
     const [card, body] = ctx.sectionCard('Assets Under Management');
 
     const aumNote = ctx.el('div', 'edp-callout edp-callout-attention edp-callout-text');
-    aumNote.textContent = 'Only 13F portfolio value is available. True adviser AUM (including non-discretionary and non-13F assets) is not currently provided by our data sources.';
+    aumNote.textContent = 'Only 13F portfolio value is available here. True adviser AUM still requires Form ADV data or another adviser-level source.';
     body.append(aumNote);
 
     const grid = ctx.el('div', 'edp-aum-grid');
     grid.append(makeAumCard(ctx, '13F Portfolio Value', fmtLargeNumber(data.totalValue), 'Based on latest disclosed long positions.'));
     grid.append(makeAumCard(ctx, 'Reported Positions', String(data.totalHoldings), 'Number of holdings in latest 13F-HR filing.'));
-    grid.append(makeAumCard(ctx, 'Filing Date', data.filingDate || '—', 'As of the most recent 13F-HR or 13F-HR/A filing.'));
+    grid.append(makeAumCard(ctx, 'Filing Cadence', data.filingCadence || '-', 'Derived from recent filing history.'));
     body.append(grid);
 
     const placeholder = ctx.el('div', 'edp-aum-chart-row');
-    placeholder.append(makeAumCard(ctx, 'Discretionary AUM', 'Not available', 'Requires SEC Form ADV data source.'));
-    placeholder.append(makeAumCard(ctx, 'Non-Discretionary AUM', 'Not available', 'Requires SEC Form ADV data source.'));
-    placeholder.append(makeAumCard(ctx, 'Investor Composition', 'Not available', 'Requires SEC Form ADV data source.'));
+    placeholder.append(makeAumCard(ctx, 'Latest Filing Date', data.filingDate ? fmtDate(data.filingDate) : '-', 'Most recent reported 13F filing date.'));
+    placeholder.append(makeAumCard(ctx, 'Ticker Mapping', `${data.mappedValueCoverage.toFixed(1)}%`, 'Share of disclosed value normalized to tickers.'));
+    placeholder.append(makeAumCard(ctx, 'Adviser AUM', 'Not available', 'Requires SEC Form ADV data source.'));
     body.append(placeholder);
 
     content.append(card);
@@ -297,25 +367,47 @@ export class InstitutionRenderer implements EntityRenderer {
 
   private renderFilings(content: HTMLElement, data: InstitutionEnriched, ctx: EntityRenderContext): void {
     const [card, body] = ctx.sectionCard('13F Filings');
-    if (data.filingDate) {
-      const rowEl = ctx.el('div', 'edp-disclosure-row');
-      const badge = ctx.el('span', 'edp-disclosure-badge', '13F-HR');
-      rowEl.append(badge);
-      const info = ctx.el('div', 'edp-disclosure-info');
-      info.append(ctx.el('span', 'edp-disclosure-name', data.name));
-      info.append(ctx.el('span', 'edp-disclosure-detail', `Filing date: ${data.filingDate}`));
-      rowEl.append(info);
-      rowEl.append(ctx.el('span', 'edp-disclosure-date', data.filingDate));
-      body.append(rowEl);
-    } else {
+
+    const summary = ctx.el('p', 'edp-description');
+    summary.textContent = data.filingHistory.length > 0
+      ? `${data.filingHistory.length} recent 13F entries are available for this filer. Latest cadence: ${data.filingCadence}.`
+      : 'No normalized filing history is available for this filer yet.';
+    body.append(summary);
+
+    if (data.filingHistory.length === 0) {
       body.append(ctx.makeEmpty('No filing metadata available.'));
+    } else {
+      for (const filing of data.filingHistory.slice(0, 12)) {
+        const rowEl = ctx.el('div', 'edp-disclosure-row');
+        const badgeClass = filing.isAmendment
+          ? 'edp-disclosure-badge edp-disclosure-badge-sell'
+          : 'edp-disclosure-badge';
+        rowEl.append(ctx.el('span', badgeClass, filing.filingType));
+        const info = ctx.el('div', 'edp-disclosure-info');
+        info.append(ctx.el('span', 'edp-disclosure-name', filing.institutionName));
+        info.append(ctx.el('span', 'edp-disclosure-detail', `Filed ${fmtDate(filing.filedAt)} · CIK ${filing.cik || '-'}`));
+        rowEl.append(info);
+        if (filing.url) {
+          const link = ctx.el('a', 'edp-wiki-link') as HTMLAnchorElement;
+          link.href = filing.url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = fmtDate(filing.filedAt);
+          rowEl.append(link);
+        } else {
+          rowEl.append(ctx.el('span', 'edp-disclosure-date', fmtDate(filing.filedAt)));
+        }
+        body.append(rowEl);
+      }
     }
+
     const secLink = ctx.el('a', 'edp-wiki-link') as HTMLAnchorElement;
     secLink.href = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${data.cik}&type=13F&owner=include&count=40&output=atom`;
     secLink.target = '_blank';
     secLink.rel = 'noopener noreferrer';
     secLink.textContent = 'View SEC EDGAR filings';
     body.append(secLink);
+
     content.append(card);
   }
 }

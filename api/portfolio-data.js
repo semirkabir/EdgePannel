@@ -184,9 +184,11 @@ async function handle13FHoldings(cik, cors) {
   const filingDates = recent.filingDate || [];
   const accessions = recent.accessionNumber || [];
   const primaryDocs = recent.primaryDocument || [];
+  const acceptanceDateTimes = recent.acceptanceDateTime || [];
 
   // Find most recent 13F-HR filing
   const holdings = [];
+  const filingHistory = [];
   let latestFilingDate = '';
   let latestAccession = '';
   let latestPrimaryDoc = '';
@@ -194,10 +196,31 @@ async function handle13FHoldings(cik, cors) {
   for (let i = 0; i < forms.length; i++) {
     const form = (forms[i] || '').trim().toUpperCase();
     if (form === '13F-HR' || form === '13F-HR/A') {
+      const accession = accessions[i] || '';
+      const primaryDoc = primaryDocs[i] || '';
+      const cleanAccession = accession.replace(/-/g, '');
+      const filingDate = filingDates[i] || '';
+      const filingUrl = accession && primaryDoc
+        ? `https://www.sec.gov/Archives/edgar/data/${paddedCik}/${cleanAccession}/${primaryDoc}`
+        : accession
+          ? `https://www.sec.gov/Archives/edgar/data/${paddedCik}/${cleanAccession}/index.html`
+          : '';
+
+      filingHistory.push({
+        id: accession || `${paddedCik}-${i}`,
+        filingType: form,
+        filingDate,
+        acceptedAt: acceptanceDateTimes[i] || '',
+        accessionNumber: accession,
+        primaryDocument: primaryDoc,
+        url: filingUrl,
+      });
+
       latestFilingDate = filingDates[i] || '';
-      latestAccession = accessions[i] || '';
-      latestPrimaryDoc = primaryDocs[i] || '';
-      break;
+      if (!latestAccession) {
+        latestAccession = accession;
+        latestPrimaryDoc = primaryDoc;
+      }
     }
   }
 
@@ -300,6 +323,7 @@ async function handle13FHoldings(cik, cors) {
     name: data.name || '',
     cik: cik,
     filingDate: latestFilingDate,
+    filingHistory: filingHistory.slice(0, 12),
     holdings: holdings.slice(0, 50), // Top 50 positions
     totalHoldings: holdings.length,
     totalValue,

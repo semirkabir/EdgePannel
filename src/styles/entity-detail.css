@@ -3882,7 +3882,7 @@
 
 .cp-holders-row {
   display: grid;
-  grid-template-columns: 1fr 64px 48px 64px;
+  grid-template-columns: 1fr 72px 56px 72px 56px;
   gap: 6px;
   align-items: center;
   padding: 8px 0;
@@ -3916,6 +3916,14 @@
   text-overflow: ellipsis;
 }
 
+.cp-holders-meta {
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .cp-holders-bar-wrap {
   height: 3px;
   border-radius: 2px;
@@ -3931,12 +3939,33 @@
 
 .cp-holders-shares,
 .cp-holders-pct,
-.cp-holders-change {
+.cp-holders-change,
+.cp-holders-open-cell {
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
   color: var(--text);
+}
+
+.cp-holders-open-btn {
+  justify-self: end;
+  min-width: 48px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.cp-holders-open-btn:hover {
+  border-color: color-mix(in srgb, var(--accent-blue, #60a5fa) 50%, var(--border) 50%);
+  color: var(--accent-blue, #60a5fa);
 }
 
 .cp-holders-note {

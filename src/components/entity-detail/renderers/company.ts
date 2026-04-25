@@ -13,7 +13,6 @@ import {
   fetchRecommendationTrends,
   fetchInsiderTransactions,
   fetchOptionChain,
-  fetchInstitutionalOwnership,
   fetchEarningsSurprises,
   type CompanyProfile,
   type CompanyMetrics,
@@ -22,9 +21,12 @@ import {
   type RecommendationTrend,
   type InsiderTransaction,
   type OptionChainExpiry,
-  type InstitutionalHolder,
   type EarningsSurprise,
 } from '@/services/market/finnhub-extra';
+import {
+  fetchCompanyInstitutionHolders13F,
+  type CompanyInstitutionHolder,
+} from '@/services/market/normalized-13f';
 
 interface CompanyData {
   ticker: string;
@@ -45,7 +47,7 @@ interface CompanyEnriched {
   recommendations: RecommendationTrend[];
   insiderTxns: InsiderTransaction[];
   optionChain: OptionChainExpiry[];
-  ownership: InstitutionalHolder[];
+  ownership: CompanyInstitutionHolder[];
   earningsSurprises: EarningsSurprise[];
 }
 
@@ -192,7 +194,7 @@ export class CompanyRenderer implements EntityRenderer {
       fetchRecommendationTrends(ticker),
       fetchInsiderTransactions(ticker),
       fetchOptionChain(ticker),
-      fetchInstitutionalOwnership(ticker),
+      fetchCompanyInstitutionHolders13F(ticker),
       fetchEarningsSurprises(ticker),
     ]);
 
@@ -890,29 +892,37 @@ export class CompanyRenderer implements EntityRenderer {
     hdr.append(ctx.el('span', 'cp-holders-shares', 'Shares'));
     hdr.append(ctx.el('span', 'cp-holders-pct', '%'));
     hdr.append(ctx.el('span', 'cp-holders-change', 'Change'));
+    hdr.append(ctx.el('span', 'cp-holders-open-cell', 'Open'));
     body.append(hdr);
 
-    const maxShares = Math.max(...data.ownership.map(h => h.share));
+    const maxShares = Math.max(...data.ownership.map(h => h.shares));
 
     for (const holder of data.ownership) {
       const r2 = ctx.el('div', 'cp-holders-row');
 
       const nameWrap = ctx.el('div', 'cp-holders-name-wrap');
-      nameWrap.append(ctx.el('div', 'cp-holders-name', holder.name));
+      nameWrap.append(ctx.el('div', 'cp-holders-name', holder.institutionName));
+      const metaText = [holder.latestFilingType || '13F-HR', holder.filingDate ? fmtDate(holder.filingDate) : '']
+        .filter(Boolean)
+        .join(' · ');
+      if (metaText) {
+        nameWrap.append(ctx.el('div', 'cp-holders-meta', metaText));
+      }
 
       // Mini bar showing relative size
       const barWrap = ctx.el('div', 'cp-holders-bar-wrap');
       const bar = ctx.el('div', 'cp-holders-bar');
-      bar.style.width = ((holder.share / maxShares) * 100) + '%';
+      bar.style.width = maxShares > 0 ? ((holder.shares / maxShares) * 100) + '%' : '0%';
       barWrap.append(bar);
       nameWrap.append(barWrap);
 
       r2.append(nameWrap);
-      r2.append(ctx.el('span', 'cp-holders-shares', fmtShares(holder.share)));
+      r2.append(ctx.el('span', 'cp-holders-shares', fmtShares(holder.shares)));
       r2.append(ctx.el('span', 'cp-holders-pct', fmtMetric(holder.percent, '%')));
 
       const changeClass = holder.change >= 0 ? 'cp-holders-change cp-positive' : 'cp-holders-change cp-negative';
       r2.append(ctx.el('span', changeClass, (holder.change >= 0 ? '+' : '') + fmtShares(Math.abs(holder.change))));
+      r2.append(buildOpenInstitutionButton(ctx, holder));
 
       body.append(r2);
     }
@@ -928,8 +938,34 @@ export class CompanyRenderer implements EntityRenderer {
   // ─── Filings Tab ─────────────────────────────────────────────────────────
 
   private renderFilingsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
+    if (data.ownership.length > 0) {
+      const [ownersCard, ownersBody] = ctx.sectionCard('13F Ownership Snapshot');
+      const note = ctx.el('p', 'edp-description');
+      note.textContent = `Latest institutional ownership disclosures tied to ${data.ticker} via 13F reporting.`;
+      ownersBody.append(note);
+
+      for (const holder of data.ownership.slice(0, 10)) {
+        const rowEl = ctx.el('div', 'edp-disclosure-row');
+        rowEl.append(ctx.el('span', 'edp-disclosure-badge', holder.latestFilingType || '13F-HR'));
+        const info = ctx.el('div', 'edp-disclosure-info');
+        info.append(ctx.el('span', 'edp-disclosure-name', holder.institutionName));
+        const detailBits = [
+          holder.change ? `QoQ ${holder.change >= 0 ? '+' : '-'}${fmtShares(Math.abs(holder.change))} shares` : '',
+          holder.percent ? `${holder.percent.toFixed(2)}% of shares` : '',
+        ].filter(Boolean);
+        info.append(ctx.el('span', 'edp-disclosure-detail', detailBits.join(' · ') || 'Recent institutional holder disclosure'));
+        rowEl.append(info);
+        rowEl.append(buildOpenInstitutionButton(ctx, holder, holder.filingDate ? fmtDate(holder.filingDate) : 'Open'));
+        ownersBody.append(rowEl);
+      }
+
+      content.append(ownersCard);
+    }
+
     if (data.filings.length === 0) {
-      content.append(ctx.makeEmpty('No filings found'));
+      if (data.ownership.length === 0) {
+        content.append(ctx.makeEmpty('No filings found'));
+      }
       return;
     }
 
@@ -946,7 +982,7 @@ export class CompanyRenderer implements EntityRenderer {
     const years = Array.from(byYear.keys()).sort((a, b) => b.localeCompare(a));
 
     for (const year of years) {
-      const [card, body] = ctx.sectionCard(year);
+      const [card, body] = ctx.sectionCard(`Issuer SEC Filings · ${year}`);
       for (const filing of byYear.get(year)!) {
         body.append(buildFilingRow(ctx, filing));
       }
@@ -1091,4 +1127,28 @@ function buildFilingRow(ctx: EntityRenderContext, filing: SecFiling): HTMLElemen
   }
 
   return r;
+}
+
+function buildOpenInstitutionButton(
+  ctx: EntityRenderContext,
+  holder: CompanyInstitutionHolder,
+  label = 'Open',
+): HTMLElement {
+  if (!holder.cik) {
+    return ctx.el('span', 'cp-holders-open-cell', label);
+  }
+
+  const button = ctx.el('button', 'cp-holders-open-btn', label) as HTMLButtonElement;
+  button.type = 'button';
+  button.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+      detail: {
+        type: 'institution',
+        data: { name: holder.institutionName, cik: holder.cik },
+      },
+    }));
+  });
+  return button;
 }
