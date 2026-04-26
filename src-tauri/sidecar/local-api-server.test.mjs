@@ -993,6 +993,184 @@ test('auth-required behavior unchanged — rejects unauthenticated requests when
   }
 });
 
+test('agent gateway requires local token and returns scoped status when authenticated', async () => {
+  const localApi = await setupApiDir({});
+  const originalToken = process.env.LOCAL_API_TOKEN;
+  const originalConnectors = process.env.WM_AGENT_CONNECTORS;
+  process.env.LOCAL_API_TOKEN = 'agent-token-123';
+  process.env.WM_AGENT_CONNECTORS = JSON.stringify([{
+    id: 'agent-api',
+    name: 'Agent API',
+    type: 'openai-compatible',
+    endpoint: 'http://127.0.0.1:1234/v1',
+    model: 'test-model',
+    scopes: ['news'],
+    enabled: true,
+  }]);
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const unauthenticated = await fetch(`http://127.0.0.1:${port}/api/agent-gateway/status`);
+    assert.equal(unauthenticated.status, 401);
+
+    const authenticated = await fetch(`http://127.0.0.1:${port}/api/agent-gateway/status`, {
+      headers: { Authorization: 'Bearer agent-token-123' },
+    });
+    assert.equal(authenticated.status, 200);
+    const body = await authenticated.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.connectors.length, 1);
+    assert.ok(body.tools.some((tool) => tool.name === 'create_alert_draft'));
+  } finally {
+    if (originalToken !== undefined) process.env.LOCAL_API_TOKEN = originalToken;
+    else delete process.env.LOCAL_API_TOKEN;
+    if (originalConnectors !== undefined) process.env.WM_AGENT_CONNECTORS = originalConnectors;
+    else delete process.env.WM_AGENT_CONNECTORS;
+    await app.close();
+    await localApi.cleanup();
+  }
+});
+
+test('agent gateway validates connector endpoints and blocks private LAN HTTP', async () => {
+  const localApi = await setupApiDir({});
+  const originalToken = process.env.LOCAL_API_TOKEN;
+  process.env.LOCAL_API_TOKEN = 'agent-token-validate';
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/agent-gateway/test-connector`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer agent-token-validate' },
+      body: JSON.stringify({
+        id: 'blocked',
+        name: 'Blocked',
+        type: 'openai-compatible',
+        endpoint: 'http://192.168.1.25:1234/v1',
+        model: 'x',
+        scopes: ['news'],
+      }),
+    });
+    assert.equal(response.status, 422);
+    const body = await response.json();
+    assert.equal(body.ok, false);
+    assert.match(body.error, /HTTP endpoints|Private LAN/);
+  } finally {
+    if (originalToken !== undefined) process.env.LOCAL_API_TOKEN = originalToken;
+    else delete process.env.LOCAL_API_TOKEN;
+    await app.close();
+    await localApi.cleanup();
+  }
+});
+
+test('agent chat tool loop creates alert drafts without active rules', async () => {
+  let chatCalls = 0;
+  const modelServer = createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://127.0.0.1');
+    if (url.pathname === '/v1/models') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ data: [{ id: 'test-model' }] }));
+      return;
+    }
+    if (url.pathname === '/v1/chat/completions') {
+      const chunks = [];
+      req.on('data', chunk => chunks.push(chunk));
+      req.on('end', () => {
+        chatCalls++;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        if (chatCalls === 1) {
+          res.end(JSON.stringify({
+            choices: [{
+              message: {
+                role: 'assistant',
+                content: null,
+                tool_calls: [{
+                  id: 'call_1',
+                  type: 'function',
+                  function: {
+                    name: 'create_alert_draft',
+                    arguments: JSON.stringify({
+                      name: 'Agent oil alert',
+                      keywords: 'oil, pipeline',
+                      severity: 'critical',
+                      region: 'mena',
+                    }),
+                  },
+                }],
+              },
+            }],
+          }));
+        } else {
+          res.end(JSON.stringify({
+            choices: [{ message: { role: 'assistant', content: 'Draft created for approval.' } }],
+          }));
+        }
+      });
+      return;
+    }
+    res.writeHead(404).end();
+  });
+  const modelPort = await listen(modelServer);
+
+  const localApi = await setupApiDir({});
+  const originalToken = process.env.LOCAL_API_TOKEN;
+  const originalConnectors = process.env.WM_AGENT_CONNECTORS;
+  process.env.LOCAL_API_TOKEN = 'agent-token-chat';
+  process.env.WM_AGENT_CONNECTORS = JSON.stringify([{
+    id: 'chat-agent',
+    name: 'Chat Agent',
+    type: 'openai-compatible',
+    endpoint: `http://127.0.0.1:${modelPort}/v1`,
+    model: 'test-model',
+    scopes: ['news', 'alerts'],
+    enabled: true,
+  }]);
+
+  const app = await createLocalApiServer({
+    port: 0,
+    apiDir: localApi.apiDir,
+    logger: { log() {}, warn() {}, error() {} },
+  });
+  const { port } = await app.start();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/agent-gateway/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer agent-token-chat' },
+      body: JSON.stringify({
+        connectorId: 'chat-agent',
+        messages: [{ role: 'user', content: 'Create a critical oil alert draft.' }],
+      }),
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.content, 'Draft created for approval.');
+    assert.equal(body.alertDrafts.length, 1);
+    assert.equal(body.alertDrafts[0].pending, true);
+    assert.equal(body.alertDrafts[0].active, false);
+    assert.equal(body.toolEvents[0].name, 'create_alert_draft');
+  } finally {
+    if (originalToken !== undefined) process.env.LOCAL_API_TOKEN = originalToken;
+    else delete process.env.LOCAL_API_TOKEN;
+    if (originalConnectors !== undefined) process.env.WM_AGENT_CONNECTORS = originalConnectors;
+    else delete process.env.WM_AGENT_CONNECTORS;
+    await app.close();
+    await localApi.cleanup();
+    await new Promise((resolve, reject) => modelServer.close(error => error ? reject(error) : resolve()));
+  }
+});
+
 
 test('prefers Brotli compression for payloads larger than 1KB when supported by the client', async () => {
   const remote = await setupRemoteServer();

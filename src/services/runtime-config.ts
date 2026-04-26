@@ -25,7 +25,8 @@ export type RuntimeSecretKey =
   | 'WORLDMONITOR_API_KEY'
   | 'WTO_API_KEY'
   | 'AVIATIONSTACK_API'
-  | 'ICAO_API_KEY';
+  | 'ICAO_API_KEY'
+  | 'WM_AGENT_CONNECTORS';
 
 export type RuntimeFeatureId =
   | 'aiGroq'
@@ -308,6 +309,16 @@ export function validateSecret(key: RuntimeSecretKey, value: string): { valid: b
   if (key === 'WORLDMONITOR_API_KEY') {
     if (trimmed.length < 16) return { valid: false, hint: 'API key must be at least 16 characters' };
     return { valid: true };
+  }
+
+  if (key === 'WM_AGENT_CONNECTORS') {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!Array.isArray(parsed)) return { valid: false, hint: 'Connector config must be a JSON array' };
+      return { valid: true };
+    } catch {
+      return { valid: false, hint: 'Connector config must be valid JSON' };
+    }
   }
 
   return { valid: true };

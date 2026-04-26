@@ -46,6 +46,7 @@ import { invokeTauri } from '@/services/tauri-bridge';
 import { dataFreshness } from '@/services/data-freshness';
 import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
+import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { VisitorCounter } from '@/components/VisitorCounter';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { t } from '@/services/i18n';
@@ -344,6 +345,8 @@ export class EventHandlerManager implements AppModule {
     this.ctx.tvMode = null;
     this.ctx.unifiedSettings?.destroy();
     this.ctx.unifiedSettings = null;
+    this.ctx.agentChatPanel?.destroy();
+    this.ctx.agentChatPanel = null;
   }
 
   private setupEventListeners(): void {
@@ -917,6 +920,23 @@ export class EventHandlerManager implements AppModule {
     const mount = document.getElementById('unifiedSettingsMount');
     if (mount) {
       mount.appendChild(this.ctx.unifiedSettings.getButton());
+    }
+
+    if (this.ctx.isDesktopApp) {
+      this.ctx.agentChatPanel = new AgentChatPanel();
+      const headerRight = this.ctx.container.querySelector<HTMLElement>('.header-right');
+      const agentBtn = document.createElement('button');
+      agentBtn.type = 'button';
+      agentBtn.className = 'agent-chat-open-btn';
+      agentBtn.title = 'Open agent chat';
+      agentBtn.setAttribute('aria-label', 'Open agent chat');
+      agentBtn.textContent = 'AI';
+      agentBtn.addEventListener('click', () => {
+        void this.ctx.agentChatPanel?.open();
+      });
+      if (headerRight) {
+        headerRight.insertBefore(agentBtn, mount || null);
+      }
     }
 
     const mobileBtn = document.getElementById('mobileSettingsBtn');

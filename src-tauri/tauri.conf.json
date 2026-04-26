@@ -54,6 +54,8 @@
     "resources": [
       "../api",
       "sidecar/local-api-server.mjs",
+      "sidecar/agent-gateway.mjs",
+      "sidecar/agent-tool-registry.mjs",
       "sidecar/package.json",
       "sidecar/node",
       "../data",

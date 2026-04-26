@@ -1,5 +1,6 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
+import { getAgentAlertDrafts, setAgentAlertDrafts, type AgentAlertDraft } from '@/services/agent-gateway';
 
 interface AlertRule {
   id: string;
@@ -13,11 +14,18 @@ interface AlertRule {
 
 export class AlertRulesPanel extends Panel {
   private rules: AlertRule[] = [];
+  private drafts: AgentAlertDraft[] = [];
+  private readonly draftsHandler = () => {
+    this.loadDrafts();
+    this.renderPanel();
+  };
   private static readonly STORAGE_KEY = 'wm-alert-rules';
 
   constructor() {
     super({ id: 'alert-rules', title: '🔔 Alert Rules Engine' });
     this.loadRules();
+    this.loadDrafts();
+    window.addEventListener('wm-agent-alert-drafts-changed', this.draftsHandler);
     
     this.content.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -39,9 +47,26 @@ export class AlertRulesPanel extends Panel {
         this.deleteRule(deleteBtn.dataset.id);
         return;
       }
+
+      const approveDraftBtn = target.closest('.draft-approve-btn') as HTMLElement;
+      if (approveDraftBtn?.dataset.id) {
+        this.approveDraft(approveDraftBtn.dataset.id);
+        return;
+      }
+
+      const rejectDraftBtn = target.closest('.draft-reject-btn') as HTMLElement;
+      if (rejectDraftBtn?.dataset.id) {
+        this.rejectDraft(rejectDraftBtn.dataset.id);
+        return;
+      }
     });
 
     this.renderPanel();
+  }
+
+  public override destroy(): void {
+    window.removeEventListener('wm-agent-alert-drafts-changed', this.draftsHandler);
+    super.destroy();
   }
 
   private loadRules() {
@@ -66,6 +91,10 @@ export class AlertRulesPanel extends Panel {
     try {
       localStorage.setItem(AlertRulesPanel.STORAGE_KEY, JSON.stringify(this.rules));
     } catch { /* ignore */ }
+  }
+
+  private loadDrafts() {
+    this.drafts = getAgentAlertDrafts();
   }
 
   private addRule() {
@@ -97,8 +126,32 @@ export class AlertRulesPanel extends Panel {
     this.renderPanel();
   }
 
+  private approveDraft(id: string) {
+    const draft = this.drafts.find(d => d.id === id);
+    if (!draft) return;
+    this.rules.push({
+      id: Date.now().toString(),
+      name: draft.name,
+      keywords: draft.keywords,
+      severity: draft.severity,
+      region: draft.region,
+      notifications: draft.notifications,
+      active: true,
+    });
+    this.saveRules();
+    this.drafts = this.drafts.filter(d => d.id !== id);
+    setAgentAlertDrafts(this.drafts);
+    this.renderPanel();
+  }
+
+  private rejectDraft(id: string) {
+    this.drafts = this.drafts.filter(d => d.id !== id);
+    setAgentAlertDrafts(this.drafts);
+    this.renderPanel();
+  }
+
   private renderPanel(): void {
-    if (this.rules.length === 0) {
+    if (this.rules.length === 0 && this.drafts.length === 0) {
       this.setContent(`
         <div class="alerts-container">
           <div class="alerts-empty">
@@ -112,8 +165,40 @@ export class AlertRulesPanel extends Panel {
       return;
     }
 
+    const draftHtml = this.drafts.length > 0 ? `
+      <div class="alerts-header">
+        <span class="alerts-count">${this.drafts.length} Agent Draft${this.drafts.length === 1 ? '' : 's'} Pending</span>
+      </div>
+      <div class="alerts-list">
+        ${this.drafts.map(draft => `
+          <div class="alert-rule-card staged">
+            <div class="rule-header">
+              <span class="rule-name">${escapeHtml(draft.name)}</span>
+              <div class="rule-actions">
+                <button class="rule-action-btn draft-approve-btn" data-id="${draft.id}" title="Approve draft">Approve</button>
+                <button class="rule-action-btn draft-reject-btn" data-id="${draft.id}" title="Reject draft">Reject</button>
+              </div>
+            </div>
+            <div class="rule-details">
+              <div class="rule-detail-row">
+                <span class="rule-label">Keywords:</span>
+                <div class="rule-tags">${draft.keywords.map(k => `<span class="rule-tag">${escapeHtml(k)}</span>`).join('')}</div>
+              </div>
+              <div class="rule-detail-row">
+                <span class="rule-label">Severity:</span>
+                <span class="rule-value severity-${draft.severity}">${escapeHtml(draft.severity.toUpperCase())}</span>
+                <span class="rule-label" style="margin-left:12px;">Region:</span>
+                <span class="rule-value">${escapeHtml(draft.region.toUpperCase())}</span>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+
     const html = `
       <div class="alerts-container">
+        ${draftHtml}
         <div class="alerts-header">
           <span class="alerts-count">${this.rules.filter(r => r.active).length} Active Rules</span>
           <button class="btn btn-sm btn-add-rule">+ New Rule</button>

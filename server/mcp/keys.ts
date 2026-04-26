@@ -7,6 +7,7 @@
  */
 
 import { UserTier } from '../_shared/auth-tier';
+import crypto from 'node:crypto';
 
 export interface ApiKeyInfo {
   keyHash: string;
@@ -36,14 +37,8 @@ function getRedisUrlToken(): { url: string; token: string } | null {
   return { url, token };
 }
 
-/** Simple string hash for storing keys in Redis (not secure, just unique). */
 function sha256hex(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const chr = str.charCodeAt(i);
-    hash = ((hash << 5) - hash + chr) | 0;
-  }
-  return Math.abs(hash).toString(16).padStart(16, '0');
+  return crypto.createHash('sha256').update(str).digest('hex');
 }
 
 /** Look up an API key's info from Redis. */

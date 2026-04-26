@@ -58,6 +58,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   WTO_API_KEY: 'WTO API Key',
   AVIATIONSTACK_API: 'AviationStack API Key',
   ICAO_API_KEY: 'ICAO NOTAM API Key',
+  WM_AGENT_CONNECTORS: 'Agent Connectors',
 };
 
 export interface SettingsCategory {

@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import { brotliCompress, gzipSync } from 'node:zlib';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { handleAgentGateway } from './agent-gateway.mjs';
 
 const brotliCompressAsync = promisify(brotliCompress);
 
@@ -142,7 +143,7 @@ const ALLOWED_ENV_KEYS = new Set([
   'VITE_OPENSKY_RELAY_URL', 'OPENSKY_CLIENT_ID', 'OPENSKY_CLIENT_SECRET',
   'AISSTREAM_API_KEY', 'VITE_WS_RELAY_URL', 'FINNHUB_API_KEY', 'NASA_FIRMS_API_KEY',
   'OLLAMA_API_URL', 'OLLAMA_MODEL', 'WORLDMONITOR_API_KEY', 'WTO_API_KEY',
-  'AVIATIONSTACK_API', 'ICAO_API_KEY', 'UCDP_ACCESS_TOKEN',
+  'AVIATIONSTACK_API', 'ICAO_API_KEY', 'UCDP_ACCESS_TOKEN', 'WM_AGENT_CONNECTORS',
 ]);
 
 const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -1290,6 +1291,11 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  if (requestUrl.pathname.startsWith('/api/agent-gateway/')) {
+    const response = await handleAgentGateway(requestUrl, req, context);
+    if (response) return response;
+  }
+
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {
     const cloudResponse = await tryCloudFallback(requestUrl, req, context);
     if (cloudResponse) return cloudResponse;
@@ -1318,7 +1324,6 @@ async function dispatch(requestUrl, req, routes, context) {
 
     const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
     const hdrs = toHeaders(req.headers, { stripOrigin: true });
-    hdrs.set('Origin', `http://127.0.0.1:${context.port}`);
     const request = new Request(requestUrl.toString(), {
       method: req.method,
       headers: hdrs,
@@ -1372,7 +1377,8 @@ export async function createLocalApiServer(options = {}) {
       || requestUrl.pathname === '/api/local-debug-toggle'
       || requestUrl.pathname === '/api/local-env-update'
       || requestUrl.pathname === '/api/local-env-update-batch'
-      || requestUrl.pathname === '/api/local-validate-secret';
+      || requestUrl.pathname === '/api/local-validate-secret'
+      || requestUrl.pathname.startsWith('/api/agent-gateway/');
 
     try {
       const response = await dispatch(requestUrl, req, routes, context);

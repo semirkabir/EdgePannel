@@ -13,6 +13,7 @@ import type { CountryTimeline } from '@/components/CountryTimeline';
 import type { PlaybackControl } from '@/components';
 import type { ExportPanel } from '@/utils';
 import type { UnifiedSettings } from '@/components/UnifiedSettings';
+import type { AgentChatPanel } from '@/components/AgentChatPanel';
 import type { PizzIntIndicator } from '@/components';
 import type { ParsedMapUrlState } from '@/utils';
 import type { PredictionBriefPage } from '@/components/PredictionBriefPage';
@@ -109,6 +110,7 @@ export interface AppContext {
   playbackControl: PlaybackControl | null;
   exportPanel: ExportPanel | null;
   unifiedSettings: UnifiedSettings | null;
+  agentChatPanel: AgentChatPanel | null;
   pizzintIndicator: PizzIntIndicator | null;
   notificationCenter: import('@/components/NotificationCenter').NotificationCenter | null;
   countryBriefPage: CountryBriefPanel | null;

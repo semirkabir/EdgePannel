@@ -389,6 +389,7 @@ export class App {
       playbackControl: null,
       exportPanel: null,
       unifiedSettings: null,
+      agentChatPanel: null,
       pizzintIndicator: null,
       notificationCenter: null,
       countryBriefPage: null,

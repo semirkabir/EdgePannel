@@ -35,6 +35,17 @@ import { applyStoredTheme, getFontPreference, setFontPreference, getAccentColor,
 import { trackFeatureToggle } from '@/services/analytics';
 import { installCursorDiagnostics } from '@/utils/cursor-diagnostics';
 import { installForcedCursor } from '@/utils/forced-cursor';
+import {
+  AGENT_CONNECTORS_SECRET_KEY,
+  buildOpenClawSnippet,
+  getAgentGatewayStatus,
+  loadAgentConnectors,
+  makeDefaultConnector,
+  serializeAgentConnectors,
+  testAgentConnector,
+  type AgentConnector,
+  type AgentConnectorType,
+} from '@/services/agent-gateway';
 
 let activeSection = 'overview';
 let settingsManager: SettingsManager;
@@ -91,6 +102,7 @@ const SIDEBAR_ICONS: Record<string, string> = {
   security: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>',
   tracking: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>',
   debug: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>',
+  agents: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2a4 4 0 014 4v1h1a3 3 0 013 3v7a3 3 0 01-3 3H7a3 3 0 01-3-3v-7a3 3 0 013-3h1V6a4 4 0 014-4zm-2 5h4V6a2 2 0 10-4 0v1zm-3 5.5A1.5 1.5 0 108.5 11 1.5 1.5 0 007 12.5zm8.5 0A1.5 1.5 0 1017 11a1.5 1.5 0 00-1.5 1.5zM8 16v2h8v-2H8z"/></svg>',
 };
 
 // ── Sidebar ──
@@ -145,6 +157,13 @@ function renderSidebar(): void {
   items.push('<div class="settings-nav-sep"></div>');
 
   items.push(`
+    <button class="settings-nav-item${activeSection === 'agents' ? ' active' : ''}" data-section="agents" role="tab" aria-selected="${activeSection === 'agents'}">
+      ${SIDEBAR_ICONS.agents}
+      <span class="settings-nav-label">Agents</span>
+    </button>
+  `);
+
+  items.push(`
     <button class="settings-nav-item${activeSection === 'debug' ? ' active' : ''}" data-section="debug" role="tab" aria-selected="${activeSection === 'debug'}">
       ${SIDEBAR_ICONS.debug}
       <span class="settings-nav-label">Debug &amp; Logs</span>
@@ -170,6 +189,8 @@ function renderSection(sectionId: string): void {
   requestAnimationFrame(() => {
     if (sectionId === 'overview') {
       renderOverview(area);
+    } else if (sectionId === 'agents') {
+      renderAgents(area);
     } else if (sectionId === 'debug') {
       renderDebug(area);
     } else {
@@ -717,6 +738,170 @@ async function loadOllamaModelsIntoSelect(select: HTMLSelectElement): Promise<vo
   ).join('');
 }
 
+// ── Agents section ──
+
+function readAgentConnectorDrafts(): AgentConnector[] {
+  const stored = getRuntimeConfigSnapshot().secrets[AGENT_CONNECTORS_SECRET_KEY]?.value || '[]';
+  return loadAgentConnectors(stored);
+}
+
+function writeAgentConnectorDrafts(connectors: AgentConnector[]): void {
+  localStorage.setItem('wm-agent-connectors-preview', serializeAgentConnectors(connectors));
+}
+
+function renderAgents(area: HTMLElement): void {
+  const connectors = readAgentConnectorDrafts();
+  writeAgentConnectorDrafts(connectors);
+  const scopeLabels = ['news', 'markets', 'intelligence', 'security', 'tracking', 'infrastructure', 'supply_chain', 'alerts', 'external_mcp'];
+  const connectorCards = connectors.length === 0
+    ? '<p class="agent-settings-empty">No agent connectors configured.</p>'
+    : connectors.map((connector, index) => `
+      <div class="agent-settings-card" data-agent-index="${index}">
+        <div class="agent-settings-card-head">
+          <input data-agent-field="name" value="${escapeHtml(connector.name)}" aria-label="Connector name">
+          <select data-agent-field="type" aria-label="Connector type">
+            ${renderAgentTypeOption('openai-compatible', connector.type)}
+            ${renderAgentTypeOption('mcp-server', connector.type)}
+            ${renderAgentTypeOption('openclaw-mcp', connector.type)}
+          </select>
+          <label class="agent-settings-enabled"><input type="checkbox" data-agent-field="enabled" ${connector.enabled ? 'checked' : ''}> Enabled</label>
+        </div>
+        <div class="agent-settings-grid">
+          <label>Endpoint <input data-agent-field="endpoint" value="${escapeHtml(connector.endpoint)}"></label>
+          <label>Model <input data-agent-field="model" value="${escapeHtml(connector.model || '')}" placeholder="Chat connectors only"></label>
+          <label>API key/token <input data-agent-field="apiKey" type="password" value="${escapeHtml(connector.apiKey || '')}" placeholder="Optional"></label>
+        </div>
+        <div class="agent-settings-scopes">
+          ${scopeLabels.map(scope => `
+            <label><input type="checkbox" data-agent-scope="${scope}" ${connector.scopes.includes(scope) ? 'checked' : ''}> ${escapeHtml(scope.replace(/_/g, ' '))}</label>
+          `).join('')}
+        </div>
+        <div class="agent-settings-actions">
+          <button type="button" data-agent-test="${index}">Test</button>
+          <button type="button" data-agent-remove="${index}">Remove</button>
+          <span class="agent-settings-test-result" data-agent-test-result="${index}"></span>
+        </div>
+      </div>
+    `).join('');
+
+  area.innerHTML = `
+    <div class="settings-section-header">
+      <h2>Agents</h2>
+    </div>
+    <section class="agent-settings-intro">
+      <p>Connect OpenAI-compatible agents and Streamable HTTP MCP servers to World Monitor live data. Alert tools create drafts that require approval.</p>
+      <div class="agent-settings-actions">
+        <button type="button" data-agent-add="openai-compatible">Add Agent API</button>
+        <button type="button" data-agent-add="mcp-server">Add MCP Server</button>
+        <button type="button" data-agent-add="openclaw-mcp">Add OpenClaw MCP</button>
+      </div>
+    </section>
+    <div class="agent-settings-list">${connectorCards}</div>
+    <section class="agent-settings-snippet">
+      <h3>OpenClaw MCP</h3>
+      <p>Use this command with the local API token from the sidecar session.</p>
+      <pre data-openclaw-snippet>Loading…</pre>
+    </section>
+    <div class="agent-settings-footer">
+      <button type="button" data-agent-save>Save Agent Connectors</button>
+      <button type="button" data-agent-refresh>Status</button>
+      <span data-agent-status></span>
+    </div>
+  `;
+
+  initAgentListeners(area);
+  void refreshAgentSnippet(area);
+}
+
+function renderAgentTypeOption(type: AgentConnectorType, current: AgentConnectorType): string {
+  const label = type === 'openai-compatible' ? 'OpenAI-compatible' : type === 'openclaw-mcp' ? 'OpenClaw MCP' : 'MCP server';
+  return `<option value="${type}" ${current === type ? 'selected' : ''}>${label}</option>`;
+}
+
+function collectAgentConnectors(area: HTMLElement): AgentConnector[] {
+  return Array.from(area.querySelectorAll<HTMLElement>('.agent-settings-card')).map((card) => {
+    const getInput = (field: string) => card.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-agent-field="${field}"]`);
+    const scopes = Array.from(card.querySelectorAll<HTMLInputElement>('input[data-agent-scope]:checked')).map(input => input.dataset.agentScope || '').filter(Boolean);
+    const id = readAgentConnectorDrafts()[Number(card.dataset.agentIndex || 0)]?.id || `agent-${Date.now().toString(36)}`;
+    return {
+      id,
+      name: getInput('name')?.value.trim() || 'Agent',
+      type: (getInput('type')?.value || 'openai-compatible') as AgentConnectorType,
+      endpoint: getInput('endpoint')?.value.trim() || '',
+      model: getInput('model')?.value.trim() || '',
+      apiKey: getInput('apiKey')?.value.trim() || '',
+      scopes,
+      enabled: Boolean(card.querySelector<HTMLInputElement>('input[data-agent-field="enabled"]')?.checked),
+    };
+  }).filter(connector => connector.endpoint);
+}
+
+function initAgentListeners(area: HTMLElement): void {
+  area.querySelectorAll<HTMLButtonElement>('button[data-agent-add]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const connectors = collectAgentConnectors(area);
+      connectors.push(makeDefaultConnector((button.dataset.agentAdd || 'openai-compatible') as AgentConnectorType));
+      void saveAgentConnectors(connectors, false).then(() => renderAgents(area));
+    });
+  });
+
+  area.querySelectorAll<HTMLElement>('.agent-settings-card input, .agent-settings-card select').forEach((input) => {
+    input.addEventListener('input', () => writeAgentConnectorDrafts(collectAgentConnectors(area)));
+    input.addEventListener('change', () => writeAgentConnectorDrafts(collectAgentConnectors(area)));
+  });
+
+  area.querySelectorAll<HTMLButtonElement>('button[data-agent-remove]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.dataset.agentRemove);
+      const connectors = collectAgentConnectors(area).filter((_connector, i) => i !== index);
+      void saveAgentConnectors(connectors, false).then(() => renderAgents(area));
+    });
+  });
+
+  area.querySelectorAll<HTMLButtonElement>('button[data-agent-test]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const index = Number(button.dataset.agentTest);
+      const connector = collectAgentConnectors(area)[index];
+      const resultEl = area.querySelector<HTMLElement>(`[data-agent-test-result="${index}"]`);
+      if (!connector || !resultEl) return;
+      resultEl.textContent = 'Testing…';
+      const result = await testAgentConnector(connector);
+      resultEl.textContent = result.ok ? (result.message || 'Connected') : (result.error || 'Failed');
+      resultEl.className = `agent-settings-test-result ${result.ok ? 'ok' : 'error'}`;
+    });
+  });
+
+  area.querySelector<HTMLButtonElement>('button[data-agent-save]')?.addEventListener('click', async () => {
+    await saveAgentConnectors(collectAgentConnectors(area), true);
+    void refreshAgentSnippet(area);
+  });
+
+  area.querySelector<HTMLButtonElement>('button[data-agent-refresh]')?.addEventListener('click', () => {
+    void refreshAgentSnippet(area);
+  });
+}
+
+async function saveAgentConnectors(connectors: AgentConnector[], showStatus: boolean): Promise<void> {
+  writeAgentConnectorDrafts(connectors);
+  await setSecretValue(AGENT_CONNECTORS_SECRET_KEY, serializeAgentConnectors(connectors));
+  if (showStatus) setActionStatus('Agent connectors saved.', 'ok');
+}
+
+async function refreshAgentSnippet(area: HTMLElement): Promise<void> {
+  const statusEl = area.querySelector<HTMLElement>('[data-agent-status]');
+  const snippetEl = area.querySelector<HTMLElement>('[data-openclaw-snippet]');
+  try {
+    const status = await getAgentGatewayStatus();
+    const token = await tryInvokeTauri<string>('get_local_api_token');
+    const firstMcp = status.connectors.find(connector => connector.type === 'openclaw-mcp' || connector.type === 'mcp-server');
+    if (snippetEl) snippetEl.textContent = buildOpenClawSnippet(getApiBaseUrl(), token || null, firstMcp?.id);
+    if (statusEl) statusEl.textContent = `${status.connectors.length} connector(s), ${status.tools.length} tools`;
+  } catch (error) {
+    if (statusEl) statusEl.textContent = error instanceof Error ? error.message : 'Agent gateway unavailable';
+    if (snippetEl) snippetEl.textContent = 'Agent gateway unavailable.';
+  }
+}
+
 // ── Debug section ──
 
 function renderDebug(area: HTMLElement): void {
@@ -1030,14 +1215,24 @@ async function initSettingsWindow(): Promise<void> {
         const contentArea = document.getElementById('contentArea');
         if (contentArea) settingsManager.captureUnsavedInputs(contentArea);
 
+        const agentConnectorValue = contentArea && activeSection === 'agents'
+          ? serializeAgentConnectors(collectAgentConnectors(contentArea))
+          : '';
+        const currentAgentConnectorValue = getRuntimeConfigSnapshot().secrets[AGENT_CONNECTORS_SECRET_KEY]?.value || '[]';
+        const hasAgentConnectorChange = Boolean(agentConnectorValue && agentConnectorValue !== currentAgentConnectorValue);
+
         const hasPending = settingsManager.hasPendingChanges();
-        if (!hasPending && !hasWmKeyChange) {
+        if (!hasPending && !hasWmKeyChange && !hasAgentConnectorChange) {
           closeSettingsWindow();
           return;
         }
 
         if (hasWmKeyChange && wmKeyValue) {
           await setSecretValue('WORLDMONITOR_API_KEY', wmKeyValue);
+        }
+
+        if (hasAgentConnectorChange) {
+          await setSecretValue(AGENT_CONNECTORS_SECRET_KEY, agentConnectorValue);
         }
 
         if (hasPending) {

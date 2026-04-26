@@ -18,7 +18,7 @@ import {
   ListToolsRequestSchema,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { ApiKeyInfo, API_KEY_LIMITS, getApiKeyInfo, incrementKeyUsage } from './keys';
+import { getApiKeyInfo, incrementKeyUsage } from './keys';
 
 // --- Tool registry ---------------------------------------------------
 
@@ -37,8 +37,6 @@ function registerTool(name: string, description: string, inputSchema: Tool['inpu
 }
 
 // --- Helper: build MCP tool for any endpoint ----------------------
-
-type EndpointFn = (args: Record<string, unknown>) => Promise<unknown>;
 
 function endpointTool(
   name: string,

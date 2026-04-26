@@ -206,13 +206,13 @@ export function renderPeopleTab(data: FactbookData): HTMLElement | null {
     const body = el('div', 'cdp-fb-stack-v');
     if (pyramid) body.append(pyramid);
     if (Number.isFinite(ageYoung) && Number.isFinite(ageMid) && Number.isFinite(ageOld)) {
-      body.append(
-        stackedBar([
-          { label: '0\u201314', pct: ageYoung, color: PALETTE.youth },
-          { label: '15\u201364', pct: ageMid, color: PALETTE.working },
-          { label: '65+', pct: ageOld, color: PALETTE.elder },
-        ]),
-      );
+      const ageStack = stackedBar([
+        { label: '0\u201314', pct: ageYoung, color: PALETTE.youth },
+        { label: '15\u201364', pct: ageMid, color: PALETTE.working },
+        { label: '65+', pct: ageOld, color: PALETTE.elder },
+      ]);
+      ageStack.classList.add('cdp-fb-stack-underglow');
+      body.append(ageStack);
     }
     if (peopleVitals.length > 0) {
       const vitalsGrid = el('div', 'cdp-fb-grid cdp-fb-grid-4');

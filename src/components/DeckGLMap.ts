@@ -118,6 +118,51 @@ export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 type MapInteractionMode = 'flat' | '3d';
 
+const TIME_RANGE_OPTIONS: TimeRange[] = ['1h', '6h', '24h', '48h', '7d', 'all'];
+const DECK_CONTROL_SETTINGS_KEY = 'wm-deck-control-settings';
+
+interface DeckControlSettings {
+  visibleTimeRanges: TimeRange[];
+  layersOpenDefault: boolean;
+  showLayerCount: boolean;
+  showLayerActions: boolean;
+}
+
+const DEFAULT_DECK_CONTROL_SETTINGS: DeckControlSettings = {
+  visibleTimeRanges: TIME_RANGE_OPTIONS,
+  layersOpenDefault: false,
+  showLayerCount: true,
+  showLayerActions: true,
+};
+
+function loadDeckControlSettings(): DeckControlSettings {
+  try {
+    const raw = localStorage.getItem(DECK_CONTROL_SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_DECK_CONTROL_SETTINGS };
+    const parsed = JSON.parse(raw) as Partial<DeckControlSettings>;
+    const visibleTimeRanges = Array.isArray(parsed.visibleTimeRanges)
+      ? parsed.visibleTimeRanges.filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range as TimeRange))
+      : DEFAULT_DECK_CONTROL_SETTINGS.visibleTimeRanges;
+
+    return {
+      visibleTimeRanges: visibleTimeRanges.length > 0 ? visibleTimeRanges : DEFAULT_DECK_CONTROL_SETTINGS.visibleTimeRanges,
+      layersOpenDefault: parsed.layersOpenDefault === true,
+      showLayerCount: parsed.showLayerCount !== false,
+      showLayerActions: parsed.showLayerActions !== false,
+    };
+  } catch {
+    return { ...DEFAULT_DECK_CONTROL_SETTINGS };
+  }
+}
+
+function saveDeckControlSettings(settings: DeckControlSettings): void {
+  try {
+    localStorage.setItem(DECK_CONTROL_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // localStorage can be unavailable in restricted browser contexts.
+  }
+}
+
 function normalizeTimeRange(range: TimeRange): TimeRange {
   return range;
 }
@@ -4650,19 +4695,32 @@ export class DeckGLMap {
   private createTimeSlider(): void {
     const slider = document.createElement('div');
     slider.className = 'time-slider deckgl-time-slider';
-    const allTimeButton = `<button class="time-btn ${this.state.timeRange === 'all' ? 'active' : ''}" data-range="all">${t('components.deckgl.timeAll')}</button>`;
+    const settings = loadDeckControlSettings();
+    const timeLabels: Record<TimeRange, string> = {
+      '1h': '1h',
+      '6h': '6h',
+      '24h': '24h',
+      '48h': '48h',
+      '7d': '7d',
+      all: t('components.deckgl.timeAll'),
+    };
+    const timeButtons = TIME_RANGE_OPTIONS.map(range =>
+      `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${timeLabels[range]}</button>`
+    ).join('');
     slider.innerHTML = `
       <div class="time-options">
-        <button class="time-btn ${this.state.timeRange === '1h' ? 'active' : ''}" data-range="1h">1h</button>
-        <button class="time-btn ${this.state.timeRange === '6h' ? 'active' : ''}" data-range="6h">6h</button>
-        <button class="time-btn ${this.state.timeRange === '24h' ? 'active' : ''}" data-range="24h">24h</button>
-        <button class="time-btn ${this.state.timeRange === '48h' ? 'active' : ''}" data-range="48h">48h</button>
-        <button class="time-btn ${this.state.timeRange === '7d' ? 'active' : ''}" data-range="7d">7d</button>
-        ${allTimeButton}
+        ${timeButtons}
+        <button class="time-settings-btn" type="button" aria-label="Map control settings" title="Map control settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 0 1-2.83 2.83l-.04-.04a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 0 1-4 0v-.07A1.7 1.7 0 0 0 8.97 19.4a1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 0 1 0-4h.07A1.7 1.7 0 0 0 4.6 8.97a1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 8.97 4.6 1.7 1.7 0 0 0 10 3.07V3a2 2 0 0 1 4 0v.07A1.7 1.7 0 0 0 15.03 4.6a1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.93 10H21a2 2 0 0 1 0 4h-.07A1.7 1.7 0 0 0 19.4 15Z"/>
+          </svg>
+        </button>
       </div>
     `;
 
     this.container.appendChild(slider);
+    this.createDeckControlSettingsPanel(slider, settings);
 
     // Build layers row: [LAYERS toggle btn] [? help btn]
     const layersRow = document.createElement('div');
@@ -4743,7 +4801,7 @@ export class DeckGLMap {
     const layersPanel = document.createElement('div');
     layersPanel.className = 'layers-panel deckgl-layers-panel deckgl-layer-toggles';
     layersPanel.id = 'layersPanel';
-    const layersOpen = getTrayOpenPreference('deckLayersOpen', false);
+    const layersOpen = getTrayOpenPreference('deckLayersOpen', settings.layersOpenDefault);
     layersPanel.style.display = layersOpen ? 'block' : 'none';
     layersToggleBtn.classList.toggle('active', layersOpen);
     layersRow.classList.toggle('active', layersOpen);
@@ -4766,15 +4824,146 @@ export class DeckGLMap {
         setTrayOpenPreference('deckLayersOpen', open);
       }
     });
+    this.applyDeckControlSettings(slider, settings);
   }
 
   private updateTimeSliderButtons(): void {
-    const slider = this.container.querySelector('.deckgl-time-slider');
+    const slider = this.container.querySelector<HTMLElement>('.deckgl-time-slider');
     if (!slider) return;
     slider.querySelectorAll('.time-btn').forEach((btn) => {
       const range = (btn as HTMLElement).dataset.range as TimeRange | undefined;
       btn.classList.toggle('active', range === this.state.timeRange);
     });
+    this.applyDeckControlSettings(slider);
+  }
+
+  private createDeckControlSettingsPanel(slider: HTMLElement, initialSettings: DeckControlSettings): void {
+    const settingsBtn = slider.querySelector<HTMLButtonElement>('.time-settings-btn');
+    if (!settingsBtn) return;
+
+    const panel = document.createElement('div');
+    panel.className = 'map-control-settings-panel';
+    panel.hidden = true;
+    panel.innerHTML = `
+      <div class="mcs-header">
+        <span>Map controls</span>
+        <button class="mcs-close" type="button" aria-label="Close map control settings">×</button>
+      </div>
+      <div class="mcs-section">
+        <div class="mcs-section-title">Lookback display</div>
+        <div class="mcs-check-grid">
+          ${TIME_RANGE_OPTIONS.map(range => `
+            <label class="mcs-check">
+              <input type="checkbox" data-time-range-setting="${range}">
+              <span>${range === 'all' ? t('components.deckgl.timeAll') : range}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+      <div class="mcs-section">
+        <div class="mcs-section-title">Layers</div>
+        <label class="mcs-check mcs-check-wide">
+          <input type="checkbox" data-layer-setting="layersOpenDefault">
+          <span>Open layer list by default</span>
+        </label>
+        <label class="mcs-check mcs-check-wide">
+          <input type="checkbox" data-layer-setting="showLayerCount">
+          <span>Show active layer count</span>
+        </label>
+        <label class="mcs-check mcs-check-wide">
+          <input type="checkbox" data-layer-setting="showLayerActions">
+          <span>Show clear, marketplace and help buttons</span>
+        </label>
+      </div>
+      <button class="mcs-reset" type="button">Reset controls</button>
+    `;
+    slider.insertBefore(panel, slider.querySelector('.layers-row'));
+
+    const syncPanel = (settings: DeckControlSettings) => {
+      panel.querySelectorAll<HTMLInputElement>('[data-time-range-setting]').forEach(input => {
+        const range = input.dataset.timeRangeSetting as TimeRange;
+        input.checked = settings.visibleTimeRanges.includes(range);
+      });
+      panel.querySelector<HTMLInputElement>('[data-layer-setting="layersOpenDefault"]')!.checked = settings.layersOpenDefault;
+      panel.querySelector<HTMLInputElement>('[data-layer-setting="showLayerCount"]')!.checked = settings.showLayerCount;
+      panel.querySelector<HTMLInputElement>('[data-layer-setting="showLayerActions"]')!.checked = settings.showLayerActions;
+    };
+
+    syncPanel(initialSettings);
+
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      settingsBtn.classList.toggle('active', !panel.hidden);
+    });
+
+    panel.querySelector<HTMLButtonElement>('.mcs-close')?.addEventListener('click', () => {
+      panel.hidden = true;
+      settingsBtn.classList.remove('active');
+    });
+
+    panel.querySelector<HTMLButtonElement>('.mcs-reset')?.addEventListener('click', () => {
+      const settings = { ...DEFAULT_DECK_CONTROL_SETTINGS, visibleTimeRanges: [...DEFAULT_DECK_CONTROL_SETTINGS.visibleTimeRanges] };
+      saveDeckControlSettings(settings);
+      setTrayOpenPreference('deckLayersOpen', settings.layersOpenDefault);
+      syncPanel(settings);
+      this.setLayersPanelOpen(slider, settings.layersOpenDefault);
+      this.applyDeckControlSettings(slider, settings);
+    });
+
+    panel.addEventListener('change', (e) => {
+      const input = e.target as HTMLInputElement;
+      if (!(input instanceof HTMLInputElement)) return;
+      const settings = loadDeckControlSettings();
+
+      if (input.dataset.timeRangeSetting) {
+        const visibleTimeRanges = Array.from(panel.querySelectorAll<HTMLInputElement>('[data-time-range-setting]:checked'))
+          .map(el => el.dataset.timeRangeSetting as TimeRange)
+          .filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range));
+        if (visibleTimeRanges.length === 0) {
+          input.checked = true;
+          return;
+        }
+        settings.visibleTimeRanges = visibleTimeRanges;
+        saveDeckControlSettings(settings);
+        if (!visibleTimeRanges.includes(this.state.timeRange)) {
+          this.setTimeRange(visibleTimeRanges[0]!);
+        }
+        this.applyDeckControlSettings(slider, settings);
+        return;
+      }
+
+      const layerSetting = input.dataset.layerSetting as keyof Pick<DeckControlSettings, 'layersOpenDefault' | 'showLayerCount' | 'showLayerActions'> | undefined;
+      if (!layerSetting) return;
+      settings[layerSetting] = input.checked;
+      saveDeckControlSettings(settings);
+      if (layerSetting === 'layersOpenDefault') {
+        setTrayOpenPreference('deckLayersOpen', settings.layersOpenDefault);
+        this.setLayersPanelOpen(slider, settings.layersOpenDefault);
+      }
+      this.applyDeckControlSettings(slider, settings);
+    });
+  }
+
+  private setLayersPanelOpen(slider: HTMLElement, open: boolean): void {
+    const panel = slider.querySelector<HTMLElement>('.layers-panel');
+    const layersToggleBtn = slider.querySelector<HTMLElement>('#layersToggleBtn');
+    const layersRow = slider.querySelector<HTMLElement>('.layers-row');
+    if (!panel || !layersToggleBtn || !layersRow) return;
+    panel.style.display = open ? 'block' : 'none';
+    layersToggleBtn.classList.toggle('active', open);
+    layersRow.classList.toggle('active', open);
+  }
+
+  private applyDeckControlSettings(slider = this.container.querySelector<HTMLElement>('.deckgl-time-slider'), settings = loadDeckControlSettings()): void {
+    if (!slider) return;
+    const visibleTimeRanges = new Set(settings.visibleTimeRanges);
+    slider.querySelectorAll<HTMLElement>('.time-btn[data-range]').forEach(btn => {
+      const range = btn.dataset.range as TimeRange | undefined;
+      btn.hidden = !!range && !visibleTimeRanges.has(range) && range !== this.state.timeRange;
+    });
+    slider.classList.toggle('deckgl-hide-layer-count', !settings.showLayerCount);
+    slider.classList.toggle('deckgl-hide-layer-actions', !settings.showLayerActions);
   }
 
   private createLayerToggles(): void {

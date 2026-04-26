@@ -70,6 +70,47 @@ import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferenc
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 
+const TIME_RANGE_OPTIONS: TimeRange[] = ['1h', '6h', '24h', '48h', '7d', 'all'];
+const MAP_CONTROL_SETTINGS_KEY = 'wm-deck-control-settings';
+
+interface MapControlSettings {
+  visibleTimeRanges: TimeRange[];
+  showLayerCount: boolean;
+  showLayerActions: boolean;
+}
+
+const DEFAULT_MAP_CONTROL_SETTINGS: MapControlSettings = {
+  visibleTimeRanges: TIME_RANGE_OPTIONS,
+  showLayerCount: true,
+  showLayerActions: true,
+};
+
+function loadMapControlSettings(): MapControlSettings {
+  try {
+    const raw = localStorage.getItem(MAP_CONTROL_SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_MAP_CONTROL_SETTINGS };
+    const parsed = JSON.parse(raw) as Partial<MapControlSettings>;
+    const visibleTimeRanges = Array.isArray(parsed.visibleTimeRanges)
+      ? parsed.visibleTimeRanges.filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range as TimeRange))
+      : DEFAULT_MAP_CONTROL_SETTINGS.visibleTimeRanges;
+    return {
+      visibleTimeRanges: visibleTimeRanges.length > 0 ? visibleTimeRanges : DEFAULT_MAP_CONTROL_SETTINGS.visibleTimeRanges,
+      showLayerCount: parsed.showLayerCount !== false,
+      showLayerActions: parsed.showLayerActions !== false,
+    };
+  } catch {
+    return { ...DEFAULT_MAP_CONTROL_SETTINGS };
+  }
+}
+
+function saveMapControlSettings(settings: MapControlSettings): void {
+  try {
+    localStorage.setItem(MAP_CONTROL_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // localStorage can be unavailable in restricted browser contexts.
+  }
+}
+
 const AIRPORT_MARKER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 19h18v2H3z"/><path d="M6 17V9l6-4 6 4v8h-3v-4h-6v4z"/><rect x="10" y="10" width="4" height="3" rx="0.6"/></svg>';
 const AIRCRAFT_MARKER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M2 12.2 3.2 10.8l7.6.4 5.2-6.2c.5-.6 1.4-.7 2-.2.5.4.7 1 .5 1.6l-2.1 5 4.4.2 1.4-1.5 1 .8-1 1.5 1 1.5-1 .8-1.4-1.5-4.4.2 2.1 5c.2.6 0 1.3-.5 1.6-.6.4-1.5.3-2-.2l-5.2-6.2-7.6.4z"/></svg>';
 
@@ -328,28 +369,34 @@ export class MapComponent {
 
   private createTimeSlider(): HTMLElement {
     const slider = document.createElement('div');
-    slider.className = 'time-slider';
+    slider.className = 'time-slider map-time-slider';
     slider.id = 'timeSlider';
-
-    const ranges: { value: TimeRange; label: string }[] = [
-      { value: '1h', label: '1H' },
-      { value: '6h', label: '6H' },
-      { value: '24h', label: '24H' },
-      { value: '48h', label: '48H' },
-      { value: '7d', label: '7D' },
-      { value: 'all', label: 'ALL' },
-    ];
+    const settings = loadMapControlSettings();
+    const labels: Record<TimeRange, string> = {
+      '1h': '1H',
+      '6h': '6H',
+      '24h': '24H',
+      '48h': '48H',
+      '7d': '7D',
+      all: 'ALL',
+    };
     slider.innerHTML = `
-      <span class="time-slider-label">TIME RANGE</span>
-      <div class="time-slider-buttons">
-        ${ranges
-        .map(
-          (r) =>
-            `<button class="time-btn ${this.state.timeRange === r.value ? 'active' : ''}" data-range="${r.value}">${r.label}</button>`
-        )
+      <div class="time-slider-row">
+        <span class="time-slider-label">TIME RANGE</span>
+        <div class="time-slider-buttons">
+          ${TIME_RANGE_OPTIONS
+        .map((range) => `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${labels[range]}</button>`)
         .join('')}
+        </div>
+        <button class="time-settings-btn" type="button" aria-label="Map control settings" title="Map control settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 0 1-2.83 2.83l-.04-.04a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 0 1-4 0v-.07A1.7 1.7 0 0 0 8.97 19.4a1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 0 1 0-4h.07A1.7 1.7 0 0 0 4.6 8.97a1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 8.97 4.6 1.7 1.7 0 0 0 10 3.07V3a2 2 0 0 1 4 0v.07A1.7 1.7 0 0 0 15.03 4.6a1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.93 10H21a2 2 0 0 1 0 4h-.07A1.7 1.7 0 0 0 19.4 15Z"/>
+          </svg>
+        </button>
       </div>
     `;
+    this.createMapControlSettingsPanel(slider, settings);
 
     slider.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -360,17 +407,120 @@ export class MapComponent {
         target.classList.add('active');
       }
     });
+    this.applyMapControlSettings(slider, settings);
 
     return slider;
   }
 
   private updateTimeSliderButtons(): void {
-    const slider = this.container.querySelector('#timeSlider');
+    const slider = this.container.querySelector<HTMLElement>('#timeSlider');
     if (!slider) return;
     slider.querySelectorAll('.time-btn').forEach((btn) => {
       const range = (btn as HTMLElement).dataset.range as TimeRange | undefined;
       btn.classList.toggle('active', range === this.state.timeRange);
     });
+    this.applyMapControlSettings(slider);
+  }
+
+  private createMapControlSettingsPanel(slider: HTMLElement, initialSettings: MapControlSettings): void {
+    const settingsBtn = slider.querySelector<HTMLButtonElement>('.time-settings-btn');
+    if (!settingsBtn) return;
+    const panel = document.createElement('div');
+    panel.className = 'map-control-settings-panel';
+    panel.hidden = true;
+    panel.innerHTML = `
+      <div class="mcs-header">
+        <span>Map controls</span>
+        <button class="mcs-close" type="button" aria-label="Close map control settings">×</button>
+      </div>
+      <div class="mcs-section">
+        <div class="mcs-section-title">Lookback display</div>
+        <div class="mcs-check-grid">
+          ${TIME_RANGE_OPTIONS.map(range => `
+            <label class="mcs-check">
+              <input type="checkbox" data-time-range-setting="${range}">
+              <span>${range === 'all' ? 'ALL' : range.toUpperCase()}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+      <div class="mcs-section">
+        <div class="mcs-section-title">Layers</div>
+        <label class="mcs-check mcs-check-wide">
+          <input type="checkbox" data-layer-setting="showLayerCount">
+          <span>Show active layer status</span>
+        </label>
+        <label class="mcs-check mcs-check-wide">
+          <input type="checkbox" data-layer-setting="showLayerActions">
+          <span>Show layer guide button</span>
+        </label>
+      </div>
+      <button class="mcs-reset" type="button">Reset controls</button>
+    `;
+    slider.appendChild(panel);
+
+    const syncPanel = (settings: MapControlSettings) => {
+      panel.querySelectorAll<HTMLInputElement>('[data-time-range-setting]').forEach(input => {
+        const range = input.dataset.timeRangeSetting as TimeRange;
+        input.checked = settings.visibleTimeRanges.includes(range);
+      });
+      panel.querySelector<HTMLInputElement>('[data-layer-setting="showLayerCount"]')!.checked = settings.showLayerCount;
+      panel.querySelector<HTMLInputElement>('[data-layer-setting="showLayerActions"]')!.checked = settings.showLayerActions;
+    };
+    syncPanel(initialSettings);
+
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      settingsBtn.classList.toggle('active', !panel.hidden);
+    });
+    panel.querySelector<HTMLButtonElement>('.mcs-close')?.addEventListener('click', () => {
+      panel.hidden = true;
+      settingsBtn.classList.remove('active');
+    });
+    panel.querySelector<HTMLButtonElement>('.mcs-reset')?.addEventListener('click', () => {
+      const settings = { ...DEFAULT_MAP_CONTROL_SETTINGS, visibleTimeRanges: [...DEFAULT_MAP_CONTROL_SETTINGS.visibleTimeRanges] };
+      saveMapControlSettings(settings);
+      syncPanel(settings);
+      this.applyMapControlSettings(slider, settings);
+    });
+    panel.addEventListener('change', (e) => {
+      const input = e.target as HTMLInputElement;
+      if (!(input instanceof HTMLInputElement)) return;
+      const settings = loadMapControlSettings();
+      if (input.dataset.timeRangeSetting) {
+        const visibleTimeRanges = Array.from(panel.querySelectorAll<HTMLInputElement>('[data-time-range-setting]:checked'))
+          .map(el => el.dataset.timeRangeSetting as TimeRange)
+          .filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range));
+        if (visibleTimeRanges.length === 0) {
+          input.checked = true;
+          return;
+        }
+        settings.visibleTimeRanges = visibleTimeRanges;
+        saveMapControlSettings(settings);
+        if (!visibleTimeRanges.includes(this.state.timeRange)) this.setTimeRange(visibleTimeRanges[0]!);
+        this.applyMapControlSettings(slider, settings);
+        return;
+      }
+
+      const layerSetting = input.dataset.layerSetting as keyof Pick<MapControlSettings, 'showLayerCount' | 'showLayerActions'> | undefined;
+      if (!layerSetting) return;
+      settings[layerSetting] = input.checked;
+      saveMapControlSettings(settings);
+      this.applyMapControlSettings(slider, settings);
+    });
+  }
+
+  private applyMapControlSettings(slider = this.container.querySelector<HTMLElement>('#timeSlider'), settings = loadMapControlSettings()): void {
+    if (slider) {
+      const visibleTimeRanges = new Set(settings.visibleTimeRanges);
+      slider.querySelectorAll<HTMLElement>('.time-btn[data-range]').forEach(btn => {
+        const range = btn.dataset.range as TimeRange | undefined;
+        btn.hidden = !!range && !visibleTimeRanges.has(range) && range !== this.state.timeRange;
+      });
+    }
+    this.container.classList.toggle('map-hide-layer-count', !settings.showLayerCount);
+    this.container.classList.toggle('map-hide-layer-actions', !settings.showLayerActions);
   }
 
   public setTimeRange(range: TimeRange): void {
