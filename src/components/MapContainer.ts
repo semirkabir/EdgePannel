@@ -6,6 +6,7 @@
 import { isMobileDevice } from '@/utils';
 import { MapComponent } from './Map';
 import { DeckGLMap, type DeckMapView, type CountryClickPayload } from './DeckGLMap';
+import type { TimeRange } from '@/utils/time-range';
 import type {
   MapLayers,
   Hotspot,
@@ -41,7 +42,7 @@ import type { GpsJamHex } from '@/services/gps-interference';
 import type { IranEvent } from '@/services/conflict';
 import type { MarketplaceRuntimeLayer } from '@/types/marketplace';
 
-export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
+export type { TimeRange };
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 
 export interface MapContainerState {

@@ -1,16 +1,7 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import { getAgentAlertDrafts, setAgentAlertDrafts, type AgentAlertDraft } from '@/services/agent-gateway';
-
-interface AlertRule {
-  id: string;
-  name: string;
-  keywords: string[];
-  severity: 'all' | 'high' | 'critical';
-  region: 'global' | 'mena' | 'europe' | 'asia' | 'americas' | 'africa';
-  notifications: boolean;
-  active: boolean;
-}
+import { loadAlertRules, normalizeAlertRule, saveAlertRules, type AlertRule } from '@/services/alert-rules';
 
 export class AlertRulesPanel extends Panel {
   private rules: AlertRule[] = [];
@@ -19,7 +10,6 @@ export class AlertRulesPanel extends Panel {
     this.loadDrafts();
     this.renderPanel();
   };
-  private static readonly STORAGE_KEY = 'wm-alert-rules';
 
   constructor() {
     super({ id: 'alert-rules', title: '🔔 Alert Rules Engine' });
@@ -70,27 +60,36 @@ export class AlertRulesPanel extends Panel {
   }
 
   private loadRules() {
-    try {
-      const saved = localStorage.getItem(AlertRulesPanel.STORAGE_KEY);
-      if (saved) {
-        this.rules = JSON.parse(saved);
-      } else {
-        // Default sample rules
-        this.rules = [
-          { id: '1', name: 'Critical Oil Infrastructure', keywords: ['oil', 'refinery', 'pipeline', 'attack', 'strike'], severity: 'high', region: 'mena', notifications: true, active: true },
-          { id: '2', name: 'Taiwan Strait Tensions', keywords: ['taiwan strait', 'pla', 'military', 'incursion'], severity: 'all', region: 'asia', notifications: true, active: true },
-        ];
-        this.saveRules();
-      }
-    } catch {
-      this.rules = [];
+    this.rules = loadAlertRules();
+    if (this.rules.length === 0) {
+      this.rules = [
+        normalizeAlertRule({
+          id: '1',
+          name: 'Critical Oil Infrastructure',
+          keywords: ['oil', 'refinery', 'pipeline', 'attack', 'strike'],
+          severity: 'high',
+          region: 'mena',
+          signalTypes: ['news', 'infrastructure'],
+          threshold: 65,
+          evidenceRequirement: 'corroborated',
+        }),
+        normalizeAlertRule({
+          id: '2',
+          name: 'Taiwan Strait Tensions',
+          keywords: ['taiwan strait', 'pla', 'military', 'incursion'],
+          severity: 'all',
+          region: 'asia',
+          signalTypes: ['news', 'military'],
+          threshold: 60,
+          evidenceRequirement: 'any',
+        }),
+      ];
+      this.saveRules();
     }
   }
 
   private saveRules() {
-    try {
-      localStorage.setItem(AlertRulesPanel.STORAGE_KEY, JSON.stringify(this.rules));
-    } catch { /* ignore */ }
+    try { saveAlertRules(this.rules); } catch { /* ignore */ }
   }
 
   private loadDrafts() {
@@ -98,15 +97,17 @@ export class AlertRulesPanel extends Panel {
   }
 
   private addRule() {
-    this.rules.push({
+    this.rules.push(normalizeAlertRule({
       id: Date.now().toString(),
       name: 'New Custom Rule',
       keywords: ['enter keywords'],
       severity: 'high',
       region: 'global',
       notifications: true,
-      active: true
-    });
+      signalTypes: ['news'],
+      threshold: 60,
+      evidenceRequirement: 'any',
+    }));
     this.saveRules();
     this.renderPanel();
   }
@@ -115,6 +116,7 @@ export class AlertRulesPanel extends Panel {
     const rule = this.rules.find(r => r.id === id);
     if (rule) {
       rule.active = !rule.active;
+      rule.updatedAt = Date.now();
       this.saveRules();
       this.renderPanel();
     }
@@ -129,15 +131,20 @@ export class AlertRulesPanel extends Panel {
   private approveDraft(id: string) {
     const draft = this.drafts.find(d => d.id === id);
     if (!draft) return;
-    this.rules.push({
+    this.rules.push(normalizeAlertRule({
       id: Date.now().toString(),
       name: draft.name,
       keywords: draft.keywords,
       severity: draft.severity,
       region: draft.region,
       notifications: draft.notifications,
-      active: true,
-    });
+      entities: draft.entities,
+      signalTypes: draft.signalTypes,
+      threshold: draft.threshold,
+      cooldownMinutes: draft.cooldownMinutes,
+      channels: draft.channels,
+      evidenceRequirement: draft.evidenceRequirement,
+    }));
     this.saveRules();
     this.drafts = this.drafts.filter(d => d.id !== id);
     setAgentAlertDrafts(this.drafts);
@@ -185,6 +192,12 @@ export class AlertRulesPanel extends Panel {
                 <div class="rule-tags">${draft.keywords.map(k => `<span class="rule-tag">${escapeHtml(k)}</span>`).join('')}</div>
               </div>
               <div class="rule-detail-row">
+                <span class="rule-label">Evidence:</span>
+                <span class="rule-value">${escapeHtml(draft.evidenceRequirement || 'any')}</span>
+                <span class="rule-label" style="margin-left:12px;">Signals:</span>
+                <span class="rule-value">${escapeHtml((draft.signalTypes || ['news']).join(', '))}</span>
+              </div>
+              <div class="rule-detail-row">
                 <span class="rule-label">Severity:</span>
                 <span class="rule-value severity-${draft.severity}">${escapeHtml(draft.severity.toUpperCase())}</span>
                 <span class="rule-label" style="margin-left:12px;">Region:</span>
@@ -225,11 +238,19 @@ export class AlertRulesPanel extends Panel {
                   </div>
                 </div>
                 <div class="rule-detail-row">
+                  <span class="rule-label">Signals:</span>
+                  <span class="rule-value">${escapeHtml(rule.signalTypes.join(', '))}</span>
+                  <span class="rule-label" style="margin-left:12px;">Evidence:</span>
+                  <span class="rule-value">${escapeHtml(rule.evidenceRequirement)}</span>
+                </div>
+                <div class="rule-detail-row">
                   <span class="rule-label">Severity:</span>
                   <span class="rule-value severity-${rule.severity}">${escapeHtml(rule.severity.toUpperCase())}</span>
                   
                   <span class="rule-label" style="margin-left:12px;">Region:</span>
                   <span class="rule-value">${escapeHtml(rule.region.toUpperCase())}</span>
+                  <span class="rule-label" style="margin-left:12px;">Score:</span>
+                  <span class="rule-value">${rule.threshold}</span>
                 </div>
               </div>
             </div>

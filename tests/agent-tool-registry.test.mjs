@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import test from 'node:test';
 import {
   buildAlertDraft,
+  executeWorldMonitorTool,
   getScopedWorldMonitorTools,
   toMcpTool,
   toOpenAiTool,
@@ -41,10 +42,35 @@ test('create_alert_draft produces pending inactive drafts only', () => {
     keywords: 'oil, pipeline, strait',
     severity: 'critical',
     region: 'mena',
+    entities: 'Hormuz, Ras Tanura',
+    signalTypes: 'news,infrastructure',
+    threshold: 90,
+    evidenceRequirement: 'corroborated',
   });
   assert.equal(draft.pending, true);
   assert.equal(draft.active, false);
   assert.deepEqual(draft.keywords, ['oil', 'pipeline', 'strait']);
   assert.equal(draft.severity, 'critical');
   assert.equal(draft.region, 'mena');
+  assert.deepEqual(draft.entities, ['Hormuz', 'Ras Tanura']);
+  assert.deepEqual(draft.signalTypes, ['news', 'infrastructure']);
+  assert.equal(draft.threshold, 90);
+  assert.equal(draft.evidenceRequirement, 'corroborated');
+});
+
+test('agent registry exposes analyst workbench read tools', () => {
+  const tools = getScopedWorldMonitorTools(['news', 'intelligence', 'alerts', 'markets']);
+  assert.ok(tools.some(tool => tool.name === 'search_news'));
+  assert.ok(tools.some(tool => tool.name === 'list_map_layers'));
+  assert.ok(tools.some(tool => tool.name === 'export_brief'));
+  assert.ok(tools.some(tool => tool.name === 'list_alerts'));
+  assert.ok(tools.some(tool => tool.name === 'get_portfolio_summary'));
+});
+
+test('portfolio agent tools expose browser-local storage contract', async () => {
+  const result = await executeWorldMonitorTool('get_portfolio_summary', { portfolio_id: 'default' }, {});
+  assert.equal(result.storage, 'browser-local');
+  assert.equal(result.availableInFrontend, true);
+  assert.equal(result.portfolioId, 'default');
+  assert.ok(result.suggestedFrontendApis.includes('buildPortfolioSummary'));
 });

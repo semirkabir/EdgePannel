@@ -6830,6 +6830,51 @@ body.playback-mode #shellGuidanceStrip {
   flex-shrink: 0;
 }
 
+.map-time-slider .mcs-custom-lookback {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--ctrl-bg);
+}
+
+.map-time-slider .mcs-custom-label,
+.map-time-slider .mcs-custom-summary {
+  display: block;
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.map-time-slider .mcs-custom-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(76px, auto);
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.map-time-slider .mcs-custom-row input,
+.map-time-slider .mcs-custom-row select {
+  min-width: 0;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  padding: 0 7px;
+}
+
+.map-time-slider .mcs-custom-summary {
+  margin-top: 6px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
 .map-time-slider .mcs-reset {
   width: 100%;
   margin-top: 10px;
@@ -11601,7 +11646,7 @@ body.urgency-mode #header {
 .indicator-id {
   font-size: 9px;
   color: var(--text-dim);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .indicator-value {
@@ -12861,14 +12906,14 @@ body.urgency-mode #header {
   white-space: nowrap;
   text-shadow: 0 0 3px var(--shadow-color), 0 0 6px var(--shadow-color);
   font-weight: bold;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   opacity: 0.8;
 }
 
 .military-flight-altitude {
   font-size: 6px;
   color: var(--text-dim);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   opacity: 0.6;
   text-shadow: 0 0 2px var(--shadow-color);
 }
@@ -13131,7 +13176,7 @@ body.urgency-mode #header {
   font-size: 12px;
   font-weight: bold;
   color: var(--cluster-color);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   text-shadow: 0 0 4px var(--shadow-color);
   position: relative;
   padding: 4px 8px;
@@ -13168,7 +13213,7 @@ body.urgency-mode #header {
   margin-top: 3px;
   white-space: nowrap;
   font-weight: bold;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   text-shadow: 0 0 3px var(--shadow-color);
   opacity: 0.85;
   position: relative;
@@ -18698,6 +18743,51 @@ button.cluster-flight-item:focus-visible {
   flex-shrink: 0;
 }
 
+.deckgl-time-slider .mcs-custom-lookback {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--ctrl-bg);
+}
+
+.deckgl-time-slider .mcs-custom-label,
+.deckgl-time-slider .mcs-custom-summary {
+  display: block;
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.deckgl-time-slider .mcs-custom-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(76px, auto);
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.deckgl-time-slider .mcs-custom-row input,
+.deckgl-time-slider .mcs-custom-row select {
+  min-width: 0;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  padding: 0 7px;
+}
+
+.deckgl-time-slider .mcs-custom-summary {
+  margin-top: 6px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
 .deckgl-time-slider .mcs-reset {
   width: 100%;
   margin-top: 10px;
@@ -18840,7 +18930,7 @@ button.cluster-flight-item:focus-visible {
 
 .deckgl-time-slider .layers-row .layers-row-btn-label {
   font-size: 8px;
-  font-family: "SF Mono", Monaco, "Cascadia Code", "Fira Code", "DejaVu Sans Mono", "Liberation Mono", monospace;
+  font-family: var(--font-body);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -21237,7 +21327,7 @@ button.cluster-flight-item:focus-visible {
 
 .profile-info-value {
   color: var(--text);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 /* Tier badge */
@@ -23325,7 +23415,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
 .stable-price {
   font-size: 12px;
   color: var(--accent);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .stable-peg {

@@ -1530,7 +1530,7 @@ export class EventHandlerManager implements AppModule {
     const box = document.createElement('div');
     Object.assign(box.style, {
       background: '#0a0c10', border: '1px solid #ffaa00', borderRadius: '4px',
-      padding: '28px 36px', minWidth: '460px', maxWidth: '90vw', fontFamily: 'monospace',
+      padding: '28px 36px', minWidth: '460px', maxWidth: '90vw', fontFamily: 'var(--font-body)',
       boxShadow: '0 0 40px rgba(255,170,0,0.2)',
     });
 

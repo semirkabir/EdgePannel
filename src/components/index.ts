@@ -52,6 +52,7 @@ export { AviationCommandBar } from './AviationCommandBar';
 export * from './EconomicCalendarPanel';
 export * from './SanctionsTrackerPanel';
 export * from './AlertRulesPanel';
+export * from './AnalystWorkbenchPanel';
 export * from './GeopoliticalRiskPanel';
 export * from './CorrelationMatrixPanel';
 export * from './TradeFlowPanel';

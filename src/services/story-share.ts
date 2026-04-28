@@ -1,5 +1,14 @@
 import type { StoryData } from './story-data';
 
+function resolveInterfaceCanvasFont(sizePx: number): string {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return `${sizePx}px system-ui, sans-serif`;
+  }
+  const target = document.body || document.documentElement;
+  const family = window.getComputedStyle(target).fontFamily || 'system-ui, sans-serif';
+  return `${sizePx}px ${family}`;
+}
+
 // Deep link generator for story sharing
 export function generateStoryDeepLink(
   countryCode: string,
@@ -40,7 +49,7 @@ export function generateQRCode(data: string, size: number = 200): string {
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, size, size);
   ctx.fillStyle = '#000000';
-  ctx.font = '14px monospace';
+  ctx.font = resolveInterfaceCanvasFont(14);
   ctx.textAlign = 'center';
   ctx.fillText('Scan to view', size/2, size/2 - 10);
   ctx.fillText(data.substring(0, 20) + '...', size/2, size/2 + 10);

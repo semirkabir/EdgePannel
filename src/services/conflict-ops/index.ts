@@ -13,6 +13,7 @@ import { getNearbyInfrastructure } from '@/services/related-assets';
 import { fetchOilAnalytics, formatOilValue, formatChange } from '@/services/economic';
 import { fetchAisSignals, getAisStatus } from '@/services/maritime';
 import { haversineKm } from '@/utils/geo';
+import { getTimeRangeWindowMs } from '@/utils/time-range';
 
 const RANGE_MS = {
   '1h': 1 * 60 * 60 * 1000,
@@ -42,7 +43,7 @@ function keywordHit(item: NewsItem, keywords: string[]): boolean {
 }
 
 function filterConflictNews(ctx: AppContext, conflict: ConflictZone): NewsItem[] {
-  const rangeMs = RANGE_MS[ctx.currentTimeRange];
+  const rangeMs = ctx.currentTimeRange === 'all' ? RANGE_MS.all : getTimeRangeWindowMs(ctx.currentTimeRange);
   const cutoff = Date.now() - rangeMs;
   const keywords = conflict.keywords ?? [];
   return ctx.allNews.filter((item) => item.pubDate.getTime() >= cutoff && keywordHit(item, keywords));

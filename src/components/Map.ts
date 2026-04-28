@@ -67,10 +67,19 @@ import { t } from '@/services/i18n';
 import { LAYER_REGISTRY, resolveLayerAccentColor, resolveLayerIcon, resolveLayerLabel, type MapVariant } from '@/config/map-layer-definitions';
 import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferences';
 
-export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
+import {
+  TIME_RANGE_OPTIONS,
+  formatCustomLookbackLabel,
+  getCustomLookbackConfig,
+  getTimeRangeShortLabel,
+  getTimeRangeWindowMs,
+  setCustomLookbackConfig,
+  type CustomLookbackUnit,
+  type TimeRange,
+} from '@/utils/time-range';
+export type { TimeRange };
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 
-const TIME_RANGE_OPTIONS: TimeRange[] = ['1h', '6h', '24h', '48h', '7d', 'all'];
 const MAP_CONTROL_SETTINGS_KEY = 'wm-deck-control-settings';
 
 interface MapControlSettings {
@@ -93,6 +102,13 @@ function loadMapControlSettings(): MapControlSettings {
     const visibleTimeRanges = Array.isArray(parsed.visibleTimeRanges)
       ? parsed.visibleTimeRanges.filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range as TimeRange))
       : DEFAULT_MAP_CONTROL_SETTINGS.visibleTimeRanges;
+    if (
+      Array.isArray(parsed.visibleTimeRanges) &&
+      !visibleTimeRanges.includes('custom') &&
+      TIME_RANGE_OPTIONS.filter((range) => range !== 'custom').every((range) => visibleTimeRanges.includes(range))
+    ) {
+      visibleTimeRanges.push('custom');
+    }
     return {
       visibleTimeRanges: visibleTimeRanges.length > 0 ? visibleTimeRanges : DEFAULT_MAP_CONTROL_SETTINGS.visibleTimeRanges,
       showLayerCount: parsed.showLayerCount !== false,
@@ -372,20 +388,12 @@ export class MapComponent {
     slider.className = 'time-slider map-time-slider';
     slider.id = 'timeSlider';
     const settings = loadMapControlSettings();
-    const labels: Record<TimeRange, string> = {
-      '1h': '1H',
-      '6h': '6H',
-      '24h': '24H',
-      '48h': '48H',
-      '7d': '7D',
-      all: 'ALL',
-    };
     slider.innerHTML = `
       <div class="time-slider-row">
         <span class="time-slider-label">TIME RANGE</span>
         <div class="time-slider-buttons">
           ${TIME_RANGE_OPTIONS
-        .map((range) => `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${labels[range]}</button>`)
+        .map((range) => `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${getTimeRangeShortLabel(range).toUpperCase()}</button>`)
         .join('')}
         </div>
         <button class="time-settings-btn" type="button" aria-label="Map control settings" title="Map control settings">
@@ -428,6 +436,7 @@ export class MapComponent {
     const panel = document.createElement('div');
     panel.className = 'map-control-settings-panel';
     panel.hidden = true;
+    const customLookback = getCustomLookbackConfig();
     panel.innerHTML = `
       <div class="mcs-header">
         <span>Map controls</span>
@@ -439,9 +448,20 @@ export class MapComponent {
           ${TIME_RANGE_OPTIONS.map(range => `
             <label class="mcs-check">
               <input type="checkbox" data-time-range-setting="${range}">
-              <span>${range === 'all' ? 'ALL' : range.toUpperCase()}</span>
+              <span>${getTimeRangeShortLabel(range).toUpperCase()}</span>
             </label>
           `).join('')}
+        </div>
+        <div class="mcs-custom-lookback">
+          <label class="mcs-custom-label" for="svgCustomLookbackValue">Custom period</label>
+          <div class="mcs-custom-row">
+            <input id="svgCustomLookbackValue" type="number" min="1" max="8760" step="1" value="${customLookback.value}" data-custom-lookback-value>
+            <select data-custom-lookback-unit aria-label="Custom lookback unit">
+              <option value="h"${customLookback.unit === 'h' ? ' selected' : ''}>Hours</option>
+              <option value="d"${customLookback.unit === 'd' ? ' selected' : ''}>Days</option>
+            </select>
+          </div>
+          <div class="mcs-custom-summary" data-custom-lookback-summary>Custom uses ${formatCustomLookbackLabel(customLookback)}</div>
         </div>
       </div>
       <div class="mcs-section">
@@ -467,7 +487,12 @@ export class MapComponent {
       panel.querySelector<HTMLInputElement>('[data-layer-setting="showLayerCount"]')!.checked = settings.showLayerCount;
       panel.querySelector<HTMLInputElement>('[data-layer-setting="showLayerActions"]')!.checked = settings.showLayerActions;
     };
+    const syncCustomSummary = () => {
+      const summary = panel.querySelector<HTMLElement>('[data-custom-lookback-summary]');
+      if (summary) summary.textContent = `Custom uses ${formatCustomLookbackLabel()}`;
+    };
     syncPanel(initialSettings);
+    syncCustomSummary();
 
     settingsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -480,15 +505,35 @@ export class MapComponent {
     });
     panel.querySelector<HTMLButtonElement>('.mcs-reset')?.addEventListener('click', () => {
       const settings = { ...DEFAULT_MAP_CONTROL_SETTINGS, visibleTimeRanges: [...DEFAULT_MAP_CONTROL_SETTINGS.visibleTimeRanges] };
+      const custom = setCustomLookbackConfig({ value: 12, unit: 'h' });
       saveMapControlSettings(settings);
       syncPanel(settings);
+      const valueInput = panel.querySelector<HTMLInputElement>('[data-custom-lookback-value]');
+      const unitSelect = panel.querySelector<HTMLSelectElement>('[data-custom-lookback-unit]');
+      if (valueInput) valueInput.value = String(custom.value);
+      if (unitSelect) unitSelect.value = custom.unit;
+      syncCustomSummary();
       this.applyMapControlSettings(slider, settings);
     });
     panel.addEventListener('change', (e) => {
-      const input = e.target as HTMLInputElement;
-      if (!(input instanceof HTMLInputElement)) return;
+      const input = e.target as HTMLInputElement | HTMLSelectElement;
+      if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLSelectElement)) return;
       const settings = loadMapControlSettings();
-      if (input.dataset.timeRangeSetting) {
+      if (input.dataset.customLookbackValue !== undefined || input.dataset.customLookbackUnit !== undefined) {
+        const valueInput = panel.querySelector<HTMLInputElement>('[data-custom-lookback-value]');
+        const unitSelect = panel.querySelector<HTMLSelectElement>('[data-custom-lookback-unit]');
+        const unit = unitSelect?.value === 'd' ? 'd' : 'h';
+        const next = setCustomLookbackConfig({
+          value: Number(valueInput?.value),
+          unit: unit as CustomLookbackUnit,
+        });
+        if (valueInput) valueInput.value = String(next.value);
+        if (unitSelect) unitSelect.value = next.unit;
+        syncCustomSummary();
+        if (this.state.timeRange === 'custom') this.setTimeRange('custom');
+        return;
+      }
+      if (input instanceof HTMLInputElement && input.dataset.timeRangeSetting) {
         const visibleTimeRanges = Array.from(panel.querySelectorAll<HTMLInputElement>('[data-time-range-setting]:checked'))
           .map(el => el.dataset.timeRangeSetting as TimeRange)
           .filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range));
@@ -503,6 +548,7 @@ export class MapComponent {
         return;
       }
 
+      if (!(input instanceof HTMLInputElement)) return;
       const layerSetting = input.dataset.layerSetting as keyof Pick<MapControlSettings, 'showLayerCount' | 'showLayerActions'> | undefined;
       if (!layerSetting) return;
       settings[layerSetting] = input.checked;
@@ -532,15 +578,7 @@ export class MapComponent {
   }
 
   private getTimeRangeMs(): number {
-    const ranges: Record<TimeRange, number> = {
-      '1h': 60 * 60 * 1000,
-      '6h': 6 * 60 * 60 * 1000,
-      '24h': 24 * 60 * 60 * 1000,
-      '48h': 48 * 60 * 60 * 1000,
-      '7d': 7 * 24 * 60 * 60 * 1000,
-      'all': Infinity,
-    };
-    return ranges[this.state.timeRange];
+    return getTimeRangeWindowMs(this.state.timeRange);
   }
 
   private getThemeMode(): 'light' | 'dark' {

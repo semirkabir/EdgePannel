@@ -20,7 +20,28 @@ const stringParam = (description, required = false) => ({ type: 'string', descri
 const numberParam = (description, required = false) => ({ type: 'number', description, required });
 const booleanParam = (description, required = false) => ({ type: 'boolean', description, required });
 
+const MAP_LAYER_CATALOG = [
+  'conflicts', 'bases', 'cables', 'pipelines', 'hotspots', 'ais', 'flights', 'military',
+  'natural', 'weather', 'outages', 'cyberThreats', 'datacenters', 'protests', 'fires',
+  'ciiChoropleth', 'sanctions', 'minerals', 'tradeRoutes', 'stockExchanges',
+];
+
 export const WORLD_MONITOR_TOOLS = [
+  {
+    name: 'search_news',
+    description: 'Search the live World Monitor news digest for a topic or entity.',
+    scopes: ['news'],
+    risk: 'read',
+    endpoint: '/api/news/v1/list-feed-digest',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: stringParam('Topic, entity, or region to search for.'),
+        variant: stringParam('Site variant: full, tech, finance, happy, commodity.'),
+      },
+      required: [],
+    },
+  },
   {
     name: 'list_feed_digest',
     description: 'Get curated live news digest across World Monitor categories.',
@@ -81,6 +102,39 @@ export const WORLD_MONITOR_TOOLS = [
       type: 'object',
       properties: {
         symbols: stringParam('Comma-separated crypto symbols, for example BTC,ETH,SOL.'),
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'list_portfolios',
+    description: 'List browser-local portfolio workbench records available to the Portfolio panel.',
+    scopes: ['markets'],
+    risk: 'read',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'get_portfolio_summary',
+    description: 'Describe how to retrieve a portfolio summary from the browser-local Portfolio panel ledger.',
+    scopes: ['markets'],
+    risk: 'read',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        portfolio_id: stringParam('Optional browser-local portfolio id.'),
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'list_portfolio_transactions',
+    description: 'Describe how to retrieve recent browser-local portfolio transactions.',
+    scopes: ['markets'],
+    risk: 'read',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        portfolio_id: stringParam('Optional browser-local portfolio id.'),
       },
       required: [],
     },
@@ -148,6 +202,43 @@ export const WORLD_MONITOR_TOOLS = [
     inputSchema: { type: 'object', properties: {}, required: [] },
   },
   {
+    name: 'list_alerts',
+    description: 'List alert workflow capabilities and sidecar-visible alert drafts.',
+    scopes: ['alerts'],
+    risk: 'read',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'list_map_layers',
+    description: 'List key World Monitor map layers that can be referenced in analysis.',
+    scopes: ['intelligence', 'tracking', 'infrastructure'],
+    risk: 'read',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'get_market_risk_signals',
+    description: 'Get market and risk signal summaries through the intelligence risk endpoint.',
+    scopes: ['markets', 'intelligence'],
+    risk: 'read',
+    endpoint: '/api/intelligence/v1/get-risk-scores',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'export_brief',
+    description: 'Create a portable Markdown investigation brief from supplied analyst context.',
+    scopes: ['intelligence'],
+    risk: 'read',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: stringParam('Brief title or investigation target.', true),
+        summary: stringParam('Short analytic summary.'),
+        evidence: stringParam('Newline-separated evidence or source URLs.'),
+      },
+      required: ['title'],
+    },
+  },
+  {
     name: 'create_alert_draft',
     description: 'Create a pending alert-rule draft. Drafts require user approval before becoming active.',
     scopes: ['alerts'],
@@ -160,6 +251,12 @@ export const WORLD_MONITOR_TOOLS = [
         severity: stringParam('all, high, or critical. Defaults to high.'),
         region: stringParam('global, mena, europe, asia, americas, or africa. Defaults to global.'),
         notifications: booleanParam('Whether notifications should be enabled after approval. Defaults to true.'),
+        entities: stringParam('Comma-separated entities the rule should monitor.'),
+        signalTypes: stringParam('Comma-separated signal types: news, market, military, cyber, infrastructure, supply_chain, weather.'),
+        threshold: numberParam('Trigger threshold from 1 to 100. Defaults by severity.'),
+        cooldownMinutes: numberParam('Cooldown between repeated alerts. Defaults to 30.'),
+        channels: stringParam('Comma-separated channels: banner, desktop, email, webhook, telegram.'),
+        evidenceRequirement: stringParam('any, corroborated, official, or analyst-reviewed. Defaults to any.'),
       },
       required: ['name', 'keywords'],
     },
@@ -241,6 +338,19 @@ export function buildAlertDraft(args, source = 'agent') {
     .slice(0, 20);
   const severity = ['all', 'high', 'critical'].includes(args.severity) ? args.severity : 'high';
   const region = ['global', 'mena', 'europe', 'asia', 'americas', 'africa'].includes(args.region) ? args.region : 'global';
+  const signalTypes = String(args.signalTypes || 'news')
+    .split(',')
+    .map(item => item.trim())
+    .filter(item => ['news', 'market', 'military', 'cyber', 'infrastructure', 'supply_chain', 'weather'].includes(item));
+  const channels = String(args.channels || (args.notifications === false ? 'banner' : 'banner,desktop'))
+    .split(',')
+    .map(item => item.trim())
+    .filter(item => ['banner', 'desktop', 'email', 'webhook', 'telegram'].includes(item));
+  const evidenceRequirement = ['any', 'corroborated', 'official', 'analyst-reviewed'].includes(args.evidenceRequirement)
+    ? args.evidenceRequirement
+    : 'any';
+  const threshold = Number.isFinite(args.threshold) ? Math.max(1, Math.min(100, Math.round(args.threshold))) : (severity === 'critical' ? 80 : 60);
+  const cooldownMinutes = Number.isFinite(args.cooldownMinutes) ? Math.max(1, Math.min(1440, Math.round(args.cooldownMinutes))) : 30;
   return {
     id: `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: String(args.name || 'Agent alert').trim().slice(0, 80),
@@ -248,6 +358,16 @@ export function buildAlertDraft(args, source = 'agent') {
     severity,
     region,
     notifications: args.notifications !== false,
+    entities: String(args.entities || '')
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean)
+      .slice(0, 20),
+    signalTypes: signalTypes.length > 0 ? signalTypes : ['news'],
+    threshold,
+    cooldownMinutes,
+    channels: channels.length > 0 ? channels : ['banner'],
+    evidenceRequirement,
     active: false,
     pending: true,
     source,
@@ -262,6 +382,57 @@ export async function executeWorldMonitorTool(toolName, args, context) {
 
   if (tool.name === 'create_alert_draft') {
     return { alertDraft: buildAlertDraft(validation.args, context?.source || 'agent') };
+  }
+
+  if (tool.name === 'list_alerts') {
+    return {
+      alerts: [],
+      draftsVisibleToFrontend: true,
+      workflow: 'Agents may create alert drafts only. Users approve drafts in the Alert Rules panel before activation.',
+    };
+  }
+
+  if (tool.name === 'list_map_layers') {
+    return {
+      layers: MAP_LAYER_CATALOG.map(name => ({ name, status: 'available' })),
+      note: 'Layer activation is controlled by the user interface and URL state.',
+    };
+  }
+
+  if (tool.name === 'list_portfolios' || tool.name === 'get_portfolio_summary' || tool.name === 'list_portfolio_transactions') {
+    return {
+      storage: 'browser-local',
+      availableInFrontend: true,
+      portfolioId: validation.args.portfolio_id || null,
+      message: 'Portfolio records, transaction ledgers, and snapshots are stored in the browser/PWA profile. Open the Portfolio panel for live values until sidecar portfolio persistence is added.',
+      suggestedFrontendApis: [
+        'getPortfolios',
+        'buildPortfolioSummary',
+        'getPortfolioTransactions',
+      ],
+    };
+  }
+
+  if (tool.name === 'export_brief') {
+    const evidence = String(validation.args.evidence || '')
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean)
+      .slice(0, 30);
+    return {
+      format: 'markdown',
+      markdown: [
+        `# ${validation.args.title}`,
+        '',
+        `Generated: ${new Date().toISOString()}`,
+        '',
+        '## Summary',
+        validation.args.summary || 'No summary supplied.',
+        '',
+        '## Evidence',
+        evidence.length ? evidence.map(item => `- ${item}`).join('\n') : 'No evidence supplied.',
+      ].join('\n'),
+    };
   }
 
   const baseUrl = context?.baseUrl || 'http://127.0.0.1:46123';

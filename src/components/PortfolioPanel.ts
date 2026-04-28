@@ -6,10 +6,15 @@ import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/s
 import {
   fetchCongressTrades,
   fetchInstitutionalHoldings,
+  buildPortfolioSummary,
+  createPortfolio,
+  getActivePortfolioId,
+  getPortfolios,
   getUserPositions,
   addUserPosition,
   editUserPosition,
   removeUserPosition,
+  setActivePortfolio,
   NOTABLE_INVESTORS,
   type CongressTrade,
   getTickerSector,
@@ -294,6 +299,8 @@ export class PortfolioPanel extends Panel {
   // ─── My Portfolio ────────────────────────────────────────────────────────
 
   private async renderPortfolioTab(contentEl: HTMLElement): Promise<void> {
+    const portfolios = getPortfolios();
+    const activePortfolioId = getActivePortfolioId();
     const positions = getUserPositions();
     const quotes = new Map<string, { price: number; change: number; sparkline: number[]; name: string }>();
     let lastUpdated = '';
@@ -308,8 +315,25 @@ export class PortfolioPanel extends Panel {
 
     this.startAutoRefresh();
 
+    const summary = buildPortfolioSummary(activePortfolioId, [...quotes.entries()].map(([symbol, quote]) => ({
+      symbol,
+      price: quote.price,
+      change: quote.change,
+      sparkline: quote.sparkline,
+      name: quote.name,
+    })));
+    const portfolioSelector = `
+      <div class="pf-portfolio-bar">
+        <select class="pf-input pf-portfolio-select" id="pf-portfolio-select" aria-label="Portfolio">
+          ${portfolios.map(portfolio => `<option value="${escapeHtml(portfolio.id)}" ${portfolio.id === activePortfolioId ? 'selected' : ''}>${escapeHtml(portfolio.name)} (${escapeHtml(portfolio.currency)})</option>`).join('')}
+        </select>
+        <button class="pf-add-btn pf-new-portfolio-btn" id="pf-new-portfolio-btn" type="button">New Portfolio</button>
+      </div>
+    `;
+
     if (positions.length === 0) {
       contentEl.innerHTML = `
+        ${portfolioSelector}
         <div class="pf-add-form">
           <input type="text" class="pf-input" id="pf-add-symbol" placeholder="Symbol (e.g. AAPL)" />
           <input type="number" class="pf-input pf-input-sm" id="pf-add-shares" placeholder="Shares" min="0" step="1" />
@@ -318,28 +342,22 @@ export class PortfolioPanel extends Panel {
         </div>
         <div class="pf-empty">No positions yet. Add a stock above to start tracking your portfolio.</div>
       `;
+      this.bindPortfolioControls(contentEl);
       this.bindAddForm(contentEl);
       return;
     }
 
-    let totalValue = 0;
-    let totalCost = 0;
-    const sectorMap = new Map<string, number>();
-
     const rows = positions.map(pos => {
       const quote = quotes.get(pos.symbol);
-      const currentPrice = quote?.price ?? 0;
+      const currentPrice = quote?.price ?? pos.avgCost;
       const dayChange = quote?.change ?? 0;
       const sparkData = quote?.sparkline ?? [];
       const marketValue = currentPrice * pos.shares;
       const costBasis = pos.avgCost * pos.shares;
       const pnl = marketValue - costBasis;
       const pnlPct = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
-      totalValue += marketValue;
-      totalCost += costBasis;
 
       const sector = getTickerSector(pos.symbol);
-      sectorMap.set(sector, (sectorMap.get(sector) || 0) + marketValue);
 
       const pnlClass = pnl >= 0 ? 'pf-positive' : 'pf-negative';
       const pnlSign = pnl >= 0 ? '+' : '';
@@ -403,20 +421,34 @@ export class PortfolioPanel extends Panel {
         </div>`;
     }).join('');
 
-    const totalPnl = totalValue - totalCost;
-    const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-    const totalPnlClass = totalPnl >= 0 ? 'pf-positive' : 'pf-negative';
-    const totalPnlSign = totalPnl >= 0 ? '+' : '';
+    const totalPnlClass = summary.totalPnl >= 0 ? 'pf-positive' : 'pf-negative';
+    const totalPnlSign = summary.totalPnl >= 0 ? '+' : '';
+    const dayClass = summary.totalDayChange >= 0 ? 'pf-positive' : 'pf-negative';
+    const daySign = summary.totalDayChange >= 0 ? '+' : '';
+    const riskClass = summary.metrics.riskScore >= 70 ? 'pf-negative' : summary.metrics.riskScore >= 40 ? 'pf-warning' : 'pf-positive';
 
-    const donutSegments = Array.from(sectorMap.entries())
-      .map(([label, value]) => ({ label, value, color: (SECTOR_COLORS as Record<string, string>)[label] ?? SECTOR_COLORS.Other! }))
+    const donutSegments = summary.sectorAllocation
+      .map(({ sector: label, value }) => ({ label, value, color: (SECTOR_COLORS as Record<string, string>)[label] ?? SECTOR_COLORS.Other! }))
       .sort((a, b) => b.value - a.value);
 
     const donutHtml = donutSegments.length > 1
       ? `<div class="pf-donut-wrap">${donutSvg(donutSegments, 120, 14)}<div class="pf-donut-legend">${donutSegments.map(s => `<span class="pf-donut-legend-item"><span class="pf-donut-dot" style="background:${s.color}"></span>${escapeHtml(s.label)}</span>`).join('')}</div></div>`
       : '';
+    const txnRows = summary.transactions.slice(0, 6).map(txn => {
+      const typeClass = `pf-txn-${txn.type.toLowerCase()}`;
+      return `
+        <div class="pf-txn-row">
+          <span class="pf-txn-type ${typeClass}">${escapeHtml(txn.type)}</span>
+          <span class="pf-txn-symbol">${escapeHtml(txn.symbol)}</span>
+          <span class="pf-txn-detail">${txn.quantity.toLocaleString()} @ $${txn.price.toFixed(2)}</span>
+          <span class="pf-txn-value">$${txn.totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+          <span class="pf-txn-date">${escapeHtml(txn.date)}</span>
+        </div>
+      `;
+    }).join('');
 
     contentEl.innerHTML = `
+      ${portfolioSelector}
       <div class="pf-add-form">
         <input type="text" class="pf-input" id="pf-add-symbol" placeholder="Symbol (e.g. AAPL)" />
         <input type="number" class="pf-input pf-input-sm" id="pf-add-shares" placeholder="Shares" min="0" step="1" />
@@ -426,20 +458,59 @@ export class PortfolioPanel extends Panel {
       <div class="pf-summary">
         <div class="pf-summary-item">
           <span class="pf-summary-label">Portfolio Value</span>
-          <span class="pf-summary-val">$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span class="pf-summary-val">$${summary.totalMarketValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
         <div class="pf-summary-item">
           <span class="pf-summary-label">Total P&amp;L</span>
-          <span class="pf-summary-val ${totalPnlClass}">${totalPnlSign}$${Math.abs(totalPnl).toFixed(2)} (${totalPnlSign}${totalPnlPct.toFixed(1)}%)</span>
+          <span class="pf-summary-val ${totalPnlClass}">${totalPnlSign}$${Math.abs(summary.totalPnl).toFixed(2)} (${totalPnlSign}${summary.totalPnlPct.toFixed(1)}%)</span>
+        </div>
+        <div class="pf-summary-item">
+          <span class="pf-summary-label">Day Move</span>
+          <span class="pf-summary-val ${dayClass}">${daySign}$${Math.abs(summary.totalDayChange).toFixed(2)} (${daySign}${summary.totalDayChangePct.toFixed(1)}%)</span>
         </div>
         ${lastUpdated ? `<div class="pf-summary-item"><span class="pf-summary-label">Updated</span><span class="pf-summary-val pf-updated">${escapeHtml(lastUpdated)}</span></div>` : ''}
       </div>
+      <div class="pf-risk-ribbon">
+        <div class="pf-risk-chip"><span>Top 3 Conc.</span><strong>${summary.metrics.concentrationTop3.toFixed(0)}%</strong></div>
+        <div class="pf-risk-chip"><span>Vol 30D</span><strong>${summary.metrics.volatility30d.toFixed(1)}%</strong></div>
+        <div class="pf-risk-chip"><span>VaR 95%</span><strong>$${summary.metrics.var95.toLocaleString('en-US', { maximumFractionDigits: 0 })}</strong></div>
+        <div class="pf-risk-chip"><span>Max DD</span><strong>${summary.metrics.maxDrawdown.toFixed(1)}%</strong></div>
+        <div class="pf-risk-chip"><span>Sharpe</span><strong>${summary.metrics.sharpe.toFixed(2)}</strong></div>
+        <div class="pf-risk-chip"><span>Risk</span><strong class="${riskClass}">${summary.metrics.riskScore.toFixed(0)}</strong></div>
+      </div>
       ${donutHtml}
       <div class="pf-positions">${rows}</div>
+      <div class="pf-transaction-section">
+        <div class="pf-section-head">
+          <div>
+            <div class="pf-section-title">Transaction Trail</div>
+            <div class="pf-section-subtitle">${summary.transactions.length} ledger ${summary.transactions.length === 1 ? 'entry' : 'entries'} in ${escapeHtml(summary.portfolio.name)}</div>
+          </div>
+        </div>
+        <div class="pf-txn-list">${txnRows || '<div class="pf-empty">No transactions yet.</div>'}</div>
+      </div>
     `;
 
+    this.bindPortfolioControls(contentEl);
     this.bindAddForm(contentEl);
     this.bindPositionActions(contentEl);
+  }
+
+  private bindPortfolioControls(contentEl: HTMLElement): void {
+    const selector = contentEl.querySelector<HTMLSelectElement>('#pf-portfolio-select');
+    selector?.addEventListener('change', () => {
+      setActivePortfolio(selector.value);
+      this.editingSymbol = null;
+      void this.renderTabContent();
+    });
+
+    contentEl.querySelector<HTMLButtonElement>('#pf-new-portfolio-btn')?.addEventListener('click', () => {
+      const name = window.prompt('Portfolio name');
+      if (!name?.trim()) return;
+      createPortfolio(name.trim());
+      this.editingSymbol = null;
+      void this.renderTabContent();
+    });
   }
 
   private bindAddForm(contentEl: HTMLElement): void {

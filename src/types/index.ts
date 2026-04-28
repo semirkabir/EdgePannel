@@ -39,6 +39,32 @@ export interface NewsItem {
   imageUrl?: string;
 }
 
+export type EvidenceVerificationState =
+  | 'unverified'
+  | 'corroborated'
+  | 'official'
+  | 'analyst-reviewed'
+  | 'conflicting';
+
+export interface SignalEvidenceSource {
+  title: string;
+  url?: string;
+  source: string;
+  tier: number;
+  publishedAt?: Date;
+}
+
+export interface SignalEvidence {
+  sourceUrls: string[];
+  sourceTier: number;
+  confidence: number;
+  corroborationCount: number;
+  firstSeen: Date;
+  lastSeen: Date;
+  verificationState: EvidenceVerificationState;
+  sources: SignalEvidenceSource[];
+}
+
 export type VelocityLevel = 'normal' | 'elevated' | 'spike';
 export type SentimentType = 'negative' | 'neutral' | 'positive';
 export type DeviationLevel = 'normal' | 'elevated' | 'spike' | 'quiet';
