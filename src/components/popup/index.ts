@@ -58,6 +58,7 @@ export {
   renderProtestClusterPopup,
   renderAisPopup,
   renderAisVesselPopup,
+  renderMaritimeGeospatialPopup,
   renderNaturalEventPopup,
   renderIranEventPopup,
   renderGpsJammingPopup,

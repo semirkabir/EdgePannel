@@ -11,6 +11,14 @@ import {
 } from '@/generated/client/worldmonitor/supply_chain/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { getHydratedData } from '@/services/bootstrap';
+export {
+  createSupplyChainSummary,
+  getWorstChokepoint,
+  type SupplyChainIntelSeverity,
+  type SupplyChainInsight,
+  type SupplyChainSummary,
+  type SupplyChainSummaryStats,
+} from './intelligence';
 
 export type {
   GetShippingRatesResponse,

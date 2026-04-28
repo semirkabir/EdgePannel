@@ -7,6 +7,7 @@ import type { Feature, Geometry } from 'geojson';
 import type { MapLayers, Hotspot, NewsItem, InternetOutage, RelatedAsset, AssetType, AisDisruptionEvent, AisDensityZone, CableAdvisory, RepairShip, SocialUnrestEvent, MilitaryFlight, MilitaryVessel, MilitaryFlightCluster, MilitaryVesselCluster, NaturalEvent, CyberThreat, CableHealthRecord, UcdpGeoEvent } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import { filterRenderableAircraftPositions, sampleAircraftPositions } from '@/services/aviation';
+import type { MaritimeGeospatialFeature, MaritimeGeospatialSnapshot } from '@/services/maritime';
 import type { Earthquake } from '@/services/earthquakes';
 import { type IranEvent } from '@/services/conflict';
 import type { TechHubActivity } from '@/services/tech-activity';
@@ -197,6 +198,7 @@ export class MapComponent {
   private outages: InternetOutage[] = [];
   private aisDisruptions: AisDisruptionEvent[] = [];
   private aisDensity: AisDensityZone[] = [];
+  private maritimeGeospatial: MaritimeGeospatialSnapshot | null = null;
   private cableAdvisories: CableAdvisory[] = [];
   private repairShips: RepairShip[] = [];
   private healthByCableId: Record<string, CableHealthRecord> = {};
@@ -1709,6 +1711,7 @@ export class MapComponent {
 
     if (this.state.layers.ais) {
       this.renderAisDisruptions(projection);
+      this.renderMaritimeGeospatial(projection);
       this.renderPorts(projection);
     }
 
@@ -3338,6 +3341,43 @@ export class MapComponent {
     });
   }
 
+  private renderMaritimeGeospatial(projection: d3.GeoProjection): void {
+    if (!this.maritimeGeospatial) return;
+    const features: MaritimeGeospatialFeature[] = [
+      ...this.maritimeGeospatial.oceanConditions,
+      ...this.maritimeGeospatial.fishingActivity,
+      ...this.maritimeGeospatial.satelliteObservations,
+    ];
+
+    features.forEach((feature) => {
+      const pos = projection([feature.lon, feature.lat]);
+      if (!pos) return;
+
+      const div = document.createElement('div');
+      div.className = `maritime-geo-marker ${feature.surface}`;
+      div.style.left = `${pos[0]}px`;
+      div.style.top = `${pos[1]}px`;
+
+      const icon = document.createElement('div');
+      icon.className = 'maritime-geo-marker-icon';
+      icon.textContent = feature.surface === 'satellite' ? 'S' : feature.surface === 'ocean' ? 'O' : 'F';
+      div.appendChild(icon);
+
+      div.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rect = this.container.getBoundingClientRect();
+        this.popup.show({
+          type: 'maritimeGeo',
+          data: feature,
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        });
+      });
+
+      this.overlays.appendChild(div);
+    });
+  }
+
   private renderAisDensity(projection: d3.GeoProjection): void {
     if (!this.dynamicLayerGroup) return;
     const densityGroup = this.dynamicLayerGroup.append('g').attr('class', 'ais-density');
@@ -4169,6 +4209,11 @@ export class MapComponent {
   public setAisData(disruptions: AisDisruptionEvent[], density: AisDensityZone[]): void {
     this.aisDisruptions = disruptions;
     this.aisDensity = density;
+    this.render();
+  }
+
+  public setMaritimeGeospatialData(snapshot: MaritimeGeospatialSnapshot): void {
+    this.maritimeGeospatial = snapshot;
     this.render();
   }
 

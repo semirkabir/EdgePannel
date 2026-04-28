@@ -8,6 +8,7 @@ import type { DataSourceId } from '@/services/data-freshness';
 import {
   fetchMultipleStocks,
   fetchCrypto,
+  fetchMarketRiskOverlay,
   fetchPredictions,
   fetchFredData,
   fetchOilAnalytics,
@@ -79,6 +80,7 @@ export class DataRenderer {
       dataTaskScheduler.schedule('market:heatmap', () => this.loadHeatmapPanel(), { priority: 'high', group: 'finnhub' }),
       dataTaskScheduler.schedule('market:commodities', () => this.loadCommoditiesPanel(), { priority: 'normal', group: 'finnhub' }),
       dataTaskScheduler.schedule('market:crypto', () => this.loadCryptoPanel(), { priority: 'high', group: 'coingecko' }),
+      dataTaskScheduler.schedule('market:risk-overlays', () => this.loadMarketRiskOverlayPanel(), { priority: 'normal', group: 'market-risk' }),
     ]);
   }
 
@@ -258,6 +260,18 @@ export class DataRenderer {
       this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'ok' });
     } catch {
       this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'error' });
+    }
+  }
+
+  private async loadMarketRiskOverlayPanel(): Promise<void> {
+    try {
+      const snapshot = await fetchMarketRiskOverlay();
+      (this.ctx.panels['markets'] as MarketPanel)?.renderMarketRiskOverlay(snapshot);
+      this.ctx.statusPanel?.updateApi('Market Risk', {
+        status: snapshot.status === 'unavailable' ? 'error' : 'ok',
+      });
+    } catch {
+      this.ctx.statusPanel?.updateApi('Market Risk', { status: 'error' });
     }
   }
 

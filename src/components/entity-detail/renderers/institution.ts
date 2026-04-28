@@ -64,6 +64,32 @@ function fmtDate(value: string): string {
   });
 }
 
+function openCompanyDetail(ticker: string, name: string): void {
+  if (!ticker) return;
+  const data = { ticker, name: name || ticker };
+  document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+    detail: { type: 'company', data },
+  }));
+  const fallback = (window as any).__entityDetailPanel;
+  fallback?.show?.('company', data);
+}
+
+function makeCompanyRowClickable(rowEl: HTMLElement, ticker: string, name: string): void {
+  if (!ticker) return;
+  rowEl.classList.add('edp-holdings-row-clickable');
+  rowEl.dataset.ticker = ticker;
+  rowEl.setAttribute('role', 'button');
+  rowEl.tabIndex = 0;
+  rowEl.title = `Open ${ticker} in right panel`;
+  rowEl.setAttribute('aria-label', `Open ${ticker} in right panel`);
+  rowEl.addEventListener('click', () => openCompanyDetail(ticker, name));
+  rowEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openCompanyDetail(ticker, name);
+  });
+}
+
 export class InstitutionRenderer implements EntityRenderer {
   private activeTab: TabId = 'holdings';
 
@@ -237,6 +263,7 @@ export class InstitutionRenderer implements EntityRenderer {
     const grid = ctx.el('div', 'edp-holdings-table');
     for (const holding of data.topHoldings) {
       const rowEl = ctx.el('div', 'edp-holdings-row');
+      makeCompanyRowClickable(rowEl, holding.ticker || '', holding.issuer);
       rowEl.append(ctx.el('span', 'edp-holdings-name', holding.issuer));
       const detailParts = [
         holding.ticker || '',
@@ -265,6 +292,7 @@ export class InstitutionRenderer implements EntityRenderer {
       const list = ctx.el('div', 'edp-holdings-table');
       for (const delta of data.deltas) {
         const rowEl = ctx.el('div', 'edp-holdings-row');
+        makeCompanyRowClickable(rowEl, delta.ticker || '', delta.label);
         rowEl.append(ctx.el('span', 'edp-holdings-name', delta.label));
         rowEl.append(ctx.el('span', 'edp-holdings-detail', delta.detail || ''));
         const barWrap = ctx.el('div', 'edp-holdings-bar-wrap');
@@ -326,6 +354,7 @@ export class InstitutionRenderer implements EntityRenderer {
       const grid = ctx.el('div', 'edp-holdings-table');
       for (const holding of mapped) {
         const rowEl = ctx.el('div', 'edp-holdings-row');
+        makeCompanyRowClickable(rowEl, holding.ticker || '', holding.issuer);
         rowEl.append(ctx.el('span', 'edp-holdings-name', holding.ticker));
         rowEl.append(ctx.el('span', 'edp-holdings-detail', holding.issuer));
         const barWrap = ctx.el('div', 'edp-holdings-bar-wrap');

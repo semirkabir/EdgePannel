@@ -13,6 +13,7 @@ import { checkFeatureAccess } from '@/services/auth-modal';
 import { MARKET_SYMBOLS, SECTORS, COMMODITIES } from '@/config/markets';
 import { COMMODITY_MARKET_SYMBOLS, COMMODITY_SECTORS, COMMODITY_PRICES } from '@/config/commodity-markets';
 import { marketWebSocket } from '@/services/market/realtime';
+import type { CotPositioning, MarketRiskBias, MarketRiskLevel, MarketRiskOverlaySnapshot } from '@/services/market/risk-overlays';
 
 function formatCryptoPrice(price: number): string {
   if (!Number.isFinite(price)) return '—';
@@ -29,6 +30,8 @@ export class MarketPanel extends Panel {
   private priceElements: Map<string, HTMLSpanElement> = new Map();
   private changeElements: Map<string, HTMLSpanElement> = new Map();
   private unsubscribeMap: Map<string, () => void> = new Map();
+  private marketData: MarketData[] = [];
+  private marketRiskOverlay: MarketRiskOverlaySnapshot | null = null;
 
   constructor() {
     super({ id: 'markets', title: 'Watchlist' });
@@ -249,34 +252,71 @@ export class MarketPanel extends Panel {
       return;
     }
 
+    this.marketData = data;
+    this.renderMarketContent();
+  }
+
+  public renderMarketRiskOverlay(snapshot: MarketRiskOverlaySnapshot): void {
+    this.marketRiskOverlay = snapshot;
+    if (this.marketData.length > 0) {
+      this.renderMarketContent();
+      return;
+    }
+
+    this.setContentNow(this.renderMarketRiskOverlayHtml(snapshot));
+  }
+
+  private renderMarketContent(): void {
     // Clean up old subscriptions
     this.unsubscribeMap.forEach((unsub) => unsub());
     this.unsubscribeMap.clear();
     this.priceElements.clear();
     this.changeElements.clear();
 
-    const container = document.createElement('div');
-    container.className = 'market-list';
+    const riskOverlayHtml = this.marketRiskOverlay
+      ? this.renderMarketRiskOverlayHtml(this.marketRiskOverlay)
+      : '';
 
-    data.forEach((stock) => {
-      const item = document.createElement('div');
-      item.className = 'market-item ticker-link';
-      item.dataset.symbol = stock.symbol;
-      item.dataset.ticker = stock.symbol;
-      item.dataset.name = stock.name;
-      item.setAttribute('role', 'button');
-      item.setAttribute('tabindex', '0');
-      item.style.cursor = 'pointer';
+    const rows = this.marketData.map((stock) => `
+      <div
+        class="market-item ticker-link"
+        data-symbol="${escapeHtml(stock.symbol)}"
+        data-ticker="${escapeHtml(stock.symbol)}"
+        data-name="${escapeHtml(stock.name)}"
+        role="button"
+        tabindex="0"
+        style="cursor:pointer"
+      >
+        <div class="market-info">
+          <span class="market-name">${escapeHtml(stock.name)}</span>
+          <span class="market-symbol">${escapeHtml(stock.display)}</span>
+        </div>
+        <div class="market-data">
+          <span class="market-price" data-market-price="${escapeHtml(stock.symbol)}">${stock.price != null ? escapeHtml(formatPrice(stock.price)) : '—'}</span>
+          <span class="market-change ${stock.change != null ? getChangeClass(stock.change) : ''}" data-market-change="${escapeHtml(stock.symbol)}">${stock.change != null ? escapeHtml(formatChange(stock.change)) : '—'}</span>
+        </div>
+      </div>
+    `).join('');
 
-      const priceSpan = document.createElement('span');
-      priceSpan.className = 'market-price';
-      priceSpan.textContent = stock.price != null ? formatPrice(stock.price) : '—';
+    this.setContentNow(`
+      <div class="market-panel-stack">
+        ${riskOverlayHtml}
+        <div class="market-list">${rows}</div>
+      </div>
+    `);
 
-      const changeSpan = document.createElement('span');
-      changeSpan.className = `market-change ${stock.change != null ? getChangeClass(stock.change) : ''}`;
-      changeSpan.textContent = stock.change != null ? formatChange(stock.change) : '—';
+    this.bindMarketPriceUpdates();
+  }
 
-      // Store references for real-time updates
+  private bindMarketPriceUpdates(): void {
+    this.marketData.forEach((stock) => {
+      const priceSpan = Array.from(this.content.querySelectorAll<HTMLSpanElement>('[data-market-price]'))
+        .find((element) => element.dataset.marketPrice === stock.symbol) ?? null;
+      const changeSpan = Array.from(this.content.querySelectorAll<HTMLSpanElement>('[data-market-change]'))
+        .find((element) => element.dataset.marketChange === stock.symbol) ?? null;
+
+      if (!priceSpan || !changeSpan) return;
+
       this.priceElements.set(stock.symbol, priceSpan);
       this.changeElements.set(stock.symbol, changeSpan);
 
@@ -302,25 +342,98 @@ export class MarketPanel extends Panel {
         }
       });
       this.unsubscribeMap.set(stock.symbol, unsub);
+    });
+  }
 
-      item.innerHTML = `
-        <div class="market-info">
-          <span class="market-name">${escapeHtml(stock.name)}</span>
-          <span class="market-symbol">${escapeHtml(stock.display)}</span>
-        </div>
-        <div class="market-data">
+  private renderMarketRiskOverlayHtml(snapshot: MarketRiskOverlaySnapshot): string {
+    if (snapshot.status === 'unavailable') {
+      return `
+        <div class="market-risk-overlay unavailable">
+          <div class="market-risk-head">
+            <span class="market-risk-title">Market Risk Overlay</span>
+            <span class="market-risk-pill unavailable">Unavailable</span>
+          </div>
+          <div class="market-risk-empty">Public VIX/COT signals are temporarily unavailable.</div>
         </div>
       `;
+    }
 
-      // Append price and change elements
-      const marketData = item.querySelector('.market-data')!;
-      marketData.appendChild(priceSpan);
-      marketData.appendChild(changeSpan);
+    const score = snapshot.score;
+    const level = score?.level ?? snapshot.vix?.level ?? 'unavailable';
+    const levelLabel = score?.label ?? this.riskLevelLabel(level);
+    const vix = snapshot.vix;
+    const vixChange = vix?.change1d != null
+      ? `${vix.change1d >= 0 ? '+' : ''}${vix.change1d.toFixed(2)}`
+      : '—';
+    const cotMarkets = snapshot.cot?.markets.slice(0, 3).map((market) => this.renderCotMarket(market)).join('') || '';
+    const notes = snapshot.sourceNotes.length > 0
+      ? `<div class="market-risk-note">${snapshot.sourceNotes.map((note) => escapeHtml(note)).join(' · ')}</div>`
+      : '';
 
-      container.appendChild(item);
-    });
+    return `
+      <div class="market-risk-overlay ${this.riskLevelClass(level)}">
+        <div class="market-risk-head">
+          <span class="market-risk-title">Market Risk Overlay</span>
+          <span class="market-risk-pill ${this.riskLevelClass(level)}">${escapeHtml(levelLabel)}</span>
+        </div>
+        <div class="market-risk-metrics">
+          <div class="market-risk-metric">
+            <span class="market-risk-label">Composite</span>
+            <strong>${score ? score.value.toString() : '—'}</strong>
+          </div>
+          <div class="market-risk-metric">
+            <span class="market-risk-label">VIX</span>
+            <strong>${vix ? vix.close.toFixed(2) : '—'}</strong>
+            <span class="${vix?.change1d != null ? getChangeClass(vix.change1d) : ''}">${escapeHtml(vixChange)}</span>
+          </div>
+          <div class="market-risk-metric">
+            <span class="market-risk-label">COT</span>
+            <strong>${escapeHtml(this.biasLabel(snapshot.cot?.bias ?? 'neutral'))}</strong>
+          </div>
+        </div>
+        ${cotMarkets ? `<div class="market-risk-cot">${cotMarkets}</div>` : ''}
+        <div class="market-risk-source">
+          ${vix ? `CBOE ${escapeHtml(vix.date)}` : 'CBOE unavailable'}
+          ${snapshot.cot ? ` · CFTC ${escapeHtml(snapshot.cot.reportDate)}` : ' · CFTC unavailable'}
+        </div>
+        ${notes}
+      </div>
+    `;
+  }
 
-    this.setContent(container.innerHTML);
+  private renderCotMarket(market: CotPositioning): string {
+    const pctValue = market.leveragedMoneyNetPctOi;
+    const pctText = pctValue != null ? `${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(1)}% OI` : '—';
+    return `
+      <div class="market-risk-cot-row">
+        <span>${escapeHtml(market.market)}</span>
+        <strong class="${pctValue != null ? getChangeClass(pctValue) : ''}">${escapeHtml(pctText)}</strong>
+        <em>${escapeHtml(this.biasLabel(market.bias))}</em>
+      </div>
+    `;
+  }
+
+  private riskLevelLabel(level: MarketRiskLevel): string {
+    switch (level) {
+      case 'low': return 'Calm';
+      case 'moderate': return 'Watch';
+      case 'elevated': return 'Elevated';
+      case 'stressed': return 'Stressed';
+      case 'unavailable': return 'Unavailable';
+    }
+  }
+
+  private riskLevelClass(level: MarketRiskLevel): string {
+    return `level-${level}`;
+  }
+
+  private biasLabel(bias: MarketRiskBias): string {
+    switch (bias) {
+      case 'risk-on': return 'Risk-on';
+      case 'risk-off': return 'Risk-off';
+      case 'mixed': return 'Mixed';
+      case 'neutral': return 'Neutral';
+    }
   }
 }
 

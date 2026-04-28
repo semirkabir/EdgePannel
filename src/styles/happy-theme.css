@@ -1147,6 +1147,72 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Public grid-carbon snapshot */
+[data-variant='happy'] .grid-carbon-section {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+[data-variant='happy'] .grid-carbon-header {
+  margin-bottom: 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+[data-variant='happy'] .grid-carbon-card {
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+[data-variant='happy'] .grid-carbon-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+[data-variant='happy'] .grid-carbon-value {
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+[data-variant='happy'] .grid-carbon-badge {
+  max-width: 120px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--semantic-low) 12%, transparent);
+  color: var(--semantic-low);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+[data-variant='happy'] .grid-carbon-badge-unavailable {
+  background: color-mix(in srgb, var(--text-dim) 12%, transparent);
+  color: var(--text-dim);
+}
+
+[data-variant='happy'] .grid-carbon-high .grid-carbon-badge,
+[data-variant='happy'] .grid-carbon-very-high .grid-carbon-badge {
+  background: color-mix(in srgb, var(--semantic-warning) 14%, transparent);
+  color: var(--semantic-warning);
+}
+
+[data-variant='happy'] .grid-carbon-meta,
+[data-variant='happy'] .grid-carbon-message {
+  margin-top: 5px;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 /* ---------- EIA Installed Capacity Chart ---------- */
 [data-variant='happy'] .capacity-section {
   margin-top: 12px;

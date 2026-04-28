@@ -41,7 +41,15 @@ import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } fro
 import type { MilitaryBaseType } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import { fetchAircraftPositions } from '@/services/aviation';
-import { registerAisCallback, unregisterAisCallback, type AisPositionData } from '@/services/maritime';
+import {
+  registerAisCallback,
+  unregisterAisCallback,
+  type AisPositionData,
+  type MaritimeGeospatialSnapshot,
+  type MaritimeSatelliteObservation,
+  type OceanConditionPoint,
+  type FishingActivityZone,
+} from '@/services/maritime';
 import { type IranEvent } from '@/services/conflict';
 import { CONFIDENCE_TIERS, type ConfidenceTier } from '@/services/confidence-tier';
 import type { GpsJamHex } from '@/services/gps-interference';
@@ -499,6 +507,7 @@ export class DeckGLMap {
   private aisTrackHistory: Map<string, Array<[number, number]>> = new Map();
   private aisFocusBounds: [[number, number], [number, number]] | null = null;
   private aisLiveCallback: ((data: AisPositionData[]) => void) | null = null;
+  private maritimeGeospatial: MaritimeGeospatialSnapshot | null = null;
   private cableAdvisories: CableAdvisory[] = [];
   private repairShips: RepairShip[] = [];
   private healthByCableId: Record<string, CableHealthRecord> = {};
@@ -1599,6 +1608,18 @@ export class DeckGLMap {
       layers.push(this.createAisVesselsLayer());
     }
 
+    if (mapLayers.ais && this.maritimeGeospatial) {
+      if (this.maritimeGeospatial.oceanConditions.length > 0) {
+        layers.push(this.createMaritimeOceanLayer());
+      }
+      if (this.maritimeGeospatial.fishingActivity.length > 0) {
+        layers.push(this.createMaritimeFishingLayer());
+      }
+      if (this.maritimeGeospatial.satelliteObservations.length > 0) {
+        layers.push(this.createMaritimeSatelliteLayer());
+      }
+    }
+
     // GPS/GNSS jamming layer
     if (mapLayers.gpsJamming && this.gpsJammingHexes.length > 0) {
       layers.push(this.createGpsJammingLayer());
@@ -2640,6 +2661,61 @@ export class DeckGLMap {
       sizeScale: 1,
       pickable: true,
       billboard: false,
+    });
+  }
+
+  private createMaritimeSatelliteLayer(): ScatterplotLayer<MaritimeSatelliteObservation> {
+    return new ScatterplotLayer<MaritimeSatelliteObservation>({
+      id: 'maritime-satellite-layer',
+      data: this.maritimeGeospatial?.satelliteObservations ?? [],
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: 9000,
+      radiusMinPixels: 5,
+      radiusMaxPixels: 12,
+      getFillColor: (d) => d.confidence === 'high'
+        ? [167, 139, 250, 220] as [number, number, number, number]
+        : [196, 181, 253, 170] as [number, number, number, number],
+      stroked: true,
+      getLineColor: [255, 255, 255, 130] as [number, number, number, number],
+      lineWidthMinPixels: 1,
+      pickable: true,
+    });
+  }
+
+  private createMaritimeOceanLayer(): ScatterplotLayer<OceanConditionPoint> {
+    return new ScatterplotLayer<OceanConditionPoint>({
+      id: 'maritime-ocean-layer',
+      data: this.maritimeGeospatial?.oceanConditions ?? [],
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: (d) => d.severity === 'advisory' ? 18000 : d.severity === 'watch' ? 12000 : 8000,
+      radiusMinPixels: 4,
+      radiusMaxPixels: 14,
+      getFillColor: (d) => d.severity === 'advisory'
+        ? [14, 165, 233, 210] as [number, number, number, number]
+        : d.severity === 'watch'
+          ? [56, 189, 248, 170] as [number, number, number, number]
+          : [125, 211, 252, 130] as [number, number, number, number],
+      pickable: true,
+    });
+  }
+
+  private createMaritimeFishingLayer(): ScatterplotLayer<FishingActivityZone> {
+    return new ScatterplotLayer<FishingActivityZone>({
+      id: 'maritime-fishing-layer',
+      data: this.maritimeGeospatial?.fishingActivity ?? [],
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: (d) => d.radiusKm * 1000,
+      radiusMinPixels: 5,
+      radiusMaxPixels: 16,
+      getFillColor: (d) => d.activity === 'high'
+        ? [250, 204, 21, 190] as [number, number, number, number]
+        : d.activity === 'moderate'
+          ? [134, 239, 172, 165] as [number, number, number, number]
+          : [74, 222, 128, 120] as [number, number, number, number],
+      stroked: true,
+      getLineColor: [255, 255, 255, 110] as [number, number, number, number],
+      lineWidthMinPixels: 1,
+      pickable: true,
     });
   }
 
@@ -3836,6 +3912,12 @@ export class DeckGLMap {
       }
       case 'ais-density-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${t('components.deckgl.layers.shipTraffic')}</strong><br/>${t('popups.intensity')}: ${text(obj.intensity)}</div>` };
+      case 'maritime-satellite-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>Satellite ${text(String(obj.type || '').replace(/_/g, ' '))}<br/>${text(obj.confidence)} confidence</div>` };
+      case 'maritime-ocean-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(String(obj.metric || '').replace(/_/g, ' '))}: ${text(String(obj.value))}${text(obj.unit || '')}<br/>${text(obj.severity)} conditions</div>` };
+      case 'maritime-fishing-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.activity)} fishing activity<br/>${text(obj.vesselsEstimated != null ? `${obj.vesselsEstimated} est. vessels` : obj.confidence)}</div>` };
       case 'waterways-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${t('components.deckgl.layers.strategicWaterways')}</div>` };
       case 'economic-centers-layer':
@@ -4285,6 +4367,9 @@ export class DeckGLMap {
       'minerals-layer': 'mineral',
       'ais-disruptions-layer': 'ais',
       'ais-vessels-layer': 'aisVessel',
+      'maritime-satellite-layer': 'maritimeGeo',
+      'maritime-ocean-layer': 'maritimeGeo',
+      'maritime-fishing-layer': 'maritimeGeo',
       'gps-jamming-layer': 'gpsJamming',
       'cii-choropleth-layer': 'ciiCountry',
       'cable-advisories-layer': 'cable-advisory',
@@ -4463,6 +4548,9 @@ export class DeckGLMap {
       'minerals-layer': 'mineral',
       'ais-disruptions-layer': 'ais',
       'ais-vessels-layer': 'aisVessel',
+      'maritime-satellite-layer': 'maritimeGeo',
+      'maritime-ocean-layer': 'maritimeGeo',
+      'maritime-fishing-layer': 'maritimeGeo',
       'gps-jamming-layer': 'gpsJamming',
       'cii-choropleth-layer': 'ciiCountry',
       'cable-advisories-layer': 'cable-advisory',
@@ -6224,6 +6312,11 @@ export class DeckGLMap {
   public setAisData(disruptions: AisDisruptionEvent[], density: AisDensityZone[]): void {
     this.aisDisruptions = disruptions;
     this.aisDensity = density;
+    this.render('ais');
+  }
+
+  public setMaritimeGeospatialData(snapshot: MaritimeGeospatialSnapshot): void {
+    this.maritimeGeospatial = snapshot;
     this.render('ais');
   }
 

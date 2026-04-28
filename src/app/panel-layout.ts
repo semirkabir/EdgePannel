@@ -48,6 +48,7 @@ import {
   SocialSentimentPanel,
   OptionsChainPanel,
   PortfolioPanel,
+  MaritimeGeospatialPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
@@ -1022,6 +1023,7 @@ export class PanelLayoutManager implements AppModule {
 
       const satelliteFiresPanel = new SatelliteFiresPanel();
       this.ctx.panels['satellite-fires'] = satelliteFiresPanel;
+      this.ctx.panels['maritime-geospatial'] = new MaritimeGeospatialPanel();
 
       const strategicRiskPanel = new StrategicRiskPanel();
       strategicRiskPanel.setLocationClickHandler((lat, lon) => {

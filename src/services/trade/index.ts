@@ -16,6 +16,15 @@ import {
 } from '@/generated/client/worldmonitor/trade/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { isFeatureAvailable } from '../runtime-config';
+export {
+  createTradePolicySummary,
+  getLatestTariffPoint,
+  getLatestTradeFlow,
+  type TradeIntelSeverity,
+  type TradePolicyInsight,
+  type TradePolicySummary,
+  type TradePolicySummaryStats,
+} from './intelligence';
 
 // Re-export types for consumers
 export type { TradeRestriction, TariffDataPoint, TradeFlowRecord, TradeBarrier };

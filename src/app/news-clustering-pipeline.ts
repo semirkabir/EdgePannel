@@ -639,6 +639,11 @@ export class NewsClusteringPipeline {
   async loadRenewableData(): Promise<void> {
     const data = await fetchRenewableEnergyData();
     this.deps.callPanel('renewable', 'setData', data);
+    if (data.gridCarbon?.status === 'unavailable') {
+      dataFreshness.recordError('renewable_mix', data.gridCarbon.message ?? 'Grid carbon snapshot unavailable');
+    } else if (data.gridCarbon) {
+      dataFreshness.recordUpdate('renewable_mix', 1);
+    }
     if (SITE_VARIANT === 'happy' && data?.globalPercentage) {
       checkMilestones({
         renewablePercent: data.globalPercentage,

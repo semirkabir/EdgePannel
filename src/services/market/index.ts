@@ -190,3 +190,5 @@ export async function fetchCrypto(): Promise<CryptoData[]> {
 
   return lastSuccessfulCrypto;
 }
+
+export * from './risk-overlays';

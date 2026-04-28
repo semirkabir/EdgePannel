@@ -27,6 +27,20 @@ export interface RenewableEnergyData {
   globalYear: number;                // Year of latest global data
   historicalData: Array<{ year: number; value: number }>;  // Global time-series
   regions: RegionRenewableData[];    // Regional breakdown
+  gridCarbon?: GridCarbonSnapshot;    // Optional public grid-carbon context
+}
+
+export interface GridCarbonSnapshot {
+  source: 'GB Carbon Intensity API';
+  sourceUrl: string;
+  location: string;
+  status: 'live' | 'cached' | 'unavailable';
+  carbonIntensityGco2Kwh: number | null;
+  index: 'very low' | 'low' | 'moderate' | 'high' | 'very high' | 'unknown';
+  observedFrom: string | null;
+  observedTo: string | null;
+  updatedAt: string;
+  message?: string;
 }
 
 // ---- Default / Empty ----
@@ -67,6 +81,29 @@ const capacityBreaker = createCircuitBreaker<CapacitySeries[]>({
   persistCache: true,
 });
 
+const gridCarbonBreaker = createCircuitBreaker<GridCarbonSnapshot>({
+  name: 'Grid Carbon Snapshot',
+  cacheTtlMs: 15 * 60 * 1000,
+  persistCache: true,
+});
+
+const GRID_CARBON_SOURCE_URL = 'https://carbonintensity.org.uk/';
+
+function unavailableGridCarbonSnapshot(message = 'Public grid-carbon source unavailable'): GridCarbonSnapshot {
+  return {
+    source: 'GB Carbon Intensity API',
+    sourceUrl: GRID_CARBON_SOURCE_URL,
+    location: 'Great Britain',
+    status: 'unavailable',
+    carbonIntensityGco2Kwh: null,
+    index: 'unknown',
+    observedFrom: null,
+    observedTo: null,
+    updatedAt: new Date().toISOString(),
+    message,
+  };
+}
+
 // ---- Data Fetching (from Railway seed via bootstrap) ----
 
 async function fetchRenewableEnergyDataFresh(): Promise<RenewableEnergyData> {
@@ -94,7 +131,74 @@ async function fetchRenewableEnergyDataFresh(): Promise<RenewableEnergyData> {
  * Returns instantly from IndexedDB cache on subsequent loads.
  */
 export async function fetchRenewableEnergyData(): Promise<RenewableEnergyData> {
-  return renewableBreaker.execute(() => fetchRenewableEnergyDataFresh(), FALLBACK_DATA);
+  const [data, gridCarbon] = await Promise.all([
+    renewableBreaker.execute(() => fetchRenewableEnergyDataFresh(), FALLBACK_DATA),
+    fetchGridCarbonSnapshot(),
+  ]);
+  return { ...data, gridCarbon };
+}
+
+export async function fetchGridCarbonSnapshot(): Promise<GridCarbonSnapshot> {
+  const snapshot = await gridCarbonBreaker.execute(async (): Promise<GridCarbonSnapshot> => {
+    const resp = await fetch('https://api.carbonintensity.org.uk/intensity', {
+      signal: AbortSignal.timeout(4_000),
+    });
+    if (!resp.ok) throw new Error(`GB Carbon Intensity API ${resp.status}`);
+
+    const payload = await resp.json() as {
+      data?: Array<{
+        from?: string;
+        to?: string;
+        intensity?: {
+          forecast?: number;
+          actual?: number | null;
+          index?: string;
+        };
+      }>;
+    };
+    const latest = payload.data?.[0];
+    if (!latest?.intensity) throw new Error('GB Carbon Intensity API returned no intensity data');
+
+    const actual = latest.intensity.actual;
+    const forecast = latest.intensity.forecast;
+    const carbonIntensity = typeof actual === 'number' && Number.isFinite(actual)
+      ? actual
+      : (typeof forecast === 'number' && Number.isFinite(forecast) ? forecast : null);
+
+    return {
+      source: 'GB Carbon Intensity API',
+      sourceUrl: GRID_CARBON_SOURCE_URL,
+      location: 'Great Britain',
+      status: 'live',
+      carbonIntensityGco2Kwh: carbonIntensity,
+      index: normalizeGridCarbonIndex(latest.intensity.index),
+      observedFrom: latest.from ?? null,
+      observedTo: latest.to ?? null,
+      updatedAt: new Date().toISOString(),
+    };
+  }, unavailableGridCarbonSnapshot());
+
+  const state = gridCarbonBreaker.getDataState();
+  if (state.mode === 'cached' && snapshot.status !== 'unavailable') {
+    return { ...snapshot, status: 'cached' };
+  }
+  if (state.mode === 'unavailable') {
+    return { ...snapshot, status: 'unavailable' };
+  }
+  return snapshot;
+}
+
+function normalizeGridCarbonIndex(value: unknown): GridCarbonSnapshot['index'] {
+  switch (String(value ?? '').toLowerCase()) {
+    case 'very low':
+    case 'low':
+    case 'moderate':
+    case 'high':
+    case 'very high':
+      return String(value).toLowerCase() as GridCarbonSnapshot['index'];
+    default:
+      return 'unknown';
+  }
 }
 
 // ========================================================================

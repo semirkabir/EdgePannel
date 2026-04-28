@@ -30,6 +30,7 @@ export * from './RuntimeConfigPanel';
 export * from './InsightsPanel';
 export * from './TechReadinessPanel';
 export * from './SatelliteFiresPanel';
+export * from './MaritimeGeospatialPanel';
 export * from './MacroSignalsPanel';
 export * from './StablecoinPanel';
 export * from './UcdpEventsPanel';

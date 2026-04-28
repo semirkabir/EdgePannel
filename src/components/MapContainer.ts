@@ -41,6 +41,7 @@ import type { RenewableInstallation } from '@/services/renewable-installations';
 import type { GpsJamHex } from '@/services/gps-interference';
 import type { IranEvent } from '@/services/conflict';
 import type { MarketplaceRuntimeLayer } from '@/types/marketplace';
+import type { MaritimeGeospatialSnapshot } from '@/services/maritime';
 
 export type { TimeRange };
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -131,6 +132,7 @@ export class MapContainer {
   private cachedEscalationFlights: MilitaryFlight[] | null = null;
   private cachedEscalationVessels: MilitaryVessel[] | null = null;
   private cachedMarketplaceLayers: MarketplaceRuntimeLayer[] | null = null;
+  private cachedMaritimeGeospatial: MaritimeGeospatialSnapshot | null = null;
 
   constructor(container: HTMLElement, initialState: MapContainerState, preferGlobe = false) {
     this.container = container;
@@ -274,6 +276,7 @@ export class MapContainer {
     if (this.cachedWeatherAlerts) this.setWeatherAlerts(this.cachedWeatherAlerts);
     if (this.cachedOutages) this.setOutages(this.cachedOutages);
     if (this.cachedAisDisruptions != null && this.cachedAisDensity != null) this.setAisData(this.cachedAisDisruptions, this.cachedAisDensity);
+    if (this.cachedMaritimeGeospatial != null) this.setMaritimeGeospatialData(this.cachedMaritimeGeospatial);
     if (this.cachedCableAdvisories != null && this.cachedRepairShips != null) this.setCableActivity(this.cachedCableAdvisories, this.cachedRepairShips);
     if (this.cachedCableHealth) this.setCableHealth(this.cachedCableHealth);
     if (this.cachedProtests) this.setProtests(this.cachedProtests);
@@ -394,6 +397,15 @@ export class MapContainer {
       this.deckGLMap?.setAisData(disruptions, density);
     } else {
       this.svgMap?.setAisData(disruptions, density);
+    }
+  }
+
+  public setMaritimeGeospatialData(snapshot: MaritimeGeospatialSnapshot): void {
+    this.cachedMaritimeGeospatial = snapshot;
+    if (this.useDeckGL) {
+      this.deckGLMap?.setMaritimeGeospatialData(snapshot);
+    } else {
+      this.svgMap?.setMaritimeGeospatialData(snapshot);
     }
   }
 
