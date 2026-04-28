@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package worldmonitor.reference.v1;
+
+import "sebuf/http/annotations.proto";
+import "worldmonitor/reference/v1/resolve_entity.proto";
+
+// ReferenceService provides entity cross-reference resolution.
+// Maps any financial identifier (ticker, ISIN, LEI, CUSIP) to a canonical EntityRef.
+// Resolution uses a Convex-backed cache (30-day TTL) with live fallback to
+// Finnhub, OpenFIGI, and GLEIF APIs.
+service ReferenceService {
+  option (sebuf.http.service_config) = {base_path: "/api/reference/v1"};
+
+  // ResolveEntity resolves any identifier to a full EntityRef.
+  rpc ResolveEntity(ResolveEntityRequest) returns (ResolveEntityResponse) {
+    option (sebuf.http.config) = {path: "/resolve-entity", method: HTTP_METHOD_GET};
+  }
+
+  // LookupByLei directly resolves a Legal Entity Identifier.
+  rpc LookupByLei(LookupByLeiRequest) returns (LookupByLeiResponse) {
+    option (sebuf.http.config) = {path: "/lookup-by-lei", method: HTTP_METHOD_GET};
+  }
+
+  // SearchEntities searches cached entities by name fragment.
+  rpc SearchEntities(SearchEntitiesRequest) returns (SearchEntitiesResponse) {
+    option (sebuf.http.config) = {path: "/search-entities", method: HTTP_METHOD_GET};
+  }
+}
