@@ -610,6 +610,16 @@
   color: inherit;
 }
 
+.cdp-news-context-note {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--status-live, #6366f1) 22%, transparent);
+  border-radius: 8px;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--status-live, #6366f1) 8%, transparent);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .cdp-news-item:hover {
   border-color: var(--text-faint);
 }

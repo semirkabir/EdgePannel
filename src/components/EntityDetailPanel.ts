@@ -52,8 +52,9 @@ export class EntityDetailPanel extends DetailPanelBase {
     this.content.replaceChildren(skeleton);
     this.openPanel();
 
-    const imagePromise = resolveEntityHeroImage(type, data, this.abortController.signal)
-      .catch(() => null);
+    const imagePromise = type === 'company'
+      ? Promise.resolve(null)
+      : resolveEntityHeroImage(type, data, this.abortController.signal).catch(() => null);
 
     void imagePromise.then((image) => {
       if (!this.abortController.signal.aborted && this.currentData === data) {

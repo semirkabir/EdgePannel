@@ -105,6 +105,18 @@
   height: 32px;
 }
 
+.ad-icon-btn svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  margin: 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .ad-tabs {
   padding: 10px;
   margin-bottom: 10px;

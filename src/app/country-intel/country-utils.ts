@@ -40,8 +40,8 @@ export const COUNTRY_ALIASES: Record<string, string[]> = {
   EG: ['egypt', 'egyptian', 'cairo', 'suez'],
   LB: ['lebanon', 'lebanese', 'beirut'],
   TR: ['turkey', 'turkish', 'ankara', 'erdogan', 'türkiye'],
-  US: ['united states', 'american', 'washington', 'pentagon', 'white house'],
-  GB: ['united kingdom', 'british', 'london', 'uk '],
+  US: ['united states', 'u.s.', 'u.s', 'usa', 'us', 'american', 'washington', 'pentagon', 'white house'],
+  GB: ['united kingdom', 'u.k.', 'u.k', 'uk', 'british', 'london'],
   BR: ['brazil', 'brazilian', 'brasilia', 'lula', 'bolsonaro'],
   AE: ['united arab emirates', 'uae', 'emirati', 'dubai', 'abu dhabi'],
 };
@@ -101,10 +101,23 @@ const otherCountryTermsCache: Map<string, string[]> = new Map();
 export function firstMentionPosition(text: string, terms: string[]): number {
   let earliest = Infinity;
   for (const term of terms) {
-    const idx = text.indexOf(term);
+    const idx = findTermPosition(text, term);
     if (idx !== -1 && idx < earliest) earliest = idx;
   }
   return earliest;
+}
+
+function findTermPosition(text: string, rawTerm: string): number {
+  const term = rawTerm.trim().toLowerCase();
+  if (!term) return -1;
+
+  const shortToken = /^[a-z.]{2,4}$/.test(term);
+  if (!shortToken) return text.indexOf(term);
+
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`(^|[^a-z0-9])(${escaped})(?=$|[^a-z0-9])`, 'i').exec(text);
+  if (!match || match.index < 0) return -1;
+  return match.index + (match[1]?.length ?? 0);
 }
 
 export { getOtherCountryTerms };

@@ -4760,7 +4760,7 @@ body.live-news-fullscreen-active .map-legend {
   display: none !important;
 }
 
-body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen):not(.scroll-to-top-btn):not(.scroll-to-bottom-btn) {
+body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   visibility: hidden !important;
 }
 
@@ -25251,12 +25251,9 @@ body:has(.tauri-titlebar) .breaking-news-container {
   grid-column: 1;
 }
 
-/* ── Scroll buttons (appended into panels-grid / mapBottomGrid) ── */
-.scroll-to-top-btn,
-.scroll-to-bottom-btn {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+/* ── Scroll buttons for panels (fixed, positioned by JS) ── */
+.panel-scroll-btn {
+  position: fixed;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -25274,31 +25271,63 @@ body:has(.tauri-titlebar) .breaking-news-container {
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
 
-body.live-news-fullscreen-active .scroll-to-top-btn,
-body.live-news-fullscreen-active .scroll-to-bottom-btn {
+body.live-news-fullscreen-active .panel-scroll-btn {
   visibility: visible !important;
   z-index: 10002;
 }
 
-.scroll-to-top-btn {
-  top: 12px;
-}
-
-.scroll-to-bottom-btn {
-  bottom: 12px;
-}
-
-.scroll-to-top-btn.visible,
-.scroll-to-bottom-btn.visible {
+.panel-scroll-btn.visible {
   opacity: 1;
   pointer-events: auto;
 }
 
-.scroll-to-top-btn:hover,
-.scroll-to-bottom-btn:hover {
+.panel-scroll-btn:hover {
   background: #f0f0f0;
   color: #000000;
-  transform: translateX(-50%) scale(1.1);
+  transform: scale(1.1);
+}
+
+/* ── Scroll buttons for settings modal (absolute, inside modal) ── */
+.unified-settings-modal .scroll-to-top-btn,
+.unified-settings-modal .scroll-to-bottom-btn {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: var(--wm-cursor-pointer);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, background 0.15s, color 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.unified-settings-modal .scroll-to-top-btn {
+  top: 12px;
+}
+
+.unified-settings-modal .scroll-to-bottom-btn {
+  bottom: 12px;
+}
+
+.unified-settings-modal .scroll-to-top-btn.visible,
+.unified-settings-modal .scroll-to-bottom-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.unified-settings-modal .scroll-to-top-btn:hover,
+.unified-settings-modal .scroll-to-bottom-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 /* ── Bottom grid hidden (independent of sidebar panels) ── */

@@ -133,21 +133,6 @@ function rangePointCount(range: ChartRange): number {
   return option?.bars ?? 60;
 }
 
-function buildFallbackCloses(quote: MarketQuote | null, range: ChartRange): number[] {
-  if (!quote?.price || !Number.isFinite(quote.price)) return [];
-  const current = quote.price;
-  const prior = quote.change ? current / (1 + quote.change / 100) : current * 0.995;
-  const count = rangePointCount(range);
-  const swing = Math.max(Math.abs(current - prior), current * 0.006);
-  return Array.from({ length: count }, (_, index) => {
-    const progress = count <= 1 ? 1 : index / (count - 1);
-    const trend = prior + (current - prior) * progress;
-    const waveCount = range === '1H' || range === '1D' ? 4 : 7;
-    const wave = Math.sin(progress * Math.PI * waveCount) * swing * 0.22;
-    return index === count - 1 ? current : trend + wave;
-  });
-}
-
 function isoDateNDaysAgo(daysAgo: number): string {
   const date = new Date();
   date.setDate(date.getDate() - daysAgo);
@@ -240,19 +225,14 @@ function aggregateHistoricalCandles(closes: HistoricalClose[], range: ChartRange
 
 function fallbackCandles(data: CompanyEnriched, range: ChartRange): CandlestickData[] {
   const sparkline = data.quote?.sparkline ?? [];
-  if (sparkline.length >= 2) {
+  if (range === '1H' && sparkline.length >= 2) {
     const selected = sparkline.slice(-Math.min(sparkline.length, Math.max(2, rangePointCount(range))));
     return candlesFromClosePoints(selected.map((value, index) => ({
       time: rangeTimeForIndex(range, selected.length, index),
       value,
     })));
   }
-
-  const fallback = buildFallbackCloses(data.quote, range);
-  return candlesFromClosePoints(fallback.map((value, index) => ({
-    time: rangeTimeForIndex(range, fallback.length, index),
-    value,
-  })));
+  return [];
 }
 
 function getSnapshotCandlestickData(data: CompanyEnriched, range: ChartRange): CandlestickData[] {
@@ -265,6 +245,14 @@ function getSnapshotChartData(data: CompanyEnriched, range: ChartRange): AreaDat
     time: candle.time,
     value: candle.close,
   }));
+}
+
+function chartEmptyMessage(data: CompanyEnriched, range: ChartRange): string {
+  const hasDailyHistory = getHistoricalCloses(data).length >= 2;
+  if (range === '1H' && hasDailyHistory) {
+    return 'Intraday series unavailable';
+  }
+  return 'Historical chart data unavailable';
 }
 
 function chartKindIconMarkup(kind: ChartKind): string {
@@ -311,9 +299,15 @@ function makeChartRangeControls(): HTMLElement {
 
 function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, positive: boolean): void {
   const controls = makeChartRangeControls();
+  const chartWrap = document.createElement('div');
+  chartWrap.className = 'edp-tv-chart-wrap';
   const chartEl = document.createElement('div');
   chartEl.className = 'edp-tv-lightweight-chart';
-  parent.append(controls, chartEl);
+  const emptyEl = document.createElement('div');
+  emptyEl.className = 'edp-tv-chart-empty';
+  emptyEl.hidden = true;
+  chartWrap.append(chartEl, emptyEl);
+  parent.append(controls, chartWrap);
 
   requestAnimationFrame(() => {
     if (!chartEl.isConnected) return;
@@ -323,7 +317,6 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
     const lineColor = positive ? '#22c55e' : '#ef4444';
     let activeRange: ChartRange = '1D';
     let activeKind: ChartKind = 'area';
-    let activeSeries: ReturnType<typeof chart.addAreaSeries> | ReturnType<typeof chart.addCandlestickSeries> | null = null;
 
     const chart = createChart(chartEl, {
       width: chartEl.clientWidth || 240,
@@ -354,6 +347,7 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
       handleScroll: false,
       handleScale: false,
     });
+    let activeSeries: ReturnType<typeof chart.addAreaSeries> | ReturnType<typeof chart.addCandlestickSeries> | null = null;
 
     const renderChart = (range: ChartRange, kind: ChartKind) => {
       activeRange = range;
@@ -367,6 +361,7 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
 
       if (activeSeries) chart.removeSeries(activeSeries);
       if (kind === 'candles') {
+        const seriesData = getSnapshotCandlestickData(data, range);
         const candleSeries = chart.addCandlestickSeries({
           upColor: '#22c55e',
           downColor: '#ef4444',
@@ -376,9 +371,11 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
           priceLineVisible: false,
           lastValueVisible: false,
         });
-        candleSeries.setData(getSnapshotCandlestickData(data, range));
+        candleSeries.setData(seriesData);
         activeSeries = candleSeries;
+        emptyEl.hidden = seriesData.length >= 2;
       } else {
+        const seriesData = getSnapshotChartData(data, range);
         const areaSeries = chart.addAreaSeries({
           lineColor,
           topColor: positive ? 'rgba(34, 197, 94, 0.34)' : 'rgba(239, 68, 68, 0.34)',
@@ -387,9 +384,11 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
           priceLineVisible: false,
           lastValueVisible: false,
         });
-        areaSeries.setData(getSnapshotChartData(data, range));
+        areaSeries.setData(seriesData);
         activeSeries = areaSeries;
+        emptyEl.hidden = seriesData.length >= 2;
       }
+      emptyEl.textContent = chartEmptyMessage(data, range);
       chart.timeScale().fitContent();
     };
     renderChart(activeRange, activeKind);
@@ -461,6 +460,62 @@ function renderMarketSnapshot(container: HTMLElement, data: CompanyEnriched): vo
   renderLocalMarketSnapshot(wrap, data);
 }
 
+function renderCompanyLogoHero(container: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
+  if (!data.profile?.logo || container.querySelector('.edp-auto-hero')) return;
+
+  const hero = ctx.el('section', 'edp-auto-hero cp-company-logo-hero');
+  const img = ctx.el('img', 'edp-auto-hero-img') as HTMLImageElement;
+  img.src = sanitizeUrl(data.profile.logo);
+  img.alt = `${data.profile.name || data.companyName || data.name} logo`;
+  img.loading = 'lazy';
+  img.onerror = () => hero.remove();
+  hero.append(img);
+
+  const credit = ctx.el('div', 'edp-auto-hero-credit');
+  credit.append(ctx.el('span', 'edp-auto-hero-credit-label', 'Source'));
+  credit.append(ctx.el('span', 'edp-auto-hero-source', 'Finnhub profile'));
+  hero.append(credit);
+
+  const header = container.querySelector('.edp-header');
+  if (header) header.insertAdjacentElement('beforebegin', hero);
+  else container.prepend(hero);
+}
+
+function makeTabNavButton(direction: 'left' | 'right'): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `cp-tab-nav cp-tab-nav-${direction}`;
+  button.setAttribute('aria-label', direction === 'left' ? 'Scroll company tabs left' : 'Scroll company tabs right');
+  button.innerHTML = direction === 'left'
+    ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>'
+    : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg>';
+  return button;
+}
+
+function setupTabNavigation(container: HTMLElement): void {
+  const shell = container.querySelector<HTMLElement>('.cp-tab-shell');
+  const tabBar = container.querySelector<HTMLElement>('.cp-tab-bar');
+  const left = container.querySelector<HTMLButtonElement>('.cp-tab-nav-left');
+  const right = container.querySelector<HTMLButtonElement>('.cp-tab-nav-right');
+  if (!shell || !tabBar || !left || !right || shell.dataset.bound === 'true') return;
+  shell.dataset.bound = 'true';
+
+  const update = () => {
+    const atStart = tabBar.scrollLeft <= 4;
+    const atEnd = tabBar.scrollLeft + tabBar.clientWidth >= tabBar.scrollWidth - 4;
+    left.disabled = atStart;
+    right.disabled = atEnd;
+    shell.classList.toggle('cp-tab-shell-overflowing', tabBar.scrollWidth > tabBar.clientWidth + 4);
+  };
+
+  left.addEventListener('click', () => tabBar.scrollBy({ left: -160, behavior: 'smooth' }));
+  right.addEventListener('click', () => tabBar.scrollBy({ left: 160, behavior: 'smooth' }));
+  tabBar.addEventListener('scroll', update, { passive: true });
+  const ro = new ResizeObserver(update);
+  ro.observe(tabBar);
+  requestAnimationFrame(update);
+}
+
 async function settleInBatches<T>(
   tasks: Array<() => Promise<T>>,
   batchSize = 3,
@@ -490,7 +545,7 @@ export class CompanyRenderer implements EntityRenderer {
     const header = ctx.el('div', 'edp-header');
     header.append(ctx.el('h2', 'edp-title', name || ticker));
     const badgeRow = ctx.el('div', 'edp-badge-row');
-    badgeRow.append(ctx.badge('$' + ticker, 'edp-badge edp-badge-tier'));
+    badgeRow.append(ctx.badge('$' + ticker, 'edp-badge edp-badge-ticker'));
     header.append(badgeRow);
     container.append(header);
 
@@ -499,6 +554,7 @@ export class CompanyRenderer implements EntityRenderer {
     container.append(tvWrap);
 
     // Tabs
+    const tabShell = ctx.el('div', 'cp-tab-shell');
     const tabBar = ctx.el('div', 'cp-tab-bar');
     for (const tab of TABS) {
       const btn = ctx.el('button', `cp-tab${tab === 'overview' ? ' cp-tab-active' : ''}`);
@@ -506,7 +562,8 @@ export class CompanyRenderer implements EntityRenderer {
       btn.dataset.tab = tab;
       tabBar.append(btn);
     }
-    container.append(tabBar);
+    tabShell.append(makeTabNavButton('left'), tabBar, makeTabNavButton('right'));
+    container.append(tabShell);
 
     // Tab content area
     const tabContent = ctx.el('div', 'cp-tab-content');
@@ -574,12 +631,21 @@ export class CompanyRenderer implements EntityRenderer {
   renderEnriched(container: HTMLElement, enrichedData: unknown, ctx: EntityRenderContext): void {
     const data = enrichedData as CompanyEnriched;
 
+    renderCompanyLogoHero(container, data, ctx);
     renderMarketSnapshot(container, data);
 
     // Update header with company name from profile
     const displayName = data.profile?.name || data.companyName || data.name;
     const titleEl = container.querySelector('.edp-title');
     if (titleEl) titleEl.textContent = displayName;
+
+    const badgeRow = container.querySelector('.edp-badge-row');
+    if (badgeRow) {
+      badgeRow.replaceChildren();
+      badgeRow.append(ctx.badge('$' + data.ticker, 'edp-badge edp-badge-ticker'));
+      const sector = data.profile?.gicsSector || data.profile?.finnhubIndustry;
+      if (sector) badgeRow.append(ctx.badge(sector, 'edp-badge edp-badge-sector'));
+    }
 
     // Add logo if available
     if (data.profile?.logo) {
@@ -601,6 +667,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     // Tab click handlers
     const tabBar = container.querySelector('.cp-tab-bar');
+    setupTabNavigation(container);
     tabBar?.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('.cp-tab') as HTMLElement | null;
       if (!btn || !btn.dataset.tab) return;

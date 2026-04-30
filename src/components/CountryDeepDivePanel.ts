@@ -305,6 +305,11 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       return;
     }
 
+    if (availability && !availability.available && availability.reason) {
+      const note = this.el('div', 'cdp-news-context-note', availability.reason);
+      this.newsBody.append(note);
+    }
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i]!;
       const row = this.el('a', 'cdp-news-item');
