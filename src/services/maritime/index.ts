@@ -10,6 +10,7 @@ import { dataFreshness } from '../data-freshness';
 import { isFeatureAvailable } from '../runtime-config';
 import { startSmartPollLoop, type SmartPollLoopHandle } from '../runtime';
 import { isLocalDevTaskEnabled } from '../local-dev-stability';
+export * from './geospatial';
 
 // ---- Proto fallback (desktop safety when relay URL is unavailable) ----
 

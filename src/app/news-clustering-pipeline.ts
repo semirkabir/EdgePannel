@@ -1,6 +1,7 @@
 import type { AppContext } from '@/app/app-context';
 import type { NewsItem, MapLayers } from '@/types';
 import type { TimeRange } from '@/components';
+import { getTimeRangeLabel as formatTimeRangeLabel, getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
 import type { HappyContentCategory } from '@/services/positive-classifier';
 import type { PositiveGeoEvent } from '@/services/positive-events-geo';
 import {
@@ -94,15 +95,7 @@ export class NewsClusteringPipeline {
   }
 
   getTimeRangeWindowMs(range: TimeRange): number {
-    const ranges: Record<TimeRange, number> = {
-      '1h': 60 * 60 * 1000,
-      '6h': 6 * 60 * 60 * 1000,
-      '24h': 24 * 60 * 60 * 1000,
-      '48h': 48 * 60 * 60 * 1000,
-      '7d': 7 * 24 * 60 * 60 * 1000,
-      'all': Infinity,
-    };
-    return ranges[range];
+    return resolveTimeRangeWindowMs(range);
   }
 
   filterItemsByTimeRange(items: NewsItem[], range: TimeRange = this.ctx.uiStore.currentTimeRange): NewsItem[] {
@@ -115,15 +108,7 @@ export class NewsClusteringPipeline {
   }
 
   getTimeRangeLabel(range: TimeRange = this.ctx.uiStore.currentTimeRange): string {
-    const labels: Record<TimeRange, string> = {
-      '1h': 'the last hour',
-      '6h': 'the last 6 hours',
-      '24h': 'the last 24 hours',
-      '48h': 'the last 48 hours',
-      '7d': 'the last 7 days',
-      'all': 'all time',
-    };
-    return labels[range];
+    return formatTimeRangeLabel(range);
   }
 
   renderNewsForCategory(category: string, items: NewsItem[]): void {
@@ -654,6 +639,11 @@ export class NewsClusteringPipeline {
   async loadRenewableData(): Promise<void> {
     const data = await fetchRenewableEnergyData();
     this.deps.callPanel('renewable', 'setData', data);
+    if (data.gridCarbon?.status === 'unavailable') {
+      dataFreshness.recordError('renewable_mix', data.gridCarbon.message ?? 'Grid carbon snapshot unavailable');
+    } else if (data.gridCarbon) {
+      dataFreshness.recordUpdate('renewable_mix', 1);
+    }
     if (SITE_VARIANT === 'happy' && data?.globalPercentage) {
       checkMilestones({
         renewablePercent: data.globalPercentage,

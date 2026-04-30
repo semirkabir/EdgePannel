@@ -4,7 +4,9 @@ import type {
   GetTariffTrendsResponse,
   GetTradeFlowsResponse,
   GetTradeBarriersResponse,
+  TradePolicySummary,
 } from '@/services/trade';
+import { createTradePolicySummary } from '@/services/trade';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 import { getMissingFeatureSecretMessage } from '@/services/runtime-config';
@@ -61,6 +63,12 @@ export class TradePolicyPanel extends Panel {
     const hasTariffs = this.tariffsData && (this.tariffsData.datapoints?.length ?? 0) > 0;
     const hasFlows = this.flowsData && this.flowsData.flows?.length > 0;
     const hasBarriers = this.barriersData && this.barriersData.barriers?.length > 0;
+    const summary = createTradePolicySummary({
+      restrictions: this.restrictionsData,
+      tariffs: this.tariffsData,
+      flows: this.flowsData,
+      barriers: this.barriersData,
+    });
 
     const tabsHtml = `
       <div class="panel-tabs">
@@ -104,6 +112,7 @@ export class TradePolicyPanel extends Panel {
     }
 
     this.setContent(`
+      ${this.renderSummary(summary)}
       ${tabsHtml}
       ${unavailableBanner}
       <div class="economic-content">${contentHtml}</div>
@@ -112,6 +121,59 @@ export class TradePolicyPanel extends Panel {
       </div>
     `);
 
+  }
+
+  private renderSummary(summary: TradePolicySummary): string {
+    const stats = summary.stats;
+    const tariff = stats.latestTariffRate !== null ? `${stats.latestTariffRate.toFixed(1)}%` : 'n/a';
+    const balance = stats.tradeBalanceUsd !== null ? this.formatUsdMillions(stats.tradeBalanceUsd) : 'n/a';
+    const flow = stats.exportYoyChange !== null
+      ? `${stats.exportYoyChange >= 0 ? '+' : ''}${stats.exportYoyChange.toFixed(1)}% exports`
+      : 'n/a';
+    const insights = summary.insights.length > 0
+      ? summary.insights.map(insight => `
+        <div class="trade-intel-item trade-intel-${escapeHtml(insight.severity)}">
+          <div class="trade-intel-item-main">
+            <span class="trade-intel-title">${escapeHtml(insight.title)}</span>
+            <span class="trade-intel-detail">${escapeHtml(insight.detail)}</span>
+          </div>
+          <div class="trade-intel-metric">
+            <span>${escapeHtml(insight.metricLabel)}</span>
+            <strong>${escapeHtml(insight.metricValue)}</strong>
+          </div>
+        </div>
+      `).join('')
+      : `<div class="trade-intel-empty">No derived trade intelligence available yet.</div>`;
+
+    return `
+      <div class="trade-intel-summary trade-intel-${escapeHtml(summary.severity)}">
+        <div class="trade-intel-overview">
+          <div>
+            <div class="trade-intel-kicker">Trade intelligence</div>
+            <div class="trade-intel-headline">${escapeHtml(summary.headline)}</div>
+          </div>
+          <div class="trade-intel-score">
+            <span>${summary.score}</span>
+            <small>/100</small>
+          </div>
+        </div>
+        <div class="trade-intel-stats">
+          <span><strong>${stats.highRestrictions}</strong> high restrictions</span>
+          <span><strong>${stats.highBarriers}</strong> high barriers</span>
+          <span><strong>${escapeHtml(tariff)}</strong> latest tariff</span>
+          <span><strong>${escapeHtml(balance)}</strong> balance</span>
+          <span><strong>${escapeHtml(flow)}</strong></span>
+        </div>
+        <div class="trade-intel-list">${insights}</div>
+      </div>
+    `;
+  }
+
+  private formatUsdMillions(value: number): string {
+    const abs = Math.abs(value);
+    const prefix = value < 0 ? '-' : '';
+    if (abs >= 1000) return `${prefix}$${(abs / 1000).toFixed(1)}B`;
+    return `${prefix}$${abs.toFixed(0)}M`;
   }
 
   private renderRestrictions(): string {

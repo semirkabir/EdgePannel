@@ -44,6 +44,7 @@ const BASE_LAYERS: MapLayers = {
 const FULL_PANELS: Record<string, PanelConfig> = {
   map:                   p1('Global Map'),
   'live-news':           p1('Live News'),
+  'analyst-workbench':   p1('Analyst Workbench'),
   'live-webcams':        { name: 'Live Webcams', enabled: false, priority: 1 },
   insights:              p1('AI Insights'),
   'strategic-posture':   p1('AI Strategic Posture'),
@@ -143,6 +144,7 @@ const FULL_MOBILE_MAP_LAYERS: MapLayers = {
 const TECH_PANELS: Record<string, PanelConfig> = {
   map:              p1('Global Tech Map'),
   'live-news':      p1('Tech Headlines'),
+  'analyst-workbench': p1('Analyst Workbench'),
   insights:         p1('AI Insights'),
   ai:               p1('AI/ML News'),
   tech:             p1('Technology'),
@@ -195,6 +197,7 @@ const TECH_MOBILE_MAP_LAYERS = TECH_MAP_LAYERS;
 const FINANCE_PANELS: Record<string, PanelConfig> = {
   map:                p1('Global Markets Map'),
   'live-news':        p1('Market Headlines'),
+  'analyst-workbench': p1('Analyst Workbench'),
   insights:           p1('AI Market Insights'),
   markets:            p1('Live Markets'),
   'markets-news':     p2('Markets News'),
@@ -434,7 +437,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // All variants — essential panels
   core: {
     labelKey: 'header.panelCatCore',
-    panelKeys: ['map', 'live-news', 'live-webcams', 'insights', 'strategic-posture'],
+    panelKeys: ['map', 'live-news', 'analyst-workbench', 'live-webcams', 'insights', 'strategic-posture'],
   },
 
   // Full (geopolitical) variant
@@ -467,7 +470,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Tech variant
   techAi: {
     labelKey: 'header.panelCatTechAi',
-    panelKeys: ['ai', 'tech', 'hardware', 'cloud', 'dev', 'github', 'producthunt', 'events', 'service-status', 'tech-readiness'],
+    panelKeys: ['analyst-workbench', 'ai', 'tech', 'hardware', 'cloud', 'dev', 'github', 'producthunt', 'events', 'service-status', 'tech-readiness'],
     variants: ['tech'],
   },
   startupsVc: {
@@ -489,7 +492,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Finance variant
   finMarkets: {
     labelKey: 'header.panelCatMarkets',
-    panelKeys: ['markets', 'markets-news', 'heatmap', 'macro-signals', 'analysis', 'polymarket', 'portfolio-tracker'],
+    panelKeys: ['analyst-workbench', 'markets', 'markets-news', 'heatmap', 'macro-signals', 'analysis', 'polymarket', 'portfolio-tracker'],
     variants: ['finance'],
   },
   fixedIncomeFx: {

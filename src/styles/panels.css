@@ -295,6 +295,96 @@
   font-variant-numeric: tabular-nums;
 }
 
+.climate-physical-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.climate-section-label {
+  margin: 0 8px 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.climate-physical-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.climate-physical-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.climate-physical-card:hover {
+  background: var(--surface-hover);
+}
+
+.climate-physical-location {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.climate-physical-value {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.climate-physical-meta {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.climate-physical-card.severity-hazardous .climate-physical-value,
+.climate-physical-card.severity-unhealthy .climate-physical-value {
+  color: var(--semantic-critical);
+}
+
+.climate-physical-card.severity-moderate .climate-physical-value {
+  color: var(--semantic-warning);
+}
+
+.climate-physical-card.severity-good .climate-physical-value {
+  color: var(--semantic-low);
+}
+
+.climate-source-statuses {
+  display: grid;
+  gap: 6px;
+  margin: 10px 8px 0;
+}
+
+.climate-source-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
 .climate-warm {
   color: var(--semantic-high);
 }
@@ -2408,7 +2498,7 @@
   background: var(--overlay-subtle);
   padding: 0.15em 0.35em;
   border-radius: 3px;
-  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  font-family: inherit;
 }
 
 .article-reader-content pre {
@@ -3036,7 +3126,7 @@
   background: var(--overlay-subtle);
   padding: 0.15em 0.35em;
   border-radius: 3px;
-  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  font-family: inherit;
 }
 
 .article-reader-content pre {

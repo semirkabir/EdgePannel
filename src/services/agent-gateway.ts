@@ -38,6 +38,12 @@ export interface AgentAlertDraft {
   severity: 'all' | 'high' | 'critical';
   region: 'global' | 'mena' | 'europe' | 'asia' | 'americas' | 'africa';
   notifications: boolean;
+  entities?: string[];
+  signalTypes?: Array<'news' | 'market' | 'military' | 'cyber' | 'infrastructure' | 'supply_chain' | 'weather'>;
+  threshold?: number;
+  cooldownMinutes?: number;
+  channels?: Array<'banner' | 'desktop' | 'email' | 'webhook' | 'telegram'>;
+  evidenceRequirement?: 'any' | 'corroborated' | 'official' | 'analyst-reviewed';
   active: false;
   pending: true;
   source: string;

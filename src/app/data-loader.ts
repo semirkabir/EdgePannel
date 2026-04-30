@@ -2,6 +2,7 @@ import type { AppContext, AppModule } from '@/app/app-context';
 import { enqueuePanelCall } from '@/app/pending-panel-data';
 import type { NewsItem, MapLayers } from '@/types';
 import type { TimeRange } from '@/components';
+import { getTimeRangeLabel as formatTimeRangeLabel, getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
 import { SITE_VARIANT, LAYER_TO_SOURCE } from '@/config';
 import { isOutagesConfigured, isAisConfigured } from '@/services';
 import { signalAggregator } from '@/services/signal-aggregator';
@@ -565,15 +566,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   getTimeRangeWindowMs(range: TimeRange): number {
-    const ranges: Record<TimeRange, number> = {
-      '1h': 60 * 60 * 1000,
-      '6h': 6 * 60 * 60 * 1000,
-      '24h': 24 * 60 * 60 * 1000,
-      '48h': 48 * 60 * 60 * 1000,
-      '7d': 7 * 24 * 60 * 60 * 1000,
-      'all': Infinity,
-    };
-    return ranges[range];
+    return resolveTimeRangeWindowMs(range);
   }
 
   filterItemsByTimeRange(items: NewsItem[], range: TimeRange = this.ctx.currentTimeRange): NewsItem[] {
@@ -586,15 +579,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   getTimeRangeLabel(range: TimeRange = this.ctx.currentTimeRange): string {
-    const labels: Record<TimeRange, string> = {
-      '1h': 'the last hour',
-      '6h': 'the last 6 hours',
-      '24h': 'the last 24 hours',
-      '48h': 'the last 48 hours',
-      '7d': 'the last 7 days',
-      'all': 'all time',
-    };
-    return labels[range];
+    return formatTimeRangeLabel(range);
   }
 
   renderNewsForCategory(category: string, items: NewsItem[]): void {

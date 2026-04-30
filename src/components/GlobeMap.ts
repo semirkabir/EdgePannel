@@ -1243,7 +1243,7 @@ export class GlobeMap {
     el.innerHTML = `
       <div class="toggle-header">
         <span>${t('components.deckgl.layersTitle')}</span>
-        <button class="toggle-clear-all" title="Clear all layers" style="margin-left:auto;background:none;border:1px solid rgba(255,255,255,0.2);color:#aaa;font-size:10px;padding:2px 6px;border-radius:3px;cursor:pointer;font-family:monospace;">✕ Clear</button>
+        <button class="toggle-clear-all" title="Clear all layers" style="margin-left:auto;background:none;border:1px solid rgba(255,255,255,0.2);color:#aaa;font-size:10px;padding:2px 6px;border-radius:3px;cursor:pointer;font-family:inherit;">✕ Clear</button>
         <button class="toggle-collapse">&#9660;</button>
       </div>
       <div class="toggle-list" style="max-height:32vh;overflow-y:auto;scrollbar-width:thin;">

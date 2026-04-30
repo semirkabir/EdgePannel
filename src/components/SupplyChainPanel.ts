@@ -3,7 +3,9 @@ import type {
   GetShippingRatesResponse,
   GetChokepointStatusResponse,
   GetCriticalMineralsResponse,
+  SupplyChainSummary,
 } from '@/services/supply-chain';
+import { createSupplyChainSummary } from '@/services/supply-chain';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 import { getMissingFeatureSecretMessage } from '@/services/runtime-config';
@@ -45,6 +47,11 @@ export class SupplyChainPanel extends Panel {
   }
 
   private render(): void {
+    const summary = createSupplyChainSummary({
+      shipping: this.shippingData,
+      chokepoints: this.chokepointData,
+      minerals: this.mineralsData,
+    });
     const tabsHtml = `
       <div class="panel-tabs">
         <button class="panel-tab ${this.activeTab === 'chokepoints' ? 'active' : ''}" data-tab="chokepoints">
@@ -79,6 +86,7 @@ export class SupplyChainPanel extends Panel {
     }
 
     this.setContent(`
+      ${this.renderSummary(summary)}
       ${tabsHtml}
       ${unavailableBanner}
       <div class="economic-content">${contentHtml}</div>
@@ -86,6 +94,50 @@ export class SupplyChainPanel extends Panel {
         <span class="economic-source">${t('components.supplyChain.sources')}</span>
       </div>
     `);
+  }
+
+  private renderSummary(summary: SupplyChainSummary): string {
+    const stats = summary.stats;
+    const freightChange = stats.maxFreightChangePct !== null
+      ? `${stats.maxFreightChangePct >= 0 ? '+' : ''}${stats.maxFreightChangePct.toFixed(1)}%`
+      : 'n/a';
+    const insights = summary.insights.length > 0
+      ? summary.insights.map(insight => `
+        <div class="trade-intel-item trade-intel-${escapeHtml(insight.severity)}">
+          <div class="trade-intel-item-main">
+            <span class="trade-intel-title">${escapeHtml(insight.title)}</span>
+            <span class="trade-intel-detail">${escapeHtml(insight.detail)}</span>
+          </div>
+          <div class="trade-intel-metric">
+            <span>${escapeHtml(insight.metricLabel)}</span>
+            <strong>${escapeHtml(insight.metricValue)}</strong>
+          </div>
+        </div>
+      `).join('')
+      : `<div class="trade-intel-empty">No derived supply-chain intelligence available yet.</div>`;
+
+    return `
+      <div class="trade-intel-summary trade-intel-${escapeHtml(summary.severity)}">
+        <div class="trade-intel-overview">
+          <div>
+            <div class="trade-intel-kicker">Supply-chain intelligence</div>
+            <div class="trade-intel-headline">${escapeHtml(summary.headline)}</div>
+          </div>
+          <div class="trade-intel-score">
+            <span>${summary.score}</span>
+            <small>/100</small>
+          </div>
+        </div>
+        <div class="trade-intel-stats">
+          <span><strong>${stats.redChokepoints}</strong> red chokepoints</span>
+          <span><strong>${stats.yellowChokepoints}</strong> yellow chokepoints</span>
+          <span><strong>${stats.shippingSpikeCount}</strong> freight spikes</span>
+          <span><strong>${escapeHtml(freightChange)}</strong> max freight move</span>
+          <span><strong>${stats.criticalMinerals}</strong> critical minerals</span>
+        </div>
+        <div class="trade-intel-list">${insights}</div>
+      </div>
+    `;
   }
 
   private renderChokepoints(): string {

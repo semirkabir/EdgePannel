@@ -314,7 +314,7 @@
   color: var(--text-secondary);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
 }
 .rule-value { font-weight: 600; }
@@ -326,6 +326,201 @@
   color: var(--text-dim);
   font-size: 0.75rem;
   border-top: 1px solid var(--border-subtle);
+}
+
+/* Analyst Workbench */
+.analyst-workbench {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.4fr);
+  gap: 12px;
+  height: 100%;
+  min-height: 420px;
+  padding: 12px;
+}
+
+.aw-terminal,
+.aw-block {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255,255,255,0.035);
+  border-radius: 6px;
+}
+
+.aw-terminal {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(130px, 1fr) auto;
+  gap: 10px;
+  padding: 12px;
+}
+
+.aw-terminal-head,
+.aw-block-head,
+.aw-watch,
+.aw-rule,
+.aw-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.aw-kicker {
+  color: var(--text-dim);
+  font: 700 0.68rem/1 var(--font-mono);
+  text-transform: uppercase;
+}
+
+.aw-terminal h3,
+.aw-block h4 {
+  margin: 3px 0 0;
+  font-size: 0.95rem;
+  letter-spacing: 0;
+}
+
+.aw-evidence-badge {
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: var(--text-secondary);
+  font: 700 0.72rem/1 var(--font-mono);
+  white-space: nowrap;
+}
+
+.aw-evidence-badge.state-official,
+.aw-evidence-badge.state-analyst-reviewed {
+  color: #7dd3fc;
+  border-color: rgba(125, 211, 252, 0.45);
+}
+
+.aw-evidence-badge.state-corroborated {
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.45);
+}
+
+.aw-evidence-badge.state-conflicting {
+  color: #fca5a5;
+  border-color: rgba(252, 165, 165, 0.45);
+}
+
+.aw-terminal-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.aw-terminal-input {
+  min-width: 0;
+  color: var(--text);
+  background: rgba(0,0,0,0.24);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 9px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.aw-terminal-form button,
+.aw-command-row button,
+.aw-history button,
+.aw-watch-meta button {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text);
+  background: rgba(255,255,255,0.07);
+  padding: 7px 9px;
+  cursor: pointer;
+}
+
+.aw-command-row,
+.aw-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.aw-output {
+  min-height: 0;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 10px;
+  font: 0.78rem/1.5 var(--font-mono);
+}
+
+.aw-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.aw-block {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+
+.aw-block-head {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.aw-block-head span,
+.aw-empty,
+.aw-watch-main span,
+.aw-alert small {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+}
+
+.aw-watch,
+.aw-rule,
+.aw-alert {
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.aw-watch-main,
+.aw-alert-main,
+.aw-alert span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.aw-watch-main strong,
+.aw-alert-main strong,
+.aw-rule strong,
+.aw-alert span {
+  overflow-wrap: anywhere;
+}
+
+.aw-watch-meta,
+.aw-rule {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  color: var(--text-secondary);
+  font: 0.74rem/1.3 var(--font-mono);
+}
+
+@media (max-width: 900px) {
+  .analyst-workbench {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .aw-grid {
+    grid-template-rows: none;
+  }
 }
 
 /* Geopolitical Risk Index */
@@ -447,7 +642,7 @@
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-weight: 500;
   border-radius: 4px;
   cursor: default;
@@ -520,7 +715,7 @@
 }
 .trade-commodity { color: var(--text-secondary); }
 .trade-value-wrap { display: flex; align-items: center; gap: 8px; }
-.trade-val { font-family: monospace; font-weight: 600; font-size: 0.9rem; }
+.trade-val { font-family: var(--font-mono); font-weight: 600; font-size: 0.9rem; }
 .trade-bar-bg {
   width: 100%;
   height: 4px;

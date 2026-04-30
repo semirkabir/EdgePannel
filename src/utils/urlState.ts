@@ -1,5 +1,6 @@
 import type { MapLayers } from '@/types';
 import type { MapView, TimeRange } from '@/components/Map';
+import { TIME_RANGE_OPTIONS } from '@/utils/time-range';
 
 const LAYER_KEYS: (keyof MapLayers)[] = [
   'conflicts',
@@ -38,7 +39,6 @@ const LAYER_KEYS: (keyof MapLayers)[] = [
   'ciiChoropleth',
 ];
 
-const TIME_RANGES: TimeRange[] = ['1h', '6h', '24h', '48h', '7d', 'all'];
 const VIEW_VALUES: MapView[] = ['global', 'america', 'mena', 'eu', 'asia', 'latam', 'africa', 'oceania'];
 
 export interface ParsedMapUrlState {
@@ -76,7 +76,7 @@ export function parseMapUrlState(
   const lon = Number.isFinite(lonValue) ? clamp(lonValue, -180, 180) : undefined;
 
   const timeRangeParam = params.get('timeRange');
-  const timeRange = TIME_RANGES.includes(timeRangeParam as TimeRange)
+  const timeRange = TIME_RANGE_OPTIONS.includes(timeRangeParam as TimeRange)
     ? (timeRangeParam as TimeRange)
     : undefined;
 

@@ -1,5 +1,5 @@
 import type { AisDisruptionEvent, SocialUnrestEvent, NaturalEvent, GulfInvestment } from '@/types';
-import type { AisPositionData } from '@/services/maritime';
+import type { AisPositionData, MaritimeGeospatialFeature } from '@/services/maritime';
 
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
@@ -226,6 +226,71 @@ export function renderAisVesselPopup(vessel: AisPositionData): string {
           <span class="stat-value">${coordStr}</span>
         </div>
       </div>
+    </div>
+  `;
+}
+
+export function renderMaritimeGeospatialPopup(feature: MaritimeGeospatialFeature): string {
+  const title = escapeHtml(feature.name);
+  const region = feature.region ? `<div class="popup-subtitle">${escapeHtml(feature.region)}</div>` : '';
+  const observed = escapeHtml(new Date(feature.observedAt).toLocaleString());
+  const coords = `${feature.lat.toFixed(3)}°, ${feature.lon.toFixed(3)}°`;
+
+  if (feature.surface === 'satellite') {
+    return `
+      <div class="popup-header ais">
+        <span class="popup-title">Satellite: ${title}</span>
+        <span class="popup-badge ${escapeHtml(feature.confidence)}">${escapeHtml(feature.confidence.toUpperCase())}</span>
+        <button class="popup-close" aria-label="Close">×</button>
+      </div>
+      <div class="popup-body">
+        ${region}
+        <div class="popup-stats">
+          ${stat('Type', escapeHtml(feature.type.replace(/_/g, ' ')))}
+          ${stat('Provider', escapeHtml(feature.provider))}
+          ${stat('Observed', observed)}
+          ${stat('Location', coords)}
+        </div>
+        <p class="popup-description">${escapeHtml(feature.description)}</p>
+      </div>
+    `;
+  }
+
+  if (feature.surface === 'ocean') {
+    return `
+      <div class="popup-header ais">
+        <span class="popup-title">Ocean: ${title}</span>
+        <span class="popup-badge ${escapeHtml(feature.severity)}">${escapeHtml(feature.severity.toUpperCase())}</span>
+        <button class="popup-close" aria-label="Close">×</button>
+      </div>
+      <div class="popup-body">
+        ${region}
+        <div class="popup-stats">
+          ${stat('Metric', escapeHtml(feature.metric.replace(/_/g, ' ')))}
+          ${stat('Value', `${escapeHtml(String(feature.value))}${escapeHtml(feature.unit)}`)}
+          ${stat('Observed', observed)}
+          ${stat('Location', coords)}
+        </div>
+        <p class="popup-description">${escapeHtml(feature.description)}</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="popup-header ais">
+      <span class="popup-title">Fishing: ${title}</span>
+      <span class="popup-badge ${escapeHtml(feature.activity)}">${escapeHtml(feature.activity.toUpperCase())}</span>
+      <button class="popup-close" aria-label="Close">×</button>
+    </div>
+    <div class="popup-body">
+      ${region}
+      <div class="popup-stats">
+        ${stat('Radius', `${feature.radiusKm} km`)}
+        ${stat('Vessels', feature.vesselsEstimated != null ? String(feature.vesselsEstimated) : '—')}
+        ${stat('Observed', observed)}
+        ${stat('Location', coords)}
+      </div>
+      <p class="popup-description">${escapeHtml(feature.description)}</p>
     </div>
   `;
 }

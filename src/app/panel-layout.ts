@@ -1,5 +1,6 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import { replayPendingCalls, clearAllPendingCalls } from '@/app/pending-panel-data';
+import { getTimeRangeLabel as formatTimeRangeLabel, getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
 import type { RelatedAsset, MapLayers } from '@/types';
 import type { TheaterPostureSummary } from '@/services/military-surge';
 import {
@@ -37,6 +38,7 @@ import {
   SanctionsTrackerPanel,
   SolarWeatherPanel,
   AlertRulesPanel,
+  AnalystWorkbenchPanel,
   GeopoliticalRiskPanel,
   CorrelationMatrixPanel,
   TradeFlowPanel,
@@ -49,6 +51,7 @@ import {
   BacktestingPanel,
   AlgoTradingPanel,
   NodeEditorPanel,
+  MaritimeGeospatialPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
@@ -982,6 +985,11 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels[panelKey] = panel;
     }
 
+    this.ctx.panels['analyst-workbench'] = new AnalystWorkbenchPanel({
+      getNews: () => this.ctx.allNews,
+      openCountryBrief: (code) => this.callbacks.openCountryBrief(code),
+    });
+
     if (SITE_VARIANT === 'full' || SITE_VARIANT === 'conflicts') {
       const gdeltIntelPanel = new GdeltIntelPanel();
       this.ctx.panels['gdelt-intel'] = gdeltIntelPanel;
@@ -1018,6 +1026,7 @@ export class PanelLayoutManager implements AppModule {
 
       const satelliteFiresPanel = new SatelliteFiresPanel();
       this.ctx.panels['satellite-fires'] = satelliteFiresPanel;
+      this.ctx.panels['maritime-geospatial'] = new MaritimeGeospatialPanel();
 
       const strategicRiskPanel = new StrategicRiskPanel();
       strategicRiskPanel.setLocationClickHandler((lat, lon) => {
@@ -1838,12 +1847,7 @@ export class PanelLayoutManager implements AppModule {
 
   private filterItemsByTimeRange(items: import('@/types').NewsItem[], range: import('@/components').TimeRange = this.ctx.currentTimeRange): import('@/types').NewsItem[] {
     if (range === 'all') return items;
-    const ranges: Record<string, number> = {
-      '1h': 60 * 60 * 1000, '6h': 6 * 60 * 60 * 1000,
-      '24h': 24 * 60 * 60 * 1000, '48h': 48 * 60 * 60 * 1000,
-      '7d': 7 * 24 * 60 * 60 * 1000, 'all': Infinity,
-    };
-    const cutoff = Date.now() - (ranges[range] ?? Infinity);
+    const cutoff = Date.now() - resolveTimeRangeWindowMs(range);
     return items.filter((item) => {
       const ts = item.pubDate instanceof Date ? item.pubDate.getTime() : new Date(item.pubDate).getTime();
       return Number.isFinite(ts) ? ts >= cutoff : true;
@@ -1851,12 +1855,7 @@ export class PanelLayoutManager implements AppModule {
   }
 
   private getTimeRangeLabel(): string {
-    const labels: Record<string, string> = {
-      '1h': 'the last hour', '6h': 'the last 6 hours',
-      '24h': 'the last 24 hours', '48h': 'the last 48 hours',
-      '7d': 'the last 7 days', 'all': 'all time',
-    };
-    return labels[this.ctx.currentTimeRange] ?? 'the last 7 days';
+    return formatTimeRangeLabel(this.ctx.currentTimeRange);
   }
 
   private applyInitialUrlState(): void {

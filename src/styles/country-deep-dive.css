@@ -1439,7 +1439,7 @@
 .cdp-fb-coords {
   font-size: 12px;
   color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-family: var(--font-mono);
 }
 
 .cdp-fb-stack-wrap {

@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package worldmonitor.reference.v1;
+
+// EntityRef represents a fully-resolved financial entity cross-reference.
+// All identifier fields are optional; at least `name` is always populated.
+message EntityRef {
+  // Canonical ticker symbol (uppercase, exchange-agnostic).
+  string ticker = 1;
+
+  // CUSIP — 9-character North American identifier.
+  string cusip = 2;
+
+  // ISIN — 12-character international identifier (ISO 6166).
+  string isin = 3;
+
+  // LEI — 20-character Legal Entity Identifier (ISO 17442).
+  string lei = 4;
+
+  // FIGI — Bloomberg Global Identifier (OpenFIGI).
+  string figi = 5;
+
+  // Human-readable name.
+  string name = 6;
+
+  // ISO 3166-1 alpha-2 country code.
+  string country = 7;
+
+  // Industry/GICS sector label.
+  string sector = 8;
+
+  // Exchange MIC or abbreviated name.
+  string exchange = 9;
+
+  // Entity classification: "company", "etf", "index", "crypto", "sovereign", "fund".
+  string entity_type = 10;
+
+  // RFC 3339 timestamp of last resolution.
+  string resolved_at = 11;
+
+  // Data sources used for this resolution (e.g. "finnhub", "openfigi", "gleif", "convex_cache").
+  repeated string sources = 12;
+}

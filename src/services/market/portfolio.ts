@@ -59,6 +59,75 @@ export interface UserPosition {
   addedAt: string;
 }
 
+export type PortfolioTransactionType = 'BUY' | 'SELL' | 'DIVIDEND' | 'SPLIT';
+
+export interface PortfolioRecord {
+  id: string;
+  name: string;
+  owner: string;
+  currency: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PortfolioTransaction {
+  id: string;
+  portfolioId: string;
+  symbol: string;
+  type: PortfolioTransactionType;
+  quantity: number;
+  price: number;
+  totalValue: number;
+  date: string;
+  notes: string;
+  createdAt: string;
+}
+
+export interface PortfolioSnapshot {
+  portfolioId: string;
+  totalValue: number;
+  totalCostBasis: number;
+  totalPnl: number;
+  totalPnlPct: number;
+  date: string;
+  createdAt: string;
+}
+
+export interface PortfolioMetrics {
+  concentrationTop3: number;
+  volatility30d: number;
+  var95: number;
+  maxDrawdown: number;
+  sharpe: number;
+  riskScore: number;
+}
+
+export interface PortfolioSummaryModel {
+  portfolio: PortfolioRecord;
+  positions: UserPosition[];
+  transactions: PortfolioTransaction[];
+  snapshots: PortfolioSnapshot[];
+  metrics: PortfolioMetrics;
+  totalMarketValue: number;
+  totalCostBasis: number;
+  totalPnl: number;
+  totalPnlPct: number;
+  totalDayChange: number;
+  totalDayChangePct: number;
+  topGainers: number;
+  topLosers: number;
+  sectorAllocation: SectorAllocation[];
+}
+
+export interface PortfolioStore {
+  version: 2;
+  activePortfolioId: string;
+  portfolios: PortfolioRecord[];
+  transactions: PortfolioTransaction[];
+  snapshots: PortfolioSnapshot[];
+}
+
 // ─── Ticker → Sector mapping ─────────────────────────────────────────────────
 
 const TICKER_SECTOR: Record<string, string> = {
@@ -247,8 +316,52 @@ export async function fetchInstitutionalHoldings(cik: string): Promise<Instituti
 // ─── User Portfolio (localStorage) ────────────────────────────────────────────
 
 const STORAGE_KEY = 'wm-portfolio-v1';
+const PORTFOLIO_STORE_KEY = 'wm-portfolio-store-v2';
+const DEFAULT_PORTFOLIO_ID = 'default';
 
-export function getUserPositions(): UserPosition[] {
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function makeId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function makeDefaultPortfolio(): PortfolioRecord {
+  const now = nowIso();
+  return {
+    id: DEFAULT_PORTFOLIO_ID,
+    name: 'Default Portfolio',
+    owner: 'User',
+    currency: 'USD',
+    description: 'Migrated local portfolio',
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function transactionFromLegacyPosition(position: UserPosition, portfolioId = DEFAULT_PORTFOLIO_ID): PortfolioTransaction {
+  const quantity = Math.max(0, Number(position.shares) || 0);
+  const price = Math.max(0, Number(position.avgCost) || 0);
+  return {
+    id: makeId('txn'),
+    portfolioId,
+    symbol: position.symbol.toUpperCase(),
+    type: 'BUY',
+    quantity,
+    price,
+    totalValue: quantity * price,
+    date: position.addedAt?.slice(0, 10) || todayIso(),
+    notes: 'Migrated from position tracker',
+    createdAt: position.addedAt || nowIso(),
+  };
+}
+
+function readLegacyPositions(): UserPosition[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
@@ -257,23 +370,191 @@ export function getUserPositions(): UserPosition[] {
   }
 }
 
+function sanitizeStore(input: Partial<PortfolioStore> | null): PortfolioStore {
+  const fallbackPortfolio = makeDefaultPortfolio();
+  const portfolios = Array.isArray(input?.portfolios) && input!.portfolios.length > 0
+    ? input!.portfolios.map(portfolio => ({
+      id: String(portfolio.id || makeId('portfolio')),
+      name: String(portfolio.name || 'Portfolio'),
+      owner: String(portfolio.owner || 'User'),
+      currency: String(portfolio.currency || 'USD').toUpperCase(),
+      description: String(portfolio.description || ''),
+      createdAt: String(portfolio.createdAt || nowIso()),
+      updatedAt: String(portfolio.updatedAt || nowIso()),
+    }))
+    : [fallbackPortfolio];
+  const activePortfolioId = portfolios.some(portfolio => portfolio.id === input?.activePortfolioId)
+    ? String(input!.activePortfolioId)
+    : portfolios[0]!.id;
+  return {
+    version: 2,
+    activePortfolioId,
+    portfolios,
+    transactions: Array.isArray(input?.transactions) ? input!.transactions.map(txn => ({
+      id: String(txn.id || makeId('txn')),
+      portfolioId: String(txn.portfolioId || activePortfolioId),
+      symbol: String(txn.symbol || '').toUpperCase(),
+      type: ['BUY', 'SELL', 'DIVIDEND', 'SPLIT'].includes(String(txn.type)) ? txn.type as PortfolioTransactionType : 'BUY',
+      quantity: Math.max(0, Number(txn.quantity) || 0),
+      price: Math.max(0, Number(txn.price) || 0),
+      totalValue: Math.max(0, Number(txn.totalValue) || (Number(txn.quantity) || 0) * (Number(txn.price) || 0)),
+      date: String(txn.date || todayIso()),
+      notes: String(txn.notes || ''),
+      createdAt: String(txn.createdAt || nowIso()),
+    })).filter(txn => txn.symbol) : [],
+    snapshots: Array.isArray(input?.snapshots) ? input!.snapshots.map(snapshot => ({
+      portfolioId: String(snapshot.portfolioId || activePortfolioId),
+      totalValue: Math.max(0, Number(snapshot.totalValue) || 0),
+      totalCostBasis: Math.max(0, Number(snapshot.totalCostBasis) || 0),
+      totalPnl: Number(snapshot.totalPnl) || 0,
+      totalPnlPct: Number(snapshot.totalPnlPct) || 0,
+      date: String(snapshot.date || todayIso()),
+      createdAt: String(snapshot.createdAt || nowIso()),
+    })) : [],
+  };
+}
+
+export function getPortfolioStore(): PortfolioStore {
+  try {
+    const raw = localStorage.getItem(PORTFOLIO_STORE_KEY);
+    if (raw) return sanitizeStore(JSON.parse(raw) as PortfolioStore);
+  } catch { /* fall through to migration */ }
+
+  const legacyPositions = readLegacyPositions();
+  const portfolio = makeDefaultPortfolio();
+  const store = sanitizeStore({
+    version: 2,
+    activePortfolioId: portfolio.id,
+    portfolios: [portfolio],
+    transactions: legacyPositions.map(position => transactionFromLegacyPosition(position, portfolio.id)),
+    snapshots: [],
+  });
+  savePortfolioStore(store, false);
+  return store;
+}
+
+export function savePortfolioStore(store: PortfolioStore, emit = true): void {
+  localStorage.setItem(PORTFOLIO_STORE_KEY, JSON.stringify(sanitizeStore(store)));
+  if (emit && typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('wm-portfolio-changed'));
+}
+
+export function getPortfolios(): PortfolioRecord[] {
+  return getPortfolioStore().portfolios;
+}
+
+export function getActivePortfolioId(): string {
+  return getPortfolioStore().activePortfolioId;
+}
+
+export function setActivePortfolio(id: string): void {
+  const store = getPortfolioStore();
+  if (!store.portfolios.some(portfolio => portfolio.id === id)) return;
+  savePortfolioStore({ ...store, activePortfolioId: id });
+}
+
+export function createPortfolio(name: string, currency = 'USD', description = ''): PortfolioRecord {
+  const store = getPortfolioStore();
+  const now = nowIso();
+  const portfolio: PortfolioRecord = {
+    id: makeId('portfolio'),
+    name: name.trim() || 'New Portfolio',
+    owner: 'User',
+    currency: currency.trim().toUpperCase() || 'USD',
+    description,
+    createdAt: now,
+    updatedAt: now,
+  };
+  savePortfolioStore({
+    ...store,
+    activePortfolioId: portfolio.id,
+    portfolios: [...store.portfolios, portfolio],
+  });
+  return portfolio;
+}
+
+export function getPortfolioTransactions(portfolioId = getActivePortfolioId(), limit = 100): PortfolioTransaction[] {
+  return getPortfolioStore().transactions
+    .filter(txn => txn.portfolioId === portfolioId)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
+    .slice(0, limit);
+}
+
+function addPortfolioTransaction(input: Omit<PortfolioTransaction, 'id' | 'createdAt' | 'totalValue'> & { totalValue?: number }): void {
+  const store = getPortfolioStore();
+  const txn: PortfolioTransaction = {
+    ...input,
+    id: makeId('txn'),
+    symbol: input.symbol.toUpperCase(),
+    totalValue: input.totalValue ?? input.quantity * input.price,
+    createdAt: nowIso(),
+  };
+  savePortfolioStore({ ...store, transactions: [...store.transactions, txn] });
+}
+
+export function replayPositionsFromTransactions(portfolioId = getActivePortfolioId()): UserPosition[] {
+  const txns = getPortfolioStore().transactions
+    .filter(txn => txn.portfolioId === portfolioId)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+  const positions = new Map<string, UserPosition & { totalCost: number }>();
+
+  for (const txn of txns) {
+    if (txn.type === 'DIVIDEND') continue;
+    const existing = positions.get(txn.symbol) || {
+      symbol: txn.symbol,
+      name: txn.symbol,
+      shares: 0,
+      avgCost: 0,
+      totalCost: 0,
+      addedAt: txn.createdAt,
+    };
+    if (txn.type === 'BUY') {
+      existing.totalCost += txn.quantity * txn.price;
+      existing.shares += txn.quantity;
+    } else if (txn.type === 'SELL') {
+      const sellQty = Math.min(existing.shares, txn.quantity);
+      const avgCost = existing.shares > 0 ? existing.totalCost / existing.shares : 0;
+      existing.shares -= sellQty;
+      existing.totalCost -= sellQty * avgCost;
+    } else if (txn.type === 'SPLIT' && txn.quantity > 0) {
+      existing.shares *= txn.quantity;
+    }
+    existing.avgCost = existing.shares > 0 ? existing.totalCost / existing.shares : 0;
+    positions.set(txn.symbol, existing);
+  }
+
+  return [...positions.values()]
+    .filter(position => position.shares > 0.000001)
+    .map(({ totalCost: _totalCost, ...position }) => position)
+    .sort((a, b) => a.symbol.localeCompare(b.symbol));
+}
+
+export function getUserPositions(): UserPosition[] {
+  return replayPositionsFromTransactions();
+}
+
 export function saveUserPositions(positions: UserPosition[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
-  document.dispatchEvent(new CustomEvent('wm-portfolio-changed'));
+  const store = getPortfolioStore();
+  const portfolioId = store.activePortfolioId;
+  const migrated = positions.map(position => transactionFromLegacyPosition(position, portfolioId));
+  savePortfolioStore({
+    ...store,
+    transactions: [
+      ...store.transactions.filter(txn => txn.portfolioId !== portfolioId),
+      ...migrated,
+    ],
+  });
 }
 
 export function addUserPosition(position: Omit<UserPosition, 'addedAt'>): void {
-  const positions = getUserPositions();
-  const existing = positions.findIndex(p => p.symbol === position.symbol);
-  if (existing >= 0) {
-    const old = positions[existing]!;
-    const totalShares = old.shares + position.shares;
-    const totalCost = (old.shares * old.avgCost) + (position.shares * position.avgCost);
-    positions[existing] = { ...old, shares: totalShares, avgCost: totalCost / totalShares };
-  } else {
-    positions.push({ ...position, addedAt: new Date().toISOString() });
-  }
-  saveUserPositions(positions);
+  addPortfolioTransaction({
+    portfolioId: getActivePortfolioId(),
+    symbol: position.symbol,
+    type: 'BUY',
+    quantity: position.shares,
+    price: position.avgCost,
+    date: todayIso(),
+    notes: position.name || '',
+  });
 }
 
 export function editUserPosition(symbol: string, updates: Partial<Pick<UserPosition, 'shares' | 'avgCost' | 'name'>>): void {
@@ -285,8 +566,17 @@ export function editUserPosition(symbol: string, updates: Partial<Pick<UserPosit
 }
 
 export function removeUserPosition(symbol: string): void {
-  const positions = getUserPositions().filter(p => p.symbol !== symbol);
-  saveUserPositions(positions);
+  const current = getUserPositions().find(position => position.symbol === symbol);
+  if (!current) return;
+  addPortfolioTransaction({
+    portfolioId: getActivePortfolioId(),
+    symbol,
+    type: 'SELL',
+    quantity: current.shares,
+    price: current.avgCost,
+    date: todayIso(),
+    notes: 'Removed position',
+  });
 }
 
 // ─── SVG Helpers ──────────────────────────────────────────────────────────────
@@ -420,6 +710,141 @@ export function computePortfolioPerformance(positions: UserPosition[], series: P
   }
 
   return { dates, values, costBasis, totalReturn, cagr, maxDrawdown, sharpe: 0 };
+}
+
+export interface PortfolioQuoteInput {
+  symbol: string;
+  price: number;
+  change: number;
+  sparkline?: number[];
+  name?: string;
+}
+
+function pct(value: number, total: number): number {
+  return total > 0 ? (value / total) * 100 : 0;
+}
+
+function computeMaxDrawdownFromSnapshots(snapshots: PortfolioSnapshot[]): number {
+  let peak = 0;
+  let maxDrawdown = 0;
+  for (const snapshot of snapshots.slice().sort((a, b) => a.date.localeCompare(b.date))) {
+    peak = Math.max(peak, snapshot.totalValue);
+    const drawdown = peak > 0 ? ((peak - snapshot.totalValue) / peak) * 100 : 0;
+    maxDrawdown = Math.max(maxDrawdown, drawdown);
+  }
+  return maxDrawdown;
+}
+
+function computePortfolioMetrics(input: {
+  positions: UserPosition[];
+  marketValues: number[];
+  dayReturns: number[];
+  totalValue: number;
+  snapshots: PortfolioSnapshot[];
+}): PortfolioMetrics {
+  const sortedWeights = input.marketValues.map(value => pct(value, input.totalValue)).sort((a, b) => b - a);
+  const concentrationTop3 = sortedWeights.slice(0, 3).reduce((sum, weight) => sum + weight, 0);
+  const weightedDayReturns = input.dayReturns.filter(Number.isFinite);
+  const mean = weightedDayReturns.length > 0 ? weightedDayReturns.reduce((sum, value) => sum + value, 0) / weightedDayReturns.length : 0;
+  const variance = weightedDayReturns.length > 1
+    ? weightedDayReturns.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / (weightedDayReturns.length - 1)
+    : 0;
+  const volatility30d = Math.sqrt(variance) * Math.sqrt(30);
+  const var95 = input.totalValue * Math.max(0, Math.abs(mean) + 1.645 * Math.sqrt(variance)) / 100;
+  const sharpe = volatility30d > 0 ? (mean * 252 / (volatility30d * Math.sqrt(252 / 30))) : 0;
+  const maxDrawdown = computeMaxDrawdownFromSnapshots(input.snapshots);
+  const riskScore = Math.min(100, concentrationTop3 * 0.45 + volatility30d * 1.2 + maxDrawdown * 0.7);
+  return {
+    concentrationTop3,
+    volatility30d,
+    var95,
+    maxDrawdown,
+    sharpe,
+    riskScore,
+  };
+}
+
+export function upsertPortfolioSnapshot(snapshot: Omit<PortfolioSnapshot, 'createdAt'>): void {
+  const store = getPortfolioStore();
+  const snapshots = store.snapshots.filter(existing =>
+    !(existing.portfolioId === snapshot.portfolioId && existing.date === snapshot.date)
+  );
+  snapshots.push({ ...snapshot, createdAt: nowIso() });
+  savePortfolioStore({ ...store, snapshots }, false);
+}
+
+export function buildPortfolioSummary(
+  portfolioId = getActivePortfolioId(),
+  quotes: PortfolioQuoteInput[] = [],
+): PortfolioSummaryModel {
+  const store = getPortfolioStore();
+  const portfolio = store.portfolios.find(item => item.id === portfolioId) ?? store.portfolios[0] ?? makeDefaultPortfolio();
+  const positions = replayPositionsFromTransactions(portfolio.id);
+  const quoteMap = new Map(quotes.map(quote => [quote.symbol.toUpperCase(), quote]));
+  const transactions = getPortfolioTransactions(portfolio.id, 200);
+  const snapshots = store.snapshots.filter(snapshot => snapshot.portfolioId === portfolio.id);
+  let totalMarketValue = 0;
+  let totalCostBasis = 0;
+  let totalDayChange = 0;
+  let topGainers = 0;
+  let topLosers = 0;
+  const sectorValue = new Map<string, number>();
+  const marketValues: number[] = [];
+  const dayReturns: number[] = [];
+
+  for (const position of positions) {
+    const quote = quoteMap.get(position.symbol);
+    const currentPrice = quote?.price ?? position.avgCost;
+    const marketValue = currentPrice * position.shares;
+    const costBasis = position.avgCost * position.shares;
+    const dayChangePct = quote?.change ?? 0;
+    const dayChangeValue = marketValue * dayChangePct / 100;
+    totalMarketValue += marketValue;
+    totalCostBasis += costBasis;
+    totalDayChange += dayChangeValue;
+    if (dayChangePct >= 0) topGainers++;
+    else topLosers++;
+    const sector = getTickerSector(position.symbol);
+    sectorValue.set(sector, (sectorValue.get(sector) || 0) + marketValue);
+    marketValues.push(marketValue);
+    dayReturns.push(dayChangePct);
+  }
+
+  const totalPnl = totalMarketValue - totalCostBasis;
+  const totalPnlPct = pct(totalPnl, totalCostBasis);
+  const totalDayChangePct = pct(totalDayChange, Math.max(0, totalMarketValue - totalDayChange));
+  const sectorAllocation = [...sectorValue.entries()]
+    .map(([sector, value]) => ({ sector, value, pct: pct(value, totalMarketValue), percentage: pct(value, totalMarketValue) }))
+    .sort((a, b) => b.value - a.value);
+  const metrics = computePortfolioMetrics({ positions, marketValues, dayReturns, totalValue: totalMarketValue, snapshots });
+
+  if (positions.length > 0 && totalMarketValue > 0) {
+    upsertPortfolioSnapshot({
+      portfolioId: portfolio.id,
+      totalValue: totalMarketValue,
+      totalCostBasis,
+      totalPnl,
+      totalPnlPct,
+      date: todayIso(),
+    });
+  }
+
+  return {
+    portfolio,
+    positions,
+    transactions,
+    snapshots,
+    metrics,
+    totalMarketValue,
+    totalCostBasis,
+    totalPnl,
+    totalPnlPct,
+    totalDayChange,
+    totalDayChangePct,
+    topGainers,
+    topLosers,
+    sectorAllocation,
+  };
 }
 
 export function computeCorrelationMatrix(symbols: string[], _series: PriceSeries[]): CorrelationMatrix {

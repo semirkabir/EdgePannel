@@ -71,6 +71,32 @@ function fmtCurrency(value: number): string {
   return '$' + value.toFixed(0);
 }
 
+function openCompanyDetail(ticker: string, name: string): void {
+  if (!ticker) return;
+  const data = { ticker, name: name || ticker };
+  document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+    detail: { type: 'company', data },
+  }));
+  const fallback = (window as any).__entityDetailPanel;
+  fallback?.show?.('company', data);
+}
+
+function makeCompanyRowClickable(rowEl: HTMLElement, ticker: string, name: string): void {
+  if (!ticker) return;
+  rowEl.classList.add('edp-holdings-row-clickable');
+  rowEl.dataset.ticker = ticker;
+  rowEl.setAttribute('role', 'button');
+  rowEl.tabIndex = 0;
+  rowEl.title = `Open ${ticker} in right panel`;
+  rowEl.setAttribute('aria-label', `Open ${ticker} in right panel`);
+  rowEl.addEventListener('click', () => openCompanyDetail(ticker, name));
+  rowEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openCompanyDetail(ticker, name);
+  });
+}
+
 export class CongressPoliticianRenderer implements EntityRenderer {
   private activeTab: TabId = 'holdings';
 
@@ -194,6 +220,7 @@ export class CongressPoliticianRenderer implements EntityRenderer {
     const grid = ctx.el('div', 'edp-holdings-table');
     for (const h of data.topTickers.slice(0, 25)) {
       const rowEl = ctx.el('div', 'edp-holdings-row');
+      makeCompanyRowClickable(rowEl, h.ticker, h.name);
       rowEl.append(ctx.el('span', 'edp-holdings-name', h.ticker));
       rowEl.append(ctx.el('span', 'edp-holdings-detail', h.name));
       const barWrap = ctx.el('div', 'edp-holdings-bar-wrap');

@@ -278,7 +278,7 @@ export class AviationCommandBar {
       .cmd-news-item a { color:var(--text,#e8e8e8);text-decoration:none;font-size:12px; }
       .cmd-news-item a:hover { color:var(--accent,#60a5fa); }
       #aviation-cmd-hint { font-size:11px;color:#4b5563;margin-top:10px;text-align:right; }
-      #aviation-cmd-hint kbd { background:#374151;border-radius:2px;padding:1px 4px;font-family:monospace; }
+      #aviation-cmd-hint kbd { background:#374151;border-radius:2px;padding:1px 4px;font-family:inherit; }
     `;
         document.head.appendChild(style);
     }

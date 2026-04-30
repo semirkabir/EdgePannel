@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package worldmonitor.reference.v1;
+
+import "worldmonitor/reference/v1/entity_ref.proto";
+
+// ResolveEntity — resolve any identifier to a full EntityRef.
+message ResolveEntityRequest {
+  // Provide exactly one of the following identifiers.
+  // If multiple are provided, priority: ticker > isin > lei > q.
+  string ticker = 1;
+  string isin = 2;
+  string lei = 3;
+  string cusip = 4;
+
+  // Freeform query — type detected automatically by format.
+  string q = 5;
+}
+
+message ResolveEntityResponse {
+  EntityRef entity = 1;
+  // Detected input type: "ticker", "isin", "lei", "cusip".
+  string resolved_type = 2;
+}
+
+// LookupByLei — direct LEI lookup without auto-detection.
+message LookupByLeiRequest {
+  string lei = 1;
+}
+
+message LookupByLeiResponse {
+  EntityRef entity = 1;
+}
+
+// SearchEntities — full-text search across cached entity names.
+message SearchEntitiesRequest {
+  string query = 1;
+  int32 limit = 2;
+}
+
+message SearchEntitiesResponse {
+  repeated EntityRef entities = 1;
+}

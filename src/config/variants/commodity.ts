@@ -39,6 +39,7 @@ export const DEFAULT_PANELS: Record<string, PanelConfig> = {
   // Environmental & operational risk
   climate: { name: 'Climate & Weather Impact', enabled: true, priority: 2 },
   'satellite-fires': { name: 'Fires & Operational Risk', enabled: true, priority: 2 },
+  'maritime-geospatial': { name: 'Maritime Geospatial', enabled: false, priority: 2 },
   'airline-intel': { name: 'Airline Intelligence', enabled: true, priority: 2 },
   // Tracking
   monitors: { name: 'My Monitors', enabled: true, priority: 2 },

@@ -8,7 +8,7 @@
 
 import { Panel } from './Panel';
 import * as d3 from 'd3';
-import type { RenewableEnergyData, RegionRenewableData, CapacitySeries } from '@/services/renewable-energy-data';
+import type { RenewableEnergyData, RegionRenewableData, CapacitySeries, GridCarbonSnapshot } from '@/services/renewable-energy-data';
 import { getCSSColor } from '@/utils';
 import { replaceChildren } from '@/utils/dom-utils';
 
@@ -73,6 +73,13 @@ export class RenewableEnergyPanel extends Panel {
       regionsSection.className = 'renewable-regions';
       this.renderRegions(regionsSection, data.regions);
       container.appendChild(regionsSection);
+    }
+
+    if (data.gridCarbon) {
+      const gridSection = document.createElement('div');
+      gridSection.className = 'grid-carbon-section';
+      this.renderGridCarbonSnapshot(gridSection, data.gridCarbon);
+      container.appendChild(gridSection);
     }
 
     this.content.appendChild(container);
@@ -305,6 +312,51 @@ export class RenewableEnergyPanel extends Panel {
     }
   }
 
+  private renderGridCarbonSnapshot(container: HTMLElement, snapshot: GridCarbonSnapshot): void {
+    const header = document.createElement('div');
+    header.className = 'grid-carbon-header';
+    header.textContent = 'Grid Carbon Snapshot';
+
+    const body = document.createElement('div');
+    body.className = `grid-carbon-card grid-carbon-${snapshot.index.replace(/\s+/g, '-')}`;
+
+    const main = document.createElement('div');
+    main.className = 'grid-carbon-main';
+
+    const value = document.createElement('span');
+    value.className = 'grid-carbon-value';
+    value.textContent = snapshot.carbonIntensityGco2Kwh === null
+      ? 'Unavailable'
+      : `${Math.round(snapshot.carbonIntensityGco2Kwh)} gCO2/kWh`;
+
+    const badge = document.createElement('span');
+    badge.className = `grid-carbon-badge grid-carbon-badge-${snapshot.status}`;
+    badge.textContent = snapshot.status === 'unavailable' ? 'Source unavailable' : snapshot.index;
+
+    main.appendChild(value);
+    main.appendChild(badge);
+
+    const meta = document.createElement('div');
+    meta.className = 'grid-carbon-meta';
+    const windowLabel = snapshot.observedFrom && snapshot.observedTo
+      ? `${formatTime(snapshot.observedFrom)}-${formatTime(snapshot.observedTo)} UTC`
+      : 'No current interval';
+    meta.textContent = `${snapshot.location} - ${windowLabel} - ${snapshot.source}`;
+
+    body.appendChild(main);
+    body.appendChild(meta);
+
+    if (snapshot.message) {
+      const message = document.createElement('div');
+      message.className = 'grid-carbon-message';
+      message.textContent = snapshot.message;
+      body.appendChild(message);
+    }
+
+    container.appendChild(header);
+    container.appendChild(body);
+  }
+
   /**
    * Set EIA installed capacity data and render a compact D3 stacked area chart
    * (solar + wind growth, coal decline) below the existing gauge/sparkline/regions.
@@ -514,4 +566,10 @@ export class RenewableEnergyPanel extends Panel {
   public destroy(): void {
     super.destroy();
   }
+}
+
+function formatTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toISOString().slice(11, 16);
 }

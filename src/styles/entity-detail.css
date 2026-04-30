@@ -5245,6 +5245,22 @@
   border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
 }
 
+.edp-holdings-row-clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.edp-holdings-row-clickable:hover,
+.edp-holdings-row-clickable:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  outline: none;
+}
+
+.edp-holdings-row-clickable:active {
+  transform: translateY(1px);
+}
+
 .edp-holdings-name {
   font-size: 12px;
   font-weight: 700;

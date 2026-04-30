@@ -19,6 +19,8 @@ import {
   fetchIranEvents,
   fetchAisSignals,
   getAisStatus,
+  fetchMaritimeGeospatialSnapshot,
+  countMaritimeGeospatialFeatures,
   fetchCableActivity,
   fetchCableHealth,
   fetchFlightDelays,
@@ -388,6 +390,8 @@ export class SignalPublisher {
         }
         const anomalies = climateResult.anomalies;
         this.deps.callPanel('climate', 'setAnomalies', anomalies);
+        this.deps.callPanel('climate', 'setPhysicalSignals', climateResult.physicalSignals);
+        this.deps.callPanel('climate', 'setSourceStatus', climateResult.sourceStatus);
         ingestClimateForCII(anomalies);
         if (this.ctx.mapLayers.climate) {
           this.ctx.mapStore.map?.setClimateAnomalies(anomalies);
@@ -699,10 +703,16 @@ export class SignalPublisher {
 
   async loadAisSignals(): Promise<void> {
     try {
-      const { disruptions, density } = await fetchAisSignals();
+      const [{ disruptions, density }, maritimeGeo] = await Promise.all([
+        fetchAisSignals(),
+        fetchMaritimeGeospatialSnapshot(),
+      ]);
       const aisStatus = getAisStatus();
-      console.log('[Ships] Events:', { disruptions: disruptions.length, density: density.length, vessels: aisStatus.vessels, connected: aisStatus.connected });
+      const maritimeGeoCount = countMaritimeGeospatialFeatures(maritimeGeo);
+      console.log('[Ships] Events:', { disruptions: disruptions.length, density: density.length, vessels: aisStatus.vessels, connected: aisStatus.connected, maritimeGeo: maritimeGeoCount });
       this.ctx.mapStore.map?.setAisData(disruptions, density);
+      this.ctx.mapStore.map?.setMaritimeGeospatialData(maritimeGeo);
+      (this.ctx.panels['maritime-geospatial'] as { update?: (snapshot: typeof maritimeGeo) => void } | undefined)?.update?.(maritimeGeo);
       this.ctx.mapStore.map?.enableAisLiveTracking();
       setTimeout(() => {
         const afterStatus = getAisStatus();
@@ -721,10 +731,10 @@ export class SignalPublisher {
         }
       }).catch(() => { });
 
-      const hasData = disruptions.length > 0 || density.length > 0;
+      const hasData = disruptions.length > 0 || density.length > 0 || maritimeGeoCount > 0;
       this.ctx.mapStore.map?.setLayerReady('ais', hasData);
 
-      const shippingCount = disruptions.length + density.length;
+      const shippingCount = disruptions.length + density.length + maritimeGeoCount;
       const shippingStatus = shippingCount > 0 ? 'ok' : (aisStatus.connected ? 'warning' : 'error');
       this.ctx.statusPanel?.updateFeed('Shipping', {
         status: shippingStatus,

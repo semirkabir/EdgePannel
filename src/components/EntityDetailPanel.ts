@@ -2,6 +2,7 @@ import type { PopupType } from './MapPopup';
 import type { EntityRenderer, EntityRenderContext, EntityRendererRegistry } from './entity-detail/types';
 import { GenericEntityRenderer } from './entity-detail/renderers/generic';
 import { DetailPanelBase } from './detail-panel/DetailPanelBase';
+import { attachEntityGraphEnrichment } from './entity-detail/entity-graph-enrichment';
 import { resolveEntityHeroImage, type EntityHeroImage } from '@/services/entity-hero-image';
 import { sanitizeUrl } from '@/utils/sanitize';
 
@@ -72,6 +73,7 @@ export class EntityDetailPanel extends DetailPanelBase {
                 this.injectHeroImage(image);
               }
             });
+            void this.attachEntityGraph(type, data, ctx, signal);
           }
         })
         .catch((err) => {
@@ -81,7 +83,10 @@ export class EntityDetailPanel extends DetailPanelBase {
           errorEl.className = 'edp-error-banner';
           errorEl.textContent = 'Failed to load details. Please try again later.';
           this.content.append(errorEl);
+          void this.attachEntityGraph(type, data, ctx, signal);
         });
+    } else {
+      void this.attachEntityGraph(type, data, ctx, this.abortController.signal);
     }
   }
 
@@ -160,6 +165,21 @@ export class EntityDetailPanel extends DetailPanelBase {
     }
 
     this.content.prepend(hero);
+  }
+
+  private async attachEntityGraph(
+    type: PopupType,
+    data: unknown,
+    ctx: EntityRenderContext,
+    signal: AbortSignal,
+  ): Promise<void> {
+    try {
+      await attachEntityGraphEnrichment(this.content, type, data, ctx, signal);
+    } catch (error) {
+      if (!signal.aborted && this.currentData === data) {
+        console.warn('[EntityDetailPanel] Entity graph enrichment failed:', error);
+      }
+    }
   }
 
   private sectionCard(title: string): [HTMLElement, HTMLElement] {

@@ -41,7 +41,15 @@ import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } fro
 import type { MilitaryBaseType } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import { fetchAircraftPositions } from '@/services/aviation';
-import { registerAisCallback, unregisterAisCallback, type AisPositionData } from '@/services/maritime';
+import {
+  registerAisCallback,
+  unregisterAisCallback,
+  type AisPositionData,
+  type MaritimeGeospatialSnapshot,
+  type MaritimeSatelliteObservation,
+  type OceanConditionPoint,
+  type FishingActivityZone,
+} from '@/services/maritime';
 import { type IranEvent } from '@/services/conflict';
 import { CONFIDENCE_TIERS, type ConfidenceTier } from '@/services/confidence-tier';
 import type { GpsJamHex } from '@/services/gps-interference';
@@ -114,11 +122,20 @@ import { getCountriesGeoJson, getCountryAtCoordinates, getCountryBbox } from '@/
 import type { FeatureCollection, Geometry } from 'geojson';
 import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferences';
 import type { MarketplaceRuntimeLayer } from '@/types/marketplace';
-export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
+import {
+  TIME_RANGE_OPTIONS,
+  formatCustomLookbackLabel,
+  getCustomLookbackConfig,
+  getTimeRangeShortLabel,
+  getTimeRangeWindowMs,
+  setCustomLookbackConfig,
+  type CustomLookbackUnit,
+  type TimeRange,
+} from '@/utils/time-range';
+export type { TimeRange };
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 type MapInteractionMode = 'flat' | '3d';
 
-const TIME_RANGE_OPTIONS: TimeRange[] = ['1h', '6h', '24h', '48h', '7d', 'all'];
 const DECK_CONTROL_SETTINGS_KEY = 'wm-deck-control-settings';
 
 interface DeckControlSettings {
@@ -143,6 +160,13 @@ function loadDeckControlSettings(): DeckControlSettings {
     const visibleTimeRanges = Array.isArray(parsed.visibleTimeRanges)
       ? parsed.visibleTimeRanges.filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range as TimeRange))
       : DEFAULT_DECK_CONTROL_SETTINGS.visibleTimeRanges;
+    if (
+      Array.isArray(parsed.visibleTimeRanges) &&
+      !visibleTimeRanges.includes('custom') &&
+      TIME_RANGE_OPTIONS.filter((range) => range !== 'custom').every((range) => visibleTimeRanges.includes(range))
+    ) {
+      visibleTimeRanges.push('custom');
+    }
 
     return {
       visibleTimeRanges: visibleTimeRanges.length > 0 ? visibleTimeRanges : DEFAULT_DECK_CONTROL_SETTINGS.visibleTimeRanges,
@@ -483,6 +507,7 @@ export class DeckGLMap {
   private aisTrackHistory: Map<string, Array<[number, number]>> = new Map();
   private aisFocusBounds: [[number, number], [number, number]] | null = null;
   private aisLiveCallback: ((data: AisPositionData[]) => void) | null = null;
+  private maritimeGeospatial: MaritimeGeospatialSnapshot | null = null;
   private cableAdvisories: CableAdvisory[] = [];
   private repairShips: RepairShip[] = [];
   private healthByCableId: Record<string, CableHealthRecord> = {};
@@ -1011,15 +1036,7 @@ export class DeckGLMap {
   }
 
   private getTimeRangeMs(range: TimeRange = this.state.timeRange): number {
-    const ranges: Record<TimeRange, number> = {
-      '1h': 60 * 60 * 1000,
-      '6h': 6 * 60 * 60 * 1000,
-      '24h': 24 * 60 * 60 * 1000,
-      '48h': 48 * 60 * 60 * 1000,
-      '7d': 7 * 24 * 60 * 60 * 1000,
-      'all': Infinity,
-    };
-    return ranges[range];
+    return getTimeRangeWindowMs(range);
   }
 
   private parseTime(value: Date | string | number | undefined | null): number | null {
@@ -1589,6 +1606,18 @@ export class DeckGLMap {
         layers.push(this.createAisVesselTracksLayer());
       }
       layers.push(this.createAisVesselsLayer());
+    }
+
+    if (mapLayers.ais && this.maritimeGeospatial) {
+      if (this.maritimeGeospatial.oceanConditions.length > 0) {
+        layers.push(this.createMaritimeOceanLayer());
+      }
+      if (this.maritimeGeospatial.fishingActivity.length > 0) {
+        layers.push(this.createMaritimeFishingLayer());
+      }
+      if (this.maritimeGeospatial.satelliteObservations.length > 0) {
+        layers.push(this.createMaritimeSatelliteLayer());
+      }
     }
 
     // GPS/GNSS jamming layer
@@ -2637,6 +2666,61 @@ export class DeckGLMap {
       sizeScale: 1,
       pickable: true,
       billboard: false,
+    });
+  }
+
+  private createMaritimeSatelliteLayer(): ScatterplotLayer<MaritimeSatelliteObservation> {
+    return new ScatterplotLayer<MaritimeSatelliteObservation>({
+      id: 'maritime-satellite-layer',
+      data: this.maritimeGeospatial?.satelliteObservations ?? [],
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: 9000,
+      radiusMinPixels: 5,
+      radiusMaxPixels: 12,
+      getFillColor: (d) => d.confidence === 'high'
+        ? [167, 139, 250, 220] as [number, number, number, number]
+        : [196, 181, 253, 170] as [number, number, number, number],
+      stroked: true,
+      getLineColor: [255, 255, 255, 130] as [number, number, number, number],
+      lineWidthMinPixels: 1,
+      pickable: true,
+    });
+  }
+
+  private createMaritimeOceanLayer(): ScatterplotLayer<OceanConditionPoint> {
+    return new ScatterplotLayer<OceanConditionPoint>({
+      id: 'maritime-ocean-layer',
+      data: this.maritimeGeospatial?.oceanConditions ?? [],
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: (d) => d.severity === 'advisory' ? 18000 : d.severity === 'watch' ? 12000 : 8000,
+      radiusMinPixels: 4,
+      radiusMaxPixels: 14,
+      getFillColor: (d) => d.severity === 'advisory'
+        ? [14, 165, 233, 210] as [number, number, number, number]
+        : d.severity === 'watch'
+          ? [56, 189, 248, 170] as [number, number, number, number]
+          : [125, 211, 252, 130] as [number, number, number, number],
+      pickable: true,
+    });
+  }
+
+  private createMaritimeFishingLayer(): ScatterplotLayer<FishingActivityZone> {
+    return new ScatterplotLayer<FishingActivityZone>({
+      id: 'maritime-fishing-layer',
+      data: this.maritimeGeospatial?.fishingActivity ?? [],
+      getPosition: (d) => [d.lon, d.lat],
+      getRadius: (d) => d.radiusKm * 1000,
+      radiusMinPixels: 5,
+      radiusMaxPixels: 16,
+      getFillColor: (d) => d.activity === 'high'
+        ? [250, 204, 21, 190] as [number, number, number, number]
+        : d.activity === 'moderate'
+          ? [134, 239, 172, 165] as [number, number, number, number]
+          : [74, 222, 128, 120] as [number, number, number, number],
+      stroked: true,
+      getLineColor: [255, 255, 255, 110] as [number, number, number, number],
+      lineWidthMinPixels: 1,
+      pickable: true,
     });
   }
 
@@ -3833,6 +3917,12 @@ export class DeckGLMap {
       }
       case 'ais-density-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${t('components.deckgl.layers.shipTraffic')}</strong><br/>${t('popups.intensity')}: ${text(obj.intensity)}</div>` };
+      case 'maritime-satellite-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>Satellite ${text(String(obj.type || '').replace(/_/g, ' '))}<br/>${text(obj.confidence)} confidence</div>` };
+      case 'maritime-ocean-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(String(obj.metric || '').replace(/_/g, ' '))}: ${text(String(obj.value))}${text(obj.unit || '')}<br/>${text(obj.severity)} conditions</div>` };
+      case 'maritime-fishing-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.activity)} fishing activity<br/>${text(obj.vesselsEstimated != null ? `${obj.vesselsEstimated} est. vessels` : obj.confidence)}</div>` };
       case 'waterways-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${t('components.deckgl.layers.strategicWaterways')}</div>` };
       case 'economic-centers-layer':
@@ -4282,6 +4372,9 @@ export class DeckGLMap {
       'minerals-layer': 'mineral',
       'ais-disruptions-layer': 'ais',
       'ais-vessels-layer': 'aisVessel',
+      'maritime-satellite-layer': 'maritimeGeo',
+      'maritime-ocean-layer': 'maritimeGeo',
+      'maritime-fishing-layer': 'maritimeGeo',
       'gps-jamming-layer': 'gpsJamming',
       'cii-choropleth-layer': 'ciiCountry',
       'cable-advisories-layer': 'cable-advisory',
@@ -4460,6 +4553,9 @@ export class DeckGLMap {
       'minerals-layer': 'mineral',
       'ais-disruptions-layer': 'ais',
       'ais-vessels-layer': 'aisVessel',
+      'maritime-satellite-layer': 'maritimeGeo',
+      'maritime-ocean-layer': 'maritimeGeo',
+      'maritime-fishing-layer': 'maritimeGeo',
       'gps-jamming-layer': 'gpsJamming',
       'cii-choropleth-layer': 'ciiCountry',
       'cable-advisories-layer': 'cable-advisory',
@@ -4701,16 +4797,8 @@ export class DeckGLMap {
     const slider = document.createElement('div');
     slider.className = 'time-slider deckgl-time-slider';
     const settings = loadDeckControlSettings();
-    const timeLabels: Record<TimeRange, string> = {
-      '1h': '1h',
-      '6h': '6h',
-      '24h': '24h',
-      '48h': '48h',
-      '7d': '7d',
-      all: t('components.deckgl.timeAll'),
-    };
     const timeButtons = TIME_RANGE_OPTIONS.map(range =>
-      `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${timeLabels[range]}</button>`
+      `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${range === 'all' ? t('components.deckgl.timeAll') : getTimeRangeShortLabel(range)}</button>`
     ).join('');
     slider.innerHTML = `
       <div class="time-options">
@@ -4849,6 +4937,7 @@ export class DeckGLMap {
     const panel = document.createElement('div');
     panel.className = 'map-control-settings-panel';
     panel.hidden = true;
+    const customLookback = getCustomLookbackConfig();
     panel.innerHTML = `
       <div class="mcs-header">
         <span>Map controls</span>
@@ -4860,9 +4949,20 @@ export class DeckGLMap {
           ${TIME_RANGE_OPTIONS.map(range => `
             <label class="mcs-check">
               <input type="checkbox" data-time-range-setting="${range}">
-              <span>${range === 'all' ? t('components.deckgl.timeAll') : range}</span>
+              <span>${range === 'all' ? t('components.deckgl.timeAll') : getTimeRangeShortLabel(range)}</span>
             </label>
           `).join('')}
+        </div>
+        <div class="mcs-custom-lookback">
+          <label class="mcs-custom-label" for="deckCustomLookbackValue">Custom period</label>
+          <div class="mcs-custom-row">
+            <input id="deckCustomLookbackValue" type="number" min="1" max="8760" step="1" value="${customLookback.value}" data-custom-lookback-value>
+            <select data-custom-lookback-unit aria-label="Custom lookback unit">
+              <option value="h"${customLookback.unit === 'h' ? ' selected' : ''}>Hours</option>
+              <option value="d"${customLookback.unit === 'd' ? ' selected' : ''}>Days</option>
+            </select>
+          </div>
+          <div class="mcs-custom-summary" data-custom-lookback-summary>Custom uses ${formatCustomLookbackLabel(customLookback)}</div>
         </div>
       </div>
       <div class="mcs-section">
@@ -4893,8 +4993,13 @@ export class DeckGLMap {
       panel.querySelector<HTMLInputElement>('[data-layer-setting="showLayerCount"]')!.checked = settings.showLayerCount;
       panel.querySelector<HTMLInputElement>('[data-layer-setting="showLayerActions"]')!.checked = settings.showLayerActions;
     };
+    const syncCustomSummary = () => {
+      const summary = panel.querySelector<HTMLElement>('[data-custom-lookback-summary]');
+      if (summary) summary.textContent = `Custom uses ${formatCustomLookbackLabel()}`;
+    };
 
     syncPanel(initialSettings);
+    syncCustomSummary();
 
     settingsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -4909,19 +5014,40 @@ export class DeckGLMap {
 
     panel.querySelector<HTMLButtonElement>('.mcs-reset')?.addEventListener('click', () => {
       const settings = { ...DEFAULT_DECK_CONTROL_SETTINGS, visibleTimeRanges: [...DEFAULT_DECK_CONTROL_SETTINGS.visibleTimeRanges] };
+      const custom = setCustomLookbackConfig({ value: 12, unit: 'h' });
       saveDeckControlSettings(settings);
       setTrayOpenPreference('deckLayersOpen', settings.layersOpenDefault);
       syncPanel(settings);
+      const valueInput = panel.querySelector<HTMLInputElement>('[data-custom-lookback-value]');
+      const unitSelect = panel.querySelector<HTMLSelectElement>('[data-custom-lookback-unit]');
+      if (valueInput) valueInput.value = String(custom.value);
+      if (unitSelect) unitSelect.value = custom.unit;
+      syncCustomSummary();
       this.setLayersPanelOpen(slider, settings.layersOpenDefault);
       this.applyDeckControlSettings(slider, settings);
     });
 
     panel.addEventListener('change', (e) => {
-      const input = e.target as HTMLInputElement;
-      if (!(input instanceof HTMLInputElement)) return;
+      const input = e.target as HTMLInputElement | HTMLSelectElement;
+      if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLSelectElement)) return;
       const settings = loadDeckControlSettings();
 
-      if (input.dataset.timeRangeSetting) {
+      if (input.dataset.customLookbackValue !== undefined || input.dataset.customLookbackUnit !== undefined) {
+        const valueInput = panel.querySelector<HTMLInputElement>('[data-custom-lookback-value]');
+        const unitSelect = panel.querySelector<HTMLSelectElement>('[data-custom-lookback-unit]');
+        const unit = unitSelect?.value === 'd' ? 'd' : 'h';
+        const next = setCustomLookbackConfig({
+          value: Number(valueInput?.value),
+          unit: unit as CustomLookbackUnit,
+        });
+        if (valueInput) valueInput.value = String(next.value);
+        if (unitSelect) unitSelect.value = next.unit;
+        syncCustomSummary();
+        if (this.state.timeRange === 'custom') this.setTimeRange('custom');
+        return;
+      }
+
+      if (input instanceof HTMLInputElement && input.dataset.timeRangeSetting) {
         const visibleTimeRanges = Array.from(panel.querySelectorAll<HTMLInputElement>('[data-time-range-setting]:checked'))
           .map(el => el.dataset.timeRangeSetting as TimeRange)
           .filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range));
@@ -4938,6 +5064,7 @@ export class DeckGLMap {
         return;
       }
 
+      if (!(input instanceof HTMLInputElement)) return;
       const layerSetting = input.dataset.layerSetting as keyof Pick<DeckControlSettings, 'layersOpenDefault' | 'showLayerCount' | 'showLayerActions'> | undefined;
       if (!layerSetting) return;
       settings[layerSetting] = input.checked;
@@ -6190,6 +6317,11 @@ export class DeckGLMap {
   public setAisData(disruptions: AisDisruptionEvent[], density: AisDensityZone[]): void {
     this.aisDisruptions = disruptions;
     this.aisDensity = density;
+    this.render('ais');
+  }
+
+  public setMaritimeGeospatialData(snapshot: MaritimeGeospatialSnapshot): void {
+    this.maritimeGeospatial = snapshot;
     this.render('ais');
   }
 
