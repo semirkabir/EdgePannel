@@ -8,13 +8,10 @@ import {
   fetchInstitutionalHoldings,
   buildPortfolioSummary,
   createPortfolio,
-  getActivePortfolioId,
-  getPortfolios,
   getUserPositions,
   addUserPosition,
   editUserPosition,
   removeUserPosition,
-  setActivePortfolio,
   NOTABLE_INVESTORS,
   type CongressTrade,
   getTickerSector,
@@ -344,14 +341,6 @@ export class PortfolioPanel extends Panel {
       sparkline: quote.sparkline,
       name: quote.name,
     })));
-    const portfolioSelector = `
-      <div class="pf-portfolio-bar">
-        <select class="pf-input pf-portfolio-select" id="pf-portfolio-select" aria-label="Portfolio">
-          ${portfolios.map(portfolio => `<option value="${escapeHtml(portfolio.id)}" ${portfolio.id === activePortfolioId ? 'selected' : ''}>${escapeHtml(portfolio.name)} (${escapeHtml(portfolio.currency)})</option>`).join('')}
-        </select>
-        <button class="pf-add-btn pf-new-portfolio-btn" id="pf-new-portfolio-btn" type="button">New Portfolio</button>
-      </div>
-    `;
 
     if (positions.length === 0) {
       contentEl.innerHTML = `
@@ -560,6 +549,13 @@ export class PortfolioPanel extends Panel {
     });
   }
 
+  private async renderRepositoryPortfolioTab(contentEl: HTMLElement, portfolios: Portfolio[], portfolio: Portfolio): Promise<void> {
+    const summary = await portfolioService.get_summary(portfolio.id);
+    const sectorMap = new Map<string, number>();
+    for (const holding of summary.holdings) {
+      sectorMap.set(holding.sector, (sectorMap.get(holding.sector) || 0) + holding.market_value);
+    }
+
     const donutSegments = Array.from(sectorMap.entries())
       .map(([label, value]) => ({ label, value, color: (SECTOR_COLORS as Record<string, string>)[label] ?? SECTOR_COLORS.Other! }))
       .sort((a, b) => b.value - a.value);
@@ -657,56 +653,6 @@ export class PortfolioPanel extends Panel {
         </select>
       </div>
     `;
-  }
-
-  private bindPortfolioSelector(contentEl: HTMLElement): void {
-    const select = contentEl.querySelector<HTMLSelectElement>('#pf-portfolio-select');
-    select?.addEventListener('change', () => {
-      this.activePortfolioId = select.value === 'legacy-watchlist' ? 'legacy-watchlist' : select.value;
-      this.editingSymbol = null;
-      this.renderTabContent();
-    });
-  }
-
-  private bindRepositoryPortfolioActions(contentEl: HTMLElement, summary: PortfolioSummary): void {
-    contentEl.querySelector('#pf-open-full-portfolio')?.addEventListener('click', () => {
-      this.openPortfolioDetail(summary.portfolio.id);
-    });
-
-    contentEl.querySelectorAll<HTMLElement>('.pf-position-expand').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const symbol = btn.dataset.symbol;
-        if (symbol) this.openPortfolioPosition(summary.portfolio.id, symbol);
-      });
-    });
-
-    contentEl.querySelectorAll<HTMLElement>('.ticker-link').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const ticker = el.dataset.ticker;
-        const name = el.dataset.name;
-        if (ticker) {
-          this.openEntityDetail('company', { ticker, name: name || ticker });
-        }
-      });
-=======
-  private bindPortfolioControls(contentEl: HTMLElement): void {
-    const selector = contentEl.querySelector<HTMLSelectElement>('#pf-portfolio-select');
-    selector?.addEventListener('change', () => {
-      setActivePortfolio(selector.value);
-      this.editingSymbol = null;
-      void this.renderTabContent();
-    });
-
-    contentEl.querySelector<HTMLButtonElement>('#pf-new-portfolio-btn')?.addEventListener('click', () => {
-      const name = window.prompt('Portfolio name');
-      if (!name?.trim()) return;
-      createPortfolio(name.trim());
-      this.editingSymbol = null;
-      void this.renderTabContent();
->>>>>>> a60e8448d0664ced7fd8aaa393f5beef4d88a802
-    });
   }
 
   private bindAddForm(contentEl: HTMLElement): void {
