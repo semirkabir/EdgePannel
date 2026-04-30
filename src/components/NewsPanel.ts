@@ -476,7 +476,6 @@ export class NewsPanel extends Panel {
     }
 
     this._lastItems = items;
-    this.setDataBadge('live');
 
     // Always show flat items immediately for instant visual feedback,
     // then upgrade to clustered view in the background when ready.
@@ -489,7 +488,6 @@ export class NewsPanel extends Panel {
 
   public renderFilteredEmpty(message: string): void {
     this.renderRequestId += 1; // Cancel in-flight clustering from previous renders.
-    this.setDataBadge('live');
     this.setCount(0);
     this.relatedAssetContext.clear();
     this.currentHeadlines = [];
@@ -550,9 +548,18 @@ export class NewsPanel extends Panel {
             source: item.source,
             publishedAt: item.pubDate,
           });
+          let faviconHtml = '●';
+          try {
+            const url = new URL(item.link);
+            faviconHtml = `<img src="https://www.google.com/s2/favicons?domain=${url.hostname}&sz=32" class="source-icon" width="10" height="10" loading="lazy" alt="" onerror="this.style.display='none'" />`;
+          } catch {}
+          const tier = getSourceTier(item.source);
+          const tierBadge = `<span class="tier-badge tier-${tier}">${faviconHtml}</span>`;
+
           return `
       <div class="item ${item.isAlert ? 'alert' : ''}" ${item.monitorColor ? `style="--item-accent: ${escapeHtml(item.monitorColor)}"` : ''}>
         <div class="item-source">
+          ${tierBadge}
           ${escapeHtml(item.source)}
           ${item.lang && item.lang !== getCurrentLanguage() ? `<span class="lang-badge">${item.lang.toUpperCase()}</span>` : ''}
           ${item.isAlert ? '<span class="alert-tag">ALERT</span>' : ''}
@@ -705,9 +712,15 @@ export class NewsPanel extends Panel {
     const primaryTier = getSourceTier(cluster.primarySource);
     const primaryType = getSourceType(cluster.primarySource);
     const tierLabel = primaryTier === 1 ? 'Wire' : ''; // Don't show "Major" - confusing with story importance
-    const tierBadge = primaryTier <= 2
-      ? `<span class="tier-badge tier-${primaryTier}" title="${primaryType === 'wire' ? 'Wire Service - Highest reliability' : primaryType === 'gov' ? 'Official Government Source' : 'Verified News Outlet'}">${primaryTier === 1 ? '★' : '●'}${tierLabel ? ` ${tierLabel}` : ''}</span>`
-      : '';
+    
+    let faviconHtml = '●';
+    try {
+      const url = new URL(cluster.primaryLink);
+      faviconHtml = `<img src="https://www.google.com/s2/favicons?domain=${url.hostname}&sz=32" class="source-icon" width="10" height="10" loading="lazy" alt="" onerror="this.style.display='none'" />`;
+    } catch {}
+    
+    const tierIcon = primaryTier === 1 ? '★' : faviconHtml;
+    const tierBadge = `<span class="tier-badge tier-${primaryTier}" title="${primaryType === 'wire' ? 'Wire Service - Highest reliability' : primaryType === 'gov' ? 'Official Government Source' : 'Verified News Outlet'}">${tierIcon}${tierLabel ? ` ${tierLabel}` : ''}</span>`;
 
     // Build "Also reported by" section for multi-source confirmation
     const otherSources = cluster.topSources.filter(s => s.name !== cluster.primarySource);
