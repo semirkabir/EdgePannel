@@ -30,8 +30,6 @@ const ALERT_TYPE_ICONS: Record<string, string> = {
   composite: '🔗',
 };
 
-const INTELLIGENCE_ICON = '<img src="/intelligence-icon.png" width="16" height="16" alt="Intelligence" style="vertical-align:middle;filter:invert(1);margin-right:4px" />';
-
 const PRIORITY_COLORS: Record<string, string> = {
   critical: '#ef4444',
   high: '#f97316',
@@ -147,7 +145,7 @@ export class IntelligenceFindingPanel {
 
     this.titleEl = document.createElement('span');
     this.titleEl.className = 'findings-detail-title';
-    this.titleEl.innerHTML = `${INTELLIGENCE_ICON} Intelligence Finding`;
+    this.titleEl.innerHTML = 'Intelligence Finding';
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'findings-detail-close';
@@ -182,7 +180,7 @@ export class IntelligenceFindingPanel {
   showSignal(signal: CorrelationSignal): void {
     const icon = SIGNAL_TYPE_LABELS[signal.type] || '📌';
     const typeKey = signal.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    this.titleEl.textContent = `${icon} ${typeKey}`;
+    this.titleEl.innerHTML = `${icon} <span class="findings-detail-title-text">${escapeHtml(typeKey)}</span>`;
 
     const context = getSignalContext(signal.type as SignalType);
     const data = signal.data as Record<string, unknown>;
@@ -212,28 +210,34 @@ export class IntelligenceFindingPanel {
       ?? null;
 
     this.content.innerHTML = `
-      ${featuredImage ? `
-        <div class="ifp-featured-image">
-          <img src="${escapeHtml(featuredImage)}" alt="" loading="lazy" onerror="this.closest('.ifp-featured-image').remove()" />
-        </div>
-      ` : ''}
-      <div class="ifp-main">
-        <div class="ifp-type-row">
-          <span class="ifp-type-label">${escapeHtml(signal.type.replace(/_/g, ' '))}</span>
-          <span class="ifp-confidence" style="background:${confColor}22;color:${confColor}">${confidencePct}% confidence</span>
-        </div>
-        <div class="ifp-title">${escapeHtml(signal.title)}</div>
-        <div class="ifp-description">${escapeHtml(signal.description)}</div>
-        <div class="ifp-meta">
-          <span>${timeAgo(signal.timestamp)}</span>
-          ${signal.data.sourceCount ? `<span>· ${signal.data.sourceCount} sources</span>` : ''}
+      <div class="ifp-hero">
+        ${featuredImage ? `
+          <div class="ifp-hero-image">
+            <img src="${escapeHtml(featuredImage)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'" />
+            <div class="ifp-hero-image-overlay"></div>
+          </div>
+        ` : ''}
+        <div class="ifp-hero-body">
+          <div class="ifp-type-row">
+            <span class="ifp-type-label">${escapeHtml(signal.type.replace(/_/g, ' '))}</span>
+            <span class="ifp-confidence" style="background:${confColor}22;color:${confColor}">${confidencePct}% confidence</span>
+          </div>
+          <div class="ifp-title">${escapeHtml(signal.title)}</div>
+          <div class="ifp-description">${escapeHtml(signal.description)}</div>
+          <div class="ifp-meta">
+            <span>${timeAgo(signal.timestamp)}</span>
+            ${signal.data.sourceCount ? `<span class="ifp-meta-sep">·</span><span>${signal.data.sourceCount} sources</span>` : ''}
+          </div>
         </div>
       </div>
       ${this.renderSignalStats(signal)}
       ${lat && lon ? `
         <div class="ifp-section">
+          <div class="ifp-section-title">Location</div>
           <button class="ifp-location-btn" data-lat="${lat}" data-lon="${lon}">
-            📍 ${regionName ? escapeHtml(regionName) : `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`} — view on map
+            <span class="ifp-location-icon">📍</span>
+            <span>${regionName ? escapeHtml(regionName) : `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`}</span>
+            <span class="ifp-location-action">View on map →</span>
           </button>
         </div>
       ` : ''}
@@ -248,7 +252,7 @@ export class IntelligenceFindingPanel {
   showAlert(alert: UnifiedAlert): void {
     const icon = ALERT_TYPE_ICONS[alert.type] || '⚠️';
     const typeLabel = alert.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    this.titleEl.textContent = `${icon} ${typeLabel}`;
+    this.titleEl.innerHTML = `${icon} <span class="findings-detail-title-text">${escapeHtml(typeLabel)}</span>`;
 
     const priorityColors: Record<string, string> = {
       critical: getCSSColor('--semantic-critical') || '#ef4444',
@@ -270,25 +274,31 @@ export class IntelligenceFindingPanel {
       ?? null;
 
     this.content.innerHTML = `
-      ${alertArticleImage ? `
-        <div class="ifp-featured-image">
-          <img src="${escapeHtml(alertArticleImage)}" alt="" loading="lazy" onerror="this.closest('.ifp-featured-image').remove()" />
+      <div class="ifp-hero">
+        ${alertArticleImage ? `
+          <div class="ifp-hero-image">
+            <img src="${escapeHtml(alertArticleImage)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'" />
+            <div class="ifp-hero-image-overlay"></div>
+          </div>
+        ` : ''}
+        <div class="ifp-hero-body">
+          <div class="ifp-type-row">
+            <span class="ifp-type-label">${icon} ${escapeHtml(typeLabel)}</span>
+            <span class="ifp-priority-badge" style="background:${color}22;color:${color}">${alert.priority.toUpperCase()}</span>
+          </div>
+          <div class="ifp-title">${escapeHtml(alert.title)}</div>
+          <div class="ifp-description">${escapeHtml(alert.summary)}</div>
+          <div class="ifp-meta"><span>${timeAgo(alert.timestamp)}</span></div>
         </div>
-      ` : ''}
-      <div class="ifp-main">
-        <div class="ifp-type-row">
-          <span class="ifp-type-label">${icon} ${escapeHtml(typeLabel)}</span>
-          <span class="ifp-priority-badge" style="background:${color}22;color:${color}">${alert.priority.toUpperCase()}</span>
-        </div>
-        <div class="ifp-title">${escapeHtml(alert.title)}</div>
-        <div class="ifp-description">${escapeHtml(alert.summary)}</div>
-        <div class="ifp-meta"><span>${timeAgo(alert.timestamp)}</span></div>
       </div>
       ${this.renderAlertDetails(alert)}
       ${alert.location ? `
         <div class="ifp-section">
+          <div class="ifp-section-title">Location</div>
           <button class="ifp-location-btn" data-lat="${alert.location.lat}" data-lon="${alert.location.lon}">
-            📍 ${alert.location.lat.toFixed(2)}°, ${alert.location.lon.toFixed(2)}° — view on map
+            <span class="ifp-location-icon">📍</span>
+            <span>${alert.location.lat.toFixed(2)}°, ${alert.location.lon.toFixed(2)}°</span>
+            <span class="ifp-location-action">View on map →</span>
           </button>
         </div>
       ` : ''}
@@ -368,7 +378,7 @@ export class IntelligenceFindingPanel {
         <div class="ifp-section-title">Signal metrics</div>
         <div class="ifp-stat-grid">
           ${stats.map(([label, value]) => `
-            <div class="ifp-stat-cell">
+            <div class="ifp-stat-card">
               <div class="ifp-stat-label">${escapeHtml(label)}</div>
               <div class="ifp-stat-value">${escapeHtml(value)}</div>
             </div>
@@ -401,9 +411,9 @@ export class IntelligenceFindingPanel {
         <div class="ifp-section">
           <div class="ifp-section-title">Analysis</div>
           ${contextRows.map(([label, value]) => `
-            <div class="ifp-context-item">
-              <span class="ifp-context-label">${escapeHtml(label)}</span>
-              <span class="ifp-context-value">${escapeHtml(value)}</span>
+            <div class="ifp-context-card">
+              <div class="ifp-context-label">${escapeHtml(label)}</div>
+              <div class="ifp-context-value">${escapeHtml(value)}</div>
             </div>
           `).join('')}
         </div>
@@ -412,21 +422,21 @@ export class IntelligenceFindingPanel {
         <div class="ifp-section">
           <div class="ifp-section-title">Detail</div>
           ${signal.data.explanation ? `
-            <div class="ifp-context-item">
-              <span class="ifp-context-label">Explanation</span>
-              <span class="ifp-context-value">${escapeHtml(signal.data.explanation)}</span>
+            <div class="ifp-context-card">
+              <div class="ifp-context-label">Explanation</div>
+              <div class="ifp-context-value">${escapeHtml(signal.data.explanation)}</div>
             </div>
           ` : ''}
           ${focalPoints && focalPoints.length ? `
-            <div class="ifp-context-item">
-              <span class="ifp-context-label">Focal points</span>
-              ${focalPoints.map((point) => `<span class="ifp-context-value">📡 ${escapeHtml(point)}</span>`).join('')}
+            <div class="ifp-context-card">
+              <div class="ifp-context-label">Focal points</div>
+              ${focalPoints.map((point) => `<div class="ifp-context-value ifp-focal-point">📡 ${escapeHtml(point)}</div>`).join('')}
             </div>
           ` : ''}
           ${newsCorrelation ? `
-            <div class="ifp-context-item">
-              <span class="ifp-context-label">News correlation</span>
-              <span class="ifp-context-value ifp-context-value-mono">${escapeHtml(newsCorrelation)}</span>
+            <div class="ifp-context-card">
+              <div class="ifp-context-label">News correlation</div>
+              <div class="ifp-context-value ifp-context-value-mono">${escapeHtml(newsCorrelation)}</div>
             </div>
           ` : ''}
         </div>
@@ -534,26 +544,28 @@ export class IntelligenceFindingPanel {
   }
 
   private renderAlertDetails(alert: UnifiedAlert): string {
-    const items: Array<[string, string]> = [];
+    const items: Array<{ label: string; value: string; highlight?: boolean }> = [];
 
     if (alert.components.ciiChange) {
       const cii = alert.components.ciiChange;
       const sign = cii.change > 0 ? '+' : '';
-      items.push(['Country', cii.countryName]);
-      items.push(['Instability score', `${cii.previousScore} → ${cii.currentScore} (${sign}${cii.change})`]);
-      items.push(['Level', cii.level.toUpperCase()]);
-      items.push(['Primary driver', cii.driver]);
+      items.push({ label: 'Country', value: cii.countryName });
+      items.push({ label: 'Previous score', value: String(cii.previousScore) });
+      items.push({ label: 'Current score', value: `${cii.currentScore}`, highlight: true });
+      items.push({ label: 'Change', value: `${sign}${cii.change}`, highlight: true });
+      items.push({ label: 'Threat level', value: cii.level.toUpperCase() });
+      items.push({ label: 'Primary driver', value: cii.driver });
     }
 
     if (alert.components.convergence) {
-      items.push(['Event types', alert.components.convergence.types.join(', ')]);
-      items.push(['Event count', String(alert.components.convergence.totalEvents)]);
+      items.push({ label: 'Event types', value: alert.components.convergence.types.join(', ') });
+      items.push({ label: 'Event count', value: String(alert.components.convergence.totalEvents) });
     }
 
     if (alert.components.cascade) {
-      items.push(['Source', `${alert.components.cascade.sourceName} (${alert.components.cascade.sourceType})`]);
-      items.push(['Countries affected', String(alert.components.cascade.countriesAffected)]);
-      items.push(['Highest impact', alert.components.cascade.highestImpact]);
+      items.push({ label: 'Source', value: `${alert.components.cascade.sourceName} (${alert.components.cascade.sourceType})` });
+      items.push({ label: 'Countries affected', value: String(alert.components.cascade.countriesAffected) });
+      items.push({ label: 'Highest impact', value: alert.components.cascade.highestImpact });
     }
 
     if (items.length === 0) return '';
@@ -561,12 +573,14 @@ export class IntelligenceFindingPanel {
     return `
       <div class="ifp-section">
         <div class="ifp-section-title">Details</div>
-        ${items.map(([label, value]) => `
-          <div class="ifp-context-item">
-            <span class="ifp-context-label">${escapeHtml(label)}</span>
-            <span class="ifp-context-value">${escapeHtml(value)}</span>
-          </div>
-        `).join('')}
+        <div class="ifp-detail-grid">
+          ${items.map((item) => `
+            <div class="ifp-detail-card${item.highlight ? ' ifp-detail-card-highlight' : ''}">
+              <div class="ifp-detail-label">${escapeHtml(item.label)}</div>
+              <div class="ifp-detail-value">${escapeHtml(item.value)}</div>
+            </div>
+          `).join('')}
+        </div>
       </div>
     `;
   }
@@ -592,7 +606,7 @@ export class IntelligenceFindingPanel {
                 <span class="ifp-news-headline">${escapeHtml(item.title)}</span>
                 <span class="ifp-news-meta">
                   <span class="ifp-news-source">${escapeHtml(item.source)}</span>
-                  <span>·</span>
+                  <span class="ifp-meta-sep">·</span>
                   <span>${timeAgo(item.pubDate)}</span>
                 </span>
               </span>

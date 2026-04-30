@@ -140,6 +140,16 @@ export class IntelligenceFindingsBadge {
     const alert = (e as CustomEvent<BreakingAlert>).detail;
     const id = `breaking-${alert.id}`;
     if (this.breakingFindings.some(f => f.id === id)) return;
+    const unifiedAlert: UnifiedAlert = {
+      id: alert.id,
+      type: 'supplemental',
+      priority: alert.threatLevel,
+      title: alert.headline,
+      summary: alert.source,
+      components: {},
+      countries: [],
+      timestamp: alert.timestamp,
+    };
     this.breakingFindings.unshift({
       id,
       source: 'alert',
@@ -149,7 +159,7 @@ export class IntelligenceFindingsBadge {
       confidence: alert.threatLevel === 'critical' ? 95 : 80,
       priority: alert.threatLevel,
       timestamp: alert.timestamp,
-      original: {} as UnifiedAlert,
+      original: unifiedAlert,
     });
     if (this.breakingFindings.length > 30) this.breakingFindings.length = 30;
     this.update();
