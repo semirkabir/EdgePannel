@@ -62,5 +62,8 @@ export * from './SocialSentimentPanel';
 export * from './OptionsChainPanel';
 export * from './SolarWeatherPanel';
 export * from './PortfolioPanel';
+export * from './BacktestingPanel';
+export * from './AlgoTradingPanel';
+export * from './NodeEditorPanel';
 export * from './DemocracyPanel';
 export * from './RiskDashboardPanel';

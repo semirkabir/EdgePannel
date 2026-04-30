@@ -1,0 +1,117 @@
+{
+  "format_version": "1.0",
+  "portfolio_name": "Demo Portfolio",
+  "owner": "Fincept User",
+  "currency": "USD",
+  "export_date": "2025-01-15T00:00:00Z",
+  "transactions": [
+    {
+      "date": "2024-01-15",
+      "symbol": "AAPL",
+      "type": "BUY",
+      "quantity": 15,
+      "price": 178.5,
+      "total_value": 2677.5,
+      "notes": "Core tech position"
+    },
+    {
+      "date": "2024-01-18",
+      "symbol": "MSFT",
+      "type": "BUY",
+      "quantity": 10,
+      "price": 388.47,
+      "total_value": 3884.7,
+      "notes": "Enterprise software allocation"
+    },
+    {
+      "date": "2024-01-22",
+      "symbol": "GOOGL",
+      "type": "BUY",
+      "quantity": 18,
+      "price": 144.08,
+      "total_value": 2593.44,
+      "notes": "Search and AI exposure"
+    },
+    {
+      "date": "2024-02-01",
+      "symbol": "NVDA",
+      "type": "BUY",
+      "quantity": 8,
+      "price": 61.53,
+      "total_value": 492.24,
+      "notes": "Accelerated compute position"
+    },
+    {
+      "date": "2024-02-09",
+      "symbol": "AMZN",
+      "type": "BUY",
+      "quantity": 12,
+      "price": 174.45,
+      "total_value": 2093.4,
+      "notes": "Cloud and retail platform"
+    },
+    {
+      "date": "2024-02-16",
+      "symbol": "TSLA",
+      "type": "BUY",
+      "quantity": 9,
+      "price": 199.95,
+      "total_value": 1799.55,
+      "notes": "High-beta consumer allocation"
+    },
+    {
+      "date": "2024-03-04",
+      "symbol": "JPM",
+      "type": "BUY",
+      "quantity": 14,
+      "price": 184.3,
+      "total_value": 2580.2,
+      "notes": "Large bank anchor"
+    },
+    {
+      "date": "2024-03-11",
+      "symbol": "JNJ",
+      "type": "BUY",
+      "quantity": 11,
+      "price": 158.5,
+      "total_value": 1743.5,
+      "notes": "Healthcare defensive position"
+    },
+    {
+      "date": "2024-03-18",
+      "symbol": "XOM",
+      "type": "BUY",
+      "quantity": 16,
+      "price": 113.49,
+      "total_value": 1815.84,
+      "notes": "Energy exposure"
+    },
+    {
+      "date": "2024-04-02",
+      "symbol": "V",
+      "type": "BUY",
+      "quantity": 7,
+      "price": 278.44,
+      "total_value": 1949.08,
+      "notes": "Payments network"
+    },
+    {
+      "date": "2024-04-12",
+      "symbol": "UNH",
+      "type": "BUY",
+      "quantity": 4,
+      "price": 458.14,
+      "total_value": 1832.56,
+      "notes": "Managed care exposure"
+    },
+    {
+      "date": "2024-04-22",
+      "symbol": "PG",
+      "type": "BUY",
+      "quantity": 13,
+      "price": 160.54,
+      "total_value": 2087.02,
+      "notes": "Consumer staples stabilizer"
+    }
+  ]
+}

@@ -25,6 +25,9 @@ import {
   type InstitutionSearchResult,
 } from '@/services/market/normalized-13f';
 import { setMarketWatchlistEntries, getMarketWatchlistEntries } from '@/services/market-watchlist';
+import { portfolioService } from '@/services/portfolio-service';
+import type { DetailView, HoldingWithQuote, Portfolio, PortfolioSummary } from '@/services/portfolio-types';
+import { getPortfolioDetailPanel } from './portfolio-detail/PortfolioDetailPanel';
 
 type Tab = 'portfolio' | 'filings' | 'tools';
 type ToolCategoryKey = 'all' | 'planning' | 'research' | 'construction' | 'attribution' | 'lab';
@@ -221,6 +224,7 @@ export class PortfolioPanel extends Panel {
   private activeToolsCategory: ToolCategoryKey = 'all';
   private activeToolGroup: ToolGroupKey | null = null;
   private activeTool: ToolKey | null = null;
+  private activePortfolioId: string | 'legacy-watchlist' | null = null;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private editingSymbol: string | null = null;
 
@@ -294,9 +298,26 @@ export class PortfolioPanel extends Panel {
   // ─── My Portfolio ────────────────────────────────────────────────────────
 
   private async renderPortfolioTab(contentEl: HTMLElement): Promise<void> {
+    const portfolios = await portfolioService.list_portfolios();
+    if (!this.activePortfolioId) {
+      this.activePortfolioId = portfolios.find((portfolio) => portfolio.name === 'Demo Portfolio')?.id
+        ?? portfolios[0]?.id
+        ?? 'legacy-watchlist';
+    }
+
+    if (this.activePortfolioId !== 'legacy-watchlist') {
+      const selectedPortfolio = portfolios.find((portfolio) => portfolio.id === this.activePortfolioId);
+      if (selectedPortfolio) {
+        await this.renderRepositoryPortfolioTab(contentEl, portfolios, selectedPortfolio);
+        return;
+      }
+      this.activePortfolioId = 'legacy-watchlist';
+    }
+
     const positions = getUserPositions();
     const quotes = new Map<string, { price: number; change: number; sparkline: number[]; name: string }>();
     let lastUpdated = '';
+    const selectorHtml = this.renderPortfolioSelector(portfolios);
 
     if (positions.length > 0) {
       try {
@@ -310,6 +331,7 @@ export class PortfolioPanel extends Panel {
 
     if (positions.length === 0) {
       contentEl.innerHTML = `
+        ${selectorHtml}
         <div class="pf-add-form">
           <input type="text" class="pf-input" id="pf-add-symbol" placeholder="Symbol (e.g. AAPL)" />
           <input type="number" class="pf-input pf-input-sm" id="pf-add-shares" placeholder="Shares" min="0" step="1" />
@@ -318,6 +340,7 @@ export class PortfolioPanel extends Panel {
         </div>
         <div class="pf-empty">No positions yet. Add a stock above to start tracking your portfolio.</div>
       `;
+      this.bindPortfolioSelector(contentEl);
       this.bindAddForm(contentEl);
       return;
     }
@@ -417,6 +440,7 @@ export class PortfolioPanel extends Panel {
       : '';
 
     contentEl.innerHTML = `
+      ${selectorHtml}
       <div class="pf-add-form">
         <input type="text" class="pf-input" id="pf-add-symbol" placeholder="Symbol (e.g. AAPL)" />
         <input type="number" class="pf-input pf-input-sm" id="pf-add-shares" placeholder="Shares" min="0" step="1" />
@@ -438,8 +462,149 @@ export class PortfolioPanel extends Panel {
       <div class="pf-positions">${rows}</div>
     `;
 
+    this.bindPortfolioSelector(contentEl);
     this.bindAddForm(contentEl);
     this.bindPositionActions(contentEl);
+  }
+
+  private async renderRepositoryPortfolioTab(contentEl: HTMLElement, portfolios: Portfolio[], portfolio: Portfolio): Promise<void> {
+    const summary = await portfolioService.get_summary(portfolio.id);
+    const sectorMap = new Map<string, number>();
+    for (const holding of summary.holdings) {
+      sectorMap.set(holding.sector, (sectorMap.get(holding.sector) || 0) + holding.market_value);
+    }
+
+    const donutSegments = Array.from(sectorMap.entries())
+      .map(([label, value]) => ({ label, value, color: (SECTOR_COLORS as Record<string, string>)[label] ?? SECTOR_COLORS.Other! }))
+      .sort((a, b) => b.value - a.value);
+
+    const donutHtml = donutSegments.length > 1
+      ? `<div class="pf-donut-wrap">${donutSvg(donutSegments, 120, 14)}<div class="pf-donut-legend">${donutSegments.map(s => `<span class="pf-donut-legend-item"><span class="pf-donut-dot" style="background:${s.color}"></span>${escapeHtml(s.label)}</span>`).join('')}</div></div>`
+      : '';
+
+    const rows = summary.holdings.map((holding) => this.renderRepositoryHoldingRow(holding)).join('');
+
+    contentEl.innerHTML = `
+      ${this.renderPortfolioSelector(portfolios)}
+      <div class="pf-section-head">
+        <div>
+          <div class="pf-section-title">${escapeHtml(summary.portfolio.name)}</div>
+          <div class="pf-section-subtitle">${escapeHtml(summary.portfolio.currency)} transaction-replay portfolio</div>
+        </div>
+        <button class="pf-inline-btn" id="pf-open-full-portfolio" type="button">Open full</button>
+      </div>
+      <div class="pf-summary">
+        <div class="pf-summary-item">
+          <span class="pf-summary-label">NAV</span>
+          <span class="pf-summary-val">$${summary.total_market_value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </div>
+        <div class="pf-summary-item">
+          <span class="pf-summary-label">P&amp;L</span>
+          <span class="pf-summary-val ${summary.total_unrealized_pnl >= 0 ? 'pf-positive' : 'pf-negative'}">${summary.total_unrealized_pnl >= 0 ? '+' : ''}$${Math.abs(summary.total_unrealized_pnl).toFixed(2)} (${summary.total_unrealized_pnl >= 0 ? '+' : ''}${summary.total_unrealized_pnl_percent.toFixed(1)}%)</span>
+        </div>
+        <div class="pf-summary-item">
+          <span class="pf-summary-label">Positions</span>
+          <span class="pf-summary-val">${summary.total_positions}</span>
+        </div>
+      </div>
+      ${donutHtml}
+      <div class="pf-positions">${rows || '<div class="pf-empty">No holdings in this portfolio.</div>'}</div>
+    `;
+
+    this.bindPortfolioSelector(contentEl);
+    this.bindRepositoryPortfolioActions(contentEl, summary);
+  }
+
+  private renderRepositoryHoldingRow(holding: HoldingWithQuote): string {
+    const pnlClass = holding.unrealized_pnl >= 0 ? 'pf-positive' : 'pf-negative';
+    const pnlSign = holding.unrealized_pnl >= 0 ? '+' : '';
+    const dayClass = holding.day_change_percent >= 0 ? 'pf-positive' : 'pf-negative';
+    const daySign = holding.day_change_percent >= 0 ? '+' : '';
+    const sectorColor = SECTOR_COLORS[holding.sector] || SECTOR_COLORS.Other;
+
+    return `
+      <div class="pf-position-row" data-symbol="${escapeHtml(holding.symbol)}">
+        <div class="pf-pos-info">
+          <span class="pf-pos-symbol ticker-link" data-ticker="${escapeHtml(holding.symbol)}" data-name="${escapeHtml(holding.name || holding.symbol)}">${escapeHtml(holding.symbol)}</span>
+          <span class="pf-pos-name">${escapeHtml(holding.name || holding.symbol)}</span>
+          <span class="pf-pos-sector" style="background:${sectorColor}30;color:${sectorColor}">${escapeHtml(holding.sector)}</span>
+        </div>
+        <div class="pf-pos-data">
+          <div class="pf-pos-col">
+            <span class="pf-pos-label">Qty</span>
+            <span class="pf-pos-val">${holding.quantity.toLocaleString()}</span>
+          </div>
+          <div class="pf-pos-col">
+            <span class="pf-pos-label">Price</span>
+            <span class="pf-pos-val">${holding.current_price ? '$' + holding.current_price.toFixed(2) : '-'}</span>
+          </div>
+          <div class="pf-pos-col">
+            <span class="pf-pos-label">Day</span>
+            <span class="pf-pos-val ${dayClass}">${daySign}${holding.day_change_percent.toFixed(2)}%</span>
+          </div>
+          <div class="pf-pos-col">
+            <span class="pf-pos-label">P&amp;L</span>
+            <span class="pf-pos-val ${pnlClass}">${pnlSign}$${Math.abs(holding.unrealized_pnl).toFixed(2)} (${pnlSign}${holding.unrealized_pnl_percent.toFixed(1)}%)</span>
+          </div>
+          ${holding.sparkline.length >= 2 ? `<div class="pf-pos-spark">${sparklineSvg(holding.sparkline, holding.day_change_percent, 56, 20)}</div>` : ''}
+          <div class="pf-pos-actions">
+            <button class="pf-row-open-btn pf-position-expand" data-symbol="${escapeHtml(holding.symbol)}" title="Expand position" type="button">&rsaquo;</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  private renderPortfolioSelector(portfolios: Portfolio[]): string {
+    const portfolioOptions = portfolios.map((portfolio) => `
+      <option value="${escapeHtml(portfolio.id)}"${portfolio.id === this.activePortfolioId ? ' selected' : ''}>
+        ${escapeHtml(portfolio.name)}
+      </option>
+    `).join('');
+    const legacySelected = this.activePortfolioId === 'legacy-watchlist' ? ' selected' : '';
+
+    return `
+      <div class="pf-portfolio-switcher">
+        <label class="pf-switch-label" for="pf-portfolio-select">Portfolios</label>
+        <select class="pf-select pf-portfolio-select" id="pf-portfolio-select">
+          ${portfolioOptions}
+          <option value="legacy-watchlist"${legacySelected}>My Watchlist</option>
+        </select>
+      </div>
+    `;
+  }
+
+  private bindPortfolioSelector(contentEl: HTMLElement): void {
+    const select = contentEl.querySelector<HTMLSelectElement>('#pf-portfolio-select');
+    select?.addEventListener('change', () => {
+      this.activePortfolioId = select.value === 'legacy-watchlist' ? 'legacy-watchlist' : select.value;
+      this.editingSymbol = null;
+      this.renderTabContent();
+    });
+  }
+
+  private bindRepositoryPortfolioActions(contentEl: HTMLElement, summary: PortfolioSummary): void {
+    contentEl.querySelector('#pf-open-full-portfolio')?.addEventListener('click', () => {
+      this.openPortfolioDetail(summary.portfolio.id);
+    });
+
+    contentEl.querySelectorAll<HTMLElement>('.pf-position-expand').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const symbol = btn.dataset.symbol;
+        if (symbol) this.openPortfolioPosition(summary.portfolio.id, symbol);
+      });
+    });
+
+    contentEl.querySelectorAll<HTMLElement>('.ticker-link').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const ticker = el.dataset.ticker;
+        const name = el.dataset.name;
+        if (ticker) {
+          this.openEntityDetail('company', { ticker, name: name || ticker });
+        }
+      });
+    });
   }
 
   private bindAddForm(contentEl: HTMLElement): void {
@@ -946,6 +1111,38 @@ export class PortfolioPanel extends Panel {
     });
   }
 
+  private openPortfolioDetail(portfolioId: string, view: DetailView = 'AnalyticsSectors'): void {
+    getPortfolioDetailPanel().showAggregate(portfolioId, view);
+  }
+
+  private openPortfolioPosition(portfolioId: string, symbol: string): void {
+    getPortfolioDetailPanel().showPosition(portfolioId, symbol);
+  }
+
+  private async resolveActiveRepositoryPortfolioId(): Promise<string> {
+    if (this.activePortfolioId && this.activePortfolioId !== 'legacy-watchlist') return this.activePortfolioId;
+    const portfolios = await portfolioService.list_portfolios();
+    return portfolios.find((portfolio) => portfolio.name === 'Demo Portfolio')?.id
+      ?? portfolios[0]?.id
+      ?? (await portfolioService.ensure_demo_portfolio()).id;
+  }
+
+  private mapToolToDetailView(tool: ToolKey | null): DetailView {
+    if (!tool) return 'AnalyticsSectors';
+    if (tool.includes('optimization') || tool.includes('black-litterman') || tool.includes('efficient-frontier')) return 'Optimization';
+    if (tool.includes('factor') || tool.includes('risk') || tool.includes('correlation')) return 'RiskMgmt';
+    if (tool.includes('statistics') || tool.includes('cointegration') || tool.includes('autocorrelation')) return 'QuantStats';
+    if (tool.includes('financial') || tool.includes('liability')) return 'Planning';
+    if (tool.includes('valuation')) return 'Economics';
+    if (tool.includes('backtest') || tool.includes('walk-forward') || tool.includes('out-of-sample')) return 'PerfRisk';
+    return 'ReportsPme';
+  }
+
+  private async openPortfolioToolDetail(tool: ToolKey | null): Promise<void> {
+    const portfolioId = await this.resolveActiveRepositoryPortfolioId();
+    getPortfolioDetailPanel().showAggregate(portfolioId, this.mapToolToDetailView(tool));
+  }
+
   private openEntityDetail(type: PopupType, data: unknown): void {
     document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
       detail: { type, data },
@@ -1064,6 +1261,7 @@ export class PortfolioPanel extends Panel {
         this.activeToolGroup = (button.dataset.toolGroup as ToolGroupKey) || null;
         this.activeTool = (button.dataset.toolKey as ToolKey) || null;
         this.renderTabContent();
+        void this.openPortfolioToolDetail(this.activeTool);
       });
     });
 

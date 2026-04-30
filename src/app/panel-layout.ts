@@ -46,6 +46,9 @@ import {
   SocialSentimentPanel,
   OptionsChainPanel,
   PortfolioPanel,
+  BacktestingPanel,
+  AlgoTradingPanel,
+  NodeEditorPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
@@ -1148,6 +1151,11 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['social-sentiment'] = new SocialSentimentPanel();
       this.ctx.panels['options-chain'] = new OptionsChainPanel();
       this.ctx.panels['portfolio-tracker'] = new PortfolioPanel();
+      if (SITE_VARIANT === 'full') {
+        this.ctx.panels['backtesting'] = new BacktestingPanel();
+        this.ctx.panels['algo-trading'] = new AlgoTradingPanel();
+        this.ctx.panels['node-editor'] = new NodeEditorPanel();
+      }
     }
 
     if (this.ctx.isDesktopApp) {

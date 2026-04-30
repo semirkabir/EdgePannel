@@ -2265,9 +2265,12 @@ export class DeckGLMap {
       const distDeg = aircraft.onGround ? 0.9 : Math.max(1.4, Math.min(3.2, aircraft.groundSpeedKts / 180));
       const fwdLon = aircraft.lon + Math.sin(headingRad) * distDeg / Math.cos((aircraft.lat * Math.PI) / 180);
       const fwdLat = aircraft.lat + Math.cos(headingRad) * distDeg;
-      layers.push(new ArcLayer<{ source: [number, number]; target: [number, number] }>({
+      layers.push(new ArcLayer<{ source: [number, number, number]; target: [number, number, number] }>({
         id: 'aircraft-heading-layer',
-        data: [{ source: [aircraft.lon, aircraft.lat], target: [fwdLon, fwdLat] }],
+        data: [{
+          source: [aircraft.lon, aircraft.lat, (aircraft.altitudeFt ?? 0) * 0.3048],
+          target: [fwdLon, fwdLat, 0],
+        }],
         getSourcePosition: (d) => d.source,
         getTargetPosition: (d) => d.target,
         getSourceColor: aircraft.onGround
@@ -2279,6 +2282,7 @@ export class DeckGLMap {
         getWidth: aircraft.onGround ? 1.5 : 2.25,
         widthMinPixels: 1,
         widthMaxPixels: 4,
+        getHeight: 0,
         pickable: false,
       }));
     }
@@ -2307,9 +2311,9 @@ export class DeckGLMap {
       const distDeg = Math.max(1.3, Math.min(3.4, flight.speed / 180));
       const fwdLon = flight.lon + Math.sin(headingRad) * distDeg / Math.cos((flight.lat * Math.PI) / 180);
       const fwdLat = flight.lat + Math.cos(headingRad) * distDeg;
-      layers.push(new ArcLayer<{ source: [number, number]; target: [number, number] }>({
+      layers.push(new ArcLayer<{ source: [number, number, number]; target: [number, number, number] }>({
         id: 'aircraft-heading-layer',
-        data: [{ source: [flight.lon, flight.lat], target: [fwdLon, fwdLat] }],
+        data: [{ source: [flight.lon, flight.lat, (flight.altitude ?? 0) * 0.3048], target: [fwdLon, fwdLat, 0] }],
         getSourcePosition: (d) => d.source,
         getTargetPosition: (d) => d.target,
         getSourceColor: [251, 146, 60, 45] as [number, number, number, number],
@@ -2317,6 +2321,7 @@ export class DeckGLMap {
         getWidth: 2.25,
         widthMinPixels: 1,
         widthMaxPixels: 4,
+        getHeight: 0,
         pickable: false,
       }));
     }

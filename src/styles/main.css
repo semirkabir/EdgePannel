@@ -1,6 +1,10 @@
 @import './rtl-overrides.css';
 @import './panels.css';
 @import './portfolio-panel.css';
+@import './portfolio-detail.css';
+@import './backtest-detail.css';
+@import './algo-detail.css';
+@import './node-editor.css';
 @import './tier1.css';
 
 /* Global scrollbar suppression */
@@ -26926,3 +26930,36 @@ body[data-panel-density="comfortable"] .panel-tabs {
 
 /* Custom cursor declarations are in src/styles/cursors.css —
    imported unlayered in main.ts so they beat this @layer base file. */
+
+/* ── Global Tooltip ───────────────────────────────────────────────────────── */
+#wm-tooltip {
+  position: fixed;
+  z-index: 99999;
+  pointer-events: none;
+  max-width: 240px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface, #16161e) 94%, white 6%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text, #e8e8f0);
+  font-size: 12px;
+  font-family: var(--font-body);
+  line-height: 1.4;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.1s ease, transform 0.1s ease;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55), 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+#wm-tooltip.wm-tooltip--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+[data-theme="light"] #wm-tooltip {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1a1a2e;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
+}

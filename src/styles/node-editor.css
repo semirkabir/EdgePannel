@@ -1,0 +1,265 @@
+.node-editor-detail-panel.dp-maximized .nd-panel-content {
+  width: min(1240px, 96vw);
+}
+
+.nd-panel-content,
+.ne-panel-shell {
+  color: var(--text);
+}
+
+.nd-titlebar,
+.nd-palette,
+.nd-props,
+.nd-footer,
+.ne-card {
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, black 8%);
+}
+
+.nd-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.nd-titlebar input,
+.nd-props input,
+.nd-palette input {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+  color: var(--text);
+  font-family: var(--font-body);
+}
+
+.nd-titlebar > input {
+  flex: 1;
+  font-weight: 800;
+}
+
+.nd-status {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.nd-toolbar,
+.ne-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.nd-toolbar button,
+.nd-palette button,
+.nd-props button,
+.ne-actions button,
+.ne-workflow {
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.nd-toolbar button,
+.nd-props button,
+.ne-actions button {
+  padding: 7px 9px;
+}
+
+.nd-editor {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr) 260px;
+  gap: 10px;
+}
+
+.nd-palette,
+.nd-props {
+  padding: 12px;
+  min-width: 0;
+}
+
+.nd-palette details {
+  margin-top: 10px;
+}
+
+.nd-palette summary {
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nd-palette button {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 7px 8px;
+  text-align: left;
+}
+
+.nd-stub {
+  opacity: 0.55;
+}
+
+.nd-canvas-wrap {
+  position: relative;
+  min-height: 620px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 8px;
+  background:
+    linear-gradient(color-mix(in srgb, var(--border) 24%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--border) 24%, transparent) 1px, transparent 1px),
+    color-mix(in srgb, var(--surface) 84%, black 16%);
+  background-size: 24px 24px;
+}
+
+.nd-canvas {
+  position: relative;
+  width: 100%;
+  height: 620px;
+}
+
+.nd-canvas svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.nd-edge {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  opacity: 0.65;
+}
+
+.nd-node {
+  position: absolute;
+  width: 180px;
+  min-height: 68px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, black 8%);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.nd-node-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.nd-node strong,
+.ne-workflow span {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.nd-node span,
+.nd-node i,
+.ne-workflow em,
+.ne-log,
+.nd-muted {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.nd-minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 90%, black 10%);
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.nd-props label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.nd-check {
+  flex-direction: row !important;
+  align-items: center;
+}
+
+.nd-empty,
+.ne-empty {
+  padding: 16px;
+  border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 8px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.nd-footer {
+  margin-top: 10px;
+  padding: 8px 10px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.ne-panel-shell,
+.ne-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ne-section-title {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ne-card {
+  padding: 12px;
+}
+
+.ne-workflow {
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.ne-log {
+  display: flex;
+  justify-content: space-between;
+}
+
+@media (max-width: 900px) {
+  .nd-editor {
+    grid-template-columns: 1fr;
+  }
+}

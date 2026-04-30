@@ -1,5 +1,6 @@
 /* ── Entity Detail Panel — slide-in right panel ────────────────────── */
 
+.detail-panel,
 .entity-detail-panel {
   position: fixed;
   top: 0;
@@ -14,10 +15,12 @@
   overflow: hidden;
 }
 
+.detail-panel.dp-active,
 .entity-detail-panel.edp-active {
   right: 0;
 }
 
+.detail-panel.dp-maximized,
 .entity-detail-panel.edp-maximized {
   position: fixed;
   inset: 0;
@@ -33,6 +36,7 @@
   transition: none;
 }
 
+.detail-panel.dp-maximized .dp-panel-content,
 .entity-detail-panel.edp-maximized .edp-panel-content {
   width: 960px;
   max-width: 96vw;
@@ -45,6 +49,7 @@
 
 /* ── Shell & layout ────────────────────────────────────────────────── */
 
+.dp-shell,
 .edp-shell {
   height: 100%;
   display: flex;
@@ -78,15 +83,16 @@
   transition: transform 0.08s linear, height 0.08s linear;
 }
 
+.dp-close,
 .edp-close {
   position: absolute;
   top: 14px;
   right: 14px;
   width: 44px;
   height: 44px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--semantic-critical) 42%, var(--frame-border));
   border-radius: 12px;
-  background: var(--ui-danger-tint);
+  background: color-mix(in srgb, var(--semantic-critical) 30%, var(--surface));
   color: var(--text);
   font-size: 14px;
   line-height: 1;
@@ -95,16 +101,33 @@
   align-items: center;
   justify-content: center;
   z-index: 10;
-  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s;
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 0 0 color-mix(in srgb, var(--semantic-critical) 22%, black 78%),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+  transition: color 0.1s, border-color 0.1s, background 0.1s, transform 0.1s, box-shadow 0.1s;
 }
 
+.dp-close:hover,
 .edp-close:hover {
   color: var(--text);
-  border-color: var(--text-faint);
-  background: color-mix(in srgb, var(--surface) 94%, white 6%);
+  background: color-mix(in srgb, var(--semantic-critical) 45%, var(--surface));
+  border-color: color-mix(in srgb, var(--semantic-critical) 56%, var(--frame-border));
   transform: translateY(-1px);
+  box-shadow:
+    0 3px 0 0 color-mix(in srgb, var(--semantic-critical) 22%, black 78%),
+    0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
+.dp-close:active,
+.edp-close:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--semantic-critical) 22%, black 78%),
+    0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.dp-panel-content,
 .edp-panel-content {
   flex: 1;
   overflow-y: auto;
@@ -114,6 +137,7 @@
   -ms-overflow-style: none;
 }
 
+.dp-panel-content::-webkit-scrollbar,
 .edp-panel-content::-webkit-scrollbar {
   display: none;
 }
@@ -1887,6 +1911,18 @@
 .edp-lp-city {
   color: var(--text);
   font-weight: 500;
+}
+
+.edp-op-link {
+  color: var(--accent, #60a5fa);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+.edp-op-link:hover {
+  color: var(--accent-bright, #93c5fd);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .edp-lp-country {
@@ -4559,20 +4595,32 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--semantic-critical) 42%, var(--frame-border));
-  background: var(--ui-danger-tint);
-  color: var(--text);
   font-family: var(--font-body);
   font-size: 14px;
-  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
-  transition: color 0.12s, background 0.12s, border-color 0.12s;
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 0 0 color-mix(in srgb, var(--semantic-critical) 22%, black 78%),
+    0 6px 14px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 var(--frame-inset-highlight);
+  transition: color 0.1s, background 0.1s, border-color 0.1s, transform 0.1s, box-shadow 0.1s;
 }
 
 .edp-close:hover {
   color: var(--text);
-  background: var(--ui-danger-tint-strong);
+  background: color-mix(in srgb, var(--semantic-critical) 45%, var(--surface));
   border-color: color-mix(in srgb, var(--semantic-critical) 56%, var(--frame-border));
-  transform: none;
+  transform: translateY(-1px);
+  box-shadow:
+    0 3px 0 0 color-mix(in srgb, var(--semantic-critical) 22%, black 78%),
+    0 4px 10px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 var(--frame-inset-highlight);
+}
+
+.edp-close:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--semantic-critical) 22%, black 78%),
+    0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* ── Panel content: tighter top pad for denser above-fold view ── */

@@ -1,0 +1,20 @@
+{
+  "id": "template_drift_rebalance",
+  "name": "Drift rebalance check",
+  "description": "Starter rebalance workflow with portfolio and risk nodes declared.",
+  "status": "Draft",
+  "nodes": [
+    { "id": "n1", "type": "trigger.manual", "label": "Manual Trigger", "x": 80, "y": 110, "params": {} },
+    { "id": "n2", "type": "portfolio.holdings", "label": "Holdings", "x": 320, "y": 110, "params": {} },
+    { "id": "n3", "type": "portfolio.drift_check", "label": "Drift Check", "x": 560, "y": 110, "params": {} },
+    { "id": "n4", "type": "output.results_display", "label": "Results Display", "x": 800, "y": 110, "params": {} }
+  ],
+  "edges": [
+    { "id": "e1", "from_node": "n1", "from_port": "out", "to_node": "n2", "to_port": "in", "type": "Main" },
+    { "id": "e2", "from_node": "n2", "from_port": "out", "to_node": "n3", "to_port": "in", "type": "Main" },
+    { "id": "e3", "from_node": "n3", "from_port": "out", "to_node": "n4", "to_port": "in", "type": "Main" }
+  ],
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "run_history": []
+}

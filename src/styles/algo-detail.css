@@ -1,0 +1,278 @@
+.algo-detail-panel.dp-maximized .ad-panel-content {
+  width: min(1180px, 96vw);
+}
+
+.ad-panel-content,
+.algo-panel-shell {
+  color: var(--text);
+}
+
+.ad-header,
+.ad-tabs,
+.ad-card,
+.algo-card {
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, black 8%);
+}
+
+.ad-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 10px;
+}
+
+.ad-header h2 {
+  margin: 0;
+  font-size: 21px;
+  letter-spacing: 0;
+}
+
+.ad-kicker,
+.algo-section-title {
+  display: block;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ad-header span,
+.ad-muted {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.ad-header-actions,
+.ad-tabs,
+.ad-card-head,
+.algo-top,
+.algo-chip-row,
+.ad-chip-row,
+.ad-block-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ad-icon-btn,
+.ad-tabs button,
+.ad-primary,
+.ad-row button,
+.ad-chip-row button,
+.algo-open,
+.algo-chip-row button,
+.algo-strategy {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.ad-icon-btn,
+.ad-tabs button,
+.ad-primary,
+.ad-row button,
+.ad-chip-row button,
+.algo-open,
+.algo-chip-row button {
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ad-icon-btn {
+  min-width: 34px;
+  height: 32px;
+}
+
+.ad-tabs {
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.ad-tabs button,
+.ad-primary,
+.ad-row button,
+.ad-chip-row button,
+.algo-open,
+.algo-chip-row button {
+  padding: 7px 10px;
+}
+
+.ad-tab-active,
+.ad-primary,
+.algo-open:hover,
+.ad-chip-row button:hover,
+.algo-chip-row button:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent) !important;
+  background: color-mix(in srgb, var(--accent) 14%, transparent) !important;
+  color: var(--accent) !important;
+}
+
+.ad-live-dot,
+.algo-live {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--green, #22c55e) 14%, transparent);
+  color: var(--green, #22c55e);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ad-builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 10px;
+}
+
+.ad-card,
+.algo-card {
+  padding: 12px;
+}
+
+.ad-card h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ad-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ad-card input,
+.ad-card select,
+.ad-card textarea {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+.ad-card textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.ad-condition-block {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 8px;
+}
+
+.ad-condition-row,
+.ad-risk-grid,
+.ad-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ad-kpi-grid div {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, black 12%);
+}
+
+.ad-kpi-grid span {
+  display: block;
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ad-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ad-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(100px, 0.8fr) auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+}
+
+.ad-row em {
+  color: var(--text-dim);
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ad-empty {
+  padding: 18px;
+  border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 8px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.algo-panel-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.algo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.algo-strategy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+  color: var(--text);
+  text-align: left;
+}
+
+.algo-strategy em {
+  color: var(--text-dim);
+  font-style: normal;
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .ad-builder,
+  .ad-condition-row,
+  .ad-risk-grid,
+  .ad-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}

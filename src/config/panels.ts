@@ -99,6 +99,9 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'social-sentiment':    p2('Social Sentiment'),
   'options-chain':       p2('Options Chain'),
   'portfolio-tracker':   p2('Portfolio Tracker'),
+  backtesting:           p2('Backtesting'),
+  'algo-trading':        p2('Algo Trading'),
+  'node-editor':         p2('Node Editor'),
   marketplace:           { name: 'Marketplace Data', enabled: false, priority: 2 },
 };
 

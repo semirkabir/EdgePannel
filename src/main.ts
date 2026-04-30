@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/browser';
 import { inject } from '@vercel/analytics';
 import { App } from './App';
 import { initCustomSelects } from '@/utils/custom-select';
+import { initTooltips } from '@/utils/tooltip';
 import { installCursorDiagnostics } from '@/utils/cursor-diagnostics';
 import { installForcedCursor } from '@/utils/forced-cursor';
 
@@ -307,6 +308,8 @@ if (isFirebaseConfigured()) {
 
 // Initialize custom selects early so dropdowns are ready before heavy app init
 initCustomSelects();
+// Replace browser-default title tooltips with styled custom tooltips site-wide
+initTooltips();
 
 // Set data-variant on <html> so CSS theme overrides activate
 if (SITE_VARIANT && SITE_VARIANT !== 'full') {
