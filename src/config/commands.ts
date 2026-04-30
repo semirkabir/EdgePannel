@@ -125,6 +125,10 @@ export const COMMANDS: Command[] = [
   { id: 'panel:analysis', keywords: ['analysis', 'market analysis', 'research'], label: 'Panel: Market Analysis', icon: '\u{1F4CA}', category: 'panels' },
   { id: 'panel:gcc-investments', keywords: ['gcc investments', 'gulf investments'], label: 'Panel: GCC Investments', icon: '\u{1F4B5}', category: 'panels' },
   { id: 'panel:gccNews', keywords: ['gcc news', 'gulf news', 'middle east business'], label: 'Panel: GCC Business News', icon: '\u{1F1EA}\u{1F1EC}', category: 'panels' },
+  { id: 'panel:portfolio-tracker', keywords: ['portfolio', 'holdings', 'investments', 'wealth'], label: 'Panel: Portfolio Tracker', icon: '\u{1F4BC}', category: 'panels' },
+  { id: 'panel:backtesting', keywords: ['backtest', 'backtesting', 'strategy', 'quant'], label: 'Panel: Backtesting', icon: '\u{1F4CA}', category: 'panels' },
+  { id: 'panel:algo-trading', keywords: ['algo', 'algo trading', 'algorithmic', 'bot'], label: 'Panel: Algo Trading', icon: '\u2699\uFE0F', category: 'panels' },
+  { id: 'panel:node-editor', keywords: ['node', 'node editor', 'workflow', 'visual'], label: 'Panel: Node Editor', icon: '\u{1F5A7}\uFE0F', category: 'panels' },
 
   // Happy variant panels
   { id: 'panel:positive-feed', keywords: ['good news', 'positive news', 'happy'], label: 'Panel: Good News Feed', icon: '\u{1F60A}', category: 'panels' },

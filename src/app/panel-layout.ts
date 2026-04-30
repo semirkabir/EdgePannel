@@ -1160,7 +1160,7 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['social-sentiment'] = new SocialSentimentPanel();
       this.ctx.panels['options-chain'] = new OptionsChainPanel();
       this.ctx.panels['portfolio-tracker'] = new PortfolioPanel();
-      if (SITE_VARIANT === 'full') {
+      if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
         this.ctx.panels['backtesting'] = new BacktestingPanel();
         this.ctx.panels['algo-trading'] = new AlgoTradingPanel();
         this.ctx.panels['node-editor'] = new NodeEditorPanel();
@@ -1379,9 +1379,52 @@ export class PanelLayoutManager implements AppModule {
     }
 
     this.mountAddWidgetBtn(panelsGrid);
+    this.ensurePlaceholders(panelsGrid);
     this.setupPanelCollapseHandle();
     this.setupLayoutToggle();
     this.setupScrollToTopButtons();
+  }
+
+  private ensurePlaceholders(grid: HTMLElement): void {
+    const updatePlaceholders = () => {
+      grid.querySelectorAll('.placeholder-panel').forEach(p => p.remove());
+      if (this.ctx.isMobile || this.getEffectiveUltraWide()) return;
+      
+      const childCount = Array.from(grid.children).filter(c => 
+        !c.classList.contains('scroll-to-top-btn') && 
+        !c.classList.contains('scroll-to-bottom-btn') && 
+        !c.classList.contains('add-widget-btn') &&
+        !c.classList.contains('placeholder-panel')
+      ).length;
+
+      const needed = Math.max(0, 8 - childCount);
+      for (let i = 0; i < needed; i++) {
+        const p = document.createElement('div');
+        p.className = 'placeholder-panel';
+        p.innerHTML = '<div class="placeholder-content">SYSTEM STANDBY</div>';
+        const addBtn = grid.querySelector('.add-widget-btn');
+        if (addBtn) {
+          grid.insertBefore(p, addBtn);
+        } else {
+          grid.appendChild(p);
+        }
+      }
+    };
+
+    updatePlaceholders();
+
+    // Use a MutationObserver to re-evaluate placeholders if panels are added/removed
+    const observer = new MutationObserver((mutations) => {
+      const relevant = mutations.some(m => 
+        Array.from(m.addedNodes).some(n => (n as HTMLElement).nodeType === 1 && !(n as HTMLElement).classList.contains('placeholder-panel')) ||
+        Array.from(m.removedNodes).some(n => (n as HTMLElement).nodeType === 1 && !(n as HTMLElement).classList.contains('placeholder-panel'))
+      );
+      if (relevant) {
+        updatePlaceholders();
+      }
+    });
+    observer.observe(grid, { childList: true });
+    this.panelDragCleanupHandlers.push(() => observer.disconnect());
   }
 
   private layoutMode: 'bottom' | 'side' = 'bottom';

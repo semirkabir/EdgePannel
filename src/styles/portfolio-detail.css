@@ -29,9 +29,12 @@
 .pd-command-bar,
 .pd-card,
 .pd-status {
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 92%, black 8%);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: var(--panel-glass-blur);
+  -webkit-backdrop-filter: var(--panel-glass-blur);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .pd-header {
@@ -88,11 +91,14 @@
 .pd-icon-btn,
 .pd-mini-btn,
 .pd-tab {
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
   color: var(--text-dim);
   cursor: pointer;
+  backdrop-filter: var(--panel-glass-blur);
+  -webkit-backdrop-filter: var(--panel-glass-blur);
+  transition: all 0.2s ease;
 }
 
 .pd-icon-btn {
@@ -112,11 +118,16 @@
 
 .pd-icon-btn:hover,
 .pd-mini-btn:hover,
-.pd-tab:hover,
+.pd-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+}
 .pd-tab-active {
   border-color: color-mix(in srgb, var(--accent) 50%, transparent);
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 12px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .pd-tab-muted {
@@ -156,10 +167,13 @@
 
 .pd-kpi {
   min-width: 0;
-  padding: 10px;
-  border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 90%, black 10%);
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: var(--panel-glass-blur);
+  -webkit-backdrop-filter: var(--panel-glass-blur);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .pd-kpi span {
@@ -226,12 +240,22 @@
   min-height: 54px;
   flex-direction: column;
   justify-content: space-between;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
-  border-radius: 8px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 10px;
   color: var(--text);
   cursor: pointer;
   text-align: left;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: var(--panel-glass-blur);
+  -webkit-backdrop-filter: var(--panel-glass-blur);
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.pd-heat-tile:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .pd-heat-tile strong,
@@ -283,17 +307,24 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 9px 10px;
+  padding: 12px;
   border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: var(--panel-glass-blur);
+  -webkit-backdrop-filter: var(--panel-glass-blur);
   color: var(--text);
   cursor: pointer;
   text-align: left;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .pd-position-row:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .pd-spark-large {

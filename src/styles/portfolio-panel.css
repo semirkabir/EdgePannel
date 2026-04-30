@@ -4,11 +4,11 @@
 
 .pf-shell { display: flex; flex-direction: column; gap: 10px; height: 100%; }
 
-.pf-tab-bar { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in srgb, var(--surface) 88%, black 12%); }
+.pf-tab-bar { display: flex; gap: 2px; padding: 4px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 10px; background: rgba(0, 0, 0, 0.2); backdrop-filter: var(--panel-glass-blur); -webkit-backdrop-filter: var(--panel-glass-blur); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
 
-.pf-tab { flex: 1; padding: 7px 4px; border: none; border-radius: 6px; background: transparent; color: var(--text-dim); font-size: 11px; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 0.03em; transition: background 0.15s, color 0.15s; white-space: nowrap; font-family: var(--font-body); }
-.pf-tab:hover { color: var(--text); background: color-mix(in srgb, var(--surface) 95%, white 5%); }
-.pf-tab-active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.pf-tab { flex: 1; padding: 7px 4px; border: none; border-radius: 6px; background: transparent; color: var(--text-dim); font-size: 11px; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 0.03em; transition: all 0.2s ease; white-space: nowrap; font-family: var(--font-body); }
+.pf-tab:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
+.pf-tab-active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1); }
 
 .pf-content { flex: 1; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .pf-content::-webkit-scrollbar { display: none; width: 0; height: 0; }
@@ -36,8 +36,11 @@
   margin-bottom: 10px;
   padding: 8px 10px;
   border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 92%, black 8%);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: var(--panel-glass-blur);
+  -webkit-backdrop-filter: var(--panel-glass-blur);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .pf-switch-label {
@@ -55,7 +58,7 @@
 
 /* Filter chips */
 .pf-filter-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.pf-filter-group { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--border) 65%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--surface) 92%, black 8%); }
+.pf-filter-group { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--border) 65%, transparent); border-radius: 10px; background: rgba(0, 0, 0, 0.2); backdrop-filter: var(--panel-glass-blur); -webkit-backdrop-filter: var(--panel-glass-blur); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
 .pf-filter-group-label { flex-shrink: 0; font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
 .pf-filter-chips { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .pf-chip { padding: 3px 8px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: var(--text-dim); font-size: 10px; font-weight: 600; cursor: pointer; text-transform: uppercase; letter-spacing: 0.03em; transition: background 0.15s, color 0.15s, border-color 0.15s; font-family: var(--font-body); }
@@ -72,14 +75,14 @@
 .pf-add-btn:hover { background: color-mix(in srgb, var(--green, #22c55e) 25%, transparent); }
 
 /* Summary card */
-.pf-summary { display: flex; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in srgb, var(--surface) 92%, black 8%); margin-bottom: 10px; flex-wrap: wrap; }
+.pf-summary { display: flex; gap: 12px; padding: 14px; border: 1px solid color-mix(in srgb, var(--border) 65%, transparent); border-radius: 12px; background: rgba(0, 0, 0, 0.25); backdrop-filter: var(--panel-glass-blur); -webkit-backdrop-filter: var(--panel-glass-blur); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 10px; flex-wrap: wrap; }
 .pf-summary-item { flex: 1; min-width: 80px; text-align: center; }
 .pf-summary-label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 4px; }
 .pf-summary-val { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
 .pf-updated { font-size: 11px !important; color: var(--text-dim) !important; }
 
 /* Allocation donut */
-.pf-donut-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: color-mix(in srgb, var(--surface) 92%, black 8%); }
+.pf-donut-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--border) 65%, transparent); border-radius: 12px; background: rgba(0, 0, 0, 0.25); backdrop-filter: var(--panel-glass-blur); -webkit-backdrop-filter: var(--panel-glass-blur); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
 .pf-donut-legend { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .pf-donut-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); }
 .pf-donut-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -89,16 +92,17 @@
 .pf-warning { color: #f59e0b !important; }
 
 .pf-risk-ribbon { display: grid; grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); gap: 6px; margin-bottom: 10px; }
-.pf-risk-chip { min-width: 0; padding: 8px 9px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--surface) 90%, black 10%); }
+.pf-risk-chip { min-width: 0; padding: 10px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 10px; background: rgba(0, 0, 0, 0.2); backdrop-filter: var(--panel-glass-blur); -webkit-backdrop-filter: var(--panel-glass-blur); transition: transform 0.2s, border-color 0.2s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+.pf-risk-chip:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--border) 90%, transparent); }
 .pf-risk-chip span { display: block; margin-bottom: 3px; color: var(--text-dim); font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pf-risk-chip strong { display: block; color: var(--text); font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Position rows */
 .pf-positions { display: flex; flex-direction: column; gap: 4px; }
-.pf-position-row { padding: 10px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--surface) 90%, black 10%); transition: border-color 0.15s; }
-.pf-position-row:hover { border-color: var(--border); }
-.pf-position-row.pf-positive-row { background: color-mix(in srgb, var(--green, #22c55e) 3%, var(--surface)); }
-.pf-position-row.pf-negative-row { background: color-mix(in srgb, var(--red, #ef4444) 3%, var(--surface)); }
+.pf-position-row { padding: 12px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 10px; background: rgba(0, 0, 0, 0.2); backdrop-filter: var(--panel-glass-blur); -webkit-backdrop-filter: var(--panel-glass-blur); transition: all 0.2s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+.pf-position-row:hover { border-color: color-mix(in srgb, var(--border) 90%, transparent); transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.1); }
+.pf-position-row.pf-positive-row { background: linear-gradient(90deg, color-mix(in srgb, var(--green, #22c55e) 8%, transparent), rgba(0,0,0,0.2)); border-left: 2px solid color-mix(in srgb, var(--green, #22c55e) 60%, transparent); }
+.pf-position-row.pf-negative-row { background: linear-gradient(90deg, color-mix(in srgb, var(--red, #ef4444) 8%, transparent), rgba(0,0,0,0.2)); border-left: 2px solid color-mix(in srgb, var(--red, #ef4444) 60%, transparent); }
 .pf-position-row.pf-editing { border-color: var(--accent); }
 .pf-pos-info { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
 .pf-pos-symbol { font-size: 13px; font-weight: 700; color: var(--accent); cursor: pointer; }

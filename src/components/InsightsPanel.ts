@@ -677,15 +677,24 @@ export class InsightsPanel extends Panel {
     return `
       <div class="insights-stats">
         <div class="insight-stat">
-          <span class="insight-stat-value">${insights.multiSourceCount}</span>
+          <div class="insight-gauge-wrap">
+            <span class="insight-pip multi-pip"></span>
+            <span class="insight-stat-value">${insights.multiSourceCount}</span>
+          </div>
           <span class="insight-stat-label">Multi-source</span>
         </div>
         <div class="insight-stat">
-          <span class="insight-stat-value">${insights.fastMovingCount}</span>
+          <div class="insight-gauge-wrap">
+            <span class="insight-pip fast-pip ${insights.fastMovingCount > 0 ? 'pulse-rapid' : ''}"></span>
+            <span class="insight-stat-value">${insights.fastMovingCount}</span>
+          </div>
           <span class="insight-stat-label">Fast-moving</span>
         </div>
         <div class="insight-stat">
-          <span class="insight-stat-value">${insights.clusterCount}</span>
+          <div class="insight-gauge-wrap">
+            <span class="insight-pip" style="background: var(--text-dim)"></span>
+            <span class="insight-stat-value">${insights.clusterCount}</span>
+          </div>
           <span class="insight-stat-label">Clusters</span>
         </div>
       </div>
@@ -798,16 +807,25 @@ export class InsightsPanel extends Panel {
     return `
       <div class="insights-stats">
         <div class="insight-stat">
-          <span class="insight-stat-value">${multiSource}</span>
+          <div class="insight-gauge-wrap">
+            <span class="insight-pip multi-pip"></span>
+            <span class="insight-stat-value">${multiSource}</span>
+          </div>
           <span class="insight-stat-label">Multi-source</span>
         </div>
         <div class="insight-stat">
-          <span class="insight-stat-value">${fastMoving}</span>
+          <div class="insight-gauge-wrap">
+            <span class="insight-pip fast-pip ${fastMoving > 0 ? 'pulse-rapid' : ''}"></span>
+            <span class="insight-stat-value">${fastMoving}</span>
+          </div>
           <span class="insight-stat-label">Fast-moving</span>
         </div>
         ${alerts > 0 ? `
         <div class="insight-stat alert">
-          <span class="insight-stat-value">${alerts}</span>
+          <div class="insight-gauge-wrap">
+            <span class="insight-pip alert-pip pulse-slow"></span>
+            <span class="insight-stat-value">${alerts}</span>
+          </div>
           <span class="insight-stat-label">Alerts</span>
         </div>
         ` : ''}
