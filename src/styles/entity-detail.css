@@ -127,6 +127,53 @@
     0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
+.edp-maximize {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--frame-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 82%, white 8%);
+  color: var(--text);
+  cursor: pointer;
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 0 0 color-mix(in srgb, var(--frame-border) 45%, black 55%),
+    0 6px 14px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 var(--frame-inset-highlight);
+  transition: color 0.1s, background 0.1s, border-color 0.1s, transform 0.1s, box-shadow 0.1s;
+}
+
+.edp-maximize svg {
+  width: 15px;
+  height: 15px;
+}
+
+.edp-maximize:hover,
+.edp-maximize[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--status-live) 22%, var(--surface));
+  border-color: color-mix(in srgb, var(--status-live) 44%, var(--frame-border));
+  color: var(--text);
+  transform: translateY(-1px);
+  box-shadow:
+    0 3px 0 0 color-mix(in srgb, var(--status-live) 22%, black 78%),
+    0 4px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 var(--frame-inset-highlight);
+}
+
+.edp-maximize:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--status-live) 18%, black 82%),
+    0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
 .dp-panel-content,
 .edp-panel-content {
   flex: 1;
@@ -4663,26 +4710,30 @@
 
 .cp-company-logo-hero {
   display: grid;
-  place-items: center;
-  min-height: 180px;
-  background:
-    linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(15, 23, 42, 0.22)),
-    var(--surface, #111215);
+  place-items: end center;
+  min-height: 0;
+  margin-bottom: 22px;
+  overflow: visible;
+  padding: 14px 24px 0;
+  background: color-mix(in srgb, var(--surface) 88%, white 12%);
 }
 
 .cp-company-logo-hero::after {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.78));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.62));
 }
 
 .cp-company-logo-hero .edp-auto-hero-img {
-  width: min(42%, 180px);
-  height: 96px;
+  position: relative;
+  z-index: 2;
+  width: min(100%, 420px);
+  height: clamp(108px, 16vw, 146px);
   aspect-ratio: auto;
   object-fit: contain;
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
+  transform: translateY(22px);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .edp-auto-hero-credit {

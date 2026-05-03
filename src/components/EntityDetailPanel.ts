@@ -15,6 +15,7 @@ export class EntityDetailPanel extends DetailPanelBase {
   private currentData: unknown = null;
   private abortController: AbortController = new AbortController();
   private navStack: HTMLElement[][] = [];
+  private readonly maximizeButton: HTMLButtonElement;
 
   private readonly registry: EntityRendererRegistry;
   private readonly generic: GenericEntityRenderer = new GenericEntityRenderer();
@@ -34,6 +35,7 @@ export class EntityDetailPanel extends DetailPanelBase {
       closeText: '\u00d7',
     });
     this.registry = registry;
+    this.maximizeButton = this.createMaximizeButton();
   }
 
   // ---- Public API ----
@@ -95,6 +97,7 @@ export class EntityDetailPanel extends DetailPanelBase {
     if (this.isMaximizedState) {
       this.minimize();
     }
+    this.syncMaximizeButton();
     this.abortController.abort();
     this.closePanel();
     this.currentType = null;
@@ -131,6 +134,37 @@ export class EntityDetailPanel extends DetailPanelBase {
       signal: this.abortController.signal,
       navigate: (el) => this.navigateTo(el),
     };
+  }
+
+  private createMaximizeButton(): HTMLButtonElement {
+    const button = this.el('button', 'edp-maximize') as HTMLButtonElement;
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Fullscreen');
+    button.setAttribute('aria-pressed', 'false');
+    button.title = 'Fullscreen';
+    button.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+        <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+        <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+        <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+      </svg>
+    `;
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (this.isMaximizedState) this.minimize();
+      else this.maximize();
+      this.syncMaximizeButton();
+    });
+    const shell = this.panel.querySelector<HTMLElement>('.edp-shell');
+    shell?.append(button);
+    return button;
+  }
+
+  private syncMaximizeButton(): void {
+    this.maximizeButton.setAttribute('aria-pressed', String(this.isMaximizedState));
+    this.maximizeButton.title = this.isMaximizedState ? 'Exit fullscreen' : 'Fullscreen';
+    this.maximizeButton.setAttribute('aria-label', this.maximizeButton.title);
   }
 
   private injectHeroImage(image: EntityHeroImage | null): void {

@@ -37,6 +37,7 @@ const LAYER_KEYS: (keyof MapLayers)[] = [
   'iranAttacks',
   'gpsJamming',
   'ciiChoropleth',
+  'aptGroups',
 ];
 
 const VIEW_VALUES: MapView[] = ['global', 'america', 'mena', 'eu', 'asia', 'latam', 'africa', 'oceania'];

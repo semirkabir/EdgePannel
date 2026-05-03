@@ -471,11 +471,6 @@ function renderCompanyLogoHero(container: HTMLElement, data: CompanyEnriched, ct
   img.onerror = () => hero.remove();
   hero.append(img);
 
-  const credit = ctx.el('div', 'edp-auto-hero-credit');
-  credit.append(ctx.el('span', 'edp-auto-hero-credit-label', 'Source'));
-  credit.append(ctx.el('span', 'edp-auto-hero-source', 'Finnhub profile'));
-  hero.append(credit);
-
   const header = container.querySelector('.edp-header');
   if (header) header.insertAdjacentElement('beforebegin', hero);
   else container.prepend(hero);

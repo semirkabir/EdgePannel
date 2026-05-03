@@ -55,6 +55,10 @@ export function formatCustomLookbackLabel(config = getCustomLookbackConfig()): s
   return `${config.value} ${unitLabel}`;
 }
 
+export function formatCustomLookbackShortLabel(config = getCustomLookbackConfig()): string {
+  return `${config.value}${config.unit}`;
+}
+
 export function getTimeRangeWindowMs(range: TimeRange): number {
   switch (range) {
     case '1h': return 60 * 60 * 1000;
@@ -86,7 +90,7 @@ export function getTimeRangeShortLabel(range: TimeRange): string {
     case '24h': return '24h';
     case '48h': return '48h';
     case '7d': return '7d';
-    case 'custom': return 'Custom';
+    case 'custom': return formatCustomLookbackShortLabel();
     case 'all': return 'All';
   }
 }
