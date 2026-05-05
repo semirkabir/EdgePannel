@@ -122,7 +122,7 @@ const FULL_MAP_LAYERS: MapLayers = {
   flights:     true,
   military:    true,
   natural:     true,
-  aptGroups:   true,
+  aptGroups:   false,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {
@@ -379,7 +379,7 @@ const CONFLICTS_MAP_LAYERS: MapLayers = {
   ucdpEvents:    true,
   displacement:  true,
   ciiChoropleth: true,
-  aptGroups:     true,
+  aptGroups:     false,
 };
 
 const CONFLICTS_MOBILE_MAP_LAYERS: MapLayers = {

@@ -26,6 +26,15 @@ function extractDomain(url: string): string {
   }
 }
 
+function buildSourceFaviconUrl(url: string): string {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '');
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
+  } catch {
+    return '';
+  }
+}
+
 function formatPublishedAt(value?: string): string {
   if (!value) return '';
   const date = new Date(value);
@@ -115,7 +124,20 @@ export class ArticleRenderer implements EntityRenderer {
     const container = ctx.el('div', 'edp-article-detail');
 
     const header = ctx.el('section', 'edp-header edp-header-card edp-article-header');
-    header.append(ctx.el('div', 'edp-article-source', article.source || extractDomain(article.url)));
+    const sourceRow = ctx.el('div', 'edp-article-source-row');
+    const faviconUrl = buildSourceFaviconUrl(article.url);
+    if (faviconUrl) {
+      const favicon = ctx.el('img', 'edp-article-source-favicon') as HTMLImageElement;
+      favicon.src = faviconUrl;
+      favicon.alt = '';
+      favicon.width = 16;
+      favicon.height = 16;
+      favicon.loading = 'lazy';
+      favicon.onerror = () => favicon.style.display = 'none';
+      sourceRow.append(favicon);
+    }
+    sourceRow.append(ctx.el('span', 'edp-article-source', article.source || extractDomain(article.url)));
+    header.append(sourceRow);
     header.append(ctx.el('h2', 'edp-title edp-article-title', article.title));
     const meta = ctx.el('div', 'edp-article-header-meta');
     const publishedAt = formatPublishedAt(article.publishedAt);
@@ -165,14 +187,31 @@ export class ArticleRenderer implements EntityRenderer {
 
     const resolvedTitle = result.title.trim() || article.title;
     const resolvedSource = result.siteName?.trim() || article.source || extractDomain(article.url);
-    const byline = result.byline.trim();
-    const publishedAt = formatPublishedAt(result.publishedTime || article.publishedAt);
 
+    const sourceRow = container.querySelector<HTMLElement>('.edp-article-source-row');
     const sourceEl = container.querySelector<HTMLElement>('.edp-article-source');
     if (sourceEl) sourceEl.textContent = resolvedSource;
-    const titleEl = container.querySelector<HTMLElement>('.edp-article-title');
+    if (sourceRow) {
+      const existingFavicon = sourceRow.querySelector<HTMLImageElement>('.edp-article-source-favicon');
+      if (!existingFavicon) {
+        const faviconUrl = buildSourceFaviconUrl(article.url);
+        if (faviconUrl) {
+          const favicon = ctx.el('img', 'edp-article-source-favicon') as HTMLImageElement;
+          favicon.src = faviconUrl;
+          favicon.alt = '';
+          favicon.width = 16;
+          favicon.height = 16;
+          favicon.loading = 'lazy';
+          favicon.onerror = () => favicon.style.display = 'none';
+          sourceRow.insertBefore(favicon, sourceEl);
+        }
+      }
+    }
+    const titleEl = container.querySelector<HTMLElement>('.edp-title');
     if (titleEl) titleEl.textContent = resolvedTitle;
     const headerMeta = container.querySelector<HTMLElement>('.edp-article-header-meta');
+    const byline = result.byline.trim();
+    const publishedAt = formatPublishedAt(result.publishedTime || article.publishedAt);
     if (headerMeta) {
       clearChildren(headerMeta);
       if (byline) headerMeta.append(ctx.el('span', 'edp-article-header-credit', byline));

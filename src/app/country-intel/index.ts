@@ -154,7 +154,7 @@ export class CountryIntelManager implements AppModule {
       this.ctx.countryBriefPage.updateScore?.(score, signals, ciiAvailability);
     }
 
-    this.ctx.countryBriefPage.updateSignalDetails?.(this.buildSignalDetails(code));
+    this.ctx.countryBriefPage.updateSignalDetails?.(this.buildSignalDetails(code, country));
     this.ctx.countryBriefPage.updateMilitaryActivity?.(buildMilitarySummary(this.ctx, code, country));
     this.ctx.countryBriefPage.updateEconomicIndicators?.(buildEconomicIndicators(code, score, null));
 
@@ -276,7 +276,7 @@ export class CountryIntelManager implements AppModule {
     const signals = getCountrySignals(this.ctx, code, name);
     const ciiAvailability = buildCiiAvailability(code, score);
     page.updateScore?.(score, signals, ciiAvailability.available ? undefined : ciiAvailability);
-    page.updateSignalDetails?.(this.buildSignalDetails(code));
+    page.updateSignalDetails?.(this.buildSignalDetails(code, name));
     page.updateMilitaryActivity?.(buildMilitarySummary(this.ctx, code, name));
     mountCountryTimeline(this.ctx, code, name);
     this.refreshNewsForPanel(code, name);
@@ -292,10 +292,26 @@ export class CountryIntelManager implements AppModule {
     });
   }
 
-  private buildSignalDetails(code: string): CountryDeepDiveSignalDetails {
+  private buildSignalDetails(code: string, country: string): CountryDeepDiveSignalDetails {
     const cluster = signalAggregator.getCountryClusters().find((entry) => entry.country === code);
     if (!cluster) {
-      return { critical: 0, high: 0, medium: 0, low: 0, recentHigh: [] };
+      const signals = getCountrySignals(this.ctx, code, country);
+      const { items } = this.getFilteredNewsForCountry(code, country);
+      return {
+        critical: signals.activeStrikes + signals.criticalNews,
+        high: signals.protests + signals.militaryFlights + signals.militaryVessels + signals.cyberThreats,
+        medium: signals.outages + signals.aisDisruptions + signals.aviationDisruptions + signals.gpsJammingHexes,
+        low: signals.earthquakes + signals.temporalAnomalies + signals.satelliteFires,
+        recentHigh: items
+          .filter((item) => this.newsSeverityRank(item) >= 4)
+          .slice(0, 3)
+          .map((item) => ({
+            type: item.threat?.category === 'cyber' ? 'CYBER' : 'OTHER',
+            severity: this.toSignalSeverity(item),
+            description: item.title,
+            timestamp: new Date(item.pubDate),
+          })),
+      };
     }
 
     const details: CountryDeepDiveSignalDetails = {
@@ -393,7 +409,6 @@ export class CountryIntelManager implements AppModule {
     const directItems = this.ctx.allNews
       .filter((n) => {
         const titleLower = n.title.toLowerCase();
-        if (!searchTerms.some((term) => titleLower.includes(term))) return false;
         const ourPos = firstMentionPosition(titleLower, searchTerms);
         const otherPos = firstMentionPosition(titleLower, otherCountryTerms);
         return ourPos !== Infinity && (otherPos === Infinity || ourPos <= otherPos);
@@ -411,15 +426,26 @@ export class CountryIntelManager implements AppModule {
     const page = this.ctx.countryBriefPage;
     if (!page) return;
     const { items, hasDirectCoverage } = this.getFilteredNewsForCountry(code, country);
+    const panelItems = hasDirectCoverage
+      ? items
+      : [...this.ctx.allNews]
+          .sort((a, b) => {
+            const severityDelta = this.newsSeverityRank(b) - this.newsSeverityRank(a);
+            if (severityDelta !== 0) return severityDelta;
+            return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
+          })
+          .slice(0, 8);
     const availability: import('@/components/CountryBriefPanel').CardAvailability = hasDirectCoverage
       ? { available: true, source: 'News feeds', updatedAt: new Date() }
       : {
           available: false,
-          reason: 'No direct country-specific coverage found in current feeds.',
+          reason: panelItems.length > 0
+            ? 'No direct country-specific coverage found in current feeds. Showing latest high-priority headlines for context.'
+            : 'No direct country-specific coverage found in current feeds.',
           source: 'News feeds',
           updatedAt: new Date(),
         };
-    page.updateNews(items, availability);
+    page.updateNews(panelItems, availability);
   }
 
   private newsSeverityRank(item: NewsItem): number {
@@ -430,6 +456,12 @@ export class CountryIntelManager implements AppModule {
     if (level === 'low') return 2;
     if (item.isAlert) return 4;
     return 1;
+  }
+
+  private toSignalSeverity(item: NewsItem): CountryDeepDiveSignalDetails['recentHigh'][number]['severity'] {
+    const level = item.threat?.level;
+    if (level === 'critical' || level === 'high' || level === 'medium' || level === 'low') return level;
+    return item.isAlert ? 'high' : 'info';
   }
 
   matchesCountry(

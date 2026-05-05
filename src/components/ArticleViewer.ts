@@ -100,6 +100,10 @@ export class ArticleViewer {
 
   private renderArticle(article: ArticleContent, container: Element): void {
     const domain = article.siteName || this.extractDomain(this.articleUrl);
+    const faviconUrl = this.buildFaviconUrl(this.articleUrl);
+    const faviconHtml = faviconUrl
+      ? `<img src="${faviconUrl}" class="article-reader-source-favicon" width="14" height="14" loading="lazy" alt="" onerror="this.style.display='none'" />`
+      : '';
     const heroImage = article.imageUrl
       ? `<div class="article-hero-image"><img src="${escapeHtml(article.imageUrl)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
       : '';
@@ -120,7 +124,10 @@ export class ArticleViewer {
     container.innerHTML = `
       <div class="article-reader">
         <div class="article-reader-header">
-          <span class="article-reader-source">${escapeHtml(domain)}</span>
+          <span class="article-reader-source">
+            ${faviconHtml}
+            ${escapeHtml(domain)}
+          </span>
           ${cachedBadge}
         </div>
         <h2 class="article-reader-title">${escapeHtml(resolvedTitle)}</h2>
@@ -163,6 +170,15 @@ export class ArticleViewer {
       return new URL(url).hostname.replace(/^www\./, '');
     } catch {
       return url;
+    }
+  }
+
+  private buildFaviconUrl(url: string): string {
+    try {
+      const hostname = new URL(url).hostname.replace(/^www\./, '');
+      return `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
+    } catch {
+      return '';
     }
   }
 

@@ -1390,9 +1390,7 @@ export class PanelLayoutManager implements AppModule {
       grid.querySelectorAll('.placeholder-panel').forEach(p => p.remove());
       if (this.ctx.isMobile || this.getEffectiveUltraWide()) return;
       
-      const childCount = Array.from(grid.children).filter(c => 
-        !c.classList.contains('scroll-to-top-btn') && 
-        !c.classList.contains('scroll-to-bottom-btn') && 
+      const childCount = Array.from(grid.children).filter(c =>
         !c.classList.contains('add-widget-btn') &&
         !c.classList.contains('placeholder-panel')
       ).length;
@@ -1472,35 +1470,44 @@ export class PanelLayoutManager implements AppModule {
       return svg;
     };
 
-    // getTarget: resolves the correct scroll container at call time.
-    // In side layout, panelsGrid scrolls itself (overflow-y: auto).
-    // In bottom layout, mainContent is the outer scroll container.
     const createScrollBtns = (container: HTMLElement, getTarget: () => HTMLElement): void => {
       const topBtn = document.createElement('button');
-      topBtn.className = 'scroll-to-top-btn';
+      topBtn.className = 'panel-scroll-btn panel-scroll-btn--top';
       topBtn.setAttribute('aria-label', 'Scroll to top');
       topBtn.appendChild(makeChevronSvg('up'));
 
       const bottomBtn = document.createElement('button');
-      bottomBtn.className = 'scroll-to-bottom-btn';
+      bottomBtn.className = 'panel-scroll-btn panel-scroll-btn--bottom';
       bottomBtn.setAttribute('aria-label', 'Scroll to bottom');
       bottomBtn.appendChild(makeChevronSvg('down'));
 
-      container.style.position = 'relative';
-      container.appendChild(topBtn);
-      container.appendChild(bottomBtn);
+      document.body.appendChild(topBtn);
+      document.body.appendChild(bottomBtn);
 
       let currentTarget = getTarget();
+      let btnLeft = 0;
+
+      const positionBtns = (): void => {
+        const rect = container.getBoundingClientRect();
+        btnLeft = rect.left + rect.width / 2;
+        const topY = rect.top + 12;
+        const bottomY = rect.bottom - 44;
+        topBtn.style.left = `${btnLeft}px`;
+        topBtn.style.top = `${topY}px`;
+        bottomBtn.style.left = `${btnLeft}px`;
+        bottomBtn.style.top = `${bottomY}px`;
+      };
+
       const updateVisibility = (): void => {
         const { scrollTop, scrollHeight, clientHeight } = currentTarget;
+        const scrollable = scrollHeight > clientHeight + 10;
         const scrolled = scrollTop > 60;
-        const atBottom = scrollTop >= scrollHeight - clientHeight - 60;
-        const scrollable = scrollHeight > clientHeight + 60;
-        topBtn.classList.toggle('visible', scrolled);
+        const atBottom = scrollTop + clientHeight >= scrollHeight - 2;
+        positionBtns();
+        topBtn.classList.toggle('visible', scrollable && scrolled);
         bottomBtn.classList.toggle('visible', scrollable && !atBottom);
       };
 
-      // Re-attach scroll listener when layout switches change the target element
       const attachToTarget = (): void => {
         const next = getTarget();
         if (next !== currentTarget) {
@@ -1512,7 +1519,15 @@ export class PanelLayoutManager implements AppModule {
       };
 
       currentTarget.addEventListener('scroll', updateVisibility, { passive: true });
-      new ResizeObserver(attachToTarget).observe(container);
+      const ro = new ResizeObserver(() => {
+        attachToTarget();
+        positionBtns();
+      });
+      ro.observe(container);
+
+      const onWinResize = () => positionBtns();
+      window.addEventListener('resize', onWinResize, { passive: true });
+
       updateVisibility();
 
       topBtn.addEventListener('click', () => {
@@ -1522,19 +1537,25 @@ export class PanelLayoutManager implements AppModule {
         const t = getTarget();
         t.scrollTo({ top: t.scrollHeight, behavior: 'smooth' });
       });
+
+      const origDestroy = (this as any)._scrollBtnCleanup;
+      (this as any)._scrollBtnCleanup = () => {
+        origDestroy?.();
+        ro.disconnect();
+        window.removeEventListener('resize', onWinResize);
+        topBtn.remove();
+        bottomBtn.remove();
+      };
     };
 
     const panelsGrid = document.getElementById('panelsGrid');
     const mainContent = document.querySelector('.main-content') as HTMLElement | null;
     if (panelsGrid && mainContent) {
-      // Side layout: panelsGrid has overflow-y:auto and scrolls itself.
-      // Bottom layout: mainContent is the outer scroll container.
       createScrollBtns(panelsGrid, () =>
         mainContent.classList.contains('layout-side') ? panelsGrid : mainContent
       );
     }
 
-    // Bottom grid always scrolls itself
     const bottomGrid = document.getElementById('mapBottomGrid');
     if (bottomGrid) createScrollBtns(bottomGrid, () => bottomGrid);
   }

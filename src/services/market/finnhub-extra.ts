@@ -374,3 +374,94 @@ export async function fetchEarningsSurprises(symbol: string): Promise<EarningsSu
   const data = await fetchFinnhub('earnings-surprises', { symbol });
   return Array.isArray(data) ? data : [];
 }
+
+// ─── Estimates, Dividends, Revenue, Analyst Actions ───────────────────────
+
+export interface EstimatePoint {
+  period: string;
+  year?: number;
+  quarter?: number;
+  numberAnalysts?: number;
+  actual?: number;
+  estimate?: number;
+  low?: number;
+  high?: number;
+  revenue?: number;
+  symbol?: string;
+}
+
+export interface EstimateSeries {
+  symbol: string;
+  freq?: 'annual' | 'quarterly';
+  data: EstimatePoint[];
+}
+
+export interface StockDividend {
+  symbol: string;
+  date: string;
+  amount: number;
+  adjustedAmount?: number;
+  currency?: string;
+  declarationDate?: string;
+  exDate?: string;
+  payDate?: string;
+  recordDate?: string;
+}
+
+export interface RevenueBreakdown {
+  symbol?: string;
+  year?: number;
+  quarter?: number;
+  data?: Record<string, unknown>;
+  breakdown?: Record<string, unknown>;
+  series?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface UpgradeDowngradeAction {
+  symbol: string;
+  company?: string;
+  gradeTime?: string;
+  action?: string;
+  fromGrade?: string;
+  toGrade?: string;
+  firm?: string;
+}
+
+function normalizeEstimateSeries(data: unknown, freq: 'annual' | 'quarterly'): EstimateSeries {
+  const raw = data as Partial<EstimateSeries> & { data?: EstimatePoint[] };
+  return {
+    symbol: raw.symbol ?? '',
+    freq,
+    data: Array.isArray(raw.data) ? raw.data : [],
+  };
+}
+
+export async function fetchEpsEstimates(
+  symbol: string,
+  freq: 'annual' | 'quarterly' = 'quarterly',
+): Promise<EstimateSeries> {
+  return normalizeEstimateSeries(await fetchFinnhub('eps-estimates', { symbol, freq }), freq);
+}
+
+export async function fetchRevenueEstimates(
+  symbol: string,
+  freq: 'annual' | 'quarterly' = 'quarterly',
+): Promise<EstimateSeries> {
+  return normalizeEstimateSeries(await fetchFinnhub('revenue-estimates', { symbol, freq }), freq);
+}
+
+export async function fetchStockDividends(symbol: string): Promise<StockDividend[]> {
+  const data = await fetchFinnhub('stock-dividends', { symbol });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchRevenueBreakdown(symbol: string): Promise<RevenueBreakdown | null> {
+  const data = await fetchFinnhub('revenue-breakdown', { symbol }) as RevenueBreakdown;
+  return data && typeof data === 'object' ? data : null;
+}
+
+export async function fetchUpgradeDowngrade(symbol: string): Promise<UpgradeDowngradeAction[]> {
+  const data = await fetchFinnhub('upgrade-downgrade', { symbol });
+  return Array.isArray(data) ? data : [];
+}

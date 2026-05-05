@@ -395,7 +395,7 @@ export class MapComponent {
         <span class="time-slider-label">TIME RANGE</span>
         <div class="time-slider-buttons">
           ${TIME_RANGE_OPTIONS
-        .map((range) => `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${getTimeRangeShortLabel(range).toUpperCase()}</button>`)
+        .map((range) => `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${this.getTimeRangeControlLabel(range)}</button>`)
         .join('')}
         </div>
         <button class="time-settings-btn" type="button" aria-label="Map control settings" title="Map control settings">
@@ -427,9 +427,23 @@ export class MapComponent {
     if (!slider) return;
     slider.querySelectorAll('.time-btn').forEach((btn) => {
       const range = (btn as HTMLElement).dataset.range as TimeRange | undefined;
+      if (range) (btn as HTMLElement).textContent = this.getTimeRangeControlLabel(range);
       btn.classList.toggle('active', range === this.state.timeRange);
     });
+    this.updateTimeRangeSettingLabels(slider);
     this.applyMapControlSettings(slider);
+  }
+
+  private getTimeRangeControlLabel(range: TimeRange): string {
+    return getTimeRangeShortLabel(range).toUpperCase();
+  }
+
+  private updateTimeRangeSettingLabels(root: ParentNode): void {
+    root.querySelectorAll<HTMLInputElement>('[data-time-range-setting]').forEach(input => {
+      const range = input.dataset.timeRangeSetting as TimeRange | undefined;
+      const label = input.nextElementSibling;
+      if (range && label instanceof HTMLElement) label.textContent = this.getTimeRangeControlLabel(range);
+    });
   }
 
   private createMapControlSettingsPanel(slider: HTMLElement, initialSettings: MapControlSettings): void {
@@ -450,7 +464,7 @@ export class MapComponent {
           ${TIME_RANGE_OPTIONS.map(range => `
             <label class="mcs-check">
               <input type="checkbox" data-time-range-setting="${range}">
-              <span>${getTimeRangeShortLabel(range).toUpperCase()}</span>
+              <span>${this.getTimeRangeControlLabel(range)}</span>
             </label>
           `).join('')}
         </div>
@@ -515,6 +529,7 @@ export class MapComponent {
       if (valueInput) valueInput.value = String(custom.value);
       if (unitSelect) unitSelect.value = custom.unit;
       syncCustomSummary();
+      this.updateTimeSliderButtons();
       this.applyMapControlSettings(slider, settings);
     });
     panel.addEventListener('change', (e) => {
@@ -532,6 +547,7 @@ export class MapComponent {
         if (valueInput) valueInput.value = String(next.value);
         if (unitSelect) unitSelect.value = next.unit;
         syncCustomSummary();
+        this.updateTimeSliderButtons();
         if (this.state.timeRange === 'custom') this.setTimeRange('custom');
         return;
       }

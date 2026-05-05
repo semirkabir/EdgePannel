@@ -15,6 +15,12 @@ import {
   fetchInsiderTransactions,
   fetchOptionChain,
   fetchEarningsSurprises,
+  fetchFinancialsReported,
+  fetchEpsEstimates,
+  fetchRevenueEstimates,
+  fetchStockDividends,
+  fetchRevenueBreakdown,
+  fetchUpgradeDowngrade,
   type CompanyProfile,
   type CompanyMetrics,
   type CompanyNewsItem,
@@ -23,11 +29,26 @@ import {
   type InsiderTransaction,
   type OptionChainExpiry,
   type EarningsSurprise,
+  type EstimateSeries,
+  type StockDividend,
+  type RevenueBreakdown,
+  type UpgradeDowngradeAction,
+  type FinancialReport,
 } from '@/services/market/finnhub-extra';
 import {
   fetchCompanyInstitutionHolders13F,
   type CompanyInstitutionHolder,
 } from '@/services/market/normalized-13f';
+import {
+  buildFinancialRows,
+  getLatestFinancialValue,
+  normalizeFinancialReports,
+  ratio,
+  type FinancialDisplayRow,
+  type FinancialFrequency,
+  type FinancialStatementKind,
+  type NormalizedFinancialPeriod,
+} from '@/services/market/company-financials';
 
 interface CompanyData {
   ticker: string;
@@ -51,6 +72,13 @@ interface CompanyEnriched {
   optionChain: OptionChainExpiry[];
   ownership: CompanyInstitutionHolder[];
   earningsSurprises: EarningsSurprise[];
+  financialsAnnual: NormalizedFinancialPeriod[];
+  financialsQuarterly: NormalizedFinancialPeriod[];
+  epsEstimates: EstimateSeries;
+  revenueEstimates: EstimateSeries;
+  dividends: StockDividend[];
+  revenueBreakdown: RevenueBreakdown | null;
+  ratingActions: UpgradeDowngradeAction[];
 }
 
 const client = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
@@ -108,6 +136,22 @@ function fmtLargeNumber(value: number): string {
   return '$' + value.toFixed(0);
 }
 
+function fmtFinancialValue(value: number | null | undefined, currency = '$'): string {
+  if (value === undefined || value === null || !Number.isFinite(value)) return '-';
+  const sign = value < 0 ? '-' : '';
+  const abs = Math.abs(value);
+  if (abs >= 1e12) return `${sign}${currency}${(abs / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9) return `${sign}${currency}${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}${currency}${(abs / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${sign}${currency}${(abs / 1e3).toFixed(1)}K`;
+  return `${sign}${currency}${abs.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+}
+
+function fmtPlainNumber(value: number | null | undefined, suffix = ''): string {
+  if (value === undefined || value === null || !Number.isFinite(value)) return '-';
+  return value.toLocaleString('en-US', { maximumFractionDigits: 2 }) + suffix;
+}
+
 function fmtFinnhubMarketCap(value: number): string {
   return fmtLargeNumber(value * 1_000_000);
 }
@@ -131,21 +175,6 @@ function fmtPercent(value: number | undefined): string {
 function rangePointCount(range: ChartRange): number {
   const option = CHART_RANGES.find(item => item.id === range);
   return option?.bars ?? 60;
-}
-
-function buildFallbackCloses(quote: MarketQuote | null, range: ChartRange): number[] {
-  if (!quote?.price || !Number.isFinite(quote.price)) return [];
-  const current = quote.price;
-  const prior = quote.change ? current / (1 + quote.change / 100) : current * 0.995;
-  const count = rangePointCount(range);
-  const swing = Math.max(Math.abs(current - prior), current * 0.006);
-  return Array.from({ length: count }, (_, index) => {
-    const progress = count <= 1 ? 1 : index / (count - 1);
-    const trend = prior + (current - prior) * progress;
-    const waveCount = range === '1H' || range === '1D' ? 4 : 7;
-    const wave = Math.sin(progress * Math.PI * waveCount) * swing * 0.22;
-    return index === count - 1 ? current : trend + wave;
-  });
 }
 
 function isoDateNDaysAgo(daysAgo: number): string {
@@ -240,19 +269,14 @@ function aggregateHistoricalCandles(closes: HistoricalClose[], range: ChartRange
 
 function fallbackCandles(data: CompanyEnriched, range: ChartRange): CandlestickData[] {
   const sparkline = data.quote?.sparkline ?? [];
-  if (sparkline.length >= 2) {
+  if (range === '1H' && sparkline.length >= 2) {
     const selected = sparkline.slice(-Math.min(sparkline.length, Math.max(2, rangePointCount(range))));
     return candlesFromClosePoints(selected.map((value, index) => ({
       time: rangeTimeForIndex(range, selected.length, index),
       value,
     })));
   }
-
-  const fallback = buildFallbackCloses(data.quote, range);
-  return candlesFromClosePoints(fallback.map((value, index) => ({
-    time: rangeTimeForIndex(range, fallback.length, index),
-    value,
-  })));
+  return [];
 }
 
 function getSnapshotCandlestickData(data: CompanyEnriched, range: ChartRange): CandlestickData[] {
@@ -265,6 +289,14 @@ function getSnapshotChartData(data: CompanyEnriched, range: ChartRange): AreaDat
     time: candle.time,
     value: candle.close,
   }));
+}
+
+function chartEmptyMessage(data: CompanyEnriched, range: ChartRange): string {
+  const hasDailyHistory = getHistoricalCloses(data).length >= 2;
+  if (range === '1H' && hasDailyHistory) {
+    return 'Intraday series unavailable';
+  }
+  return 'Historical chart data unavailable';
 }
 
 function chartKindIconMarkup(kind: ChartKind): string {
@@ -311,9 +343,15 @@ function makeChartRangeControls(): HTMLElement {
 
 function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, positive: boolean): void {
   const controls = makeChartRangeControls();
+  const chartWrap = document.createElement('div');
+  chartWrap.className = 'edp-tv-chart-wrap';
   const chartEl = document.createElement('div');
   chartEl.className = 'edp-tv-lightweight-chart';
-  parent.append(controls, chartEl);
+  const emptyEl = document.createElement('div');
+  emptyEl.className = 'edp-tv-chart-empty';
+  emptyEl.hidden = true;
+  chartWrap.append(chartEl, emptyEl);
+  parent.append(controls, chartWrap);
 
   requestAnimationFrame(() => {
     if (!chartEl.isConnected) return;
@@ -323,7 +361,6 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
     const lineColor = positive ? '#22c55e' : '#ef4444';
     let activeRange: ChartRange = '1D';
     let activeKind: ChartKind = 'area';
-    let activeSeries: ReturnType<typeof chart.addAreaSeries> | ReturnType<typeof chart.addCandlestickSeries> | null = null;
 
     const chart = createChart(chartEl, {
       width: chartEl.clientWidth || 240,
@@ -354,6 +391,7 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
       handleScroll: false,
       handleScale: false,
     });
+    let activeSeries: ReturnType<typeof chart.addAreaSeries> | ReturnType<typeof chart.addCandlestickSeries> | null = null;
 
     const renderChart = (range: ChartRange, kind: ChartKind) => {
       activeRange = range;
@@ -367,6 +405,7 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
 
       if (activeSeries) chart.removeSeries(activeSeries);
       if (kind === 'candles') {
+        const seriesData = getSnapshotCandlestickData(data, range);
         const candleSeries = chart.addCandlestickSeries({
           upColor: '#22c55e',
           downColor: '#ef4444',
@@ -376,9 +415,11 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
           priceLineVisible: false,
           lastValueVisible: false,
         });
-        candleSeries.setData(getSnapshotCandlestickData(data, range));
+        candleSeries.setData(seriesData);
         activeSeries = candleSeries;
+        emptyEl.hidden = seriesData.length >= 2;
       } else {
+        const seriesData = getSnapshotChartData(data, range);
         const areaSeries = chart.addAreaSeries({
           lineColor,
           topColor: positive ? 'rgba(34, 197, 94, 0.34)' : 'rgba(239, 68, 68, 0.34)',
@@ -387,9 +428,11 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
           priceLineVisible: false,
           lastValueVisible: false,
         });
-        areaSeries.setData(getSnapshotChartData(data, range));
+        areaSeries.setData(seriesData);
         activeSeries = areaSeries;
+        emptyEl.hidden = seriesData.length >= 2;
       }
+      emptyEl.textContent = chartEmptyMessage(data, range);
       chart.timeScale().fitContent();
     };
     renderChart(activeRange, activeKind);
@@ -461,14 +504,73 @@ function renderMarketSnapshot(container: HTMLElement, data: CompanyEnriched): vo
   renderLocalMarketSnapshot(wrap, data);
 }
 
+function renderCompanyLogoHero(container: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
+  if (!data.profile?.logo || container.querySelector('.edp-auto-hero')) return;
+
+  const hero = ctx.el('section', 'edp-auto-hero cp-company-logo-hero');
+  const img = ctx.el('img', 'edp-auto-hero-img') as HTMLImageElement;
+  img.src = sanitizeUrl(data.profile.logo);
+  img.alt = `${data.profile.name || data.companyName || data.name} logo`;
+  img.loading = 'lazy';
+  img.onerror = () => hero.remove();
+  hero.append(img);
+
+  const header = container.querySelector('.edp-header');
+  if (header) header.insertAdjacentElement('beforebegin', hero);
+  else container.prepend(hero);
+}
+
+function makeTabNavButton(direction: 'left' | 'right'): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `cp-tab-nav cp-tab-nav-${direction}`;
+  button.setAttribute('aria-label', direction === 'left' ? 'Scroll company tabs left' : 'Scroll company tabs right');
+  button.innerHTML = direction === 'left'
+    ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>'
+    : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg>';
+  return button;
+}
+
+function setupTabNavigation(container: HTMLElement): void {
+  const shell = container.querySelector<HTMLElement>('.cp-tab-shell');
+  const tabBar = container.querySelector<HTMLElement>('.cp-tab-bar');
+  const left = container.querySelector<HTMLButtonElement>('.cp-tab-nav-left');
+  const right = container.querySelector<HTMLButtonElement>('.cp-tab-nav-right');
+  if (!shell || !tabBar || !left || !right || shell.dataset.bound === 'true') return;
+  shell.dataset.bound = 'true';
+
+  const update = () => {
+    const atStart = tabBar.scrollLeft <= 4;
+    const atEnd = tabBar.scrollLeft + tabBar.clientWidth >= tabBar.scrollWidth - 4;
+    left.disabled = atStart;
+    right.disabled = atEnd;
+    shell.classList.toggle('cp-tab-shell-overflowing', tabBar.scrollWidth > tabBar.clientWidth + 4);
+  };
+
+  left.addEventListener('click', () => tabBar.scrollBy({ left: -160, behavior: 'smooth' }));
+  right.addEventListener('click', () => tabBar.scrollBy({ left: 160, behavior: 'smooth' }));
+  tabBar.addEventListener('scroll', update, { passive: true });
+  const ro = new ResizeObserver(update);
+  ro.observe(tabBar);
+  requestAnimationFrame(update);
+}
+
 async function settleInBatches<T>(
   tasks: Array<() => Promise<T>>,
-  batchSize = 3,
+  batchSize = 6,
+  timeoutMs = 8_000,
 ): Promise<Array<PromiseSettledResult<T>>> {
   const results: Array<PromiseSettledResult<T>> = [];
   for (let i = 0; i < tasks.length; i += batchSize) {
     const batch = tasks.slice(i, i + batchSize);
-    results.push(...await Promise.allSettled(batch.map(task => task())));
+    results.push(...await Promise.allSettled(batch.map(task => {
+      return new Promise<T>((resolve, reject) => {
+        const timer = window.setTimeout(() => reject(new Error('Company enrichment request timed out')), timeoutMs);
+        task()
+          .then(resolve, reject)
+          .finally(() => window.clearTimeout(timer));
+      });
+    })));
   }
   return results;
 }
@@ -481,6 +583,9 @@ export class CompanyRenderer implements EntityRenderer {
   private activeTab: TabId = 'overview';
   private activeOptionExpiry = 0;
   private newsCategory = 'all';
+  private activeFinancialFrequency: FinancialFrequency = 'quarterly';
+  private activeFinancialStatement: FinancialStatementKind = 'income';
+  private financialSearch = '';
 
   renderSkeleton(data: unknown, ctx: EntityRenderContext): HTMLElement {
     const { ticker, name } = data as CompanyData;
@@ -490,7 +595,7 @@ export class CompanyRenderer implements EntityRenderer {
     const header = ctx.el('div', 'edp-header');
     header.append(ctx.el('h2', 'edp-title', name || ticker));
     const badgeRow = ctx.el('div', 'edp-badge-row');
-    badgeRow.append(ctx.badge('$' + ticker, 'edp-badge edp-badge-tier'));
+    badgeRow.append(ctx.badge('$' + ticker, 'edp-badge edp-badge-ticker'));
     header.append(badgeRow);
     container.append(header);
 
@@ -499,6 +604,7 @@ export class CompanyRenderer implements EntityRenderer {
     container.append(tvWrap);
 
     // Tabs
+    const tabShell = ctx.el('div', 'cp-tab-shell');
     const tabBar = ctx.el('div', 'cp-tab-bar');
     for (const tab of TABS) {
       const btn = ctx.el('button', `cp-tab${tab === 'overview' ? ' cp-tab-active' : ''}`);
@@ -506,7 +612,8 @@ export class CompanyRenderer implements EntityRenderer {
       btn.dataset.tab = tab;
       tabBar.append(btn);
     }
-    container.append(tabBar);
+    tabShell.append(makeTabNavButton('left'), tabBar, makeTabNavButton('right'));
+    container.append(tabShell);
 
     // Tab content area
     const tabContent = ctx.el('div', 'cp-tab-content');
@@ -529,6 +636,8 @@ export class CompanyRenderer implements EntityRenderer {
     const [
       profile, metrics, peers, news,
       priceTarget, recommendations, insiderTxns, optionChain, ownership, earningsSurprises,
+      financialsAnnual, financialsQuarterly, epsEstimates, revenueEstimates, dividends,
+      revenueBreakdown, ratingActions,
     ] = await settleInBatches<unknown>([
       () => fetchCompanyProfile(ticker),
       () => fetchCompanyMetrics(ticker),
@@ -540,6 +649,13 @@ export class CompanyRenderer implements EntityRenderer {
       () => fetchOptionChain(ticker),
       () => fetchCompanyInstitutionHolders13F(ticker),
       () => fetchEarningsSurprises(ticker),
+      () => fetchFinancialsReported(ticker, 'annual'),
+      () => fetchFinancialsReported(ticker, 'quarterly'),
+      () => fetchEpsEstimates(ticker, 'quarterly'),
+      () => fetchRevenueEstimates(ticker, 'quarterly'),
+      () => fetchStockDividends(ticker),
+      () => fetchRevenueBreakdown(ticker),
+      () => fetchUpgradeDowngrade(ticker),
     ]);
 
     const quote = quotesResp.status === 'fulfilled'
@@ -568,18 +684,34 @@ export class CompanyRenderer implements EntityRenderer {
       optionChain: settledValue<OptionChainExpiry[]>(optionChain, []),
       ownership: settledValue<CompanyInstitutionHolder[]>(ownership, []),
       earningsSurprises: settledValue<EarningsSurprise[]>(earningsSurprises, []),
+      financialsAnnual: normalizeFinancialReports(settledValue<FinancialReport[]>(financialsAnnual, []), 'annual'),
+      financialsQuarterly: normalizeFinancialReports(settledValue<FinancialReport[]>(financialsQuarterly, []), 'quarterly'),
+      epsEstimates: settledValue<EstimateSeries>(epsEstimates, { symbol: ticker, freq: 'quarterly', data: [] }),
+      revenueEstimates: settledValue<EstimateSeries>(revenueEstimates, { symbol: ticker, freq: 'quarterly', data: [] }),
+      dividends: settledValue<StockDividend[]>(dividends, []),
+      revenueBreakdown: settledValue<RevenueBreakdown | null>(revenueBreakdown, null),
+      ratingActions: settledValue<UpgradeDowngradeAction[]>(ratingActions, []),
     };
   }
 
   renderEnriched(container: HTMLElement, enrichedData: unknown, ctx: EntityRenderContext): void {
     const data = enrichedData as CompanyEnriched;
 
+    renderCompanyLogoHero(container, data, ctx);
     renderMarketSnapshot(container, data);
 
     // Update header with company name from profile
     const displayName = data.profile?.name || data.companyName || data.name;
     const titleEl = container.querySelector('.edp-title');
     if (titleEl) titleEl.textContent = displayName;
+
+    const badgeRow = container.querySelector('.edp-badge-row');
+    if (badgeRow) {
+      badgeRow.replaceChildren();
+      badgeRow.append(ctx.badge('$' + data.ticker, 'edp-badge edp-badge-ticker'));
+      const sector = data.profile?.gicsSector || data.profile?.finnhubIndustry;
+      if (sector) badgeRow.append(ctx.badge(sector, 'edp-badge edp-badge-sector'));
+    }
 
     // Add logo if available
     if (data.profile?.logo) {
@@ -597,10 +729,14 @@ export class CompanyRenderer implements EntityRenderer {
     this.activeTab = 'overview';
     this.activeOptionExpiry = 0;
     this.newsCategory = 'all';
+    this.activeFinancialFrequency = 'quarterly';
+    this.activeFinancialStatement = 'income';
+    this.financialSearch = '';
     this.renderTabContent(container, data, ctx);
 
     // Tab click handlers
     const tabBar = container.querySelector('.cp-tab-bar');
+    setupTabNavigation(container);
     tabBar?.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('.cp-tab') as HTMLElement | null;
       if (!btn || !btn.dataset.tab) return;
@@ -630,56 +766,66 @@ export class CompanyRenderer implements EntityRenderer {
   // ─── Overview Tab ────────────────────────────────────────────────────────
 
   private renderOverviewTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-    // About section
+    const periods = data.financialsQuarterly.length > 0 ? data.financialsQuarterly : data.financialsAnnual;
+    const latestRevenue = getLatestFinancialValue(periods, 'revenue');
+    const latestNetIncome = getLatestFinancialValue(periods, 'netIncome');
+    const latestDebt = getLatestFinancialValue(periods, 'debt');
+    const latestCash = getLatestFinancialValue(periods, 'cash');
+    const marketCap = data.profile?.marketCapitalization
+      ? data.profile.marketCapitalization * 1_000_000
+      : data.metrics?.marketCapitalization;
+
+    const [factsCard, factsBody] = ctx.sectionCard('Key Facts');
+    const facts = ctx.el('div', 'cp-key-facts-grid');
+    const addFact = (label: string, value: string | HTMLElement): void => {
+      const item = ctx.el('div', 'cp-key-fact');
+      item.append(ctx.el('span', 'cp-key-fact-label', label));
+      if (typeof value === 'string') {
+        item.append(ctx.el('span', 'cp-key-fact-value', value));
+      } else {
+        item.append(value);
+      }
+      facts.append(item);
+    };
+
+    addFact('Market capitalization', marketCap ? fmtFinancialValue(marketCap) : '-');
+    addFact('Dividend yield', fmtPercent(data.metrics?.dividendYieldIndicatedAnnual));
+    addFact('P/E Ratio (TTM)', fmtMetric(data.metrics?.peBasicExclExtraTTM || data.metrics?.peAnnual, 'x'));
+    addFact('Basic EPS', fmtMetric(data.metrics?.epsAnnual));
+    addFact('Employees', data.profile?.employeeTotal ? fmtShares(data.profile.employeeTotal) : '-');
+    addFact('CEO', data.profile?.ceo || '-');
+    if (data.profile?.weburl) {
+      const link = ctx.el('a', 'cp-link cp-key-fact-value') as HTMLAnchorElement;
+      link.href = sanitizeUrl(data.profile.weburl);
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = data.profile.weburl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+      addFact('Website', link);
+    } else {
+      addFact('Website', '-');
+    }
+    addFact('IPO date', data.profile?.ipo ? fmtDate(data.profile.ipo) : '-');
+    addFact('Shares out', data.profile?.shareOutstanding ? `${data.profile.shareOutstanding.toFixed(2)}M` : '-');
+    addFact('Currency', data.profile?.currency || '-');
+    factsBody.append(facts);
+    content.append(factsCard);
+
     if (data.profile?.description) {
       const [card, body] = ctx.sectionCard('About');
-      const about = ctx.el('p', 'cp-about-text', data.profile.description);
-      body.append(about);
+      body.append(ctx.el('p', 'cp-about-text', data.profile.description));
       content.append(card);
     }
 
-    // Company vitals
     if (data.profile) {
       const [card, body] = ctx.sectionCard('Company Info');
-      const stats = ctx.el('div', 'cp-stat-row');
-
-      if (data.profile.ceo) {
-        const stat = ctx.el('div', 'cp-stat-item');
-        stat.append(ctx.el('span', 'cp-stat-label', 'CEO'));
-        stat.append(ctx.el('span', 'cp-stat-value', data.profile.ceo));
-        stats.append(stat);
-      }
-      if (data.profile.employeeTotal) {
-        const stat = ctx.el('div', 'cp-stat-item');
-        stat.append(ctx.el('span', 'cp-stat-label', 'Employees'));
-        stat.append(ctx.el('span', 'cp-stat-value', data.profile.employeeTotal.toLocaleString()));
-        stats.append(stat);
-      }
-      if (stats.children.length > 0) body.append(stats);
-
       if (data.profile.finnhubIndustry) body.append(row(ctx, 'Industry', data.profile.finnhubIndustry));
       if (data.profile.gicsSector)      body.append(row(ctx, 'Sector', data.profile.gicsSector));
-      if (data.profile.country)          body.append(row(ctx, 'Country', data.profile.country));
-      if (data.profile.ipo)              body.append(row(ctx, 'IPO Date', fmtDate(data.profile.ipo)));
-      if (data.profile.shareOutstanding) body.append(row(ctx, 'Shares Out', data.profile.shareOutstanding.toFixed(2) + 'M'));
-      if (data.profile.currency)         body.append(row(ctx, 'Currency', data.profile.currency));
-
-      if (data.profile.weburl) {
-        const urlRow = ctx.el('div', 'edp-detail-row');
-        urlRow.append(ctx.el('span', 'edp-detail-label', 'Website'));
-        const link = ctx.el('a', 'edp-detail-value cp-link') as HTMLAnchorElement;
-        link.href = sanitizeUrl(data.profile.weburl);
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = data.profile.weburl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
-        urlRow.append(link);
-        body.append(urlRow);
-      }
-
+      if (data.profile.gicsIndustry)    body.append(row(ctx, 'GICS Industry', data.profile.gicsIndustry));
+      if (data.profile.country)         body.append(row(ctx, 'Country', data.profile.country));
+      if (data.profile.exchange)        body.append(row(ctx, 'Exchange', data.profile.exchange));
       content.append(card);
     }
 
-    // Key metrics grid
     if (data.metrics) {
       const [card, body] = ctx.sectionCard('Key Metrics');
       const m = data.metrics;
@@ -711,7 +857,43 @@ export class CompanyRenderer implements EntityRenderer {
       content.append(card);
     }
 
-    // Margins card
+    if (marketCap || latestDebt || latestCash) {
+      const [card, body] = ctx.sectionCard('Capital Structure');
+      const enterpriseValue = marketCap !== undefined ? marketCap + (latestDebt ?? 0) - (latestCash ?? 0) : undefined;
+      body.append(buildCapitalStructure(ctx, [
+        ['Market cap', marketCap, '#2dd4bf'],
+        ['Debt', latestDebt, '#f59e0b'],
+        ['Cash & equivalents', latestCash, '#22d3ee'],
+        ['Enterprise value', enterpriseValue, '#3b82f6'],
+      ]));
+      content.append(card);
+    }
+
+    if (data.ownership.length > 0) {
+      const [card, body] = ctx.sectionCard('Ownership');
+      const top = data.ownership.slice(0, 5);
+      const totalHeld = top.reduce((sum, holder) => sum + (holder.percent || 0), 0);
+      body.append(buildOwnershipSnapshot(ctx, top, totalHeld));
+      content.append(card);
+    }
+
+    if (latestRevenue !== undefined || latestNetIncome !== undefined) {
+      const [card, body] = ctx.sectionCard('Recent Performance');
+      const grid = ctx.el('div', 'cp-mini-kpi-grid');
+      for (const [label, value] of [
+        ['Revenue', latestRevenue],
+        ['Net income', latestNetIncome],
+        ['Net margin', ratio(latestNetIncome, latestRevenue) !== undefined ? ratio(latestNetIncome, latestRevenue)! * 100 : undefined],
+      ] as const) {
+        const item = ctx.el('div', 'cp-mini-kpi');
+        item.append(ctx.el('span', 'cp-mini-kpi-label', label));
+        item.append(ctx.el('span', 'cp-mini-kpi-value', label === 'Net margin' ? fmtPercent(value) : fmtFinancialValue(value)));
+        grid.append(item);
+      }
+      body.append(grid);
+      content.append(card);
+    }
+
     if (data.metrics) {
       const m = data.metrics;
       const hasMargins = m.grossMarginAnnual || m.operatingMarginAnnual || m.netProfitMarginAnnual;
@@ -740,7 +922,6 @@ export class CompanyRenderer implements EntityRenderer {
       }
     }
 
-    // Peers
     if (data.peers.length > 0) {
       const [card, body] = ctx.sectionCard('Peers');
       const peersWrap = ctx.el('div', 'cp-peers');
@@ -762,83 +943,96 @@ export class CompanyRenderer implements EntityRenderer {
   // ─── Financials Tab ──────────────────────────────────────────────────────
 
   private renderFinancialsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-    if (!data.metrics) {
+    const periods = this.activeFinancialFrequency === 'annual' ? data.financialsAnnual : data.financialsQuarterly;
+    const hasFinancials = periods.length > 0;
+    if (!hasFinancials && !data.metrics) {
       content.append(ctx.makeEmpty('Financial data unavailable'));
       return;
     }
-    const m = data.metrics;
 
-    const [valCard, valBody] = ctx.sectionCard('Valuation');
-    const valMetrics: [string, string][] = [
-      ['P/E (TTM)',       fmtMetric(m.peBasicExclExtraTTM, 'x')],
-      ['P/E (Annual)',    fmtMetric(m.peAnnual, 'x')],
-      ['P/B',            fmtMetric(m.pbAnnual, 'x')],
-      ['P/S',            fmtMetric(m.psAnnual, 'x')],
-      ['EV/FCF',         fmtMetric(m['currentEv/freeCashFlowAnnual'])],
-      ['Book Value/Shr', m.bookValuePerShareAnnual ? fmtPrice(m.bookValuePerShareAnnual) : '—'],
-    ];
-    for (const [label, value] of valMetrics) valBody.append(row(ctx, label, value));
-    content.append(valCard);
-
-    const [profCard, profBody] = ctx.sectionCard('Profitability');
-    const profMetrics: [string, string][] = [
-      ['EPS (Annual)',     fmtMetric(m.epsAnnual)],
-      ['Revenue/Share',   m.revenuePerShareAnnual ? fmtPrice(m.revenuePerShareAnnual) : '—'],
-      ['ROE',             fmtPercent(m.roeRfy)],
-      ['ROA',             fmtPercent(m.roaRfy)],
-      ['ROI',             fmtPercent(m.roiAnnual)],
-      ['Gross Margin',    fmtPercent(m.grossMarginAnnual)],
-      ['Op. Margin',      fmtPercent(m.operatingMarginAnnual)],
-      ['Net Margin',      fmtPercent(m.netProfitMarginAnnual)],
-    ];
-    for (const [label, value] of profMetrics) profBody.append(row(ctx, label, value));
-    content.append(profCard);
-
-    const [bsCard, bsBody] = ctx.sectionCard('Balance Sheet');
-    const bsMetrics: [string, string][] = [
-      ['Debt/Equity',   fmtMetric(m.totalDebtToEquityAnnual)],
-      ['Current Ratio', fmtMetric(m.currentRatioAnnual)],
-      ['FCF/Share',     m.freeCashFlowPerShareAnnual ? fmtPrice(m.freeCashFlowPerShareAnnual) : '—'],
-    ];
-    for (const [label, value] of bsMetrics) bsBody.append(row(ctx, label, value));
-    content.append(bsCard);
-
-    const [growCard, growBody] = ctx.sectionCard('Growth');
-    growBody.append(row(ctx, 'Revenue Growth (YoY)', fmtPercent(m.revenueGrowthTTMYoy)));
-    growBody.append(row(ctx, 'EPS Growth (YoY)', fmtPercent(m.epsGrowthTTMYoy)));
-    content.append(growCard);
-
-    // Earnings surprises
-    if (data.earningsSurprises.length > 0) {
-      const [esCard, esBody] = ctx.sectionCard('Earnings Surprises');
-      const table = ctx.el('div', 'cp-earnings-table');
-      const hdr = ctx.el('div', 'cp-earnings-row cp-earnings-hdr');
-      hdr.append(ctx.el('span', '', 'Period'));
-      hdr.append(ctx.el('span', '', 'Actual'));
-      hdr.append(ctx.el('span', '', 'Est.'));
-      hdr.append(ctx.el('span', '', 'Surprise'));
-      table.append(hdr);
-      for (const es of data.earningsSurprises.slice(0, 6)) {
-        const r2 = ctx.el('div', 'cp-earnings-row');
-        r2.append(ctx.el('span', 'cp-earnings-period', es.period));
-        r2.append(ctx.el('span', 'cp-earnings-val', fmtMetric(es.actual)));
-        r2.append(ctx.el('span', 'cp-earnings-val', fmtMetric(es.estimate)));
-        const surpriseClass = (es.surprisePercent ?? 0) >= 0 ? 'cp-earnings-surprise cp-positive' : 'cp-earnings-surprise cp-negative';
-        r2.append(ctx.el('span', surpriseClass, fmtChange(es.surprisePercent ?? 0)));
-        table.append(r2);
-      }
-      esBody.append(table);
-      content.append(esCard);
+    if (hasFinancials) {
+      const [statementCard, statementBody] = ctx.sectionCard('Statements');
+      statementBody.append(this.buildFinancialControls(ctx, content, data));
+      statementBody.append(buildFinancialChart(ctx, periods, this.activeFinancialStatement));
+      const rows = buildFinancialRows(periods, this.activeFinancialStatement)
+        .filter((item) => item.label.toLowerCase().includes(this.financialSearch.toLowerCase()));
+      statementBody.append(buildFinancialTable(ctx, periods, rows, data.profile?.currency || 'USD'));
+      content.append(statementCard);
     }
 
-    if (m.dividendYieldIndicatedAnnual) {
-      const [divCard, divBody] = ctx.sectionCard('Dividends');
-      divBody.append(row(ctx, 'Dividend Yield', fmtPercent(m.dividendYieldIndicatedAnnual)));
-      content.append(divCard);
+    const [statsCard, statsBody] = ctx.sectionCard('Statistics');
+    statsBody.append(buildStatisticsGrid(ctx, data, periods));
+    content.append(statsCard);
+
+    if (data.revenueBreakdown) {
+      const [revCard, revBody] = ctx.sectionCard('Revenue Breakdown');
+      const breakdown = buildRevenueBreakdown(ctx, data.revenueBreakdown);
+      revBody.append(breakdown ?? ctx.makeEmpty('Revenue segment data unavailable'));
+      content.append(revCard);
     }
+
+    const [divCard, divBody] = ctx.sectionCard('Dividends');
+    if (data.dividends.length > 0 || data.metrics?.dividendYieldIndicatedAnnual) {
+      divBody.append(row(ctx, 'Dividend Yield', fmtPercent(data.metrics?.dividendYieldIndicatedAnnual)));
+      if (data.dividends.length > 0) divBody.append(buildDividendTable(ctx, data.dividends.slice(0, 8)));
+    } else {
+      divBody.append(ctx.makeEmpty('No dividend history from the current data source'));
+    }
+    content.append(divCard);
+    return;
   }
 
-  // ─── Forecasts Tab ───────────────────────────────────────────────────────
+
+  private buildFinancialControls(
+    ctx: EntityRenderContext,
+    content: HTMLElement,
+    data: CompanyEnriched,
+  ): HTMLElement {
+    const wrap = ctx.el('div', 'cp-financial-controls');
+
+    const statementGroup = ctx.el('div', 'cp-control-group cp-statement-control');
+    for (const [kind, label] of [
+      ['income', 'Income statement'],
+      ['balance', 'Balance sheet'],
+      ['cash', 'Cash flow'],
+    ] as const) {
+      const button = ctx.el('button', `cp-control-btn${this.activeFinancialStatement === kind ? ' is-active' : ''}`);
+      button.type = 'button';
+      button.textContent = label;
+      button.addEventListener('click', () => {
+        this.activeFinancialStatement = kind;
+        content.replaceChildren();
+        this.renderFinancialsTab(content, data, ctx);
+      });
+      statementGroup.append(button);
+    }
+
+    const freqGroup = ctx.el('div', 'cp-control-group');
+    for (const freq of ['annual', 'quarterly'] as const) {
+      const button = ctx.el('button', `cp-control-btn${this.activeFinancialFrequency === freq ? ' is-active' : ''}`);
+      button.type = 'button';
+      button.textContent = freq === 'annual' ? 'Annual' : 'Quarterly';
+      button.addEventListener('click', () => {
+        this.activeFinancialFrequency = freq;
+        content.replaceChildren();
+        this.renderFinancialsTab(content, data, ctx);
+      });
+      freqGroup.append(button);
+    }
+
+    const search = ctx.el('input', 'cp-financial-search') as HTMLInputElement;
+    search.type = 'search';
+    search.placeholder = 'Search rows';
+    search.value = this.financialSearch;
+    search.addEventListener('input', () => {
+      this.financialSearch = search.value.trim();
+      content.replaceChildren();
+      this.renderFinancialsTab(content, data, ctx);
+    });
+
+    wrap.append(statementGroup, freqGroup, search);
+    return wrap;
+  }
 
   private renderForecastsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
     // Price target visualization
@@ -892,6 +1086,13 @@ export class CompanyRenderer implements EntityRenderer {
     // Analyst consensus
     if (data.recommendations.length > 0) {
       const [card, body] = ctx.sectionCard('Analyst Consensus');
+      card.classList.add('cp-card-with-action');
+      const detailButton = ctx.el('button', 'cp-card-action-btn', 'Open details') as HTMLButtonElement;
+      detailButton.type = 'button';
+      detailButton.addEventListener('click', () => {
+        ctx.navigate(buildAnalystDetailsView(ctx, data));
+      });
+      card.append(detailButton);
       const latest = data.recommendations[0]!;
       const total = latest.strongBuy + latest.buy + latest.hold + latest.sell + latest.strongSell;
 
@@ -976,6 +1177,35 @@ export class CompanyRenderer implements EntityRenderer {
       content.append(card);
     }
 
+    if (data.epsEstimates.data.length > 0 || data.revenueEstimates.data.length > 0 || data.earningsSurprises.length > 0) {
+      const [card, body] = ctx.sectionCard('Earnings & Revenue');
+      const latest = data.earningsSurprises[0];
+      if (latest) {
+        const summary = ctx.el('div', 'cp-mini-kpi-grid');
+        for (const [label, value] of [
+          ['Latest EPS', fmtMetric(latest.actual)],
+          ['Estimate', fmtMetric(latest.estimate)],
+          ['Surprise', fmtChange(latest.surprisePercent ?? 0)],
+        ]) {
+          const item = ctx.el('div', 'cp-mini-kpi');
+          item.append(ctx.el('span', 'cp-mini-kpi-label', label));
+          item.append(ctx.el('span', 'cp-mini-kpi-value', value));
+          summary.append(item);
+        }
+        body.append(summary);
+      }
+      if (data.epsEstimates.data.length > 0) {
+        body.append(buildEstimateStrip(ctx, 'EPS Estimates', data.epsEstimates, false));
+      }
+      if (data.revenueEstimates.data.length > 0) {
+        body.append(buildEstimateStrip(ctx, 'Revenue Estimates', data.revenueEstimates, true));
+      }
+      if (data.earningsSurprises.length > 0) {
+        body.append(buildEarningsTable(ctx, data.earningsSurprises.slice(0, 8)));
+      }
+      content.append(card);
+    }
+
     // Insider transactions
     if (data.insiderTxns.length > 0) {
       const [card, body] = ctx.sectionCard('Recent Insider Activity');
@@ -999,7 +1229,14 @@ export class CompanyRenderer implements EntityRenderer {
       content.append(card);
     }
 
-    if (!data.priceTarget && data.recommendations.length === 0 && data.insiderTxns.length === 0) {
+    if (
+      !data.priceTarget
+      && data.recommendations.length === 0
+      && data.insiderTxns.length === 0
+      && data.epsEstimates.data.length === 0
+      && data.revenueEstimates.data.length === 0
+      && data.earningsSurprises.length === 0
+    ) {
       content.append(ctx.makeEmpty('No forecast data available'));
     }
   }
@@ -1140,9 +1377,9 @@ export class CompanyRenderer implements EntityRenderer {
 
       // Header
       const hdr = ctx.el('div', 'cp-options-row cp-options-hdr');
-      for (const h of ['Bid', 'Ask', 'IV%', 'Vol', 'CALLS']) hdr.append(ctx.el('span', 'cp-options-hdr-call', h));
+      for (const h of ['Bid', 'Ask', 'IV%', 'OI', 'Vol', 'CALLS']) hdr.append(ctx.el('span', 'cp-options-hdr-call', h));
       hdr.append(ctx.el('span', 'cp-options-strike-hdr', 'Strike'));
-      for (const h of ['PUTS', 'Bid', 'Ask', 'IV%', 'Vol']) hdr.append(ctx.el('span', 'cp-options-hdr-put', h));
+      for (const h of ['PUTS', 'Bid', 'Ask', 'IV%', 'OI', 'Vol']) hdr.append(ctx.el('span', 'cp-options-hdr-put', h));
       table.append(hdr);
 
       for (const strike of nearStrikes) {
@@ -1155,6 +1392,7 @@ export class CompanyRenderer implements EntityRenderer {
           r2.append(ctx.el('span', 'cp-options-cell cp-options-call', fmtMetric(entry.call.bid)));
           r2.append(ctx.el('span', 'cp-options-cell cp-options-call', fmtMetric(entry.call.ask)));
           r2.append(ctx.el('span', 'cp-options-cell cp-options-call', fmtPercent(entry.call.impliedVolatility * 100)));
+          r2.append(ctx.el('span', 'cp-options-cell cp-options-call cp-options-oi', entry.call.openInterest ? String(entry.call.openInterest) : '-'));
           r2.append(ctx.el('span', 'cp-options-cell cp-options-call cp-options-vol', entry.call.volume ? String(entry.call.volume) : '—'));
         } else {
           for (let j = 0; j < 4; j++) r2.append(ctx.el('span', 'cp-options-cell cp-options-call', '—'));
@@ -1171,6 +1409,7 @@ export class CompanyRenderer implements EntityRenderer {
           r2.append(ctx.el('span', 'cp-options-cell cp-options-put', fmtMetric(entry.put.bid)));
           r2.append(ctx.el('span', 'cp-options-cell cp-options-put', fmtMetric(entry.put.ask)));
           r2.append(ctx.el('span', 'cp-options-cell cp-options-put', fmtPercent(entry.put.impliedVolatility * 100)));
+          r2.append(ctx.el('span', 'cp-options-cell cp-options-put cp-options-oi', entry.put.openInterest ? String(entry.put.openInterest) : '-'));
           r2.append(ctx.el('span', 'cp-options-cell cp-options-put cp-options-vol', entry.put.volume ? String(entry.put.volume) : '—'));
         } else {
           for (let j = 0; j < 4; j++) r2.append(ctx.el('span', 'cp-options-cell cp-options-put', '—'));
@@ -1310,6 +1549,289 @@ export class CompanyRenderer implements EntityRenderer {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function buildCapitalStructure(
+  ctx: EntityRenderContext,
+  items: Array<[string, number | undefined, string]>,
+): HTMLElement {
+  const wrap = ctx.el('div', 'cp-capital-structure');
+  const max = Math.max(...items.map(([, value]) => Math.abs(value ?? 0)), 1);
+  for (const [label, value, color] of items) {
+    const rowEl = ctx.el('div', 'cp-capital-row');
+    rowEl.append(ctx.el('span', 'cp-capital-label', label));
+    const track = ctx.el('div', 'cp-capital-track');
+    const bar = ctx.el('div', 'cp-capital-bar');
+    bar.style.width = `${Math.max(3, (Math.abs(value ?? 0) / max) * 100)}%`;
+    bar.style.backgroundColor = color;
+    track.append(bar);
+    rowEl.append(track);
+    rowEl.append(ctx.el('span', 'cp-capital-value', fmtFinancialValue(value)));
+    wrap.append(rowEl);
+  }
+  return wrap;
+}
+
+function buildOwnershipSnapshot(
+  ctx: EntityRenderContext,
+  holders: CompanyInstitutionHolder[],
+  totalHeld: number,
+): HTMLElement {
+  const wrap = ctx.el('div', 'cp-ownership-snapshot');
+  const ring = ctx.el('div', 'cp-ownership-ring');
+  ring.style.setProperty('--ownership-pct', String(Math.min(Math.max(totalHeld, 0), 100)));
+  ring.append(ctx.el('span', 'cp-ownership-ring-value', `${totalHeld.toFixed(1)}%`));
+  wrap.append(ring);
+  const list = ctx.el('div', 'cp-ownership-list');
+  for (const holder of holders) {
+    const rowEl = ctx.el('div', 'cp-ownership-row');
+    rowEl.append(ctx.el('span', 'cp-ownership-name', holder.institutionName));
+    rowEl.append(ctx.el('span', 'cp-ownership-value', holder.percent ? `${holder.percent.toFixed(2)}%` : fmtShares(holder.shares)));
+    list.append(rowEl);
+  }
+  wrap.append(list);
+  return wrap;
+}
+
+function buildFinancialChart(
+  ctx: EntityRenderContext,
+  periods: NormalizedFinancialPeriod[],
+  statement: FinancialStatementKind,
+): HTMLElement {
+  const metric: [keyof NormalizedFinancialPeriod['values'], string] = statement === 'balance'
+    ? ['assets', '#3b82f6']
+    : statement === 'cash'
+      ? ['operatingCashFlow', '#22d3ee']
+      : ['revenue', '#3b82f6'];
+  const values = periods.map((period) => period.values[metric[0]] ?? 0);
+  const max = Math.max(...values.map((value) => Math.abs(value)), 1);
+  const chart = ctx.el('div', 'cp-financial-chart');
+  periods.forEach((period, index) => {
+    const value = values[index] ?? 0;
+    const barWrap = ctx.el('div', 'cp-financial-chart-bar-wrap');
+    const bar = ctx.el('div', value >= 0 ? 'cp-financial-chart-bar' : 'cp-financial-chart-bar is-negative');
+    bar.style.height = `${Math.max(4, (Math.abs(value) / max) * 100)}%`;
+    bar.style.backgroundColor = metric[1];
+    bar.title = `${period.label}: ${fmtFinancialValue(value)}`;
+    barWrap.append(bar, ctx.el('span', 'cp-financial-chart-label', period.label));
+    chart.append(barWrap);
+  });
+  return chart;
+}
+
+function buildFinancialTable(
+  ctx: EntityRenderContext,
+  periods: NormalizedFinancialPeriod[],
+  rows: FinancialDisplayRow[],
+  currency: string,
+): HTMLElement {
+  if (rows.length === 0) return ctx.makeEmpty('No matching financial rows');
+  const wrap = ctx.el('div', 'cp-financial-table-wrap');
+  const table = ctx.el('div', 'cp-financial-table');
+  table.style.setProperty('--period-count', String(periods.length));
+  const header = ctx.el('div', 'cp-financial-table-row cp-financial-table-header');
+  header.append(ctx.el('span', 'cp-financial-row-label', `Currency: ${currency}`));
+  for (const period of periods) header.append(ctx.el('span', 'cp-financial-cell', period.label));
+  table.append(header);
+  for (const rowItem of rows) {
+    const rowEl = ctx.el('div', 'cp-financial-table-row');
+    rowEl.append(ctx.el('span', 'cp-financial-row-label', rowItem.label));
+    for (const value of rowItem.values) rowEl.append(ctx.el('span', 'cp-financial-cell', fmtFinancialValue(value)));
+    table.append(rowEl);
+  }
+  wrap.append(table);
+  return wrap;
+}
+
+function percentFromRatio(value: number | undefined): number | undefined {
+  return value === undefined ? undefined : value * 100;
+}
+
+function buildStatisticsGrid(
+  ctx: EntityRenderContext,
+  data: CompanyEnriched,
+  periods: NormalizedFinancialPeriod[],
+): HTMLElement {
+  const latestRevenue = getLatestFinancialValue(periods, 'revenue');
+  const latestNetIncome = getLatestFinancialValue(periods, 'netIncome');
+  const latestAssets = getLatestFinancialValue(periods, 'assets');
+  const latestEquity = getLatestFinancialValue(periods, 'equity');
+  const latestDebt = getLatestFinancialValue(periods, 'debt');
+  const latestLiabilities = getLatestFinancialValue(periods, 'liabilities');
+  const marketCap = data.profile?.marketCapitalization ? data.profile.marketCapitalization * 1_000_000 : data.metrics?.marketCapitalization;
+  const enterpriseValue = marketCap !== undefined ? marketCap + (latestDebt ?? 0) - (getLatestFinancialValue(periods, 'cash') ?? 0) : undefined;
+  const grid = ctx.el('div', 'cp-statistics-grid');
+  const rows: Array<[string, string]> = [
+    ['P/E ratio', fmtMetric(data.metrics?.peBasicExclExtraTTM || data.metrics?.peAnnual, 'x')],
+    ['P/S ratio', fmtMetric(data.metrics?.psAnnual, 'x')],
+    ['P/B ratio', fmtMetric(data.metrics?.pbAnnual, 'x')],
+    ['Enterprise value', fmtFinancialValue(enterpriseValue)],
+    ['Return on assets', fmtPercent(percentFromRatio(ratio(latestNetIncome, latestAssets)) ?? data.metrics?.roaRfy)],
+    ['Return on equity', fmtPercent(percentFromRatio(ratio(latestNetIncome, latestEquity)) ?? data.metrics?.roeRfy)],
+    ['Gross margin', fmtPercent(data.metrics?.grossMarginAnnual)],
+    ['Operating margin', fmtPercent(data.metrics?.operatingMarginAnnual)],
+    ['Net margin', fmtPercent(percentFromRatio(ratio(latestNetIncome, latestRevenue)) ?? data.metrics?.netProfitMarginAnnual)],
+    ['Current ratio', fmtMetric(data.metrics?.currentRatioAnnual)],
+    ['Debt/assets', fmtMetric(ratio(latestDebt, latestAssets), 'x')],
+    ['Debt/equity', fmtMetric(ratio(latestDebt, latestEquity) ?? data.metrics?.totalDebtToEquityAnnual, 'x')],
+    ['Liabilities/assets', fmtMetric(ratio(latestLiabilities, latestAssets), 'x')],
+  ];
+  for (const [label, value] of rows) {
+    const item = ctx.el('div', 'cp-statistics-item');
+    item.append(ctx.el('span', 'cp-statistics-label', label));
+    item.append(ctx.el('span', 'cp-statistics-value', value));
+    grid.append(item);
+  }
+  return grid;
+}
+
+function numericBreakdownEntries(input: unknown): Array<[string, number]> {
+  if (!input || typeof input !== 'object') return [];
+  return Object.entries(input as Record<string, unknown>)
+    .filter(([, value]) => typeof value === 'number' && Number.isFinite(value))
+    .map(([key, value]) => [key, value as number]);
+}
+
+function buildRevenueBreakdown(ctx: EntityRenderContext, breakdown: RevenueBreakdown): HTMLElement | null {
+  const entries = [breakdown.breakdown, breakdown.data, breakdown.series, breakdown]
+    .flatMap(numericBreakdownEntries)
+    .slice(0, 12);
+  if (entries.length === 0) return null;
+  const wrap = ctx.el('div', 'cp-revenue-breakdown');
+  const max = Math.max(...entries.map(([, value]) => Math.abs(value)), 1);
+  for (const [key, value] of entries) {
+    const rowEl = ctx.el('div', 'cp-revenue-row');
+    rowEl.append(ctx.el('span', 'cp-revenue-label', key.replace(/[_-]+/g, ' ')));
+    const track = ctx.el('div', 'cp-revenue-track');
+    const bar = ctx.el('div', 'cp-revenue-bar');
+    bar.style.width = `${Math.max(4, (Math.abs(value) / max) * 100)}%`;
+    track.append(bar);
+    rowEl.append(track);
+    rowEl.append(ctx.el('span', 'cp-revenue-value', fmtFinancialValue(value)));
+    wrap.append(rowEl);
+  }
+  return wrap;
+}
+
+function simpleTableRow(ctx: EntityRenderContext, cells: string[], header = false): HTMLElement {
+  const rowEl = ctx.el('div', header ? 'cp-simple-table-row cp-simple-table-header' : 'cp-simple-table-row');
+  for (const cell of cells) rowEl.append(ctx.el('span', '', cell));
+  return rowEl;
+}
+
+function buildDividendTable(ctx: EntityRenderContext, dividends: StockDividend[]): HTMLElement {
+  const table = ctx.el('div', 'cp-simple-table');
+  table.append(simpleTableRow(ctx, ['Date', 'Amount', 'Pay date'], true));
+  for (const dividend of dividends) {
+    table.append(simpleTableRow(ctx, [
+      dividend.exDate || dividend.date,
+      fmtFinancialValue(dividend.amount),
+      dividend.payDate || '-',
+    ]));
+  }
+  return table;
+}
+
+function buildEstimateStrip(
+  ctx: EntityRenderContext,
+  title: string,
+  series: EstimateSeries,
+  isCurrency: boolean,
+): HTMLElement {
+  const wrap = ctx.el('div', 'cp-estimate-strip');
+  wrap.append(ctx.el('div', 'cp-trend-title', title));
+  const points = series.data.slice(-6);
+  const max = Math.max(...points.map((point) => Math.abs(point.estimate ?? point.revenue ?? point.actual ?? 0)), 1);
+  const chart = ctx.el('div', 'cp-estimate-chart');
+  for (const point of points) {
+    const value = point.estimate ?? point.revenue ?? point.actual ?? 0;
+    const item = ctx.el('div', 'cp-estimate-point');
+    const dot = ctx.el('div', 'cp-estimate-dot');
+    dot.style.height = `${Math.max(6, (Math.abs(value) / max) * 100)}%`;
+    dot.title = `${point.period}: ${isCurrency ? fmtFinancialValue(value) : fmtPlainNumber(value)}`;
+    item.append(dot, ctx.el('span', 'cp-estimate-label', point.period));
+    chart.append(item);
+  }
+  wrap.append(chart);
+  return wrap;
+}
+
+function buildEarningsTable(ctx: EntityRenderContext, earnings: EarningsSurprise[]): HTMLElement {
+  const table = ctx.el('div', 'cp-earnings-table');
+  table.append(simpleTableRow(ctx, ['Period', 'Actual', 'Estimate', 'Surprise'], true));
+  for (const item of earnings) {
+    table.append(simpleTableRow(ctx, [
+      item.period,
+      fmtMetric(item.actual),
+      fmtMetric(item.estimate),
+      fmtChange(item.surprisePercent ?? 0),
+    ]));
+  }
+  return table;
+}
+
+function buildAnalystDetailsView(ctx: EntityRenderContext, data: CompanyEnriched): HTMLElement {
+  const view = ctx.el('div', 'cp-analyst-detail-view');
+  const header = ctx.el('div', 'edp-header');
+  header.append(ctx.el('h2', 'edp-title', `${data.ticker} Analyst Detail`));
+  header.append(ctx.el('div', 'edp-subtitle', 'Firm-level actions and aggregate consensus history'));
+  view.append(header);
+
+  const [historyCard, historyBody] = ctx.sectionCard('Aggregate Rating History');
+  for (const rec of data.recommendations.slice(0, 12)) {
+    const total = rec.strongBuy + rec.buy + rec.hold + rec.sell + rec.strongSell;
+    if (total === 0) continue;
+    const rowEl = ctx.el('div', 'cp-analyst-history-row');
+    rowEl.append(ctx.el('span', 'cp-trend-period', rec.period));
+    const bar = ctx.el('div', 'cp-rating-bar cp-rating-bar-mini');
+    for (const [count, color] of [
+      [rec.strongBuy, '#16a34a'],
+      [rec.buy, '#22c55e'],
+      [rec.hold, '#eab308'],
+      [rec.sell, '#f97316'],
+      [rec.strongSell, '#ef4444'],
+    ] as const) {
+      if (count === 0) continue;
+      const segment = ctx.el('div', 'cp-rating-segment');
+      segment.style.width = `${(count / total) * 100}%`;
+      segment.style.backgroundColor = color;
+      bar.append(segment);
+    }
+    rowEl.append(bar);
+    historyBody.append(rowEl);
+  }
+  view.append(historyCard);
+
+  const [actionsCard, actionsBody] = ctx.sectionCard('Firm Rating Actions');
+  if (data.ratingActions.length === 0) {
+    actionsBody.append(ctx.makeEmpty('No firm-level rating actions from the current data source'));
+  } else {
+    const table = ctx.el('div', 'cp-analyst-action-table');
+    table.append(simpleTableRow(ctx, ['Date', 'Firm', 'Action', 'From', 'To', 'Analyst'], true));
+    for (const action of data.ratingActions.slice(0, 40)) {
+      table.append(simpleTableRow(ctx, [
+        action.gradeTime ? fmtDate(action.gradeTime) : '-',
+        action.firm || '-',
+        action.action || '-',
+        action.fromGrade || '-',
+        action.toGrade || '-',
+        'Unavailable',
+      ]));
+    }
+    actionsBody.append(table);
+  }
+  view.append(actionsCard);
+
+  if (data.priceTarget) {
+    const [targetCard, targetBody] = ctx.sectionCard('Consensus Price Target');
+    targetBody.append(row(ctx, 'Low', fmtPrice(data.priceTarget.targetLow)));
+    targetBody.append(row(ctx, 'Mean', fmtPrice(data.priceTarget.targetMean)));
+    targetBody.append(row(ctx, 'Median', fmtPrice(data.priceTarget.targetMedian)));
+    targetBody.append(row(ctx, 'High', fmtPrice(data.priceTarget.targetHigh)));
+    view.append(targetCard);
+  }
+
+  return view;
+}
 
 function buildPriceTargetGauge(
   ctx: EntityRenderContext,

@@ -4798,7 +4798,7 @@ export class DeckGLMap {
     slider.className = 'time-slider deckgl-time-slider';
     const settings = loadDeckControlSettings();
     const timeButtons = TIME_RANGE_OPTIONS.map(range =>
-      `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${range === 'all' ? t('components.deckgl.timeAll') : getTimeRangeShortLabel(range)}</button>`
+      `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${this.getTimeRangeControlLabel(range)}</button>`
     ).join('');
     slider.innerHTML = `
       <div class="time-options">
@@ -4925,9 +4925,23 @@ export class DeckGLMap {
     if (!slider) return;
     slider.querySelectorAll('.time-btn').forEach((btn) => {
       const range = (btn as HTMLElement).dataset.range as TimeRange | undefined;
+      if (range) (btn as HTMLElement).textContent = this.getTimeRangeControlLabel(range);
       btn.classList.toggle('active', range === this.state.timeRange);
     });
+    this.updateTimeRangeSettingLabels(slider);
     this.applyDeckControlSettings(slider);
+  }
+
+  private getTimeRangeControlLabel(range: TimeRange): string {
+    return range === 'all' ? t('components.deckgl.timeAll') : getTimeRangeShortLabel(range);
+  }
+
+  private updateTimeRangeSettingLabels(root: ParentNode): void {
+    root.querySelectorAll<HTMLInputElement>('[data-time-range-setting]').forEach(input => {
+      const range = input.dataset.timeRangeSetting as TimeRange | undefined;
+      const label = input.nextElementSibling;
+      if (range && label instanceof HTMLElement) label.textContent = this.getTimeRangeControlLabel(range);
+    });
   }
 
   private createDeckControlSettingsPanel(slider: HTMLElement, initialSettings: DeckControlSettings): void {
@@ -4949,7 +4963,7 @@ export class DeckGLMap {
           ${TIME_RANGE_OPTIONS.map(range => `
             <label class="mcs-check">
               <input type="checkbox" data-time-range-setting="${range}">
-              <span>${range === 'all' ? t('components.deckgl.timeAll') : getTimeRangeShortLabel(range)}</span>
+              <span>${this.getTimeRangeControlLabel(range)}</span>
             </label>
           `).join('')}
         </div>
@@ -5023,6 +5037,7 @@ export class DeckGLMap {
       if (valueInput) valueInput.value = String(custom.value);
       if (unitSelect) unitSelect.value = custom.unit;
       syncCustomSummary();
+      this.updateTimeSliderButtons();
       this.setLayersPanelOpen(slider, settings.layersOpenDefault);
       this.applyDeckControlSettings(slider, settings);
     });
@@ -5043,6 +5058,7 @@ export class DeckGLMap {
         if (valueInput) valueInput.value = String(next.value);
         if (unitSelect) unitSelect.value = next.unit;
         syncCustomSummary();
+        this.updateTimeSliderButtons();
         if (this.state.timeRange === 'custom') this.setTimeRange('custom');
         return;
       }

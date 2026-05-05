@@ -15,6 +15,13 @@ function pct(value: number): string {
   return `${sign}${value.toFixed(2)}%`;
 }
 
+function panelToggleIcon(maximized: boolean): string {
+  if (maximized) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/><path d="M10 9l-4 3 4 3"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 4H5a1 1 0 00-1 1v3"/><path d="M16 4h3a1 1 0 011 1v3"/><path d="M8 20H5a1 1 0 01-1-1v-3"/><path d="M16 20h3a1 1 0 001-1v-3"/></svg>';
+}
+
 export class AlgoDetailPanel extends DetailPanelBase {
   private activeTab: AlgoTab = 'builder';
   private strategies: AlgoStrategy[] = [];
@@ -78,8 +85,8 @@ export class AlgoDetailPanel extends DetailPanelBase {
           <span>${this.deployments.filter((item) => item.status === 'running').length} LIVE PAPER</span>
         </div>
         <div class="ad-header-actions">
-          <button class="ad-icon-btn" data-ad-refresh>&#8635;</button>
-          <button class="ad-icon-btn" data-ad-max>${this.isMaximizedState ? '&minus;' : '&#9633;'}</button>
+          <button class="ad-icon-btn" data-ad-refresh aria-label="Refresh" title="Refresh">&#8635;</button>
+          <button class="ad-icon-btn ad-panel-toggle" data-ad-max aria-label="${this.isMaximizedState ? 'Dock to right panel' : 'Maximize'}" title="${this.isMaximizedState ? 'Dock to right panel' : 'Maximize'}">${panelToggleIcon(this.isMaximizedState)}</button>
         </div>
       </header>
       <nav class="ad-tabs">

@@ -149,7 +149,7 @@ async function fetchJsonCached<T>(key: string, url: string, signal: AbortSignal)
     const data = await response.json() as T;
     void setPersistentCache(cacheKey(key), data);
     return { data, stale: false, updatedAt: Date.now() };
-  } catch {
+  } catch (error) {
     if (cached) return cached;
     throw error;
   }
