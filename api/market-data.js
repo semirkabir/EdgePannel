@@ -195,6 +195,65 @@ export default async function handler(req) {
         finnhubUrl.searchParams.set('limit', '8');
         break;
 
+      case 'eps-estimates':
+        if (!symbol) {
+          return new Response(JSON.stringify({ error: 'symbol is required for eps-estimates' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+        finnhubUrl = new URL('https://finnhub.io/api/v1/stock/eps-estimate');
+        finnhubUrl.searchParams.set('symbol', symbol);
+        finnhubUrl.searchParams.set('freq', url.searchParams.get('freq') || 'quarterly');
+        break;
+
+      case 'revenue-estimates':
+        if (!symbol) {
+          return new Response(JSON.stringify({ error: 'symbol is required for revenue-estimates' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+        finnhubUrl = new URL('https://finnhub.io/api/v1/stock/revenue-estimate');
+        finnhubUrl.searchParams.set('symbol', symbol);
+        finnhubUrl.searchParams.set('freq', url.searchParams.get('freq') || 'quarterly');
+        break;
+
+      case 'stock-dividends':
+        if (!symbol) {
+          return new Response(JSON.stringify({ error: 'symbol is required for stock-dividends' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+        finnhubUrl = new URL('https://finnhub.io/api/v1/stock/dividend');
+        finnhubUrl.searchParams.set('symbol', symbol);
+        finnhubUrl.searchParams.set('from', from || new Date(Date.now() - 3650 * 86400000).toISOString().split('T')[0]);
+        finnhubUrl.searchParams.set('to', to || new Date().toISOString().split('T')[0]);
+        break;
+
+      case 'revenue-breakdown':
+        if (!symbol) {
+          return new Response(JSON.stringify({ error: 'symbol is required for revenue-breakdown' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+        finnhubUrl = new URL('https://finnhub.io/api/v1/stock/revenue-breakdown');
+        finnhubUrl.searchParams.set('symbol', symbol);
+        break;
+
+      case 'upgrade-downgrade':
+        if (!symbol) {
+          return new Response(JSON.stringify({ error: 'symbol is required for upgrade-downgrade' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+        finnhubUrl = new URL('https://finnhub.io/api/v1/stock/upgrade-downgrade');
+        finnhubUrl.searchParams.set('symbol', symbol);
+        break;
+
       default:
         return new Response(JSON.stringify({ error: `Unknown endpoint: ${endpoint}` }), {
           status: 400,
