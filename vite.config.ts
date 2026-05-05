@@ -71,9 +71,9 @@ function htmlVariantPlugin(): Plugin {
         .replace(/<meta name="twitter:url" content=".*?" \/>/, `<meta name="twitter:url" content="${activeMeta.url}" />`)
         .replace(/<meta name="twitter:title" content=".*?" \/>/, `<meta name="twitter:title" content="${activeMeta.title}" />`)
         .replace(/<meta name="twitter:description" content=".*?" \/>/, `<meta name="twitter:description" content="${activeMeta.description}" />`)
-        .replace(/"name": "World Monitor"/, `"name": "${activeMeta.siteName}"`)
-        .replace(/"alternateName": "WorldMonitor"/, `"alternateName": "${activeMeta.siteName.replace(' ', '')}"`)
-        .replace(/"url": "https:\/\/worldmonitor\.app\/"/, `"url": "${activeMeta.url}"`)
+        .replace(/"name": "EdgePannel"/, `"name": "${activeMeta.siteName}"`)
+        .replace(/"alternateName": "EdgePannel"/, `"alternateName": "${activeMeta.siteName.replace(' ', '')}"`)
+        .replace(/"url": "https:\/\/edgepannel\.app\/"/, `"url": "${activeMeta.url}"`)
         .replace(/"description": "Real-time global intelligence dashboard with live news, markets, military tracking, infrastructure monitoring, and geopolitical data."/, `"description": "${activeMeta.description}"`)
         .replace(/"featureList": \[[\s\S]*?\]/, `"featureList": ${JSON.stringify(activeMeta.features, null, 8).replace(/\n/g, '\n      ')}`);
 
@@ -686,7 +686,7 @@ function prefsPlugin(): Plugin {
 
         if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
 
-        const token = req.headers['x-worldmonitor-token'];
+        const token = req.headers['x-edgepannel-token'];
         if (!token) { res.statusCode = 401; res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
 
         const uid = await verifyToken(token as string);
@@ -942,7 +942,7 @@ function weatherProxyPlugin(): Plugin {
 
         try {
           const response = await fetch('https://api.weather.gov/alerts/active', {
-            headers: { 'User-Agent': 'WorldMonitor/1.0', Accept: 'application/geo+json' },
+            headers: { 'User-Agent': 'EdgePannel/1.0', Accept: 'application/geo+json' },
             signal: AbortSignal.timeout(15000),
           });
           const data = await response.text();
@@ -993,7 +993,7 @@ function planespottersProxyPlugin(): Plugin {
 
         try {
           const response = await fetch(`https://api.planespotters.net/pub/photos${path}`, {
-            headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0' },
+            headers: { Accept: 'application/json', 'User-Agent': 'EdgePannel/1.0' },
             signal: AbortSignal.timeout(10000),
           });
           const data = await response.text();
@@ -1161,6 +1161,7 @@ export default defineConfig({
         'favico/favicon.ico',
         'favico/apple-touch-icon.png',
         'favico/favicon-32x32.png',
+        'offline.html',
       ],
 
       manifest: {
@@ -1186,7 +1187,7 @@ export default defineConfig({
         globIgnores: ['**/ml*.js', '**/onnx*.wasm', '**/locale-*.js'],
         // globe.gl + three.js grows main bundle past the 2 MiB default limit
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
-        navigateFallback: null,
+        navigateFallback: '/offline.html',
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
@@ -1194,13 +1195,24 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: ({ request }: { request: Request }) => request.mode === 'navigate',
-            handler: 'NetworkOnly',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html-navigation',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 8, maxAgeSeconds: 24 * 60 * 60 },
+            },
           },
           {
             urlPattern: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>
               sameOrigin && /^\/api\//.test(url.pathname),
-            handler: 'NetworkOnly',
+            handler: 'NetworkFirst',
             method: 'GET',
+            options: {
+              cacheName: 'api-last-known-good',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 80, maxAgeSeconds: 15 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
           {
             urlPattern: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>

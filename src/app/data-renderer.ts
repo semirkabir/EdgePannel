@@ -159,9 +159,10 @@ export class DataRenderer {
         SECTORS.map((s) => ({ ...s, display: s.name })),
         {
           onBatch: (partialSectors) => {
-            (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(
-              partialSectors.map((s) => ({ symbol: s.symbol, name: s.name, change: s.change }))
-            );
+            const mapped = partialSectors.map((s) => ({ symbol: s.symbol, name: s.name, change: s.change }));
+            if (mapped.some((s) => s.change !== null)) {
+              (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(mapped);
+            }
           },
         }
       );

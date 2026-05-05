@@ -3,7 +3,7 @@
   "slug": "port-congestion-monitor",
   "name": "Port Congestion Monitor",
   "version": "1.0.0",
-  "author": "World Monitor Curated",
+  "author": "EdgePannel Curated",
   "description": "Live port congestion metrics for major global terminals including vessel dwell times, berth utilization, and queue depth.",
   "license": "WM Curated Data License",
   "category": "trade",

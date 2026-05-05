@@ -102,8 +102,8 @@ function jsonResponse(body, status = 200) {
 }
 
 function makeRequest(articleUrl) {
-  return new Request(`https://worldmonitor.app/api/fetch-article?url=${encodeURIComponent(articleUrl)}`, {
-    headers: { Origin: 'https://worldmonitor.app' },
+  return new Request(`https://edgepannel.app/api/fetch-article?url=${encodeURIComponent(articleUrl)}`, {
+    headers: { Origin: 'https://edgepannel.app' },
   });
 }
 

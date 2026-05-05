@@ -771,7 +771,7 @@ export class UnifiedSettings {
         </div>
         <div class="profile-community-section">
           <h5>Invite Friends</h5>
-          <p class="profile-community-desc">Share WorldMonitor and earn bonus features when they sign up.</p>
+          <p class="profile-community-desc">Share EdgePannel and earn bonus features when they sign up.</p>
           <div class="profile-referral-row">
             <code class="profile-referral-code" id="referralCodeDisplay">Loading...</code>
             <button class="profile-action-btn small" id="copyReferralCode">Copy Code</button>
@@ -817,11 +817,11 @@ export class UnifiedSettings {
 
     // Social share buttons
     container.querySelector('#shareTwitter')?.addEventListener('click', () => {
-      const text = encodeURIComponent('Check out WorldMonitor — real-time global monitoring at worldmonitor.app');
+      const text = encodeURIComponent('Check out EdgePannel - real-time global monitoring at edgepannel.app');
       window.open(`https://x.com/intent/tweet?text=${text}`, '_blank');
     });
     container.querySelector('#shareLinkedIn')?.addEventListener('click', () => {
-      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://worldmonitor.app')}`, '_blank');
+      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://edgepannel.app')}`, '_blank');
     });
 
     // Fetch referral code display
@@ -895,7 +895,7 @@ export class UnifiedSettings {
 
         // Validate basic structure
         if (!data.exportedAt) {
-          alert('This does not appear to be a WorldMonitor settings export.');
+          alert('This does not appear to be an EdgePannel settings export.');
           return;
         }
 
@@ -987,7 +987,7 @@ export class UnifiedSettings {
 
     if (tier === 'enterprise') {
       // Open external email or contact page
-      window.open('mailto:sales@worldmonitor.app?subject=Enterprise%20Inquiry', '_blank');
+      window.open('mailto:sales@edgepannel.app?subject=Enterprise%20Inquiry', '_blank');
       return;
     }
 

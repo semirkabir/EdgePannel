@@ -160,7 +160,7 @@ function sendDesktopNotification(alert: BreakingAlert): void {
     : 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect fill="%23f97316" width="64" height="64" rx="12"/><text x="32" y="44" text-anchor="middle" fill="white" font-size="36">!</text></svg>';
 
   try {
-    const n = new Notification(`World Monitor — ${alert.threatLevel.toUpperCase()}`, {
+    const n = new Notification(`EdgePannel - ${alert.threatLevel.toUpperCase()}`, {
       body: alert.headline,
       tag,
       icon,

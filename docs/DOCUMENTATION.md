@@ -1,8 +1,8 @@
-# World Monitor — Full Documentation
+# EdgePannel — Full Documentation
 
 AI-powered real-time global intelligence dashboard aggregating news, markets, geopolitical data, and infrastructure monitoring into a unified situation awareness interface.
 
-[Live Demo: worldmonitor.app](https://worldmonitor.app) | [Tech Variant: tech.worldmonitor.app](https://tech.worldmonitor.app) | [Finance Variant: finance.worldmonitor.app](https://finance.worldmonitor.app) | [Happy Variant: happy.worldmonitor.app](https://happy.worldmonitor.app)
+[Live Demo: edgepannel.app](https://edgepannel.app) | [Tech Variant: tech.edgepannel.app](https://tech.edgepannel.app) | [Finance Variant: finance.edgepannel.app](https://finance.edgepannel.app) | [Happy Variant: happy.edgepannel.app](https://happy.edgepannel.app)
 
 ## Documentation Index
 
@@ -24,18 +24,18 @@ AI-powered real-time global intelligence dashboard aggregating news, markets, ge
 
 ## Platform Variants
 
-World Monitor runs four specialized variants from a single codebase, each optimized for different monitoring needs:
+EdgePannel runs four specialized variants from a single codebase, each optimized for different monitoring needs:
 
 | Variant | URL | Focus |
 |---------|-----|-------|
-| **🌍 World Monitor** | [worldmonitor.app](https://worldmonitor.app) | Geopolitical intelligence, military tracking, conflict monitoring, infrastructure security |
-| **💻 Tech Monitor** | [tech.worldmonitor.app](https://tech.worldmonitor.app) | Technology sector intelligence, AI/startup ecosystems, cloud infrastructure, tech events |
+| **🌍 EdgePannel** | [edgepannel.app](https://edgepannel.app) | Geopolitical intelligence, military tracking, conflict monitoring, infrastructure security |
+| **💻 Tech Monitor** | [tech.edgepannel.app](https://tech.edgepannel.app) | Technology sector intelligence, AI/startup ecosystems, cloud infrastructure, tech events |
 
 A compact **variant switcher** in the header allows seamless navigation between variants while preserving your map position and panel configuration.
 
 ---
 
-## World Monitor (Geopolitical)
+## EdgePannel (Geopolitical)
 
 The primary variant focuses on geopolitical intelligence, military tracking, and infrastructure security monitoring.
 
@@ -67,7 +67,7 @@ The primary variant focuses on geopolitical intelligence, military tracking, and
 
 ## Tech Monitor
 
-The tech variant ([tech.worldmonitor.app](https://tech.worldmonitor.app)) provides specialized layers for technology sector monitoring.
+The tech variant ([tech.edgepannel.app](https://tech.edgepannel.app)) provides specialized layers for technology sector monitoring.
 
 ### Tech Ecosystem Layers
 
@@ -3163,7 +3163,7 @@ This ensures the dashboard always displays meaningful data even during upstream 
 
 ## Service Status Monitoring
 
-The Service Status panel tracks the operational health of external services that WorldMonitor users may depend on.
+The Service Status panel tracks the operational health of external services that EdgePannel users may depend on.
 
 ### Monitored Services
 
@@ -3303,7 +3303,7 @@ define: {
 }
 
 // App.ts
-const header = `World Monitor v${__APP_VERSION__}`;
+const header = `EdgePannel v${__APP_VERSION__}`;
 ```
 
 ---
@@ -3690,7 +3690,7 @@ See [ROADMAP.md](../.planning/ROADMAP.md) for detailed planning. Recent intellig
 - ✅ **Build-Time Version Sync** - Header version auto-syncs with package.json
 - ✅ **Tech Monitor Variant** - Dedicated technology sector dashboard with startup ecosystems, cloud regions, and tech events
 - ✅ **Smart Marker Clustering** - Geographic grouping of nearby markers with click-to-expand popups
-- ✅ **Variant Switcher UI** - Compact orbital navigation between World Monitor and Tech Monitor
+- ✅ **Variant Switcher UI** - Compact orbital navigation between EdgePannel and Tech Monitor
 - ✅ **CII Learning Mode** - 15-minute calibration period with visual progress indicator
 - ✅ **Regional Tech Coverage** - Verified tech HQ data for MENA, Europe, Asia-Pacific hubs
 - ✅ **Service Status Panel** - External service health monitoring (AI providers, cloud platforms)

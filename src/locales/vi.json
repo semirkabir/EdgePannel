@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "World Monitor",
+    "title": "EdgePannel",
     "description": "Tình hình Toàn cầu với Phân tích AI"
   },
   "countryBrief": {
@@ -479,7 +479,7 @@
         "some": "Một số tính năng cần khóa API"
       },
       "openSettings": "Mở Cài đặt",
-      "skipSetup": "Bỏ qua cài đặt — một giấy phép World Monitor mở khóa tất cả. Tham gia danh sách chờ để truy cập sớm.",
+      "skipSetup": "Bỏ qua cài đặt — một giấy phép EdgePannel mở khóa tất cả. Tham gia danh sách chờ để truy cập sớm.",
       "summary": {
         "desktop": "Chế độ desktop",
         "web": "Chế độ web (chỉ đọc, thông tin xác thực do máy chủ quản lý)",
@@ -524,9 +524,9 @@
       "sidecarUnreachable": "Không thể kết nối sidecar.",
       "logCleared": "Đã xóa log.",
       "worldMonitor": {
-        "tabLabel": "World Monitor",
+        "tabLabel": "EdgePannel",
         "heroTitle": "Một khóa. Bao gồm tất cả.",
-        "heroDescription": "Một giấy phép World Monitor thay thế mọi khóa API và nhà cung cấp LLM mà bạn phải tự cấu hình. Tóm tắt AI, tình báo thời gian thực, dữ liệu thị trường, theo dõi xung đột, phát hiện cháy, ảnh vệ tinh — tất cả được vận hành, quản lý, không cần cài đặt.",
+        "heroDescription": "Một giấy phép EdgePannel thay thế mọi khóa API và nhà cung cấp LLM mà bạn phải tự cấu hình. Tóm tắt AI, tình báo thời gian thực, dữ liệu thị trường, theo dõi xung đột, phát hiện cháy, ảnh vệ tinh — tất cả được vận hành, quản lý, không cần cài đặt.",
         "apiKey": {
           "title": "Khóa Giấy phép",
           "placeholder": "wm_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -537,7 +537,7 @@
         "dividerOr": "HOẶC",
         "register": {
           "title": "Đặt chỗ của bạn",
-          "description": "Chúng tôi đang chuẩn bị ra mắt giấy phép World Monitor. Đăng ký ngay để được ưu tiên — thành viên sớm được quyền truy cập trước và giá ưu đãi.",
+          "description": "Chúng tôi đang chuẩn bị ra mắt giấy phép EdgePannel. Đăng ký ngay để được ưu tiên — thành viên sớm được quyền truy cập trước và giá ưu đãi.",
           "emailPlaceholder": "email@cuaban.com",
           "submitBtn": "Tham gia Danh sách Chờ",
           "submitting": "Đang gửi...",

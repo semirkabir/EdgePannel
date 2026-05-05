@@ -1,6 +1,6 @@
 # Adding API Endpoints
 
-All JSON API endpoints in WorldMonitor **must** use sebuf. Do not create standalone `api/*.js` files — the legacy pattern is deprecated and being removed.
+All JSON API endpoints in EdgePannel **must** use sebuf. Do not create standalone `api/*.js` files — the legacy pattern is deprecated and being removed.
 
 This guide walks through adding a new RPC to an existing service and adding an entirely new service.
 

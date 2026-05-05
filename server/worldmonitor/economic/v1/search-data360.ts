@@ -44,7 +44,7 @@ export async function searchData360(
     const top = req.top > 0 ? Math.min(req.top, 100) : 20;
     const cacheKey = `economic:data360:search:${query}:${top}:${req.filter || ''}:${req.select || ''}`;
 
-    const result = await cachedFetchJson<SearchData360Response>(cacheKey, 86400, async () => {
+    const result = await cachedFetchJson<Data360SearchResponse>(cacheKey, 86400, async () => {
       const body: Record<string, unknown> = {
         search: query,
         top,
@@ -76,7 +76,7 @@ export async function searchData360(
 
     if (!result || !result.value) return { results: [], totalCount: 0 };
 
-    const results: SearchData360Result[] = result.value.map((hit) => ({
+    const results: SearchData360Result[] = result.value.map((hit: Data360SearchHit) => ({
       id: hit['series_description/idno'] || hit.id || '',
       name: hit['series_description/name'] || hit.name || '',
       databaseId: hit['series_description/database_id'] || hit.database_id || '',

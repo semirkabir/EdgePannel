@@ -1,7 +1,7 @@
 import { getCorsHeaders } from './_cors.js';
 
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const SEC_UA = 'WorldMonitor/1.0 (contact@worldmonitor.io)';
+const SEC_UA = 'EdgePannel/1.0 (contact@edgepannel.app)';
 const UPSTREAM_TIMEOUT = 15000;
 
 // Simple in-memory cache

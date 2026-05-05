@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "World Monitor",
+    "title": "EdgePannel",
     "description": "Globale Lage mit KI-Erkenntnissen"
   },
   "countryBrief": {
@@ -479,7 +479,7 @@
         "some": "Für einige Funktionen sind API-Schlüssel erforderlich"
       },
       "openSettings": "Öffnen Sie Einstellungen",
-      "skipSetup": "Überspringen Sie das Setup — eine einzige World Monitor-Lizenz schaltet alles frei. Tragen Sie sich in die Warteliste ein, um frühzeitigen Zugang zu erhalten.",
+      "skipSetup": "Überspringen Sie das Setup — eine einzige EdgePannel-Lizenz schaltet alles frei. Tragen Sie sich in die Warteliste ein, um frühzeitigen Zugang zu erhalten.",
       "summary": {
         "desktop": "Desktop-Modus",
         "web": "Webmodus (schreibgeschützt, serververwaltete Anmeldeinformationen)",
@@ -625,9 +625,9 @@
       "sidecarUnreachable": "Beiwagen nicht erreichbar.",
       "logCleared": "Protokoll gelöscht.",
       "worldMonitor": {
-        "tabLabel": "World Monitor",
+        "tabLabel": "EdgePannel",
         "heroTitle": "Ein Schlüssel. Alles inklusive.",
-        "heroDescription": "Eine einzige World Monitor-Lizenz ersetzt jeden API-Schlüssel und LLM-Anbieter, den Sie sonst selbst konfigurieren müssten. KI-Zusammenfassungen, Echtzeit-Intelligence, Marktdaten, Konfliktverfolgung, Branderkennung, Satellitenbilder — alles betrieben, alles verwaltet, kein Setup.",
+        "heroDescription": "Eine einzige EdgePannel-Lizenz ersetzt jeden API-Schlüssel und LLM-Anbieter, den Sie sonst selbst konfigurieren müssten. KI-Zusammenfassungen, Echtzeit-Intelligence, Marktdaten, Konfliktverfolgung, Branderkennung, Satellitenbilder — alles betrieben, alles verwaltet, kein Setup.",
         "apiKey": {
           "title": "Lizenzschlüssel",
           "placeholder": "wm_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -638,7 +638,7 @@
         "dividerOr": "ODER",
         "register": {
           "title": "Reservieren Sie Ihren Platz",
-          "description": "Wir bereiten den Start von World Monitor-Lizenzen vor. Melden Sie sich jetzt an und seien Sie der Erste — frühe Mitglieder erhalten bevorzugten Zugang und Gründermitglied-Preise.",
+          "description": "Wir bereiten den Start von EdgePannel-Lizenzen vor. Melden Sie sich jetzt an und seien Sie der Erste — frühe Mitglieder erhalten bevorzugten Zugang und Gründermitglied-Preise.",
           "emailPlaceholder": "ihre@email.com",
           "submitBtn": "Auf die Warteliste setzen",
           "submitting": "Wird übermittelt...",

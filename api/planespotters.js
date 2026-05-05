@@ -51,7 +51,7 @@ export default async function handler(req) {
 
   try {
     const response = await fetchWithTimeout(`${BASE}${path}`, {
-      headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0' },
+      headers: { Accept: 'application/json', 'User-Agent': 'EdgePannel/1.0' },
     }, 10000);
 
     const body = await response.text();

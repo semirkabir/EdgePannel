@@ -1,6 +1,6 @@
 # Architecture
 
-System design, caching strategies, bootstrap hydration, edge functions, and implementation patterns used in World Monitor.
+System design, caching strategies, bootstrap hydration, edge functions, and implementation patterns used in EdgePannel.
 
 ---
 
@@ -66,7 +66,7 @@ Several non-obvious algorithmic choices are worth explaining:
 
 ### Vanilla TypeScript Architecture
 
-World Monitor is written in vanilla TypeScript — no frontend framework (React, Vue, Svelte, Angular) is used. This is a deliberate architectural decision, not an oversight.
+EdgePannel is written in vanilla TypeScript — no frontend framework (React, Vue, Svelte, Angular) is used. This is a deliberate architectural decision, not an oversight.
 
 **Why no framework:**
 
@@ -245,7 +245,7 @@ Seeds use `cachedFetchJson` with in-flight promise coalescing — if a seed run 
 
 ### Edge Function Architecture
 
-World Monitor uses 60+ Vercel Edge Functions as a lightweight API layer, split into two generations. Legacy endpoints in `api/*.js` each handle a single data source concern — proxying, caching, or transforming external APIs. The newer proto-first endpoints use **per-domain thin entry points** — 22 separate edge functions, each importing only its own handler module. This replaced the original monolithic gateway that loaded all 22 domains on every cold start. Each domain's function tree-shakes to include only its dependencies, reducing cold-start time by ~85% (sub-100ms for most endpoints vs. 500ms+ with the monolithic handler). A shared `server/gateway.ts` provides common routing logic. Both generations coexist, with new features built proto-first. This architecture avoids a monolithic backend while keeping API keys server-side:
+EdgePannel uses 60+ Vercel Edge Functions as a lightweight API layer, split into two generations. Legacy endpoints in `api/*.js` each handle a single data source concern — proxying, caching, or transforming external APIs. The newer proto-first endpoints use **per-domain thin entry points** — 22 separate edge functions, each importing only its own handler module. This replaced the original monolithic gateway that loaded all 22 domains on every cold start. Each domain's function tree-shakes to include only its dependencies, reducing cold-start time by ~85% (sub-100ms for most endpoints vs. 500ms+ with the monolithic handler). A shared `server/gateway.ts` provides common routing logic. Both generations coexist, with new features built proto-first. This architecture avoids a monolithic backend while keeping API keys server-side:
 
 - **RSS Proxy** — domain-allowlisted proxy for 435+ feeds, preventing CORS issues and hiding origin servers. Feeds from domains that block Vercel IPs are automatically routed through the Railway relay.
 - **AI Pipeline** — Groq and OpenRouter edge functions with Redis deduplication, so identical headlines across concurrent users only trigger one LLM call. The classify-event endpoint pauses its queue on 500 errors to avoid wasting API quota.
@@ -271,14 +271,14 @@ This was split into 22 per-domain thin entry points, each importing only its own
 
 ### Single-Deployment Variant Consolidation
 
-All four dashboard variants (World Monitor, Tech Monitor, Finance Monitor, Happy Monitor) serve from a **single Vercel deployment**. The variant is determined at runtime by hostname detection:
+All four dashboard variants (EdgePannel, Tech Monitor, Finance Monitor, Happy Monitor) serve from a **single Vercel deployment**. The variant is determined at runtime by hostname detection:
 
 | Hostname | Variant |
 | --- | --- |
-| `tech.worldmonitor.app` | `tech` |
-| `finance.worldmonitor.app` | `finance` |
-| `happy.worldmonitor.app` | `happy` |
-| `worldmonitor.app` (default) | `full` |
+| `tech.edgepannel.app` | `tech` |
+| `finance.edgepannel.app` | `finance` |
+| `happy.edgepannel.app` | `happy` |
+| `edgepannel.app` (default) | `full` |
 
 On the desktop app, the variant is stored in `localStorage['worldmonitor-variant']` and can be switched without rebuilding. The variant selector in the header bar navigates between deployed domains on the web or toggles the localStorage value on desktop.
 
@@ -476,7 +476,7 @@ The Sentry SDK initialization includes a `beforeSend` hook and `ignoreErrors` li
 
 ### Error Tracking & Production Hardening
 
-Sentry captures unhandled exceptions and promise rejections in production, with environment-aware routing (production on `worldmonitor.app`, preview on `*.vercel.app`, disabled on localhost and Tauri desktop).
+Sentry captures unhandled exceptions and promise rejections in production, with environment-aware routing (production on `edgepannel.app`, preview on `*.vercel.app`, disabled on localhost and Tauri desktop).
 
 The configuration includes 30+ `ignoreErrors` patterns that suppress noise from:
 

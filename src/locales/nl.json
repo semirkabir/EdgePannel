@@ -299,7 +299,7 @@
         "OLLAMA_API_URL": "e.g. http://127.0.0.1:11434 (Ollama) or http://127.0.0.1:1234/v1 (LM Studio) — OpenAI-compatible endpoint.",
         "OLLAMA_MODEL": "e.g. llama3.1:8b — model tag to use for summarization."
       },
-      "skipSetup": "Sla de configuratie over — een enkele World Monitor-licentie ontgrendelt alles. Meld u aan voor de wachtlijst voor vroege toegang."
+      "skipSetup": "Sla de configuratie over — een enkele EdgePannel-licentie ontgrendelt alles. Meld u aan voor de wachtlijst voor vroege toegang."
     },
     "countryIntel": {
       "identifying": "Land identificeren...",
@@ -434,9 +434,9 @@
       "sidecarUnreachable": "Zijspan niet bereikbaar.",
       "logCleared": "Logboek gewist.",
       "worldMonitor": {
-        "tabLabel": "World Monitor",
+        "tabLabel": "EdgePannel",
         "heroTitle": "Eén sleutel. Alles inbegrepen.",
-        "heroDescription": "Een enkele World Monitor-licentie vervangt elke API-sleutel en LLM-provider die u anders zelf zou moeten configureren. AI-samenvattingen, realtime inlichtingen, marktgegevens, conflictmonitoring, branddetectie, satellietbeelden — alles wordt gevoed, alles wordt beheerd, geen configuratie nodig.",
+        "heroDescription": "Een enkele EdgePannel-licentie vervangt elke API-sleutel en LLM-provider die u anders zelf zou moeten configureren. AI-samenvattingen, realtime inlichtingen, marktgegevens, conflictmonitoring, branddetectie, satellietbeelden — alles wordt gevoed, alles wordt beheerd, geen configuratie nodig.",
         "apiKey": {
           "title": "Licentiesleutel",
           "placeholder": "wm_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -447,7 +447,7 @@
         "dividerOr": "OF",
         "register": {
           "title": "Reserveer uw plek",
-          "description": "We bereiden de lancering van World Monitor-licenties voor. Meld u nu aan en wees de eerste — vroege leden krijgen voorrang en een oprichterstarief.",
+          "description": "We bereiden de lancering van EdgePannel-licenties voor. Meld u nu aan en wees de eerste — vroege leden krijgen voorrang en een oprichterstarief.",
           "emailPlaceholder": "uw@email.com",
           "submitBtn": "Aanmelden voor wachtlijst",
           "submitting": "Verzenden...",
@@ -2225,7 +2225,7 @@
     "selectRegion": "Regio kiezen"
   },
   "app": {
-    "title": "World Monitor",
+    "title": "EdgePannel",
     "description": "Mondiale situatie met AI-inzichten"
   },
   "countryBrief": {

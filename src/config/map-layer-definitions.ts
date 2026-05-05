@@ -207,9 +207,6 @@ export function resolveLayerAccentColor(key: keyof MapLayers, theme: 'light' | '
     case 'sanctions': return light ? '#dc2626' : '#fca5a5';
     case 'democracy': return light ? '#1d4ed8' : '#93c5fd';
     case 'gemRisk': return light ? '#c2410c' : '#fb923c';
-    case 'miningSites': return light ? '#92400e' : '#fdba74';
-    case 'processingPlants': return light ? '#525252' : '#d4d4d8';
-    case 'commodityPorts': return light ? '#0f766e' : '#5eead4';
     case 'conflicts':
     case 'ucdpEvents': return light ? '#b91c1c' : '#f87171';
     case 'bases':

@@ -3,7 +3,7 @@
   "slug": "sovereign-risk-index",
   "name": "Sovereign Risk Index",
   "version": "1.0.0",
-  "author": "World Monitor Curated",
+  "author": "EdgePannel Curated",
   "description": "Country-level sovereign risk scores derived from debt dynamics, political stability indices, and market stress signals.",
   "license": "WM Curated Data License",
   "category": "geopolitical",

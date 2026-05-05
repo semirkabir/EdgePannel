@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "World Monitor",
+    "title": "EdgePannel",
     "description": "Sytuacja globalna z analizami AI"
   },
   "countryBrief": {
@@ -507,7 +507,7 @@
         "OLLAMA_API_URL": "e.g. http://127.0.0.1:11434 (Ollama) or http://127.0.0.1:1234/v1 (LM Studio) — OpenAI-compatible endpoint.",
         "OLLAMA_MODEL": "e.g. llama3.1:8b — model tag to use for summarization."
       },
-      "skipSetup": "Pomiń konfigurację — jedna licencja World Monitor odblokowuje wszystko. Dołącz do listy oczekujących, aby uzyskać wczesny dostęp."
+      "skipSetup": "Pomiń konfigurację — jedna licencja EdgePannel odblokowuje wszystko. Dołącz do listy oczekujących, aby uzyskać wczesny dostęp."
     },
     "countryIntel": {
       "identifying": "Identyfikacja kraju...",
@@ -635,11 +635,11 @@
         "byokDescription": "Wolisz pełną kontrolę? Przejdź do zakładek Klucze API i LLM, aby skonfigurować każde źródło danych i dostawcę AI indywidualnie.",
         "byokTitle": "Lub użyj własnych kluczy",
         "dividerOr": "LUB",
-        "heroDescription": "Jedna licencja World Monitor zastępuje wszystkie klucze API i dostawców LLM, które musiałbyś skonfigurować samodzielnie. Podsumowania AI, wywiad w czasie rzeczywistym, dane rynkowe, śledzenie konfliktów, wykrywanie pożarów, obrazy satelitarne — wszystko zasilane, wszystko zarządzane, zero konfiguracji.",
+        "heroDescription": "Jedna licencja EdgePannel zastępuje wszystkie klucze API i dostawców LLM, które musiałbyś skonfigurować samodzielnie. Podsumowania AI, wywiad w czasie rzeczywistym, dane rynkowe, śledzenie konfliktów, wykrywanie pożarów, obrazy satelitarne — wszystko zasilane, wszystko zarządzane, zero konfiguracji.",
         "heroTitle": "Jeden klucz. Wszystko w cenie.",
         "register": {
           "alreadyRegistered": "Jesteś już na liście oczekujących.",
-          "description": "Przygotowujemy się do uruchomienia licencji World Monitor. Zarejestruj się teraz i bądź pierwszy w kolejce — pierwsi członkowie otrzymają priorytetowy dostęp i cenę założycielską.",
+          "description": "Przygotowujemy się do uruchomienia licencji EdgePannel. Zarejestruj się teraz i bądź pierwszy w kolejce — pierwsi członkowie otrzymają priorytetowy dostęp i cenę założycielską.",
           "emailPlaceholder": "twoj@email.pl",
           "error": "Rejestracja nie powiodła się. Spróbuj ponownie.",
           "invalidEmail": "Wprowadź prawidłowy adres e-mail.",
@@ -648,7 +648,7 @@
           "success": "Jesteś na liście! Powiadomimy Cię jako pierwszego.",
           "title": "Zarezerwuj swoje miejsce"
         },
-        "tabLabel": "World Monitor"
+        "tabLabel": "EdgePannel"
       }
     }
   },

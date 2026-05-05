@@ -541,12 +541,12 @@ export class EventHandlerManager implements AppModule {
             this.switchVariant(variant);
           } else {
             const hosts: Record<string, string> = {
-              full: 'https://worldmonitor.app',
-              tech: 'https://tech.worldmonitor.app',
-              finance: 'https://finance.worldmonitor.app',
-              commodity: 'https://commodity.worldmonitor.app',
-              happy: 'https://happy.worldmonitor.app',
-              conflicts: 'https://conflicts.worldmonitor.app',
+              full: 'https://edgepannel.app',
+              tech: 'https://tech.edgepannel.app',
+              finance: 'https://finance.edgepannel.app',
+              commodity: 'https://commodity.edgepannel.app',
+              happy: 'https://happy.edgepannel.app',
+              conflicts: 'https://conflicts.edgepannel.app',
             };
             if (hosts[variant]) window.location.href = hosts[variant] ?? '';
           }

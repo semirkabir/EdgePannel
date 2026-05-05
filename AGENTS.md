@@ -51,7 +51,7 @@ make breaking   # Check proto breaking changes
 
 ## Architecture
 
-**World Monitor** is a real-time intelligence dashboard built with **Preact + TypeScript + Vite**, with desktop support via **Tauri**.
+**EdgePannel** is a real-time intelligence dashboard built with **Preact + TypeScript + Vite**, with desktop support via **Tauri**.
 
 ### Modular Design (Updated)
 

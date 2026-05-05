@@ -252,7 +252,7 @@ export function createDomainGateway(
       console.error('[gateway] Unhandled handler error:', err);
       response = new Response(JSON.stringify({ message: 'Internal server error' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Data-Status': 'error' },
       });
     }
 
@@ -299,6 +299,9 @@ export function createDomainGateway(
     // ETag / 304 Not Modified — avoid resending unchanged data
     if (response.status === 200 && request.method === 'GET' && response.body) {
       const bodyBytes = await response.arrayBuffer();
+      if (!mergedHeaders.has('X-Data-Status')) {
+        mergedHeaders.set('X-Data-Status', inferDataStatus(bodyBytes, mergedHeaders.get('Content-Type') || ''));
+      }
       // FNV-1a inspired fast hash — good enough for cache validation
       let hash = 2166136261;
       const view = new Uint8Array(bodyBytes);
@@ -327,4 +330,23 @@ export function createDomainGateway(
       headers: mergedHeaders,
     });
   };
+}
+
+function inferDataStatus(bodyBytes: ArrayBuffer, contentType: string): 'ok' | 'empty' | 'unknown' {
+  if (!contentType.toLowerCase().includes('json')) return 'unknown';
+  if (bodyBytes.byteLength === 0 || bodyBytes.byteLength > 1_000_000) return 'unknown';
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(bodyBytes));
+    if (Array.isArray(parsed)) return parsed.length === 0 ? 'empty' : 'ok';
+    if (parsed && typeof parsed === 'object') {
+      const obj = parsed as Record<string, unknown>;
+      const arrays = Object.values(obj).filter(Array.isArray) as unknown[][];
+      if (arrays.length > 0 && arrays.every((items) => items.length === 0)) return 'empty';
+      if ('error' in obj || 'message' in obj) return 'unknown';
+      return 'ok';
+    }
+  } catch {
+    return 'unknown';
+  }
+  return 'unknown';
 }

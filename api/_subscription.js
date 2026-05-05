@@ -17,13 +17,13 @@ const TIER_PRICES = {
   pro: {
     amount: 900,
     label: 'Pro',
-    description: 'World Monitor Pro monthly subscription',
+    description: 'EdgePannel Pro monthly subscription',
     envPriceId: 'STRIPE_PRICE_ID_PRO',
   },
   business: {
     amount: 2900,
     label: 'Business',
-    description: 'World Monitor Business monthly subscription',
+    description: 'EdgePannel Business monthly subscription',
     envPriceId: 'STRIPE_PRICE_ID_BUSINESS',
   },
 };
@@ -38,7 +38,7 @@ function getFirebaseProjectId() {
 
 export function parseIdToken(req) {
   const auth = req.headers.get('authorization') || '';
-  const explicitToken = req.headers.get('x-worldmonitor-token') || '';
+  const explicitToken = req.headers.get('x-edgepannel-token') || '';
   if (auth.startsWith('Bearer ')) return auth.slice(7).trim();
   return explicitToken.trim();
 }
@@ -221,7 +221,7 @@ export async function createCheckoutSession({ tier, firebaseUid, successUrl, can
     params.set('line_items[0][price_data][currency]', 'usd');
     params.set('line_items[0][price_data][unit_amount]', String(plan.amount));
     params.set('line_items[0][price_data][recurring][interval]', 'month');
-    params.set('line_items[0][price_data][product_data][name]', `World Monitor ${plan.label}`);
+    params.set('line_items[0][price_data][product_data][name]', `EdgePannel ${plan.label}`);
     params.set('line_items[0][price_data][product_data][description]', plan.description);
   }
 

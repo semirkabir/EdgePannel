@@ -3,7 +3,7 @@
   "slug": "undersea-cable-map",
   "name": "Undersea Cable Infrastructure",
   "version": "1.0.0",
-  "author": "World Monitor Curated",
+  "author": "EdgePannel Curated",
   "description": "Global submarine cable network with landing stations, cable system operators, capacity tiers, and known vulnerability zones.",
   "license": "WM Curated Data License",
   "category": "infrastructure",

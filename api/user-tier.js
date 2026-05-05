@@ -4,7 +4,7 @@
  * GET /api/user-tier
  * Returns { tier, mcpEnabled, requestsPerHour, cacheStaleness }
  *
- * Auth: accepts either `Authorization: Bearer ...` or `x-worldmonitor-token`.
+ * Auth: accepts either `Authorization: Bearer ...` or `x-edgepannel-token`.
  * Anonymous / no token → tier: 'anonymous'
  */
 import {

@@ -27,17 +27,18 @@ describe('deploy/cache configuration guardrails', () => {
     );
   });
 
-  it('keeps PWA precache glob free of HTML files', () => {
+  it('precaches the offline shell HTML only through explicit PWA policy', () => {
     assert.match(
       viteConfigSource,
       /globPatterns:\s*\['\*\*\/\*\.\{js,css,ico,png,svg,woff2\}'\]/
     );
-    assert.doesNotMatch(viteConfigSource, /globPatterns:\s*\['\*\*\/\*\.\{js,css,html/);
+    assert.match(viteConfigSource, /navigateFallback:\s*'\/offline\.html'/);
+    assert.match(viteConfigSource, /'offline\.html'/);
   });
 
-  it('explicitly disables navigateFallback when HTML is not precached', () => {
-    assert.match(viteConfigSource, /navigateFallback:\s*null/);
-    assert.doesNotMatch(viteConfigSource, /navigateFallbackDenylist:\s*\[/);
+  it('uses a precached offline navigation fallback', () => {
+    assert.match(viteConfigSource, /navigateFallback:\s*'\/offline\.html'/);
+    assert.match(viteConfigSource, /'offline\.html'/);
   });
 
   it('uses network-first runtime caching for navigation requests', () => {
@@ -95,7 +96,7 @@ describe('security header guardrails', () => {
     const expectedDisabled = [
       'camera=()',
       'microphone=()',
-      'geolocation=()',
+      'geolocation=(self)',
       'accelerometer=()',
       'bluetooth=()',
       'display-capture=()',
@@ -117,7 +118,7 @@ describe('security header guardrails', () => {
 
   it('Permissions-Policy delegates YouTube APIs to YouTube origins', () => {
     const policy = getHeaderValue('Permissions-Policy');
-    const ytDelegated = ['autoplay', 'encrypted-media', 'picture-in-picture'];
+    const ytDelegated = ['autoplay', 'encrypted-media'];
     for (const api of ytDelegated) {
       assert.match(
         policy,
@@ -125,6 +126,11 @@ describe('security header guardrails', () => {
         `Permissions-Policy should delegate ${api} to YouTube origins`
       );
     }
+    assert.match(
+      policy,
+      /picture-in-picture=\(self "https:\/\/www\.youtube\.com" "https:\/\/www\.youtube-nocookie\.com" "https:\/\/challenges\.cloudflare\.com"\)/,
+      'Permissions-Policy should delegate picture-in-picture to YouTube and Cloudflare challenge origins'
+    );
   });
 
   it('CSP connect-src does not allow unencrypted WebSocket (ws:)', () => {

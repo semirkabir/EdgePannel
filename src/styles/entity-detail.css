@@ -29,7 +29,7 @@
   right: 0;
   z-index: 10000;
   border-left: none;
-  background: rgba(0, 0, 0, 0.88);
+  background: var(--bg, #0a0a0a);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
@@ -41,7 +41,7 @@
   width: 960px;
   max-width: 96vw;
   margin: 32px auto;
-  background: var(--panel-bg);
+  background: var(--surface, #141414);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 16px 48px color-mix(in srgb, var(--overlay-heavy) 65%, transparent);

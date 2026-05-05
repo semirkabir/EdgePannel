@@ -1,6 +1,6 @@
 # Finance & Market Data
 
-Market radar, Gulf FDI tracking, stablecoin monitoring, energy analytics, and trade policy intelligence in World Monitor.
+Market radar, Gulf FDI tracking, stablecoin monitoring, energy analytics, and trade policy intelligence in EdgePannel.
 
 ---
 
@@ -149,4 +149,4 @@ The Supply Chain panel provides real-time visibility into global logistics risk 
 
 **Critical Minerals tab** — applies the **Herfindahl-Hirschman Index (HHI)** to 2024 global production data for minerals critical to technology and defense manufacturing — lithium, cobalt, rare earths, gallium, germanium, and others. The HHI quantifies supply concentration risk: a market dominated by a single producer scores near 10,000, while a perfectly distributed market scores near 0. Each mineral displays the top 3 producing countries with market share percentages, flagging single-country dependencies that represent strategic vulnerability (e.g., China's dominance in rare earth processing). This tab uses static production data, cached for 24 hours with no external API dependency.
 
-The panel is available on the FULL (World Monitor) variant and integrates with the infrastructure cascade model — when a chokepoint disruption coincides with high mineral concentration risk for affected trade routes, the combined signal feeds into convergence detection.
+The panel is available on the FULL (EdgePannel) variant and integrates with the infrastructure cascade model — when a chokepoint disruption coincides with high mineral concentration risk for affected trade routes, the combined signal feeds into convergence detection.

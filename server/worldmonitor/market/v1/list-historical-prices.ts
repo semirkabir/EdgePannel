@@ -9,7 +9,7 @@ import type {
   PriceSeries,
   DailyPrice,
 } from '../../../../src/generated/server/worldmonitor/market/v1/service_server';
-import { UPSTREAM_TIMEOUT_MS, type YahooChartResponse, parseStringArray } from './_shared';
+import { UPSTREAM_TIMEOUT_MS, parseStringArray } from './_shared';
 import { CHROME_UA, yahooGate } from '../../../_shared/constants';
 import { cachedFetchJson } from '../../../_shared/redis';
 
@@ -69,7 +69,7 @@ function parseHistoricalData(chart: HistoricalChartResponse, symbol: string): Pr
         prices.push({
           date,
           close,
-          volume: volume != null ? Math.round(volume) : 0,
+          volume: volume != null ? String(Math.round(volume)) : '0',
         });
       }
     }

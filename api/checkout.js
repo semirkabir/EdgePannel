@@ -7,6 +7,8 @@ import {
   buildSubscriptionResponseHeaders,
   createCheckoutSession,
   getCheckoutPlan,
+  parseIdToken,
+  verifyFirebaseToken,
 } from './_subscription.js';
 
 export const config = { runtime: 'edge' };
@@ -25,11 +27,16 @@ export default async function handler(req) {
   }
 
   if (tier === 'enterprise') {
-    return Response.redirect('mailto:sales@worldmonitor.app?subject=Enterprise%20Inquiry', 302);
+    return Response.redirect('mailto:sales@edgepannel.app?subject=Enterprise%20Inquiry', 302);
   }
 
   if (!uid) {
     return new Response(JSON.stringify({ error: 'Missing uid parameter' }), { status: 400, headers: { 'Content-Type': 'application/json', ...cors } });
+  }
+
+  const verified = await verifyFirebaseToken(parseIdToken(req));
+  if (!verified || verified.uid !== uid) {
+    return new Response(JSON.stringify({ error: 'Authentication required for checkout owner' }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors } });
   }
 
   const origin = url.origin;

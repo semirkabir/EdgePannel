@@ -36,7 +36,7 @@ export class AgentChatPanel {
       <header class="agent-chat-header">
         <div>
           <h2>Agent Chat</h2>
-          <p>Connected to World Monitor live tools</p>
+          <p>Connected to EdgePannel live tools</p>
         </div>
         <button type="button" class="agent-chat-close" aria-label="Close">×</button>
       </header>

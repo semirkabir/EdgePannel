@@ -14888,9 +14888,32 @@ button.cluster-flight-item:focus-visible {
     display: none !important;
   }
 
-  /* Hide layer toggle buttons on mobile - use fixed layers */
+  /* Mobile keeps layer controls available as a compact bottom tray. */
   .layer-toggles {
-    display: none !important;
+    display: flex !important;
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px) !important;
+    max-height: 42vh !important;
+    max-width: none !important;
+    overflow: auto !important;
+    z-index: 1200 !important;
+    border-radius: 18px !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35) !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .deckgl-layer-toggles .toggle-list,
+  .layer-toggles:not(.deckgl-layer-toggles) {
+    max-height: 32vh !important;
+  }
+
+  .deckgl-layer-toggles .map-tray-search {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: inherit;
   }
 
   /* Single-column panel layout on mobile */

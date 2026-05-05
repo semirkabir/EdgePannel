@@ -75,7 +75,7 @@ function endpointTool(
 
 // --- Register all tools -----------------------------------------------
 
-const BASE = process.env.WORLDMONITOR_API_URL ?? 'https://worldmonitor.app/api';
+const BASE = process.env.EDGEPANNEL_API_URL ?? process.env.WORLDMONITOR_API_URL ?? 'https://edgepannel.app/api';
 
 // Marketplace
 endpointTool(

@@ -5120,7 +5120,7 @@ export class DeckGLMap {
     layersPanel.replaceChildren();
 
     const layerDefs = getLayersForVariant((SITE_VARIANT || 'full') as MapVariant, 'flat');
-    const _wmKey = getSecretState('WORLDMONITOR_API_KEY').present;
+    const _wmKey = getSecretState('EDGEPANNEL_API_KEY').present;
     const layerConfig = layerDefs.map(def => ({
       key: def.key,
       label: resolveLayerLabel(def, t),

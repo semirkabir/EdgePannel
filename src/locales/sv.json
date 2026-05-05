@@ -299,7 +299,7 @@
         "OLLAMA_API_URL": "e.g. http://127.0.0.1:11434 (Ollama) or http://127.0.0.1:1234/v1 (LM Studio) — OpenAI-compatible endpoint.",
         "OLLAMA_MODEL": "e.g. llama3.1:8b — model tag to use for summarization."
       },
-      "skipSetup": "Hoppa över installationen — en enda World Monitor-licens låser upp allt. Gå med i väntelistan för tidig tillgång."
+      "skipSetup": "Hoppa över installationen — en enda EdgePannel-licens låser upp allt. Gå med i väntelistan för tidig tillgång."
     },
     "countryIntel": {
       "identifying": "Identifierar land...",
@@ -444,11 +444,11 @@
         "byokDescription": "Föredrar du full kontroll? Gå till flikarna API-nycklar och LLM:er för att konfigurera varje datakälla och AI-leverantör individuellt.",
         "byokTitle": "Eller ta med egna nycklar",
         "dividerOr": "ELLER",
-        "heroDescription": "En enda World Monitor-licens ersätter alla API-nycklar och LLM-leverantörer du annars måste konfigurera själv. AI-sammanfattningar, realtidsunderrättelser, marknadsdata, konfliktspårning, branddetektering, satellitbilder — allt inkluderat, allt hanterat, noll installation.",
+        "heroDescription": "En enda EdgePannel-licens ersätter alla API-nycklar och LLM-leverantörer du annars måste konfigurera själv. AI-sammanfattningar, realtidsunderrättelser, marknadsdata, konfliktspårning, branddetektering, satellitbilder — allt inkluderat, allt hanterat, noll installation.",
         "heroTitle": "En nyckel. Allt inkluderat.",
         "register": {
           "alreadyRegistered": "Du finns redan på väntelistan.",
-          "description": "Vi förbereder lanseringen av World Monitor-licenser. Registrera dig nu och bli först i kön — tidiga medlemmar får prioriterad tillgång och grundarpriser.",
+          "description": "Vi förbereder lanseringen av EdgePannel-licenser. Registrera dig nu och bli först i kön — tidiga medlemmar får prioriterad tillgång och grundarpriser.",
           "emailPlaceholder": "din@epost.se",
           "error": "Registreringen misslyckades. Försök igen.",
           "invalidEmail": "Ange en giltig e-postadress.",
@@ -457,7 +457,7 @@
           "success": "Du är på listan! Vi meddelar dig först.",
           "title": "Reservera din plats"
         },
-        "tabLabel": "World Monitor"
+        "tabLabel": "EdgePannel"
       }
     }
   },
@@ -2225,7 +2225,7 @@
     "selectRegion": "Välj region"
   },
   "app": {
-    "title": "World Monitor",
+    "title": "EdgePannel",
     "description": "Global situation med AI-insikter"
   },
   "countryBrief": {

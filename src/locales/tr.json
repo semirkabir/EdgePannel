@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "World Monitor",
+    "title": "EdgePannel",
     "description": "Yapay Zeka Destekli Kuresel Durum Takibi"
   },
   "countryBrief": {
@@ -479,7 +479,7 @@
         "some": "Bazi ozellikler API anahtari gerektiriyor"
       },
       "openSettings": "Ayarlari Ac",
-      "skipSetup": "Kurulumu atlayın — tek bir World Monitor lisansı her şeyi açar. Erken erişim için bekleme listesine katılın.",
+      "skipSetup": "Kurulumu atlayın — tek bir EdgePannel lisansı her şeyi açar. Erken erişim için bekleme listesine katılın.",
       "summary": {
         "desktop": "Masaustu modu",
         "web": "Web modu (salt okunur, sunucu tarafli kimlik bilgileri)",
@@ -524,9 +524,9 @@
       "sidecarUnreachable": "Sidecar'a ulasilamiyor.",
       "logCleared": "Log temizlendi.",
       "worldMonitor": {
-        "tabLabel": "World Monitor",
+        "tabLabel": "EdgePannel",
         "heroTitle": "Tek anahtar. Her şey dahil.",
-        "heroDescription": "Tek bir World Monitor lisansı, kendiniz yapılandıracağınız tüm API anahtarlarını ve LLM sağlayıcılarını değiştirir. AI özetleri, gerçek zamanlı istihbarat, piyasa verileri, çatışma takibi, yangın tespiti, uydu görüntüleri — hepsi aktif, hepsi yönetilen, sıfır kurulum.",
+        "heroDescription": "Tek bir EdgePannel lisansı, kendiniz yapılandıracağınız tüm API anahtarlarını ve LLM sağlayıcılarını değiştirir. AI özetleri, gerçek zamanlı istihbarat, piyasa verileri, çatışma takibi, yangın tespiti, uydu görüntüleri — hepsi aktif, hepsi yönetilen, sıfır kurulum.",
         "apiKey": {
           "title": "Lisans Anahtarı",
           "placeholder": "wm_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -537,7 +537,7 @@
         "dividerOr": "VEYA",
         "register": {
           "title": "Yerinizi Ayırtın",
-          "description": "World Monitor lisanslarını başlatmaya hazırlanıyoruz. Şimdi kaydolun ve ilk sıraya girin — erken üyeler öncelikli erişim ve kurucu üye fiyatlandırması alır.",
+          "description": "EdgePannel lisanslarını başlatmaya hazırlanıyoruz. Şimdi kaydolun ve ilk sıraya girin — erken üyeler öncelikli erişim ve kurucu üye fiyatlandırması alır.",
           "emailPlaceholder": "your@email.com",
           "submitBtn": "Bekleme Listesine Katıl",
           "submitting": "Gönderiliyor...",

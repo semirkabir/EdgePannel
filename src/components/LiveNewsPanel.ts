@@ -586,7 +586,7 @@ export class LiveNewsPanel extends Panel {
 
   private get embedOrigin(): string {
     if (isDesktopRuntime()) return `http://localhost:${getLocalApiPort()}`;
-    try { return new URL(getRemoteApiBaseUrl()).origin; } catch { return 'https://worldmonitor.app'; }
+    try { return new URL(getRemoteApiBaseUrl()).origin; } catch { return 'https://edgepannel.app'; }
   }
 
   private setupBridgeMessageListener(): void {
@@ -632,8 +632,8 @@ export class LiveNewsPanel extends Panel {
 
   private static resolveYouTubeOrigin(): string | null {
     const fallbackOrigin = SITE_VARIANT === 'tech'
-      ? 'https://worldmonitor.app'
-      : 'https://worldmonitor.app';
+      ? 'https://edgepannel.app'
+      : 'https://edgepannel.app';
 
     try {
       const { protocol, origin, host } = window.location;

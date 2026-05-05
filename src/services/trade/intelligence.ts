@@ -218,7 +218,7 @@ export function createTradePolicySummary(input: {
       severity: insights.length > 0 ? 'watch' : 'normal',
       metricLabel: 'Status',
       metricValue: 'Partial',
-      source: 'World Monitor',
+      source: 'EdgePannel',
     });
   }
 

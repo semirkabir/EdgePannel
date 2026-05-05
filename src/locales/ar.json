@@ -507,7 +507,7 @@
         "OLLAMA_API_URL": "e.g. http://127.0.0.1:11434 (Ollama) or http://127.0.0.1:1234/v1 (LM Studio) — OpenAI-compatible endpoint.",
         "OLLAMA_MODEL": "e.g. llama3.1:8b — model tag to use for summarization."
       },
-      "skipSetup": "تخطَّ الإعداد — ترخيص واحد لـ World Monitor يفتح كل شيء. انضم إلى قائمة الانتظار للحصول على وصول مبكر."
+      "skipSetup": "تخطَّ الإعداد — ترخيص واحد لـ EdgePannel يفتح كل شيء. انضم إلى قائمة الانتظار للحصول على وصول مبكر."
     },
     "settingsWindow": {
       "validating": "جارٍ التحقق من مفاتيح API...",
@@ -531,9 +531,9 @@
         "duration": "المدة"
       },
       "worldMonitor": {
-        "tabLabel": "World Monitor",
+        "tabLabel": "EdgePannel",
         "heroTitle": "مفتاح واحد. كل شيء مشمول.",
-        "heroDescription": "ترخيص واحد لـ World Monitor يحل محل كل مفتاح API ومزود LLM كنت ستهيئه بنفسك. ملخصات AI، استخبارات فورية، بيانات سوقية، تتبع النزاعات، كشف الحرائق، صور الأقمار الصناعية — الكل مفعّل، الكل مُدار، بدون أي إعداد.",
+        "heroDescription": "ترخيص واحد لـ EdgePannel يحل محل كل مفتاح API ومزود LLM كنت ستهيئه بنفسك. ملخصات AI، استخبارات فورية، بيانات سوقية، تتبع النزاعات، كشف الحرائق، صور الأقمار الصناعية — الكل مفعّل، الكل مُدار، بدون أي إعداد.",
         "apiKey": {
           "title": "مفتاح الترخيص",
           "placeholder": "wm_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -544,7 +544,7 @@
         "dividerOr": "أو",
         "register": {
           "title": "احجز مكانك",
-          "description": "نحن نستعد لإطلاق تراخيص World Monitor. سجّل الآن وكن أول من يحصل على الوصول — الأعضاء الأوائل يحصلون على أولوية الوصول وتسعير المؤسسين.",
+          "description": "نحن نستعد لإطلاق تراخيص EdgePannel. سجّل الآن وكن أول من يحصل على الوصول — الأعضاء الأوائل يحصلون على أولوية الوصول وتسعير المؤسسين.",
           "emailPlaceholder": "your@email.com",
           "submitBtn": "انضم لقائمة الانتظار",
           "submitting": "جارٍ الإرسال...",

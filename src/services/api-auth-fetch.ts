@@ -53,7 +53,7 @@ globalThis.fetch = async function patchedFetch(
 
     if (token) {
       const headers = new Headers(init?.headers || {});
-      headers.set('x-worldmonitor-token', token);
+      headers.set('x-edgepannel-token', token);
       return originalFetch(input, { ...init, headers });
     }
   } catch {

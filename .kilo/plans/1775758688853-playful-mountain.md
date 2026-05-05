@@ -2,18 +2,18 @@
 
 ## Objective
 
-Integrate OpenBB data and provider coverage into World Monitor so it works cleanly across:
+Integrate OpenBB data and provider coverage into EdgePannel so it works cleanly across:
 
 - search
 - finance panels
 - country/map overlays where geography exists or can be derived
 - bootstrap/cache flows for fast first paint
 
-The goal is not to bolt on a separate terminal, but to make OpenBB feel native inside the existing World Monitor product surfaces.
+The goal is not to bolt on a separate terminal, but to make OpenBB feel native inside the existing EdgePannel product surfaces.
 
 ## What I found
 
-### World Monitor architecture
+### EdgePannel architecture
 
 - Search is client-driven and indexes in-memory app state plus curated registries in `src/app/search-manager.ts:553`.
 - Finance panels are already centralized and extensible in `src/app/panel-layout.ts:1058`.
@@ -55,13 +55,13 @@ From OpenBB docs and repo:
 
 ### Recommended default
 
-Run OpenBB as a separate Python service and keep World Monitor's existing UI and typed RPC layer as the public contract.
+Run OpenBB as a separate Python service and keep EdgePannel's existing UI and typed RPC layer as the public contract.
 
 Why:
 
 - `api/market/v1/[rpc].ts:1` is edge runtime only.
 - OpenBB is Python-native and intended to expose REST/MCP/Python surfaces from a separate process.
-- World Monitor already tolerates sidecar/relay style infrastructure.
+- EdgePannel already tolerates sidecar/relay style infrastructure.
 - This preserves the existing frontend contracts and avoids a full frontend rewrite.
 
 ### Topology
@@ -69,9 +69,9 @@ Why:
 1. Deploy an OpenBB backend service separately.
    - Likely Railway, Render, Fly, or a container host.
    - Run `openbb-api` there.
-2. Add a thin World Monitor adapter layer in the existing TS backend.
+2. Add a thin EdgePannel adapter layer in the existing TS backend.
    - TS handlers call the OpenBB service over HTTP.
-   - Handlers normalize responses into current World Monitor proto/service shapes.
+   - Handlers normalize responses into current EdgePannel proto/service shapes.
 3. Keep frontend consumers stable.
    - Existing panels keep calling `MarketServiceClient` / `EconomicServiceClient`.
 4. Seed/bootstrap high-value data into Redis for instant first paint.
@@ -207,7 +207,7 @@ Good OpenBB usage:
 
 What not to do initially:
 
-- do not replace the whole World Monitor news ingestion pipeline in phase 1
+- do not replace the whole EdgePannel news ingestion pipeline in phase 1
 - do not force finance news into every map/news surface without classification and dedupe rules
 
 Recommended pattern:
@@ -323,7 +323,7 @@ Likely deprecations or migrations:
 ## Recommended defaults
 
 - Use an external hosted OpenBB REST backend.
-- Keep World Monitor's typed RPC layer as the stable app contract.
+- Keep EdgePannel's typed RPC layer as the stable app contract.
 - Start with search plus finance panels, not map overlays first.
 - Use bootstrap only for curated top-level summaries.
 - Gate paid-provider-backed panels/features behind config or entitlement flags.
@@ -337,7 +337,7 @@ Why this is the better tradeoff:
 - fastest path to one shared cache for all web users instead of each user paying cold-start/setup cost locally
 - cheaper operationally than duplicating OpenBB/provider setup per desktop user
 - keeps the current web product and desktop product on one data contract
-- fits the existing Redis/bootstrap model already used by World Monitor
+- fits the existing Redis/bootstrap model already used by EdgePannel
 - avoids building two separate integrations later
 
 Desktop-sidecar-first is only cheaper if the goal is a desktop-only feature with no near-term web rollout. For the app you described, it is the less optimal long-term path.

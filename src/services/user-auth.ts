@@ -81,7 +81,7 @@ async function fetchResolvedTier(): Promise<UserTier | null> {
   try {
     const resp = await fetch('/api/user-tier', {
       cache: 'no-store',
-      headers: { 'x-worldmonitor-token': token },
+      headers: { 'x-edgepannel-token': token },
     });
     if (!resp.ok) return null;  // transient server/network error — preserve existing tier
     const data = await resp.json() as { tier?: string };

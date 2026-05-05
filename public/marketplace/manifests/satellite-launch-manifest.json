@@ -3,7 +3,7 @@
   "slug": "satellite-launch-manifest",
   "name": "Satellite Launch Manifest",
   "version": "1.0.0",
-  "author": "World Monitor Curated",
+  "author": "EdgePannel Curated",
   "description": "Upcoming and recent satellite launches with orbital parameters, payload classification, and operator profiles.",
   "license": "WM Curated Data License",
   "category": "space",

@@ -287,7 +287,7 @@ export class Panel {
       headerLeft.appendChild(this.newBadgeEl);
     }
 
-    if (isDesktopRuntime() && options.premium === 'enhanced' && !getSecretState('WORLDMONITOR_API_KEY').present) {
+    if (isDesktopRuntime() && options.premium === 'enhanced' && !getSecretState('EDGEPANNEL_API_KEY').present) {
       const proBadge = h('span', { className: 'panel-pro-badge' }, t('premium.pro'));
       headerLeft.appendChild(proBadge);
     }
@@ -880,7 +880,7 @@ export class Panel {
     if (isDesktopRuntime()) {
       ctaBtn.addEventListener('click', () => void invokeTauri<void>('open_settings_window_command').catch(() => {}));
     } else {
-      ctaBtn.addEventListener('click', () => window.open('https://worldmonitor.app/pro', '_blank'));
+      ctaBtn.addEventListener('click', () => window.open('https://edgepannel.app/pro', '_blank'));
     }
     lockedChildren.push(ctaBtn);
 

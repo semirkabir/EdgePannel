@@ -12,35 +12,49 @@ const SOCIAL_IMAGE_UA =
   /Slack-ImgProxy|Slackbot|twitterbot|facebookexternalhit|linkedinbot|telegrambot|whatsapp|discordbot|redditbot/i;
 
 const VARIANT_HOST_MAP: Record<string, string> = {
-  'tech.worldmonitor.app': 'tech',
-  'finance.worldmonitor.app': 'finance',
-  'happy.worldmonitor.app': 'happy',
+  'tech.edgepannel.app': 'tech',
+  'finance.edgepannel.app': 'finance',
+  'commodity.edgepannel.app': 'commodity',
+  'happy.edgepannel.app': 'happy',
+  'conflicts.edgepannel.app': 'conflicts',
 };
 
 // Source of truth: src/config/variant-meta.ts — keep in sync when variant metadata changes.
 const VARIANT_OG: Record<string, { title: string; description: string; image: string; url: string }> = {
   tech: {
-    title: 'Tech Monitor - Real-Time AI & Tech Industry Dashboard',
+    title: 'EdgePannel Tech - Real-Time AI & Tech Industry Dashboard',
     description: 'Real-time AI and tech industry dashboard tracking tech giants, AI labs, startup ecosystems, funding rounds, and tech events worldwide.',
-    image: 'https://tech.worldmonitor.app/favico/tech/og-image.png',
-    url: 'https://tech.worldmonitor.app/',
+    image: 'https://tech.edgepannel.app/favico/tech/og-image.png',
+    url: 'https://tech.edgepannel.app/',
   },
   finance: {
-    title: 'Finance Monitor - Real-Time Markets & Trading Dashboard',
+    title: 'EdgePannel Finance - Real-Time Markets & Trading Dashboard',
     description: 'Real-time finance and trading dashboard tracking global markets, stock exchanges, central banks, commodities, forex, crypto, and economic indicators worldwide.',
-    image: 'https://finance.worldmonitor.app/favico/finance/og-image.png',
-    url: 'https://finance.worldmonitor.app/',
+    image: 'https://finance.edgepannel.app/favico/finance/og-image.png',
+    url: 'https://finance.edgepannel.app/',
+  },
+  commodity: {
+    title: 'EdgePannel Commodity - Real-Time Commodity Markets & Supply Chain Dashboard',
+    description: 'Real-time commodity markets dashboard tracking mining sites, processing plants, commodity ports, supply chains, and global commodity trade flows.',
+    image: 'https://commodity.edgepannel.app/favico/commodity/og-image.png',
+    url: 'https://commodity.edgepannel.app/',
   },
   happy: {
-    title: 'Happy Monitor - Good News & Global Progress',
+    title: 'EdgePannel Happy - Good News & Global Progress',
     description: 'Curated positive news, progress data, and uplifting stories from around the world.',
-    image: 'https://happy.worldmonitor.app/favico/happy/og-image.png',
-    url: 'https://happy.worldmonitor.app/',
+    image: 'https://happy.edgepannel.app/favico/happy/og-image.png',
+    url: 'https://happy.edgepannel.app/',
+  },
+  conflicts: {
+    title: 'EdgePannel Conflicts - Real-Time Conflict & Security Dashboard',
+    description: 'Real-time conflict and security dashboard tracking wars, military activity, displacement, infrastructure risk, and geopolitical escalation signals.',
+    image: 'https://conflicts.edgepannel.app/favico/conflicts/og-image.png',
+    url: 'https://conflicts.edgepannel.app/',
   },
 };
 
 const ALLOWED_HOSTS = new Set([
-  'worldmonitor.app',
+  'edgepannel.app',
   ...Object.keys(VARIANT_HOST_MAP),
 ]);
 const VERCEL_PREVIEW_RE = /^[a-z0-9-]+-[a-z0-9]{8,}\.vercel\.app$/;

@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "World Monitor",
+    "title": "EdgePannel",
     "description": "Informații globale și monitorizare geopolitică bazată pe AI"
   },
   "countryBrief": {
@@ -479,7 +479,7 @@
         "some": "Unele funcții necesită chei API"
       },
       "openSettings": "Deschide Setări",
-      "skipSetup": "Omiteți configurarea — o singură licență World Monitor deblochează totul. Alăturați-vă listei de așteptare pentru acces anticipat.",
+      "skipSetup": "Omiteți configurarea — o singură licență EdgePannel deblochează totul. Alăturați-vă listei de așteptare pentru acces anticipat.",
       "summary": {
         "desktop": "Modul desktop",
         "web": "Mod web (numai citire, acreditări gestionate de server)",
@@ -524,9 +524,9 @@
       "sidecarUnreachable": "Sidecar nu este accesibil.",
       "logCleared": "Jurnalul a fost șters.",
       "worldMonitor": {
-        "tabLabel": "World Monitor",
+        "tabLabel": "EdgePannel",
         "heroTitle": "O singură cheie. Totul inclus.",
-        "heroDescription": "O o singură licență World Monitor înlocuiește toate cheile API. Analize AI, informații în timp real, date de piață, satelit și incendii.",
+        "heroDescription": "O o singură licență EdgePannel înlocuiește toate cheile API. Analize AI, informații în timp real, date de piață, satelit și incendii.",
         "apiKey": {
           "title": "Cheie de licență",
           "placeholder": "wm_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -537,7 +537,7 @@
         "dividerOr": "SAU",
         "register": {
           "title": "Rezervă-ți Locul",
-          "description": "Ne pregătim să lansăm licențe World Monitor. Înscrieți-vă acum și fiți pe primul loc – membrii primii au acces prioritar și prețuri pentru membrii fondatori.",
+          "description": "Ne pregătim să lansăm licențe EdgePannel. Înscrieți-vă acum și fiți pe primul loc – membrii primii au acces prioritar și prețuri pentru membrii fondatori.",
           "emailPlaceholder": "your@email.com",
           "submitBtn": "Alăturați-vă listei de așteptare",
           "submitting": "Se trimite...",

@@ -85,7 +85,7 @@ function buildBriefMarkdown(query: string, items: NewsItem[], rules: AlertRule[]
   const headlines = items.slice(0, 8).map((item, index) => `${index + 1}. ${item.title} (${item.source})`).join('\n');
   const ruleLines = rules.slice(0, 5).map(rule => `- ${rule.name}: ${rule.keywords.join(', ') || 'no keywords'}; evidence=${rule.evidenceRequirement}`).join('\n');
   return [
-    `# World Monitor Analyst Brief: ${query}`,
+    `# EdgePannel Analyst Brief: ${query}`,
     '',
     `Generated: ${new Date().toISOString()}`,
     `Verification: ${evidence.verificationState}`,

@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "World Monitor",
+    "title": "EdgePannel",
     "description": "AI驱动的全球态势感知"
   },
   "countryBrief": {
@@ -479,7 +479,7 @@
         "some": "部分功能需要API密钥"
       },
       "openSettings": "打开设置",
-      "skipSetup": "跳过设置 — 一个World Monitor许可证即可解锁全部功能。加入候补名单抢先体验。",
+      "skipSetup": "跳过设置 — 一个EdgePannel许可证即可解锁全部功能。加入候补名单抢先体验。",
       "summary": {
         "desktop": "桌面模式",
         "web": "网页模式（只读，服务器管理凭证）",
@@ -524,9 +524,9 @@
       "sidecarUnreachable": "Sidecar不可达。",
       "logCleared": "日志已清除。",
       "worldMonitor": {
-        "tabLabel": "World Monitor",
+        "tabLabel": "EdgePannel",
         "heroTitle": "一个密钥，万事俱备。",
-        "heroDescription": "一个World Monitor许可证即可替代所有需要自行配置的API密钥和LLM提供商。AI摘要、实时情报、市场数据、冲突追踪、火灾检测、卫星图像 — 全部就绪，全部托管，零配置。",
+        "heroDescription": "一个EdgePannel许可证即可替代所有需要自行配置的API密钥和LLM提供商。AI摘要、实时情报、市场数据、冲突追踪、火灾检测、卫星图像 — 全部就绪，全部托管，零配置。",
         "apiKey": {
           "title": "许可证密钥",
           "placeholder": "wm_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -537,7 +537,7 @@
         "dividerOr": "或",
         "register": {
           "title": "预留您的名额",
-          "description": "World Monitor许可证即将上线。立即注册成为首批用户 — 早期会员享有优先访问和创始会员价格。",
+          "description": "EdgePannel许可证即将上线。立即注册成为首批用户 — 早期会员享有优先访问和创始会员价格。",
           "emailPlaceholder": "your@email.com",
           "submitBtn": "加入候补名单",
           "submitting": "提交中...",

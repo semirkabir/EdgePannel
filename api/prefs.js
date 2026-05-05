@@ -1,7 +1,7 @@
 /**
  * Cloud preferences endpoint — GET/POST a user's persisted settings blob.
  *
- * Auth: Firebase ID token via `x-worldmonitor-token` header (attached
+ * Auth: Firebase ID token via `x-edgepannel-token` header (attached
  * automatically by src/services/api-auth-fetch.ts for all /api/ calls).
  *
  * Storage: Upstash Redis key `user-prefs:{uid}` (no env prefix → persists
@@ -111,7 +111,7 @@ export default async function handler(req) {
   }
 
   // Auth
-  const token = req.headers.get('x-worldmonitor-token');
+  const token = req.headers.get('x-edgepannel-token');
   if (!token) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,

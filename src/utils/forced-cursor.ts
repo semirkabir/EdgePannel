@@ -15,7 +15,7 @@ const CURSOR_THEME_OPTIONS: ReadonlyArray<{
 }> = [
   {
     value: 'classic',
-    label: 'World Monitor Classic',
+    label: 'EdgePannel Classic',
     description: 'Original green cursor set.',
   },
   {

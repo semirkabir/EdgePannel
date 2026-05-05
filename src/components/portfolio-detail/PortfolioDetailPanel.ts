@@ -206,7 +206,7 @@ export class PortfolioDetailPanel extends DetailPanelBase {
           ${this.correlationHtml(summary.holdings)}
         </aside>
       </div>
-      <footer class="pd-status">World Monitor | ${escapeHtml(summary.portfolio.name)} | LIVE | ${summary.total_positions} positions | ${escapeHtml(new Date(summary.last_updated).toLocaleTimeString())}</footer>
+      <footer class="pd-status">EdgePannel | ${escapeHtml(summary.portfolio.name)} | LIVE | ${summary.total_positions} positions | ${escapeHtml(new Date(summary.last_updated).toLocaleTimeString())}</footer>
     `;
 
     this.bindCommon(summary.portfolio.id);

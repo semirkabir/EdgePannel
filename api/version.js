@@ -8,7 +8,7 @@ export default async function handler() {
     const res = await fetch(RELEASES_URL, {
       headers: {
         'Accept': 'application/vnd.github+json',
-        'User-Agent': 'WorldMonitor-Version-Check',
+        'User-Agent': 'EdgePannel-Version-Check',
       },
     });
 

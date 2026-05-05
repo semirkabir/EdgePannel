@@ -7,8 +7,9 @@ const DEFAULT_REMOTE_HOSTS: Record<string, string> = {
   tech: WS_API_URL,
   full: WS_API_URL,
   finance: WS_API_URL,
-  world: WS_API_URL,
   happy: WS_API_URL,
+  commodity: WS_API_URL,
+  conflicts: WS_API_URL,
 };
 
 const DEFAULT_LOCAL_API_PORT = 46123;
@@ -120,7 +121,7 @@ export function getRemoteApiBaseUrl(): string {
   if (fromHosts) return fromHosts;
 
   // Desktop builds may not set VITE_WS_API_URL; default to production.
-  if (isDesktopRuntime()) return 'https://worldmonitor.app';
+  if (isDesktopRuntime()) return 'https://edgepannel.app';
   return '';
 }
 
@@ -147,10 +148,14 @@ function extractHostnames(...urls: (string | undefined)[]): string[] {
 }
 
 const APP_HOSTS = new Set([
-  'worldmonitor.app',
-  'www.worldmonitor.app',
-  'tech.worldmonitor.app',
-  'api.worldmonitor.app',
+  'edgepannel.app',
+  'www.edgepannel.app',
+  'tech.edgepannel.app',
+  'finance.edgepannel.app',
+  'commodity.edgepannel.app',
+  'happy.edgepannel.app',
+  'conflicts.edgepannel.app',
+  'api.edgepannel.app',
   'localhost',
   '127.0.0.1',
   ...extractHostnames(WS_API_URL, import.meta.env.VITE_WS_RELAY_URL),
@@ -160,7 +165,7 @@ function isAppOriginUrl(urlStr: string): boolean {
   try {
     const u = new URL(urlStr);
     const host = u.hostname;
-    return APP_HOSTS.has(host) || host.endsWith('.worldmonitor.app');
+    return APP_HOSTS.has(host) || host.endsWith('.edgepannel.app');
   } catch {
     return false;
   }
@@ -549,7 +554,7 @@ export function installRuntimeFetchPatch(): void {
       try {
         const { getSecretState, secretsReady } = await import('@/services/runtime-config');
         await Promise.race([secretsReady, new Promise<void>(r => setTimeout(r, 2000))]);
-        const wmKeyState = getSecretState('WORLDMONITOR_API_KEY');
+        const wmKeyState = getSecretState('EDGEPANNEL_API_KEY');
         if (!wmKeyState.present || !wmKeyState.valid) {
           allowCloudFallback = false;
         }
@@ -567,9 +572,9 @@ export function installRuntimeFetchPatch(): void {
       const cloudHeaders = new Headers(init?.headers);
       if (KEYED_CLOUD_API_PATTERN.test(target)) {
         const { getRuntimeConfigSnapshot } = await import('@/services/runtime-config');
-        const wmKeyValue = getRuntimeConfigSnapshot().secrets['WORLDMONITOR_API_KEY']?.value;
+        const wmKeyValue = getRuntimeConfigSnapshot().secrets['EDGEPANNEL_API_KEY']?.value;
         if (wmKeyValue) {
-          cloudHeaders.set('X-WorldMonitor-Key', wmKeyValue);
+          cloudHeaders.set('X-EdgePannel-Key', wmKeyValue);
         }
       }
       return nativeFetch(cloudUrl, { ...init, headers: cloudHeaders });

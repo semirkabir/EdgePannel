@@ -214,7 +214,7 @@ function renderOverview(area: HTMLElement): void {
   const dashOffset = circumference - (pct / 100) * circumference;
   const ringColor = ready === total ? 'var(--settings-green)' : ready > 0 ? 'var(--settings-blue)' : 'var(--settings-yellow)';
 
-  const wmState = getSecretState('WORLDMONITOR_API_KEY');
+  const wmState = getSecretState('EDGEPANNEL_API_KEY');
   const wmStatusText = wmState.present ? 'Active' : 'Not set';
   const wmStatusClass = wmState.present ? 'ok' : 'warn';
   const alreadyRegistered = false; // Force-show form for email testing
@@ -789,7 +789,7 @@ function renderAgents(area: HTMLElement): void {
       <h2>Agents</h2>
     </div>
     <section class="agent-settings-intro">
-      <p>Connect OpenAI-compatible agents and Streamable HTTP MCP servers to World Monitor live data. Alert tools create drafts that require approval.</p>
+      <p>Connect OpenAI-compatible agents and Streamable HTTP MCP servers to EdgePannel live data. Alert tools create drafts that require approval.</p>
       <div class="agent-settings-actions">
         <button type="button" data-agent-add="openai-compatible">Add Agent API</button>
         <button type="button" data-agent-add="mcp-server">Add MCP Server</button>
@@ -1228,7 +1228,7 @@ async function initSettingsWindow(): Promise<void> {
         }
 
         if (hasWmKeyChange && wmKeyValue) {
-          await setSecretValue('WORLDMONITOR_API_KEY', wmKeyValue);
+          await setSecretValue('EDGEPANNEL_API_KEY', wmKeyValue);
         }
 
         if (hasAgentConnectorChange) {

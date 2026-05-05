@@ -14,9 +14,117 @@ const MIN_CONTENT_LENGTH = 80;
 const MIN_FALLBACK_PARAGRAPH_LENGTH = 40;
 const MIN_IMAGE_DIMENSION = 64;
 const MAX_PARAGRAPHS = 40;
+const MAX_REDIRECTS = 5;
+const MAX_ARTICLE_BYTES = 1_500_000;
 const DOCUMENT_POSITION_FOLLOWING = 4;
 
 let TurndownService;
+
+function isBlockedHostname(hostname) {
+  const h = hostname.toLowerCase().replace(/\.$/, '');
+  if (!h || h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local')) return true;
+  if (h === '0.0.0.0' || h.startsWith('127.') || h.startsWith('10.') || h.startsWith('169.254.')) return true;
+  const ipv4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const parts = ipv4.slice(1).map(Number);
+    if (parts.some(part => part > 255)) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+  }
+  if (h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80:')) return true;
+  return false;
+}
+
+function parseFetchableArticleUrl(rawUrl) {
+  const url = new URL(rawUrl);
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error('Unsupported URL protocol');
+  }
+  if (url.username || url.password || isBlockedHostname(url.hostname)) {
+    throw new Error('Blocked article host');
+  }
+  return url;
+}
+
+function assertArticleResponseHeaders(response) {
+  const contentLength = Number(response.headers.get('content-length') || 0);
+  if (contentLength > MAX_ARTICLE_BYTES) {
+    throw new Error('Article response too large');
+  }
+
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  if (contentType && !/(text\/html|application\/xhtml\+xml|application\/xml|text\/xml|text\/plain)/.test(contentType)) {
+    throw new Error('Unsupported article content type');
+  }
+}
+
+async function fetchArticleDocument(initialUrl) {
+  let current = parseFetchableArticleUrl(initialUrl);
+  for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+    const response = await fetch(current.toString(), {
+      signal: AbortSignal.timeout(15000),
+      headers: {
+        'User-Agent': CHROME_UA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Cache-Control': 'max-age=0',
+      },
+      redirect: 'manual',
+    });
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) throw new Error('Redirect missing location');
+      current = parseFetchableArticleUrl(new URL(location, current).toString());
+      continue;
+    }
+
+    assertArticleResponseHeaders(response);
+    return { response, finalUrl: current.toString() };
+  }
+  throw new Error('Too many redirects');
+}
+
+async function readResponseTextLimited(response) {
+  if (!response.body?.getReader) {
+    const html = await response.text();
+    if (new TextEncoder().encode(html).byteLength > MAX_ARTICLE_BYTES) {
+      throw new Error('Article response too large');
+    }
+    return html;
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_ARTICLE_BYTES) {
+      try { await reader.cancel(); } catch { /* ignore */ }
+      throw new Error('Article response too large');
+    }
+    chunks.push(value);
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
+}
 
 const REMOVE_SELECTORS = [
   'script',
@@ -525,9 +633,9 @@ export default async function handler(req) {
   }
 
   try {
-    new URL(articleUrl);
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid URL' }), {
+    parseFetchableArticleUrl(articleUrl);
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Invalid URL' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
@@ -539,6 +647,7 @@ export default async function handler(req) {
     if (isGoogleNewsUrl(articleUrl)) {
       try {
         effectiveUrl = await resolveGoogleNewsUrl(articleUrl);
+        parseFetchableArticleUrl(effectiveUrl);
       } catch (error) {
         console.error('[fetch-article] Google News resolve failed:', articleUrl, error.message);
         const negKey = `article:v2:${articleUrl}`;
@@ -581,29 +690,8 @@ export default async function handler(req) {
       // Redis unavailable, proceed without shared cache.
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
-    const response = await fetch(effectiveUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': CHROME_UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Cache-Control': 'max-age=0',
-      },
-      redirect: 'follow',
-    });
-    clearTimeout(timeout);
+    const { response, finalUrl } = await fetchArticleDocument(effectiveUrl);
+    effectiveUrl = finalUrl;
 
     if (!response.ok) {
       try { await redisSet(cacheKey, JSON.stringify('__NEG__'), NEGATIVE_CACHE_TTL); } catch { /* ignore */ }
@@ -613,7 +701,7 @@ export default async function handler(req) {
       });
     }
 
-    const html = await response.text();
+    const html = await readResponseTextLimited(response);
     const article = parseArticleHtml(html, effectiveUrl);
 
     if (!article || !article.content || normalizeText(article.content).length < MIN_CONTENT_LENGTH) {

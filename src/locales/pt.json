@@ -299,7 +299,7 @@
         "OLLAMA_API_URL": "e.g. http://127.0.0.1:11434 (Ollama) or http://127.0.0.1:1234/v1 (LM Studio) — OpenAI-compatible endpoint.",
         "OLLAMA_MODEL": "e.g. llama3.1:8b — model tag to use for summarization."
       },
-      "skipSetup": "Pule a configuração — uma única licença World Monitor desbloqueia tudo. Junte-se à lista de espera para acesso antecipado."
+      "skipSetup": "Pule a configuração — uma única licença EdgePannel desbloqueia tudo. Junte-se à lista de espera para acesso antecipado."
     },
     "countryIntel": {
       "identifying": "Identificando país...",
@@ -434,9 +434,9 @@
       "sidecarUnreachable": "Sidecar não acessível.",
       "logCleared": "Registro limpo.",
       "worldMonitor": {
-        "tabLabel": "World Monitor",
+        "tabLabel": "EdgePannel",
         "heroTitle": "Uma chave. Tudo incluído.",
-        "heroDescription": "Uma única licença World Monitor substitui cada chave API e provedor de LLM que você precisaria configurar sozinho. Resumos de IA, inteligência em tempo real, dados de mercado, rastreamento de conflitos, detecção de incêndios, imagens de satélite — tudo alimentado, tudo gerenciado, configuração zero.",
+        "heroDescription": "Uma única licença EdgePannel substitui cada chave API e provedor de LLM que você precisaria configurar sozinho. Resumos de IA, inteligência em tempo real, dados de mercado, rastreamento de conflitos, detecção de incêndios, imagens de satélite — tudo alimentado, tudo gerenciado, configuração zero.",
         "apiKey": {
           "title": "Chave de licença",
           "placeholder": "wm_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -447,7 +447,7 @@
         "dividerOr": "OU",
         "register": {
           "title": "Reserve seu lugar",
-          "description": "Estamos preparando o lançamento das licenças World Monitor. Inscreva-se agora e seja o primeiro da fila — membros iniciais obtêm acesso prioritário e preços de fundador.",
+          "description": "Estamos preparando o lançamento das licenças EdgePannel. Inscreva-se agora e seja o primeiro da fila — membros iniciais obtêm acesso prioritário e preços de fundador.",
           "emailPlaceholder": "seu@email.com",
           "submitBtn": "Entrar na lista de espera",
           "submitting": "Enviando...",
@@ -2225,7 +2225,7 @@
     "selectRegion": "Selecionar região"
   },
   "app": {
-    "title": "World Monitor",
+    "title": "EdgePannel",
     "description": "Situação Global com Insights de IA"
   },
   "countryBrief": {

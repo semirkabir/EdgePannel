@@ -1,4 +1,4 @@
-# World Monitor
+# EdgePannel
 
 **Real-time global intelligence dashboard** — AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface.
 
@@ -9,23 +9,24 @@
 [![Latest release](https://img.shields.io/github/v/release/koala73/worldmonitor?style=flat)](https://github.com/koala73/worldmonitor/releases/latest)
 
 <p align="center">
-  <a href="https://worldmonitor.app"><img src="https://img.shields.io/badge/Web_App-worldmonitor.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web App"></a>&nbsp;
-  <a href="https://tech.worldmonitor.app"><img src="https://img.shields.io/badge/Tech_Variant-tech.worldmonitor.app-0891b2?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Tech Variant"></a>&nbsp;
-  <a href="https://finance.worldmonitor.app"><img src="https://img.shields.io/badge/Finance_Variant-finance.worldmonitor.app-059669?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Finance Variant"></a>&nbsp;
-  <a href="https://commodity.worldmonitor.app"><img src="https://img.shields.io/badge/Commodity_Variant-commodity.worldmonitor.app-b45309?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Commodity Variant"></a>&nbsp;
-  <a href="https://happy.worldmonitor.app"><img src="https://img.shields.io/badge/Happy_Variant-happy.worldmonitor.app-f59e0b?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Happy Variant"></a>
+  <a href="https://edgepannel.app"><img src="https://img.shields.io/badge/Web_App-edgepannel.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web App"></a>&nbsp;
+  <a href="https://tech.edgepannel.app"><img src="https://img.shields.io/badge/Tech_Variant-tech.edgepannel.app-0891b2?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Tech Variant"></a>&nbsp;
+  <a href="https://finance.edgepannel.app"><img src="https://img.shields.io/badge/Finance_Variant-finance.edgepannel.app-059669?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Finance Variant"></a>&nbsp;
+  <a href="https://commodity.edgepannel.app"><img src="https://img.shields.io/badge/Commodity_Variant-commodity.edgepannel.app-b45309?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Commodity Variant"></a>&nbsp;
+  <a href="https://happy.edgepannel.app"><img src="https://img.shields.io/badge/Happy_Variant-happy.edgepannel.app-f59e0b?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Happy Variant"></a>&nbsp;
+  <a href="https://conflicts.edgepannel.app"><img src="https://img.shields.io/badge/Conflicts_Variant-conflicts.edgepannel.app-dc2626?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Conflicts Variant"></a>
 </p>
 
 <p align="center">
-  <a href="https://worldmonitor.app/api/download?platform=windows-exe"><img src="https://img.shields.io/badge/Download-Windows_(.exe)-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows"></a>&nbsp;
-  <a href="https://worldmonitor.app/api/download?platform=macos-arm64"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS ARM"></a>&nbsp;
-  <a href="https://worldmonitor.app/api/download?platform=macos-x64"><img src="https://img.shields.io/badge/Download-macOS_Intel-555555?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Intel"></a>&nbsp;
-  <a href="https://worldmonitor.app/api/download?platform=linux-appimage"><img src="https://img.shields.io/badge/Download-Linux_(.AppImage)-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download Linux"></a>
+  <a href="https://edgepannel.app/api/download?platform=windows-exe"><img src="https://img.shields.io/badge/Download-Windows_(.exe)-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows"></a>&nbsp;
+  <a href="https://edgepannel.app/api/download?platform=macos-arm64"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS ARM"></a>&nbsp;
+  <a href="https://edgepannel.app/api/download?platform=macos-x64"><img src="https://img.shields.io/badge/Download-macOS_Intel-555555?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Intel"></a>&nbsp;
+  <a href="https://edgepannel.app/api/download?platform=linux-appimage"><img src="https://img.shields.io/badge/Download-Linux_(.AppImage)-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download Linux"></a>
 </p>
 
 ---
 
-## Why World Monitor?
+## Why EdgePannel?
 
 | Problem                            | Solution                                                                                                   |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -46,11 +47,12 @@
 
 | Variant             | URL                                                          | Focus                                            |
 | ------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
-| **World Monitor**   | [worldmonitor.app](https://worldmonitor.app)                 | Geopolitics, military, conflicts, infrastructure |
-| **Tech Monitor**    | [tech.worldmonitor.app](https://tech.worldmonitor.app)       | Startups, AI/ML, cloud, cybersecurity            |
-| **Finance Monitor** | [finance.worldmonitor.app](https://finance.worldmonitor.app) | Global markets, trading, central banks, Gulf FDI |
-| **Commodity Monitor** | [commodity.worldmonitor.app](https://commodity.worldmonitor.app) | Mining, metals, energy commodities, critical minerals |
-| **Happy Monitor**   | [happy.worldmonitor.app](https://happy.worldmonitor.app)     | Good news, positive trends, uplifting stories    |
+| **EdgePannel**   | [edgepannel.app](https://edgepannel.app)                 | Geopolitics, military, conflicts, infrastructure |
+| **EdgePannel Tech**    | [tech.edgepannel.app](https://tech.edgepannel.app)       | Startups, AI/ML, cloud, cybersecurity            |
+| **EdgePannel Finance** | [finance.edgepannel.app](https://finance.edgepannel.app) | Global markets, trading, central banks, Gulf FDI |
+| **EdgePannel Commodity** | [commodity.edgepannel.app](https://commodity.edgepannel.app) | Mining, metals, energy commodities, critical minerals |
+| **EdgePannel Happy**   | [happy.edgepannel.app](https://happy.edgepannel.app)     | Good news, positive trends, uplifting stories    |
+| **EdgePannel Conflicts** | [conflicts.edgepannel.app](https://conflicts.edgepannel.app) | Conflict, military, displacement, security risk |
 
 All five variants run from a single codebase — switch between them with one click via the header bar.
 
@@ -148,39 +150,39 @@ src/app/
 
 ### Variant System
 
-A single codebase produces five specialized dashboards. `SITE_VARIANT` is injected at build time via Vite `define`, enabling tree-shaking of unused variant data:
+A single codebase produces six specialized dashboards. `SITE_VARIANT` is injected at build time via Vite `define`, enabling tree-shaking of unused variant data:
 
-| Aspect                | World Monitor                                        | Tech Monitor                                    | Finance Monitor                                  | Commodity Monitor                                         | Happy Monitor                                         |
-| --------------------- | ---------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------- | ----------------------------------------------------- |
-| **Domain**            | worldmonitor.app                                     | tech.worldmonitor.app                           | finance.worldmonitor.app                         | commodity.worldmonitor.app                                | happy.worldmonitor.app                                |
-| **Focus**             | Geopolitics, military, conflicts                     | AI/ML, startups, cybersecurity                  | Markets, trading, central banks                  | Mining, metals, energy commodities, critical minerals     | Good news, conservation, human progress               |
-| **RSS Feeds**         | 15 categories, 200+ feeds                            | 21 categories, 152 feeds                        | 14 categories, 55 feeds                          | 10 categories, 50+ feeds                                  | 5 categories, 21 positive-news sources                |
-| **Panels**            | 45                                                   | 28                                              | 27                                               | 16                                                        | 10                                                    |
-| **Desktop App**       | Yes                                                  | Yes                                             | Yes                                              | (web-only)                                                | (web-only)                                            |
+| Aspect                | EdgePannel                                           | EdgePannel Tech                                 | EdgePannel Finance                               | EdgePannel Commodity                                      | EdgePannel Happy                                      | EdgePannel Conflicts                                  |
+| --------------------- | ---------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| **Domain**            | edgepannel.app                                       | tech.edgepannel.app                             | finance.edgepannel.app                           | commodity.edgepannel.app                                  | happy.edgepannel.app                                  | conflicts.edgepannel.app                              |
+| **Focus**             | Geopolitics, military, conflicts                     | AI/ML, startups, cybersecurity                  | Markets, trading, central banks                  | Mining, metals, energy commodities, critical minerals     | Good news, conservation, human progress               | Conflict, military, displacement, security risk       |
+| **RSS Feeds**         | 15 categories, 200+ feeds                            | 21 categories, 152 feeds                        | 14 categories, 55 feeds                          | 10 categories, 50+ feeds                                  | 5 categories, 21 positive-news sources                | Conflict and security feeds                           |
+| **Panels**            | 45                                                   | 28                                              | 27                                               | 16                                                        | 10                                                    | 29                                                    |
+| **Desktop App**       | Yes                                                  | Yes                                             | Yes                                              | (web-only)                                                | (web-only)                                            | (web-only)                                            |
 
 ---
 
 ## Programmatic API Access
 
-Every data endpoint is accessible via `api.worldmonitor.app`:
+Every data endpoint is accessible via `api.edgepannel.app`:
 
 ```bash
 # Fetch market quotes
-curl -s 'https://api.worldmonitor.app/api/market/v1/list-market-quotes?symbols=AAPL,MSFT,GOOGL'
+curl -s 'https://api.edgepannel.app/api/market/v1/list-market-quotes?symbols=AAPL,MSFT,GOOGL'
 
 # Get airport delays
-curl -s 'https://api.worldmonitor.app/api/aviation/v1/list-airport-delays'
+curl -s 'https://api.edgepannel.app/api/aviation/v1/list-airport-delays'
 
 # Get earthquake data
-curl -s 'https://api.worldmonitor.app/api/seismology/v1/list-earthquakes'
+curl -s 'https://api.edgepannel.app/api/seismology/v1/list-earthquakes'
 
 # Company enrichment
-curl -s 'https://api.worldmonitor.app/api/enrichment/company?domain=stripe.com'
+curl -s 'https://api.edgepannel.app/api/enrichment/company?domain=stripe.com'
 ```
 
 All 22 service domains available as `POST /api/{domain}/v1/{rpc-name}`. GET with query params supported for read-only RPCs.
 
-> **Note**: Use `api.worldmonitor.app`, not `worldmonitor.app` — the main domain requires browser origin headers.
+> **Note**: Use `api.edgepannel.app`, not `edgepannel.app` — the main domain requires browser origin headers.
 
 ---
 
@@ -258,11 +260,12 @@ npm run dev    # Vite dev server on localhost:5173
 
 ```bash
 # Development
-npm run dev              # Full variant (worldmonitor.app)
+npm run dev              # Full variant (edgepannel.app)
 npm run dev:tech         # Tech variant
 npm run dev:finance      # Finance variant
 npm run dev:commodity    # Commodity variant
 npm run dev:happy        # Happy variant
+npm run dev:conflicts    # Conflicts variant
 
 # Production builds
 npm run build:full       # Build full variant
@@ -270,6 +273,7 @@ npm run build:tech       # Build tech variant
 npm run build:finance    # Build finance variant
 npm run build:commodity  # Build commodity variant
 npm run build:happy      # Build happy variant
+npm run build:conflicts  # Build conflicts variant
 
 # Quality
 npm run typecheck        # TypeScript type checking
@@ -344,10 +348,10 @@ We thank the following researchers for responsibly disclosing security issues:
 ---
 
 <p align="center">
-  <a href="https://worldmonitor.app">worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://tech.worldmonitor.app">tech.worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://finance.worldmonitor.app">finance.worldmonitor.app</a> &nbsp;·&nbsp;
-  <a href="https://commodity.worldmonitor.app">commodity.worldmonitor.app</a>
+  <a href="https://edgepannel.app">edgepannel.app</a> &nbsp;·&nbsp;
+  <a href="https://tech.edgepannel.app">tech.edgepannel.app</a> &nbsp;·&nbsp;
+  <a href="https://finance.edgepannel.app">finance.edgepannel.app</a> &nbsp;·&nbsp;
+  <a href="https://commodity.edgepannel.app">commodity.edgepannel.app</a>
 </p>
 
 ## Star History

@@ -3,7 +3,7 @@
   "slug": "cyber-incident-tracker",
   "name": "Cyber Incident Tracker",
   "version": "1.0.0",
-  "author": "World Monitor Curated",
+  "author": "EdgePannel Curated",
   "description": "Real-time feed of significant cyber incidents including ransomware, state-sponsored intrusions, and critical infrastructure attacks.",
   "license": "WM Curated Data License",
   "category": "cyber",

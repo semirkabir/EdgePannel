@@ -1,6 +1,6 @@
 # Data Sources
 
-Comprehensive documentation of all data sources, feed tiers, and collection methods used by World Monitor.
+Comprehensive documentation of all data sources, feed tiers, and collection methods used by EdgePannel.
 
 ---
 

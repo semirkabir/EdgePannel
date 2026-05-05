@@ -2,7 +2,7 @@
 
 ## Overview
 
-Desktop cloud fallback is gated on a `WORLDMONITOR_API_KEY`. Without a valid key, the desktop app operates local-only (sidecar). A registration form collects emails via Convex DB for future key distribution.
+Desktop cloud fallback is gated on an `EDGEPANNEL_API_KEY`. Without a valid key, the desktop app operates local-only (sidecar). A registration form collects emails via Convex DB for future key distribution.
 
 ## Architecture
 
@@ -93,22 +93,22 @@ Indexed by `normalizedEmail` for duplicate detection.
 
 ### Client-side (desktop app)
 
-- `installRuntimeFetchPatch()` checks `WORLDMONITOR_API_KEY` before allowing cloud fallback
+- `installRuntimeFetchPatch()` checks `EDGEPANNEL_API_KEY` before allowing cloud fallback
 - Key must be present AND valid (min 16 chars)
 - `secretsReady` promise ensures secrets are loaded before first fetch (2s timeout)
 - Fail-closed: any error in key check blocks cloud fallback
 
 ### Server-side (Vercel edge)
 
-- `api/_api-key.js` validates `X-WorldMonitor-Key` header on sebuf routes
+- `api/_api-key.js` validates `X-EdgePannel-Key` header on sebuf routes
 - **Origin-aware**: desktop origins (`tauri.localhost`, `tauri://`, `asset://`) require a key
-- Web origins (`worldmonitor.app`) pass through without a key
+- Web origins (`edgepannel.app`) pass through without a key
 - Non-desktop origin with key header: key is still validated
 - Invalid key returns `401 { error: "Invalid API key" }`
 
 ### CORS
 
-`X-WorldMonitor-Key` is allowed in both `server/cors.ts` and `api/_cors.js`.
+`X-EdgePannel-Key` is allowed in both `server/cors.ts` and `api/_cors.js`.
 
 ## Verification Checklist
 
@@ -130,11 +130,11 @@ After deployment:
 | File | Role |
 |------|------|
 | `src/services/runtime.ts` | Client-side key gate + header attachment |
-| `src/services/runtime-config.ts` | `WORLDMONITOR_API_KEY` type, validation, `secretsReady` |
+| `src/services/runtime-config.ts` | `EDGEPANNEL_API_KEY` type, validation, `secretsReady` |
 | `api/_api-key.js` | Server-side key validation (origin-aware) |
 | `api/[domain]/v1/[rpc].ts` | Sebuf gateway — calls `validateApiKey` |
 | `api/register-interest.js` | Registration endpoint → Convex |
-| `server/cors.ts` / `api/_cors.js` | CORS headers with `X-WorldMonitor-Key` |
-| `src/components/WorldMonitorTab.ts` | Settings UI for key + registration |
+| `server/cors.ts` / `api/_cors.js` | CORS headers with `X-EdgePannel-Key` |
+| `src/components/EdgePannelTab.ts` | Settings UI for key + registration |
 | `convex/schema.ts` | Convex DB schema |
 | `convex/registerInterest.ts` | Convex mutation |

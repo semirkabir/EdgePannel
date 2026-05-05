@@ -39,7 +39,7 @@ function sanitizeAllowedOrigin(raw, fallback, allowList = ALLOWED_ORIGINS) {
 }
 
 function sanitizeOrigin(raw) {
-  return sanitizeAllowedOrigin(raw, 'https://worldmonitor.app', ALLOWED_ORIGINS);
+  return sanitizeAllowedOrigin(raw, 'https://edgepannel.app', ALLOWED_ORIGINS);
 }
 
 function sanitizeParentOrigin(raw, fallback) {
