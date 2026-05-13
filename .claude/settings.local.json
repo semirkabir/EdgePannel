@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l src/**/*.ts server/**/*.ts)",
+      "Bash(cat .github/workflows/*.yml)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(ls node_modules/.bin/vite*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(grep -r \"class.*Header\\\\|function.*[Hh]eader\" /c/Users/kabir/worldmonitor/src/components/*.ts)",
+      "Bash(grep -n \"\\\\.map\\(.*=>.*{$\\\\|_kind:\" src/components/GlobeMap.ts)",
+      "Bash(xargs grep:*)",
+      "Bash(find /c/Users/kabir/worldmonitor/src/config -name *gulf* -o -name *fdi*)",
+      "Bash(xargs wc:*)",
+      "Bash(wc -l /c/Users/kabir/worldmonitor/src/components/*.ts)",
+      "Bash(python3:*)",
+      "Bash(ls -la src/services/climate*)",
+      "Bash(ls -la src/services/weather*)",
+      "Bash(xargs ls:*)",
+      "Bash(ls -la /c/Users/kabir/worldmonitor/src/app/*.ts)",
+      "Bash(ls -la /c/Users/kabir/worldmonitor/src/services/*.ts)",
+      "Bash(npm run *)",
+      "Read(//c/Users/kabir/worldmonitor/**)",
+      "Bash(git -C C:/Users/kabir/worldmonitor log --oneline -5 -- dist/textures/)",
+      "Bash(git add *)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\\\\n\" \"http://localhost:3005/api/fetch-article?url=https%3A%2F%2Fnews.google.com%2Frss%2Farticles%2FCBMimAFBVV95cUxORTZwdFF0bkVNbjdPN1VpSVVKeGNvMkVYVnlCa2NveWtmRUUzLTktNWxwTnFrYnZEb3NEZUxmQXY2M1RHR1NIeS1WUXNFTDBRXzROd3RSazFxeFpDQmFxMjE1cW9NWWJNUDU1Q2MxTXY4Y3djZmZWdDBReDB5MFd0a1ZCWDVwSkVvMmMwWHVVWEJBRmloQlRETw%3Foc%3D5\")",
+      "Bash(node -e \"import\\('./api/_google-news-resolver.js'\\).then\\(m => console.log\\('OK:', Object.keys\\(m\\)\\)\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
+      "Bash(node -e \"import\\('./api/fetch-article.js'\\).then\\(m => console.log\\('OK'\\)\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
