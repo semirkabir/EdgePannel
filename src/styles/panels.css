@@ -3546,3 +3546,77 @@
 .risk-dashboard-source {
   font-style: italic;
 }
+
+/* Options chain */
+.opt-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.opt-symbol-input,
+.opt-expiry-select {
+  min-width: 0;
+}
+
+.opt-price {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.opt-container {
+  display: grid;
+  gap: 12px;
+}
+
+.opt-side {
+  min-width: 0;
+}
+
+.opt-side h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.opt-table {
+  overflow-x: auto;
+}
+
+.opt-header,
+.opt-row {
+  display: grid;
+  grid-template-columns: 66px repeat(11, minmax(52px, 1fr));
+  gap: 6px;
+  align-items: center;
+  min-width: 720px;
+}
+
+.opt-header {
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.opt-row {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 65%, transparent);
+}
+
+.opt-row.opt-itm {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.opt-strike,
+.opt-greek {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}

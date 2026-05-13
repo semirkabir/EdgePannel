@@ -8,6 +8,7 @@ import {
   type OptionContract,
   type OptionChainExpiry,
 } from '@/services/market/finnhub-extra';
+import { calculateOptionGreeks, yearsToExpiry, type OptionSide } from '@/services/options/greeks';
 
 export class OptionsChainPanel extends Panel {
   private currentSymbol = 'AAPL';
@@ -45,6 +46,7 @@ export class OptionsChainPanel extends Panel {
 
       const expiry = chain[Math.min(this.selectedExpiry, chain.length - 1)] as OptionChainExpiry;
       const underlyingPrice = quote?.c ?? 0;
+      const years = yearsToExpiry(expiry.expirationDate);
 
       const expiryOptions = chain.map((e, i) => `
         <option value="${i}" ${i === this.selectedExpiry ? 'selected' : ''}>${escapeHtml(e.expirationDate)}</option>
@@ -61,18 +63,18 @@ export class OptionsChainPanel extends Panel {
             <h4>Calls</h4>
             <div class="opt-table">
               <div class="opt-header">
-                <span>Strike</span><span>Last</span><span>Bid</span><span>Ask</span><span>Vol</span><span>OI</span><span>IV</span>
+                <span>Strike</span><span>Last</span><span>Bid</span><span>Ask</span><span>Vol</span><span>OI</span><span>IV</span><span>Delta</span><span>Gamma</span><span>Theta</span><span>Vega</span><span>Rho</span>
               </div>
-              ${expiry.calls.slice(0, 20).map(o => this.renderOptionRow(o, underlyingPrice, 'call')).join('')}
+              ${expiry.calls.slice(0, 20).map(o => this.renderOptionRow(o, underlyingPrice, years, 'call')).join('')}
             </div>
           </div>
           <div class="opt-side">
             <h4>Puts</h4>
             <div class="opt-table">
               <div class="opt-header">
-                <span>Strike</span><span>Last</span><span>Bid</span><span>Ask</span><span>Vol</span><span>OI</span><span>IV</span>
+                <span>Strike</span><span>Last</span><span>Bid</span><span>Ask</span><span>Vol</span><span>OI</span><span>IV</span><span>Delta</span><span>Gamma</span><span>Theta</span><span>Vega</span><span>Rho</span>
               </div>
-              ${expiry.puts.slice(0, 20).map(o => this.renderOptionRow(o, underlyingPrice, 'put')).join('')}
+              ${expiry.puts.slice(0, 20).map(o => this.renderOptionRow(o, underlyingPrice, years, 'put')).join('')}
             </div>
           </div>
         </div>
@@ -109,7 +111,7 @@ export class OptionsChainPanel extends Panel {
     }
   }
 
-  private renderOptionRow(o: OptionContract, underlying: number, type: string): string {
+  private renderOptionRow(o: OptionContract, underlying: number, years: number, type: OptionSide): string {
     const strike = o.strike ?? 0;
     const itm = type === 'call' ? strike < underlying : strike > underlying;
     const last = o.lastPrice != null ? o.lastPrice.toFixed(2) : '—';
@@ -118,6 +120,13 @@ export class OptionsChainPanel extends Panel {
     const vol = o.volume != null ? o.volume.toLocaleString() : '—';
     const oi = o.openInterest != null ? o.openInterest.toLocaleString() : '—';
     const iv = o.impliedVolatility != null ? `${(o.impliedVolatility * 100).toFixed(1)}%` : '—';
+    const greeks = calculateOptionGreeks({
+      underlyingPrice: underlying,
+      strikePrice: strike,
+      yearsToExpiry: years,
+      impliedVolatility: o.impliedVolatility,
+      side: type,
+    });
 
     return `
       <div class="opt-row ${itm ? 'opt-itm' : ''}">
@@ -128,6 +137,11 @@ export class OptionsChainPanel extends Panel {
         <span class="opt-vol">${vol}</span>
         <span class="opt-oi">${oi}</span>
         <span class="opt-iv">${iv}</span>
+        <span class="opt-greek">${greeks ? greeks.delta.toFixed(2) : '—'}</span>
+        <span class="opt-greek">${greeks ? greeks.gamma.toFixed(3) : '—'}</span>
+        <span class="opt-greek">${greeks ? greeks.theta.toFixed(2) : '—'}</span>
+        <span class="opt-greek">${greeks ? greeks.vega.toFixed(2) : '—'}</span>
+        <span class="opt-greek">${greeks ? greeks.rho.toFixed(2) : '—'}</span>
       </div>
     `;
   }

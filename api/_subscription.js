@@ -38,7 +38,9 @@ function getFirebaseProjectId() {
 
 export function parseIdToken(req) {
   const auth = req.headers.get('authorization') || '';
-  const explicitToken = req.headers.get('x-edgepannel-token') || '';
+  // x-worldmonitor-token: legacy alias kept for clients not yet updated after the rename.
+  // TODO: remove x-worldmonitor-token fallback once all clients send x-edgepannel-token (target: 2026-Q3).
+  const explicitToken = req.headers.get('x-edgepannel-token') || req.headers.get('x-worldmonitor-token') || '';
   if (auth.startsWith('Bearer ')) return auth.slice(7).trim();
   return explicitToken.trim();
 }
@@ -141,7 +143,7 @@ async function convexMutation(path, args) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ path, arguments: args }),
+      body: JSON.stringify({ path, args }),
       signal: AbortSignal.timeout(8_000),
     });
     if (!resp.ok) return null;
