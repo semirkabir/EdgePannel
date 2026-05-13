@@ -33,7 +33,7 @@ async function convexQuery(path, args) {
     const res = await fetch(`${c.url}/api/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` },
-      body: JSON.stringify({ path, arguments: args }),
+      body: JSON.stringify({ path, args }),
       signal: AbortSignal.timeout(5_000),
     });
     if (!res.ok) return null;
@@ -49,7 +49,7 @@ async function convexUpsert(args) {
     await fetch(`${c.url}/api/mutation`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` },
-      body: JSON.stringify({ path: 'reference:upsertEntityXref', arguments: args }),
+      body: JSON.stringify({ path: 'reference:upsertEntityXref', args }),
       signal: AbortSignal.timeout(5_000),
     });
   } catch { /* best-effort */ }

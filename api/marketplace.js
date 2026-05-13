@@ -20,7 +20,7 @@ async function convexQuery(path, args) {
     const resp = await fetch(`${url}/api/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, arguments: args }),
+      body: JSON.stringify({ path, args }),
       signal: AbortSignal.timeout(8_000),
     });
     if (!resp.ok) return null;
@@ -43,7 +43,7 @@ async function convexMutation(path, args) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ path, arguments: args }),
+      body: JSON.stringify({ path, args }),
       signal: AbortSignal.timeout(8_000),
     });
     if (!resp.ok) return null;

@@ -2,8 +2,9 @@
  * T0.3 — Audit log middleware.
  *
  * Fire-and-forget helper that writes an action record to Convex audit_log.
- * Designed to be called from any API route handler WITHOUT awaiting —
- * the response is already sent and this runs in the edge function's tail.
+ * Designed to be called from any API route handler after the state-changing
+ * operation succeeds. The helper swallows logging failures so audit storage
+ * issues do not break the user-facing request.
  *
  * Usage in a route handler:
  *
@@ -16,8 +17,9 @@
  *     tier,
  *   });
  *
- * The function is intentionally synchronous at the call site so it never
- * delays the response. It schedules a micro-task via Promise.resolve().
+ * Do NOT await this helper from within a response path — it is fire-and-forget.
+ * `withAudit` calls it without awaiting so it never delays the response.
+ * Direct callers (e.g. checkout) should also not await unless tail-exec is unavailable.
  */
 
 function getConvex() {
@@ -49,8 +51,7 @@ function getClientIp(req) {
  * }} event
  */
 export function recordAuditEvent(req, event) {
-  // Schedule async without blocking the caller.
-  Promise.resolve().then(async () => {
+  return Promise.resolve().then(async () => {
     const convex = getConvex();
     if (!convex) return;
 
@@ -76,8 +77,8 @@ export function recordAuditEvent(req, event) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${convex.token}`,
         },
-        body: JSON.stringify({ path: 'audit:logAction', arguments: args }),
-        signal: AbortSignal.timeout(6_000),
+        body: JSON.stringify({ path: 'audit:logAction', args }),
+        signal: AbortSignal.timeout(2_000),
       });
     } catch {
       // Audit log failures are non-fatal.
@@ -107,6 +108,7 @@ export function withAudit(handler, options) {
       const uid = options.getUid ? await options.getUid(req).catch(() => undefined) : undefined;
       const entityId = options.getEntityId ? options.getEntityId(req, url) : undefined;
 
+      // Fire-and-forget: audit log must not delay the response.
       recordAuditEvent(req, {
         firebaseUid: uid,
         action: options.action,

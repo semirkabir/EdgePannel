@@ -1,0 +1,47 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Dev (default/full)",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "export PATH=/Users/mir/.nvm/versions/node/v22.17.1/bin:$PATH && npm run dev"],
+      "port": 3000
+    },
+    {
+      "name": "Dev (tech)",
+      "runtimeExecutable": "/Users/mir/.nvm/versions/node/v22.17.1/bin/npm",
+      "runtimeArgs": ["run", "dev:tech"],
+      "port": 3000
+    },
+    {
+      "name": "Dev (finance)",
+      "runtimeExecutable": "/Users/mir/.nvm/versions/node/v22.17.1/bin/npm",
+      "runtimeArgs": ["run", "dev:finance"],
+      "port": 3000
+    },
+    {
+      "name": "Dev (happy)",
+      "runtimeExecutable": "/Users/mir/.nvm/versions/node/v22.17.1/bin/npm",
+      "runtimeArgs": ["run", "dev:happy"],
+      "port": 3000
+    },
+    {
+      "name": "Dev (commodity)",
+      "runtimeExecutable": "/Users/mir/.nvm/versions/node/v22.17.1/bin/npm",
+      "runtimeArgs": ["run", "dev:commodity"],
+      "port": 3000
+    },
+    {
+      "name": "AIS Relay",
+      "runtimeExecutable": "/Users/mir/.nvm/versions/node/v22.17.1/bin/node",
+      "runtimeArgs": ["scripts/ais-relay.cjs"],
+      "port": 3004
+    },
+    {
+      "name": "Local Desktop API",
+      "runtimeExecutable": "/Users/mir/.nvm/versions/node/v22.17.1/bin/node",
+      "runtimeArgs": ["src-tauri/sidecar/local-api-server.mjs"],
+      "port": 46123
+    }
+  ]
+}

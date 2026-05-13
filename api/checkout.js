@@ -10,6 +10,7 @@ import {
   parseIdToken,
   verifyFirebaseToken,
 } from './_subscription.js';
+import { recordAuditEvent } from './_audit.js';
 
 export const config = { runtime: 'edge' };
 
@@ -58,6 +59,15 @@ export default async function handler(req) {
       throw new Error('Stripe checkout URL missing');
     }
 
+    // Fire-and-forget: do not block the redirect on audit I/O.
+    recordAuditEvent(req, {
+      firebaseUid: uid,
+      action: 'checkout:create',
+      entityId: tier,
+      entityType: 'subscription_tier',
+      tier,
+      meta: { sessionId: session.id ?? undefined },
+    });
     return Response.redirect(session.url, 303);
   } catch (error) {
     return new Response(JSON.stringify({

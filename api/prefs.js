@@ -14,6 +14,7 @@
 export const config = { runtime: 'edge' };
 
 import { getCorsHeaders, isDisallowedOrigin } from './_cors.js';
+import { recordAuditEvent } from './_audit.js';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID ?? '';
 const MAX_PREFS_BYTES = 256 * 1024; // 256 KB
@@ -170,6 +171,12 @@ export default async function handler(req) {
       }
 
       await redisSet(redisKey, JSON.stringify(prefs));
+      await recordAuditEvent(req, {
+        firebaseUid: uid,
+        action: 'prefs:save',
+        entityType: 'user_preferences',
+        meta: { sizeBytes: bodyText.length },
+      });
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
