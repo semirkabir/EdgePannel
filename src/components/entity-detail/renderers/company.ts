@@ -775,7 +775,23 @@ export class CompanyRenderer implements EntityRenderer {
       ? data.profile.marketCapitalization * 1_000_000
       : data.metrics?.marketCapitalization;
 
+    // Derive the latest reporting period to stamp the card
+    const latestPeriod = data.financialsQuarterly[0] ?? data.financialsAnnual[0] ?? null;
+
     const [factsCard, factsBody] = ctx.sectionCard('Key Facts');
+
+    // Filing period badge — show which 10-Q/10-K these fundamentals come from
+    if (latestPeriod) {
+      const isQuarterly = latestPeriod.quarter > 0;
+      const periodLabel = isQuarterly
+        ? `Q${latestPeriod.quarter} ${latestPeriod.year}`
+        : `FY${latestPeriod.year}`;
+      const formLabel = latestPeriod.form || (isQuarterly ? '10-Q' : '10-K');
+      const filedLabel = latestPeriod.filedDate ? ` · ${formLabel} filed ${fmtDate(latestPeriod.filedDate)}` : ` · ${formLabel}`;
+      const asof = ctx.el('div', 'cp-key-facts-asof', `as of ${periodLabel}${filedLabel}`);
+      factsBody.append(asof);
+    }
+
     const facts = ctx.el('div', 'cp-key-facts-grid');
     const addFact = (label: string, value: string | HTMLElement): void => {
       const item = ctx.el('div', 'cp-key-fact');

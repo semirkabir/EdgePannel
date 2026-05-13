@@ -173,6 +173,15 @@
   width: min(56vw, 760px);
 }
 
+.cp-key-facts-asof {
+  margin-bottom: 10px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
 .cp-key-facts-grid,
 .cp-statistics-grid,
 .cp-mini-kpi-grid {

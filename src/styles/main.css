@@ -8607,9 +8607,9 @@ body.playback-mode #shellGuidanceStrip {
 }
 
 .heatmap-cell {
-  padding: 8px 4px;
+  padding: 10px 4px;
   text-align: center;
-  border-radius: 2px;
+  border-radius: 4px;
   background: var(--border);
   border: none;
   cursor: pointer;
@@ -8619,7 +8619,7 @@ body.playback-mode #shellGuidanceStrip {
 }
 
 .heatmap-cell:hover {
-  filter: brightness(1.2);
+  filter: brightness(1.18);
   transform: scale(1.03);
   z-index: 1;
   position: relative;
@@ -8630,53 +8630,53 @@ body.playback-mode #shellGuidanceStrip {
   outline-offset: 1px;
 }
 
+/* Light tiers: stronger solid bg so text always has a legible base */
 .heatmap-cell.up-1 {
-  background: rgba(68, 255, 136, 0.20);
-  color: #fff;
+  background: rgba(34, 197, 94, 0.22);
+  color: #d4f7e4;
 }
 
 .heatmap-cell.up-2 {
-  background: rgba(68, 255, 136, 0.42);
-  color: #fff;
+  background: rgba(34, 197, 94, 0.46);
+  color: #e8fff2;
 }
 
 .heatmap-cell.up-3 {
-  background: rgba(68, 255, 136, 0.68);
-  color: #000;
+  background: rgba(34, 197, 94, 0.72);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .heatmap-cell.down-1 {
-  background: rgba(255, 68, 68, 0.20);
-  color: #fff;
+  background: rgba(239, 68, 68, 0.22);
+  color: #ffd4d4;
 }
 
 .heatmap-cell.down-2 {
-  background: rgba(255, 68, 68, 0.42);
-  color: #fff;
+  background: rgba(239, 68, 68, 0.46);
+  color: #ffe8e8;
 }
 
 .heatmap-cell.down-3 {
-  background: rgba(255, 68, 68, 0.68);
+  background: rgba(239, 68, 68, 0.72);
   color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .sector-name {
-  font-size: 9px;
-  color: var(--text-dim);
-  margin-bottom: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: inherit;
+  opacity: 0.82;
+  margin-bottom: 3px;
+  letter-spacing: 0.02em;
 }
 
 .sector-change {
-  font-size: 11px;
-  font-weight: bold;
-}
-
-.sector-change.up {
-  color: var(--green);
-}
-
-.sector-change.down {
-  color: var(--red);
+  font-size: 12px;
+  font-weight: 700;
+  color: inherit;
+  letter-spacing: 0.01em;
 }
 
 /* Markets */
