@@ -5,6 +5,7 @@ import type { SpeciesRecovery } from '@/services/conservation-data';
 import type { RenewableInstallation } from '@/services/renewable-installations';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import type { AisPositionData, MaritimeGeospatialFeature } from '@/services/maritime';
+import type { GeoPredictionMarket } from '@/services/prediction';
 import type { Earthquake } from '@/services/earthquakes';
 import type { WeatherAlert } from '@/services/weather';
 import type { StartupHub, Accelerator, TechHQ, CloudRegion } from '@/config/tech-geo';
@@ -13,6 +14,7 @@ import type { CommodityPort } from '@/config/commodity-geo';
 import type { TechHubActivity } from '@/services/tech-activity';
 import type { GeoHubActivity } from '@/services/geo-activity';
 import { isMobileDevice } from '@/utils';
+import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { fetchHotspotContext } from '@/services/gdelt-intel';
 import { isModifiedArticleClick, openArticleFromElement } from '@/services/article-open';
@@ -64,10 +66,30 @@ export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'bas
 
 interface PopupData {
   type: PopupType;
-  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | CyberThreat | NuclearFacility | EconomicCenter | GammaIrradiator | Pipeline | UnderseaCable | CableAdvisory | RepairShip | InternetOutage | AIDataCenter | AisDisruptionEvent | MaritimeGeospatialFeature | SocialUnrestEvent | AirportDelayAlert | PositionSample | MilitaryFlight | MilitaryVessel | MilitaryFlightCluster | MilitaryVesselCluster | NaturalEvent | Port | Spaceport | CriticalMineralProject | StartupHub | CloudRegion | TechHQ | Accelerator | TechEventPopupData | TechHQClusterData | TechEventClusterData | ProtestClusterData | DatacenterClusterData | TechHubActivity | GeoHubActivity | StockExchangePopupData | FinancialCenterPopupData | CentralBankPopupData | CommodityHubPopupData | IranEventPopupData | GpsJammingPopupData | GulfInvestment | TradeRouteSegment | CommodityPort | { region?: string; brightness?: number; frp?: number; acq_date?: string } | PositiveGeoEvent | KindnessPoint | UcdpGeoEvent | SpeciesRecovery | RenewableInstallation;
+  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | CyberThreat | NuclearFacility | EconomicCenter | GeoPredictionMarket | GammaIrradiator | Pipeline | UnderseaCable | CableAdvisory | RepairShip | InternetOutage | AIDataCenter | AisDisruptionEvent | MaritimeGeospatialFeature | SocialUnrestEvent | AirportDelayAlert | PositionSample | MilitaryFlight | MilitaryVessel | MilitaryFlightCluster | MilitaryVesselCluster | NaturalEvent | Port | Spaceport | CriticalMineralProject | StartupHub | CloudRegion | TechHQ | Accelerator | TechEventPopupData | TechHQClusterData | TechEventClusterData | ProtestClusterData | DatacenterClusterData | TechHubActivity | GeoHubActivity | StockExchangePopupData | FinancialCenterPopupData | CentralBankPopupData | CommodityHubPopupData | IranEventPopupData | GpsJammingPopupData | GulfInvestment | TradeRouteSegment | CommodityPort | { region?: string; brightness?: number; frp?: number; acq_date?: string } | PositiveGeoEvent | KindnessPoint | UcdpGeoEvent | SpeciesRecovery | RenewableInstallation;
   relatedNews?: NewsItem[];
   x: number;
   y: number;
+}
+
+function formatPredictionMarketVolume(volume?: number): string {
+  if (!volume) return 'Volume unavailable';
+  if (volume >= 1_000_000) return `$${(volume / 1_000_000).toFixed(1)}M volume`;
+  if (volume >= 1_000) return `$${(volume / 1_000).toFixed(0)}K volume`;
+  return `$${volume.toFixed(0)} volume`;
+}
+
+function renderPredictionMarketPopup(market: GeoPredictionMarket): string {
+  return `
+    <div class="popup-header">
+      <h3>${escapeHtml(market.title)}</h3>
+      <button class="popup-close">&times;</button>
+    </div>
+    <div class="popup-content">
+      <p><strong>Yes:</strong> ${Number(market.yesPrice ?? 50).toFixed(0)}%</p>
+      <p><strong>${escapeHtml(market.country)}</strong> &middot; ${escapeHtml(formatPredictionMarketVolume(market.volume))}</p>
+    </div>
+  `;
 }
 
 export class MapPopup {
@@ -398,6 +420,8 @@ export class MapPopup {
         return renderNuclearPopup(data.data as NuclearFacility);
       case 'economic':
         return renderEconomicPopup(data.data as EconomicCenter);
+      case 'predictionMarket':
+        return renderPredictionMarketPopup(data.data as GeoPredictionMarket);
       case 'irradiator':
         return renderIrradiatorPopup(data.data as GammaIrradiator);
       case 'pipeline':

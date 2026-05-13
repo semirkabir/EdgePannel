@@ -291,6 +291,35 @@ function getSnapshotChartData(data: CompanyEnriched, range: ChartRange): AreaDat
   }));
 }
 
+function percentChange(start: number | undefined, end: number | undefined): number | null {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || !start) return null;
+  return ((end! - start) / start) * 100;
+}
+
+function getRangeChangePercent(data: CompanyEnriched, range: ChartRange): number | null {
+  const quotePrice = Number.isFinite(data.quote?.price) ? data.quote!.price : undefined;
+
+  if (range === '1H') {
+    const sparkline = data.quote?.sparkline ?? [];
+    if (sparkline.length >= 2) {
+      return percentChange(sparkline[0], sparkline[sparkline.length - 1]);
+    }
+    return null;
+  }
+
+  if (range === '1D' && Number.isFinite(data.quote?.change)) {
+    return data.quote!.change;
+  }
+
+  const closes = getHistoricalCloses(data);
+  if (closes.length < 2) return null;
+
+  const latest = quotePrice ?? closes[closes.length - 1]!.close;
+  const sessionsBack = range === '1D' ? 1 : range === '1W' ? 5 : 21;
+  const startIndex = Math.max(0, closes.length - 1 - sessionsBack);
+  return percentChange(closes[startIndex]?.close, latest);
+}
+
 function chartEmptyMessage(data: CompanyEnriched, range: ChartRange): string {
   const hasDailyHistory = getHistoricalCloses(data).length >= 2;
   if (range === '1H' && hasDailyHistory) {
@@ -341,7 +370,12 @@ function makeChartRangeControls(): HTMLElement {
   return controls;
 }
 
-function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, positive: boolean): void {
+function appendLightweightChart(
+  parent: HTMLElement,
+  data: CompanyEnriched,
+  positive: boolean,
+  onRangeChange?: (range: ChartRange) => void,
+): void {
   const controls = makeChartRangeControls();
   const chartWrap = document.createElement('div');
   chartWrap.className = 'edp-tv-chart-wrap';
@@ -434,6 +468,7 @@ function appendLightweightChart(parent: HTMLElement, data: CompanyEnriched, posi
       }
       emptyEl.textContent = chartEmptyMessage(data, range);
       chart.timeScale().fitContent();
+      onRangeChange?.(range);
     };
     renderChart(activeRange, activeKind);
 
@@ -462,9 +497,7 @@ function renderLocalMarketSnapshot(wrap: Element, data: CompanyEnriched): void {
   const quote = data.quote;
   wrap.classList.add('edp-tradingview-fallback-active');
   const price = quote?.price != null ? fmtPrice(quote.price) : 'Quote unavailable';
-  const change = quote?.change ?? null;
-  const changeClass = change == null ? '' : change >= 0 ? 'edp-positive' : 'edp-negative';
-  const changeText = change == null ? '' : fmtChange(change);
+  const initialChange = getRangeChangePercent(data, '1D');
   const marketCap = data.profile?.marketCapitalization
     ? `MCAP ${fmtFinnhubMarketCap(data.profile.marketCapitalization)}`
     : '';
@@ -481,12 +514,20 @@ function renderLocalMarketSnapshot(wrap: Element, data: CompanyEnriched): void {
   priceEl.textContent = price;
   quoteCol.append(priceEl);
 
-  if (changeText) {
-    const changeEl = document.createElement('div');
-    changeEl.className = `edp-tv-fallback-change ${changeClass}`.trim();
-    changeEl.textContent = changeText;
-    quoteCol.append(changeEl);
-  }
+  const changeEl = document.createElement('div');
+  changeEl.className = 'edp-tv-fallback-change';
+  quoteCol.append(changeEl);
+
+  const updateRangeChange = (range: ChartRange): void => {
+    const rangeChange = getRangeChangePercent(data, range);
+    changeEl.classList.remove('edp-positive', 'edp-negative');
+    if (rangeChange == null) {
+      changeEl.textContent = '—';
+      return;
+    }
+    changeEl.classList.add(rangeChange >= 0 ? 'edp-positive' : 'edp-negative');
+    changeEl.textContent = fmtChange(rangeChange);
+  };
 
   const metaEl = document.createElement('div');
   metaEl.className = 'edp-tv-fallback-meta';
@@ -494,8 +535,9 @@ function renderLocalMarketSnapshot(wrap: Element, data: CompanyEnriched): void {
   quoteCol.append(metaEl);
 
   card.append(quoteCol);
-  appendLightweightChart(card, data, (change ?? 0) >= 0);
+  appendLightweightChart(card, data, (initialChange ?? 0) >= 0, updateRangeChange);
   wrap.append(card);
+  updateRangeChange('1D');
 }
 
 function renderMarketSnapshot(container: HTMLElement, data: CompanyEnriched): void {

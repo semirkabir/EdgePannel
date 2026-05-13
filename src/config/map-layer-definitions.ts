@@ -105,6 +105,7 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   fires:                    def('fires',                    ICONS.flame,     'fires',                  'Fires'),
   waterways:                def('waterways',                ICONS.waves,     'strategicWaterways',     'Strategic Waterways'),
   economic:                 def('economic',                 ICONS.chart,     'economicCenters',        'Economic Centers'),
+  polymarketMarkets:        def('polymarketMarkets',        ICONS.chart,     'polymarketMarkets',      'Prediction Markets', ['flat', 'globe']),
   minerals:                 def('minerals',                 ICONS.gem,       'criticalMinerals',       'Critical Minerals'),
   gpsJamming:               def('gpsJamming',               ICONS.satellite, 'gpsJamming',             'GPS Jamming', ['flat', 'globe'], _desktop ? 'locked' : undefined),
   ciiChoropleth:            def('ciiChoropleth',            ICONS.globe,     'ciiChoropleth',          'CII Instability', ['flat', 'globe'], _desktop ? 'enhanced' : undefined),
@@ -193,6 +194,7 @@ export function resolveLayerAccentColor(key: keyof MapLayers, theme: 'light' | '
     case 'fires': return light ? '#c2410c' : '#fb923c';
     case 'waterways': return light ? '#0369a1' : '#60a5fa';
     case 'economic': return light ? '#475569' : '#cbd5e1';
+    case 'polymarketMarkets': return light ? '#15803d' : '#86efac';
     case 'minerals': return light ? '#7c3aed' : '#c4b5fd';
     case 'positiveEvents': return light ? '#16a34a' : '#86efac';
     case 'kindness': return light ? '#db2777' : '#f9a8d4';
@@ -229,7 +231,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'ais', 'tradeRoutes', 'flights', 'protests',
     'ucdpEvents', 'displacement', 'climate', 'weather',
     'outages', 'cyberThreats', 'aptGroups', 'natural', 'fires',
-    'waterways', 'economic', 'minerals', 'gpsJamming',
+    'waterways', 'economic', 'polymarketMarkets', 'minerals', 'gpsJamming',
     'ciiChoropleth', 'governanceChoropleth', 'dayNight',
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions', 'techEvents',
     'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments',

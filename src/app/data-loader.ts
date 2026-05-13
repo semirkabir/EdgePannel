@@ -312,6 +312,9 @@ export class DataLoaderManager implements AppModule {
       if (isLocalDevTaskEnabled('markets') && this.hasActiveMarketsConsumer()) {
         tasks.push({ name: 'markets', task: runGuarded('markets', () => this.loadMarkets(), 'high') });
       }
+      if (this.isMapLayerEnabled('polymarketMarkets')) {
+        tasks.push({ name: 'prediction:polymarket-geo', task: runGuarded('prediction:polymarket-geo', () => this.loadPolymarketGeo(), 'normal') });
+      }
     }
 
     if (SITE_VARIANT === 'happy') {
@@ -475,6 +478,9 @@ export class DataLoaderManager implements AppModule {
         case 'gpsJamming':
           await sp?.loadIntelligenceSignals?.();
           break;
+        case 'polymarketMarkets':
+          await this.loadPolymarketGeo();
+          break;
       }
     } finally {
       this.ctx.inFlight.delete(layer);
@@ -625,6 +631,10 @@ export class DataLoaderManager implements AppModule {
 
   async loadPredictions(): Promise<void> {
     if (this.callbacks.dataRenderer) { await this.callbacks.dataRenderer.loadPredictions(); return; }
+  }
+
+  async loadPolymarketGeo(): Promise<void> {
+    if (this.callbacks.dataRenderer) { await this.callbacks.dataRenderer.loadPolymarketGeo(); return; }
   }
 
   async loadPizzInt(): Promise<void> {

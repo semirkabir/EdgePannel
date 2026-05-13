@@ -2989,52 +2989,6 @@ canvas,
               inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-.placeholder-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 200px;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.02) 0%, transparent 55%),
-    var(--panel-bg);
-  backdrop-filter: var(--panel-glass-blur);
-  -webkit-backdrop-filter: var(--panel-glass-blur);
-  border: 1px dashed var(--frame-border);
-  border-radius: 10px;
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  position: relative;
-  overflow: hidden;
-  opacity: 0.6;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2);
-}
-
-.placeholder-panel::before {
-  content: '';
-  position: absolute;
-  top: -100%; left: 0; right: 0; bottom: -100%;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(255, 255, 255, 0.03) 50%,
-    transparent 100%
-  );
-  background-size: 100% 4px;
-  animation: scanline 8s linear infinite;
-  pointer-events: none;
-}
-@keyframes scanline {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(50%); }
-}
-
-.placeholder-content {
-  opacity: 0.4;
-}
-
 /* .panel.resized: Custom height set - use grid-row span for height */
 
 /* Row span classes for resizable panels */
@@ -11060,6 +11014,22 @@ body.urgency-mode #header {
 .economic-marker:hover {
   opacity: 1;
   z-index: 100;
+}
+
+.polymarket-marker {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(var(--marker-scale, 1));
+  transform-origin: center;
+  cursor: var(--wm-cursor-pointer);
+  z-index: 56;
+  opacity: 0.9;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.polymarket-marker:hover {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(calc(var(--marker-scale, 1) * 1.12));
+  z-index: 110;
 }
 
 .economic-icon {

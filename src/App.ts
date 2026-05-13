@@ -792,6 +792,12 @@ export class App {
             intervalMs: intervals.predictions,
             condition: () => this.dataLoader.hasActivePredictionConsumer(),
           },
+          {
+            name: 'prediction:polymarket-geo',
+            fn: () => this.dataLoader.loadPolymarketGeo(),
+            intervalMs: 30 * 60 * 1000,
+            condition: () => this.state.mapLayers.polymarketMarkets,
+          },
           ...(isLocalDevTaskEnabled('pizzint') ? [{
             name: 'pizzint',
             fn: () => this.dataLoader.loadPizzInt(),

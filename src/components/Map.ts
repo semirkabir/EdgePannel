@@ -15,6 +15,7 @@ import type { GeoHubActivity } from '@/services/geo-activity';
 import { getNaturalEventIcon, getNaturalEventIconUrl } from '@/services/eonet';
 import type { WeatherAlert } from '@/services/weather';
 import { getSeverityColor, getWeatherAlertIconUrl } from '@/services/weather';
+import type { GeoPredictionMarket } from '@/services/prediction';
 import { startSmartPollLoop, type SmartPollLoopHandle } from '@/services/runtime';
 import { resolveInlineCursor } from '@/utils/forced-cursor';
 import {
@@ -80,6 +81,27 @@ import {
 } from '@/utils/time-range';
 export type { TimeRange };
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
+
+function getPredictionMarketColor(yesPrice: number): string {
+  const pct = Math.max(0, Math.min(100, Number.isFinite(yesPrice) ? yesPrice : 50));
+  if (pct <= 50) {
+    const tValue = pct / 50;
+    return `rgb(${Math.round(220 + (245 - 220) * tValue)}, ${Math.round(38 + (158 - 38) * tValue)}, ${Math.round(38 + (11 - 38) * tValue)})`;
+  }
+  const tValue = (pct - 50) / 50;
+  return `rgb(${Math.round(245 + (22 - 245) * tValue)}, ${Math.round(158 + (163 - 158) * tValue)}, ${Math.round(11 + (74 - 11) * tValue)})`;
+}
+
+function getPredictionMarketSize(volume?: number): number {
+  return Math.max(14, Math.min(28, 14 + Math.log10(Math.max(1, volume ?? 0)) * 2.2));
+}
+
+function formatPredictionMarketVolume(volume?: number): string {
+  if (!volume) return 'Volume unavailable';
+  if (volume >= 1_000_000) return `$${(volume / 1_000_000).toFixed(1)}M volume`;
+  if (volume >= 1_000) return `$${(volume / 1_000).toFixed(0)}K volume`;
+  return `$${volume.toFixed(0)} volume`;
+}
 
 const MAP_CONTROL_SETTINGS_KEY = 'wm-deck-control-settings';
 
@@ -216,6 +238,7 @@ export class MapComponent {
   private techEvents: TechEventMarker[] = [];
   private techActivities: TechHubActivity[] = [];
   private geoActivities: GeoHubActivity[] = [];
+  private polymarketMarkets: GeoPredictionMarket[] = [];
   private news: NewsItem[] = [];
   private onTechHubClick?: (hub: TechHubActivity) => void;
   private onGeoHubClick?: (hub: GeoHubActivity) => void;
@@ -612,6 +635,7 @@ export class MapComponent {
       'ais', 'flights', 'gpsJamming',
       'natural', 'weather',
       'economic',
+      'polymarketMarkets',
       'waterways',
       'ciiChoropleth',
       'startupHubs', 'techHQs', 'accelerators', 'cloudRegions', 'techEvents',
@@ -1957,6 +1981,34 @@ export class MapComponent {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
           });
+        });
+
+        this.overlays.appendChild(div);
+      });
+    }
+
+    // Geo-tagged Polymarket prediction markets
+    if (this.state.layers.polymarketMarkets) {
+      this.polymarketMarkets.forEach((market) => {
+        const pos = projection([market.lon, market.lat]);
+        if (!pos) return;
+
+        const size = getPredictionMarketSize(market.volume);
+        const div = document.createElement('div');
+        div.className = 'polymarket-marker';
+        div.style.left = `${pos[0]}px`;
+        div.style.top = `${pos[1]}px`;
+        div.style.width = `${size}px`;
+        div.style.height = `${size}px`;
+        div.style.borderRadius = '50%';
+        div.style.background = getPredictionMarketColor(market.yesPrice);
+        div.style.border = '2px solid rgba(255,255,255,0.86)';
+        div.style.boxShadow = '0 0 0 2px rgba(0,0,0,0.24), 0 4px 12px rgba(0,0,0,0.32)';
+        div.title = `${market.title}\nYes ${market.yesPrice.toFixed(0)}% - ${formatPredictionMarketVolume(market.volume)}`;
+
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.onEntityClick?.('predictionMarket', market);
         });
 
         this.overlays.appendChild(div);
@@ -3633,8 +3685,13 @@ export class MapComponent {
     this.render();
   }
 
+  public setPolymarketMarkets(markets: GeoPredictionMarket[]): void {
+    this.polymarketMarkets = markets;
+    this.render();
+  }
+
   private static readonly ASYNC_DATA_LAYERS: Set<keyof MapLayers> = new Set([
-    'natural', 'weather', 'outages', 'ais', 'protests', 'flights', 'military', 'techEvents',
+    'natural', 'weather', 'outages', 'ais', 'protests', 'flights', 'military', 'techEvents', 'polymarketMarkets',
   ]);
 
   public toggleLayer(layer: keyof MapLayers, source: 'user' | 'programmatic' = 'user'): void {

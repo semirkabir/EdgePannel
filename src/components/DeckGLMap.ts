@@ -118,6 +118,7 @@ import type { KindnessPoint } from '@/services/kindness-data';
 import type { HappinessData } from '@/services/happiness-data';
 import type { RenewableInstallation } from '@/services/renewable-installations';
 import type { SpeciesRecovery } from '@/services/conservation-data';
+import type { GeoPredictionMarket } from '@/services/prediction';
 import { getCountriesGeoJson, getCountryAtCoordinates, getCountryBbox } from '@/services/country-geometry';
 import type { FeatureCollection, Geometry } from 'geojson';
 import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferences';
@@ -301,6 +302,11 @@ interface TechEventMarker {
   daysUntil: number;
 }
 
+type DeckPolymarketMarket = GeoPredictionMarket & {
+  renderLon: number;
+  renderLat: number;
+};
+
 // View presets with longitude, latitude, zoom
 const VIEW_PRESETS: Record<DeckMapView, { longitude: number; latitude: number; zoom: number }> = {
   global: { longitude: 0, latitude: 20, zoom: 1.5 },
@@ -402,6 +408,7 @@ function refreshColorsIfThemeChanged(): void {
 }
 
 const SHARED_LAYER_ICON_MAPPING = { marker: { x: 0, y: 0, width: 32, height: 32, mask: false } };
+const TINTED_LAYER_ICON_MAPPING = { marker: { x: 0, y: 0, width: 32, height: 32, mask: true } };
 const WEATHER_PNG_ICON_MAPPING = { marker: { x: 0, y: 0, width: 512, height: 512, mask: false } };
 const WEATHER_THUNDERSTORM_ICON_ATLAS = 'https://cdn-icons-png.flaticon.com/512/3104/3104612.png';
 const WEATHER_FLOOD_ICON_ATLAS = '/icons/Flood.png';
@@ -469,6 +476,53 @@ function getSharedLayerIconAtlas(layer: keyof MapLayers, theme: 'light' | 'dark'
   const atlas = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   SHARED_LAYER_ICON_ATLAS_CACHE.set(cacheKey, atlas);
   return atlas;
+}
+
+function hashStringToUnit(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 0xffffffff;
+}
+
+function getPolymarketJitter(market: GeoPredictionMarket): { lon: number; lat: number } {
+  const seed = market.slug || market.url || market.title;
+  const angle = hashStringToUnit(`${seed}:angle`) * Math.PI * 2;
+  const radius = hashStringToUnit(`${seed}:radius`) * 0.6;
+  return {
+    lon: Math.cos(angle) * radius,
+    lat: Math.sin(angle) * radius,
+  };
+}
+
+function getPolymarketColor(yesPrice: number): [number, number, number, number] {
+  const pct = Math.max(0, Math.min(100, Number.isFinite(yesPrice) ? yesPrice : 50));
+  const red: [number, number, number] = [220, 38, 38];
+  const amber: [number, number, number] = [245, 158, 11];
+  const green: [number, number, number] = [22, 163, 74];
+  const [from, to, tValue] = pct <= 50
+    ? [red, amber, pct / 50] as const
+    : [amber, green, (pct - 50) / 50] as const;
+  return [
+    Math.round(from[0] + (to[0] - from[0]) * tValue),
+    Math.round(from[1] + (to[1] - from[1]) * tValue),
+    Math.round(from[2] + (to[2] - from[2]) * tValue),
+    230,
+  ];
+}
+
+function getPolymarketSize(volume?: number): number {
+  const scaled = 14 + Math.log10(Math.max(1, volume ?? 0)) * 2.2;
+  return Math.max(14, Math.min(28, scaled));
+}
+
+function formatPolymarketVolume(volume?: number): string {
+  if (!volume) return 'Volume unavailable';
+  if (volume >= 1_000_000) return `$${(volume / 1_000_000).toFixed(1)}M volume`;
+  if (volume >= 1_000) return `$${(volume / 1_000).toFixed(0)}K volume`;
+  return `$${volume.toFixed(0)} volume`;
 }
 
 const CONFLICT_ZONES_GEOJSON: GeoJSON.FeatureCollection = {
@@ -540,6 +594,7 @@ export class DeckGLMap {
   private tradeRouteSegments: TradeRouteSegment[] = resolveTradeRouteSegments();
   private positiveEvents: PositiveGeoEvent[] = [];
   private kindnessPoints: KindnessPoint[] = [];
+  private polymarketMarkets: DeckPolymarketMarket[] = [];
 
   // Phase 8 overlay data
   private happinessScores: Map<string, number> = new Map();
@@ -1687,6 +1742,12 @@ export class DeckGLMap {
     if (mapLayers.economic && this.isLayerVisible('economic')) {
       layers.push(this.createEconomicCentersLayer());
     }
+
+    // Geo-tagged Polymarket prediction markets
+    if (mapLayers.polymarketMarkets && this.polymarketMarkets.length > 0) {
+      layers.push(this.createPolymarketLayer(this.polymarketMarkets));
+    }
+    layers.push(this.createEmptyGhost('polymarkets-layer'));
 
     // Finance variant layers
     if (mapLayers.stockExchanges) {
@@ -2860,6 +2921,23 @@ export class DeckGLMap {
     });
   }
 
+  private createPolymarketLayer(markets: DeckPolymarketMarket[]): IconLayer<DeckPolymarketMarket> {
+    return new IconLayer<DeckPolymarketMarket>({
+      id: 'polymarkets-layer',
+      data: markets,
+      getPosition: (d) => [d.renderLon, d.renderLat],
+      getIcon: () => 'marker',
+      iconAtlas: getSharedLayerIconAtlas('polymarketMarkets'),
+      iconMapping: TINTED_LAYER_ICON_MAPPING,
+      getSize: (d) => getPolymarketSize(d.volume),
+      sizeMinPixels: 14,
+      sizeMaxPixels: 28,
+      getColor: (d) => getPolymarketColor(d.yesPrice),
+      pickable: true,
+      billboard: true,
+    });
+  }
+
   private createStockExchangesLayer(): IconLayer {
     return new IconLayer({
       id: 'stock-exchanges-layer',
@@ -3927,6 +4005,8 @@ export class DeckGLMap {
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${t('components.deckgl.layers.strategicWaterways')}</div>` };
       case 'economic-centers-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.country)}</div>` };
+      case 'polymarkets-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.title)}</strong><br/>Yes ${Number(obj.yesPrice ?? 50).toFixed(0)}% &middot; ${text(formatPolymarketVolume(obj.volume))}</div>` };
       case 'stock-exchanges-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.shortName)}</strong><br/>${text(obj.city)}, ${text(obj.country)}</div>` };
       case 'financial-centers-layer':
@@ -4355,6 +4435,7 @@ export class DeckGLMap {
       'natural-events-layer': 'natEvent',
       'waterways-layer': 'waterway',
       'economic-centers-layer': 'economic',
+      'polymarkets-layer': 'predictionMarket',
       'stock-exchanges-layer': 'stockExchange',
       'financial-centers-layer': 'financialCenter',
       'central-banks-layer': 'centralBank',
@@ -4536,6 +4617,7 @@ export class DeckGLMap {
       'natural-events-layer': 'natEvent',
       'waterways-layer': 'waterway',
       'economic-centers-layer': 'economic',
+      'polymarkets-layer': 'predictionMarket',
       'stock-exchanges-layer': 'stockExchange',
       'financial-centers-layer': 'financialCenter',
       'central-banks-layer': 'centralBank',
@@ -6635,6 +6717,18 @@ export class DeckGLMap {
   public setRenewableInstallations(installations: RenewableInstallation[]): void {
     this.renewableInstallations = installations;
     this.render('renewableInstallations');
+  }
+
+  public setPolymarketMarkets(markets: GeoPredictionMarket[]): void {
+    this.polymarketMarkets = markets.map((market) => {
+      const jitter = getPolymarketJitter(market);
+      return {
+        ...market,
+        renderLon: market.lon + jitter.lon,
+        renderLat: market.lat + jitter.lat,
+      };
+    });
+    this.render('polymarketMarkets');
   }
 
   public updateHotspotActivity(news: NewsItem[]): void {

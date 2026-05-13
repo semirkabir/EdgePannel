@@ -46,6 +46,7 @@ import { fetchCountryMacroData } from '@/services/economic';
 export class CountryIntelManager implements AppModule {
   private ctx: AppContext;
   private briefRequestToken = 0;
+  private unsubscribeNewsUpdates: (() => void) | null = null;
 
   constructor(ctx: AppContext) {
     this.ctx = ctx;
@@ -53,9 +54,19 @@ export class CountryIntelManager implements AppModule {
 
   init(): void {
     this.setupCountryIntel();
+    this.unsubscribeNewsUpdates = this.ctx.eventBus.on('news:all-updated', () => {
+      const page = this.ctx.countryBriefPage;
+      const code = page?.getCode();
+      const name = page?.getName();
+      if (!page?.isVisible() || !code || !name || code === '__loading__' || code === '__error__') return;
+      this.refreshNewsForPanel(code, name);
+      page.updateSignalDetails?.(this.buildSignalDetails(code, name));
+    });
   }
 
   destroy(): void {
+    this.unsubscribeNewsUpdates?.();
+    this.unsubscribeNewsUpdates = null;
     this.ctx.countryTimeline?.destroy();
     this.ctx.countryTimeline = null;
     this.ctx.countryBriefPage = null;
@@ -405,8 +416,9 @@ export class CountryIntelManager implements AppModule {
     if (searchTerms.length === 0) return { items: [], hasDirectCoverage: false };
 
     const otherCountryTerms = getOtherCountryTerms(code);
+    const allNews = this.getAllNews();
 
-    const directItems = this.ctx.allNews
+    const directItems = allNews
       .filter((n) => {
         const titleLower = n.title.toLowerCase();
         const ourPos = firstMentionPosition(titleLower, searchTerms);
@@ -426,9 +438,10 @@ export class CountryIntelManager implements AppModule {
     const page = this.ctx.countryBriefPage;
     if (!page) return;
     const { items, hasDirectCoverage } = this.getFilteredNewsForCountry(code, country);
+    const allNews = this.getAllNews();
     const panelItems = hasDirectCoverage
       ? items
-      : [...this.ctx.allNews]
+      : [...allNews]
           .sort((a, b) => {
             const severityDelta = this.newsSeverityRank(b) - this.newsSeverityRank(a);
             if (severityDelta !== 0) return severityDelta;
@@ -446,6 +459,10 @@ export class CountryIntelManager implements AppModule {
           updatedAt: new Date(),
         };
     page.updateNews(panelItems, availability);
+  }
+
+  private getAllNews(): NewsItem[] {
+    return this.ctx.newsStore.allNews.length > 0 ? this.ctx.newsStore.allNews : this.ctx.allNews;
   }
 
   private newsSeverityRank(item: NewsItem): number {

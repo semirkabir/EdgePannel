@@ -97,6 +97,7 @@ const layers = {
   sanctions: false,
   weather: false,
   economic: false,
+  polymarketMarkets: false,
   waterways: false,
   outages: false,
   cyberThreats: false,

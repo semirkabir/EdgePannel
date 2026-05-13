@@ -42,6 +42,7 @@ import type { GpsJamHex } from '@/services/gps-interference';
 import type { IranEvent } from '@/services/conflict';
 import type { MarketplaceRuntimeLayer } from '@/types/marketplace';
 import type { MaritimeGeospatialSnapshot } from '@/services/maritime';
+import type { GeoPredictionMarket } from '@/services/prediction';
 
 export type { TimeRange };
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -133,6 +134,7 @@ export class MapContainer {
   private cachedEscalationVessels: MilitaryVessel[] | null = null;
   private cachedMarketplaceLayers: MarketplaceRuntimeLayer[] | null = null;
   private cachedMaritimeGeospatial: MaritimeGeospatialSnapshot | null = null;
+  private cachedPolymarketMarkets: GeoPredictionMarket[] | null = null;
 
   constructor(container: HTMLElement, initialState: MapContainerState, preferGlobe = false) {
     this.container = container;
@@ -300,6 +302,7 @@ export class MapContainer {
     if (this.cachedCIIScores) this.setCIIScores(this.cachedCIIScores);
     if (this.cachedSpeciesRecovery) this.setSpeciesRecoveryZones(this.cachedSpeciesRecovery);
     if (this.cachedRenewableInstallations) this.setRenewableInstallations(this.cachedRenewableInstallations);
+    if (this.cachedPolymarketMarkets) this.setPolymarketMarkets(this.cachedPolymarketMarkets);
     if (this.cachedHotspotActivity) this.updateHotspotActivity(this.cachedHotspotActivity);
     if (this.cachedEscalationFlights && this.cachedEscalationVessels) this.updateMilitaryForEscalation(this.cachedEscalationFlights, this.cachedEscalationVessels);
     if (this.cachedMarketplaceLayers) this.setMarketplaceLayers(this.cachedMarketplaceLayers);
@@ -618,6 +621,15 @@ export class MapContainer {
       this.deckGLMap?.setRenewableInstallations(installations);
     }
     // SVG map does not support renewable installations layer
+  }
+
+  public setPolymarketMarkets(markets: GeoPredictionMarket[]): void {
+    this.cachedPolymarketMarkets = markets;
+    if (this.useDeckGL) {
+      this.deckGLMap?.setPolymarketMarkets(markets);
+    } else {
+      this.svgMap?.setPolymarketMarkets(markets);
+    }
   }
 
   public updateHotspotActivity(news: NewsItem[]): void {

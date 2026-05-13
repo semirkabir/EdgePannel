@@ -9,6 +9,12 @@ export interface PredictionMarket {
   slug?: string;
 }
 
+export interface GeoPredictionMarket extends PredictionMarket {
+  country: string;
+  lat: number;
+  lon: number;
+}
+
 export interface PolymarketMarket {
   question: string;
   outcomes?: string;

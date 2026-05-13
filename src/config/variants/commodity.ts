@@ -87,6 +87,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   // Sanctions / financial context
   sanctions: true,        // Sanctions directly impact commodity trade
   economic: true,         // Economic centers = commodity demand signals
+  polymarketMarkets: false,
   // Environmental / operational risk
   fires: true,            // Fires near mining/forestry operations
   climate: true,          // Climate events disrupt supply chains
@@ -154,6 +155,7 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   datacenters: false,
   sanctions: false,
   economic: false,
+  polymarketMarkets: false,
   fires: false,
   climate: false,
   startupHubs: false,

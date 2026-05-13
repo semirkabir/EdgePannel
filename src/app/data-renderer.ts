@@ -10,6 +10,7 @@ import {
   fetchCrypto,
   fetchMarketRiskOverlay,
   fetchPredictions,
+  fetchGeoTaggedMarkets,
   fetchFredData,
   fetchOilAnalytics,
   fetchRecentAwards,
@@ -301,6 +302,21 @@ export class DataRenderer {
       supplementalBus.clear('predictions_deep');
       dataFreshness.recordError('polymarket', String(error));
       dataFreshness.recordError('predictions', String(error));
+    }
+  }
+
+  async loadPolymarketGeo(): Promise<void> {
+    try {
+      const markets = await fetchGeoTaggedMarkets();
+      this.ctx.intelligenceStore.setPolymarketGeo(markets);
+      this.ctx.map?.setPolymarketMarkets(markets);
+      this.ctx.map?.setLayerReady('polymarketMarkets', markets.length > 0);
+      this.ctx.statusPanel?.updateFeed('Polymarket Map', { status: 'ok', itemCount: markets.length });
+      dataFreshness.recordUpdate('polymarket', markets.length);
+    } catch (error) {
+      this.ctx.map?.setLayerReady('polymarketMarkets', false);
+      this.ctx.statusPanel?.updateFeed('Polymarket Map', { status: 'error', errorMessage: String(error) });
+      dataFreshness.recordError('polymarket', String(error));
     }
   }
 

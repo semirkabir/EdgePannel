@@ -1379,50 +1379,9 @@ export class PanelLayoutManager implements AppModule {
     }
 
     this.mountAddWidgetBtn(panelsGrid);
-    this.ensurePlaceholders(panelsGrid);
     this.setupPanelCollapseHandle();
     this.setupLayoutToggle();
     this.setupScrollToTopButtons();
-  }
-
-  private ensurePlaceholders(grid: HTMLElement): void {
-    const updatePlaceholders = () => {
-      grid.querySelectorAll('.placeholder-panel').forEach(p => p.remove());
-      if (this.ctx.isMobile || this.getEffectiveUltraWide()) return;
-      
-      const childCount = Array.from(grid.children).filter(c =>
-        !c.classList.contains('add-widget-btn') &&
-        !c.classList.contains('placeholder-panel')
-      ).length;
-
-      const needed = Math.max(0, 8 - childCount);
-      for (let i = 0; i < needed; i++) {
-        const p = document.createElement('div');
-        p.className = 'placeholder-panel';
-        p.innerHTML = '<div class="placeholder-content">SYSTEM STANDBY</div>';
-        const addBtn = grid.querySelector('.add-widget-btn');
-        if (addBtn) {
-          grid.insertBefore(p, addBtn);
-        } else {
-          grid.appendChild(p);
-        }
-      }
-    };
-
-    updatePlaceholders();
-
-    // Use a MutationObserver to re-evaluate placeholders if panels are added/removed
-    const observer = new MutationObserver((mutations) => {
-      const relevant = mutations.some(m => 
-        Array.from(m.addedNodes).some(n => (n as HTMLElement).nodeType === 1 && !(n as HTMLElement).classList.contains('placeholder-panel')) ||
-        Array.from(m.removedNodes).some(n => (n as HTMLElement).nodeType === 1 && !(n as HTMLElement).classList.contains('placeholder-panel'))
-      );
-      if (relevant) {
-        updatePlaceholders();
-      }
-    });
-    observer.observe(grid, { childList: true });
-    this.panelDragCleanupHandlers.push(() => observer.disconnect());
   }
 
   private layoutMode: 'bottom' | 'side' = 'bottom';
@@ -1470,7 +1429,11 @@ export class PanelLayoutManager implements AppModule {
       return svg;
     };
 
-    const createScrollBtns = (container: HTMLElement, getTarget: () => HTMLElement): void => {
+    const createScrollBtns = (
+      container: HTMLElement,
+      getTarget: () => HTMLElement,
+      getScrollBounds?: (target: HTMLElement) => { start: number; end: number },
+    ): void => {
       const topBtn = document.createElement('button');
       topBtn.className = 'panel-scroll-btn panel-scroll-btn--top';
       topBtn.setAttribute('aria-label', 'Scroll to top');
@@ -1487,11 +1450,27 @@ export class PanelLayoutManager implements AppModule {
       let currentTarget = getTarget();
       let btnLeft = 0;
 
+      const getBounds = (): { start: number; end: number } => {
+        if (getScrollBounds) return getScrollBounds(currentTarget);
+        return {
+          start: 0,
+          end: Math.max(0, currentTarget.scrollHeight - currentTarget.clientHeight),
+        };
+      };
+
+      const hideBtns = (): void => {
+        topBtn.classList.remove('visible');
+        bottomBtn.classList.remove('visible');
+      };
+
       const positionBtns = (): void => {
         const rect = container.getBoundingClientRect();
+        const targetRect = currentTarget.getBoundingClientRect();
+        const visibleTop = Math.max(rect.top, targetRect.top, 0);
+        const visibleBottom = Math.min(rect.bottom, targetRect.bottom, window.innerHeight);
         btnLeft = rect.left + rect.width / 2;
-        const topY = rect.top + 12;
-        const bottomY = rect.bottom - 44;
+        const topY = visibleTop + 12;
+        const bottomY = visibleBottom - 44;
         topBtn.style.left = `${btnLeft}px`;
         topBtn.style.top = `${topY}px`;
         bottomBtn.style.left = `${btnLeft}px`;
@@ -1499,49 +1478,75 @@ export class PanelLayoutManager implements AppModule {
       };
 
       const updateVisibility = (): void => {
+        if (!container.isConnected || container.offsetParent === null) {
+          hideBtns();
+          return;
+        }
         const { scrollTop, scrollHeight, clientHeight } = currentTarget;
-        const scrollable = scrollHeight > clientHeight + 10;
-        const scrolled = scrollTop > 60;
-        const atBottom = scrollTop + clientHeight >= scrollHeight - 2;
+        const { start, end } = getBounds();
+        const scrollable = scrollHeight > clientHeight + 10 && end > start + 10;
+        const scrolled = scrollTop > start + 60;
+        const atBottom = scrollTop >= end - 2;
         positionBtns();
         topBtn.classList.toggle('visible', scrollable && scrolled);
         bottomBtn.classList.toggle('visible', scrollable && !atBottom);
       };
+
+      let observedTarget = currentTarget;
+      let ro: ResizeObserver;
 
       const attachToTarget = (): void => {
         const next = getTarget();
         if (next !== currentTarget) {
           currentTarget.removeEventListener('scroll', updateVisibility);
           currentTarget = next;
+          ro.unobserve(observedTarget);
+          observedTarget = currentTarget;
+          ro.observe(observedTarget);
           currentTarget.addEventListener('scroll', updateVisibility, { passive: true });
         }
         updateVisibility();
       };
 
       currentTarget.addEventListener('scroll', updateVisibility, { passive: true });
-      const ro = new ResizeObserver(() => {
+      ro = new ResizeObserver(() => {
         attachToTarget();
         positionBtns();
       });
       ro.observe(container);
+      ro.observe(observedTarget);
 
-      const onWinResize = () => positionBtns();
+      const mo = new MutationObserver(() => {
+        attachToTarget();
+        updateVisibility();
+      });
+      mo.observe(container, { childList: true, subtree: true });
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) mo.observe(mainContent, { attributes: true, attributeFilter: ['class'] });
+
+      const onWinResize = () => {
+        attachToTarget();
+        updateVisibility();
+      };
       window.addEventListener('resize', onWinResize, { passive: true });
 
       updateVisibility();
 
       topBtn.addEventListener('click', () => {
-        getTarget().scrollTo({ top: 0, behavior: 'smooth' });
+        attachToTarget();
+        currentTarget.scrollTo({ top: getBounds().start, behavior: 'smooth' });
       });
       bottomBtn.addEventListener('click', () => {
-        const t = getTarget();
-        t.scrollTo({ top: t.scrollHeight, behavior: 'smooth' });
+        attachToTarget();
+        currentTarget.scrollTo({ top: getBounds().end, behavior: 'smooth' });
       });
 
       const origDestroy = (this as any)._scrollBtnCleanup;
       (this as any)._scrollBtnCleanup = () => {
         origDestroy?.();
+        currentTarget.removeEventListener('scroll', updateVisibility);
         ro.disconnect();
+        mo.disconnect();
         window.removeEventListener('resize', onWinResize);
         topBtn.remove();
         bottomBtn.remove();
@@ -1551,8 +1556,22 @@ export class PanelLayoutManager implements AppModule {
     const panelsGrid = document.getElementById('panelsGrid');
     const mainContent = document.querySelector('.main-content') as HTMLElement | null;
     if (panelsGrid && mainContent) {
-      createScrollBtns(panelsGrid, () =>
-        mainContent.classList.contains('layout-side') ? panelsGrid : mainContent
+      createScrollBtns(
+        panelsGrid,
+        () => mainContent.classList.contains('layout-side') ? panelsGrid : mainContent,
+        (target) => {
+          if (target === panelsGrid) {
+            return {
+              start: 0,
+              end: Math.max(0, panelsGrid.scrollHeight - panelsGrid.clientHeight),
+            };
+          }
+          const start = panelsGrid.offsetTop;
+          return {
+            start,
+            end: Math.max(start, target.scrollHeight - target.clientHeight),
+          };
+        },
       );
     }
 

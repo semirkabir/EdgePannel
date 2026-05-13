@@ -19,7 +19,7 @@ const BASE_LAYERS: MapLayers = {
   iranAttacks: false, gpsJamming: false,
   conflicts: false, bases: false, cables: false, pipelines: false,
   hotspots: false, ais: false, nuclear: false, irradiators: false,
-  sanctions: false, weather: false, economic: false, waterways: false,
+  sanctions: false, weather: false, economic: false, polymarketMarkets: false, waterways: false,
   outages: false, cyberThreats: false, datacenters: false, protests: false,
   flights: false, military: false, natural: false, spaceports: false,
   minerals: false, fires: false,

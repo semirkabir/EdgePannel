@@ -625,6 +625,8 @@ export interface MapLayers {
   renewableInstallations: boolean;
   // Trade route layers
   tradeRoutes: boolean;
+  // Prediction market layer
+  polymarketMarkets: boolean;
   // Iran attacks layer
   iranAttacks: boolean;
   // GPS/GNSS interference layer

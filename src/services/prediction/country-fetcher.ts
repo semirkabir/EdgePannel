@@ -1,4 +1,4 @@
-import type { PredictionMarket } from './types';
+import type { GeoPredictionMarket, PredictionMarket } from './types';
 import { isMarketExcluded, parseMarketPrice, buildMarketUrl, parseEndDate, isExpired } from './market-utils';
 import { fetchEventsByTag } from './polymarket-client';
 
@@ -47,6 +47,51 @@ const COUNTRY_TAG_MAP: Record<string, string[]> = {
   'Vietnam': ['asia', 'world'],
 };
 
+const COUNTRY_CENTROIDS: Record<string, [lon: number, lat: number]> = {
+  'United States': [-98.58, 39.83],
+  'Russia': [105.32, 61.52],
+  'Ukraine': [31.17, 48.38],
+  'China': [104.20, 35.86],
+  'Taiwan': [120.96, 23.70],
+  'Israel': [34.85, 31.05],
+  'Palestine': [35.23, 31.95],
+  'Iran': [53.69, 32.43],
+  'Saudi Arabia': [45.08, 23.89],
+  'Turkey': [35.24, 38.96],
+  'India': [78.96, 20.59],
+  'Japan': [138.25, 36.20],
+  'South Korea': [127.77, 35.91],
+  'North Korea': [127.51, 40.34],
+  'United Kingdom': [-3.44, 55.38],
+  'France': [2.21, 46.23],
+  'Germany': [10.45, 51.17],
+  'Italy': [12.57, 41.87],
+  'Poland': [19.15, 51.92],
+  'Brazil': [-51.93, -14.24],
+  'United Arab Emirates': [53.85, 23.42],
+  'Mexico': [-102.55, 23.63],
+  'Argentina': [-63.62, -38.42],
+  'Canada': [-106.35, 56.13],
+  'Australia': [133.78, -25.27],
+  'South Africa': [22.94, -30.56],
+  'Nigeria': [8.68, 9.08],
+  'Egypt': [30.80, 26.82],
+  'Pakistan': [69.35, 30.38],
+  'Syria': [38.99, 34.80],
+  'Yemen': [48.52, 15.55],
+  'Lebanon': [35.86, 33.85],
+  'Iraq': [43.68, 33.22],
+  'Afghanistan': [67.71, 33.94],
+  'Venezuela': [-66.59, 6.42],
+  'Colombia': [-74.30, 4.57],
+  'Sudan': [30.22, 12.86],
+  'Myanmar': [95.96, 21.92],
+  'Philippines': [121.77, 12.88],
+  'Indonesia': [113.92, -0.79],
+  'Thailand': [100.99, 15.87],
+  'Vietnam': [108.28, 14.06],
+};
+
 function getCountryVariants(country: string): string[] {
   const lower = country.toLowerCase();
   const variants = [lower];
@@ -83,6 +128,31 @@ function getCountryVariants(country: string): string[] {
   const extra = VARIANT_MAP[lower];
   if (extra) variants.push(...extra);
   return variants;
+}
+
+function countVariantMatches(title: string, country: string): number {
+  const lower = title.toLowerCase();
+  return getCountryVariants(country).reduce((count, variant) => count + (lower.includes(variant) ? 1 : 0), 0);
+}
+
+async function runThrottled<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  let nextIndex = 0;
+
+  async function runWorker(): Promise<void> {
+    for (;;) {
+      const index = nextIndex++;
+      if (index >= items.length) return;
+      results[index] = await worker(items[index]!);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => runWorker()));
+  return results;
 }
 
 export async function fetchCountryMarkets(country: string): Promise<PredictionMarket[]> {
@@ -150,4 +220,49 @@ export async function fetchCountryMarkets(country: string): Promise<PredictionMa
     console.error(`[Polymarket] fetchCountryMarkets(${country}) failed:`, e);
     return [];
   }
+}
+
+export async function fetchGeoTaggedMarkets(): Promise<GeoPredictionMarket[]> {
+  type Candidate = {
+    market: GeoPredictionMarket;
+    matchScore: number;
+  };
+
+  const countries = Object.keys(COUNTRY_TAG_MAP).filter(country => COUNTRY_CENTROIDS[country]);
+  const results = await runThrottled(countries, 6, async (country) => {
+    const centroid = COUNTRY_CENTROIDS[country];
+    if (!centroid) return [] as Candidate[];
+
+    const markets = await fetchCountryMarkets(country);
+    const [lon, lat] = centroid;
+    return markets.map((market): Candidate => ({
+      market: {
+        ...market,
+        country,
+        lon,
+        lat,
+      },
+      matchScore: countVariantMatches(market.title, country),
+    }));
+  });
+
+  const deduped = new Map<string, Candidate>();
+  for (const candidates of results) {
+    for (const candidate of candidates) {
+      const key = candidate.market.slug || candidate.market.url || candidate.market.title;
+      const existing = deduped.get(key);
+      if (
+        !existing ||
+        candidate.matchScore > existing.matchScore ||
+        (candidate.matchScore === existing.matchScore && (candidate.market.volume ?? 0) > (existing.market.volume ?? 0))
+      ) {
+        deduped.set(key, candidate);
+      }
+    }
+  }
+
+  return [...deduped.values()]
+    .map(({ market }) => market)
+    .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
+    .slice(0, 200);
 }
