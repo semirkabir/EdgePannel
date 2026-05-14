@@ -15,7 +15,7 @@ api/\[\[...path\]\].js
 .agent/
 .factory/
 .windsurf/
-skills/
+/skills/
 ideas/
 docs/internal/
 internal/
