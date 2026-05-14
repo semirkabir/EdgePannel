@@ -1,6 +1,5 @@
 import { isDesktopRuntime } from './runtime';
 import { invokeTauri } from './tauri-bridge';
-import { isStorageQuotaExceeded, isQuotaError, markStorageQuotaExceeded } from '@/utils';
 
 type CacheEnvelope<T> = {
   key: string;
@@ -14,6 +13,19 @@ const CACHE_DB_VERSION = 1;
 const CACHE_STORE = 'entries';
 
 let cacheDbPromise: Promise<IDBDatabase> | null = null;
+let storageQuotaExceeded = false;
+
+function isStorageQuotaExceeded(): boolean {
+  return storageQuotaExceeded;
+}
+
+function isQuotaError(e: unknown): boolean {
+  return e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22);
+}
+
+function markStorageQuotaExceeded(): void {
+  storageQuotaExceeded = true;
+}
 
 function isIndexedDbAvailable(): boolean {
   return typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';

@@ -11022,7 +11022,7 @@ body.urgency-mode #header {
   transform-origin: center;
   cursor: var(--wm-cursor-pointer);
   z-index: 56;
-  opacity: 0.9;
+  opacity: 0.92;
   transition: opacity 0.16s ease, transform 0.16s ease;
 }
 

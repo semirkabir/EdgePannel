@@ -1,7 +1,9 @@
 export type { PredictionMarket, GeoPredictionMarket, PredictionMarketDetailResponse, PolymarketMarket, PolymarketEvent, BootstrapPredictionData } from './types';
 export { isMarketExcluded, parseMarketPrice, buildMarketUrl, extractMarketSlug, parseEndDate, isExpired, normalizePredictionMarket, deduplicateMarkets, parseNumber, normalizeTokenIds, parseEpochMillis } from './market-utils';
 export { fetchPredictions, getPredictionMarketDetail, fetchMarketDetails, polyFetch, fetchEventsByTag, client } from './polymarket-client';
-export { fetchCountryMarkets, fetchGeoTaggedMarkets } from './country-fetcher';
+export { fetchCountryMarkets, fetchGeoTaggedMarkets, fetchGeoTaggedMarketsWithCache, eventToGroupedPredictionMarket } from './country-fetcher';
+export { extractPredictionGeotag, geotagPredictionMarket, spreadGeotag } from './geotagging';
+export type { PredictionGeotag, GeotagConfidence, GeotagSource } from './geotagging';
 
 import type { PredictionMarket, PolymarketEvent } from './types';
 import { isExpired, parseMarketPrice, buildMarketUrl, parseEndDate, extractMarketSlug, isMarketExcluded } from './market-utils';

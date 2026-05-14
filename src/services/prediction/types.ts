@@ -4,9 +4,18 @@ export interface PredictionMarket {
   title: string;
   yesPrice: number;
   volume?: number;
+  liquidity?: number;
   url?: string;
   endDate?: string;
   slug?: string;
+  eventId?: string;
+  eventSlug?: string;
+  marketCount?: number;
+  markets?: PredictionMarket[];
+  confidence?: 'high' | 'medium' | 'low';
+  extractedFrom?: 'sports' | 'country' | 'city' | 'state' | 'pattern' | 'context';
+  region?: string;
+  city?: string;
 }
 
 export interface GeoPredictionMarket extends PredictionMarket {

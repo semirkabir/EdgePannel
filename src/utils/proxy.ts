@@ -1,12 +1,13 @@
 import { isDesktopRuntime, toRuntimeUrl } from '../services/runtime';
 import { getPersistentCache, setPersistentCache } from '../services/persistent-cache';
 
-const isDev = import.meta.env.DEV;
+const viteEnv = (import.meta as ImportMeta & { env?: ImportMetaEnv }).env ?? {};
+const isDev = Boolean(viteEnv.DEV);
 const RESPONSE_CACHE_PREFIX = 'api-response:';
 
 // RSS proxy: route directly to Railway relay via Cloudflare CDN when enabled.
 // Feature flag controls rollout; default off for safe staged deployment.
-const RSS_DIRECT_TO_RELAY = import.meta.env.VITE_RSS_DIRECT_TO_RELAY === 'true';
+const RSS_DIRECT_TO_RELAY = viteEnv.VITE_RSS_DIRECT_TO_RELAY === 'true';
 const RSS_PROXY_BASE = isDev
   ? '' // Dev uses Vite's rssProxyPlugin
   : RSS_DIRECT_TO_RELAY

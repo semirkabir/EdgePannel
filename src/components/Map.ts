@@ -84,16 +84,28 @@ export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 
 
 function getPredictionMarketColor(yesPrice: number): string {
   const pct = Math.max(0, Math.min(100, Number.isFinite(yesPrice) ? yesPrice : 50));
-  if (pct <= 50) {
-    const tValue = pct / 50;
-    return `rgb(${Math.round(220 + (245 - 220) * tValue)}, ${Math.round(38 + (158 - 38) * tValue)}, ${Math.round(38 + (11 - 38) * tValue)})`;
-  }
-  const tValue = (pct - 50) / 50;
-  return `rgb(${Math.round(245 + (22 - 245) * tValue)}, ${Math.round(158 + (163 - 158) * tValue)}, ${Math.round(11 + (74 - 11) * tValue)})`;
+  const conviction = Math.abs(pct - 50) / 50;
+  return `rgb(${Math.round(125 + conviction * 40)}, ${Math.round(190 + conviction * 28)}, 255)`;
 }
 
-function getPredictionMarketSize(volume?: number): number {
-  return Math.max(14, Math.min(28, 14 + Math.log10(Math.max(1, volume ?? 0)) * 2.2));
+type PredictionMarketVolumeScale = { minLog: number; maxLog: number };
+
+function getPredictionMarketVolumeScale(markets: Array<{ volume?: number }>): PredictionMarketVolumeScale {
+  const logs = markets
+    .map((market) => Math.log10(Math.max(1, market.volume ?? 0)))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  if (logs.length === 0) return { minLog: 0, maxLog: 1 };
+
+  const minLog = logs[Math.floor((logs.length - 1) * 0.10)] ?? logs[0] ?? 0;
+  const maxLog = logs[Math.floor((logs.length - 1) * 0.95)] ?? logs[logs.length - 1] ?? 1;
+  return maxLog > minLog ? { minLog, maxLog } : { minLog, maxLog: minLog + 1 };
+}
+
+function getPredictionMarketSize(volume: number | undefined, scale: PredictionMarketVolumeScale): number {
+  const logVolume = Math.log10(Math.max(1, volume ?? 0));
+  const normalized = Math.max(0, Math.min(1, (logVolume - scale.minLog) / (scale.maxLog - scale.minLog)));
+  return 3.5 + normalized * 13.5;
 }
 
 function formatPredictionMarketVolume(volume?: number): string {
@@ -1988,30 +2000,36 @@ export class MapComponent {
     }
 
     // Geo-tagged Polymarket prediction markets
-    if (this.state.layers.polymarketMarkets) {
+    if (this.state.layers.polymarketMarkets && this.dynamicLayerGroup) {
+      const volumeScale = getPredictionMarketVolumeScale(this.polymarketMarkets);
+      const group = this.dynamicLayerGroup.select<SVGGElement>('.overlays-svg')
+        .append('g')
+        .attr('class', 'polymarket-ground-markets');
+
       this.polymarketMarkets.forEach((market) => {
         const pos = projection([market.lon, market.lat]);
         if (!pos) return;
+        const size = getPredictionMarketSize(market.volume, volumeScale);
+        const color = getPredictionMarketColor(market.yesPrice);
 
-        const size = getPredictionMarketSize(market.volume);
-        const div = document.createElement('div');
-        div.className = 'polymarket-marker';
-        div.style.left = `${pos[0]}px`;
-        div.style.top = `${pos[1]}px`;
-        div.style.width = `${size}px`;
-        div.style.height = `${size}px`;
-        div.style.borderRadius = '50%';
-        div.style.background = getPredictionMarketColor(market.yesPrice);
-        div.style.border = '2px solid rgba(255,255,255,0.86)';
-        div.style.boxShadow = '0 0 0 2px rgba(0,0,0,0.24), 0 4px 12px rgba(0,0,0,0.32)';
-        div.title = `${market.title}\nYes ${market.yesPrice.toFixed(0)}% - ${formatPredictionMarketVolume(market.volume)}`;
+        const circle = group.append('circle')
+          .attr('class', 'polymarket-ground-marker')
+          .attr('cx', pos[0])
+          .attr('cy', pos[1])
+          .attr('r', size)
+          .attr('fill', color)
+          .attr('fill-opacity', 0.68)
+          .attr('stroke', 'rgba(218,238,255,0.46)')
+          .attr('stroke-width', 0.75)
+          .style('cursor', 'var(--wm-cursor-pointer)');
 
-        div.addEventListener('click', (e) => {
-          e.stopPropagation();
+        circle.append('title')
+          .text(`${market.title}\nYes ${market.yesPrice.toFixed(0)}% - ${formatPredictionMarketVolume(market.volume)}`);
+
+        circle.on('click', (event) => {
+          event.stopPropagation();
           this.onEntityClick?.('predictionMarket', market);
         });
-
-        this.overlays.appendChild(div);
       });
     }
 

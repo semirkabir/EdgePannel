@@ -25,6 +25,36 @@ function redisCacheKey(symbols: string[]): string {
   return `${REDIS_CACHE_KEY}:${[...symbols].sort().join(',')}`;
 }
 
+export function filterBootstrapQuotesForSymbols(
+  bootstrap: Pick<ListMarketQuotesResponse, 'quotes'> | null | undefined,
+  symbols: string[],
+): { quotes: MarketQuote[]; fullyCovered: boolean } {
+  if (!bootstrap?.quotes?.length || symbols.length === 0) {
+    return { quotes: [], fullyCovered: false };
+  }
+
+  const symbolSet = new Set(symbols);
+  const quotes = bootstrap.quotes.filter((q: MarketQuote) => symbolSet.has(q.symbol));
+  const coveredSymbols = new Set(quotes.map((q) => q.symbol));
+  return {
+    quotes,
+    fullyCovered: symbols.every((symbol) => coveredSymbols.has(symbol)),
+  };
+}
+
+export function mergeMarketQuotesForSymbols(
+  symbols: string[],
+  fallbackQuotes: MarketQuote[],
+  freshQuotes: MarketQuote[],
+): MarketQuote[] {
+  const bySymbol = new Map<string, MarketQuote>();
+  for (const quote of fallbackQuotes) bySymbol.set(quote.symbol, quote);
+  for (const quote of freshQuotes) bySymbol.set(quote.symbol, quote);
+  return symbols
+    .map((symbol) => bySymbol.get(symbol))
+    .filter((quote): quote is MarketQuote => !!quote);
+}
+
 export async function listMarketQuotes(
   _ctx: ServerContext,
   req: ListMarketQuotesRequest,
@@ -32,20 +62,23 @@ export async function listMarketQuotes(
   const now = Date.now();
   const parsedSymbols = parseStringArray(req.symbols);
   const key = cacheKey(parsedSymbols);
+  let bootstrapFallback: ListMarketQuotesResponse | null = null;
 
   // Layer 0: bootstrap/seed data (written by Railway ais-relay)
   try {
     const bootstrap = await getCachedJson('market:stocks-bootstrap:v1', true) as ListMarketQuotesResponse | null;
-    if (bootstrap?.quotes?.length) {
-      const symbolSet = new Set(parsedSymbols);
-      const filtered = bootstrap.quotes.filter((q: MarketQuote) => symbolSet.has(q.symbol));
-      if (filtered.length > 0) {
-        const resp: ListMarketQuotesResponse = { quotes: filtered, finnhubSkipped: false, skipReason: '', rateLimited: false };
+    const filtered = filterBootstrapQuotesForSymbols(bootstrap, parsedSymbols);
+    if (filtered.quotes.length > 0) {
+      const resp: ListMarketQuotesResponse = { quotes: filtered.quotes, finnhubSkipped: false, skipReason: '', rateLimited: false };
+      if (filtered.fullyCovered) {
         quotesCache.set(key, { data: resp, timestamp: now });
         return resp;
       }
+      bootstrapFallback = resp;
     }
-  } catch {}
+  } catch {
+    bootstrapFallback = null;
+  }
 
   // Layer 1: in-memory cache (same instance)
   const memCached = quotesCache.get(key);
@@ -125,12 +158,19 @@ export async function listMarketQuotes(
     return { quotes, finnhubSkipped: skipped, skipReason: skipped ? 'FINNHUB_API_KEY not configured' : '', rateLimited: false };
   });
 
-  if (result?.quotes?.length) {
-    quotesCache.set(key, { data: result, timestamp: now });
+  const mergedResult = result?.quotes?.length && bootstrapFallback?.quotes?.length
+    ? {
+        ...result,
+        quotes: mergeMarketQuotesForSymbols(parsedSymbols, bootstrapFallback.quotes, result.quotes),
+      }
+    : result;
+
+  if (mergedResult?.quotes?.length) {
+    quotesCache.set(key, { data: mergedResult, timestamp: now });
   }
 
-  return result || memCached?.data || { quotes: [], finnhubSkipped: false, skipReason: '', rateLimited: false };
+  return mergedResult || memCached?.data || bootstrapFallback || { quotes: [], finnhubSkipped: false, skipReason: '', rateLimited: false };
   } catch {
-    return memCached?.data || { quotes: [], finnhubSkipped: false, skipReason: '', rateLimited: false };
+    return memCached?.data || bootstrapFallback || { quotes: [], finnhubSkipped: false, skipReason: '', rateLimited: false };
   }
 }

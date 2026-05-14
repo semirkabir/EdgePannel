@@ -1,6 +1,7 @@
 import { SITE_VARIANT } from '@/config/variant';
 
-const WS_API_URL = import.meta.env.VITE_WS_API_URL || '';
+const viteEnv = (import.meta as ImportMeta & { env?: ImportMetaEnv }).env ?? {};
+const WS_API_URL = viteEnv.VITE_WS_API_URL || '';
 const KEYED_CLOUD_API_PATTERN = /^\/api\/(?:[^/]+\/v1\/|bootstrap(?:\?|$)|polymarket(?:\?|$)|ais-snapshot(?:\?|$))/;
 
 const DEFAULT_REMOTE_HOSTS: Record<string, string> = {
@@ -13,7 +14,7 @@ const DEFAULT_REMOTE_HOSTS: Record<string, string> = {
 };
 
 const DEFAULT_LOCAL_API_PORT = 46123;
-const FORCE_DESKTOP_RUNTIME = import.meta.env.VITE_DESKTOP_RUNTIME === '1';
+const FORCE_DESKTOP_RUNTIME = viteEnv.VITE_DESKTOP_RUNTIME === '1';
 
 let _resolvedPort: number | null = null;
 let _portPromise: Promise<number> | null = null;
@@ -103,7 +104,7 @@ export function getApiBaseUrl(): string {
     return '';
   }
 
-  const configuredBaseUrl = import.meta.env.VITE_TAURI_API_BASE_URL;
+  const configuredBaseUrl = viteEnv.VITE_TAURI_API_BASE_URL;
   if (configuredBaseUrl) {
     return normalizeBaseUrl(configuredBaseUrl);
   }
@@ -112,7 +113,7 @@ export function getApiBaseUrl(): string {
 }
 
 export function getRemoteApiBaseUrl(): string {
-  const configuredRemoteBase = import.meta.env.VITE_TAURI_REMOTE_API_BASE_URL;
+  const configuredRemoteBase = viteEnv.VITE_TAURI_REMOTE_API_BASE_URL;
   if (configuredRemoteBase) {
     return normalizeBaseUrl(configuredRemoteBase);
   }
@@ -158,7 +159,7 @@ const APP_HOSTS = new Set([
   'api.edgepannel.app',
   'localhost',
   '127.0.0.1',
-  ...extractHostnames(WS_API_URL, import.meta.env.VITE_WS_RELAY_URL),
+  ...extractHostnames(WS_API_URL, viteEnv.VITE_WS_RELAY_URL),
 ]);
 
 function isAppOriginUrl(urlStr: string): boolean {

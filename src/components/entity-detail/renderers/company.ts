@@ -320,6 +320,18 @@ function getRangeChangePercent(data: CompanyEnriched, range: ChartRange): number
   return percentChange(closes[startIndex]?.close, latest);
 }
 
+function getSnapshotPrice(data: CompanyEnriched): { price: number | null; source: 'quote' | 'close' | null } {
+  if (Number.isFinite(data.quote?.price)) {
+    return { price: data.quote!.price, source: 'quote' };
+  }
+
+  const closes = getHistoricalCloses(data);
+  const latestClose = closes[closes.length - 1]?.close;
+  return Number.isFinite(latestClose)
+    ? { price: latestClose!, source: 'close' }
+    : { price: null, source: null };
+}
+
 function chartEmptyMessage(data: CompanyEnriched, range: ChartRange): string {
   const hasDailyHistory = getHistoricalCloses(data).length >= 2;
   if (range === '1H' && hasDailyHistory) {
@@ -494,14 +506,15 @@ function appendLightweightChart(
 }
 
 function renderLocalMarketSnapshot(wrap: Element, data: CompanyEnriched): void {
-  const quote = data.quote;
   wrap.classList.add('edp-tradingview-fallback-active');
-  const price = quote?.price != null ? fmtPrice(quote.price) : 'Quote unavailable';
+  const snapshotPrice = getSnapshotPrice(data);
+  const price = snapshotPrice.price != null ? fmtPrice(snapshotPrice.price) : 'Quote unavailable';
   const initialChange = getRangeChangePercent(data, '1D');
   const marketCap = data.profile?.marketCapitalization
     ? `MCAP ${fmtFinnhubMarketCap(data.profile.marketCapitalization)}`
     : '';
   const exchange = data.profile?.exchange || 'Market snapshot';
+  const priceSource = snapshotPrice.source === 'close' ? 'Last close' : '';
 
   wrap.textContent = '';
   const card = document.createElement('div');
@@ -531,7 +544,7 @@ function renderLocalMarketSnapshot(wrap: Element, data: CompanyEnriched): void {
 
   const metaEl = document.createElement('div');
   metaEl.className = 'edp-tv-fallback-meta';
-  metaEl.textContent = [marketCap, exchange].filter(Boolean).join(' - ');
+  metaEl.textContent = [priceSource, marketCap, exchange].filter(Boolean).join(' - ');
   quoteCol.append(metaEl);
 
   card.append(quoteCol);

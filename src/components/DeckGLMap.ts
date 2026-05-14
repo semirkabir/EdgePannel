@@ -408,7 +408,6 @@ function refreshColorsIfThemeChanged(): void {
 }
 
 const SHARED_LAYER_ICON_MAPPING = { marker: { x: 0, y: 0, width: 32, height: 32, mask: false } };
-const TINTED_LAYER_ICON_MAPPING = { marker: { x: 0, y: 0, width: 32, height: 32, mask: true } };
 const WEATHER_PNG_ICON_MAPPING = { marker: { x: 0, y: 0, width: 512, height: 512, mask: false } };
 const WEATHER_THUNDERSTORM_ICON_ATLAS = 'https://cdn-icons-png.flaticon.com/512/3104/3104612.png';
 const WEATHER_FLOOD_ICON_ATLAS = '/icons/Flood.png';
@@ -478,44 +477,40 @@ function getSharedLayerIconAtlas(layer: keyof MapLayers, theme: 'light' | 'dark'
   return atlas;
 }
 
-function hashStringToUnit(value: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) / 0xffffffff;
-}
-
-function getPolymarketJitter(market: GeoPredictionMarket): { lon: number; lat: number } {
-  const seed = market.slug || market.url || market.title;
-  const angle = hashStringToUnit(`${seed}:angle`) * Math.PI * 2;
-  const radius = hashStringToUnit(`${seed}:radius`) * 0.6;
-  return {
-    lon: Math.cos(angle) * radius,
-    lat: Math.sin(angle) * radius,
-  };
-}
-
 function getPolymarketColor(yesPrice: number): [number, number, number, number] {
   const pct = Math.max(0, Math.min(100, Number.isFinite(yesPrice) ? yesPrice : 50));
-  const red: [number, number, number] = [220, 38, 38];
-  const amber: [number, number, number] = [245, 158, 11];
-  const green: [number, number, number] = [22, 163, 74];
-  const [from, to, tValue] = pct <= 50
-    ? [red, amber, pct / 50] as const
-    : [amber, green, (pct - 50) / 50] as const;
+  const conviction = Math.abs(pct - 50) / 50;
   return [
-    Math.round(from[0] + (to[0] - from[0]) * tValue),
-    Math.round(from[1] + (to[1] - from[1]) * tValue),
-    Math.round(from[2] + (to[2] - from[2]) * tValue),
+    Math.round(125 + conviction * 40),
+    Math.round(190 + conviction * 28),
+    255,
     230,
   ];
 }
 
-function getPolymarketSize(volume?: number): number {
-  const scaled = 14 + Math.log10(Math.max(1, volume ?? 0)) * 2.2;
-  return Math.max(14, Math.min(28, scaled));
+function getPolymarketColorWithAlpha(yesPrice: number, alpha: number): [number, number, number, number] {
+  const [r, g, b] = getPolymarketColor(yesPrice);
+  return [r, g, b, alpha];
+}
+
+type PolymarketVolumeScale = { minLog: number; maxLog: number };
+
+function getPolymarketVolumeScale(markets: Array<{ volume?: number }>): PolymarketVolumeScale {
+  const logs = markets
+    .map((market) => Math.log10(Math.max(1, market.volume ?? 0)))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  if (logs.length === 0) return { minLog: 0, maxLog: 1 };
+
+  const minLog = logs[Math.floor((logs.length - 1) * 0.10)] ?? logs[0] ?? 0;
+  const maxLog = logs[Math.floor((logs.length - 1) * 0.95)] ?? logs[logs.length - 1] ?? 1;
+  return maxLog > minLog ? { minLog, maxLog } : { minLog, maxLog: minLog + 1 };
+}
+
+function getPolymarketRadiusMeters(volume: number | undefined, scale: PolymarketVolumeScale): number {
+  const logVolume = Math.log10(Math.max(1, volume ?? 0));
+  const normalized = Math.max(0, Math.min(1, (logVolume - scale.minLog) / (scale.maxLog - scale.minLog)));
+  return 24_000 + normalized * 126_000;
 }
 
 function formatPolymarketVolume(volume?: number): string {
@@ -1745,7 +1740,7 @@ export class DeckGLMap {
 
     // Geo-tagged Polymarket prediction markets
     if (mapLayers.polymarketMarkets && this.polymarketMarkets.length > 0) {
-      layers.push(this.createPolymarketLayer(this.polymarketMarkets));
+      layers.push(...this.createPolymarketLayers(this.polymarketMarkets));
     }
     layers.push(this.createEmptyGhost('polymarkets-layer'));
 
@@ -2921,21 +2916,33 @@ export class DeckGLMap {
     });
   }
 
-  private createPolymarketLayer(markets: DeckPolymarketMarket[]): IconLayer<DeckPolymarketMarket> {
-    return new IconLayer<DeckPolymarketMarket>({
-      id: 'polymarkets-layer',
-      data: markets,
-      getPosition: (d) => [d.renderLon, d.renderLat],
-      getIcon: () => 'marker',
-      iconAtlas: getSharedLayerIconAtlas('polymarketMarkets'),
-      iconMapping: TINTED_LAYER_ICON_MAPPING,
-      getSize: (d) => getPolymarketSize(d.volume),
-      sizeMinPixels: 14,
-      sizeMaxPixels: 28,
-      getColor: (d) => getPolymarketColor(d.yesPrice),
-      pickable: true,
-      billboard: true,
-    });
+  private createPolymarketLayers(markets: DeckPolymarketMarket[]): ScatterplotLayer<DeckPolymarketMarket>[] {
+    const volumeScale = getPolymarketVolumeScale(markets);
+    return [
+      new ScatterplotLayer<DeckPolymarketMarket>({
+        id: 'polymarkets-points-layer',
+        data: markets,
+        getPosition: (d) => [d.renderLon, d.renderLat],
+        getRadius: (d) => getPolymarketRadiusMeters(d.volume, volumeScale),
+        radiusUnits: 'meters',
+        radiusMinPixels: 2,
+        radiusMaxPixels: 18,
+        getFillColor: (d) => getPolymarketColorWithAlpha(d.yesPrice, 155),
+        stroked: false,
+        pickable: false,
+      }),
+      new ScatterplotLayer<DeckPolymarketMarket>({
+        id: 'polymarkets-layer',
+        data: markets,
+        getPosition: (d) => [d.renderLon, d.renderLat],
+        getRadius: (d) => getPolymarketRadiusMeters(d.volume, volumeScale),
+        radiusUnits: 'meters',
+        radiusMinPixels: 8,
+        radiusMaxPixels: 24,
+        getFillColor: [0, 0, 0, 1] as [number, number, number, number],
+        pickable: true,
+      }),
+    ];
   }
 
   private createStockExchangesLayer(): IconLayer {
@@ -6720,14 +6727,11 @@ export class DeckGLMap {
   }
 
   public setPolymarketMarkets(markets: GeoPredictionMarket[]): void {
-    this.polymarketMarkets = markets.map((market) => {
-      const jitter = getPolymarketJitter(market);
-      return {
-        ...market,
-        renderLon: market.lon + jitter.lon,
-        renderLat: market.lat + jitter.lat,
-      };
-    });
+    this.polymarketMarkets = markets.map((market) => ({
+      ...market,
+      renderLon: market.lon,
+      renderLat: market.lat,
+    }));
     this.render('polymarketMarkets');
   }
 

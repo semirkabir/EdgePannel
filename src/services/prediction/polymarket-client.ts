@@ -1,9 +1,9 @@
 import { PredictionServiceClient, type GetPredictionMarketDetailResponse } from '@/generated/client/worldmonitor/prediction/v1/service_client';
-import { createCircuitBreaker } from '@/utils';
+import { createCircuitBreaker } from '@/utils/circuit-breaker';
 import { isDesktopRuntime } from '@/services/runtime';
 import { tryInvokeTauri } from '@/services/tauri-bridge';
 import { getHydratedData } from '@/services/bootstrap';
-import { SITE_VARIANT } from '@/config';
+import { SITE_VARIANT } from '@/config/variant';
 import type { PredictionMarket, PolymarketMarket, PolymarketEvent, BootstrapPredictionData } from './types';
 import {
   isMarketExcluded,
@@ -20,7 +20,8 @@ import {
 
 const GAMMA_API = 'https://gamma-api.polymarket.com';
 const POLYMARKET_PROXY_URL = '/api/polymarket';
-const wsRelayUrl = import.meta.env.VITE_WS_RELAY_URL || '';
+const viteEnv = (import.meta as ImportMeta & { env?: ImportMetaEnv }).env ?? {};
+const wsRelayUrl = viteEnv.VITE_WS_RELAY_URL || '';
 const DIRECT_RAILWAY_POLY_URL = wsRelayUrl
   ? wsRelayUrl.replace('wss://', 'https://').replace('ws://', 'http://').replace(/\/$/, '') + '/polymarket'
   : '';
