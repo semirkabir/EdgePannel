@@ -2,8 +2,9 @@ import type { GeoPredictionMarket, PolymarketEvent, PolymarketMarket, Prediction
 import { isMarketExcluded, parseMarketPrice, buildMarketUrl, parseEndDate, isExpired } from './market-utils';
 import { fetchEventsByTag, polyFetch } from './polymarket-client';
 import { getPersistentCache, setPersistentCache, cacheAgeMs } from '@/services/persistent-cache';
-import { geotagPredictionMarket, COUNTRY_BOUNDS } from './geotagging';
+import { geotagPredictionMarket, COUNTRY_BOUNDS, sampleInsideCountry } from './geotagging';
 import { COUNTRY_DATA } from '../../generated/geo-data';
+import { isCoordinateInCountry, nameToCountryCode } from '../country-geometry';
 
 const GLOBAL_DISCOVERY_TAGS = ['world', 'politics', 'elections', 'geopolitics', 'economics', 'middle-east', 'asia', 'europe'];
 const GLOBAL_DISCOVERY_PAGE_SIZE = 500;
@@ -264,8 +265,6 @@ function spreadMarketAroundCountry(country: string, market: PredictionMarket, ce
   let lon = centroid[0] + Math.cos(angle) * spread.lon * radius;
   let lat = centroid[1] + Math.sin(angle) * spread.lat * radius;
 
-  // Clamp inside country bounds when available so small countries don't get
-  // spread into the ocean or neighbouring states.
   const bounds = COUNTRY_BOUNDS[country.toLowerCase()];
   if (bounds) {
     const [minLat, minLon, maxLat, maxLon] = bounds;
@@ -273,6 +272,17 @@ function spreadMarketAroundCountry(country: string, market: PredictionMarket, ce
     const lonPadding = (maxLon - minLon) * 0.08;
     lon = Math.max(minLon + lonPadding, Math.min(maxLon - lonPadding, lon));
     lat = Math.max(minLat + latPadding, Math.min(maxLat - latPadding, lat));
+
+    // If the centroid+spread+clamp landed outside the real country polygon
+    // (i.e. in a neighbour or the ocean), fall through to rejection sampling
+    // against the actual polygon. Bbox clamping alone can't fix that because
+    // countries aren't rectangles.
+    const code = nameToCountryCode(country);
+    if (code && isCoordinateInCountry(lat, lon, code) === false) {
+      const resampled = sampleInsideCountry(country, seed, bounds);
+      lat = resampled.lat;
+      lon = resampled.lon;
+    }
   }
 
   return [

@@ -6,6 +6,11 @@ import {
   INTERNATIONAL_REGIONS,
 } from '../../generated/geo-data';
 import type { CityData, StateData, RegionData } from '../../generated/geo-data';
+import {
+  isCoordinateInCountry,
+  nameToCountryCode,
+  getCountryCentroid,
+} from '../country-geometry';
 
 export type GeotagConfidence = 'high' | 'medium' | 'low';
 export type GeotagSource = 'sports' | 'country' | 'city' | 'state' | 'pattern' | 'context';
@@ -510,10 +515,10 @@ function hashStringToUnit(value: string): number {
   return (hash >>> 0) / 0xffffffff;
 }
 
-export function spreadGeotag(location: PredictionGeotag, seed: string): PredictionGeotag {
-  const bounds = getLocationBounds(location);
-  if (!bounds) return location;
-
+function sampleInBbox(
+  bounds: [number, number, number, number],
+  seed: string,
+): { lat: number; lon: number } {
   const [minLat, minLon, maxLat, maxLon] = bounds;
   const latPadding = (maxLat - minLat) * 0.08;
   const lonPadding = (maxLon - minLon) * 0.08;
@@ -523,6 +528,56 @@ export function spreadGeotag(location: PredictionGeotag, seed: string): Predicti
   const safeMaxLon = maxLon - lonPadding;
   const lat = safeMinLat + hashStringToUnit(`${seed}:lat`) * (safeMaxLat - safeMinLat);
   const lon = safeMinLon + hashStringToUnit(`${seed}:lon`) * (safeMaxLon - safeMinLon);
+  return { lat, lon };
+}
+
+// Samples a deterministic point that lies inside the actual country polygon.
+// Uses rejection sampling: try up to 8 perturbed seeds within the bbox and keep
+// the first one inside the country. Falls back to bbox-uniform sampling when
+// the polygon dataset hasn't loaded yet, and to the country centroid when no
+// perturbation lands inside (small islands / very thin shapes).
+export function sampleInsideCountry(
+  countryName: string,
+  seed: string,
+  bounds: [number, number, number, number],
+): { lat: number; lon: number } {
+  const code = nameToCountryCode(countryName);
+  if (!code) return sampleInBbox(bounds, seed);
+
+  // Probe whether geometry is loaded at all; isCoordinateInCountry returns
+  // null for "not loaded". If unknown, just use bbox sampling.
+  const probe = isCoordinateInCountry(
+    (bounds[0] + bounds[2]) / 2,
+    (bounds[1] + bounds[3]) / 2,
+    code,
+  );
+  if (probe === null) return sampleInBbox(bounds, seed);
+
+  for (let i = 0; i < 8; i++) {
+    const candidate = sampleInBbox(bounds, `${seed}:r${i}`);
+    if (isCoordinateInCountry(candidate.lat, candidate.lon, code) === true) {
+      return candidate;
+    }
+  }
+
+  const centroid = getCountryCentroid(code);
+  if (centroid) return centroid;
+  return sampleInBbox(bounds, seed);
+}
+
+export function spreadGeotag(location: PredictionGeotag, seed: string): PredictionGeotag {
+  const bounds = getLocationBounds(location);
+  if (!bounds) return location;
+
+  // For country-level geotags, prefer rejection sampling against the real
+  // polygon so the point doesn't land in the ocean or a neighbouring country.
+  // Sub-national regions (US states / international regions) still use plain
+  // bbox sampling because per-region polygons aren't available here.
+  const useCountryPolygon = !location.city && !location.region;
+
+  const { lat, lon } = useCountryPolygon
+    ? sampleInsideCountry(location.country, seed, bounds)
+    : sampleInBbox(bounds, seed);
 
   return {
     ...location,
