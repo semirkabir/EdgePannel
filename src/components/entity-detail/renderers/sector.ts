@@ -118,8 +118,11 @@ function fmtMarketCap(mc: number): string {
   return `$${mc.toFixed(0)}`;
 }
 
-function makeStatCard(ctx: EntityRenderContext, label: string, value: string): HTMLElement {
+function makeStatCard(ctx: EntityRenderContext, label: string, value: string, changeValue?: number | null): HTMLElement {
   const el = ctx.el('div', 'edp-stat-highlight');
+  if (changeValue != null) {
+    el.classList.add(changeValue >= 0 ? 'edp-stat-positive' : 'edp-stat-negative');
+  }
   el.append(ctx.el('span', 'edp-stat-highlight-label', label));
   el.append(ctx.el('span', 'edp-stat-highlight-value', value));
   return el;
@@ -130,10 +133,12 @@ function makeStatCard(ctx: EntityRenderContext, label: string, value: string): H
 export class SectorRenderer implements EntityRenderer {
   renderSkeleton(data: unknown, ctx: EntityRenderContext): HTMLElement {
     const { symbol, name, change } = data as SectorData;
+    const meta = SECTOR_CONSTITUENTS[symbol];
+    const fullName = meta?.fullName ?? name;
     const container = ctx.el('div', 'edp-generic edp-sector-profile');
 
     const header = ctx.el('div', 'edp-header');
-    header.append(ctx.el('h2', 'edp-title', name));
+    header.append(ctx.el('h2', 'edp-title', fullName));
     const badgeRow = ctx.el('div', 'edp-badge-row');
     badgeRow.append(ctx.badge(symbol, 'edp-badge'));
     if (change != null) {
@@ -143,15 +148,15 @@ export class SectorRenderer implements EntityRenderer {
     header.append(badgeRow);
 
     const stats = ctx.el('div', 'edp-trade-stats');
-    stats.append(makeStatCard(ctx, 'ETF', symbol));
-    stats.append(makeStatCard(ctx, 'Daily Change', change != null ? formatChange(change) : '—'));
-    stats.append(makeStatCard(ctx, 'Constituents', '—'));
+    stats.append(makeStatCard(ctx, 'Sector', fullName));
+    stats.append(makeStatCard(ctx, 'Daily Change', change != null ? formatChange(change) : '—', change));
+    stats.append(makeStatCard(ctx, 'Top Holdings', '—'));
     header.append(stats);
     container.append(header);
 
     const wrap = ctx.el('div', 'edp-sector-treemap-wrap');
     wrap.dataset.slot = 'treemap';
-    wrap.append(ctx.makeLoading('Loading constituent data…'));
+    wrap.append(ctx.makeLoading('Loading top holdings…'));
     container.append(wrap);
 
     return container;
@@ -217,9 +222,9 @@ export class SectorRenderer implements EntityRenderer {
     const stats = container.querySelector('.edp-trade-stats');
     if (stats) {
       stats.replaceChildren();
-      stats.append(makeStatCard(ctx, 'ETF', data.symbol));
-      stats.append(makeStatCard(ctx, 'Daily Change', data.change != null ? formatChange(data.change) : '—'));
-      stats.append(makeStatCard(ctx, 'Constituents', String(data.constituents.length)));
+      stats.append(makeStatCard(ctx, 'Sector', data.fullName));
+      stats.append(makeStatCard(ctx, 'Daily Change', data.change != null ? formatChange(data.change) : '—', data.change));
+      stats.append(makeStatCard(ctx, 'Top Holdings', String(data.constituents.length)));
     }
 
     const wrap = container.querySelector<HTMLElement>('[data-slot="treemap"]');
@@ -227,7 +232,7 @@ export class SectorRenderer implements EntityRenderer {
     wrap.replaceChildren();
 
     if (data.constituents.length === 0) {
-      wrap.append(ctx.makeEmpty('No constituent data available for this sector.'));
+      wrap.append(ctx.makeEmpty('No top-holding data available for this sector.'));
       return;
     }
 
@@ -245,6 +250,11 @@ export class SectorRenderer implements EntityRenderer {
     const rects = buildTreemap(weights);
 
     const treemap = ctx.el('div', 'edp-sector-treemap');
+
+    // Shared hover popup inside treemap
+    const popup = ctx.el('div', 'edp-sector-tile-popup');
+    popup.style.display = 'none';
+    treemap.append(popup);
 
     for (let i = 0; i < sorted.length; i++) {
       const c = sorted[i]!;
@@ -288,6 +298,71 @@ export class SectorRenderer implements EntityRenderer {
         document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
           detail: { type: 'company', data: { ticker: c.symbol, name: c.name } },
         }));
+      });
+
+      // Rich hover popup
+      tile.addEventListener('mouseenter', () => {
+        popup.replaceChildren();
+        popup.append(ctx.el('div', 'edp-sector-tile-popup-name', c.name));
+        popup.append(ctx.el('div', 'edp-sector-tile-popup-symbol', c.symbol));
+
+        if (c.price != null || c.change != null) {
+          const row1 = ctx.el('div', 'edp-sector-tile-popup-row');
+          row1.append(ctx.el('span', 'edp-sector-tile-popup-label', 'Price'));
+          const priceVal = ctx.el('span', 'edp-sector-tile-popup-value', c.price != null ? formatPrice(c.price) : '—');
+          row1.append(priceVal);
+          popup.append(row1);
+        }
+
+        if (c.change != null) {
+          const row2 = ctx.el('div', 'edp-sector-tile-popup-row');
+          row2.append(ctx.el('span', 'edp-sector-tile-popup-label', 'Change'));
+          const chgVal = ctx.el('span', `edp-sector-tile-popup-value ${getChangeClass(c.change)}`, formatChange(c.change));
+          row2.append(chgVal);
+          popup.append(row2);
+        }
+
+        if (c.marketCap != null) {
+          const row3 = ctx.el('div', 'edp-sector-tile-popup-row');
+          row3.append(ctx.el('span', 'edp-sector-tile-popup-label', 'Market Cap'));
+          row3.append(ctx.el('span', 'edp-sector-tile-popup-value', fmtMarketCap(c.marketCap)));
+          popup.append(row3);
+        }
+
+        popup.style.display = 'block';
+        popup.classList.remove('visible');
+
+        // Position popup relative to tile within treemap
+        requestAnimationFrame(() => {
+          const treemapRect = treemap.getBoundingClientRect();
+          const tileRect = tile.getBoundingClientRect();
+          const popupW = popup.offsetWidth;
+          const popupH = popup.offsetHeight;
+          const gap = 8;
+
+          // Center horizontally over tile, clamp to treemap bounds
+          let left = tileRect.left - treemapRect.left + tileRect.width / 2 - popupW / 2;
+          left = Math.max(4, Math.min(left, treemapRect.width - popupW - 4));
+
+          // Prefer above; flip below if not enough room
+          let top = tileRect.top - treemapRect.top - popupH - gap;
+          if (top < 4) {
+            top = tileRect.top - treemapRect.top + tileRect.height + gap;
+          }
+          top = Math.max(4, Math.min(top, treemapRect.height - popupH - 4));
+
+          popup.style.left = `${left}px`;
+          popup.style.top = `${top}px`;
+          popup.classList.add('visible');
+        });
+      });
+
+      tile.addEventListener('mouseleave', () => {
+        popup.classList.remove('visible');
+        // Allow transition to finish before hiding
+        setTimeout(() => {
+          if (!popup.classList.contains('visible')) popup.style.display = 'none';
+        }, 120);
       });
 
       treemap.append(tile);

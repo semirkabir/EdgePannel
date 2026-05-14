@@ -2,11 +2,12 @@ import type { GeoPredictionMarket, PolymarketEvent, PolymarketMarket, Prediction
 import { isMarketExcluded, parseMarketPrice, buildMarketUrl, parseEndDate, isExpired } from './market-utils';
 import { fetchEventsByTag, polyFetch } from './polymarket-client';
 import { getPersistentCache, setPersistentCache, cacheAgeMs } from '@/services/persistent-cache';
-import { geotagPredictionMarket } from './geotagging';
+import { geotagPredictionMarket, COUNTRY_BOUNDS } from './geotagging';
+import { COUNTRY_DATA } from '../../generated/geo-data';
 
 const GLOBAL_DISCOVERY_TAGS = ['world', 'politics', 'elections', 'geopolitics', 'economics', 'middle-east', 'asia', 'europe'];
 const GLOBAL_DISCOVERY_PAGE_SIZE = 500;
-const GLOBAL_DISCOVERY_PAGES = 10;
+const GLOBAL_DISCOVERY_PAGES = 15;
 const GEO_MARKETS_CACHE_KEY = 'prediction:geo-markets:v2';
 const GEO_MARKETS_CACHE_TTL_MS = 20 * 60 * 1000;
 const GEO_MARKETS_STALE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -113,6 +114,13 @@ const COUNTRY_TAG_MAP: Record<string, string[]> = {
   'New Zealand': ['world', 'politics'],
 };
 
+// Auto-fill tags for any countries in the generated geo dataset not yet manually mapped
+for (const country of Object.values(COUNTRY_DATA)) {
+  if (!COUNTRY_TAG_MAP[country.name]) {
+    COUNTRY_TAG_MAP[country.name] = ['world', 'politics'];
+  }
+}
+
 const COUNTRY_CENTROIDS: Record<string, [lon: number, lat: number]> = {
   'United States': [-98.58, 39.83],
   'Russia': [105.32, 61.52],
@@ -215,6 +223,13 @@ const COUNTRY_CENTROIDS: Record<string, [lon: number, lat: number]> = {
   'New Zealand': [174.89, -40.90],
 };
 
+// Auto-fill centroids for any countries in the generated geo dataset not yet manually mapped
+for (const country of Object.values(COUNTRY_DATA)) {
+  if (!COUNTRY_CENTROIDS[country.name]) {
+    COUNTRY_CENTROIDS[country.name] = [country.lon, country.lat];
+  }
+}
+
 const COUNTRY_SPREAD_DEGREES: Record<string, { lon: number; lat: number }> = {
   'United States': { lon: 24, lat: 10 },
   'Russia': { lon: 42, lat: 10 },
@@ -230,7 +245,7 @@ const COUNTRY_SPREAD_DEGREES: Record<string, { lon: number; lat: number }> = {
 };
 
 const GEO_MARKETS_PER_COUNTRY = 120;
-const GEO_MARKETS_TOTAL_LIMIT = 5_000;
+const GEO_MARKETS_TOTAL_LIMIT = 10_000;
 
 function hashStringToUnit(value: string): number {
   let hash = 2166136261;
@@ -246,8 +261,20 @@ function spreadMarketAroundCountry(country: string, market: PredictionMarket, ce
   const seed = `${country}:${market.slug || market.url || market.title}`;
   const angle = hashStringToUnit(`${seed}:angle`) * Math.PI * 2;
   const radius = Math.sqrt(hashStringToUnit(`${seed}:radius`));
-  const lon = centroid[0] + Math.cos(angle) * spread.lon * radius;
-  const lat = centroid[1] + Math.sin(angle) * spread.lat * radius;
+  let lon = centroid[0] + Math.cos(angle) * spread.lon * radius;
+  let lat = centroid[1] + Math.sin(angle) * spread.lat * radius;
+
+  // Clamp inside country bounds when available so small countries don't get
+  // spread into the ocean or neighbouring states.
+  const bounds = COUNTRY_BOUNDS[country.toLowerCase()];
+  if (bounds) {
+    const [minLat, minLon, maxLat, maxLon] = bounds;
+    const latPadding = (maxLat - minLat) * 0.08;
+    const lonPadding = (maxLon - minLon) * 0.08;
+    lon = Math.max(minLon + lonPadding, Math.min(maxLon - lonPadding, lon));
+    lat = Math.max(minLat + latPadding, Math.min(maxLat - latPadding, lat));
+  }
+
   return [
     Math.max(-179.5, Math.min(179.5, lon)),
     Math.max(-84, Math.min(84, lat)),
@@ -346,6 +373,23 @@ function getCountryVariants(country: string): string[] {
 
   const extra = VARIANT_MAP[lower];
   if (extra) variants.push(...extra);
+
+  // Auto-generate variants from the geo dataset (demonyms + aliases)
+  const countryEntry = Object.values(COUNTRY_DATA).find(c => c.name.toLowerCase() === lower);
+  if (countryEntry) {
+    if (countryEntry.demonym) {
+      countryEntry.demonym.split(/,|\/| or /).map(s => s.trim().toLowerCase()).filter(Boolean).forEach(d => {
+        if (!variants.includes(d)) variants.push(d);
+      });
+    }
+    if (countryEntry.aliases) {
+      countryEntry.aliases.forEach(a => {
+        const la = a.toLowerCase();
+        if (!variants.includes(la)) variants.push(la);
+      });
+    }
+  }
+
   return variants;
 }
 

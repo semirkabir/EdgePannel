@@ -853,6 +853,15 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     // Initial state after browser has laid out
     requestAnimationFrame(updateScrollState);
 
+    // Mouse wheel → horizontal scroll when hovering the tab bar
+    bar.addEventListener('wheel', (e) => {
+      const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (delta !== 0) {
+        e.preventDefault();
+        bar.scrollLeft += delta;
+      }
+    }, { passive: false });
+
     // Touch swipe support
     let touchStartX = 0;
     let touchStartY = 0;

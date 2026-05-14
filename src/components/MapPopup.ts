@@ -82,10 +82,20 @@ function formatPredictionMarketVolume(volume?: number): string {
 function renderPredictionMarketPopup(market: GeoPredictionMarket): string {
   const yes = Number(market.yesPrice ?? 50);
   const no = 100 - yes;
-  const conviction = Math.abs(yes - 50) / 50;
-  const r = Math.round(125 + conviction * 40);
-  const g = Math.round(190 + conviction * 28);
-  const barColor = `rgb(${r},${g},255)`;
+  // Red (#ef4444) → Amber (#f59e0b) → Green (#22c55e) based on YES probability
+  let r: number, g: number, b: number;
+  if (yes <= 50) {
+    const t = yes / 50;
+    r = Math.round(239 + (245 - 239) * t);  // 239 → 245
+    g = Math.round(68  + (158 - 68)  * t);  // 68  → 158
+    b = Math.round(68  + (11  - 68)  * t);  // 68  → 11
+  } else {
+    const t = (yes - 50) / 50;
+    r = Math.round(245 + (34  - 245) * t);  // 245 → 34
+    g = Math.round(158 + (197 - 158) * t);  // 158 → 197
+    b = Math.round(11  + (94  - 11)  * t);  // 11  → 94
+  }
+  const barColor = `rgb(${r},${g},${b})`;
   const yesStr = yes.toFixed(0);
   const noStr = no.toFixed(0);
   const daysStr = (() => {

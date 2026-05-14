@@ -5974,6 +5974,86 @@
   border-color: color-mix(in srgb, var(--red, #ff4444) 30%, transparent);
 }
 
+.edp-sector-profile .edp-header {
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.edp-sector-profile .edp-trade-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.edp-sector-profile .edp-stat-highlight {
+  position: relative;
+  padding: 14px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, white 4%), color-mix(in srgb, var(--surface) 90%, black 10%));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--overlay-heavy) 8%, transparent);
+  overflow: hidden;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.edp-sector-profile .edp-stat-highlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
+  transition: opacity 0.15s;
+}
+
+.edp-sector-profile .edp-stat-highlight:hover::before {
+  opacity: 1;
+}
+
+.edp-sector-profile .edp-stat-highlight-value {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.edp-sector-profile .edp-stat-highlight-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+}
+
+.edp-sector-profile .edp-stat-highlight .edp-stat-highlight-value {
+  background: linear-gradient(180deg, var(--text) 0%, var(--text-dim) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.edp-sector-profile .edp-stat-positive .edp-stat-highlight-value {
+  background: linear-gradient(180deg, var(--accent-green, #22c55e) 0%, #16a34a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.edp-sector-profile .edp-stat-negative .edp-stat-highlight-value {
+  background: linear-gradient(180deg, var(--accent-red, #ef4444) 0%, #dc2626 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.edp-sector-profile .edp-stat-positive {
+  border-color: rgba(34, 197, 94, 0.25);
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.08), rgba(34, 197, 94, 0.02));
+}
+
+.edp-sector-profile .edp-stat-negative {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.02));
+}
+
 /* ── Sector treemap ────────────────────────────────────────────────────── */
 .edp-sector-treemap-wrap {
   padding: 0 2px 8px;
@@ -6071,6 +6151,81 @@
 /* Override change label color on dark green tile */
 .edp-sector-tile.sector-tile-up-3 .edp-sector-tile-change.up { color: #004400; }
 
+/* ── Sector tile hover popup ─────────────────────────────────────────── */
+.edp-sector-tile-popup {
+  position: absolute;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  min-width: 160px;
+  max-width: 220px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, #16161e) 96%, white 4%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.edp-sector-tile-popup.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.edp-sector-tile-popup-name {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edp-sector-tile-popup-symbol {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.edp-sector-tile-popup-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.edp-sector-tile-popup-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.edp-sector-tile-popup-label {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.edp-sector-tile-popup-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+.edp-sector-tile-popup-value.up   { color: var(--accent-green, #22c55e); }
+.edp-sector-tile-popup-value.down { color: var(--accent-red,   #ef4444); }
+
+[data-theme="light"] .edp-sector-tile-popup {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
 /* ── Performance chart container ─────────────────────────────────────── */
 .edp-performance-chart {
   width: 100%;
@@ -6095,7 +6250,8 @@
   }
 
   .edp-politician-profile .edp-trade-stats,
-  .edp-institution-profile .edp-trade-stats {
+  .edp-institution-profile .edp-trade-stats,
+  .edp-sector-profile .edp-trade-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
