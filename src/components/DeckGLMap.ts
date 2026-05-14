@@ -4012,8 +4012,46 @@ export class DeckGLMap {
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${t('components.deckgl.layers.strategicWaterways')}</div>` };
       case 'economic-centers-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.country)}</div>` };
-      case 'polymarkets-layer':
-        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.title)}</strong><br/>Yes ${Number(obj.yesPrice ?? 50).toFixed(0)}% &middot; ${text(formatPolymarketVolume(obj.volume))}</div>` };
+      case 'polymarkets-layer': {
+        const yes = Number(obj.yesPrice ?? 50);
+        const no = 100 - yes;
+        const conviction = Math.abs(yes - 50) / 50;
+        const r = Math.round(125 + conviction * 40);
+        const g = Math.round(190 + conviction * 28);
+        const barColor = `rgb(${r},${g},255)`;
+        const yesStr = yes.toFixed(0);
+        const noStr = no.toFixed(0);
+        const countryPart = obj.country
+          ? `<span>${text(obj.country)}</span><span class="pm-tooltip-meta-dot">·</span>`
+          : '';
+        const endPart = obj.endDate
+          ? (() => {
+              const days = Math.ceil((new Date(obj.endDate as string).getTime() - Date.now()) / 86_400_000);
+              return days > 0 ? `<span class="pm-tooltip-enddate">${days}d left</span>` : '';
+            })()
+          : '';
+        return {
+          html: `<div class="deckgl-tooltip deckgl-tooltip--polymarket">
+            <div class="pm-tooltip-title">${text(obj.title)}</div>
+            <div class="pm-tooltip-probs">
+              <div class="pm-tooltip-side">
+                <span class="pm-tooltip-label">YES</span>
+                <span class="pm-tooltip-pct" style="color:${barColor}">${yesStr}%</span>
+              </div>
+              <div class="pm-tooltip-bar">
+                <div class="pm-tooltip-bar-fill" style="width:${yesStr}%;background:${barColor}"></div>
+              </div>
+              <div class="pm-tooltip-side">
+                <span class="pm-tooltip-label">NO</span>
+                <span class="pm-tooltip-pct pm-tooltip-pct--no">${noStr}%</span>
+              </div>
+            </div>
+            <div class="pm-tooltip-meta">
+              ${countryPart}<span>${text(formatPolymarketVolume(obj.volume))}</span>${endPart}
+            </div>
+          </div>`,
+        };
+      }
       case 'stock-exchanges-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.shortName)}</strong><br/>${text(obj.city)}, ${text(obj.country)}</div>` };
       case 'financial-centers-layer':

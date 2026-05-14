@@ -80,14 +80,46 @@ function formatPredictionMarketVolume(volume?: number): string {
 }
 
 function renderPredictionMarketPopup(market: GeoPredictionMarket): string {
+  const yes = Number(market.yesPrice ?? 50);
+  const no = 100 - yes;
+  const conviction = Math.abs(yes - 50) / 50;
+  const r = Math.round(125 + conviction * 40);
+  const g = Math.round(190 + conviction * 28);
+  const barColor = `rgb(${r},${g},255)`;
+  const yesStr = yes.toFixed(0);
+  const noStr = no.toFixed(0);
+  const daysStr = (() => {
+    if (!market.endDate) return '';
+    const days = Math.ceil((new Date(market.endDate).getTime() - Date.now()) / 86_400_000);
+    return days > 0 ? `<span class="pm-popup-days">${days}d left</span>` : '';
+  })();
   return `
-    <div class="popup-header">
-      <h3>${escapeHtml(market.title)}</h3>
+    <div class="popup-header predictionMarket">
+      <div class="pm-popup-header-content">
+        <h3>${escapeHtml(market.title)}</h3>
+      </div>
       <button class="popup-close">&times;</button>
     </div>
     <div class="popup-content">
-      <p><strong>Yes:</strong> ${Number(market.yesPrice ?? 50).toFixed(0)}%</p>
-      <p><strong>${escapeHtml(market.country)}</strong> &middot; ${escapeHtml(formatPredictionMarketVolume(market.volume))}</p>
+      <div class="pm-popup-probs">
+        <div class="pm-popup-outcome">
+          <span class="pm-popup-pct" style="color:${barColor}">${yesStr}%</span>
+          <span class="pm-popup-outcome-label">YES</span>
+        </div>
+        <div class="pm-popup-bar">
+          <div class="pm-popup-bar-fill" style="width:${yesStr}%;background:${barColor}"></div>
+        </div>
+        <div class="pm-popup-outcome pm-popup-outcome--no">
+          <span class="pm-popup-pct pm-popup-pct--no">${noStr}%</span>
+          <span class="pm-popup-outcome-label">NO</span>
+        </div>
+      </div>
+      <div class="pm-popup-meta">
+        <span>${escapeHtml(market.country)}</span>
+        <span class="pm-popup-meta-dot">·</span>
+        <span>${escapeHtml(formatPredictionMarketVolume(market.volume))}</span>
+        ${daysStr}
+      </div>
     </div>
   `;
 }
