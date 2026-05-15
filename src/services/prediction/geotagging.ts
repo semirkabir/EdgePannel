@@ -551,7 +551,12 @@ export function sampleInsideCountry(
     (bounds[1] + bounds[3]) / 2,
     code,
   );
-  if (probe === null) return sampleInBbox(bounds, seed);
+  if (probe === null) {
+    // Geometry not loaded yet — bbox sampling can land in neighbouring countries
+    // (e.g. Brazil's bbox fully covers Bolivia). Use the centroid instead.
+    const centroid = getCountryCentroid(code);
+    return centroid ?? sampleInBbox(bounds, seed);
+  }
 
   for (let i = 0; i < 8; i++) {
     const candidate = sampleInBbox(bounds, `${seed}:r${i}`);

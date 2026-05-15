@@ -278,7 +278,10 @@ function spreadMarketAroundCountry(country: string, market: PredictionMarket, ce
     // against the actual polygon. Bbox clamping alone can't fix that because
     // countries aren't rectangles.
     const code = nameToCountryCode(country);
-    if (code && isCoordinateInCountry(lat, lon, code) === false) {
+    if (code && isCoordinateInCountry(lat, lon, code) !== true) {
+      // Covers both false (geometry loaded, point is outside) and null (geometry
+      // not yet loaded). Brazil's bbox overlaps Bolivia/Argentina, so we must
+      // resample rather than trust the clamped coordinate in either case.
       const resampled = sampleInsideCountry(country, seed, bounds);
       lat = resampled.lat;
       lon = resampled.lon;
