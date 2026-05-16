@@ -177,6 +177,7 @@ export class IntelligenceFindingsBadge {
 
     this.badge = document.createElement('button');
     this.badge.className = 'intel-findings-badge';
+    this.badge.dataset.tooltipAnchor = 'element';
     this.badge.title = t('components.intelligenceFindings.badgeTitle');
     this.badge.innerHTML = `<span class="findings-icon">${INTELLIGENCE_ICON}</span><span class="findings-count">0</span>`;
 

@@ -961,6 +961,48 @@ function weatherProxyPlugin(): Plugin {
   };
 }
 
+function marketRiskPlugin(): Plugin {
+  const CBOE_VIX_URL = 'https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv';
+  const CFTC_COT_URL = 'https://www.cftc.gov/dea/newcot/FinFutWk.txt';
+
+  return {
+    name: 'market-risk-proxy',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/market-risk')) return next();
+
+        const url = new URL(req.url, 'http://localhost');
+        const type = url.searchParams.get('type');
+
+        const upstreamUrl = type === 'vix' ? CBOE_VIX_URL : type === 'cot' ? CFTC_COT_URL : null;
+        if (!upstreamUrl) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Missing or invalid type parameter. Use type=vix or type=cot.' }));
+          return;
+        }
+
+        try {
+          const response = await fetch(upstreamUrl, {
+            headers: { 'User-Agent': 'EdgePannel/1.0', Accept: 'text/csv,text/plain,*/*' },
+            signal: AbortSignal.timeout(15000),
+          });
+          const data = await response.text();
+          res.statusCode = response.status;
+          res.setHeader('Content-Type', response.headers.get('content-type') || 'text/plain');
+          res.setHeader('Cache-Control', type === 'cot' ? 'public, max-age=900' : 'public, max-age=300');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end(data);
+        } catch (err: any) {
+          res.statusCode = err.name === 'AbortError' ? 504 : 502;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: `${type?.toUpperCase()} fetch failed`, details: err.message }));
+        }
+      });
+    },
+  };
+}
+
 function planespottersProxyPlugin(): Plugin {
   return {
     name: 'planespotters-proxy',
@@ -1146,6 +1188,7 @@ export default defineConfig({
     fetchArticlePlugin(),
     portfolioDataPlugin(),
     weatherProxyPlugin(),
+    marketRiskPlugin(),
     planespottersProxyPlugin(),
     usaSpendingProxyPlugin(),
     youtubeLivePlugin(),

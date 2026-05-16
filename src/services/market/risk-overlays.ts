@@ -53,9 +53,12 @@ export interface MarketRiskOverlaySnapshot {
   sourceNotes: string[];
 }
 
-const CBOE_VIX_HISTORY_URL = 'https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv';
-const CFTC_FINANCIAL_COT_URL = 'https://www.cftc.gov/dea/newcot/FinFutWk.txt';
-const REQUEST_TIMEOUT_MS = 10_000;
+// External sources are CORS-blocked in browsers — route through the server-side proxy.
+const CBOE_VIX_HISTORY_URL = '/api/market-risk?type=vix';
+const CFTC_FINANCIAL_COT_URL = '/api/market-risk?type=cot';
+const VIX_TIMEOUT_MS = 10_000;
+// COT is weekly data; fail fast so it doesn't delay the panel on government-site slowness.
+const COT_TIMEOUT_MS = 5_000;
 
 const unavailableSnapshot = (): MarketRiskOverlaySnapshot => ({
   status: 'unavailable',
@@ -89,9 +92,9 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-async function fetchText(url: string, signal?: AbortSignal): Promise<string> {
+async function fetchText(url: string, signal?: AbortSignal, timeoutMs = VIX_TIMEOUT_MS): Promise<string> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
 
@@ -233,7 +236,7 @@ function friendlyCotMarket(name: string): CotPositioning['market'] | null {
 }
 
 async function fetchCotSnapshot(signal?: AbortSignal): Promise<CotSnapshot> {
-  const text = await fetchText(CFTC_FINANCIAL_COT_URL, signal);
+  const text = await fetchText(CFTC_FINANCIAL_COT_URL, signal, COT_TIMEOUT_MS);
   const seen = new Set<CotPositioning['market']>();
   const markets: CotPositioning[] = [];
 
@@ -330,10 +333,9 @@ async function loadMarketRiskOverlay(signal?: AbortSignal): Promise<MarketRiskOv
 
   const vix = vixResult.status === 'fulfilled' ? vixResult.value : null;
   const cot = cotResult.status === 'fulfilled' ? cotResult.value : null;
+  // Source availability is already shown in the rendered source line ("· CFTC unavailable").
+  // Only surface driver notes that add context beyond what the source line shows.
   const sourceNotes: string[] = [];
-
-  if (!vix) sourceNotes.push('CBOE VIX unavailable');
-  if (!cot) sourceNotes.push('CFTC COT unavailable');
 
   if (!vix && !cot) {
     const reasons = [

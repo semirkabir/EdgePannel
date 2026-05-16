@@ -259,6 +259,24 @@ export class MarketPanel extends Panel {
   public renderMarketRiskOverlay(snapshot: MarketRiskOverlaySnapshot): void {
     this.marketRiskOverlay = snapshot;
     if (this.marketData.length > 0) {
+      // Update just the overlay node in-place to avoid tearing down live price subscriptions.
+      const existing = this.content.querySelector<HTMLElement>('.market-risk-overlay');
+      if (existing) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = this.renderMarketRiskOverlayHtml(snapshot).trim();
+        const replacement = tmp.firstElementChild;
+        if (replacement) {
+          existing.replaceWith(replacement);
+          return;
+        }
+      } else {
+        const stack = this.content.querySelector('.market-panel-stack');
+        if (stack) {
+          stack.insertAdjacentHTML('afterbegin', this.renderMarketRiskOverlayHtml(snapshot));
+          return;
+        }
+      }
+      // Fallback: full re-render only if in-place update targets not found.
       this.renderMarketContent();
       return;
     }

@@ -9,7 +9,7 @@ const DISABLED_PANEL_KEYS = new Set([
   'geopolitical-risk', 'trade-flows', 'earnings-calendar', 'ipo-calendar', 'insider-trading', 'social-sentiment',
   'options-chain', 'my-portfolio', 'public-filings', 'portfolio-tools', 'trade-policy', 'supply-chain', 'forex', 'bonds', 'centralbanks',
   'derivatives', 'fintech', 'regulation', 'institutional', 'analysis', 'gcc-investments', 'gccNews',
-  'service-status', 'tech-readiness', 'events', 'ucdp-events', 'displacement', 'climate', 'giving', 'airline-intel',
+  'service-status', 'tech-readiness', 'events', 'ucdp-events', 'displacement', 'climate', 'population-exposure', 'giving', 'airline-intel',
 ]);
 
 const DISABLED_TASKS = new Set([

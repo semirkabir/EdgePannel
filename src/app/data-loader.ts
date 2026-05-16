@@ -165,8 +165,12 @@ export class DataLoaderManager implements AppModule {
     return this.hasActiveCiiConsumer()
       || this.isPanelEnabled('strategic-posture')
       || this.isPanelEnabled('ucdp-events')
+      || this.isPanelEnabled('displacement')
+      || this.isPanelEnabled('climate')
       || this.isPanelEnabled('population-exposure')
+      || this.isPanelEnabled('security-advisories')
       || this.isPanelEnabled('oref-sirens')
+      || this.isPanelEnabled('telegram-intel')
       || this.isMapLayerEnabled('military')
       || this.isMapLayerEnabled('protests')
       || this.isMapLayerEnabled('ucdpEvents')
@@ -313,8 +317,23 @@ export class DataLoaderManager implements AppModule {
       if (isLocalDevTaskEnabled('markets') && this.hasActiveMarketsConsumer()) {
         tasks.push({ name: 'markets', task: runGuarded('markets', () => this.loadMarkets(), 'high') });
       }
+      if (this.hasActivePredictionConsumer()) {
+        tasks.push({ name: 'predictions', task: runGuarded('predictions', () => this.loadPredictions(), 'normal') });
+      }
       if (this.isMapLayerEnabled('polymarketMarkets')) {
         tasks.push({ name: 'prediction:polymarket-geo', task: runGuarded('prediction:polymarket-geo', () => this.loadPolymarketGeo(), 'normal') });
+      }
+      if (SITE_VARIANT === 'full' && isLocalDevTaskEnabled('intelligence') && this.hasActiveIntelligenceConsumer()) {
+        tasks.push({ name: 'intelligence', task: runGuarded('intelligence', () => this.loadIntelligenceSignals(), 'normal') });
+      }
+      if (this.isPanelEnabled('security-advisories')) {
+        tasks.push({ name: 'security-advisories', task: runGuarded('security-advisories', () => this.loadSecurityAdvisories(), 'normal') });
+      }
+      if (this.isPanelEnabled('oref-sirens')) {
+        tasks.push({ name: 'oref-sirens', task: runGuarded('oref-sirens', () => this.loadOrefSirens(), 'normal') });
+      }
+      if (this.isPanelEnabled('telegram-intel')) {
+        tasks.push({ name: 'telegram-intel', task: runGuarded('telegram-intel', () => this.loadTelegramIntel(), 'normal') });
       }
     }
 
@@ -572,6 +591,23 @@ export class DataLoaderManager implements AppModule {
         await panel?.refresh();
         return;
       }
+      case 'polymarket':
+        await this.loadPredictions();
+        return;
+      case 'displacement':
+      case 'climate':
+      case 'population-exposure':
+        await this.loadIntelligenceSignals();
+        return;
+      case 'security-advisories':
+        await this.loadSecurityAdvisories();
+        return;
+      case 'oref-sirens':
+        await this.loadOrefSirens();
+        return;
+      case 'telegram-intel':
+        await this.loadTelegramIntel();
+        return;
       default:
         return;
     }
@@ -659,6 +695,10 @@ export class DataLoaderManager implements AppModule {
 
   async loadSecurityAdvisories(): Promise<void> {
     await this.callbacks.signalPublisher?.loadSecurityAdvisories?.();
+  }
+
+  async loadOrefSirens(): Promise<void> {
+    await this.callbacks.signalPublisher?.loadOrefSirens?.();
   }
 
   async hydrateHappyPanelsFromCache(): Promise<void> {

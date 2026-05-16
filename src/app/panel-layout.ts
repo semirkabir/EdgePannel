@@ -2193,6 +2193,7 @@ export class PanelLayoutManager implements AppModule {
         await replayPendingCalls(key, panel);
         if (setup) setup(panel);
       }
+      (panel as unknown as import('@/components/Panel').Panel).toggle(this.ctx.panelSettings[key]?.enabled === true);
       const el = panel.getElement();
       this.makeDraggable(el, key);
 

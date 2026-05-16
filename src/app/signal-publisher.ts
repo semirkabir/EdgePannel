@@ -366,6 +366,7 @@ export class SignalPublisher {
         const unhcrResult = await fetchUnhcrPopulation();
         if (!unhcrResult.ok) {
           dataFreshness.recordError('unhcr', 'UNHCR displacement unavailable (retaining prior displacement state)');
+          this.deps.callPanel('displacement', 'showEmptyState', 'No displacement data available');
           return;
         }
         const data = unhcrResult.data;
@@ -378,6 +379,7 @@ export class SignalPublisher {
       } catch (error) {
         console.error('[Intelligence] UNHCR displacement fetch failed:', error);
         dataFreshness.recordError('unhcr', String(error));
+        this.deps.callPanel('displacement', 'showError', 'Displacement data unavailable');
       }
     })());
 
@@ -406,28 +408,7 @@ export class SignalPublisher {
     tasks.push(this.loadSecurityAdvisories());
     tasks.push(this.loadTelegramIntel());
 
-    tasks.push((async () => {
-      try {
-        const data = await fetchOrefAlerts();
-        this.deps.callPanel('oref-sirens', 'setData', data);
-        const alertCount = data.alerts?.length ?? 0;
-        const historyCount24h = data.historyCount24h ?? 0;
-        ingestOrefForCII(alertCount, historyCount24h);
-        this.ctx.intelligenceStore.updateCache({ orefAlerts: { alertCount, historyCount24h } });
-        if (data.alerts?.length) dispatchOrefBreakingAlert(data.alerts);
-        onOrefAlertsUpdate((update) => {
-          this.deps.callPanel('oref-sirens', 'setData', update);
-          const updAlerts = update.alerts?.length ?? 0;
-          const updHistory = update.historyCount24h ?? 0;
-          ingestOrefForCII(updAlerts, updHistory);
-          this.ctx.intelligenceStore.updateCache({ orefAlerts: { alertCount: updAlerts, historyCount24h: updHistory } });
-          if (update.alerts?.length) dispatchOrefBreakingAlert(update.alerts);
-        });
-        startOrefPolling();
-      } catch (error) {
-        console.error('[Intelligence] OREF alerts fetch failed:', error);
-      }
-    })());
+    tasks.push(this.loadOrefSirens());
 
     if (!isDesktopRuntime()) {
       tasks.push((async () => {
@@ -938,6 +919,7 @@ export class SignalPublisher {
       }
     } catch (error) {
       console.error('[App] Security advisories fetch failed:', error);
+      this.deps.callPanel('security-advisories', 'showError', 'Security advisories unavailable');
     }
   }
 
@@ -947,6 +929,31 @@ export class SignalPublisher {
       this.deps.callPanel('telegram-intel', 'setData', result);
     } catch (error) {
       console.error('[App] Telegram intel fetch failed:', error);
+      this.deps.callPanel('telegram-intel', 'showError', 'Telegram intel unavailable');
+    }
+  }
+
+  async loadOrefSirens(): Promise<void> {
+    try {
+      const data = await fetchOrefAlerts();
+      this.deps.callPanel('oref-sirens', 'setData', data);
+      const alertCount = data.alerts?.length ?? 0;
+      const historyCount24h = data.historyCount24h ?? 0;
+      ingestOrefForCII(alertCount, historyCount24h);
+      this.ctx.intelligenceStore.updateCache({ orefAlerts: { alertCount, historyCount24h } });
+      if (data.alerts?.length) dispatchOrefBreakingAlert(data.alerts);
+      onOrefAlertsUpdate((update) => {
+        this.deps.callPanel('oref-sirens', 'setData', update);
+        const updAlerts = update.alerts?.length ?? 0;
+        const updHistory = update.historyCount24h ?? 0;
+        ingestOrefForCII(updAlerts, updHistory);
+        this.ctx.intelligenceStore.updateCache({ orefAlerts: { alertCount: updAlerts, historyCount24h: updHistory } });
+        if (update.alerts?.length) dispatchOrefBreakingAlert(update.alerts);
+      });
+      startOrefPolling();
+    } catch (error) {
+      console.error('[Intelligence] OREF alerts fetch failed:', error);
+      this.deps.callPanel('oref-sirens', 'showError', 'Siren alerts unavailable');
     }
   }
 

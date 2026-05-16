@@ -10,6 +10,9 @@ let tipEl: HTMLDivElement | null = null;
 let activeTarget: HTMLElement | null = null;
 let savedTitle = '';
 let rafId = 0;
+let lastPointerX = 0;
+let lastPointerY = 0;
+let titleObserverStarted = false;
 
 function getEl(): HTMLDivElement {
   if (!tipEl) {
@@ -41,14 +44,44 @@ function reposition(x: number, y: number): void {
   tip.style.top  = `${Math.max(8, Math.min(top,  vh - h - 8))}px`;
 }
 
-function show(text: string, x: number, y: number): void {
+function repositionForTarget(target: HTMLElement): void {
+  const tip = tipEl;
+  if (!tip) return;
+
+  const gap = 10;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const w = tip.offsetWidth;
+  const h = tip.offsetHeight;
+  const rect = target.getBoundingClientRect();
+
+  let left = rect.left + rect.width / 2 - w / 2;
+  let top = rect.top - h - gap;
+
+  if (top < 8) top = rect.bottom + gap;
+
+  tip.style.left = `${Math.max(8, Math.min(left, vw - w - 8))}px`;
+  tip.style.top = `${Math.max(8, Math.min(top, vh - h - 8))}px`;
+}
+
+function usesElementAnchor(target: HTMLElement | null): target is HTMLElement {
+  return target?.dataset.tooltipAnchor === 'element';
+}
+
+function show(text: string, x: number, y: number, target: HTMLElement): void {
   const tip = getEl();
+  lastPointerX = x;
+  lastPointerY = y;
   tip.textContent = text;
   // Initial off-screen position so getBoundingClientRect is valid
   tip.style.left = '-9999px';
   tip.style.top  = '-9999px';
   tip.classList.add('wm-tooltip--visible');
-  reposition(x, y);
+  if (usesElementAnchor(target)) {
+    repositionForTarget(target);
+  } else {
+    reposition(x, y);
+  }
 }
 
 function hide(): void {
@@ -64,7 +97,51 @@ function deactivate(): void {
   hide();
 }
 
+function refreshActiveTooltip(text: string): void {
+  if (!activeTarget || !text.trim()) return;
+
+  savedTitle = text;
+  activeTarget.dataset.wmTitle = text;
+  activeTarget.setAttribute('title', '');
+
+  const tip = getEl();
+  tip.textContent = text;
+  if (usesElementAnchor(activeTarget)) {
+    repositionForTarget(activeTarget);
+  } else {
+    reposition(lastPointerX, lastPointerY);
+  }
+}
+
+function ensureTitleObserver(): void {
+  if (titleObserverStarted) return;
+  titleObserverStarted = true;
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type !== 'attributes' || mutation.attributeName !== 'title') continue;
+      if (mutation.target !== activeTarget) continue;
+
+      const nextTitle = activeTarget.getAttribute('title') ?? '';
+      if (!nextTitle.trim()) continue;
+
+      // Components can refresh their `title` while still hovered. Without this,
+      // the browser can surface a native tooltip after our initial mouseover
+      // suppression, producing a second, mis-positioned popup.
+      refreshActiveTooltip(nextTitle);
+    }
+  });
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['title'],
+    subtree: true,
+  });
+}
+
 export function initTooltips(): void {
+  ensureTitleObserver();
+
   document.addEventListener('mouseover', (e) => {
     const target = (e.target as HTMLElement).closest<HTMLElement>('[title]');
 
@@ -85,7 +162,7 @@ export function initTooltips(): void {
     target.setAttribute('title', '');
     target.dataset.wmTitle = savedTitle;
 
-    show(savedTitle, e.clientX, e.clientY);
+    show(savedTitle, e.clientX, e.clientY, target);
   });
 
   document.addEventListener('mouseout', (e) => {
@@ -98,6 +175,9 @@ export function initTooltips(): void {
 
   document.addEventListener('mousemove', (e) => {
     if (!activeTarget) return;
+    lastPointerX = e.clientX;
+    lastPointerY = e.clientY;
+    if (usesElementAnchor(activeTarget)) return;
     cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(() => reposition(e.clientX, e.clientY));
   });
