@@ -16,6 +16,11 @@ const REDIS_CACHE_TTL = 480; // 8 min — shared across all Vercel instances
 
 const quotesCache = new Map<string, { data: ListMarketQuotesResponse; timestamp: number }>();
 const QUOTES_CACHE_TTL = 480_000; // 8 minutes (in-memory fallback)
+const FINNHUB_MIN_GAP_MS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function cacheKey(symbols: string[]): string {
   return [...symbols].sort().join(',');
@@ -101,9 +106,11 @@ export async function listMarketQuotes(
 
     // Fetch Finnhub quotes (only if API key is set)
     if (finnhubSymbols.length > 0 && apiKey) {
-      const results = await Promise.all(
-        finnhubSymbols.map((s) => fetchFinnhubQuote(s, apiKey)),
-      );
+      const results: Array<Awaited<ReturnType<typeof fetchFinnhubQuote>>> = [];
+      for (let i = 0; i < finnhubSymbols.length; i++) {
+        if (i > 0) await sleep(FINNHUB_MIN_GAP_MS);
+        results.push(await fetchFinnhubQuote(finnhubSymbols[i]!, apiKey));
+      }
       for (const r of results) {
         if (r) {
           quotes.push({

@@ -19,6 +19,37 @@ const feedFailures = new Map<string, { count: number; cooldownUntil: number }>()
 const feedCache = new Map<string, { items: NewsItem[]; timestamp: number }>();
 const CACHE_TTL = 30 * 60 * 1000;
 
+// ── Rate-limit tracking for RSS feeds ──────────────────────────────────
+const feedRateLimitBackoffs = new Map<string, number>(); // feedScope → backoffUntil
+const RSS_MAX_BACKOFF_MS = 10 * 60 * 1000; // 10 min cap
+
+function handleFeedRateLimit(feedScope: string, response: Response): { shouldBackoff: boolean; backoffUntil: number } {
+  if (response.status !== 429) {
+    feedRateLimitBackoffs.delete(feedScope);
+    return { shouldBackoff: false, backoffUntil: 0 };
+  }
+
+  const retryAfter = response.headers.get('Retry-After');
+  const delayMs = retryAfter
+    ? Math.min(parseInt(retryAfter, 10) * 1000, RSS_MAX_BACKOFF_MS)
+    : RSS_MAX_BACKOFF_MS;
+  const backoffUntil = Date.now() + delayMs;
+  feedRateLimitBackoffs.set(feedScope, backoffUntil);
+
+  console.warn(`[RSS] Rate limited (429) for ${feedScope} — backing off for ${Math.round(delayMs / 1000)}s`);
+  return { shouldBackoff: true, backoffUntil };
+}
+
+function isFeedRateLimited(feedScope: string): boolean {
+  const backoffUntil = feedRateLimitBackoffs.get(feedScope);
+  if (!backoffUntil) return false;
+  if (Date.now() >= backoffUntil) {
+    feedRateLimitBackoffs.delete(feedScope);
+    return false;
+  }
+  return true;
+}
+
 function toSerializable(items: NewsItem[]): Array<Omit<NewsItem, 'pubDate'> & { pubDate: string }> {
   return items.map(item => ({ ...item, pubDate: item.pubDate.toISOString() }));
 }
@@ -207,6 +238,13 @@ export async function fetchFeed(feed: Feed): Promise<NewsItem[]> {
     return (await loadPersistentFeed(feedScope)) || [];
   }
 
+  // Skip if feed is in rate-limit backoff window
+  if (isFeedRateLimited(feedScope)) {
+    const cached = feedCache.get(feedScope);
+    if (cached) return cached.items;
+    return (await loadPersistentFeed(feedScope)) || [];
+  }
+
   const cached = feedCache.get(feedScope);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.items;
@@ -221,6 +259,15 @@ export async function fetchFeed(feed: Feed): Promise<NewsItem[]> {
     if (!url) throw new Error(`No URL found for feed ${feed.name}`);
 
     const response = await fetchWithProxy(url);
+
+    // Detect rate-limit (429) — set backoff window before throwing
+    const rl = handleFeedRateLimit(feedScope, response);
+    if (rl.shouldBackoff) {
+      console.warn(`[RSS] ${feed.name} rate limited, returning stale cache`);
+      if (cached) return cached.items;
+      return (await loadPersistentFeed(feedScope)) || [];
+    }
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
     const parser = new DOMParser();

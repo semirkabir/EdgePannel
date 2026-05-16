@@ -59,6 +59,7 @@ const ICONS = {
   bank: svgIcon('<path d="M4 9h16"/>', '<path d="M6 9v8M10 9v8M14 9v8M18 9v8"/>', '<path d="M3 20h18"/>', '<path d="m12 4 8 3H4l8-3Z"/>'),
   warehouse: svgIcon('<path d="M4 20V8l8-4 8 4v12"/>', '<path d="M4 10h16"/>', '<path d="M9 20v-5h6v5"/>'),
   boltLeaf: svgIcon('<path d="m13 3-6 8h4l-1 10 7-10h-4l1-8Z"/>', '<path d="M6 18c1.5-1.5 3.5-2.5 6-3"/>'),
+  ballot: svgIcon('<rect x="4" y="4" width="16" height="16" rx="2"/>', '<path d="M4 9h16"/>', '<path d="M8 13h.01M12 13h.01M16 13h.01"/>', '<path d="M9 1v3M15 1v3"/>'),
   pickaxe: '<img src="/icons/minerals.png" width="16" height="16" style="display:block;object-fit:contain" />',
   factory: svgIcon('<path d="M3 20h18"/>', '<path d="M5 20V9l5 3V9l5 3V7l4 2v11"/>', '<path d="M8 15h2M13 15h2"/>'),
   anchor: svgIcon('<path d="M12 4v10"/>', '<circle cx="12" cy="4" r="1.5"/>', '<path d="M7 12a5 5 0 0 0 10 0"/>', '<path d="M5 14a7 7 0 0 0 14 0"/>'),
@@ -133,6 +134,7 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   aptGroups:                def('aptGroups',                ICONS.shield,    'aptGroups',              'APT Groups'),
   gemRisk:                  def('gemRisk',                  ICONS.globe,     'gemRisk',                'Seismic Risk',        ['flat', 'globe']),
   democracy:                def('democracy',                ICONS.building,  'democracy',              'Democracy Index',     ['flat', 'globe']),
+  elections:                def('elections',                ICONS.ballot,    'elections',              'Elections',           ['flat', 'globe']),
 };
 
 // ── Weather category icon/color/label maps ───────────────────────────────────
@@ -208,6 +210,7 @@ export function resolveLayerAccentColor(key: keyof MapLayers, theme: 'light' | '
     case 'iranAttacks': return light ? '#b91c1c' : '#fb7185';
     case 'sanctions': return light ? '#dc2626' : '#fca5a5';
     case 'democracy': return light ? '#1d4ed8' : '#93c5fd';
+    case 'elections': return light ? '#7c3aed' : '#c4b5fd';
     case 'gemRisk': return light ? '#c2410c' : '#fb923c';
     case 'conflicts':
     case 'ucdpEvents': return light ? '#b91c1c' : '#f87171';
@@ -237,7 +240,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments',
     'positiveEvents', 'kindness', 'happiness', 'speciesRecovery', 'renewableInstallations',
     'miningSites', 'processingPlants', 'commodityPorts',
-    'iranAttacks', 'sanctions', 'democracy', 'gemRisk',
+    'iranAttacks', 'sanctions', 'democracy', 'gemRisk', 'elections',
   ],
   tech: [
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions',
@@ -263,7 +266,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'military', 'ais', 'flights', 'protests',
     'ucdpEvents', 'displacement', 'ciiChoropleth', 'governanceChoropleth',
     'cables', 'pipelines',
-    'cyberThreats', 'aptGroups', 'outages', 'minerals',
+    'cyberThreats', 'aptGroups', 'outages', 'minerals', 'elections',
   ],
 };
 

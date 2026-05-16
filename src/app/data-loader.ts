@@ -26,6 +26,7 @@ import { MonitorPanel, CIIPanel, TechReadinessPanel } from '@/components';
 import { fetchGivingSummary } from '@/services/giving';
 import { fetchHappinessScores } from '@/services/happiness-data';
 import { fetchRenewableInstallations } from '@/services/renewable-installations';
+import { fetchElections } from '@/services/elections';
 import { getPersistentCache, setPersistentCache } from '@/services/persistent-cache';
 import { dataTaskScheduler } from './data-task-scheduler';
 
@@ -368,6 +369,41 @@ export class DataLoaderManager implements AppModule {
           this.ctx.map?.setLayerReady('ciiChoropleth', true);
         }
       } catch { /* non-fatal */ }
+    }
+
+    // Elections choropleth (full + conflicts variants)
+    if ((SITE_VARIANT === 'full' || SITE_VARIANT === 'conflicts') && this.isMapLayerEnabled('elections')) {
+      tasks.push({
+        name: 'electionsMap',
+        task: runGuarded('electionsMap', async () => {
+          try {
+            const elections = await fetchElections();
+            // Build choropleth data: ISO3166-1-Alpha-2 -> { winner, margin, color }
+            const results = new Map<string, { winner: string; margin: number; color: [number, number, number, number] }>();
+            for (const election of elections) {
+              if (election.status !== 'completed') continue;
+              const countryIso2 = election.country.toUpperCase();
+              const winner = election.results?.find(r => r.winner);
+              if (winner) {
+                const candidate = election.candidates.find(c => c.id === winner.candidateId);
+                const partyColor = candidate?.partyColor || '#6b7280';
+                const r = parseInt(partyColor.slice(1, 3), 16);
+                const g = parseInt(partyColor.slice(3, 5), 16);
+                const b = parseInt(partyColor.slice(5, 7), 16);
+                results.set(countryIso2, {
+                  winner: candidate?.party ?? 'Unknown',
+                  margin: winner.percentage,
+                  color: [r, g, b, 140] as [number, number, number, number],
+                });
+              }
+            }
+            if (results.size > 0) {
+              this.ctx.map?.setElectionResults(results);
+              this.ctx.map?.setLayerReady('elections', true);
+            }
+          } catch { /* non-fatal — seed data fallback */ }
+        }),
+      });
     }
 
     if (SITE_VARIANT === 'tech') {

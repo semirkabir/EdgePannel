@@ -33,7 +33,7 @@ const BASE_LAYERS: MapLayers = {
   tradeRoutes: false, ciiChoropleth: false, governanceChoropleth: false, dayNight: false,
   miningSites: false, processingPlants: false, commodityPorts: false,
   aptGroups: false,
-  gemRisk: false, democracy: false,
+  gemRisk: false, democracy: false, elections: false,
 };
 
 // ============================================
@@ -99,10 +99,13 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'insider-trading':     p2('Insider Trading'),
   'social-sentiment':    p2('Social Sentiment'),
   'options-chain':       p2('Options Chain'),
-  'portfolio-tracker':   p2('Portfolio Tracker'),
+  'my-portfolio':        p2('My Portfolio'),
+  'public-filings':      p2('Public Filings'),
+  'portfolio-tools':     p2('Tools'),
   backtesting:           p2('Backtesting'),
   'algo-trading':        p2('Algo Trading'),
   'node-editor':         p2('Node Editor'),
+  elections:             p2('Elections'),
   marketplace:           { name: 'Marketplace Data', enabled: false, priority: 2 },
 };
 
@@ -232,7 +235,9 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   'insider-trading':  p2('Insider Trading'),
   'social-sentiment': p2('Social Sentiment'),
   'options-chain':    p2('Options Chain'),
-  'portfolio-tracker': p1('Portfolio Tracker'),
+  'my-portfolio':    p1('My Portfolio'),
+  'public-filings':  p1('Public Filings'),
+  'portfolio-tools': p1('Tools'),
   marketplace:        { name: 'Marketplace Data', enabled: false, priority: 2 },
 };
 
@@ -364,6 +369,7 @@ const CONFLICTS_PANELS: Record<string, PanelConfig> = {
   climate:               p2('Climate Anomalies'),
   'airline-intel':       p2('Airline Intelligence'),
   polymarket:            p2('Conflict Predictions'),
+  elections:             p2('Elections'),
   monitors:              p2('My Monitors'),
   'world-clock':         p2('World Clock'),
   marketplace:          { name: 'Marketplace Data', enabled: false, priority: 2 },
@@ -453,7 +459,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'economic', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'gulf-economies', 'crypto', 'heatmap', 'portfolio-tracker'],
+    panelKeys: ['commodities', 'markets', 'economic', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'gulf-economies', 'crypto', 'heatmap', 'my-portfolio', 'public-filings', 'portfolio-tools'],
     variants: ['full'],
   },
   topical: {
@@ -463,7 +469,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'satellite-fires', 'ucdp-events', 'displacement', 'climate', 'population-exposure', 'security-advisories', 'oref-sirens', 'world-clock'],
+    panelKeys: ['monitors', 'satellite-fires', 'ucdp-events', 'displacement', 'climate', 'population-exposure', 'security-advisories', 'oref-sirens', 'world-clock', 'elections'],
     variants: ['full'],
   },
 
@@ -492,7 +498,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Finance variant
   finMarkets: {
     labelKey: 'header.panelCatMarkets',
-    panelKeys: ['analyst-workbench', 'markets', 'markets-news', 'heatmap', 'macro-signals', 'analysis', 'polymarket', 'portfolio-tracker'],
+    panelKeys: ['analyst-workbench', 'markets', 'markets-news', 'heatmap', 'macro-signals', 'analysis', 'polymarket', 'my-portfolio', 'public-filings', 'portfolio-tools'],
     variants: ['finance'],
   },
   fixedIncomeFx: {

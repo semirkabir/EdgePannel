@@ -6,6 +6,7 @@
 @import './algo-detail.css';
 @import './node-editor.css';
 @import './tier1.css';
+@import './elections.css';
 
 /* Global scrollbar suppression */
 * {

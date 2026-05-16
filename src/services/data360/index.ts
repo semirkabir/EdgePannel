@@ -113,13 +113,13 @@ const client = new EconomicServiceClient('', { fetch: (...args) => globalThis.fe
 
 const data360Breaker = createCircuitBreaker<GetData360DataResponse>({
   name: 'Data360',
-  cacheTtlMs: 30 * 60 * 1000, // 30 min circuit breaker cache
+  cacheTtlMs: 24 * 60 * 60 * 1000,
   persistCache: true,
 });
 
 const searchBreaker = createCircuitBreaker<SearchData360Response>({
   name: 'Data360 Search',
-  cacheTtlMs: 60 * 60 * 1000, // 1 hour (search results change slowly)
+  cacheTtlMs: 24 * 60 * 60 * 1000,
   persistCache: true,
 });
 

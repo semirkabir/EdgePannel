@@ -1,7 +1,7 @@
 /**
  * ListFireDetections RPC -- proxies the NASA FIRMS CSV API.
  *
- * Fetches active fire detections from all 9 monitored regions in parallel
+ * Fetches active fire detections from all 9 monitored regions with pacing
  * and transforms the FIRMS CSV rows into proto-shaped FireDetection objects.
  *
  * Gracefully degrades to empty results when NASA_FIRMS_API_KEY is not set.
@@ -20,6 +20,7 @@ import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 const REDIS_CACHE_KEY = 'wildfire:fires:v1';
 const REDIS_CACHE_TTL = 3600; // 1h — NASA FIRMS VIIRS NRT updates every ~3 hours
 const SEED_FRESHNESS_MS = 90 * 60 * 1000; // 90 minutes
+const FIRMS_REQUEST_GAP_MS = 6 * 1000;
 
 const FIRMS_SOURCE = 'VIIRS_SNPP_NRT';
 
@@ -83,6 +84,10 @@ function parseDetectedAt(acqDate: string, acqTime: string): number {
   return new Date(`${acqDate}T${hours}:${minutes}:00Z`).getTime();
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export const listFireDetections: WildfireServiceHandler['listFireDetections'] = async (
   _ctx: ServerContext,
   _req: ListFireDetectionsRequest,
@@ -114,8 +119,11 @@ export const listFireDetections: WildfireServiceHandler['listFireDetections'] = 
       REDIS_CACHE_TTL,
       async () => {
         const entries = Object.entries(MONITORED_REGIONS);
-        const results = await Promise.allSettled(
-          entries.map(async ([regionName, bbox]) => {
+        const results: PromiseSettledResult<{ regionName: string; rows: Record<string, string>[] }>[] = [];
+        for (let i = 0; i < entries.length; i++) {
+          const [regionName, bbox] = entries[i]!;
+          if (i > 0) await sleep(FIRMS_REQUEST_GAP_MS);
+          try {
             const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${apiKey}/${FIRMS_SOURCE}/${bbox}/1`;
             const res = await fetch(url, {
               headers: { Accept: 'text/csv', 'User-Agent': CHROME_UA },
@@ -126,9 +134,11 @@ export const listFireDetections: WildfireServiceHandler['listFireDetections'] = 
             }
             const csv = await res.text();
             const rows = parseCSV(csv);
-            return { regionName, rows };
-          }),
-        );
+            results.push({ status: 'fulfilled', value: { regionName, rows } });
+          } catch (reason) {
+            results.push({ status: 'rejected', reason });
+          }
+        }
 
         const fireDetections: ListFireDetectionsResponse['fireDetections'] = [];
 

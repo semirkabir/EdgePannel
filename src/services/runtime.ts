@@ -4,6 +4,22 @@ const viteEnv = (import.meta as ImportMeta & { env?: ImportMetaEnv }).env ?? {};
 const WS_API_URL = viteEnv.VITE_WS_API_URL || '';
 const KEYED_CLOUD_API_PATTERN = /^\/api\/(?:[^/]+\/v1\/|bootstrap(?:\?|$)|polymarket(?:\?|$)|ais-snapshot(?:\?|$))/;
 
+// ── Rate-limit tracking for runtime fetch layer ────────────────────────
+const runtimeRateLimitCooldowns = new Map<string, number>();
+const RUNTIME_RATE_LIMIT_COOLDOWN_MS = 60_000;
+
+function handleRuntimeRateLimit(target: string, response: Response): void {
+  if (response.status !== 429) return;
+  const now = Date.now();
+  const last = runtimeRateLimitCooldowns.get(target) ?? 0;
+  if (now - last < RUNTIME_RATE_LIMIT_COOLDOWN_MS) return;
+  runtimeRateLimitCooldowns.set(target, now);
+
+  const retryAfter = response.headers.get('Retry-After');
+  const retryMsg = retryAfter ? ` — retry after ${retryAfter}s` : '';
+  console.warn(`[RateLimit] runtime 429 on ${target}${retryMsg}`);
+}
+
 const DEFAULT_REMOTE_HOSTS: Record<string, string> = {
   tech: WS_API_URL,
   full: WS_API_URL,
@@ -611,6 +627,9 @@ export function installRuntimeFetchPatch(): void {
           }
         }
       }
+
+      // Detect rate-limit (429) responses — log once per endpoint per cooldown window.
+      handleRuntimeRateLimit(target, response);
 
       if (!response.ok) {
         if (!allowCloudFallback) {

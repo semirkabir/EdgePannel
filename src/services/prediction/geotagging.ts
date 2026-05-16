@@ -13,7 +13,7 @@ import {
 } from '../country-geometry';
 
 export type GeotagConfidence = 'high' | 'medium' | 'low';
-export type GeotagSource = 'sports' | 'country' | 'city' | 'state' | 'pattern' | 'context';
+export type GeotagSource = 'sports' | 'country' | 'city' | 'state' | 'pattern' | 'context' | 'event-inherited';
 
 export interface PredictionGeotag {
   country: string;
@@ -26,92 +26,195 @@ export interface PredictionGeotag {
   matchedText: string;
 }
 
-// Bounds for countries used by spreadGeotag to avoid clustering at centroids
+﻿// Auto-generated from Natural Earth 110m admin boundaries with manual overrides.
+// Regenerate: npx tsx scripts/merge-country-bounds.ts
 export const COUNTRY_BOUNDS: Record<string, [minLat: number, minLon: number, maxLat: number, maxLon: number]> = {
-  'united states': [24.3963, -125, 49.3844, -66.9346],
-  'united kingdom': [49.9, -8.6, 58.7, 1.8],
-  'russia': [41.2, 19.6, 81.9, 179.9],
-  'ukraine': [44.2, 22.1, 52.4, 40.2],
+  'afghanistan': [29.3, 60.5, 38.5, 74.9],
+  'albania': [39.62, 19.3, 42.69, 21.02],
+  'algeria': [18.9, -8.7, 37.1, 12],
+  'angola': [-17.93, 11.64, -4.44, 24.08],
+  'antarctica': [-90, -180, -63.27, 180],
+  'argentina': [-55.1, -73.6, -21.8, -53.6],
+  'armenia': [38.8, 43.4, 41.3, 46.6],
+  'australia': [-43.6, 113.3, -10.7, 153.6],
+  'austria': [46.3, 9.5, 49.1, 17.2],
+  'azerbaijan': [38.4, 44.7, 41.9, 50.6],
+  'bahamas': [23.71, -78.98, 27.04, -77],
+  'bangladesh': [20.7, 88, 26.6, 92.7],
+  'belarus': [51.32, 23.2, 56.17, 32.69],
+  'belgium': [49.5, 2.5, 51.5, 6.4],
+  'belize': [15.89, -89.23, 18.5, -88.11],
+  'benin': [6.14, 0.77, 12.24, 3.8],
+  'bhutan': [26.72, 88.81, 28.3, 92.1],
+  'bolivia': [-22.9, -69.6, -9.7, -57.5],
+  'bosnia and herzegovina': [42.65, 15.75, 45.23, 19.6],
+  'botswana': [-26.83, 19.9, -17.66, 29.43],
+  'brazil': [-33.7, -73.9, 5.3, -34.8],
+  'brunei': [4.01, 114.2, 5.45, 115.45],
+  'bulgaria': [41.23, 22.38, 44.23, 28.56],
+  'burkina faso': [9.61, -5.47, 15.12, 2.18],
+  'burundi': [-4.5, 29.02, -2.35, 30.75],
+  'cambodia': [10.49, 102.35, 14.57, 107.61],
+  'cameroon': [1.73, 8.49, 12.86, 16.01],
+  'canada': [41.7, -141, 83.1, -52.6],
+  'central african republic': [2.27, 14.46, 11.14, 27.37],
+  'chad': [7.42, 13.54, 23.41, 23.89],
+  'chile': [-55.9, -75.7, -17.5, -66.4],
   'china': [18.2, 73.5, 53.6, 134.8],
-  'taiwan': [21.8, 119.3, 25.4, 122.1],
+  'colombia': [-4.2, -79, 12.5, -66.9],
+  'costa rica': [8.23, -85.94, 11.22, -82.55],
+  'croatia': [42.48, 13.66, 46.5, 19.39],
+  'cuba': [19.8, -84.9, 23.3, -74.1],
+  'cyprus': [34.57, 32.26, 35.17, 34],
+  'czech republic': [48.5, 12.1, 51.1, 18.9],
+  'dem. rep. korea': [37.67, 124.27, 42.99, 130.78],
+  'democratic republic of the congo': [-13.26, 12.18, 5.26, 31.17],
+  'denmark': [54.5, 8, 57.8, 15.2],
+  'djibouti': [10.93, 41.66, 12.7, 43.32],
+  'dominican republic': [17.6, -71.95, 19.88, -68.32],
+  'ecuador': [-5, -81.1, 1.7, -75.2],
+  'egypt': [22, 24.7, 31.7, 36.9],
+  'el salvador': [13.15, -90.1, 14.42, -87.72],
+  'eq. guinea': [1.01, 9.31, 2.28, 11.29],
+  'eritrea': [12.46, 36.32, 18, 43.08],
+  'estonia': [57.47, 23.34, 59.61, 28.13],
+  'ethiopia': [3.4, 33, 14.9, 47.9],
+  'falkland islands': [-52.3, -61.2, -51.1, -57.75],
+  'fiji': [-18.29, -180, -16.02, 180],
+  'finland': [59.8, 20.5, 70.1, 31.6],
+  'fr. s. and antarctic lands': [-49.77, 68.72, -48.62, 70.56],
+  'france': [41.3, -5.1, 51.1, 9.6],
+  'gabon': [-3.98, 8.8, 2.33, 14.43],
+  'gambia': [13.13, -16.84, 13.88, -13.84],
+  'georgia': [41, 39.9, 43.6, 46.7],
+  'germany': [47.3, 5.9, 55.1, 15],
+  'ghana': [4.5, -3.3, 11.2, 1.2],
+  'greece': [34.8, 19.3, 41.8, 28.2],
+  'greenland': [60.04, -73.3, 83.65, -12.21],
+  'guatemala': [13.74, -92.23, 17.82, -88.23],
+  'guinea': [7.31, -15.13, 12.59, -7.83],
+  'guinea-bissau': [11.04, -16.68, 12.63, -13.7],
+  'guyana': [1.27, -61.41, 8.37, -56.54],
+  'haiti': [18.03, -74.46, 19.92, -71.62],
+  'honduras': [12.98, -89.35, 16.01, -83.15],
+  'hungary': [45.7, 16.1, 48.6, 22.9],
+  'iceland': [63.5, -24.33, 66.53, -13.61],
+  'india': [8.4, 68.1, 37.1, 97.4],
+  'indonesia': [-11, 95, 6.1, 141],
+  'iran': [25, 44, 39.8, 63.3],
+  'iraq': [29, 38.8, 37.4, 48.6],
+  'ireland': [51.4, -10.7, 55.4, -5.9],
   'israel': [29.5, 34.2, 33.3, 35.9],
+  'italy': [36.6, 6.6, 47.1, 18.5],
+  'ivory coast': [4.34, -8.6, 10.52, -2.56],
+  'jamaica': [17.7, -78.34, 18.52, -76.2],
+  'japan': [24.4, 122.9, 45.6, 154],
+  'jordan': [29.2, 34.92, 33.38, 39.2],
+  'kazakhstan': [40.6, 46.5, 55.4, 87.3],
+  'kenya': [-4.7, 33.9, 5, 41.9],
+  'kosovo': [41.8, 20, 43.3, 21.8],
+  'kuwait': [28.53, 46.57, 30.06, 48.42],
+  'kyrgyzstan': [39.28, 69.46, 43.3, 80.26],
+  'laos': [13.88, 100.12, 22.46, 107.56],
+  'latvia': [55.62, 21.06, 57.97, 28.18],
+  'lebanon': [33, 35.1, 34.7, 36.6],
+  'lesotho': [-30.65, 27, -28.65, 29.33],
+  'liberia': [4.36, -11.44, 8.54, -7.54],
+  'libya': [19.5, 9.3, 33.2, 25.2],
+  'lithuania': [53.91, 21.06, 56.37, 26.59],
+  'luxembourg': [49.44, 5.67, 50.13, 6.24],
+  'macedonia': [40.84, 20.46, 42.32, 22.95],
+  'madagascar': [-25.6, 43.25, -12.04, 50.48],
+  'malawi': [-16.8, 32.69, -9.23, 35.77],
+  'malaysia': [0.8, 99.6, 7.4, 119.3],
+  'mali': [10.1, -12.17, 24.97, 4.27],
+  'mauritania': [14.62, -17.06, 27.4, -4.92],
+  'mexico': [14.5, -118.5, 32.7, -86.7],
+  'moldova': [45.49, 26.62, 48.47, 30.02],
+  'mongolia': [41.6, 87.75, 52.05, 119.77],
+  'montenegro': [41.88, 18.45, 43.52, 20.34],
+  'morocco': [27.6, -13.2, 35.9, -1],
+  'mozambique': [-26.74, 30.18, -10.32, 40.78],
+  'myanmar': [9.93, 92.3, 28.34, 101.18],
+  'namibia': [-29.05, 11.73, -16.94, 25.08],
+  'nepal': [26.3, 80, 30.5, 88.2],
+  'netherlands': [50.7, 3.4, 53.6, 7.2],
+  'new caledonia': [-22.4, 164.03, -20.11, 167.12],
+  'new zealand': [-47.4, 166.4, -34.4, 178.6],
+  'nicaragua': [10.73, -87.67, 15.02, -83.15],
+  'niger': [11.66, 0.3, 23.47, 15.9],
+  'nigeria': [4.2, 2.7, 13.9, 14.7],
+  'north korea': [37.6, 124.2, 43.1, 130.9],
+  'northern cyprus': [35, 32.73, 35.67, 34.58],
+  'norway': [57.9, 4.6, 71.2, 31.1],
+  'oman': [16.65, 52, 26.4, 59.81],
+  'pakistan': [23.6, 60.9, 37.1, 77],
   'palestine': [31.2, 34.2, 32.6, 35.6],
   'palestinian territory occupied': [31.2, 34.2, 32.6, 35.6],
-  'iran': [25.0, 44.0, 39.8, 63.3],
-  'qatar': [24.4, 50.7, 26.2, 51.7],
-  'saudi arabia': [16.3, 34.5, 32.2, 55.7],
-  'turkey': [35.8, 25.7, 42.1, 44.8],
-  'india': [8.4, 68.1, 37.1, 97.4],
-  'japan': [24.4, 122.9, 45.6, 154.0],
-  'south korea': [33.0, 124.5, 38.6, 131.9],
-  'north korea': [37.6, 124.2, 43.1, 130.9],
-  'france': [41.3, -5.1, 51.1, 9.6],
-  'germany': [47.3, 5.9, 55.1, 15.0],
-  'italy': [36.6, 6.6, 47.1, 18.5],
-  'spain': [36.0, -9.3, 43.8, 3.3],
-  'poland': [49.0, 14.1, 54.9, 24.2],
-  'netherlands': [50.7, 3.4, 53.6, 7.2],
-  'belgium': [49.5, 2.5, 51.5, 6.4],
-  'sweden': [55.0, 11.0, 69.1, 24.2],
-  'norway': [57.9, 4.6, 71.2, 31.1],
-  'denmark': [54.5, 8.0, 57.8, 15.2],
-  'finland': [59.8, 20.5, 70.1, 31.6],
-  'ireland': [51.4, -10.7, 55.4, -5.9],
-  'austria': [46.3, 9.5, 49.1, 17.2],
-  'switzerland': [45.8, 5.9, 47.8, 10.5],
-  'czech republic': [48.5, 12.1, 51.1, 18.9],
-  'hungary': [45.7, 16.1, 48.6, 22.9],
-  'romania': [43.6, 20.2, 48.3, 29.7],
-  'greece': [34.8, 19.3, 41.8, 28.2],
-  'serbia': [42.2, 18.8, 46.2, 23.0],
-  'kosovo': [41.8, 20.0, 43.3, 21.8],
-  'brazil': [-33.7, -73.9, 5.3, -34.8],
-  'mexico': [14.5, -118.5, 32.7, -86.7],
-  'canada': [41.7, -141.0, 83.1, -52.6],
-  'australia': [-43.6, 113.3, -10.7, 153.6],
-  'argentina': [-55.1, -73.6, -21.8, -53.6],
-  'south africa': [-34.9, 16.4, -22.1, 32.9],
-  'nigeria': [4.2, 2.7, 13.9, 14.7],
-  'egypt': [22.0, 24.7, 31.7, 36.9],
-  'pakistan': [23.6, 60.9, 37.1, 77.0],
-  'venezuela': [0.6, -73.4, 12.2, -59.8],
-  'colombia': [-4.2, -79.0, 12.5, -66.9],
-  'chile': [-55.9, -75.7, -17.5, -66.4],
-  'peru': [-18.4, -81.3, -0.0, -68.7],
-  'ecuador': [-5.0, -81.1, 1.7, -75.2],
-  'bolivia': [-22.9, -69.6, -9.7, -57.5],
-  'uruguay': [-35.0, -58.5, -30.1, -53.1],
-  'cuba': [19.8, -84.9, 23.3, -74.1],
-  'georgia': [41.0, 39.9, 43.6, 46.7],
-  'armenia': [38.8, 43.4, 41.3, 46.6],
-  'azerbaijan': [38.4, 44.7, 41.9, 50.6],
-  'united arab emirates': [22.6, 51.5, 26.1, 56.4],
-  'lebanon': [33.0, 35.1, 34.7, 36.6],
-  'syria': [32.3, 35.7, 37.3, 42.4],
-  'iraq': [29.0, 38.8, 37.4, 48.6],
-  'afghanistan': [29.3, 60.5, 38.5, 74.9],
-  'yemen': [12.1, 42.5, 19.0, 54.5],
-  'sudan': [8.7, 21.8, 22.2, 38.6],
-  'ethiopia': [3.4, 33.0, 14.9, 47.9],
-  'kenya': [-4.7, 33.9, 5.0, 41.9],
-  'ghana': [4.5, -3.3, 11.2, 1.2],
-  'morocco': [27.6, -13.2, 35.9, -1.0],
-  'algeria': [18.9, -8.7, 37.1, 12.0],
-  'tunisia': [30.2, 7.5, 37.5, 11.6],
-  'libya': [19.5, 9.3, 33.2, 25.2],
-  'indonesia': [-11.0, 95.0, 6.1, 141.0],
+  'panama': [7.22, -82.97, 9.61, -77.24],
+  'papua new guinea': [-10.65, 141, -2.5, 156.02],
+  'paraguay': [-27.55, -62.69, -19.34, -54.29],
+  'peru': [-18.4, -81.3, 0, -68.7],
   'philippines': [4.6, 116.9, 21.1, 126.6],
+  'poland': [49, 14.1, 54.9, 24.2],
+  'portugal': [36.84, -9.53, 42.28, -6.39],
+  'puerto rico': [17.95, -67.24, 18.52, -65.59],
+  'qatar': [24.4, 50.7, 26.2, 51.7],
+  'republic of congo': [-5.04, 11.09, 3.73, 18.45],
+  'republic of korea': [34.39, 126.12, 38.61, 129.47],
+  'romania': [43.6, 20.2, 48.3, 29.7],
+  'russia': [41.2, 19.6, 81.9, 179.9],
+  'rwanda': [-2.92, 29.02, -1.13, 30.82],
+  'saudi arabia': [16.3, 34.5, 32.2, 55.7],
+  'senegal': [12.33, -17.63, 16.6, -11.47],
+  'serbia': [42.2, 18.8, 46.2, 23],
+  'sierra leone': [6.79, -13.25, 10.05, -10.23],
+  'singapore': [1.2, 103.6, 1.5, 104],
+  'slovakia': [47.76, 16.88, 49.57, 22.56],
+  'slovenia': [45.45, 13.7, 46.85, 16.56],
+  'solomon islands': [-10.83, 156.49, -6.6, 162.4],
+  'somalia': [-1.68, 40.98, 12.02, 51.13],
+  'somaliland': [8, 42.56, 11.46, 48.95],
+  'south africa': [-34.9, 16.4, -22.1, 32.9],
+  'south korea': [33, 124.5, 38.6, 131.9],
+  'south sudan': [3.51, 23.89, 12.25, 35.3],
+  'spain': [36, -9.3, 43.8, 3.3],
+  'sri lanka': [5.9, 79.5, 9.9, 82],
+  'sudan': [8.7, 21.8, 22.2, 38.6],
+  'suriname': [1.82, -58.04, 6.03, -53.96],
+  'swaziland': [-27.29, 30.68, -25.66, 32.07],
+  'sweden': [55, 11, 69.1, 24.2],
+  'switzerland': [45.8, 5.9, 47.8, 10.5],
+  'syria': [32.3, 35.7, 37.3, 42.4],
+  'taiwan': [21.8, 119.3, 25.4, 122.1],
+  'tajikistan': [36.74, 67.44, 40.96, 74.98],
+  'tanzania': [-11.72, 29.34, -0.95, 40.32],
   'thailand': [5.6, 97.3, 20.5, 105.6],
-  'vietnam': [8.2, 102.1, 23.4, 109.5],
-  'malaysia': [0.8, 99.6, 7.4, 119.3],
-  'singapore': [1.2, 103.6, 1.5, 104.0],
-  'bangladesh': [20.7, 88.0, 26.6, 92.7],
-  'sri lanka': [5.9, 79.5, 9.9, 82.0],
-  'nepal': [26.3, 80.0, 30.5, 88.2],
-  'kazakhstan': [40.6, 46.5, 55.4, 87.3],
+  'timor-leste': [-9.39, 124.97, -8.27, 127.34],
+  'togo': [5.93, -0.05, 11.02, 1.87],
+  'trinidad and tobago': [10, -61.95, 10.89, -60.89],
+  'tunisia': [30.2, 7.5, 37.5, 11.6],
+  'turkey': [35.8, 25.7, 42.1, 44.8],
+  'turkmenistan': [35.27, 52.5, 42.75, 66.55],
+  'uganda': [-1.44, 29.58, 4.25, 35.04],
+  'ukraine': [44.2, 22.1, 52.4, 40.2],
+  'united arab emirates': [22.6, 51.5, 26.1, 56.4],
+  'united kingdom': [49.9, -8.6, 58.7, 1.8],
+  'united states': [24.3963, -125, 49.3844, -66.9346],
+  'uruguay': [-35, -58.5, -30.1, -53.1],
   'uzbekistan': [37.2, 55.9, 45.6, 73.2],
-  'new zealand': [-47.4, 166.4, -34.4, 178.6],
+  'vanuatu': [-16.6, 166.63, -14.63, 167.84],
+  'venezuela': [0.6, -73.4, 12.2, -59.8],
+  'vietnam': [8.2, 102.1, 23.4, 109.5],
+  'w. sahara': [21, -17.06, 27.66, -8.67],
+  'yemen': [12.1, 42.5, 19, 54.5],
+  'zambia': [-17.96, 21.89, -8.24, 33.49],
+  'zimbabwe': [-22.27, 25.26, -15.51, 32.85],
 };
+
+
+
+
 
 const _chicago: CityData = { name: 'Chicago', country: 'United States', region: 'Illinois', lat: 41.8781, lon: -87.6298 };
 const _houston: CityData = { name: 'Houston', country: 'United States', region: 'Texas', lat: 29.7604, lon: -95.3698 };
@@ -286,8 +389,98 @@ const MANUAL_CITY_OVERRIDES: Record<string, CityData> = {
   'spacex': { name: 'Starbase', country: 'United States', region: 'Texas', lat: 25.9972, lon: -97.1561 },
 };
 
+// ── Organization / institution → location mapping ──
+// Covers corporations, governments, international bodies that appear in market titles
+// but aren't matched by city/country gazetteers.
+const ORGANIZATION_LOCATIONS: Record<string, { country: string; city?: string; lat: number; lon: number }> = {
+  // US Government / Federal
+  'white house': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'pentagon': { country: 'United States', city: 'Arlington', lat: 38.8710, lon: -77.0563 },
+  'capitol': { country: 'United States', city: 'Washington', lat: 38.8899, lon: -77.0091 },
+  'capitol hill': { country: 'United States', city: 'Washington', lat: 38.8899, lon: -77.0091 },
+  'supreme court': { country: 'United States', city: 'Washington', lat: 38.8906, lon: -77.0044 },
+  'federal reserve': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'fed': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'fomc': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'sec': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'treasury': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'cia': { country: 'United States', city: 'McLean', lat: 38.9448, lon: -77.1778 },
+  'fbi': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'nsa': { country: 'United States', city: 'Fort Meade', lat: 39.1093, lon: -76.7611 },
+  'cdc': { country: 'United States', city: 'Atlanta', lat: 33.7490, lon: -84.3880 },
+  'nasa': { country: 'United States', city: 'Houston', lat: 29.7604, lon: -95.3698 },
+  // International organizations
+  'nato': { country: 'Belgium', city: 'Brussels', lat: 50.8503, lon: 4.3517 },
+  'un': { country: 'United States', city: 'New York', lat: 40.7489, lon: -73.9680 },
+  'united nations': { country: 'United States', city: 'New York', lat: 40.7489, lon: -73.9680 },
+  'who': { country: 'Switzerland', city: 'Geneva', lat: 46.2044, lon: 6.1432 },
+  'world health organization': { country: 'Switzerland', city: 'Geneva', lat: 46.2044, lon: 6.1432 },
+  'imf': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'international monetary fund': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'world bank': { country: 'United States', city: 'Washington', lat: 38.8977, lon: -77.0365 },
+  'wto': { country: 'Switzerland', city: 'Geneva', lat: 46.2044, lon: 6.1432 },
+  'oecd': { country: 'France', city: 'Paris', lat: 48.8566, lon: 2.3522 },
+  'g7': { country: 'Europe', lat: 50.00, lon: 10.00 },
+  'g20': { country: 'Europe', lat: 50.00, lon: 10.00 },
+  'eu': { country: 'Belgium', city: 'Brussels', lat: 50.8503, lon: 4.3517 },
+  'european union': { country: 'Belgium', city: 'Brussels', lat: 50.8503, lon: 4.3517 },
+  'ecb': { country: 'Germany', city: 'Frankfurt', lat: 50.1109, lon: 8.6821 },
+  'european central bank': { country: 'Germany', city: 'Frankfurt', lat: 50.1109, lon: 8.6821 },
+  'african union': { country: 'Ethiopia', city: 'Addis Ababa', lat: 9.0192, lon: 38.7525 },
+  'asean': { country: 'Indonesia', city: 'Jakarta', lat: -6.2088, lon: 106.8456 },
+  'opec': { country: 'Austria', city: 'Vienna', lat: 48.2082, lon: 16.3738 },
+  // Tech companies
+  'openai': { country: 'United States', city: 'San Francisco', lat: 37.7749, lon: -122.4194 },
+  'google': { country: 'United States', city: 'Mountain View', lat: 37.4220, lon: -122.0841 },
+  'alphabet': { country: 'United States', city: 'Mountain View', lat: 37.4220, lon: -122.0841 },
+  'apple': { country: 'United States', city: 'Cupertino', lat: 37.3230, lon: -122.0322 },
+  'microsoft': { country: 'United States', city: 'Redmond', lat: 47.6740, lon: -122.1215 },
+  'amazon': { country: 'United States', city: 'Seattle', lat: 47.6062, lon: -122.3321 },
+  'meta': { country: 'United States', city: 'Menlo Park', lat: 37.4529, lon: -122.1817 },
+  'facebook': { country: 'United States', city: 'Menlo Park', lat: 37.4529, lon: -122.1817 },
+  'x': { country: 'United States', city: 'San Francisco', lat: 37.7749, lon: -122.4194 },
+  'twitter': { country: 'United States', city: 'San Francisco', lat: 37.7749, lon: -122.4194 },
+  'tesla': { country: 'United States', city: 'Austin', lat: 30.2672, lon: -97.7431 },
+  'spacex': { country: 'United States', city: 'Starbase', lat: 25.9972, lon: -97.1561 },
+  'bytedance': { country: 'China', city: 'Beijing', lat: 39.9042, lon: 116.4074 },
+  'tiktok': { country: 'China', city: 'Beijing', lat: 39.9042, lon: 116.4074 },
+  'tsmc': { country: 'Taiwan', city: 'Hsinchu', lat: 24.8039, lon: 121.0197 },
+  'samsung': { country: 'South Korea', city: 'Seoul', lat: 37.5665, lon: 126.9780 },
+  'huawei': { country: 'China', city: 'Shenzhen', lat: 22.5431, lon: 114.0579 },
+  'nvidia': { country: 'United States', city: 'Santa Clara', lat: 37.3541, lon: -121.9552 },
+  'intel': { country: 'United States', city: 'Santa Clara', lat: 37.3541, lon: -121.9552 },
+  'amd': { country: 'United States', city: 'Santa Clara', lat: 37.3541, lon: -121.9552 },
+  'boeing': { country: 'United States', city: 'Arlington', lat: 38.8816, lon: -77.0910 },
+  'lockheed': { country: 'United States', city: 'Bethesda', lat: 38.9847, lon: -77.0947 },
+  'lockheed martin': { country: 'United States', city: 'Bethesda', lat: 38.9847, lon: -77.0947 },
+  'raytheon': { country: 'United States', city: 'Arlington', lat: 38.8816, lon: -77.0910 },
+  // Financial institutions
+  'blackrock': { country: 'United States', city: 'New York', lat: 40.7128, lon: -74.0060 },
+  'goldman sachs': { country: 'United States', city: 'New York', lat: 40.7128, lon: -74.0060 },
+  'jp morgan': { country: 'United States', city: 'New York', lat: 40.7128, lon: -74.0060 },
+  'jpmorgan': { country: 'United States', city: 'New York', lat: 40.7128, lon: -74.0060 },
+  'bank of america': { country: 'United States', city: 'Charlotte', lat: 35.2271, lon: -80.8431 },
+  // Energy
+  'saudi aramco': { country: 'Saudi Arabia', city: 'Dhahran', lat: 26.2885, lon: 50.1274 },
+  'gazprom': { country: 'Russia', city: 'Moscow', lat: 55.7558, lon: 37.6173 },
+  // Crypto
+  'binance': { country: 'United Arab Emirates', city: 'Dubai', lat: 25.2048, lon: 55.2708 },
+  'coinbase': { country: 'United States', city: 'San Francisco', lat: 37.7749, lon: -122.4194 },
+};
+
 const CRYPTO_ONLY_RE = /\b(bitcoin|ethereum|solana|btc|eth|sol|doge|crypto|cryptocurrency|memecoin)\b/i;
+// Extended explicit location patterns
 const EXPLICIT_LOCATION_RE = /\b(?:in|at|from|to)\s+([A-Z][a-zA-Z. -]+?)(?:\s+(?:on|before|after|by|in|at|for|during|next)|[,?.!]|$)/g;
+// Conjunction pattern: "X and Y" where both are potential locations
+const CONJUNCTION_RE = /\b([A-Z][a-zA-Z]+)\s+and\s+([A-Z][a-zA-Z]+)\b/g;
+// Hyphenated pair: "US-China", "Russia-Ukraine"
+const HYPHENATED_RE = /\b([A-Z][a-zA-Z]+)-([A-Z][a-zA-Z]+)\b/g;
+// Possessive: "Biden's visit", "France's economy"
+const POSSESSIVE_RE = /\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)'s\b/g;
+// Apposition: "President Macron, France" or "the French president, Emmanuel Macron"
+const APPOSITION_RE = /\b(?:president|prime minister|chancellor|king|queen|leader|foreign minister|defense minister)\s+([A-Z][a-zA-Z]+),?\s+([A-Z][a-zA-Z]+)\b/i;
+// Action-target: "invade X", "attack Y", "sanction Z"
+const ACTION_TARGET_RE = /\b(?:invade|invades|invasion of|attack|attacks|strike|strikes|sanction|sanctions|bomb|bombs|invading|attacking|striking|sanctioning)\s+([A-Z][a-zA-Z. -]+?)(?:\s|$|[,?.!])/g;
 const STATE_CONTEXT_RE = /\b(primary|election|governor|senate|senator|representative|district|ballot|referendum|vote|poll|campaign|caucus|congressional|presidential)\b/i;
 
 function escapeRegExp(value: string): string {
@@ -296,6 +489,46 @@ function escapeRegExp(value: string): string {
 
 function hasWord(text: string, value: string): boolean {
   return new RegExp(`\\b${escapeRegExp(value.toLowerCase())}\\b`, 'i').test(text);
+}
+
+// ── Levenshtein distance for fuzzy country matching ──
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const row: number[] = [];
+  for (let j = 0; j <= n; j++) row.push(j);
+  for (let i = 1; i <= m; i++) {
+    let prev = row[0]!;
+    row[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const temp = row[j]!;
+      const cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+      row[j] = Math.min(
+        row[j]! + 1,
+        row[j - 1]! + 1,
+        prev + cost,
+      );
+      prev = temp;
+    }
+  }
+  return row[n]!;
+}
+
+/** Fuzzy country match: returns country if edit distance ≤ 2 from any term. */
+function fuzzyCountryMatch(text: string): typeof COUNTRY_DATA[string] | null {
+  const lower = text.toLowerCase();
+  const words = lower.split(/\s+/);
+  // Only try fuzzy matching on individual words 3+ chars (too expensive otherwise)
+  const candidates = words.filter(w => w.length >= 3 && w.length <= 20);
+  for (const country of Object.values(COUNTRY_DATA)) {
+    for (const term of countryTerms(country)) {
+      for (const candidate of candidates) {
+        if (Math.abs(term.length - candidate.length) > 2) continue;
+        if (levenshtein(term, candidate) <= 2) return country;
+      }
+    }
+  }
+  return null;
 }
 
 function countryTerms(country: typeof COUNTRY_DATA[string]): string[] {
@@ -417,6 +650,7 @@ function findState(text: string): PredictionGeotag | null {
 }
 
 function findExplicitPattern(text: string): PredictionGeotag | null {
+  // 1. Preposition pattern: "in X", "at Y", "from Z", "to W"
   EXPLICIT_LOCATION_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = EXPLICIT_LOCATION_RE.exec(text)) !== null) {
@@ -429,6 +663,73 @@ function findExplicitPattern(text: string): PredictionGeotag | null {
     const country = findCountryByText(location);
     if (country) return { ...country, extractedFrom: 'pattern', matchedText: location };
   }
+
+  // 2. Action-target pattern: "invade X", "attack Y", "sanction Z"
+  ACTION_TARGET_RE.lastIndex = 0;
+  while ((match = ACTION_TARGET_RE.exec(text)) !== null) {
+    const target = match[1]?.trim();
+    if (!target) continue;
+    const city = findCity(target);
+    if (city) return { ...city, extractedFrom: 'pattern', matchedText: target };
+    const state = findState(target);
+    if (state) return { ...state, extractedFrom: 'pattern', matchedText: target };
+    const country = findCountryByText(target);
+    if (country) return { ...country, extractedFrom: 'pattern', matchedText: target };
+  }
+
+  // 3. Conjunction pattern: "X and Y" — pick the first that resolves
+  CONJUNCTION_RE.lastIndex = 0;
+  while ((match = CONJUNCTION_RE.exec(text)) !== null) {
+    for (const loc of [match[1], match[2]]) {
+      if (!loc) continue;
+      const city = findCity(loc);
+      if (city) return { ...city, extractedFrom: 'pattern', matchedText: loc };
+      const state = findState(loc);
+      if (state) return { ...state, extractedFrom: 'pattern', matchedText: loc };
+      const country = findCountryByText(loc);
+      if (country) return { ...country, extractedFrom: 'pattern', matchedText: loc };
+    }
+  }
+
+  // 4. Hyphenated pair: "US-China" — pick the second (target) as primary
+  HYPHENATED_RE.lastIndex = 0;
+  while ((match = HYPHENATED_RE.exec(text)) !== null) {
+    for (const loc of [match[2], match[1]]) {
+      if (!loc) continue;
+      const city = findCity(loc);
+      if (city) return { ...city, extractedFrom: 'pattern', matchedText: loc };
+      const state = findState(loc);
+      if (state) return { ...state, extractedFrom: 'pattern', matchedText: loc };
+      const country = findCountryByText(loc);
+      if (country) return { ...country, extractedFrom: 'pattern', matchedText: loc };
+    }
+  }
+
+  // 5. Possessive: "France's economy" → France
+  POSSESSIVE_RE.lastIndex = 0;
+  while ((match = POSSESSIVE_RE.exec(text)) !== null) {
+    const possessor = match[1]?.trim();
+    if (!possessor) continue;
+    const city = findCity(possessor);
+    if (city) return { ...city, extractedFrom: 'pattern', matchedText: possessor };
+    const state = findState(possessor);
+    if (state) return { ...state, extractedFrom: 'pattern', matchedText: possessor };
+    const country = findCountryByText(possessor);
+    if (country) return { ...country, extractedFrom: 'pattern', matchedText: possessor };
+  }
+
+  // 6. Apposition: "President Macron, France" → France
+  const apposMatch = text.match(APPOSITION_RE);
+  if (apposMatch?.[2]) {
+    const place = apposMatch[2].trim();
+    const city = findCity(place);
+    if (city) return { ...city, extractedFrom: 'pattern', matchedText: place };
+    const state = findState(place);
+    if (state) return { ...state, extractedFrom: 'pattern', matchedText: place };
+    const country = findCountryByText(place);
+    if (country) return { ...country, extractedFrom: 'pattern', matchedText: place };
+  }
+
   return null;
 }
 
@@ -439,6 +740,127 @@ function findSportsTeam(text: string): PredictionGeotag | null {
     if (hasWord(lower, team)) return toCityGeotag(city, 'sports', team);
   }
   return null;
+}
+
+/** Find organization/institution mentions and map to their headquarters location. */
+function findOrganization(text: string): PredictionGeotag | null {
+  const lower = text.toLowerCase();
+  // Try multi-word phrases first (longer matches are more specific)
+  const words = lower.split(/\s+/);
+  for (let len = Math.min(words.length, 3); len >= 1; len--) {
+    for (let i = 0; i <= words.length - len; i++) {
+      const phrase = words.slice(i, i + len).join(' ').replace(/[.,'?!:;"\u2018\u2019\u201C\u201D\u2013\u2014]/g, '');
+      const org = ORGANIZATION_LOCATIONS[phrase];
+      if (org) {
+        return {
+          country: org.country,
+          city: org.city,
+          lat: org.lat,
+          lon: org.lon,
+          confidence: 'high',
+          extractedFrom: 'context',
+          matchedText: phrase,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+// ── Multi-location extraction with context scoring ──
+// Instead of returning on first match, extract ALL candidate locations and
+// score them by proximity to action verbs, context words, and match quality.
+
+interface LocationCandidate {
+  geotag: PredictionGeotag;
+  score: number;
+}
+
+/** Score a location candidate based on its context in the text. */
+function scoreCandidate(text: string, geotag: PredictionGeotag): number {
+  const lower = text.toLowerCase();
+  const matchedLower = geotag.matchedText.toLowerCase();
+  const matchIndex = lower.indexOf(matchedLower);
+  if (matchIndex < 0) return 0;
+
+  // Base score from confidence level
+  let score = geotag.confidence === 'high' ? 10 : geotag.confidence === 'medium' ? 5 : 2;
+
+  // +5 if near an action verb (invade, attack, elect, sanction, etc.)
+  const actionVerbs = ['invade', 'attack', 'strike', 'sanction', 'elect', 'vote', 'bomb', 'annex', 'war', 'conflict', 'ceasefire', 'treaty', 'agreement', 'summit'];
+  const contextWindow = lower.slice(Math.max(0, matchIndex - 40), matchIndex + matchedLower.length + 40);
+  for (const verb of actionVerbs) {
+    if (contextWindow.includes(verb)) { score += 5; break; }
+  }
+
+  // +3 if near a subject word (president, government, election)
+  const subjectWords = ['president', 'prime minister', 'government', 'election', 'parliament', 'senate', 'congress', 'military', 'army'];
+  for (const word of subjectWords) {
+    if (contextWindow.includes(word)) { score += 3; break; }
+  }
+
+  // +2 if it's a city-level match (more specific than country)
+  if (geotag.city) score += 2;
+
+  // +1 for each additional context word nearby
+  const nearbyWords = contextWindow.split(/\s+/);
+  for (const w of nearbyWords) {
+    if (w.length > 4 && !matchedLower.includes(w)) score += 0.5;
+  }
+
+  return score;
+}
+
+/** Extract ALL location candidates from text and return the best one. */
+function extractBestGeotag(text: string): PredictionGeotag | null {
+  const candidates: LocationCandidate[] = [];
+
+  // 1. Explicit patterns (highest priority)
+  const explicit = findExplicitPattern(text);
+  if (explicit) candidates.push({ geotag: explicit, score: scoreCandidate(text, explicit) + 20 });
+
+  // 2. Organization mentions
+  const org = findOrganization(text);
+  if (org) candidates.push({ geotag: org, score: scoreCandidate(text, org) + 15 });
+
+  // 3. City matches
+  const city = findCity(text);
+  if (city) candidates.push({ geotag: city, score: scoreCandidate(text, city) + 10 });
+
+  // 4. Sports teams
+  const sports = findSportsTeam(text);
+  if (sports) candidates.push({ geotag: sports, score: scoreCandidate(text, sports) + 10 });
+
+  // 5. State/region matches
+  const state = findState(text);
+  if (state) {
+    // Georgia disambiguation
+    if (state.country === 'United States' && state.region === 'Georgia' && /\b(tbilisi|russia|russian|caucasus|europe|georgian dream)\b/i.test(text)) {
+      const countryTag = toCountryGeotag(COUNTRY_DATA.georgia!, 'context', 'georgia');
+      candidates.push({ geotag: countryTag, score: scoreCandidate(text, countryTag) + 8 });
+    } else {
+      candidates.push({ geotag: state, score: scoreCandidate(text, state) + 8 });
+    }
+  }
+
+  // 6. Country matches with context
+  const country = findCountryWithContext(text);
+  if (country) candidates.push({ geotag: country, score: scoreCandidate(text, country) + 5 });
+
+  // 7. Fuzzy country match (last resort)
+  if (candidates.length === 0) {
+    const fuzzy = fuzzyCountryMatch(text);
+    if (fuzzy) {
+      const fuzzyTag = toCountryGeotag(fuzzy, 'country', fuzzy.name, 'low');
+      candidates.push({ geotag: fuzzyTag, score: scoreCandidate(text, fuzzyTag) + 1 });
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  // Return the highest-scoring candidate
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]!.geotag;
 }
 
 function findCountries(text: string): Array<{ country: typeof COUNTRY_DATA[string]; matchedText: string; index: number; context: string }> {
@@ -595,27 +1017,15 @@ export function extractPredictionGeotag(title: string, description = ''): Predic
   const text = `${title} ${description}`.trim();
   if (!text) return null;
 
-  const explicit = findExplicitPattern(text);
-  if (explicit) return explicit;
+  // Multi-location extraction with context scoring
+  const best = extractBestGeotag(text);
+  if (best) return best;
 
-  const city = findCity(text);
-  if (city) return city;
+  // Fuzzy match as last resort before giving up
+  const fuzzy = fuzzyCountryMatch(text);
+  if (fuzzy) return toCountryGeotag(fuzzy, 'country', fuzzy.name, 'low');
 
-  const sports = findSportsTeam(text);
-  if (sports) return sports;
-
-  const state = findState(text);
-  if (state) {
-    const countryGeorgiaContext = /\b(tbilisi|russia|russian|caucasus|europe|georgian dream)\b/i.test(text);
-    if (state.country === 'United States' && state.region === 'Georgia' && countryGeorgiaContext) {
-      return toCountryGeotag(COUNTRY_DATA.georgia!, 'context', 'georgia');
-    }
-    return state;
-  }
-
-  const country = findCountryWithContext(text);
-  if (country) return country;
-
+  // Crypto-only markets have no geographic focus
   if (CRYPTO_ONLY_RE.test(text)) return null;
 
   return null;

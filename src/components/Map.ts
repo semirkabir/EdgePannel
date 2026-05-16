@@ -82,10 +82,21 @@ import {
 export type { TimeRange };
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 
-function getPredictionMarketColor(yesPrice: number): string {
+function getPredictionMarketColor(yesPrice: number, volumeHeat = 0): string {
   const pct = Math.max(0, Math.min(100, Number.isFinite(yesPrice) ? yesPrice : 50));
   const conviction = Math.abs(pct - 50) / 50;
-  return `rgb(${Math.round(125 + conviction * 40)}, ${Math.round(190 + conviction * 28)}, 255)`;
+  // Base cool blue
+  const br = 125 + conviction * 40;
+  const bg = 190 + conviction * 28;
+  const bb = 255;
+  // Warm shift for high-volume markets: blue → teal → soft amber
+  const wr = 200;
+  const wg = 210;
+  const wb = 140;
+  const r = br + (wr - br) * volumeHeat;
+  const g = bg + (wg - bg) * volumeHeat;
+  const b = bb + (wb - bb) * volumeHeat;
+  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
 }
 
 type PredictionMarketVolumeScale = { minLog: number; maxLog: number };
@@ -105,7 +116,7 @@ function getPredictionMarketVolumeScale(markets: Array<{ volume?: number }>): Pr
 function getPredictionMarketSize(volume: number | undefined, scale: PredictionMarketVolumeScale): number {
   const logVolume = Math.log10(Math.max(1, volume ?? 0));
   const normalized = Math.max(0, Math.min(1, (logVolume - scale.minLog) / (scale.maxLog - scale.minLog)));
-  return 3.5 + normalized * 13.5;
+  return 2.5 + normalized * 7.5;
 }
 
 function formatPredictionMarketVolume(volume?: number): string {
@@ -2010,7 +2021,9 @@ export class MapComponent {
         const pos = projection([market.lon, market.lat]);
         if (!pos) return;
         const size = getPredictionMarketSize(market.volume, volumeScale);
-        const color = getPredictionMarketColor(market.yesPrice);
+        const logVol = Math.log10(Math.max(1, market.volume ?? 0));
+        const volHeat = Math.max(0, Math.min(1, (logVol - volumeScale.minLog) / (volumeScale.maxLog - volumeScale.minLog)));
+        const color = getPredictionMarketColor(market.yesPrice, volHeat);
 
         const circle = group.append('circle')
           .attr('class', 'polymarket-ground-marker')
@@ -2022,6 +2035,45 @@ export class MapComponent {
           .attr('stroke', 'rgba(218,238,255,0.46)')
           .attr('stroke-width', 0.75)
           .style('cursor', 'var(--wm-cursor-pointer)');
+
+        // Pulse ring for top-volume markets
+        if (volHeat > 0.6) {
+          const pulseDuration = volHeat > 0.85 ? '1.5s' : '2.5s';
+          const pulseR = size + 2;
+          const pulseOpacity = 0.12 + volHeat * 0.15;
+          group.append('circle')
+            .attr('class', 'polymarket-pulse-ring')
+            .attr('cx', pos[0])
+            .attr('cy', pos[1])
+            .attr('r', size)
+            .attr('fill', 'none')
+            .attr('stroke', color)
+            .attr('stroke-width', 1.2)
+            .attr('stroke-opacity', pulseOpacity)
+            .style('pointer-events', 'none')
+            .append('animate')
+            .attr('attributeName', 'r')
+            .attr('from', String(size))
+            .attr('to', String(pulseR))
+            .attr('dur', pulseDuration)
+            .attr('repeatCount', 'indefinite');
+          group.append('circle')
+            .attr('class', 'polymarket-pulse-ring-fade')
+            .attr('cx', pos[0])
+            .attr('cy', pos[1])
+            .attr('r', size)
+            .attr('fill', 'none')
+            .attr('stroke', color)
+            .attr('stroke-width', 1.2)
+            .attr('stroke-opacity', pulseOpacity)
+            .style('pointer-events', 'none')
+            .append('animate')
+            .attr('attributeName', 'stroke-opacity')
+            .attr('from', String(pulseOpacity))
+            .attr('to', '0')
+            .attr('dur', pulseDuration)
+            .attr('repeatCount', 'indefinite');
+        }
 
         circle.append('title')
           .text(`${market.title}\nYes ${market.yesPrice.toFixed(0)}% - ${formatPredictionMarketVolume(market.volume)}`);

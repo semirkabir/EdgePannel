@@ -30,6 +30,35 @@ export interface TopicIntelligence {
   fetchedAt: Date;
 }
 
+// ── Rate-limit tracking for GDELT API ──────────────────────────────────
+const gdeltRateLimitState = { backoffUntil: 0, consecutive429s: 0 };
+const GDELT_MAX_BACKOFF_MS = 5 * 60 * 1000; // 5 min cap
+
+function handleGdeltRateLimit(response: Response): { shouldRetry: boolean; delayMs: number } {
+  if (response.status !== 429) {
+    gdeltRateLimitState.consecutive429s = 0;
+    return { shouldRetry: false, delayMs: 0 };
+  }
+
+  gdeltRateLimitState.consecutive429s++;
+  const retryAfter = response.headers.get('Retry-After');
+  let delayMs: number;
+  if (retryAfter) {
+    delayMs = Math.min(parseInt(retryAfter, 10) * 1000, GDELT_MAX_BACKOFF_MS);
+  } else {
+    // Exponential backoff: 2s, 4s, 8s, 16s, 32s, ... capped at 5 min
+    delayMs = Math.min(2 ** gdeltRateLimitState.consecutive429s * 1000, GDELT_MAX_BACKOFF_MS);
+  }
+  gdeltRateLimitState.backoffUntil = Date.now() + delayMs;
+
+  console.warn(`[GDELT-Intel] Rate limited (429) — backing off for ${Math.round(delayMs / 1000)}s (attempt #${gdeltRateLimitState.consecutive429s})`);
+  return { shouldRetry: true, delayMs };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export const INTEL_TOPICS: IntelTopic[] = [
   {
     id: 'cyber',
@@ -110,7 +139,7 @@ export function getIntelTopics(): IntelTopic[] {
 // ---- Sebuf client ----
 
 const client = new IntelligenceServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 15 * 60 * 1000;
 const articleCache = new Map<string, { articles: GdeltArticle[]; timestamp: number }>();
 
 /** Map proto GdeltArticle (all required strings) to service GdeltArticle (optional fields) */
@@ -170,10 +199,23 @@ async function fetchGdeltDirect(
 
   const params = buildGdeltParams();
 
-  // Try 1: direct GDELT API
+  // Respect active backoff window before attempting direct call
+  if (Date.now() < gdeltRateLimitState.backoffUntil) {
+    const remaining = Math.round((gdeltRateLimitState.backoffUntil - Date.now()) / 1000);
+    console.log(`[GDELT-Intel] In backoff window, waiting ${remaining}s`);
+    await sleep(gdeltRateLimitState.backoffUntil - Date.now());
+  }
+
+  // Try 1: direct GDELT API (with 429 retry)
   try {
     const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params}`;
-    const resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    let resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    const rl = handleGdeltRateLimit(resp);
+    if (rl.shouldRetry && rl.delayMs < GDELT_MAX_BACKOFF_MS) {
+      console.log(`[GDELT-Intel] Retrying direct after ${Math.round(rl.delayMs / 1000)}s backoff`);
+      await sleep(rl.delayMs);
+      resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    }
     if (!resp.ok) throw new Error(`GDELT returned ${resp.status}`);
     const text = await resp.text();
     if (!text.startsWith('{')) throw new Error(`GDELT returned non-JSON: ${text.slice(0, 80)}`);
@@ -188,7 +230,13 @@ async function fetchGdeltDirect(
   // Try 2: Vite dev proxy (/api/gdelt → https://api.gdeltproject.org)
   try {
     const url = `/api/gdelt/api/v2/doc/doc?${params}`;  // relative URL — fetch() resolves automatically
-    const resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    let resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    const rl = handleGdeltRateLimit(resp);
+    if (rl.shouldRetry && rl.delayMs < GDELT_MAX_BACKOFF_MS) {
+      console.log(`[GDELT-Intel] Retrying proxy after ${Math.round(rl.delayMs / 1000)}s backoff`);
+      await sleep(rl.delayMs);
+      resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    }
     if (!resp.ok) throw new Error(`Proxy returned ${resp.status}`);
     const text = await resp.text();
     if (!text.startsWith('{')) throw new Error(`Proxy returned non-JSON: ${text.slice(0, 80)}`);

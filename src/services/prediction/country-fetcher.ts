@@ -8,9 +8,9 @@ import { isCoordinateInCountry, nameToCountryCode } from '../country-geometry';
 
 const GLOBAL_DISCOVERY_TAGS = ['world', 'politics', 'elections', 'geopolitics', 'economics', 'middle-east', 'asia', 'europe'];
 const GLOBAL_DISCOVERY_PAGE_SIZE = 500;
-const GLOBAL_DISCOVERY_PAGES = 15;
+const GLOBAL_DISCOVERY_PAGES = 5;
 const GEO_MARKETS_CACHE_KEY = 'prediction:geo-markets:v2';
-const GEO_MARKETS_CACHE_TTL_MS = 20 * 60 * 1000;
+const GEO_MARKETS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const GEO_MARKETS_STALE_TTL_MS = 24 * 60 * 60 * 1000;
 
 const COUNTRY_TAG_MAP: Record<string, string[]> = {
@@ -708,6 +708,67 @@ export async function fetchCountryMarkets(country: string): Promise<PredictionMa
   }
 }
 
+/** Groq LLM geotag fallback — batches unmatched high-volume markets. */
+interface GroqGeotagResult {
+  title: string;
+  country: string;
+  city?: string;
+  lat: number;
+  lon: number;
+  confidence: string;
+}
+
+const GROQ_GEOTAG_CACHE_KEY = 'prediction:groq-geotag:v1';
+const GROQ_GEOTAG_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — LLM results are stable
+const GROQ_VOLUME_THRESHOLD = 10_000; // Only send markets with volume > $10K
+
+async function fetchGroqGeotags(
+  markets: Array<{ title: string; slug?: string; volume?: number }>,
+): Promise<Map<string, GroqGeotagResult>> {
+  if (markets.length === 0) return new Map();
+
+  // Check cache first — use title hash as cache key
+  const cacheKey = `${GROQ_GEOTAG_CACHE_KEY}:${markets.map(m => m.slug || m.title).sort().join('|').slice(0, 500)}`;
+  try {
+    const cached = await getPersistentCache<GroqGeotagResult[]>(cacheKey);
+    if (cached && cacheAgeMs(cached.updatedAt) < GROQ_GEOTAG_CACHE_TTL_MS) {
+      const map = new Map<string, GroqGeotagResult>();
+      for (const r of cached.data) {
+        map.set(r.title, r);
+      }
+      return map;
+    }
+  } catch { /* cache miss */ }
+
+  try {
+    const resp = await fetch('/api/prediction/geotag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markets }),
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!resp.ok) return new Map();
+
+    const data = await resp.json() as { results?: GroqGeotagResult[] };
+    const results = data.results || [];
+    if (results.length === 0) return new Map();
+
+    // Cache the results
+    try {
+      await setPersistentCache(cacheKey, results);
+    } catch { /* cache write failed, non-critical */ }
+
+    const map = new Map<string, GroqGeotagResult>();
+    for (const r of results) {
+      map.set(r.title, r);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 async function fetchGeoTaggedMarketsFresh(): Promise<GeoPredictionMarket[]> {
   type Candidate = {
     market: GeoPredictionMarket;
@@ -800,9 +861,89 @@ async function fetchGeoTaggedMarketsFresh(): Promise<GeoPredictionMarket[]> {
     fetchDiscoveryEvents(),
     fetchDiscoveryMarkets(),
   ]);
+
+  // Collect unmatched high-volume markets for Groq fallback.
+  // Keep references to the full PredictionMarket objects so we can spread them.
+  const unmatchedForGroq: Array<{ title: string; slug?: string; volume?: number }> = [];
+  const unmatchedMarketMap = new Map<string, PredictionMarket>();
+
+  // Build event geotag inheritance map: eventId → GeoPredictionMarket geotag.
+  // Child markets that fail their own geotagging inherit the parent event's location.
+  const eventGeotags = new Map<string, GeoPredictionMarket>();
+
+  const discoveryCandidateResults = discoveryEvents.map((event) => {
+    const candidate = findBestCountryForEvent(event);
+    if (candidate) {
+      // Record the event's geotag for child market inheritance
+      if (event.id) {
+        eventGeotags.set(String(event.id), candidate.market);
+      }
+      // Also try to geotag individual child markets that weren't bundled
+      for (const childMarket of event.markets ?? []) {
+        const childKey = childMarket.slug || (childMarket.question ?? '');
+        if (!deduped.has(childKey)) {
+          const fullMarket = eventToPredictionMarket(event, [childMarket.question ?? '']);
+          if (!fullMarket) continue;
+          const childGeo: GeoPredictionMarket = {
+            ...fullMarket,
+            country: candidate.market.country,
+            city: candidate.market.city,
+            lat: candidate.market.lat,
+            lon: candidate.market.lon,
+            confidence: candidate.market.confidence,
+            extractedFrom: 'event-inherited',
+          };
+          deduped.set(childKey, { market: childGeo, matchScore: candidate.matchScore - 1 });
+        }
+      }
+    }
+    if (!candidate) {
+      const topVol = event.markets?.reduce((max, m) => {
+        const v = m.volumeNum ?? (m.volume ? parseFloat(m.volume) : 0);
+        return v > max ? v : max;
+      }, 0) ?? event.volume ?? 0;
+      if (topVol >= GROQ_VOLUME_THRESHOLD) {
+        const repMarket = event.markets?.[0];
+        const entry = {
+          title: repMarket?.question || event.title,
+          slug: repMarket?.slug || event.slug,
+          volume: topVol,
+        };
+        unmatchedForGroq.push(entry);
+        // Store a minimal PredictionMarket for reconstruction
+        unmatchedMarketMap.set(entry.title, {
+          title: entry.title,
+          yesPrice: 50,
+          volume: topVol,
+          slug: entry.slug,
+          url: entry.slug ? buildMarketUrl(event.slug, entry.slug) : buildMarketUrl(event.slug),
+          endDate: parseEndDate(repMarket?.endDate ?? event.endDate),
+          eventId: event.id,
+          eventSlug: event.slug,
+        });
+      }
+    }
+    return candidate;
+  });
+  const discoveryMarketCandidates = discoveryMarkets.map((market) => {
+    const candidate = findBestCountryForMarket(market);
+    if (!candidate && (market.volume ?? 0) >= GROQ_VOLUME_THRESHOLD) {
+      unmatchedForGroq.push({
+        title: market.title,
+        slug: market.slug,
+        volume: market.volume,
+      });
+      unmatchedMarketMap.set(market.title, market);
+    }
+    return candidate;
+  });
+
+  // Fire Groq fallback in parallel with dedup (non-blocking)
+  const groqPromise = fetchGroqGeotags(unmatchedForGroq.slice(0, 60));
+
   const discoveryCandidates = [
-    ...discoveryEvents.map(findBestCountryForEvent),
-    ...discoveryMarkets.map(findBestCountryForMarket),
+    ...discoveryCandidateResults,
+    ...discoveryMarketCandidates,
   ].filter((candidate): candidate is Candidate => Boolean(candidate));
 
   const deduped = new Map<string, Candidate>();
@@ -817,6 +958,79 @@ async function fetchGeoTaggedMarketsFresh(): Promise<GeoPredictionMarket[]> {
       ) {
         deduped.set(key, candidate);
       }
+    }
+  }
+
+  // Merge Groq results for markets not yet matched
+  try {
+    const groqResults = await groqPromise;
+    for (const market of unmatchedForGroq) {
+      const groq = groqResults.get(market.title);
+      if (!groq) continue;
+
+      const key = market.slug || market.title;
+      // Only add if not already matched by deterministic pass
+      if (deduped.has(key)) continue;
+
+      // Reconstruct the full PredictionMarket from our stored reference
+      const fullMarket = unmatchedMarketMap.get(market.title);
+      if (!fullMarket) continue;
+
+      // Spread the point within the country bounds
+      const bounds = COUNTRY_BOUNDS[groq.country.toLowerCase()];
+      let lat = groq.lat;
+      let lon = groq.lon;
+      if (bounds) {
+        const seed = `${groq.country}:${market.slug || market.title}`;
+        const spread = sampleInsideCountry(groq.country, seed, bounds);
+        lat = spread.lat;
+        lon = spread.lon;
+      }
+
+      deduped.set(key, {
+        market: {
+          ...fullMarket,
+          country: groq.country,
+          city: groq.city,
+          lat,
+          lon,
+          confidence: groq.confidence as 'high' | 'medium' | 'low',
+          extractedFrom: groq.city ? 'city' : 'country',
+        },
+        matchScore: groq.confidence === 'high' ? 3 : 1,
+      });
+    }
+  } catch {
+    // Groq fallback failed — deterministic results still ship
+  }
+
+  // Apply event location inheritance: collect all unmatched markets that have
+  // an eventId referencing a successfully-geotagged event, and inherit that location.
+  // These are markets that appeared in discoveryEvents but didn't make it into deduped.
+  for (const event of discoveryEvents) {
+    if (!event.id) continue;
+    const eventGeo = eventGeotags.get(String(event.id));
+    if (!eventGeo) continue;
+
+    for (const childMarket of event.markets ?? []) {
+      const childKey = childMarket.slug || (childMarket.question ?? '');
+      if (deduped.has(childKey)) continue; // already matched
+
+      const fullMarket = eventToPredictionMarket(event, [childMarket.question ?? '']);
+      if (!fullMarket) continue;
+
+      deduped.set(childKey, {
+        market: {
+          ...fullMarket,
+          country: eventGeo.country,
+          city: eventGeo.city,
+          lat: eventGeo.lat,
+          lon: eventGeo.lon,
+          confidence: 'low',
+          extractedFrom: 'event-inherited' as const,
+        },
+        matchScore: 1,
+      });
     }
   }
 

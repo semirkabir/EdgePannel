@@ -13,7 +13,7 @@ export interface PredictionMarket {
   marketCount?: number;
   markets?: PredictionMarket[];
   confidence?: 'high' | 'medium' | 'low';
-  extractedFrom?: 'sports' | 'country' | 'city' | 'state' | 'pattern' | 'context';
+  extractedFrom?: 'sports' | 'country' | 'city' | 'state' | 'pattern' | 'context' | 'event-inherited';
   region?: string;
   city?: string;
 }

@@ -414,7 +414,6 @@ function buildOrderBook(
   let asks: OrderLevel[] = orderBook?.asks ?? [];
   let tickSize = orderBook?.tickSize || '';
   let minOrderSize = orderBook?.minOrderSize || '';
-  let updatedAt = orderBook?.updatedAt ?? 0;
   let isLive = false;
 
   const paint = (): void => {
@@ -422,7 +421,6 @@ function buildOrderBook(
       buildLiveIndicator(ctx, isLive),
       makeMetricPill(ctx, 'Tick', tickSize || '—'),
       makeMetricPill(ctx, 'Min', minOrderSize || '—'),
-      makeMetricPill(ctx, 'Updated', updatedAt ? formatTime(updatedAt) : '—'),
     );
 
     const asksSide = ctx.el('div', 'edp-prediction-book-side is-asks');
@@ -469,7 +467,6 @@ function buildOrderBook(
       asks = snapshot.asks.slice(0, 10);
       if (snapshot.tickSize) tickSize = snapshot.tickSize;
       if (snapshot.minOrderSize) minOrderSize = snapshot.minOrderSize;
-      updatedAt = snapshot.timestamp || Date.now();
       isLive = true;
       paint();
     };

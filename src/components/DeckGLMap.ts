@@ -477,19 +477,30 @@ function getSharedLayerIconAtlas(layer: keyof MapLayers, theme: 'light' | 'dark'
   return atlas;
 }
 
-function getPolymarketColor(yesPrice: number): [number, number, number, number] {
+function getPolymarketColor(yesPrice: number, volumeHeat = 0): [number, number, number, number] {
   const pct = Math.max(0, Math.min(100, Number.isFinite(yesPrice) ? yesPrice : 50));
   const conviction = Math.abs(pct - 50) / 50;
+  // Base cool blue
+  const br = 125 + conviction * 40;
+  const bg = 190 + conviction * 28;
+  const bb = 255;
+  // Warm shift for high-volume: blue → teal → soft amber
+  const wr = 200;
+  const wg = 210;
+  const wb = 140;
+  const r = br + (wr - br) * volumeHeat;
+  const g = bg + (wg - bg) * volumeHeat;
+  const b = bb + (wb - bb) * volumeHeat;
   return [
-    Math.round(125 + conviction * 40),
-    Math.round(190 + conviction * 28),
-    255,
+    Math.round(r),
+    Math.round(g),
+    Math.round(b),
     230,
   ];
 }
 
-function getPolymarketColorWithAlpha(yesPrice: number, alpha: number): [number, number, number, number] {
-  const [r, g, b] = getPolymarketColor(yesPrice);
+function getPolymarketColorWithAlpha(yesPrice: number, alpha: number, volumeHeat = 0): [number, number, number, number] {
+  const [r, g, b] = getPolymarketColor(yesPrice, volumeHeat);
   return [r, g, b, alpha];
 }
 
@@ -510,7 +521,7 @@ function getPolymarketVolumeScale(markets: Array<{ volume?: number }>): Polymark
 function getPolymarketRadiusMeters(volume: number | undefined, scale: PolymarketVolumeScale): number {
   const logVolume = Math.log10(Math.max(1, volume ?? 0));
   const normalized = Math.max(0, Math.min(1, (logVolume - scale.minLog) / (scale.maxLog - scale.minLog)));
-  return 24_000 + normalized * 126_000;
+  return 12_000 + normalized * 60_000;
 }
 
 function formatPolymarketVolume(volume?: number): string {
@@ -595,6 +606,7 @@ export class DeckGLMap {
   private happinessScores: Map<string, number> = new Map();
   private happinessYear = 0;
   private happinessSource = '';
+  private electionResults: Map<string, { winner: string; margin: number; color: [number, number, number, number] }> = new Map();
   private speciesRecoveryZones: Array<SpeciesRecovery & { recoveryZone: { name: string; lat: number; lon: number } }> = [];
   private renewableInstallations: RenewableInstallation[] = [];
   private countriesGeoJsonData: FeatureCollection<Geometry> | null = null;
@@ -1867,6 +1879,11 @@ export class DeckGLMap {
       const gemLayer = this.createGemRiskChoroplethLayer();
       if (gemLayer) layers.push(gemLayer);
     }
+    // Elections choropleth
+    if (mapLayers.elections && this.electionResults.size > 0) {
+      const elecLayer = this.createElectionsChoroplethLayer();
+      if (elecLayer) layers.push(elecLayer);
+    }
     // Phase 8: Species recovery zones
     if (mapLayers.speciesRecovery && this.speciesRecoveryZones.length > 0) {
       layers.push(this.createSpeciesRecoveryLayer());
@@ -2918,16 +2935,20 @@ export class DeckGLMap {
 
   private createPolymarketLayers(markets: DeckPolymarketMarket[]): ScatterplotLayer<DeckPolymarketMarket>[] {
     const volumeScale = getPolymarketVolumeScale(markets);
-    return [
+    const layers: ScatterplotLayer<DeckPolymarketMarket>[] = [
       new ScatterplotLayer<DeckPolymarketMarket>({
         id: 'polymarkets-points-layer',
         data: markets,
         getPosition: (d) => [d.renderLon, d.renderLat],
         getRadius: (d) => getPolymarketRadiusMeters(d.volume, volumeScale),
         radiusUnits: 'meters',
-        radiusMinPixels: 2,
-        radiusMaxPixels: 18,
-        getFillColor: (d) => getPolymarketColorWithAlpha(d.yesPrice, 155),
+        radiusMinPixels: 1,
+        radiusMaxPixels: 10,
+        getFillColor: (d) => {
+          const logVol = Math.log10(Math.max(1, d.volume ?? 0));
+          const volHeat = Math.max(0, Math.min(1, (logVol - volumeScale.minLog) / (volumeScale.maxLog - volumeScale.minLog)));
+          return getPolymarketColorWithAlpha(d.yesPrice, 155, volHeat);
+        },
         stroked: false,
         pickable: false,
       }),
@@ -2937,12 +2958,42 @@ export class DeckGLMap {
         getPosition: (d) => [d.renderLon, d.renderLat],
         getRadius: (d) => getPolymarketRadiusMeters(d.volume, volumeScale),
         radiusUnits: 'meters',
-        radiusMinPixels: 8,
-        radiusMaxPixels: 24,
+        radiusMinPixels: 4,
+        radiusMaxPixels: 12,
         getFillColor: [0, 0, 0, 1] as [number, number, number, number],
         pickable: true,
       }),
     ];
+
+    // Pulse ring layer for top-volume markets — static glow halo (animated via CSS)
+    const hotMarkets = markets.filter((d) => {
+      const logVol = Math.log10(Math.max(1, d.volume ?? 0));
+      const volHeat = Math.max(0, Math.min(1, (logVol - volumeScale.minLog) / (volumeScale.maxLog - volumeScale.minLog)));
+      return volHeat > 0.6;
+    });
+    if (hotMarkets.length > 0) {
+      layers.push(
+        new ScatterplotLayer<DeckPolymarketMarket>({
+          id: 'polymarkets-pulse-layer',
+          data: hotMarkets,
+          getPosition: (d) => [d.renderLon, d.renderLat],
+          getRadius: (d) => getPolymarketRadiusMeters(d.volume, volumeScale) * 1.3,
+          radiusUnits: 'meters',
+          radiusMinPixels: 3,
+          radiusMaxPixels: 18,
+          getFillColor: (d) => {
+            const logVol = Math.log10(Math.max(1, d.volume ?? 0));
+            const volHeat = Math.max(0, Math.min(1, (logVol - volumeScale.minLog) / (volumeScale.maxLog - volumeScale.minLog)));
+            const [r, g, b] = getPolymarketColor(d.yesPrice, volHeat);
+            return [r, g, b, 45];
+          },
+          stroked: false,
+          pickable: false,
+        }),
+      );
+    }
+
+    return layers;
   }
 
   private createStockExchangesLayer(): IconLayer {
@@ -3699,6 +3750,31 @@ export class DeckGLMap {
     });
   }
 
+  /**
+   * Elections choropleth — colors countries by election result party.
+   */
+  private createElectionsChoroplethLayer(): GeoJsonLayer | null {
+    if (!this.countriesGeoJsonData || this.electionResults.size === 0) return null;
+    const results = this.electionResults;
+    return new GeoJsonLayer({
+      id: 'elections-choropleth-layer',
+      data: this.countriesGeoJsonData,
+      filled: true,
+      stroked: true,
+      getFillColor: (feature: { properties?: Record<string, unknown> }) => {
+        const code = feature.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const entry = code ? results.get(code) : undefined;
+        if (!entry) return [0, 0, 0, 0] as [number, number, number, number];
+        return entry.color;
+      },
+      getLineColor: [100, 100, 100, 60] as [number, number, number, number],
+      getLineWidth: 1,
+      lineWidthMinPixels: 0.5,
+      pickable: true,
+      updateTriggers: { getFillColor: [results.size] },
+    });
+  }
+
   private static readonly CII_LEVEL_COLORS: Record<string, [number, number, number, number]> = {
     low:      [40, 180, 60, 130],
     normal:   [220, 200, 50, 135],
@@ -4152,6 +4228,14 @@ export class DeckGLMap {
         const hcScore = hcCode ? this.happinessScores.get(hcCode as string) : undefined;
         const hcScoreStr = hcScore != null ? hcScore.toFixed(1) : 'No data';
         return { html: `<div class="deckgl-tooltip"><strong>${text(hcName)}</strong><br/>Happiness: ${hcScoreStr}/10${hcScore != null ? `<br/><span style="opacity:.7">${text(this.happinessSource)} (${this.happinessYear})</span>` : ''}</div>` };
+      }
+      case 'elections-choropleth-layer': {
+        const elName = obj.properties?.name ?? 'Unknown';
+        const elCode = obj.properties?.['ISO3166-1-Alpha-2'];
+        const elEntry = elCode ? this.electionResults.get(elCode as string) : undefined;
+        if (!elEntry) return { html: `<div class="deckgl-tooltip"><strong>${text(elName)}</strong><br/><span style="opacity:.7">No election data</span></div>` };
+        const marginStr = elEntry.margin != null ? `${elEntry.margin.toFixed(1)}% margin` : '';
+        return { html: `<div class="deckgl-tooltip"><strong>${text(elName)}</strong><br/><span style="color:#${elEntry.color.slice(0, 3).map(c => c.toString(16).padStart(2, '0')).join('')};font-weight:600">${text(elEntry.winner)}</span>${marginStr ? `<br/><span style="opacity:.7">${marginStr}</span>` : ''}</div>` };
       }
       case 'cii-choropleth-layer': {
         const ciiName = obj.properties?.name ?? 'Unknown';
@@ -6719,6 +6803,14 @@ export class DeckGLMap {
     this.happinessYear = data.year;
     this.happinessSource = data.source;
     this.render('happiness');
+  }
+
+  /**
+   * Set election choropleth data — maps ISO3166-1-Alpha-2 codes to result info.
+   */
+  public setElectionResults(results: Map<string, { winner: string; margin: number; color: [number, number, number, number] }>): void {
+    this.electionResults = results;
+    this.render('elections');
   }
 
   public setCIIScores(scores: Array<{ code: string; score: number; level: string }>): void {

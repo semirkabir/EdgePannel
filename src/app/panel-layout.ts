@@ -47,7 +47,9 @@ import {
   InsiderTradingPanel,
   SocialSentimentPanel,
   OptionsChainPanel,
-  PortfolioPanel,
+  MyPortfolioPanel,
+  PublicFilingsPanel,
+  PortfolioToolsPanel,
   BacktestingPanel,
   AlgoTradingPanel,
   NodeEditorPanel,
@@ -1159,7 +1161,9 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['insider-trading'] = new InsiderTradingPanel();
       this.ctx.panels['social-sentiment'] = new SocialSentimentPanel();
       this.ctx.panels['options-chain'] = new OptionsChainPanel();
-      this.ctx.panels['portfolio-tracker'] = new PortfolioPanel();
+      this.ctx.panels['my-portfolio'] = new MyPortfolioPanel();
+      this.ctx.panels['public-filings'] = new PublicFilingsPanel();
+      this.ctx.panels['portfolio-tools'] = new PortfolioToolsPanel();
       if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
         this.ctx.panels['backtesting'] = new BacktestingPanel();
         this.ctx.panels['algo-trading'] = new AlgoTradingPanel();

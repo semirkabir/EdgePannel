@@ -11,7 +11,7 @@ import { cachedFetchJson } from '../../../_shared/redis';
 import { sha256Hex } from '../../../_shared/hash';
 
 const REDIS_CACHE_KEY = 'intel:gdelt-docs:v1';
-const REDIS_CACHE_TTL = 600; // 10 min
+const REDIS_CACHE_TTL = 900; // 15 min — GDELT updates on a 15-minute cadence
 
 // ========================================================================
 // Constants

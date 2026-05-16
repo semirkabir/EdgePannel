@@ -11,7 +11,7 @@ export function clampInt(value: number | undefined, fallback: number, min: numbe
  * Multiple handlers calling Yahoo concurrently causes IP-level rate limiting (429).
  */
 let yahooLastRequest = 0;
-const YAHOO_MIN_GAP_MS = 600;
+const YAHOO_MIN_GAP_MS = 1000;
 let yahooQueue: Promise<void> = Promise.resolve();
 
 export function yahooGate(): Promise<void> {

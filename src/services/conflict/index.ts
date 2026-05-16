@@ -21,7 +21,7 @@ import { getConfidenceTierFromSources, type ConfidenceTier } from '@/services/co
 
 const client = new ConflictServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
 const acledBreaker = createCircuitBreaker<ListAcledEventsResponse>({ name: 'ACLED Conflicts', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
-const ucdpBreaker = createCircuitBreaker<ListUcdpEventsResponse>({ name: 'UCDP Events', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
+const ucdpBreaker = createCircuitBreaker<ListUcdpEventsResponse>({ name: 'UCDP Events', cacheTtlMs: 60 * 60 * 1000, persistCache: true });
 const hapiBreakers = new Map<string, ReturnType<typeof createCircuitBreaker<GetHumanitarianSummaryResponse>>>();
 function getHapiBreaker(iso2: string) {
   if (!hapiBreakers.has(iso2)) {

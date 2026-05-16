@@ -6,6 +6,9 @@
  * with Google, the server gateway can detect their tier (free/paid) and
  * apply per-tier rate limits + cache strategies.  Unsigned requests fall
  * into the anonymous tier automatically.
+ *
+ * Also detects 429 rate-limit responses and logs which endpoint is being
+ * throttled, including Retry-After header if present.
  */
 
 import { getIdToken, isFirebaseConfigured } from './firebase-auth';
@@ -23,6 +26,31 @@ async function getIdTokenCached(): Promise<string | null> {
   // Firebase ID tokens last ~3600s; cache for 50 min to be safe.
   tokenExpiryMs = Date.now() + 3_000_000;
   return token;
+}
+
+/** Per-endpoint rate-limit cooldown map — suppresses repeated 429 logs
+ * for the same endpoint within a cooldown window. */
+const rateLimitCooldowns = new Map<string, number>();
+const RATE_LIMIT_COOLDOWN_MS = 60_000; // 1 min between logs per endpoint
+
+function extractEndpoint(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input.split('?')[0] ?? input;
+  if (input instanceof URL) return input.pathname;
+  if (input instanceof Request) return input.url.split('?')[0] ?? input.url;
+  return 'unknown';
+}
+
+function handleRateLimitResponse(response: Response, endpoint: string): void {
+  if (response.status !== 429) return;
+
+  const now = Date.now();
+  const lastLog = rateLimitCooldowns.get(endpoint) ?? 0;
+  if (now - lastLog < RATE_LIMIT_COOLDOWN_MS) return;
+  rateLimitCooldowns.set(endpoint, now);
+
+  const retryAfter = response.headers.get('Retry-After');
+  const retryMsg = retryAfter ? ` — retry after ${retryAfter}s` : '';
+  console.warn(`[RateLimit] 429 on ${endpoint}${retryMsg}`);
 }
 
 const originalFetch = globalThis.fetch.bind(globalThis);
@@ -54,11 +82,15 @@ globalThis.fetch = async function patchedFetch(
     if (token) {
       const headers = new Headers(init?.headers || {});
       headers.set('x-edgepannel-token', token);
-      return originalFetch(input, { ...init, headers });
+      const response = await originalFetch(input, { ...init, headers });
+      handleRateLimitResponse(response, extractEndpoint(input));
+      return response;
     }
   } catch {
     // Token fetch failed — proceed without token so the request still goes through.
   }
 
-  return originalFetch(input, init);
+  const response = await originalFetch(input, init);
+  handleRateLimitResponse(response, extractEndpoint(input));
+  return response;
 };

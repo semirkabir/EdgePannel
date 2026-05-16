@@ -291,16 +291,23 @@ async function fetchQueryRegion(region: QueryRegion): Promise<RegionResult> {
 }
 
 const STALE_MAX_AGE_MS = 10 * 60 * 1000;
+const REGION_REQUEST_GAP_MS = 10 * 1000;
 const regionCache = new Map<string, { flights: MilitaryFlight[]; timestamp: number }>();
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function fetchFromOpenSky(): Promise<MilitaryFlight[]> {
   const allFlights: MilitaryFlight[] = [];
   const seenHexCodes = new Set<string>();
   let allFailed = true;
 
-  const results = await Promise.all(
-    MILITARY_QUERY_REGIONS.map(region => fetchQueryRegion(region))
-  );
+  const results: RegionResult[] = [];
+  for (let i = 0; i < MILITARY_QUERY_REGIONS.length; i++) {
+    if (i > 0) await sleep(REGION_REQUEST_GAP_MS);
+    results.push(await fetchQueryRegion(MILITARY_QUERY_REGIONS[i]!));
+  }
 
   for (const result of results) {
     let flights: MilitaryFlight[];

@@ -117,7 +117,7 @@ const emptyResult: UnhcrSummary = {
 
 const breaker = createCircuitBreaker<UnhcrSummary>({
   name: 'UNHCR Displacement',
-  cacheTtlMs: 10 * 60 * 1000,
+  cacheTtlMs: 24 * 60 * 60 * 1000,
   persistCache: true,
 });
 

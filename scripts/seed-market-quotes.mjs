@@ -7,7 +7,8 @@ loadEnvFile(import.meta.url);
 
 const CANONICAL_KEY = 'market:stocks-bootstrap:v1';
 const CACHE_TTL = 1800;
-const YAHOO_DELAY_MS = 200;
+const FINNHUB_DELAY_MS = 1000;
+const YAHOO_DELAY_MS = 1000;
 
 const MARKET_SYMBOLS = [
   'AAPL', 'AMZN', 'AVGO', 'BAC', 'BRK-B', 'COST', 'GOOGL', 'HD',
@@ -54,7 +55,7 @@ async function fetchMarketQuotes() {
 
   if (apiKey && finnhubSymbols.length > 0) {
     for (let i = 0; i < finnhubSymbols.length; i++) {
-      if (i > 0 && i % 10 === 0) await sleep(100);
+      if (i > 0) await sleep(FINNHUB_DELAY_MS);
       const r = await fetchFinnhubQuote(finnhubSymbols[i], apiKey);
       if (r) {
         quotes.push(r);

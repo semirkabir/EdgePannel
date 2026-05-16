@@ -1,0 +1,426 @@
+/* ----------------------------------------------------------
+   Elections Panel
+   ---------------------------------------------------------- */
+
+.elections-panel-content {
+  font-size: 12px;
+}
+
+/* Fetching / loading state */
+.elections-fetch-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 12px;
+}
+
+.elections-fetch-icon {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.elections-ballot {
+  font-size: 28px;
+  z-index: 1;
+}
+
+.elections-ballot-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--status-live, #6366f1);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: elections-spin 1s linear infinite;
+}
+
+@keyframes elections-spin {
+  to { transform: rotate(360deg); }
+}
+
+.elections-fetch-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+
+/* ── Stats grid ───────────────────────────────────────────── */
+.elections-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 8px;
+}
+
+.elections-stat-box {
+  background: var(--overlay-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.elections-stat-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.elections-stat-label {
+  display: block;
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.elections-stat-upcoming .elections-stat-value {
+  color: var(--status-live, #6366f1);
+}
+
+.elections-stat-completed .elections-stat-value {
+  color: var(--text-dim);
+}
+
+.elections-stat-us .elections-stat-value {
+  color: var(--semantic-info, #3b82f6);
+}
+
+.elections-stat-intl .elections-stat-value {
+  color: var(--semantic-elevated, #ffaa00);
+}
+
+/* ── Election list ────────────────────────────────────────── */
+.elections-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.elections-item {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.1s;
+  cursor: pointer;
+}
+
+.elections-item:last-child {
+  border-bottom: none;
+}
+
+.elections-item:hover {
+  background: var(--surface-hover);
+}
+
+.elections-item-expanded {
+  background: var(--overlay-subtle);
+}
+
+.elections-item-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.elections-flag {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.elections-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.elections-item-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.elections-item-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.elections-winner {
+  font-size: 10px;
+  color: var(--semantic-positive, #44ff88);
+  font-weight: 500;
+}
+
+.elections-date {
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.elections-status-chip {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.elections-status-chip.upcoming {
+  background: color-mix(in srgb, var(--semantic-info) 12%, transparent);
+  color: var(--semantic-info);
+  border: 1px solid color-mix(in srgb, var(--semantic-info) 30%, transparent);
+}
+
+.elections-status-chip.active {
+  background: color-mix(in srgb, var(--semantic-elevated) 15%, transparent);
+  color: var(--semantic-elevated);
+  border: 1px solid color-mix(in srgb, var(--semantic-elevated) 35%, transparent);
+  animation: elections-pulse 2s ease-in-out infinite;
+}
+
+@keyframes elections-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.elections-status-chip.completed {
+  background: var(--overlay-medium);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+/* ── Expanded detail ──────────────────────────────────────── */
+.elections-item-detail {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.elections-candidates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.elections-candidate-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--overlay-subtle);
+}
+
+.elections-candidate-party {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  min-width: 20px;
+  text-align: center;
+}
+
+.elections-candidate-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.elections-candidate-funding {
+  font-size: 10px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.elections-incumbent-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* ── Candidates tab view ──────────────────────────────────── */
+.elections-candidates-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.elections-group {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.elections-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--overlay-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.elections-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.elections-candidates-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+.elections-candidate-card {
+  padding: 6px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.elections-candidate-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.elections-candidate-card-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.elections-candidate-card-meta .elections-candidate-funding {
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+/* ── Policies ─────────────────────────────────────────────── */
+.elections-policies {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.elections-policy-item {
+  display: flex;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: var(--overlay-subtle);
+  font-size: 10px;
+}
+
+.elections-policy-category {
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  min-width: 70px;
+}
+
+.elections-policy-position {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+/* ── Results tab ──────────────────────────────────────────── */
+.elections-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.elections-result-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.elections-result-bar-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.elections-result-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.elections-result-pct {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.elections-result-bar-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.elections-result-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.elections-result-votes {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Empty state ──────────────────────────────────────────── */
+.elections-empty {
+  padding: 20px 8px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 11px;
+}

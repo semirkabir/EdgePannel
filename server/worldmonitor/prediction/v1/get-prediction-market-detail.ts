@@ -14,13 +14,18 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/prediction/v1/service_server';
 
 import { CHROME_UA, clampInt } from '../../../_shared/constants';
-import { cachedFetchJson } from '../../../_shared/redis';
+import { cachedFetchJson, setCachedJson } from '../../../_shared/redis';
 
 const GAMMA_BASE = 'https://gamma-api.polymarket.com';
 const CLOB_BASE = 'https://clob.polymarket.com';
 const DATA_BASE = 'https://data-api.polymarket.com';
 const FETCH_TIMEOUT = 8000;
-const DETAIL_CACHE_TTL = 15;
+const DETAIL_CACHE_TTL = 120;
+const HISTORY_CACHE_TTL = 15 * 60;
+const REFRESH_MIN_GAP_MS = 60 * 1000;
+
+const detailInflight = new Map<string, Promise<GetPredictionMarketDetailResponse | null>>();
+const lastRefreshByCacheKey = new Map<string, number>();
 
 interface GammaMarketDetail {
   id?: number | string;
@@ -161,11 +166,8 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 
 async function fetchBroadPriceHistory(tokenId: string): Promise<PredictionMarketPricePoint[]> {
   const urls = [
-    `${CLOB_BASE}/prices-history?market=${encodeURIComponent(tokenId)}&interval=max&fidelity=60`,
     `${CLOB_BASE}/prices-history?market=${encodeURIComponent(tokenId)}&interval=1w&fidelity=1`,
     `${CLOB_BASE}/prices-history?market=${encodeURIComponent(tokenId)}&interval=1d&fidelity=1`,
-    `${CLOB_BASE}/prices-history?market=${encodeURIComponent(tokenId)}&interval=6h&fidelity=1`,
-    `${CLOB_BASE}/prices-history?market=${encodeURIComponent(tokenId)}&interval=1h&fidelity=1`,
   ];
 
   const results = await Promise.all(urls.map((url) => fetchJson<PriceHistoryResponse>(url)));
@@ -181,6 +183,30 @@ async function fetchBroadPriceHistory(tokenId: string): Promise<PredictionMarket
   return [...merged.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([timestamp, price]) => ({ timestamp, price }));
+}
+
+async function fetchCachedPriceHistory(tokenId: string): Promise<PredictionMarketPricePoint[]> {
+  const history = await cachedFetchJson<PredictionMarketPricePoint[]>(
+    `prediction:history:v1:${tokenId}`,
+    HISTORY_CACHE_TTL,
+    () => fetchBroadPriceHistory(tokenId),
+    60,
+  );
+  return history ?? [];
+}
+
+async function buildPredictionDetailCoalesced(
+  cacheKey: string,
+  req: GetPredictionMarketDetailRequest,
+): Promise<GetPredictionMarketDetailResponse | null> {
+  const existing = detailInflight.get(cacheKey);
+  if (existing) return existing;
+
+  const promise = buildPredictionDetail(req).finally(() => {
+    detailInflight.delete(cacheKey);
+  });
+  detailInflight.set(cacheKey, promise);
+  return promise;
 }
 
 async function buildPredictionDetail(
@@ -210,7 +236,7 @@ async function buildPredictionDetail(
     tokenId ? fetchJson<{ price?: string | number }>(`${CLOB_BASE}/price?token_id=${encodeURIComponent(tokenId)}&side=BUY`) : Promise.resolve(null),
     tokenId ? fetchJson<{ price?: string | number }>(`${CLOB_BASE}/price?token_id=${encodeURIComponent(tokenId)}&side=SELL`) : Promise.resolve(null),
     tokenId ? fetchJson<{ spread?: string | number }>(`${CLOB_BASE}/spread?token_id=${encodeURIComponent(tokenId)}`) : Promise.resolve(null),
-    tokenId ? fetchBroadPriceHistory(tokenId) : Promise.resolve([]),
+    tokenId ? fetchCachedPriceHistory(tokenId) : Promise.resolve([]),
     tokenId ? fetchJson<{ price?: string | number; side?: string }>(`${CLOB_BASE}/last-trade-price?token_id=${encodeURIComponent(tokenId)}`) : Promise.resolve(null),
     conditionId ? fetchJson<DataTradeResponse[]>(`${DATA_BASE}/trades?market=${encodeURIComponent(conditionId)}&limit=${tradeLimit}&offset=0&takerOnly=true`) : Promise.resolve(null),
     conditionId ? fetchJson<DataHolderEnvelope[]>(`${DATA_BASE}/holders?market=${encodeURIComponent(conditionId)}&limit=10`) : Promise.resolve(null),
@@ -318,9 +344,17 @@ export const getPredictionMarketDetail: PredictionServiceHandler['getPredictionM
   const cacheKey = `prediction:detail:v1:${slug}:${bookDepth}:${tradeLimit}`;
 
   try {
-    const result = req.refresh
-      ? await buildPredictionDetail({ ...req, bookDepth, tradeLimit })
-      : await cachedFetchJson<GetPredictionMarketDetailResponse>(cacheKey, DETAIL_CACHE_TTL, () => buildPredictionDetail({ ...req, bookDepth, tradeLimit }), 10);
+    const now = Date.now();
+    const lastRefresh = lastRefreshByCacheKey.get(cacheKey) ?? 0;
+    const canRefresh = req.refresh && now - lastRefresh >= REFRESH_MIN_GAP_MS;
+    const normalizedReq = { ...req, bookDepth, tradeLimit };
+    const result = canRefresh
+      ? await buildPredictionDetailCoalesced(cacheKey, normalizedReq)
+      : await cachedFetchJson<GetPredictionMarketDetailResponse>(cacheKey, DETAIL_CACHE_TTL, () => buildPredictionDetailCoalesced(cacheKey, normalizedReq), 10);
+    if (canRefresh) {
+      lastRefreshByCacheKey.set(cacheKey, now);
+      if (result) await setCachedJson(cacheKey, result, DETAIL_CACHE_TTL);
+    }
     return result || { recentTrades: [], history: [], holders: [], comments: [] };
   } catch {
     return { recentTrades: [], history: [], holders: [], comments: [] };

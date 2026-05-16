@@ -915,8 +915,16 @@ const FINANCE_FEEDS: Record<string, Feed[]> = {
     { name: 'Sovereign Wealth', url: rss('https://news.google.com/rss/search?q=("sovereign+wealth+fund"+OR+"pension+fund"+OR+"institutional+investor")+when:7d&hl=en-US&gl=US&ceid=US:en') },
   ],
   secFilings: [
+    { name: 'SEC All Filings', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=&output=atom&count=100&owner=include') },
+    { name: 'SEC 10-K', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=10-K&output=atom&count=40&owner=include') },
+    { name: 'SEC 10-Q', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=10-Q&output=atom&count=40&owner=include') },
+    { name: 'SEC 8-K', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&output=atom&count=40&owner=include') },
     { name: 'SEC 13F Filings', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=13F&output=atom&count=100&owner=include') },
     { name: 'SEC 13F-HR', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=13F-HR&output=atom&count=40') },
+    { name: 'SEC Form 4', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&output=atom&count=40&owner=include') },
+    { name: 'SEC S-1', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=S-1&output=atom&count=40&owner=include') },
+    { name: 'SC 13D/G', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=SC%2013&output=atom&count=40&owner=include') },
+    { name: 'SEC DEF 14A', url: rss('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=DEF%2014A&output=atom&count=40&owner=include') },
   ],
   analysis: [
     { name: 'Market Outlook', url: rss('https://news.google.com/rss/search?q=("market+outlook"+OR+"stock+market+forecast"+OR+"bull+market"+OR+"bear+market")+when:3d&hl=en-US&gl=US&ceid=US:en') },

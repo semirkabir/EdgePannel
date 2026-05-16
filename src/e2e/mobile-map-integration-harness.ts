@@ -138,7 +138,7 @@ const layers = {
   commodityPorts: false,
   aptGroups: false,
   gemRisk: false,
-  democracy: false,
+  democracy: false, elections: false,
 };
 
 await initI18n();

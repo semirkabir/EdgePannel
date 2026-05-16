@@ -586,6 +586,10 @@ export class MapContainer {
     // SVG map does not support choropleth overlay
   }
 
+  public setElectionResults(results: Map<string, { winner: string; margin: number; color: [number, number, number, number] }>): void {
+    if (this.useDeckGL) { this.deckGLMap?.setElectionResults(results); }
+  }
+
   public setCIIScores(scores: CIIScore[]): void {
     this.cachedCIIScores = scores;
     if (this.useDeckGL) { this.deckGLMap?.setCIIScores(scores); }

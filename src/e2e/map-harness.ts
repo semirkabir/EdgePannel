@@ -189,7 +189,7 @@ const allLayersEnabled: MapLayers = {
   commodityPorts: false,
   aptGroups: false,
   gemRisk: false,
-  democracy: false,
+  democracy: false, elections: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -246,7 +246,7 @@ const allLayersDisabled: MapLayers = {
   commodityPorts: false,
   aptGroups: false,
   gemRisk: false,
-  democracy: false,
+  democracy: false, elections: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: Array<{
