@@ -51,6 +51,8 @@ export const SYNC_KEYS = [
   'wm:time-range',
   'worldmonitor-theme',
   'worldmonitor-font-preference',
+  'worldmonitor-accent-color',
+  'worldmonitor-text-tone',
   'wm-cursor-preference',
   'wm-header-tz',
   'wm-header-fmt',

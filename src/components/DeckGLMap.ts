@@ -6131,6 +6131,22 @@ export class DeckGLMap {
               `<span class="legend-item">${vesselIcon}<span class="legend-label">Vessels</span></span>`,
             ];
           }
+          // Prediction-market dots encode activity, not category:
+          // radius and color warmth both increase with trading volume, while
+          // the hottest markets receive a halo/pulse treatment on the map.
+          if (def.key === 'polymarketMarkets') {
+            return [
+              `<span class="legend-label-title prediction-market-legend-title">Prediction Markets</span>`,
+              `<span class="legend-item prediction-market-legend-item">
+                <span class="prediction-market-legend-dot prediction-market-legend-dot--low"></span>
+                <span class="legend-label">Lower volume</span>
+              </span>`,
+              `<span class="legend-item prediction-market-legend-item">
+                <span class="prediction-market-legend-dot prediction-market-legend-dot--high"></span>
+                <span class="legend-label">Higher volume / active</span>
+              </span>`,
+            ];
+          }
           const color = resolveLayerAccentColor(def.key, theme);
           const label = resolveLayerLabel(def, t);
           const iconHtml = def.key === 'aptGroups'

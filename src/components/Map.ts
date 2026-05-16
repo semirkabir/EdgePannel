@@ -733,9 +733,22 @@ export class MapComponent {
     itemsRoot.style.display = '';
     const theme = this.getThemeMode();
     itemsRoot.innerHTML = activeLayers
-      .map((layer) => {
+      .flatMap((layer) => {
+        if (layer === 'polymarketMarkets') {
+          return [
+            `<div class="map-legend-item prediction-market-legend-title">PREDICTION MARKETS</div>`,
+            `<div class="map-legend-item prediction-market-legend-item">
+              <span class="prediction-market-legend-dot prediction-market-legend-dot--low"></span>
+              LOWER VOLUME
+            </div>`,
+            `<div class="map-legend-item prediction-market-legend-item">
+              <span class="prediction-market-legend-dot prediction-market-legend-dot--high"></span>
+              HIGHER VOLUME / ACTIVE
+            </div>`,
+          ];
+        }
         const color = resolveLayerAccentColor(layer, theme);
-        return `<div class="map-legend-item"><span class="map-legend-icon" style="color:${color}">${resolveLayerIcon(layer)}</span>${escapeHtml(this.getLayerLabel(layer).toUpperCase())}</div>`;
+        return [`<div class="map-legend-item"><span class="map-legend-icon" style="color:${color}">${resolveLayerIcon(layer)}</span>${escapeHtml(this.getLayerLabel(layer).toUpperCase())}</div>`];
       })
       .join('');
   }

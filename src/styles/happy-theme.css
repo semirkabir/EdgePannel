@@ -1397,6 +1397,29 @@
   display: none !important;
 }
 
+/* Keep the optional terminal text treatment available in the happy variant too.
+   happy-theme.css is intentionally unlayered, so it needs its own override
+   instead of relying on the layered rule in main.css. */
+:root[data-variant="happy"][data-text-tone="terminal"] {
+  --text: #ffb347;
+  --text-secondary: #f3a73b;
+  --text-dim: #c78327;
+  --text-muted: #9f671d;
+  --text-faint: #744914;
+  --text-ghost: #52320d;
+  --accent: #ffb347;
+}
+
+:root[data-variant="happy"][data-theme="light"][data-text-tone="terminal"] {
+  --text: #7a3e00;
+  --text-secondary: #894700;
+  --text-dim: #99570f;
+  --text-muted: #a3631d;
+  --text-faint: #b27a43;
+  --text-ghost: #c89d72;
+  --accent: #7a3e00;
+}
+
 /* ---------- 8. TV mode header button ---------- */
 [data-variant="happy"] .tv-mode-btn {
   background: none;

@@ -503,6 +503,29 @@
   --map-stroke: #c8b8a8;
 }
 
+/* Terminal-inspired neutral text palette.
+   This intentionally remaps only shared text tokens, so semantic colors and
+   contrast-critical white-on-color labels keep their existing meaning. */
+[data-text-tone="terminal"] {
+  --text: #ffb347;
+  --text-secondary: #f3a73b;
+  --text-dim: #c78327;
+  --text-muted: #9f671d;
+  --text-faint: #744914;
+  --text-ghost: #52320d;
+  --accent: #ffb347;
+}
+
+[data-theme="light"][data-text-tone="terminal"] {
+  --text: #7a3e00;
+  --text-secondary: #894700;
+  --text-dim: #99570f;
+  --text-muted: #a3631d;
+  --text-faint: #b27a43;
+  --text-ghost: #c89d72;
+  --accent: #7a3e00;
+}
+
 /* ============================================================
    Accent Color Overrides — dark mode
    Override --status-live, --status-live-rgb and derived tokens.
@@ -20084,6 +20107,35 @@ button.cluster-flight-item:focus-visible {
   white-space: nowrap;
 }
 
+.prediction-market-legend-item {
+  gap: 5px;
+}
+
+.prediction-market-legend-title {
+  color: var(--text-secondary);
+}
+
+.prediction-market-legend-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.prediction-market-legend-dot--low {
+  width: 8px;
+  height: 8px;
+  background: rgb(125, 190, 255);
+}
+
+.prediction-market-legend-dot--high {
+  width: 12px;
+  height: 12px;
+  background: rgb(200, 210, 140);
+  box-shadow:
+    0 0 0 3px rgba(200, 210, 140, 0.16),
+    0 0 10px rgba(200, 210, 140, 0.22);
+}
+
 /* deck.gl Timestamp */
 .deckgl-timestamp {
   position: absolute;
@@ -21290,7 +21342,8 @@ button.cluster-flight-item:focus-visible {
 
 .us-font-preview-grid,
 .us-cursor-preview-grid,
-.us-theme-preview-grid {
+.us-theme-preview-grid,
+.us-text-tone-preview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
@@ -21303,7 +21356,8 @@ button.cluster-flight-item:focus-visible {
 
 .us-font-preview-card,
 .us-cursor-preview-card,
-.us-theme-preview-card {
+.us-theme-preview-card,
+.us-text-tone-preview-card {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -21320,14 +21374,16 @@ button.cluster-flight-item:focus-visible {
 
 .us-font-preview-card:hover,
 .us-cursor-preview-card:hover,
-.us-theme-preview-card:hover {
+.us-theme-preview-card:hover,
+.us-text-tone-preview-card:hover {
   border-color: var(--border-strong);
   background: color-mix(in srgb, var(--surface-hover) 82%, black 18%);
 }
 
 .us-font-preview-card.active,
 .us-cursor-preview-card.active,
-.us-theme-preview-card.active {
+.us-theme-preview-card.active,
+.us-text-tone-preview-card.active {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface) 90%);
 }
@@ -21406,6 +21462,39 @@ button.cluster-flight-item:focus-visible {
 
 .us-theme-preview-sample-auto {
   background: linear-gradient(135deg, #16181d 0%, #16181d 48%, #f7f8fb 52%, #f7f8fb 100%);
+}
+
+.us-text-tone-preview-sample {
+  min-height: 52px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  background: linear-gradient(180deg, #16181d 0%, #0b0d12 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.us-text-tone-preview-sample-default {
+  --preview-text: #e8e8e8;
+  --preview-text-secondary: #ccc;
+}
+
+.us-text-tone-preview-sample-terminal {
+  --preview-text: #ffb347;
+  --preview-text-secondary: #f3a73b;
+}
+
+.us-text-tone-preview-primary {
+  color: var(--preview-text);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.us-text-tone-preview-secondary {
+  color: var(--preview-text-secondary);
+  font-size: 11px;
 }
 
 .us-theme-preview-topbar,
@@ -27899,7 +27988,8 @@ body[data-panel-density="comfortable"] .panel-tabs {
   position: fixed;
   z-index: 99999;
   pointer-events: none;
-  max-width: 240px;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 16px));
   padding: 6px 10px;
   border-radius: 7px;
   background: color-mix(in srgb, var(--surface, #16161e) 94%, white 6%);
@@ -27908,7 +27998,10 @@ body[data-panel-density="comfortable"] .panel-tabs {
   font-size: 12px;
   font-family: var(--font-body);
   line-height: 1.4;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  text-align: center;
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.1s ease, transform 0.1s ease;

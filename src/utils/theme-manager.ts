@@ -5,13 +5,16 @@ export type Theme = 'dark' | 'light';
 export type ThemePreference = 'auto' | 'dark' | 'light';
 export type FontPreference = 'inter' | 'theme' | 'article' | 'poppins';
 export type AccentColor = 'indigo' | 'emerald' | 'amber' | 'sky' | 'rose' | 'zinc';
+export type TextTonePreference = 'default' | 'terminal';
 
 const STORAGE_KEY = 'worldmonitor-theme';
 const FONT_STORAGE_KEY = 'worldmonitor-font-preference';
 const ACCENT_STORAGE_KEY = 'worldmonitor-accent-color';
+const TEXT_TONE_STORAGE_KEY = 'worldmonitor-text-tone';
 const DEFAULT_THEME: Theme = 'dark';
 const DEFAULT_FONT: FontPreference = 'inter';
 const DEFAULT_ACCENT: AccentColor = 'indigo';
+const DEFAULT_TEXT_TONE: TextTonePreference = 'default';
 
 /**
  * Read the stored theme preference from localStorage.
@@ -53,6 +56,14 @@ export function getAccentColor(): AccentColor {
   return DEFAULT_ACCENT;
 }
 
+export function getTextTonePreference(): TextTonePreference {
+  try {
+    const stored = localStorage.getItem(TEXT_TONE_STORAGE_KEY);
+    if (stored === 'default' || stored === 'terminal') return stored;
+  } catch { /* noop */ }
+  return DEFAULT_TEXT_TONE;
+}
+
 function applyAccentColor(accent: AccentColor): void {
   if (accent === 'indigo') {
     document.documentElement.removeAttribute('data-accent-color');
@@ -65,6 +76,21 @@ export function setAccentColor(accent: AccentColor): void {
   try { localStorage.setItem(ACCENT_STORAGE_KEY, accent); } catch { /* noop */ }
   applyAccentColor(accent);
   window.dispatchEvent(new CustomEvent('accent-changed', { detail: { accent } }));
+}
+
+function applyTextTonePreference(pref: TextTonePreference): void {
+  if (pref === 'default') {
+    document.documentElement.removeAttribute('data-text-tone');
+  } else {
+    document.documentElement.dataset.textTone = pref;
+  }
+  invalidateColorCache();
+  window.dispatchEvent(new CustomEvent('text-tone-changed', { detail: { textTonePreference: pref } }));
+}
+
+export function setTextTonePreference(pref: TextTonePreference): void {
+  try { localStorage.setItem(TEXT_TONE_STORAGE_KEY, pref); } catch { /* noop */ }
+  applyTextTonePreference(pref);
 }
 
 function resolveAutoTheme(): Theme {
@@ -178,4 +204,5 @@ export function applyStoredTheme(): void {
   }
   applyFontPreference(getFontPreference());
   applyAccentColor(getAccentColor());
+  applyTextTonePreference(getTextTonePreference());
 }

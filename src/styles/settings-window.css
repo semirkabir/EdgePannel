@@ -584,6 +584,76 @@
   width: 100%;
 }
 
+.settings-text-tone-card {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.settings-text-tone-preview-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-text-tone-preview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--settings-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.settings-text-tone-preview-card:hover {
+  border-color: var(--settings-border-strong);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.settings-text-tone-preview-card.active {
+  border-color: var(--settings-accent);
+  background: color-mix(in srgb, var(--settings-accent) 10%, transparent);
+}
+
+.settings-text-tone-preview-sample {
+  min-height: 52px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--settings-border) 68%, transparent);
+  background: linear-gradient(180deg, #16181d 0%, #0b0d12 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.settings-text-tone-preview-sample-default {
+  --preview-text: #e8e8e8;
+  --preview-text-secondary: #ccc;
+}
+
+.settings-text-tone-preview-sample-terminal {
+  --preview-text: #ffb347;
+  --preview-text-secondary: #f3a73b;
+}
+
+.settings-text-tone-preview-primary {
+  color: var(--preview-text);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.settings-text-tone-preview-secondary {
+  color: var(--preview-text-secondary);
+  font-size: 11px;
+}
+
 /* ── Accent color swatch picker ── */
 .accent-color-grid {
   display: flex;

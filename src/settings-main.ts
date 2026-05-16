@@ -31,7 +31,18 @@ import { getApiBaseUrl, isDesktopRuntime, resolveLocalApiPort, startSmartPollLoo
 import { tryInvokeTauri, invokeTauri } from '@/services/tauri-bridge';
 import { escapeHtml } from '@/utils/sanitize';
 import { initI18n, t } from '@/services/i18n';
-import { applyStoredTheme, getFontPreference, setFontPreference, getAccentColor, setAccentColor, type FontPreference, type AccentColor } from '@/utils/theme-manager';
+import {
+  applyStoredTheme,
+  getFontPreference,
+  setFontPreference,
+  getAccentColor,
+  setAccentColor,
+  getTextTonePreference,
+  setTextTonePreference,
+  type FontPreference,
+  type AccentColor,
+  type TextTonePreference,
+} from '@/utils/theme-manager';
 import { trackFeatureToggle } from '@/services/analytics';
 import { installCursorDiagnostics } from '@/utils/cursor-diagnostics';
 import { installForcedCursor } from '@/utils/forced-cursor';
@@ -279,6 +290,17 @@ function renderOverview(area: HTMLElement): void {
       </div>
     </section>
 
+    <section class="settings-appearance-card settings-text-tone-card">
+      <div class="settings-appearance-copy">
+        <h2 class="wm-section-title">Text Tone</h2>
+        <p class="wm-section-desc">Choose the neutral text palette used across panels, articles, and interface copy.</p>
+      </div>
+      <div class="settings-text-tone-preview-grid">
+        ${renderTextTonePreviewCard('default', 'Default', 'Current neutral palette')}
+        ${renderTextTonePreviewCard('terminal', 'Terminal Amber', 'Bloomberg-style amber text')}
+      </div>
+    </section>
+
     <div class="settings-ov-license">
       <section class="wm-section">
         <h2 class="wm-section-title">${t('modals.settingsWindow.worldMonitor.apiKey.title')}</h2>
@@ -354,6 +376,16 @@ function initOverviewListeners(area: HTMLElement): void {
         s.classList.toggle('active', s.dataset.accent === value);
       });
       setActionStatus('Accent color updated.', 'ok');
+    });
+  });
+
+  area.querySelectorAll<HTMLElement>('.settings-text-tone-preview-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const value = card.dataset.textTone as TextTonePreference | undefined;
+      if (!value) return;
+      setTextTonePreference(value);
+      syncTextTonePreviewState(value);
+      setActionStatus('Text tone updated.', 'ok');
     });
   });
 
@@ -438,6 +470,28 @@ function renderAccentSwatch(value: AccentColor, label: string, hex: string): str
     <span class="accent-swatch-chip"></span>
     <span class="accent-swatch-name">${escapeHtml(label)}</span>
   </button>`;
+}
+
+function renderTextTonePreviewCard(value: TextTonePreference, title: string, subtitle: string): string {
+  const active = getTextTonePreference() === value ? ' active' : '';
+  return `
+    <button type="button" class="settings-text-tone-preview-card${active}" data-text-tone="${value}">
+      <div class="settings-font-preview-top">
+        <span class="settings-font-preview-title">${escapeHtml(title)}</span>
+        <span class="settings-font-preview-subtitle">${escapeHtml(subtitle)}</span>
+      </div>
+      <div class="settings-text-tone-preview-sample settings-text-tone-preview-sample-${value}">
+        <span class="settings-text-tone-preview-primary">CURRENT SITUATION UPDATE</span>
+        <span class="settings-text-tone-preview-secondary">Article body and interface copy</span>
+      </div>
+    </button>
+  `;
+}
+
+function syncTextTonePreviewState(value: TextTonePreference): void {
+  document.querySelectorAll<HTMLElement>('.settings-text-tone-preview-card').forEach((card) => {
+    card.classList.toggle('active', card.dataset.textTone === value);
+  });
 }
 
 // ── Feature sections ──

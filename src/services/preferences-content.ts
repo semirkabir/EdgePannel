@@ -5,7 +5,20 @@ import { getLiveStreamsAlwaysOn, setLiveStreamsAlwaysOn } from '@/services/live-
 import { getGlobeVisualPreset, setGlobeVisualPreset, GLOBE_VISUAL_PRESET_OPTIONS, type GlobeVisualPreset } from '@/services/globe-render-settings';
 import { getInsightSeverityPreference, setInsightSeverityPreference, INSIGHT_SEVERITY_OPTIONS, type InsightSeverityPreference } from '@/services/insight-severity-settings';
 import type { StreamQuality } from '@/services/ai-flow-settings';
-import { getThemePreference, setThemePreference, getFontPreference, setFontPreference, getAccentColor, setAccentColor, type ThemePreference, type FontPreference, type AccentColor } from '@/utils/theme-manager';
+import {
+  getThemePreference,
+  setThemePreference,
+  getFontPreference,
+  setFontPreference,
+  getAccentColor,
+  setAccentColor,
+  getTextTonePreference,
+  setTextTonePreference,
+  type ThemePreference,
+  type FontPreference,
+  type AccentColor,
+  type TextTonePreference,
+} from '@/utils/theme-manager';
 import { escapeHtml } from '@/utils/sanitize';
 import { trackLanguageChange } from '@/services/analytics';
 import { exportSettings, importSettings, type ImportResult } from '@/utils/settings-persistence';
@@ -226,6 +239,18 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
     ${renderAccentSwatch('amber',   'Amber',   '#f59e0b', currentAccentPref)}
     ${renderAccentSwatch('sky',     'Sky',     '#0ea5e9', currentAccentPref)}
     ${renderAccentSwatch('rose',    'Rose',    '#f43f5e', currentAccentPref)}
+  </div>`;
+
+  const currentTextTonePref = getTextTonePreference();
+  html += `<div class="ai-flow-toggle-row">
+    <div class="ai-flow-toggle-label-wrap">
+      <div class="ai-flow-toggle-label">Text Tone</div>
+      <div class="ai-flow-toggle-desc">Choose the neutral text palette used across panels, articles, and interface copy.</div>
+    </div>
+  </div>`;
+  html += `<div class="us-text-tone-preview-grid">
+    ${renderTextTonePreviewCard('default', 'Default', 'Current neutral palette', currentTextTonePref)}
+    ${renderTextTonePreviewCard('terminal', 'Terminal Amber', 'Bloomberg-style amber text', currentTextTonePref)}
   </div>`;
 
   const currentCursorPref = getCursorPreference();
@@ -581,6 +606,14 @@ export function renderPreferences(host: PreferencesHost): PreferencesResult {
           markDirty();
           return;
         }
+        const textToneCard = target.closest<HTMLElement>('.us-text-tone-preview-card');
+        if (textToneCard?.dataset.textTone) {
+          const value = textToneCard.dataset.textTone as TextTonePreference;
+          setTextTonePreference(value);
+          syncTextTonePreviewState(container, value);
+          markDirty();
+          return;
+        }
         const cursorCard = target.closest<HTMLElement>('.us-cursor-preview-card');
         if (cursorCard?.dataset.cursorPreference) {
           const value = cursorCard.dataset.cursorPreference as CursorPreference;
@@ -702,6 +735,27 @@ function renderThemePreviewCard(value: ThemePreference, title: string, subtitle:
   `;
 }
 
+function renderTextTonePreviewCard(
+  value: TextTonePreference,
+  title: string,
+  subtitle: string,
+  current: TextTonePreference,
+): string {
+  const active = current === value ? ' active' : '';
+  return `
+    <button type="button" class="us-text-tone-preview-card${active}" data-text-tone="${value}" aria-pressed="${current === value ? 'true' : 'false'}">
+      <div class="us-font-preview-top">
+        <span class="us-font-preview-title">${escapeHtml(title)}</span>
+        <span class="us-font-preview-subtitle">${escapeHtml(subtitle)}</span>
+      </div>
+      <div class="us-text-tone-preview-sample us-text-tone-preview-sample-${value}">
+        <span class="us-text-tone-preview-primary">CURRENT SITUATION UPDATE</span>
+        <span class="us-text-tone-preview-secondary">Article body and interface copy</span>
+      </div>
+    </button>
+  `;
+}
+
 function syncFontPreviewState(container: HTMLElement, value: FontPreference): void {
   container.querySelectorAll<HTMLElement>('.us-font-preview-card').forEach((card) => {
     card.classList.toggle('active', card.dataset.fontPreference === value);
@@ -711,6 +765,14 @@ function syncFontPreviewState(container: HTMLElement, value: FontPreference): vo
 function syncThemePreviewState(container: HTMLElement, value: ThemePreference): void {
   container.querySelectorAll<HTMLElement>('.us-theme-preview-card').forEach((card) => {
     const active = card.dataset.themePreference === value;
+    card.classList.toggle('active', active);
+    card.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function syncTextTonePreviewState(container: HTMLElement, value: TextTonePreference): void {
+  container.querySelectorAll<HTMLElement>('.us-text-tone-preview-card').forEach((card) => {
+    const active = card.dataset.textTone === value;
     card.classList.toggle('active', active);
     card.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
