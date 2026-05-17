@@ -121,6 +121,7 @@ export class DataLoaderManager implements AppModule {
 
   public hasActiveMarketsConsumer(): boolean {
     return this.isPanelEnabled('markets')
+      || this.isPanelEnabled('watchlist')
       || this.isPanelEnabled('commodities')
       || this.isPanelEnabled('heatmap')
       || this.isPanelEnabled('crypto');
@@ -370,6 +371,15 @@ export class DataLoaderManager implements AppModule {
       });
     }
 
+    // Preload country profile cache (low priority, non-blocking)
+    tasks.push({
+      name: 'countryProfiles',
+      task: runGuarded('countryProfiles', async () => {
+        const { preloadCountryProfiles } = await import('./country-intel/data-loaders');
+        await preloadCountryProfiles();
+      }, 'low'),
+    });
+
     if (SITE_VARIANT === 'full' && this.hasActiveCiiConsumer()) {
       try {
         let hasStartupCiiRender = false;
@@ -573,6 +583,7 @@ export class DataLoaderManager implements AppModule {
         }
         return;
       case 'markets':
+      case 'watchlist':
       case 'commodities':
       case 'heatmap':
       case 'crypto':

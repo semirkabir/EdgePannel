@@ -43,7 +43,7 @@ import { supplementalBus } from '@/services/supplemental-signal-bus';
 import { ingestSatelliteFiresForCII } from '@/services/country-instability';
 import { matchCountryNamesInText } from '@/services/country-geometry';
 import { dataTaskScheduler } from './data-task-scheduler';
-import type { MarketPanel, HeatmapPanel, CommoditiesPanel, CryptoPanel, PredictionPanel, EconomicPanel, TradePolicyPanel, SupplyChainPanel, SanctionsTrackerPanel } from '@/components';
+import type { MarketPanel, WatchlistPanel, HeatmapPanel, CommoditiesPanel, CryptoPanel, PredictionPanel, EconomicPanel, TradePolicyPanel, SupplyChainPanel, SanctionsTrackerPanel } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 
 export interface DataRendererDeps {
@@ -115,17 +115,17 @@ export class DataRenderer {
           sparkline: q.sparkline?.length > 0 ? q.sparkline : undefined,
         }));
         this.ctx.intelligenceStore.setMarkets(data);
-        (this.ctx.panels['markets'] as MarketPanel).renderMarkets(data);
+        (this.ctx.panels['watchlist'] as WatchlistPanel).renderMarkets(data);
         stocksResult = { data, skipped: hydratedMarkets.finnhubSkipped || undefined, rateLimited: hydratedMarkets.rateLimited || undefined };
       } else {
         stocksResult = await fetchMultipleStocks(effectiveSymbols, {
           onBatch: (partialStocks) => {
             this.ctx.intelligenceStore.setMarkets(partialStocks);
-            (this.ctx.panels['markets'] as MarketPanel).renderMarkets(partialStocks);
+            (this.ctx.panels['watchlist'] as WatchlistPanel).renderMarkets(partialStocks);
           },
         });
         this.ctx.intelligenceStore.setMarkets(stocksResult.data);
-        (this.ctx.panels['markets'] as MarketPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
+        (this.ctx.panels['watchlist'] as WatchlistPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
       }
 
       const finnhubConfigMsg = getMissingSecretMessage('FINNHUB_API_KEY');
@@ -136,7 +136,7 @@ export class DataRenderer {
       } else if (stocksResult.skipped) {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
         if (stocksResult.data.length === 0) {
-          this.ctx.panels['markets']?.showConfigError(finnhubConfigMsg);
+          this.ctx.panels['watchlist']?.showConfigError(finnhubConfigMsg);
         }
       } else {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'ok' });

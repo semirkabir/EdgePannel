@@ -25,16 +25,116 @@ function formatCryptoPrice(price: number): string {
 
 
 export class MarketPanel extends Panel {
+  constructor() {
+    super({ id: 'markets', title: t('panels.markets') });
+  }
+
+  public renderMarketRiskOverlay(snapshot: MarketRiskOverlaySnapshot): void {
+    this.setContentNow(this.renderMarketRiskOverlayHtml(snapshot));
+  }
+
+  private renderMarketRiskOverlayHtml(snapshot: MarketRiskOverlaySnapshot): string {
+    if (snapshot.status === 'unavailable') {
+      return `
+        <div class="market-risk-overlay unavailable">
+          <div class="market-risk-head">
+            <span class="market-risk-title">Market Risk Overlay</span>
+            <span class="market-risk-pill unavailable">Unavailable</span>
+          </div>
+          <div class="market-risk-empty">Public VIX/COT signals are temporarily unavailable.</div>
+        </div>
+      `;
+    }
+
+    const score = snapshot.score;
+    const level = score?.level ?? snapshot.vix?.level ?? 'unavailable';
+    const levelLabel = score?.label ?? this.riskLevelLabel(level);
+    const vix = snapshot.vix;
+    const vixChange = vix?.change1d != null
+      ? `${vix.change1d >= 0 ? '+' : ''}${vix.change1d.toFixed(2)}`
+      : '—';
+    const cotMarkets = snapshot.cot?.markets.slice(0, 3).map((market) => this.renderCotMarket(market)).join('') || '';
+    const notes = snapshot.sourceNotes.length > 0
+      ? `<div class="market-risk-note">${snapshot.sourceNotes.map((note) => escapeHtml(note)).join(' · ')}</div>`
+      : '';
+
+    return `
+      <div class="market-risk-overlay ${this.riskLevelClass(level)}">
+        <div class="market-risk-head">
+          <span class="market-risk-title">Market Risk Overlay</span>
+          <span class="market-risk-pill ${this.riskLevelClass(level)}">${escapeHtml(levelLabel)}</span>
+        </div>
+        <div class="market-risk-metrics">
+          <div class="market-risk-metric">
+            <span class="market-risk-label">Composite</span>
+            <strong>${score ? score.value.toString() : '—'}</strong>
+          </div>
+          <div class="market-risk-metric">
+            <span class="market-risk-label">VIX</span>
+            <strong>${vix ? vix.close.toFixed(2) : '—'}</strong>
+            <span class="${vix?.change1d != null ? getChangeClass(vix.change1d) : ''}">${escapeHtml(vixChange)}</span>
+          </div>
+          <div class="market-risk-metric">
+            <span class="market-risk-label">COT</span>
+            <strong>${escapeHtml(this.biasLabel(snapshot.cot?.bias ?? 'neutral'))}</strong>
+          </div>
+        </div>
+        ${cotMarkets ? `<div class="market-risk-cot">${cotMarkets}</div>` : ''}
+        <div class="market-risk-source">
+          ${vix ? `CBOE ${escapeHtml(vix.date)}` : 'CBOE unavailable'}
+          ${snapshot.cot ? ` · CFTC ${escapeHtml(snapshot.cot.reportDate)}` : ' · CFTC unavailable'}
+        </div>
+        ${notes}
+      </div>
+    `;
+  }
+
+  private renderCotMarket(market: CotPositioning): string {
+    const pctValue = market.leveragedMoneyNetPctOi;
+    const pctText = pctValue != null ? `${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(1)}% OI` : '—';
+    return `
+      <div class="market-risk-cot-row">
+        <span>${escapeHtml(market.market)}</span>
+        <strong class="${pctValue != null ? getChangeClass(pctValue) : ''}">${escapeHtml(pctText)}</strong>
+        <em>${escapeHtml(this.biasLabel(market.bias))}</em>
+      </div>
+    `;
+  }
+
+  private riskLevelLabel(level: MarketRiskLevel): string {
+    switch (level) {
+      case 'low': return 'Calm';
+      case 'moderate': return 'Watch';
+      case 'elevated': return 'Elevated';
+      case 'stressed': return 'Stressed';
+      case 'unavailable': return 'Unavailable';
+    }
+  }
+
+  private riskLevelClass(level: MarketRiskLevel): string {
+    return `level-${level}`;
+  }
+
+  private biasLabel(bias: MarketRiskBias): string {
+    switch (bias) {
+      case 'risk-on': return 'Risk-on';
+      case 'risk-off': return 'Risk-off';
+      case 'mixed': return 'Mixed';
+      case 'neutral': return 'Neutral';
+    }
+  }
+}
+
+export class WatchlistPanel extends Panel {
   private settingsBtn: HTMLButtonElement | null = null;
   private overlay: HTMLElement | null = null;
   private priceElements: Map<string, HTMLSpanElement> = new Map();
   private changeElements: Map<string, HTMLSpanElement> = new Map();
   private unsubscribeMap: Map<string, () => void> = new Map();
   private marketData: MarketData[] = [];
-  private marketRiskOverlay: MarketRiskOverlaySnapshot | null = null;
 
   constructor() {
-    super({ id: 'markets', title: 'Watchlist' });
+    super({ id: 'watchlist', title: 'Watchlist' });
     this.createSettingsButton();
     this.connectWebSocket();
   }
@@ -83,7 +183,7 @@ export class MarketPanel extends Panel {
     if (!checkFeatureAccess('watchlist')) return;
     if (this.overlay) return;
 
-    const catalog = MarketPanel.buildTickerCatalog();
+    const catalog = WatchlistPanel.buildTickerCatalog();
     let entries: MarketWatchlistEntry[] = [...getMarketWatchlistEntries()];
 
     const overlay = document.createElement('div');
@@ -256,44 +356,12 @@ export class MarketPanel extends Panel {
     this.renderMarketContent();
   }
 
-  public renderMarketRiskOverlay(snapshot: MarketRiskOverlaySnapshot): void {
-    this.marketRiskOverlay = snapshot;
-    if (this.marketData.length > 0) {
-      // Update just the overlay node in-place to avoid tearing down live price subscriptions.
-      const existing = this.content.querySelector<HTMLElement>('.market-risk-overlay');
-      if (existing) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = this.renderMarketRiskOverlayHtml(snapshot).trim();
-        const replacement = tmp.firstElementChild;
-        if (replacement) {
-          existing.replaceWith(replacement);
-          return;
-        }
-      } else {
-        const stack = this.content.querySelector('.market-panel-stack');
-        if (stack) {
-          stack.insertAdjacentHTML('afterbegin', this.renderMarketRiskOverlayHtml(snapshot));
-          return;
-        }
-      }
-      // Fallback: full re-render only if in-place update targets not found.
-      this.renderMarketContent();
-      return;
-    }
-
-    this.setContentNow(this.renderMarketRiskOverlayHtml(snapshot));
-  }
-
   private renderMarketContent(): void {
     // Clean up old subscriptions
     this.unsubscribeMap.forEach((unsub) => unsub());
     this.unsubscribeMap.clear();
     this.priceElements.clear();
     this.changeElements.clear();
-
-    const riskOverlayHtml = this.marketRiskOverlay
-      ? this.renderMarketRiskOverlayHtml(this.marketRiskOverlay)
-      : '';
 
     const rows = this.marketData.map((stock) => `
       <div
@@ -318,7 +386,6 @@ export class MarketPanel extends Panel {
 
     this.setContentNow(`
       <div class="market-panel-stack">
-        ${riskOverlayHtml}
         <div class="market-list">${rows}</div>
       </div>
     `);
@@ -363,96 +430,6 @@ export class MarketPanel extends Panel {
     });
   }
 
-  private renderMarketRiskOverlayHtml(snapshot: MarketRiskOverlaySnapshot): string {
-    if (snapshot.status === 'unavailable') {
-      return `
-        <div class="market-risk-overlay unavailable">
-          <div class="market-risk-head">
-            <span class="market-risk-title">Market Risk Overlay</span>
-            <span class="market-risk-pill unavailable">Unavailable</span>
-          </div>
-          <div class="market-risk-empty">Public VIX/COT signals are temporarily unavailable.</div>
-        </div>
-      `;
-    }
-
-    const score = snapshot.score;
-    const level = score?.level ?? snapshot.vix?.level ?? 'unavailable';
-    const levelLabel = score?.label ?? this.riskLevelLabel(level);
-    const vix = snapshot.vix;
-    const vixChange = vix?.change1d != null
-      ? `${vix.change1d >= 0 ? '+' : ''}${vix.change1d.toFixed(2)}`
-      : '—';
-    const cotMarkets = snapshot.cot?.markets.slice(0, 3).map((market) => this.renderCotMarket(market)).join('') || '';
-    const notes = snapshot.sourceNotes.length > 0
-      ? `<div class="market-risk-note">${snapshot.sourceNotes.map((note) => escapeHtml(note)).join(' · ')}</div>`
-      : '';
-
-    return `
-      <div class="market-risk-overlay ${this.riskLevelClass(level)}">
-        <div class="market-risk-head">
-          <span class="market-risk-title">Market Risk Overlay</span>
-          <span class="market-risk-pill ${this.riskLevelClass(level)}">${escapeHtml(levelLabel)}</span>
-        </div>
-        <div class="market-risk-metrics">
-          <div class="market-risk-metric">
-            <span class="market-risk-label">Composite</span>
-            <strong>${score ? score.value.toString() : '—'}</strong>
-          </div>
-          <div class="market-risk-metric">
-            <span class="market-risk-label">VIX</span>
-            <strong>${vix ? vix.close.toFixed(2) : '—'}</strong>
-            <span class="${vix?.change1d != null ? getChangeClass(vix.change1d) : ''}">${escapeHtml(vixChange)}</span>
-          </div>
-          <div class="market-risk-metric">
-            <span class="market-risk-label">COT</span>
-            <strong>${escapeHtml(this.biasLabel(snapshot.cot?.bias ?? 'neutral'))}</strong>
-          </div>
-        </div>
-        ${cotMarkets ? `<div class="market-risk-cot">${cotMarkets}</div>` : ''}
-        <div class="market-risk-source">
-          ${vix ? `CBOE ${escapeHtml(vix.date)}` : 'CBOE unavailable'}
-          ${snapshot.cot ? ` · CFTC ${escapeHtml(snapshot.cot.reportDate)}` : ' · CFTC unavailable'}
-        </div>
-        ${notes}
-      </div>
-    `;
-  }
-
-  private renderCotMarket(market: CotPositioning): string {
-    const pctValue = market.leveragedMoneyNetPctOi;
-    const pctText = pctValue != null ? `${pctValue >= 0 ? '+' : ''}${pctValue.toFixed(1)}% OI` : '—';
-    return `
-      <div class="market-risk-cot-row">
-        <span>${escapeHtml(market.market)}</span>
-        <strong class="${pctValue != null ? getChangeClass(pctValue) : ''}">${escapeHtml(pctText)}</strong>
-        <em>${escapeHtml(this.biasLabel(market.bias))}</em>
-      </div>
-    `;
-  }
-
-  private riskLevelLabel(level: MarketRiskLevel): string {
-    switch (level) {
-      case 'low': return 'Calm';
-      case 'moderate': return 'Watch';
-      case 'elevated': return 'Elevated';
-      case 'stressed': return 'Stressed';
-      case 'unavailable': return 'Unavailable';
-    }
-  }
-
-  private riskLevelClass(level: MarketRiskLevel): string {
-    return `level-${level}`;
-  }
-
-  private biasLabel(bias: MarketRiskBias): string {
-    switch (bias) {
-      case 'risk-on': return 'Risk-on';
-      case 'risk-off': return 'Risk-off';
-      case 'mixed': return 'Mixed';
-      case 'neutral': return 'Neutral';
-    }
-  }
 }
 
 export class HeatmapPanel extends Panel {

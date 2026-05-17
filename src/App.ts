@@ -390,6 +390,8 @@ export class App {
       exportPanel: null,
       unifiedSettings: null,
       agentChatPanel: null,
+      situationRoomDrawer: null,
+      visitorCounter: null,
       pizzintIndicator: null,
       notificationCenter: null,
       countryBriefPage: null,

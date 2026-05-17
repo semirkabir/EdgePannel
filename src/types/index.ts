@@ -1412,3 +1412,11 @@ export interface MapDatacenterCluster {
   plannedCount?: number;
   sampled?: boolean;
 }
+
+// ── Country Profiles (enriched static data) ──────────────────────────────────
+export type {
+  CountryProfile,
+  CountryIndicator,
+  CountryIndex,
+  CountryProfileBundle,
+} from './country-profiles';

@@ -19,6 +19,7 @@ export const DEFAULT_PANELS: Record<string, PanelConfig> = {
   'live-news': { name: 'Commodity Headlines', enabled: true, priority: 1 },
   // Markets
   markets: { name: 'Mining & Commodity Stocks', enabled: true, priority: 1 },
+  watchlist: { name: 'Watchlist', enabled: true, priority: 1 },
   commodities: { name: 'Live Commodity Prices', enabled: true, priority: 1 },
   heatmap: { name: 'Sector Heatmap', enabled: true, priority: 1 },
   'macro-signals': { name: 'Market Radar', enabled: true, priority: 1 },

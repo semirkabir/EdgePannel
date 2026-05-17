@@ -65,6 +65,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   polymarket:            p1('Predictions'),
   commodities:           p1('Commodities'),
   markets:               p1('Markets'),
+  watchlist:             p1('Watchlist'),
   economic:              p1('Economic Indicators'),
   'trade-policy':        p1('Trade Policy'),
   'supply-chain':        p1d('Supply Chain', 'enhanced'),
@@ -161,6 +162,7 @@ const TECH_PANELS: Record<string, PanelConfig> = {
   regulation:       p1('AI Regulation Dashboard'),
   layoffs:          p1('Layoffs Tracker'),
   markets:          p2('Tech Stocks'),
+  watchlist:        p2('Watchlist'),
   finance:          p2('Financial News'),
   hardware:         p2('Semiconductors & Hardware'),
   cloud:            p2('Cloud & Infrastructure'),
@@ -203,6 +205,7 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   'analyst-workbench': p1('Analyst Workbench'),
   insights:           p1('AI Market Insights'),
   markets:            p1('Live Markets'),
+  watchlist:          p1('Watchlist'),
   'markets-news':     p2('Markets News'),
   forex:              p1('Forex & Currencies'),
   bonds:              p1('Fixed Income'),
@@ -306,6 +309,7 @@ const COMMODITY_PANELS: Record<string, PanelConfig> = {
   'supply-chain':         p1('Supply Chain & Logistics'),
   'commodity-regulation': p1('Regulation & Policy'),
   markets:                p1('Commodity Markets'),
+  watchlist:              p1('Watchlist'),
   commodities:            p1('Live Commodity Prices'),
   heatmap:                p1('Sector Heatmap'),
   'macro-signals':        p1('Market Radar'),
@@ -459,7 +463,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'economic', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'gulf-economies', 'crypto', 'heatmap', 'my-portfolio', 'public-filings', 'portfolio-tools'],
+    panelKeys: ['commodities', 'markets', 'watchlist', 'economic', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'gulf-economies', 'crypto', 'heatmap', 'my-portfolio', 'public-filings', 'portfolio-tools'],
     variants: ['full'],
   },
   topical: {
@@ -491,14 +495,14 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   techMarkets: {
     labelKey: 'header.panelCatMarkets',
-    panelKeys: ['markets', 'finance', 'polymarket', 'layoffs', 'monitors', 'world-clock'],
+    panelKeys: ['markets', 'watchlist', 'finance', 'polymarket', 'layoffs', 'monitors', 'world-clock'],
     variants: ['tech'],
   },
 
   // Finance variant
   finMarkets: {
     labelKey: 'header.panelCatMarkets',
-    panelKeys: ['analyst-workbench', 'markets', 'markets-news', 'heatmap', 'macro-signals', 'analysis', 'polymarket', 'my-portfolio', 'public-filings', 'portfolio-tools'],
+    panelKeys: ['analyst-workbench', 'markets', 'watchlist', 'markets-news', 'heatmap', 'macro-signals', 'analysis', 'polymarket', 'my-portfolio', 'public-filings', 'portfolio-tools'],
     variants: ['finance'],
   },
   fixedIncomeFx: {
@@ -530,6 +534,18 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
     labelKey: 'header.panelCatGulfMena',
     panelKeys: ['gulf-economies', 'gcc-investments', 'gccNews', 'monitors', 'world-clock'],
     variants: ['finance'],
+  },
+
+  // Conflicts variant
+  conflictZones: {
+    labelKey: 'header.panelCatConflictZones',
+    panelKeys: ['armed-conflict', 'middleeast', 'europe', 'us', 'politics', 'africa', 'asia'],
+    variants: ['conflicts'],
+  },
+  defenseSecurity: {
+    labelKey: 'header.panelCatDefenseSecurity',
+    panelKeys: ['defense', 'thinktanks', 'gov', 'crisis', 'sanctions', 'humanrights', 'energy'],
+    variants: ['conflicts'],
   },
 };
 

@@ -200,6 +200,7 @@ export const DEFAULT_PANELS: Record<string, PanelConfig> = {
   regulation: { name: 'AI Regulation Dashboard', enabled: true, priority: 1 },
   layoffs: { name: 'Layoffs Tracker', enabled: true, priority: 1 },
   markets: { name: 'Tech Stocks', enabled: true, priority: 2 },
+  watchlist: { name: 'Watchlist', enabled: true, priority: 2 },
   finance: { name: 'Financial News', enabled: true, priority: 2 },
   crypto: { name: 'Crypto', enabled: true, priority: 2 },
   hardware: { name: 'Semiconductors & Hardware', enabled: true, priority: 2 },

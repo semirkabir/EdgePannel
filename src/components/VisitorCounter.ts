@@ -10,14 +10,16 @@
  * subscription and call this.setCount(total) whenever the count updates.
  */
 export class VisitorCounter {
-  private el: HTMLElement;
+  private el: HTMLButtonElement;
   private eyeEl: HTMLElement;
   private countEl: HTMLElement;
   private trendEl: HTMLElement;
   private tooltipEl: HTMLElement;
   private tooltipTotalEl: HTMLElement;
   private tooltipPeakEl: HTMLElement;
+  private tooltipActionEl: HTMLElement;
   private tooltipSpikeEl: HTMLElement;
+  private unreadEl: HTMLElement;
 
   private total = 0;
   private peakToday = 0;
@@ -26,11 +28,11 @@ export class VisitorCounter {
   private tickTimeout: number | null = null;
   private tooltipTimeout: number | null = null;
 
-  constructor() {
-    this.el = document.createElement('div');
+  constructor(private readonly onOpenSituationRoom?: () => void) {
+    this.el = document.createElement('button');
+    this.el.type = 'button';
     this.el.className = 'visitor-counter';
-    this.el.setAttribute('role', 'status');
-    this.el.setAttribute('aria-label', 'Live viewer count');
+    this.el.setAttribute('aria-label', 'Open Situation Room');
 
     // Eye icon with pulse ring
     this.eyeEl = document.createElement('span');
@@ -72,8 +74,13 @@ export class VisitorCounter {
     this.trendEl = document.createElement('span');
     this.trendEl.className = 'vc-trend';
 
+    this.unreadEl = document.createElement('span');
+    this.unreadEl.className = 'vc-unread';
+    this.unreadEl.hidden = true;
+
     countWrap.appendChild(this.countEl);
     countWrap.appendChild(this.trendEl);
+    countWrap.appendChild(this.unreadEl);
 
     // Tooltip
     this.tooltipEl = document.createElement('div');
@@ -82,7 +89,7 @@ export class VisitorCounter {
 
     const tooltipTitle = document.createElement('span');
     tooltipTitle.className = 'vc-tooltip-title';
-    tooltipTitle.textContent = 'Monitoring the situation';
+    tooltipTitle.textContent = 'Situation Room';
 
     this.tooltipTotalEl = document.createElement('span');
     this.tooltipTotalEl.className = 'vc-tooltip-total';
@@ -90,12 +97,17 @@ export class VisitorCounter {
     this.tooltipPeakEl = document.createElement('span');
     this.tooltipPeakEl.className = 'vc-tooltip-peak';
 
+    this.tooltipActionEl = document.createElement('span');
+    this.tooltipActionEl.className = 'vc-tooltip-action';
+    this.tooltipActionEl.textContent = 'Click to join the live discussion';
+
     this.tooltipSpikeEl = document.createElement('span');
     this.tooltipSpikeEl.className = 'vc-tooltip-spike';
 
     this.tooltipEl.appendChild(tooltipTitle);
     this.tooltipEl.appendChild(this.tooltipTotalEl);
     this.tooltipEl.appendChild(this.tooltipPeakEl);
+    this.tooltipEl.appendChild(this.tooltipActionEl);
     this.tooltipEl.appendChild(this.tooltipSpikeEl);
 
     this.el.appendChild(this.eyeEl);
@@ -104,6 +116,7 @@ export class VisitorCounter {
 
     this.el.addEventListener('mouseenter', () => this.showTooltip());
     this.el.addEventListener('mouseleave', () => this.hideTooltip());
+    this.el.addEventListener('click', () => this.onOpenSituationRoom?.());
 
     this.startSimulation();
   }
@@ -136,6 +149,16 @@ export class VisitorCounter {
     const delta = total - this.total;
     this.total = total;
     this.render(delta);
+  }
+
+  setUnreadCount(count: number): void {
+    if (count <= 0) {
+      this.unreadEl.hidden = true;
+      this.unreadEl.textContent = '';
+      return;
+    }
+    this.unreadEl.hidden = false;
+    this.unreadEl.textContent = count > 99 ? '99+' : String(count);
   }
 
   // ── Rendering ─────────────────────────────────────────────────────────────
@@ -203,6 +226,10 @@ export class VisitorCounter {
 
   getElement(): HTMLElement {
     return this.el;
+  }
+
+  getCount(): number {
+    return this.total;
   }
 
   destroy(): void {
