@@ -83,15 +83,19 @@ interface CompanyEnriched {
 
 const client = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
 
-const TABS = ['overview', 'financials', 'forecasts', 'news', 'options', 'holders', 'filings'] as const;
+const TABS = ['overview', 'financials', 'valuation', 'estimates', 'forecasts', 'news', 'events', 'options', 'insiders', 'holders', 'filings'] as const;
 type TabId = typeof TABS[number];
 
 const TAB_LABELS: Record<TabId, string> = {
   overview: 'Overview',
   financials: 'Financials',
+  valuation: 'Valuation',
+  estimates: 'Estimates',
   forecasts: 'Forecasts',
   news: 'News',
+  events: 'Events',
   options: 'Options',
+  insiders: 'Insiders',
   holders: 'Holders',
   filings: 'Filings',
 };
@@ -575,40 +579,6 @@ function renderCompanyLogoHero(container: HTMLElement, data: CompanyEnriched, ct
   else container.prepend(hero);
 }
 
-function makeTabNavButton(direction: 'left' | 'right'): HTMLButtonElement {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = `cp-tab-nav cp-tab-nav-${direction}`;
-  button.setAttribute('aria-label', direction === 'left' ? 'Scroll company tabs left' : 'Scroll company tabs right');
-  button.innerHTML = direction === 'left'
-    ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>'
-    : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg>';
-  return button;
-}
-
-function setupTabNavigation(container: HTMLElement): void {
-  const shell = container.querySelector<HTMLElement>('.cp-tab-shell');
-  const tabBar = container.querySelector<HTMLElement>('.cp-tab-bar');
-  const left = container.querySelector<HTMLButtonElement>('.cp-tab-nav-left');
-  const right = container.querySelector<HTMLButtonElement>('.cp-tab-nav-right');
-  if (!shell || !tabBar || !left || !right || shell.dataset.bound === 'true') return;
-  shell.dataset.bound = 'true';
-
-  const update = () => {
-    const atStart = tabBar.scrollLeft <= 4;
-    const atEnd = tabBar.scrollLeft + tabBar.clientWidth >= tabBar.scrollWidth - 4;
-    left.disabled = atStart;
-    right.disabled = atEnd;
-    shell.classList.toggle('cp-tab-shell-overflowing', tabBar.scrollWidth > tabBar.clientWidth + 4);
-  };
-
-  left.addEventListener('click', () => tabBar.scrollBy({ left: -160, behavior: 'smooth' }));
-  right.addEventListener('click', () => tabBar.scrollBy({ left: 160, behavior: 'smooth' }));
-  tabBar.addEventListener('scroll', update, { passive: true });
-  const ro = new ResizeObserver(update);
-  ro.observe(tabBar);
-  requestAnimationFrame(update);
-}
 
 async function settleInBatches<T>(
   tasks: Array<() => Promise<T>>,
@@ -659,7 +629,6 @@ export class CompanyRenderer implements EntityRenderer {
     container.append(tvWrap);
 
     // Tabs
-    const tabShell = ctx.el('div', 'cp-tab-shell');
     const tabBar = ctx.el('div', 'cp-tab-bar');
     for (const tab of TABS) {
       const btn = ctx.el('button', `cp-tab${tab === 'overview' ? ' cp-tab-active' : ''}`);
@@ -667,8 +636,7 @@ export class CompanyRenderer implements EntityRenderer {
       btn.dataset.tab = tab;
       tabBar.append(btn);
     }
-    tabShell.append(makeTabNavButton('left'), tabBar, makeTabNavButton('right'));
-    container.append(tabShell);
+    container.append(tabBar);
 
     // Tab content area
     const tabContent = ctx.el('div', 'cp-tab-content');
@@ -791,7 +759,6 @@ export class CompanyRenderer implements EntityRenderer {
 
     // Tab click handlers
     const tabBar = container.querySelector('.cp-tab-bar');
-    setupTabNavigation(container);
     tabBar?.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('.cp-tab') as HTMLElement | null;
       if (!btn || !btn.dataset.tab) return;
@@ -810,9 +777,13 @@ export class CompanyRenderer implements EntityRenderer {
     switch (this.activeTab) {
       case 'overview':   this.renderOverviewTab(content as HTMLElement, data, ctx); break;
       case 'financials': this.renderFinancialsTab(content as HTMLElement, data, ctx); break;
+      case 'valuation':  this.renderValuationTab(content as HTMLElement, data, ctx); break;
+      case 'estimates':  this.renderEstimatesTab(content as HTMLElement, data, ctx); break;
       case 'forecasts':  this.renderForecastsTab(content as HTMLElement, data, ctx); break;
       case 'news':       this.renderNewsTab(content as HTMLElement, data, ctx); break;
+      case 'events':     this.renderEventsTab(content as HTMLElement, data, ctx); break;
       case 'options':    this.renderOptionsTab(content as HTMLElement, data, ctx); break;
+      case 'insiders':   this.renderInsidersTab(content as HTMLElement, data, ctx); break;
       case 'holders':    this.renderHoldersTab(content as HTMLElement, data, ctx); break;
       case 'filings':    this.renderFilingsTab(content as HTMLElement, data, ctx); break;
     }
@@ -1561,6 +1532,336 @@ export class CompanyRenderer implements EntityRenderer {
     if (dateNote) body.append(dateNote);
 
     content.append(card);
+  }
+
+  // ─── Valuation Tab ───────────────────────────────────────────────────────
+
+  private renderValuationTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
+    const m = data.metrics;
+    const periods = data.financialsQuarterly.length > 0 ? data.financialsQuarterly : data.financialsAnnual;
+    const latestRevenue = getLatestFinancialValue(periods, 'revenue');
+    const latestNetIncome = getLatestFinancialValue(periods, 'netIncome');
+    const latestDebt = getLatestFinancialValue(periods, 'debt');
+    const latestCash = getLatestFinancialValue(periods, 'cash');
+    const latestAssets = getLatestFinancialValue(periods, 'assets');
+    const latestEquity = getLatestFinancialValue(periods, 'equity');
+    const latestOcf = getLatestFinancialValue(periods, 'operatingCashFlow');
+    const marketCap = data.profile?.marketCapitalization
+      ? data.profile.marketCapitalization * 1_000_000
+      : m?.marketCapitalization;
+    const ev = marketCap !== undefined ? marketCap + (latestDebt ?? 0) - (latestCash ?? 0) : undefined;
+
+    if (!m && !marketCap) {
+      content.append(ctx.makeEmpty('Valuation data unavailable'));
+      return;
+    }
+
+    const [multCard, multBody] = ctx.sectionCard('Trading Multiples');
+    const multGrid = ctx.el('div', 'cp-metrics-grid');
+    const multiples: [string, string][] = [
+      ['P/E (TTM)',    fmtMetric(m?.peBasicExclExtraTTM || m?.peAnnual, 'x')],
+      ['P/B',         fmtMetric(m?.pbAnnual, 'x')],
+      ['P/S',         fmtMetric(m?.psAnnual, 'x')],
+      ['P/FCF',       fmtMetric(m?.freeCashFlowPerShareAnnual && m?.revenuePerShareAnnual
+        ? (data.quote?.price ?? 0) / m.freeCashFlowPerShareAnnual
+        : undefined, 'x')],
+      ['EV',          fmtFinancialValue(ev)],
+      ['EV/Revenue',  fmtMetric(ev && latestRevenue ? ev / latestRevenue : undefined, 'x')],
+      ['EV/EBITDA',   '—'],
+      ['Beta',        fmtMetric(m?.beta)],
+    ];
+    for (const [label, value] of multiples) {
+      const cell = ctx.el('div', 'cp-metric-cell');
+      cell.append(ctx.el('span', 'cp-metric-label', label));
+      cell.append(ctx.el('span', 'cp-metric-value', value));
+      multGrid.append(cell);
+    }
+    multBody.append(multGrid);
+    content.append(multCard);
+
+    if (m) {
+      const [qualCard, qualBody] = ctx.sectionCard('Quality & Returns');
+      const qualGrid = ctx.el('div', 'cp-metrics-grid');
+      const quality: [string, string][] = [
+        ['ROE',          fmtPercent(m.roeRfy)],
+        ['ROA',          fmtPercent(m.roaRfy)],
+        ['ROI',          fmtPercent(m.roiAnnual)],
+        ['Gross Margin', fmtPercent(m.grossMarginAnnual)],
+        ['Op. Margin',   fmtPercent(m.operatingMarginAnnual)],
+        ['Net Margin',   fmtPercent(m.netProfitMarginAnnual)],
+        ['D/E',          fmtMetric(m.totalDebtToEquityAnnual)],
+        ['Current R.',   fmtMetric(m.currentRatioAnnual)],
+      ];
+      for (const [label, value] of quality) {
+        const cell = ctx.el('div', 'cp-metric-cell');
+        cell.append(ctx.el('span', 'cp-metric-label', label));
+        cell.append(ctx.el('span', 'cp-metric-value', value));
+        qualGrid.append(cell);
+      }
+      qualBody.append(qualGrid);
+      content.append(qualCard);
+    }
+
+    if (marketCap !== undefined || latestDebt !== undefined) {
+      const [structCard, structBody] = ctx.sectionCard('Capital Structure');
+      structBody.append(buildCapitalStructure(ctx, [
+        ['Market cap',       marketCap,    '#2dd4bf'],
+        ['Total debt',       latestDebt,   '#f59e0b'],
+        ['Cash & equiv.',    latestCash,   '#22d3ee'],
+        ['Enterprise value', ev,           '#3b82f6'],
+      ]));
+      content.append(structCard);
+    }
+
+    if (latestRevenue !== undefined || latestNetIncome !== undefined || latestOcf !== undefined) {
+      const [growCard, growBody] = ctx.sectionCard('Growth & Cash Generation');
+      const growItems: [string, string][] = [
+        ['Revenue (LTM)',    fmtFinancialValue(latestRevenue)],
+        ['Net income (LTM)', fmtFinancialValue(latestNetIncome)],
+        ['Op. cash flow',    fmtFinancialValue(latestOcf)],
+        ['Total assets',     fmtFinancialValue(latestAssets)],
+        ['Equity',           fmtFinancialValue(latestEquity)],
+        ['Rev. growth YoY',  fmtPercent(m?.revenueGrowthTTMYoy)],
+        ['EPS growth YoY',   fmtPercent(m?.epsGrowthTTMYoy)],
+      ];
+      for (const [label, value] of growItems) {
+        growBody.append(row(ctx, label, value));
+      }
+      content.append(growCard);
+    }
+
+    if (data.peers.length > 0) {
+      const [peersCard, peersBody] = ctx.sectionCard('Peer Comparison');
+      const note = ctx.el('p', 'edp-description', 'Click a peer to open its detail and compare manually.');
+      peersBody.append(note);
+      const peersWrap = ctx.el('div', 'cp-peers');
+      for (const peer of data.peers.slice(0, 12)) {
+        const chip = ctx.el('button', 'cp-peer-chip');
+        chip.textContent = peer;
+        chip.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+            detail: { type: 'company', data: { ticker: peer, name: peer } },
+          }));
+        });
+        peersWrap.append(chip);
+      }
+      peersBody.append(peersWrap);
+      content.append(peersCard);
+    }
+  }
+
+  // ─── Estimates Tab ───────────────────────────────────────────────────────
+
+  private renderEstimatesTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
+    const hasData = data.epsEstimates.data.length > 0
+      || data.revenueEstimates.data.length > 0
+      || data.earningsSurprises.length > 0
+      || data.recommendations.length > 0
+      || data.priceTarget !== null
+      || data.ratingActions.length > 0;
+
+    if (!hasData) {
+      content.append(ctx.makeEmpty('Estimates & analyst data unavailable'));
+      return;
+    }
+
+    if (data.priceTarget) {
+      const [card, body] = ctx.sectionCard('Price Target Consensus');
+      const pt = data.priceTarget;
+      if (data.quote?.price) {
+        body.append(buildPriceTargetGauge(ctx, data.quote.price, pt.targetLow, pt.targetMean, pt.targetHigh));
+        const statsRow = ctx.el('div', 'cp-forecast-stats');
+        for (const [label, value, cls] of [
+          ['Low',    fmtPrice(pt.targetLow),    'cp-negative'],
+          ['Mean',   fmtPrice(pt.targetMean),   ''],
+          ['Median', fmtPrice(pt.targetMedian), ''],
+          ['High',   fmtPrice(pt.targetHigh),   'cp-positive'],
+        ] as const) {
+          const item = ctx.el('div', 'cp-forecast-stat-item');
+          item.append(ctx.el('span', 'cp-forecast-stat-label', label));
+          item.append(ctx.el('span', `cp-forecast-stat-value ${cls}`.trim(), value));
+          statsRow.append(item);
+        }
+        body.append(statsRow);
+        const upside = ((pt.targetMean - data.quote.price) / data.quote.price) * 100;
+        body.append(row(ctx, 'Implied upside (mean)', fmtChange(upside)));
+      } else {
+        body.append(row(ctx, 'Mean', fmtPrice(pt.targetMean)));
+        body.append(row(ctx, 'High', fmtPrice(pt.targetHigh)));
+        body.append(row(ctx, 'Low', fmtPrice(pt.targetLow)));
+      }
+      if (pt.lastUpdated) body.append(ctx.el('div', 'cp-forecast-updated', 'Updated ' + fmtDate(pt.lastUpdated)));
+      content.append(card);
+    }
+
+    if (data.recommendations.length > 0) {
+      const [card, body] = ctx.sectionCard('Analyst Consensus');
+      card.classList.add('cp-card-with-action');
+      const detailButton = ctx.el('button', 'cp-card-action-btn', 'Open details') as HTMLButtonElement;
+      detailButton.type = 'button';
+      detailButton.addEventListener('click', () => ctx.navigate(buildAnalystDetailsView(ctx, data)));
+      card.append(detailButton);
+      const latest = data.recommendations[0]!;
+      const total = latest.strongBuy + latest.buy + latest.hold + latest.sell + latest.strongSell;
+      if (total > 0) {
+        const buys = latest.strongBuy + latest.buy;
+        const sells = latest.sell + latest.strongSell;
+        const summaryRow = ctx.el('div', 'cp-consensus-summary');
+        summaryRow.append(buildConsensusCount(ctx, buys, 'Buy', 'cp-positive'));
+        summaryRow.append(buildConsensusCount(ctx, latest.hold, 'Hold', 'cp-neutral'));
+        summaryRow.append(buildConsensusCount(ctx, sells, 'Sell', 'cp-negative'));
+        body.append(summaryRow);
+        const ratingBar = ctx.el('div', 'cp-rating-bar');
+        for (const [count, color, label] of [
+          [latest.strongBuy,  '#16a34a', 'Strong Buy'],
+          [latest.buy,        '#22c55e', 'Buy'],
+          [latest.hold,       '#eab308', 'Hold'],
+          [latest.sell,       '#f97316', 'Sell'],
+          [latest.strongSell, '#ef4444', 'Strong Sell'],
+        ] as const) {
+          if (count === 0) continue;
+          const seg = ctx.el('div', 'cp-rating-segment');
+          seg.style.width = ((count / total) * 100) + '%';
+          seg.style.backgroundColor = color;
+          seg.title = `${label}: ${count}`;
+          seg.textContent = String(count);
+          ratingBar.append(seg);
+        }
+        body.append(ratingBar);
+      }
+      content.append(card);
+    }
+
+    if (data.epsEstimates.data.length > 0 || data.revenueEstimates.data.length > 0) {
+      const [card, body] = ctx.sectionCard('Forward Estimates');
+      if (data.epsEstimates.data.length > 0) body.append(buildEstimateStrip(ctx, 'EPS Estimates', data.epsEstimates, false));
+      if (data.revenueEstimates.data.length > 0) body.append(buildEstimateStrip(ctx, 'Revenue Estimates', data.revenueEstimates, true));
+      content.append(card);
+    }
+
+    if (data.earningsSurprises.length > 0) {
+      const [card, body] = ctx.sectionCard('Earnings Surprises');
+      body.append(buildEarningsTable(ctx, data.earningsSurprises.slice(0, 10)));
+      content.append(card);
+    }
+
+    if (data.ratingActions.length > 0) {
+      const [card, body] = ctx.sectionCard('Firm Rating Actions');
+      const table = ctx.el('div', 'cp-analyst-action-table');
+      table.append(simpleTableRow(ctx, ['Date', 'Firm', 'Action', 'From', 'To'], true));
+      for (const action of data.ratingActions.slice(0, 20)) {
+        table.append(simpleTableRow(ctx, [
+          action.gradeTime ? fmtDate(action.gradeTime) : '-',
+          action.firm || '-',
+          action.action || '-',
+          action.fromGrade || '-',
+          action.toGrade || '-',
+        ]));
+      }
+      body.append(table);
+      content.append(card);
+    }
+  }
+
+  // ─── Insiders Tab ────────────────────────────────────────────────────────
+
+  private renderInsidersTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
+    if (data.insiderTxns.length === 0) {
+      content.append(ctx.makeEmpty('No insider transaction data available'));
+      return;
+    }
+
+    // Summary counts
+    const buys = data.insiderTxns.filter(tx => tx.transactionCode === 'P');
+    const sales = data.insiderTxns.filter(tx => tx.transactionCode === 'S');
+    const buyValue = buys.reduce((sum, tx) => sum + Math.abs(tx.transactionValue ?? 0), 0);
+    const sellValue = sales.reduce((sum, tx) => sum + Math.abs(tx.transactionValue ?? 0), 0);
+
+    const [summCard, summBody] = ctx.sectionCard('Insider Activity Summary');
+    const summGrid = ctx.el('div', 'cp-metrics-grid');
+    for (const [label, value] of [
+      ['Buy txns',    String(buys.length)],
+      ['Sell txns',   String(sales.length)],
+      ['Buy value',   fmtLargeNumber(buyValue)],
+      ['Sell value',  fmtLargeNumber(sellValue)],
+    ] as [string, string][]) {
+      const cell = ctx.el('div', 'cp-metric-cell');
+      cell.append(ctx.el('span', 'cp-metric-label', label));
+      cell.append(ctx.el('span', 'cp-metric-value', value));
+      summGrid.append(cell);
+    }
+    summBody.append(summGrid);
+    content.append(summCard);
+
+    const [txnCard, txnBody] = ctx.sectionCard('Transaction History');
+    const hdr = ctx.el('div', 'cp-holders-row cp-holders-hdr');
+    hdr.append(ctx.el('span', 'cp-holders-name', 'Insider'));
+    hdr.append(ctx.el('span', 'cp-holders-shares', 'Shares'));
+    hdr.append(ctx.el('span', 'cp-holders-pct', 'Type'));
+    hdr.append(ctx.el('span', 'cp-holders-change', 'Value'));
+    hdr.append(ctx.el('span', 'cp-holders-change', 'Date'));
+    txnBody.append(hdr);
+
+    for (const tx of data.insiderTxns.slice(0, 30)) {
+      const isPurchase = tx.transactionCode === 'P';
+      const isSale = tx.transactionCode === 'S';
+      const r2 = ctx.el('div', 'cp-holders-row');
+      r2.append(ctx.el('span', 'cp-holders-name', tx.name));
+      r2.append(ctx.el('span', 'cp-holders-shares', tx.change ? fmtShares(Math.abs(tx.change)) : '-'));
+      const badge = ctx.el('span',
+        isPurchase ? 'cp-insider-badge cp-positive' : isSale ? 'cp-insider-badge cp-negative' : 'cp-insider-badge',
+        isPurchase ? 'Buy' : isSale ? 'Sale' : tx.transactionCode || '-');
+      r2.append(badge);
+      r2.append(ctx.el('span', 'cp-holders-change', tx.transactionValue ? fmtLargeNumber(Math.abs(tx.transactionValue)) : '-'));
+      r2.append(ctx.el('span', 'cp-holders-change', tx.transactionDate || '-'));
+      txnBody.append(r2);
+    }
+    content.append(txnCard);
+  }
+
+  // ─── Events Tab ──────────────────────────────────────────────────────────
+
+  private renderEventsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
+    const hasSurprises = data.earningsSurprises.length > 0;
+    const hasDividends = data.dividends.length > 0;
+
+    if (!hasSurprises && !hasDividends) {
+      content.append(ctx.makeEmpty('No events data available'));
+      return;
+    }
+
+    if (hasSurprises) {
+      const [card, body] = ctx.sectionCard('Earnings History');
+      const latest = data.earningsSurprises[0];
+      if (latest) {
+        const kpiGrid = ctx.el('div', 'cp-mini-kpi-grid');
+        for (const [label, value] of [
+          ['Latest EPS',  fmtMetric(latest.actual)],
+          ['Estimate',    fmtMetric(latest.estimate)],
+          ['Surprise',    fmtChange(latest.surprisePercent ?? 0)],
+        ]) {
+          const item = ctx.el('div', 'cp-mini-kpi');
+          item.append(ctx.el('span', 'cp-mini-kpi-label', label));
+          const cls = label === 'Surprise'
+            ? ((latest.surprisePercent ?? 0) >= 0 ? 'cp-mini-kpi-value cp-positive' : 'cp-mini-kpi-value cp-negative')
+            : 'cp-mini-kpi-value';
+          item.append(ctx.el('span', cls, value));
+          kpiGrid.append(item);
+        }
+        body.append(kpiGrid);
+      }
+      body.append(buildEarningsTable(ctx, data.earningsSurprises.slice(0, 12)));
+      content.append(card);
+    }
+
+    if (hasDividends) {
+      const [card, body] = ctx.sectionCard('Dividend History');
+      if (data.metrics?.dividendYieldIndicatedAnnual) {
+        body.append(row(ctx, 'Indicated yield', fmtPercent(data.metrics.dividendYieldIndicatedAnnual)));
+      }
+      body.append(buildDividendTable(ctx, data.dividends.slice(0, 12)));
+      content.append(card);
+    }
   }
 
   // ─── Filings Tab ─────────────────────────────────────────────────────────
