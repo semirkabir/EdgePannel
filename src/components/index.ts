@@ -72,3 +72,4 @@ export * from './NodeEditorPanel';
 export * from './DemocracyPanel';
 export * from './ElectionsPanel';
 export * from './RiskDashboardPanel';
+export * from './SituationRoomDrawer';

@@ -14,6 +14,8 @@ import type { PlaybackControl } from '@/components';
 import type { ExportPanel } from '@/utils';
 import type { UnifiedSettings } from '@/components/UnifiedSettings';
 import type { AgentChatPanel } from '@/components/AgentChatPanel';
+import type { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
+import type { VisitorCounter } from '@/components/VisitorCounter';
 import type { PizzIntIndicator } from '@/components';
 import type { ParsedMapUrlState } from '@/utils';
 import type { PredictionBriefPage } from '@/components/PredictionBriefPage';
@@ -111,6 +113,8 @@ export interface AppContext {
   exportPanel: ExportPanel | null;
   unifiedSettings: UnifiedSettings | null;
   agentChatPanel: AgentChatPanel | null;
+  situationRoomDrawer: SituationRoomDrawer | null;
+  visitorCounter: VisitorCounter | null;
   pizzintIndicator: PizzIntIndicator | null;
   notificationCenter: import('@/components/NotificationCenter').NotificationCenter | null;
   countryBriefPage: CountryBriefPanel | null;

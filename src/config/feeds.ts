@@ -616,6 +616,95 @@ const FULL_FEEDS: Record<string, Feed[]> = {
     { name: 'Reuters Energy', url: rss('https://news.google.com/rss/search?q=site:reuters.com+(oil+OR+gas+OR+energy+OR+OPEC)+when:3d&hl=en-US&gl=US&ceid=US:en') },
     { name: 'Mining & Resources', url: rss('https://news.google.com/rss/search?q=(lithium+OR+"rare+earth"+OR+cobalt+OR+mining)+when:3d&hl=en-US&gl=US&ceid=US:en') },
   ],
+  // New geographic regions
+  canada: [
+    { name: 'CBC News', url: rss('https://www.cbc.ca/webfeed/rss/rss-topstories') },
+    { name: 'Globe and Mail', url: rss('https://www.theglobeandmail.com/national//?service=rss') },
+    { name: 'Toronto Star', url: rss('https://www.thestar.com/content/thestar/feed.RSS') },
+    { name: 'CTV News', url: rss('https://www.ctvnews.ca/rss/ctvnews-ca-top-stories-public-rss-1.822') },
+  ],
+  nordics: [
+    { name: 'NRK News', url: rss('https://www.nrk.no/nyheter/siste.rss'), lang: 'no' },
+    { name: 'DR News', url: rss('https://www.dr.dk/nyheder/service/feeds/allenyheder'), lang: 'da' },
+    { name: 'YLE News', url: rss('https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET'), lang: 'fi' },
+    { name: 'RUV News', url: rss('https://www.ruv.is/rss/frettir'), lang: 'is' },
+  ],
+  centralasia: [
+    { name: 'Eurasianet', url: rss('https://eurasianet.org/rss.xml') },
+    { name: 'RFE/RL Central Asia', url: rss('https://www.rferl.org/api/zqmqimqeoqmo') },
+    { name: 'The Astana Times', url: rss('https://astanatimes.com/feed/') },
+    { name: '24.kg', url: rss('https://24.kg/rss/'), lang: 'ru' },
+    { name: 'Asia-Plus', url: rss('https://asiaplustj.info/en/rss.xml') },
+  ],
+  balkans: [
+    { name: 'Balkan Insight', url: rss('https://balkaninsight.com/feed/') },
+    { name: 'BIRN', url: rss('https://birn.eu.com/feed/') },
+    { name: 'Total Slovenia News', url: rss('https://www.total-slovenia-news.com/rss') },
+  ],
+  caucasus: [
+    { name: 'OC Media', url: rss('https://oc-media.org/feed/') },
+    { name: 'Civil.ge', url: rss('https://civil.ge/feed/') },
+    { name: 'CivilNet', url: rss('https://www.civilnet.am/en/rss/') },
+    { name: 'AzerNews', url: rss('https://www.azernews.az/rss.xml') },
+  ],
+  southasia: [
+    { name: 'The Daily Star', url: rss('https://www.thedailystar.net/frontpage/rss.xml') },
+    { name: 'Dhaka Tribune', url: rss('https://www.dhakatribune.com/feed') },
+    { name: 'Colombo Page', url: rss('https://www.colombopage.com/archive/rss.xml') },
+    { name: 'Kathmandu Post', url: rss('https://kathmandupost.com/rss') },
+    { name: 'The Irrawaddy', url: rss('https://www.irrawaddy.com/feed') },
+    { name: 'Myanmar Now', url: rss('https://www.myanmar-now.org/en/rss.xml') },
+  ],
+  pacific: [
+    { name: 'RNZ Pacific', url: rss('https://www.rnz.co.nz/international/rss.xml') },
+    { name: 'Fiji Times', url: rss('https://www.fijitimes.com/feed/') },
+  ],
+  caribbean: [
+    { name: 'Jamaica Gleaner', url: rss('https://jamaica-gleaner.com/feed') },
+    { name: 'Caribbean News Now', url: rss('https://www.caribbeannewsnow.com/feed/') },
+  ],
+  // New topical categories
+  humanrights: [
+    { name: 'Human Rights Watch', url: rss('https://www.hrw.org/rss') },
+    { name: 'Amnesty International', url: rss('https://www.amnesty.org/en/feed/') },
+    { name: 'Transparency International', url: rss('https://www.transparency.org/en/feed/rss') },
+    { name: 'OCCRP', url: rss('https://www.occrp.org/en/feed') },
+    { name: 'Just Security', url: rss('https://www.justsecurity.org/feed/') },
+    { name: 'Intl Justice Monitor', url: rss('https://www.ijmonitor.org/feed/') },
+  ],
+  climateNews: [
+    { name: 'Carbon Brief', url: rss('https://www.carbonbrief.org/feed/') },
+    { name: 'Inside Climate News', url: rss('https://insideclimatenews.org/feed/') },
+    { name: 'Climate Home News', url: rss('https://www.climatechangenews.com/feed/') },
+    { name: 'Grist', url: rss('https://grist.org/feed/') },
+    { name: 'Yale Climate Connections', url: rss('https://yaleclimateconnections.org/feed/') },
+    { name: 'Global Forest Watch', url: rss('https://www.globalforestwatch.org/blog/feed/') },
+  ],
+  spaceNews: [
+    { name: 'SpaceNews', url: rss('https://spacenews.com/feed/') },
+    { name: 'NASA Breaking News', url: rss('https://www.nasa.gov/rss/dyn/breaking_news.rss') },
+    { name: 'ESA News', url: rss('https://www.esa.int/Our_Activities/Space_Science/RSS') },
+    { name: 'NASASpaceflight', url: rss('https://www.nasaspaceflight.com/feed/') },
+    { name: 'Ars Technica Science', url: rss('https://feeds.arstechnica.com/arstechnica/science') },
+  ],
+  sanctions: [
+    { name: 'OFAC Recent Actions', url: rss('https://ofac.treasury.gov/rss.xml') },
+    { name: 'Sanctions & Export Controls', url: rss('https://sanctionsnews.bakermckenzie.com/feed/') },
+  ],
+  arctic: [
+    { name: 'Arctic Today', url: rss('https://www.arctictoday.com/feed/') },
+    { name: 'High North News', url: rss('https://www.highnorthnews.com/en/rss') },
+    { name: 'The Barents Observer', url: rss('https://thebarentsobserver.com/ru/rss.xml') },
+  ],
+  waterSecurity: [
+    { name: 'Circle of Blue', url: rss('https://www.circleofblue.org/feed/') },
+    { name: 'Water Diplomat', url: rss('https://www.waterdiplomat.org/rss.xml') },
+  ],
+  migration: [
+    { name: 'IOM News', url: rss('https://www.iom.int/news/rss.xml') },
+    { name: 'InfoMigrants', url: rss('https://www.infomigrants.net/en/rss.xml') },
+    { name: 'Migration Policy Inst', url: rss('https://www.migrationpolicy.org/rss/news') },
+  ],
 };
 
 // Tech/AI variant feeds
@@ -1068,6 +1157,104 @@ const COMMODITY_FEEDS: Record<string, Feed[]> = {
   ],
 };
 
+// Conflicts variant feeds (military, defense, conflict zones)
+const CONFLICTS_FEEDS: Record<string, Feed[]> = {
+  'armed-conflict': [
+    { name: 'Global Conflict News', url: rss('https://news.google.com/rss/search?q=(war+OR+"armed+conflict"+OR+"military+operation"+OR+civil+war+OR+insurgency+OR+airstrike+OR+"ceasefire+violation")+when:1d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Ukraine Conflict', url: rss('https://news.google.com/rss/search?q=(Ukraine+war+OR+Ukraine+conflict+OR+Ukraine+frontline+OR+"Kyiv+military"+OR+Ukraine+drone)+when:2d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Gaza & Israel', url: rss('https://news.google.com/rss/search?q=(Gaza+OR+Israel+Palestine+OR+Israel+Hezbollah+OR+Israel+Iran+OR+"West+Bank")+conflict+when:2d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Yemen & Red Sea', url: rss('https://news.google.com/rss/search?q=(Yemen+OR+Houthi+OR+"Red+Sea"+shipping+OR+Ansar+Allah)+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Sahel Conflicts', url: rss('https://news.google.com/rss/search?q=(Sahel+OR+Mali+OR+Niger+OR+"Burkina+Faso"+OR+Boko+Haram+OR+ISIS+Sahel)+conflict+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Myanmar Civil War', url: rss('https://news.google.com/rss/search?q=(Myanmar+OR+Burma+conflict+OR+Tatmadaw+OR+EAOs+OR+Myanmar+resistance)+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Sudan Conflict', url: rss('https://news.google.com/rss/search?q=(Sudan+conflict+OR+SAF+OR+RSF+OR+Darfur+OR+Khartoum)+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'DRC Conflict Watch', url: rss('https://news.google.com/rss/search?q=(DRC+OR+Congo+conflict+OR+M23+OR+Rwanda+Congo+OR+Ituri+OR+North+Kivu)+when:3d&hl=en-US&gl=US&ceid=US:en') },
+  ],
+  defense: [
+    { name: 'Defense One', url: rss('https://www.defenseone.com/rss/all/'), type: 'defense' },
+    { name: 'Breaking Defense', url: rss('https://breakingdefense.com/feed/'), type: 'defense' },
+    { name: 'The War Zone', url: rss('https://www.twz.com/feed'), type: 'defense' },
+    { name: 'Defense News', url: rss('https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml'), type: 'defense' },
+    { name: 'Janes', url: rss('https://news.google.com/rss/search?q=site:janes.com+when:3d&hl=en-US&gl=US&ceid=US:en'), type: 'defense' },
+    { name: 'Military Times', url: rss('https://www.militarytimes.com/arc/outboundfeeds/rss/?outputType=xml'), type: 'defense' },
+    { name: 'USNI News', url: rss('https://news.usni.org/feed'), type: 'defense' },
+    { name: 'gCaptain', url: rss('https://gcaptain.com/feed/'), type: 'defense' },
+    { name: 'Oryx OSINT', url: rss('https://www.oryxspioenkop.com/feeds/posts/default?alt=rss'), type: 'defense' },
+    { name: 'UK MOD', url: rss('https://www.gov.uk/government/organisations/ministry-of-defence.atom'), type: 'defense' },
+    { name: 'ISW', url: rss('https://www.understandingwar.org/press-media/rss.xml'), type: 'defense' },
+    { name: 'IISS', url: rss('https://www.iiss.org/rss/'), type: 'defense' },
+    { name: 'SIPRI', url: rss('https://www.sipri.org/media/rss/latest-news'), type: 'defense' },
+    { name: 'Modern War Institute', url: rss('https://mwi.westpoint.edu/feed/'), type: 'defense' },
+    { name: 'Small Wars Journal', url: rss('https://smallwarsjournal.com/rss.xml'), type: 'defense' },
+    { name: 'Long War Journal', url: rss('https://www.longwarjournal.org/feed'), type: 'defense' },
+    { name: 'The Cipher Brief', url: rss('https://www.thecipherbrief.com/feed'), type: 'defense' },
+    { name: 'SOFREP', url: rss('https://sofrep.com/feed/'), type: 'defense' },
+    { name: 'CFR', url: rss('https://www.cfr.org/rss'), type: 'defense' },
+    { name: 'Hudson Institute', url: rss('https://www.hudson.org/rss.xml'), type: 'defense' },
+    { name: 'The Soufan Center', url: rss('https://thesoufancenter.org/feed/'), type: 'defense' },
+  ],
+  thinktanks: [
+    { name: 'CSIS', url: rss('https://news.google.com/rss/search?q=site:csis.org+when:7d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'RAND', url: rss('https://news.google.com/rss/search?q=site:rand.org+when:7d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Brookings', url: rss('https://news.google.com/rss/search?q=site:brookings.edu+when:7d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Carnegie', url: rss('https://news.google.com/rss/search?q=site:carnegieendowment.org+when:7d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Foreign Policy', url: rss('https://foreignpolicy.com/feed/') },
+    { name: 'Foreign Affairs', url: rss('https://www.foreignaffairs.com/rss.xml') },
+    { name: 'Atlantic Council', url: railwayRss('https://www.atlanticcouncil.org/feed/') },
+    { name: 'War on the Rocks', url: rss('https://warontherocks.com/feed') },
+    { name: 'AEI', url: rss('https://www.aei.org/feed/') },
+    { name: 'RUSI', url: rss('https://news.google.com/rss/search?q=site:rusi.org+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'FPRI', url: rss('https://www.fpri.org/feed/') },
+    { name: 'Jamestown', url: rss('https://jamestown.org/feed/') },
+  ],
+  crisis: [
+    { name: 'CrisisWatch', url: rss('https://www.crisisgroup.org/rss') },
+    { name: 'IAEA', url: rss('https://www.iaea.org/feeds/topnews') },
+    { name: 'WHO', url: rss('https://www.who.int/rss-feeds/news-english.xml') },
+    { name: 'UNHCR', url: rss('https://news.google.com/rss/search?q=site:unhcr.org+OR+UNHCR+refugees+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'GDACS Alerts', url: rss('https://www.gdacs.org/xml/rss.xml') },
+    { name: 'USGS Earthquakes', url: rss('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.atom') },
+    { name: 'NHC Atlantic GIS', url: rss('https://www.nhc.noaa.gov/gis-at.xml') },
+  ],
+  gov: [
+    { name: 'White House', url: rss('https://news.google.com/rss/search?q=site:whitehouse.gov&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'State Dept', url: rss('https://news.google.com/rss/search?q=site:state.gov+OR+"State+Department"&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Pentagon', url: rss('https://news.google.com/rss/search?q=site:defense.gov+OR+Pentagon&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'UN News', url: railwayRss('https://news.un.org/feed/subscribe/en/news/all/rss.xml') },
+    { name: 'CISA', url: railwayRss('https://www.cisa.gov/cybersecurity-advisories/all.xml') },
+    { name: 'Treasury', url: rss('https://news.google.com/rss/search?q=site:treasury.gov+OR+"Treasury+Department"&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'DOJ', url: rss('https://news.google.com/rss/search?q=site:justice.gov+OR+"Justice+Department"+DOJ&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'DHS', url: rss('https://news.google.com/rss/search?q=site:dhs.gov+OR+"Homeland+Security"&hl=en-US&gl=US&ceid=US:en') },
+  ],
+  middleeast: [
+    { name: 'BBC Middle East', url: rss('https://feeds.bbci.co.uk/news/world/middle_east/rss.xml') },
+    { name: 'Al Jazeera', url: { en: rss('https://www.aljazeera.com/xml/rss/all.xml'), ar: rss('https://www.aljazeera.net/aljazeerarss/a7c186be-1adb-4b11-a982-4783e765316e/4e17ecdc-8fb9-40de-a5d6-d00f72384a51') } },
+    { name: 'Al Arabiya', url: { en: rss('https://news.google.com/rss/search?q=site:english.alarabiya.net+when:2d&hl=en-US&gl=US&ceid=US:en'), ar: rss('https://www.alarabiya.net/tools/mrss/?cat=main') } },
+    { name: 'Haaretz', url: rss('https://news.google.com/rss/search?q=site:haaretz.com+when:7d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Iran International', url: rss('https://news.google.com/rss/search?q=site:iranintl.com+when:2d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Middle East Eye', url: rss('https://www.middleeasteye.net/rss') },
+    { name: 'Al-Monitor', url: rss('https://www.al-monitor.com/rss') },
+    { name: 'Asharq News', url: rss('https://asharq.com/snapchat/rss.xml'), lang: 'ar' },
+    { name: 'The National', url: rss('https://news.google.com/rss/search?q=site:thenationalnews.com+when:2d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Arab News', url: rss('https://news.google.com/rss/search?q=site:arabnews.com+when:7d&hl=en-US&gl=US&ceid=US:en') },
+  ],
+  energy: [
+    { name: 'Oil & Gas', url: rss('https://news.google.com/rss/search?q=(oil+price+OR+OPEC+OR+"natural+gas"+OR+pipeline+OR+LNG)+when:2d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Nuclear Energy', url: rss('https://news.google.com/rss/search?q=("nuclear+energy"+OR+"nuclear+power"+OR+uranium+OR+IAEA)+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Reuters Energy', url: rss('https://news.google.com/rss/search?q=site:reuters.com+(oil+OR+gas+OR+energy+OR+OPEC)+when:3d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Mining & Resources', url: rss('https://news.google.com/rss/search?q=(lithium+OR+"rare+earth"+OR+cobalt+OR+mining)+when:3d&hl=en-US&gl=US&ceid=US:en') },
+  ],
+  sanctions: [
+    { name: 'OFAC Recent Actions', url: rss('https://ofac.treasury.gov/rss.xml') },
+    { name: 'Sanctions & Export Controls', url: rss('https://sanctionsnews.bakermckenzie.com/feed/') },
+  ],
+  humanrights: [
+    { name: 'Human Rights Watch', url: rss('https://www.hrw.org/rss') },
+    { name: 'Amnesty International', url: rss('https://www.amnesty.org/en/feed/') },
+    { name: 'OCCRP', url: rss('https://www.occrp.org/en/feed') },
+    { name: 'Just Security', url: rss('https://www.justsecurity.org/feed/') },
+  ],
+};
+
 // Variant-aware exports
 export const FEEDS = SITE_VARIANT === 'tech'
   ? TECH_FEEDS
@@ -1077,7 +1264,9 @@ export const FEEDS = SITE_VARIANT === 'tech'
       ? HAPPY_FEEDS
       : SITE_VARIANT === 'commodity'
         ? COMMODITY_FEEDS
-        : FULL_FEEDS;
+        : SITE_VARIANT === 'conflicts'
+          ? CONFLICTS_FEEDS
+          : FULL_FEEDS;
 
 export const SOURCE_REGION_MAP: Record<string, { labelKey: string; feedKeys: string[] }> = {
   // Full (geopolitical) variant regions
@@ -1088,7 +1277,15 @@ export const SOURCE_REGION_MAP: Record<string, { labelKey: string; feedKeys: str
   africa: { labelKey: 'header.sourceRegionAfrica', feedKeys: ['africa'] },
   latam: { labelKey: 'header.sourceRegionLatAm', feedKeys: ['latam'] },
   asia: { labelKey: 'header.sourceRegionAsiaPacific', feedKeys: ['asia'] },
-  topical: { labelKey: 'header.sourceRegionTopical', feedKeys: ['energy', 'tech', 'ai', 'finance', 'layoffs', 'thinktanks'] },
+  canada: { labelKey: 'header.sourceRegionCanada', feedKeys: ['canada'] },
+  nordics: { labelKey: 'header.sourceRegionNordics', feedKeys: ['nordics'] },
+  centralAsia: { labelKey: 'header.sourceRegionCentralAsia', feedKeys: ['centralasia'] },
+  balkans: { labelKey: 'header.sourceRegionBalkans', feedKeys: ['balkans'] },
+  caucasus: { labelKey: 'header.sourceRegionCaucasus', feedKeys: ['caucasus'] },
+  southAsia: { labelKey: 'header.sourceRegionSouthAsia', feedKeys: ['southasia'] },
+  pacific: { labelKey: 'header.sourceRegionPacific', feedKeys: ['pacific'] },
+  caribbean: { labelKey: 'header.sourceRegionCaribbean', feedKeys: ['caribbean'] },
+  topical: { labelKey: 'header.sourceRegionTopical', feedKeys: ['energy', 'tech', 'ai', 'finance', 'layoffs', 'thinktanks', 'humanrights', 'climateNews', 'spaceNews', 'sanctions', 'arctic', 'waterSecurity', 'migration'] },
   intel: { labelKey: 'header.sourceRegionIntel', feedKeys: ['gdelt', 'security-advisories'] },
 
   // Tech variant regions
@@ -1110,6 +1307,10 @@ export const SOURCE_REGION_MAP: Record<string, { labelKey: string; feedKeys: str
   dealsCorpFin: { labelKey: 'header.sourceRegionDeals', feedKeys: ['institutional', 'secFilings', 'derivatives'] },
   finRegulation: { labelKey: 'header.sourceRegionFinRegulation', feedKeys: ['regulation'] },
   gulfMena: { labelKey: 'header.sourceRegionGulfMena', feedKeys: ['gccNews'] },
+
+  // Conflicts variant regions
+  conflictZones: { labelKey: 'header.sourceRegionConflictZones', feedKeys: ['armed-conflict', 'middleeast'] },
+  defenseSecurity: { labelKey: 'header.sourceRegionDefenseSecurity', feedKeys: ['defense', 'thinktanks', 'gov', 'crisis', 'sanctions', 'humanrights', 'energy'] },
 };
 
 export const INTEL_SOURCES: Feed[] = [
@@ -1126,6 +1327,17 @@ export const INTEL_SOURCES: Feed[] = [
   { name: 'Oryx OSINT', url: rss('https://www.oryxspioenkop.com/feeds/posts/default?alt=rss'), type: 'defense' },
   { name: 'UK MOD', url: rss('https://www.gov.uk/government/organisations/ministry-of-defence.atom'), type: 'defense' },
   { name: 'CSIS', url: rss('https://news.google.com/rss/search?q=site:csis.org&hl=en&gl=US&ceid=US:en'), type: 'defense' },
+  { name: 'ISW', url: rss('https://www.understandingwar.org/press-media/rss.xml'), type: 'defense' },
+  { name: 'IISS', url: rss('https://www.iiss.org/rss/'), type: 'defense' },
+  { name: 'SIPRI', url: rss('https://www.sipri.org/media/rss/latest-news'), type: 'defense' },
+  { name: 'Modern War Institute', url: rss('https://mwi.westpoint.edu/feed/'), type: 'defense' },
+  { name: 'Small Wars Journal', url: rss('https://smallwarsjournal.com/rss.xml'), type: 'defense' },
+  { name: 'Long War Journal', url: rss('https://www.longwarjournal.org/feed'), type: 'defense' },
+  { name: 'The Cipher Brief', url: rss('https://www.thecipherbrief.com/feed'), type: 'defense' },
+  { name: 'CFR', url: rss('https://www.cfr.org/rss'), type: 'defense' },
+  { name: 'Hudson Institute', url: rss('https://www.hudson.org/rss.xml'), type: 'defense' },
+  { name: 'The Soufan Center', url: rss('https://thesoufancenter.org/feed/'), type: 'defense' },
+  { name: 'SOFREP', url: rss('https://sofrep.com/feed/'), type: 'defense' },
 
   // International Relations (Tier 2)
   { name: 'Chatham House', url: rss('https://news.google.com/rss/search?q=site:chathamhouse.org+when:7d&hl=en-US&gl=US&ceid=US:en'), type: 'intl' },
@@ -1160,6 +1372,8 @@ export const INTEL_SOURCES: Feed[] = [
   { name: 'CERT-EU Security Advisories', url: rss('https://cert.europa.eu/publications/security-advisories-rss'), type: 'cyber' },
   { name: 'CERT-EU Threat Intelligence', url: rss('https://cert.europa.eu/publications/threat-intelligence-rss'), type: 'cyber' },
   { name: 'MSRC Security Updates', url: rss('https://news.google.com/rss/search?q=site:msrc.microsoft.com+OR+"Microsoft+Security+Response+Center"+when:7d&hl=en-US&gl=US&ceid=US:en'), type: 'cyber' },
+  { name: 'SANS ISC', url: rss('https://isc.sans.edu/rssfeed_full.xml'), type: 'cyber' },
+  { name: 'BleepingComputer', url: rss('https://www.bleepingcomputer.com/feed/'), type: 'cyber' },
 
   // Economic & Food Security (Tier 2)
   { name: 'FAO News', url: rss('https://www.fao.org/feeds/fao-newsroom-rss'), type: 'economic' },
@@ -1184,6 +1398,21 @@ export const DEFAULT_ENABLED_SOURCES: Record<string, string[]> = {
   thinktanks: ['Foreign Policy', 'Atlantic Council', 'Foreign Affairs', 'CSIS', 'RAND', 'Brookings', 'Carnegie', 'War on the Rocks'],
   crisis: ['CrisisWatch', 'IAEA', 'WHO', 'UNHCR', 'GDACS Alerts', 'USGS Significant Earthquakes'],
   energy: ['Oil & Gas', 'Nuclear Energy', 'Reuters Energy', 'Mining & Resources'],
+  canada: ['CBC News', 'Globe and Mail', 'Toronto Star', 'CTV News'],
+  nordics: ['NRK News', 'DR News', 'YLE News', 'RUV News'],
+  centralasia: ['Eurasianet', 'RFE/RL Central Asia', 'The Astana Times', '24.kg'],
+  balkans: ['Balkan Insight', 'BIRN', 'Total Slovenia News'],
+  caucasus: ['OC Media', 'Civil.ge', 'CivilNet', 'AzerNews'],
+  southasia: ['The Daily Star', 'Dhaka Tribune', 'Colombo Page', 'Kathmandu Post', 'The Irrawaddy', 'Myanmar Now'],
+  pacific: ['RNZ Pacific', 'Fiji Times'],
+  caribbean: ['Jamaica Gleaner', 'Caribbean News Now'],
+  humanrights: ['Human Rights Watch', 'Amnesty International', 'Transparency International', 'OCCRP', 'Just Security'],
+  climateNews: ['Carbon Brief', 'Inside Climate News', 'Climate Home News', 'Grist', 'Yale Climate Connections'],
+  spaceNews: ['SpaceNews', 'NASA Breaking News', 'ESA News', 'NASASpaceflight'],
+  sanctions: ['OFAC Recent Actions', 'Sanctions & Export Controls'],
+  arctic: ['Arctic Today', 'High North News', 'The Barents Observer'],
+  waterSecurity: ['Circle of Blue', 'Water Diplomat'],
+  migration: ['IOM News', 'InfoMigrants', 'Migration Policy Inst'],
 };
 
 export const DEFAULT_ENABLED_INTEL: string[] = [

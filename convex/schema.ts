@@ -164,6 +164,25 @@ export default defineSchema({
     .index("by_user", ["firebaseUid"])
     .index("by_workspace_user", ["workspaceId", "firebaseUid"]),
 
+  /** Public chat rooms tied to the site variants. */
+  situation_room_messages: defineTable({
+    room: v.union(
+      v.literal("world"),
+      v.literal("tech"),
+      v.literal("finance"),
+      v.literal("supply-chain"),
+      v.literal("good-news"),
+      v.literal("conflicts"),
+    ),
+    firebaseUid: v.string(),
+    userLabel: v.string(),
+    avatarUrl: v.optional(v.string()),
+    content: v.string(),
+    viewUrl: v.optional(v.string()),
+    viewLabel: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_room_created_at", ["room", "createdAt"]),
+
   /**
    * Immutable append-only audit log.
    * Written by api/_audit.js middleware; never updated, only inserted.

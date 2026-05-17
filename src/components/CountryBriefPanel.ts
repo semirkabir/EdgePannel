@@ -115,6 +115,8 @@ export interface CountryBriefPanel {
   updateEconomicIndicators?(indicators: CountryDeepDiveEconomicIndicator[]): void;
   updateMacroCards?(cards: MacroEconomicCardData[]): void;
   updateGovernance?(data: import('@/services/data360').CountryGovernanceData | null): void;
+  updateCountryProfile?(profile: import('@/types/country-profiles').CountryProfile): void;
+  updateCountryIndices?(indices: import('@/types/country-profiles').CountryIndex): void;
   maximize?(): void;
   minimize?(): void;
   getIsMaximized?(): boolean;

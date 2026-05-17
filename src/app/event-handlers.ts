@@ -48,6 +48,7 @@ import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
 import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { VisitorCounter } from '@/components/VisitorCounter';
+import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { t } from '@/services/i18n';
 import { TvModeController } from '@/services/tv-mode';
@@ -347,6 +348,10 @@ export class EventHandlerManager implements AppModule {
     this.ctx.unifiedSettings = null;
     this.ctx.agentChatPanel?.destroy();
     this.ctx.agentChatPanel = null;
+    this.ctx.situationRoomDrawer?.destroy();
+    this.ctx.situationRoomDrawer = null;
+    this.ctx.visitorCounter?.destroy();
+    this.ctx.visitorCounter = null;
   }
 
   private setupEventListeners(): void {
@@ -862,7 +867,14 @@ export class EventHandlerManager implements AppModule {
     if (headerRight) {
       // Insert export panel first, then visitor counter before it so eye sits left of camera
       headerRight.insertBefore(this.ctx.exportPanel.getElement(), headerRight.firstChild);
-      const visitorCounter = new VisitorCounter();
+      const visitorCounter = new VisitorCounter(() => {
+        void this.ctx.situationRoomDrawer?.open();
+      });
+      this.ctx.visitorCounter = visitorCounter;
+      this.ctx.situationRoomDrawer = new SituationRoomDrawer({
+        getViewerCount: () => visitorCounter.getCount(),
+        onUnreadCountChange: (count) => visitorCounter.setUnreadCount(count),
+      });
       headerRight.insertBefore(visitorCounter.getElement(), this.ctx.exportPanel.getElement());
     }
   }

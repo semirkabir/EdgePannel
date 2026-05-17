@@ -18,6 +18,7 @@ import { MILITARY_BASES } from '@/config';
 import { getCountryInfrastructure, getNearbyInfrastructure } from '@/services/related-assets';
 import { t } from '@/services/i18n';
 import { COUNTRY_BOUNDS } from './country-utils';
+import { getCountryProfile, getCountryIndices } from '@/services/country-profiles';
 
 type CountryStockSnapshot = {
   available: boolean;
@@ -309,6 +310,36 @@ export async function loadCountryEconomicData(ctx: AppContext, code: string, sco
     if (ctx.countryBriefPage?.getCode() !== code) return;
     ctx.countryBriefPage.updateMacroCards?.(cards);
   });
+  // Enrich with static profile data
+  loadCountryEnrichment(ctx, code);
+}
+
+/**
+ * Loads enriched static country profile data (population, area, languages,
+ * currency, timezone, HDI, CPI, democracy index, etc.) and updates the
+ * country detail panel.
+ */
+export async function loadCountryEnrichment(ctx: AppContext, code: string): Promise<void> {
+  const [profile, indices] = await Promise.all([
+    getCountryProfile(code),
+    getCountryIndices(code),
+  ]);
+  if (ctx.countryBriefPage?.getCode() !== code) return;
+  if (profile) ctx.countryBriefPage.updateCountryProfile?.(profile);
+  if (indices) ctx.countryBriefPage.updateCountryIndices?.(indices);
+}
+
+/**
+ * Preloads all country profile data into the module cache.
+ * Call once during app bootstrap (low priority).
+ */
+export async function preloadCountryProfiles(): Promise<void> {
+  const { fetchCountryProfiles, fetchCountryIndicators, fetchCountryIndices } = await import('@/services/country-profiles');
+  await Promise.allSettled([
+    fetchCountryProfiles(),
+    fetchCountryIndicators(),
+    fetchCountryIndices(),
+  ]);
 }
 
 export async function refreshEconomicForPanel(ctx: AppContext, code: string, score: ReturnType<typeof getPreferredCountryScore>): Promise<void> {

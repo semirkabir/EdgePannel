@@ -618,6 +618,38 @@ function camerasPlugin(): Plugin {
   };
 }
 
+function situationRoomApiPlugin(): Plugin {
+  return {
+    name: 'situation-room-api-dev',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/situation-room')) return next();
+        try {
+          const { default: handler } = await import('./api/situation-room.js');
+          const origin = `http://${req.headers.host ?? 'localhost:3000'}`;
+          const requestUrl = new URL(req.url, origin);
+          const body = await new Promise((resolve) => {
+            const chunks: Buffer[] = [];
+            req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+            req.on('end', () => resolve(Buffer.concat(chunks)));
+          });
+          const request = new Request(requestUrl, {
+            method: req.method,
+            headers: req.headers as HeadersInit,
+            body: req.method === 'GET' || req.method === 'HEAD' ? undefined : body as Buffer,
+          });
+          const response = await handler(request);
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => res.setHeader(key, value));
+          res.end(Buffer.from(await response.arrayBuffer()));
+        } catch (error) {
+          next(error as Error);
+        }
+      });
+    },
+  };
+}
+
 /**
  * Dev-server plugin that replicates the /api/prefs Vercel edge function.
  * Reads/writes from Upstash Redis using the same env vars.
@@ -1193,6 +1225,7 @@ export default defineConfig({
     usaSpendingProxyPlugin(),
     youtubeLivePlugin(),
     marketDataPlugin(),
+    situationRoomApiPlugin(),
     sebufApiPlugin(),
     brotliPrecompressPlugin(),
     VitePWA({
