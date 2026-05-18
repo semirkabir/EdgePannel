@@ -332,6 +332,7 @@ function addAndMergeAlert(alert: UnifiedAlert): UnifiedAlert {
       timestamp: new Date(Math.max(existing.timestamp.getTime(), alert.timestamp.getTime())),
     };
     alerts[existingByIdIndex] = updated;
+    document.dispatchEvent(new CustomEvent('wm:intelligence-updated'));
     return updated;
   }
 
@@ -341,6 +342,7 @@ function addAndMergeAlert(alert: UnifiedAlert): UnifiedAlert {
     if (existing && shouldMergeAlerts(existing, alert)) {
       const merged = mergeAlerts(existing, alert);
       alerts[i] = merged;
+      document.dispatchEvent(new CustomEvent('wm:intelligence-updated'));
       return merged;
     }
   }

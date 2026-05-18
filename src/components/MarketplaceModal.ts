@@ -1,5 +1,5 @@
 import { escapeHtml } from '@/utils/sanitize';
-import { SITE_VARIANT } from '@/config';
+import { MISSION_PACKS, SITE_VARIANT } from '@/config';
 import type { MarketplaceCatalogItem, MarketplaceManifest, MarketplacePreviewAsset, MarketplaceVariant, MarketplaceViewItem } from '@/types/marketplace';
 import { MarketplaceService } from '@/services/marketplace';
 
@@ -115,6 +115,21 @@ function formatVisibilityLabel(visibility: string): string {
   if (visibility === 'review') return 'Review queue';
   if (visibility === 'private') return 'Private';
   return visibility;
+}
+
+function formatVerificationLabel(level: string | undefined): string {
+  if (level === 'verified-source') return 'Verified source';
+  if (level === 'partner') return 'Partner';
+  if (level === 'community') return 'Community';
+  if (level === 'experimental') return 'Experimental';
+  return 'Curated';
+}
+
+function formatAccessLabel(access: string | undefined): string {
+  if (access === 'upgrade-required') return 'Upgrade required';
+  if (access === 'add-on') return 'Add-on';
+  if (access === 'enterprise') return 'Enterprise';
+  return 'Included';
 }
 
 function computeDatasetRefreshText(manifest: Pick<MarketplaceManifest, 'datasets'>): string {
@@ -308,6 +323,17 @@ export class MarketplaceModal {
       if (openPanelButton) {
         const itemId = openPanelButton.dataset.marketplaceOpenPanel;
         if (itemId) this.handlers.onOpenPanel?.(itemId);
+        return;
+      }
+
+      const applyPackButton = target.closest<HTMLElement>('[data-marketplace-apply-pack]');
+      if (applyPackButton) {
+        const packId = applyPackButton.dataset.marketplaceApplyPack;
+        if (packId) {
+          window.dispatchEvent(new CustomEvent('wm:apply-mission-pack', { detail: { packId } }));
+          this.setStatus('Mission pack applied to workspace.');
+          this.render();
+        }
         return;
       }
 
@@ -537,8 +563,33 @@ export class MarketplaceModal {
     const selectedInstalled = installedItems.find((item) => item.manifest.id === selectedCatalog?.id);
     const detailManifest = currentDetail && selectedCatalog?.id === this.selectedItemId ? currentDetail : null;
     const detailVariants = detailManifest?.compatibility.variants || selectedCatalog?.compatibility.variants || [];
+    const compatiblePacks = MISSION_PACKS.filter((pack) =>
+      pack.compatibleVariants.includes(SITE_VARIANT as MarketplaceVariant)
+      && pack.datasetIds.some((datasetId) => datasetId === selectedCatalog?.id));
+    const currentTrust = detailManifest?.trust || selectedCatalog?.trust;
+    const currentCommercial = detailManifest?.commercial || selectedCatalog?.commercial;
 
     return `
+      <section class="marketplace-modal-pack-shelf">
+        <div class="marketplace-modal-section-head">
+          <strong>Mission packs</strong>
+          <span>Install workflows, not only datasets</span>
+        </div>
+        <div class="marketplace-modal-pack-grid">
+          ${MISSION_PACKS.filter((pack) => pack.compatibleVariants.includes(SITE_VARIANT as MarketplaceVariant)).map((pack) => `
+            <article class="marketplace-modal-pack-card">
+              <div class="marketplace-modal-pack-kicker">${escapeHtml(pack.domain.replace('-', ' '))}</div>
+              <strong>${escapeHtml(pack.name)}</strong>
+              <p>${escapeHtml(pack.tagline)}</p>
+              <div class="marketplace-modal-chip-row">
+                ${pack.datasetIds.slice(0, 3).map((datasetId) => `<span class="marketplace-modal-chip">${escapeHtml(datasetId.replace(/-/g, ' '))}</span>`).join('')}
+              </div>
+              <button class="marketplace-modal-secondary" type="button" data-marketplace-apply-pack="${escapeHtml(pack.id)}">Apply workspace</button>
+            </article>
+          `).join('')}
+        </div>
+      </section>
+
       <div class="marketplace-modal-filters">
         <input type="search" data-marketplace-filter="search" placeholder="Search datasets, tags, and authors" value="${escapeHtml(this.filters.search)}" />
         <select data-marketplace-filter="category">
@@ -610,6 +661,8 @@ export class MarketplaceModal {
                   <div class="marketplace-modal-detail-badges">
                     <span class="marketplace-modal-pill">${escapeHtml(formatSourceTypeLabel(detailManifest?.sourceType || 'catalog'))}</span>
                     <span class="marketplace-modal-pill">${escapeHtml(formatVisibilityLabel(detailManifest?.visibility || 'public'))}</span>
+                    <span class="marketplace-modal-pill">${escapeHtml(formatVerificationLabel(currentTrust?.verificationLevel))}</span>
+                    <span class="marketplace-modal-pill">${escapeHtml(formatAccessLabel(currentCommercial?.access))}</span>
                   </div>
                 </div>
                 <div class="marketplace-modal-chip-row">
@@ -628,6 +681,33 @@ export class MarketplaceModal {
                 <div><span>Data sources</span><strong>${detailManifest ? String(detailManifest.datasets.length) : '…'}</strong></div>
                 <div><span>Surfaces</span><strong>${detailManifest ? String(Object.values(detailManifest.surfaces).filter(Boolean).length) : String(selectedCatalog.surfaces.length)}</strong></div>
               </div>
+
+              <section class="marketplace-modal-section">
+                <div class="marketplace-modal-section-head">
+                  <strong>Why use it</strong>
+                </div>
+                <div class="marketplace-modal-value-card">
+                  <p>${escapeHtml(detailManifest?.valueProposition || selectedCatalog.valueProposition || detailManifest?.description || selectedCatalog.description)}</p>
+                  <div class="marketplace-modal-trust-grid">
+                    <div><span>Verification</span><strong>${escapeHtml(formatVerificationLabel(currentTrust?.verificationLevel))}</strong></div>
+                    <div><span>Maintainer</span><strong>${escapeHtml(currentTrust?.maintainer || detailManifest?.author || selectedCatalog.author)}</strong></div>
+                    <div><span>Coverage</span><strong>${escapeHtml(currentTrust?.coverage || 'Global / package-defined')}</strong></div>
+                    <div><span>Access</span><strong>${escapeHtml(currentCommercial?.priceLabel || formatAccessLabel(currentCommercial?.access))}</strong></div>
+                  </div>
+                  ${currentTrust?.methodology ? `<p class="marketplace-modal-muted">${escapeHtml(currentTrust.methodology)}</p>` : ''}
+                </div>
+              </section>
+
+              ${compatiblePacks.length > 0 ? `
+                <section class="marketplace-modal-section">
+                  <div class="marketplace-modal-section-head">
+                    <strong>Used in mission packs</strong>
+                  </div>
+                  <div class="marketplace-modal-chip-row">
+                    ${compatiblePacks.map((pack) => `<span class="marketplace-modal-chip">${escapeHtml(pack.name)}</span>`).join('')}
+                  </div>
+                </section>
+              ` : ''}
 
               ${detailManifest ? `
                 <section class="marketplace-modal-section">
@@ -737,7 +817,7 @@ export class MarketplaceModal {
         <section class="marketplace-modal-form-card">
           <div class="marketplace-modal-form-head">
             <strong>Submit to review</strong>
-            <span>Public items are reviewed before catalog listing</span>
+            <span>Drafts are stored locally until hosted publishing is enabled</span>
           </div>
           <input type="text" placeholder="Optional note for reviewers" data-marketplace-submit-note />
           <textarea rows="14" placeholder="Paste marketplace manifest JSON here" data-marketplace-submit-json></textarea>
@@ -778,8 +858,8 @@ export class MarketplaceModal {
       <div class="marketplace-modal">
         <div class="marketplace-modal-header">
           <div class="marketplace-modal-heading">
-            <h2>Marketplace</h2>
-            <span class="marketplace-modal-kicker">data packages</span>
+            <h2>Intelligence Catalog</h2>
+            <span class="marketplace-modal-kicker">datasets + mission packs</span>
             <span class="marketplace-modal-beta">BETA</span>
           </div>
           <button class="marketplace-modal-close" type="button" data-marketplace-close="true">×</button>
