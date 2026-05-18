@@ -38,13 +38,51 @@
 
 .detail-panel.dp-maximized .dp-panel-content,
 .entity-detail-panel.edp-maximized .edp-panel-content {
-  width: 960px;
-  max-width: 96vw;
-  margin: 32px auto;
-  background: var(--surface, #141414);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 16px 48px color-mix(in srgb, var(--overlay-heavy) 65%, transparent);
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  margin: 0;
+  background: var(--bg, #0a0a0a);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* ── Maximized company profile: multi-column card grid ─────────────── */
+
+/* Compact the hero so cards get the real estate */
+.entity-detail-panel.edp-maximized .edp-company-profile .cp-company-logo-hero {
+  height: 120px;
+  min-height: 0;
+}
+
+.entity-detail-panel.edp-maximized .edp-company-profile .cp-company-logo-hero .edp-auto-hero-img {
+  height: 90px;
+  width: auto;
+  max-width: 300px;
+}
+
+/* Tab content → responsive multi-column grid */
+.entity-detail-panel.edp-maximized .edp-company-profile [data-slot="tab-content"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  align-items: start;
+  padding-top: 4px;
+}
+
+/* Cards fill their column; don't stretch to equal height */
+.entity-detail-panel.edp-maximized .edp-company-profile [data-slot="tab-content"] .edp-card {
+  height: fit-content;
+  min-width: 0;
+}
+
+/* Wide cards — about text, news lists, full-width tables — span all columns */
+.entity-detail-panel.edp-maximized .edp-company-profile [data-slot="tab-content"] .edp-card--wide,
+.entity-detail-panel.edp-maximized .edp-company-profile [data-slot="tab-content"] .edp-news-list,
+.entity-detail-panel.edp-maximized .edp-company-profile [data-slot="tab-content"] .edp-filings-table,
+.entity-detail-panel.edp-maximized .edp-company-profile [data-slot="tab-content"] .edp-events-list {
+  grid-column: 1 / -1;
 }
 
 /* ── Shell & layout ────────────────────────────────────────────────── */
@@ -5935,12 +5973,13 @@
 
 .edp-sector-profile .edp-stat-highlight {
   position: relative;
-  padding: 14px 12px;
+  padding: 10px 10px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   border-radius: 12px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, white 4%), color-mix(in srgb, var(--surface) 90%, black 10%));
   box-shadow: 0 2px 8px color-mix(in srgb, var(--overlay-heavy) 8%, transparent);
   overflow: hidden;
+  min-width: 0;
   transition: transform 0.12s, border-color 0.12s;
 }
 
@@ -5959,18 +5998,26 @@
 }
 
 .edp-sector-profile .edp-stat-highlight-value {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 .edp-sector-profile .edp-stat-highlight-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+  margin-bottom: 5px;
   color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 .edp-sector-profile .edp-stat-highlight .edp-stat-highlight-value {

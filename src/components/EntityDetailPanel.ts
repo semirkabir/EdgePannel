@@ -136,20 +136,26 @@ export class EntityDetailPanel extends DetailPanelBase {
     };
   }
 
+  // Expand icon shown in right-panel mode — click to go full-screen
+  private static readonly ICON_FULLSCREEN = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+    <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+  </svg>`;
+
+  // Right-panel split icon shown in full-screen mode — click to go back to side rail
+  private static readonly ICON_RIGHT_PANEL = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="3" width="20" height="18" rx="2"/>
+    <line x1="15" y1="3" x2="15" y2="21" stroke-width="1.5"/>
+    <rect x="15" y="3" width="7" height="18" fill="currentColor" opacity="0.25" stroke="none"/>
+  </svg>`;
+
   private createMaximizeButton(): HTMLButtonElement {
     const button = this.el('button', 'edp-maximize') as HTMLButtonElement;
     button.type = 'button';
-    button.setAttribute('aria-label', 'Fullscreen');
+    button.setAttribute('aria-label', 'Expand to full view');
     button.setAttribute('aria-pressed', 'false');
-    button.title = 'Fullscreen';
-    button.innerHTML = `
-      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
-        <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-        <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
-        <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-      </svg>
-    `;
+    button.title = 'Expand to full view';
+    button.innerHTML = EntityDetailPanel.ICON_FULLSCREEN;
     button.addEventListener('click', (event) => {
       event.stopPropagation();
       if (this.isMaximizedState) this.minimize();
@@ -163,8 +169,15 @@ export class EntityDetailPanel extends DetailPanelBase {
 
   private syncMaximizeButton(): void {
     this.maximizeButton.setAttribute('aria-pressed', String(this.isMaximizedState));
-    this.maximizeButton.title = this.isMaximizedState ? 'Exit fullscreen' : 'Fullscreen';
-    this.maximizeButton.setAttribute('aria-label', this.maximizeButton.title);
+    if (this.isMaximizedState) {
+      this.maximizeButton.innerHTML = EntityDetailPanel.ICON_RIGHT_PANEL;
+      this.maximizeButton.title = 'Back to side panel';
+      this.maximizeButton.setAttribute('aria-label', 'Back to side panel');
+    } else {
+      this.maximizeButton.innerHTML = EntityDetailPanel.ICON_FULLSCREEN;
+      this.maximizeButton.title = 'Expand to full view';
+      this.maximizeButton.setAttribute('aria-label', 'Expand to full view');
+    }
   }
 
   private injectHeroImage(image: EntityHeroImage | null): void {

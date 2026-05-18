@@ -27,12 +27,22 @@ import type { MapContainer } from './MapContainer';
 import { loadFactbook, type FactbookData } from '@/services/factbook';
 import { FACTBOOK_TABS, renderFactbookTab, type TabId } from './country-factbook';
 
-// ── Maximize button icons ──────────────────────────────────────────────────
-// Right-panel layout icon: outer rect + vertical divider near the right.
-// Shown in the default (non-maximized) state to communicate "this is a right panel — click to expand".
-const CDP_ICON_RIGHT_PANEL = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <rect x="1.5" y="2" width="13" height="12" rx="1.5"/>
-  <line x1="10.5" y1="2.5" x2="10.5" y2="13.5"/>
+// ── View-mode button icons ─────────────────────────────────────────────────
+// Right-panel icon: window split with right column highlighted.
+// Represents the 430 px slide-in side panel mode.
+const CDP_ICON_RIGHT_PANEL = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <rect x="2" y="3" width="20" height="18" rx="2"/>
+  <line x1="15" y1="3" x2="15" y2="21" stroke-width="1.5"/>
+  <rect x="15" y="3" width="7" height="18" fill="currentColor" opacity="0.25" stroke="none"/>
+</svg>`;
+
+// Full-screen icon: arrows pointing outward to all four corners.
+// Shown in the right-panel state to communicate "click to expand to full view".
+const CDP_ICON_FULLSCREEN = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <polyline points="15 3 21 3 21 9"/>
+  <polyline points="9 21 3 21 3 15"/>
+  <line x1="21" y1="3" x2="14" y2="10"/>
+  <line x1="3" y1="21" x2="10" y2="14"/>
 </svg>`;
 
 // Compress icon: two inward-facing arrow pairs.
@@ -92,6 +102,7 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private infrastructureByType = new Map<AssetType, RelatedAsset[]>();
   private activeInfraLayer: CountryInfraAssetType | null = null;
   private maximizeButton: HTMLButtonElement | null = null;
+  private rightPanelButton: HTMLButtonElement | null = null;
   private currentHeadlineCount = 0;
   private currentMarkets: PredictionMarket[] = [];
 
@@ -234,10 +245,6 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     if (this.isMaximizedState) {
       this.isMaximizedState = false;
       this.panel.classList.remove('maximized');
-      if (this.maximizeButton) {
-        this.maximizeButton.innerHTML = CDP_ICON_RIGHT_PANEL;
-        this.maximizeButton.setAttribute('aria-label', 'Expand to full view');
-      }
     }
     this.abortController.abort();
     this.close();
@@ -263,10 +270,6 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     if (this.isMaximizedState) return;
     this.isMaximizedState = true;
     this.panel.classList.add('maximized');
-    if (this.maximizeButton) {
-      this.maximizeButton.innerHTML = CDP_ICON_COMPRESS;
-      this.maximizeButton.setAttribute('aria-label', 'Collapse to panel');
-    }
     this.onStateChangeCallback?.({ visible: true, maximized: true });
   }
 
@@ -274,10 +277,6 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     if (!this.isMaximizedState) return;
     this.isMaximizedState = false;
     this.panel.classList.remove('maximized');
-    if (this.maximizeButton) {
-      this.maximizeButton.innerHTML = CDP_ICON_RIGHT_PANEL;
-      this.maximizeButton.setAttribute('aria-label', 'Expand to full view');
-    }
     this.onStateChangeCallback?.({ visible: true, maximized: false });
   }
 
@@ -682,12 +681,21 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     titleWrap.append(name, subtitle);
     left.append(flag, titleWrap);
 
-    const right = this.el('div', 'cdp-header-right');
+    // Right-panel button: keeps the panel in side-rail mode (active by default)
+    const rightPanelBtn = this.el('button', 'cdp-mode-btn cdp-right-panel-btn active') as HTMLButtonElement;
+    rightPanelBtn.setAttribute('type', 'button');
+    rightPanelBtn.setAttribute('aria-label', 'Side panel view');
+    rightPanelBtn.innerHTML = CDP_ICON_RIGHT_PANEL;
+    rightPanelBtn.addEventListener('click', () => {
+      if (this.isMaximizedState) this.minimize();
+    });
+    this.rightPanelButton = rightPanelBtn;
 
-    const maxBtn = this.el('button', 'cdp-maximize-btn') as HTMLButtonElement;
+    // Full-screen button: expands to full viewport
+    const maxBtn = this.el('button', 'cdp-mode-btn cdp-maximize-btn') as HTMLButtonElement;
     maxBtn.setAttribute('type', 'button');
     maxBtn.setAttribute('aria-label', 'Expand to full view');
-    maxBtn.innerHTML = CDP_ICON_RIGHT_PANEL;
+    maxBtn.innerHTML = CDP_ICON_FULLSCREEN;
     maxBtn.addEventListener('click', () => {
       if (this.isMaximizedState) this.minimize();
       else this.maximize();
@@ -708,8 +716,16 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       }).catch(() => {});
     });
 
-    right.append(shareBtn, maxBtn);
-    header.append(left, right);
+    // Toolbar row: mode buttons left, share right
+    const toolbar = this.el('div', 'cdp-header-toolbar');
+    const toolbarLeft = this.el('div', 'cdp-header-mode-btns');
+    toolbarLeft.append(rightPanelBtn, maxBtn);
+    const toolbarRight = this.el('div', 'cdp-header-right');
+    toolbarRight.append(shareBtn);
+    toolbar.append(toolbarLeft, toolbarRight);
+
+    // Stack: toolbar on top, country identity below
+    header.append(toolbar, left);
 
     const scoreCard = this.el('section', 'cdp-card cdp-score-card');
     this.scoreCard = scoreCard;

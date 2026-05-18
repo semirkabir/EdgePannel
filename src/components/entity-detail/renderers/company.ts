@@ -854,6 +854,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     if (data.profile?.description) {
       const [card, body] = ctx.sectionCard('About');
+      card.classList.add('edp-card--wide');
       body.append(ctx.el('p', 'cp-about-text', data.profile.description));
       content.append(card);
     }

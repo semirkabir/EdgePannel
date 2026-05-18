@@ -2645,13 +2645,14 @@ canvas,
 .map-section .panel-header {
   flex-shrink: 0;
   gap: 6px;
-  padding: 8px 12px 8px 0;
+  padding: 8px 12px 8px 14px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
+/* No negative margin — the panel has overflow:hidden so pulling left clips the title */
 .map-section .panel-header-left {
-  margin-left: -12px;
+  margin-left: 0;
 }
 
 .map-section .map-container {

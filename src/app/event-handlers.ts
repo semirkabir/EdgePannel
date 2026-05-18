@@ -1198,6 +1198,10 @@ export class EventHandlerManager implements AppModule {
         if (clamped !== numeric) {
           localStorage.setItem(MAP_HEIGHT_KEY, `${clamped}px`);
         }
+        // Sync the map canvas to the restored container height. The map may or
+        // may not be initialized yet; if it is, resize() corrects it immediately.
+        // The deferred call covers the case where the map loads after this runs.
+        requestAnimationFrame(() => this.ctx.map?.resize());
       } else {
         localStorage.removeItem(MAP_HEIGHT_KEY);
       }
