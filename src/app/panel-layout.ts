@@ -20,6 +20,7 @@ import {
   CIIPanel,
   CascadePanel,
   StrategicRiskPanel,
+  IncidentBriefsPanel,
   StrategicPosturePanel,
   TechEventsPanel,
   ServiceStatusPanel,
@@ -331,6 +332,43 @@ export class PanelLayoutManager implements AppModule {
         <div class="shell-guidance-actions">
           <button type="button" class="shell-guidance-btn" id="shellGuidanceSearch">Open search</button>
           <button type="button" class="shell-guidance-btn" id="shellGuidanceDismiss">Dismiss</button>
+        </div>
+      </div>
+      <div class="workspace-setup-overlay" id="workspaceSetupOverlay">
+        <div class="workspace-setup-modal">
+          <div class="workspace-setup-header">
+            <div>
+              <div class="workspace-setup-eyebrow">Start with a mission</div>
+              <h2>Build a useful workspace in one click</h2>
+            </div>
+            <button class="workspace-setup-close" id="workspaceSetupClose" aria-label="Close">×</button>
+          </div>
+          <p class="workspace-setup-copy">Choose the question you want to answer first. We’ll add the panels, layers, monitors, and alert defaults that fit that job.</p>
+          <div class="workspace-setup-grid">
+            <button class="workspace-setup-card" data-setup-pack="red-sea-shipping-risk">
+              <strong>Monitor shipping risk</strong>
+              <span>Corridors, ports, chokepoints, conflict spillover</span>
+            </button>
+            <button class="workspace-setup-card" data-setup-pack="critical-minerals-exposure">
+              <strong>Track critical minerals</strong>
+              <span>Refineries, trade, sovereign risk, bottlenecks</span>
+            </button>
+            <button class="workspace-setup-card" data-setup-pack="ai-defense-watch">
+              <strong>Watch AI + defense</strong>
+              <span>Markets, launches, cyber, procurement catalysts</span>
+            </button>
+            <button class="workspace-setup-card" data-setup-pack="infrastructure-disruption">
+              <strong>Watch infrastructure</strong>
+              <span>Cables, pipelines, outages, GPS interference</span>
+            </button>
+            <button class="workspace-setup-card" data-setup-pack="sovereign-stress">
+              <strong>Track sovereign stress</strong>
+              <span>Debt, unrest, macro, and instability signals</span>
+            </button>
+          </div>
+          <div class="workspace-setup-actions">
+            <button type="button" class="shell-guidance-btn" id="workspaceSetupSkip">I’ll configure it myself</button>
+          </div>
         </div>
       </div>
       ${LIMITED_LOCAL_RPC_DEV_MODE && !isLocalDevApiNoticeDismissed() ? `
@@ -1038,6 +1076,7 @@ export class PanelLayoutManager implements AppModule {
         this.ctx.map?.setCenter(lat, lon, 4);
       });
       this.ctx.panels['strategic-risk'] = strategicRiskPanel;
+      this.ctx.panels['incident-briefs'] = new IncidentBriefsPanel();
 
       const strategicPosturePanel = new StrategicPosturePanel(() => this.ctx.allNews);
       strategicPosturePanel.setLocationClickHandler((lat, lon) => {

@@ -28350,3 +28350,231 @@ body[data-panel-density="comfortable"] .panel-tabs {
   background: linear-gradient(90deg, rgba(139, 92, 246, 0.15) 0%, transparent 100%);
   border-top-color: rgba(139, 92, 246, 0.4);
 }
+
+/* Marketplace mission packs, unified data manager, onboarding, and incident briefs */
+.marketplace-modal-pack-shelf {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.marketplace-modal-pack-grid,
+.data-manager-pack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.marketplace-modal-pack-card,
+.data-manager-pack-card,
+.marketplace-modal-value-card,
+.data-manager-installed-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+}
+.marketplace-modal-pack-kicker,
+.data-manager-pack-kicker {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.marketplace-modal-pack-card p,
+.data-manager-pack-card p,
+.marketplace-modal-value-card p {
+  margin: 0;
+}
+.marketplace-modal-trust-grid,
+.data-manager-summary {
+  display: grid;
+  gap: 8px;
+}
+.marketplace-modal-trust-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.marketplace-modal-trust-grid > div,
+.data-manager-summary > div {
+  display: grid;
+  gap: 3px;
+}
+.marketplace-modal-trust-grid span,
+.data-manager-summary span,
+.marketplace-modal-muted,
+.data-manager-pack-meta,
+.data-manager-installed-card span {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.data-manager-shell,
+.data-manager-section {
+  display: grid;
+  gap: 12px;
+}
+.data-manager-shell {
+  gap: 18px;
+}
+.data-manager-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.data-manager-summary > div {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+}
+.data-manager-summary strong {
+  font-size: 18px;
+}
+.data-manager-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.data-manager-section-head > div {
+  display: grid;
+  gap: 4px;
+}
+.data-manager-section-head span {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.data-manager-primary,
+.data-manager-pack-card button {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+  border-radius: 999px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.data-manager-installed-grid {
+  display: grid;
+  gap: 8px;
+}
+.data-manager-empty {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.source-toggle-copy {
+  display: grid;
+  gap: 2px;
+}
+.source-toggle-meta {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.workspace-setup-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: rgba(4, 8, 14, .66);
+  backdrop-filter: blur(8px);
+  z-index: 10020;
+}
+.workspace-setup-overlay.open {
+  display: grid;
+}
+.workspace-setup-modal {
+  width: min(760px, calc(100vw - 28px));
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+}
+.workspace-setup-header,
+.workspace-setup-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.workspace-setup-eyebrow {
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.workspace-setup-header h2,
+.workspace-setup-copy {
+  margin: 0;
+}
+.workspace-setup-close {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 24px;
+  cursor: pointer;
+}
+.workspace-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.workspace-setup-card {
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  cursor: pointer;
+}
+.workspace-setup-card span {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.incident-brief-grid {
+  display: grid;
+  gap: 10px;
+}
+.incident-brief-card,
+.incident-briefs-empty {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+}
+.incident-brief-card.priority-critical {
+  border-left: 3px solid var(--semantic-critical);
+}
+.incident-brief-card.priority-high {
+  border-left: 3px solid var(--semantic-high);
+}
+.incident-brief-card.priority-medium {
+  border-left: 3px solid var(--semantic-elevated);
+}
+.incident-brief-card h3,
+.incident-brief-card p {
+  margin: 0;
+}
+.incident-brief-head,
+.incident-brief-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.incident-brief-head span,
+.incident-brief-meta span,
+.incident-briefs-empty span {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.incident-brief-priority {
+  text-transform: uppercase;
+}
+@media (max-width: 720px) {
+  .data-manager-summary,
+  .marketplace-modal-trust-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

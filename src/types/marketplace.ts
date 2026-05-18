@@ -21,6 +21,22 @@ export interface MarketplaceAssets {
   previews?: MarketplacePreviewAsset[];
 }
 
+export interface MarketplaceTrustMetadata {
+  verificationLevel?: 'curated' | 'verified-source' | 'partner' | 'community' | 'experimental';
+  provenance?: string[];
+  methodology?: string;
+  coverage?: string;
+  knownGaps?: string[];
+  maintainer?: string;
+  lastVerifiedAt?: string;
+}
+
+export interface MarketplaceCommercialMetadata {
+  access?: 'included' | 'upgrade-required' | 'add-on' | 'enterprise';
+  tier?: 'free' | 'pro' | 'business' | 'enterprise';
+  priceLabel?: string;
+}
+
 export interface MarketplaceCompatibility {
   variants: MarketplaceVariant[];
   minAppVersion?: string;
@@ -104,6 +120,9 @@ export interface MarketplaceManifest {
   datasets: MarketplaceDataset[];
   surfaces: MarketplaceSurfaceConfig;
   assets?: MarketplaceAssets;
+  valueProposition?: string;
+  trust?: MarketplaceTrustMetadata;
+  commercial?: MarketplaceCommercialMetadata;
 }
 
 export interface MarketplaceCatalogItem {
@@ -120,6 +139,9 @@ export interface MarketplaceCatalogItem {
   manifestUrl: string;
   heroImageUrl?: string;
   iconUrl?: string;
+  valueProposition?: string;
+  trust?: MarketplaceTrustMetadata;
+  commercial?: MarketplaceCommercialMetadata;
 }
 
 export interface MarketplaceDatasetSnapshot {

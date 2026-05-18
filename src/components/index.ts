@@ -22,6 +22,7 @@ export * from './LiveWebcamsPanel';
 export * from './CIIPanel';
 export * from './CascadePanel';
 export * from './StrategicRiskPanel';
+export * from './IncidentBriefsPanel';
 export * from './StrategicPosturePanel';
 export * from './IntelligenceGapBadge';
 export * from './TechEventsPanel';

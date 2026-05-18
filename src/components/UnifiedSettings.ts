@@ -1,9 +1,19 @@
-import { FEEDS, INTEL_SOURCES, SOURCE_REGION_MAP } from '@/config/feeds';
+import {
+  FEEDS,
+  INTEL_SOURCES,
+  SOURCE_REGION_MAP,
+  getSourcePanelId,
+  getSourcePropagandaRisk,
+  getSourceTier,
+  getSourceType,
+} from '@/config/feeds';
 import { PANEL_CATEGORY_MAP } from '@/config/panels';
 import { SITE_VARIANT } from '@/config/variant';
+import { MISSION_PACKS } from '@/config';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
-import type { PanelConfig } from '@/types';
+import type { MapLayers, PanelConfig } from '@/types';
+import type { MarketplaceVariant, MarketplaceViewItem } from '@/types/marketplace';
 import { FEATURES } from '@/services/feature-flags';
 import { getUserTier, type FeatureTier } from '@/services/feature-flags';
 import { subscribeToAuth } from '@/services/user-auth';
@@ -24,9 +34,12 @@ export interface UnifiedSettingsConfig {
   resetLayout: () => void;
   saveLayout: () => void;
   isDesktopApp: boolean;
+  getMapLayers: () => MapLayers;
+  openMarketplace: () => void;
+  getMarketplaceItems: () => MarketplaceViewItem[];
 }
 
-type TabId = 'settings' | 'panels' | 'sources' | 'profile';
+type TabId = 'settings' | 'data' | 'panels' | 'sources' | 'profile';
 
 export class UnifiedSettings {
   private overlay: HTMLElement;
@@ -61,13 +74,13 @@ export class UnifiedSettings {
       key: 'pro',
       title: 'Pro',
       price: '$9/mo',
-      features: ['Real-time data', 'Export & API access', '1,000 MCP API calls/mo'],
+      features: ['Real-time data', 'Export & API access', 'Data marketplace access', '1,000 MCP API calls/mo'],
     },
     {
       key: 'business',
       title: 'Business',
       price: '$29/mo',
-      features: ['Everything in Pro', '10,000 MCP API calls/mo', 'Data marketplace access'],
+      features: ['Everything in Pro', '10,000 MCP API calls/mo', 'Team workflows'],
     },
     {
       key: 'enterprise',
@@ -175,6 +188,18 @@ export class UnifiedSettings {
         return;
       }
 
+      const applyPackBtn = target.closest<HTMLElement>('[data-apply-pack]');
+      if (applyPackBtn?.dataset.applyPack) {
+        window.dispatchEvent(new CustomEvent('wm:apply-mission-pack', { detail: { packId: applyPackBtn.dataset.applyPack } }));
+        this.renderDataTab();
+        return;
+      }
+
+      if (target.closest('[data-open-marketplace]')) {
+        this.config.openMarketplace();
+        return;
+      }
+
       // Data section: import/export button handlers
       if (target.closest('#profileImportBtn')) {
         this.handleImportData();
@@ -248,6 +273,7 @@ export class UnifiedSettings {
 
   public refreshPanelToggles(): void {
     if (this.activeTab === 'panels') this.renderPanelsTab();
+    if (this.activeTab === 'data') this.renderDataTab();
   }
 
   public getButton(): HTMLButtonElement {
@@ -287,12 +313,16 @@ export class UnifiedSettings {
         </div>
         <div class="unified-settings-tabs" role="tablist" aria-label="Settings">
           <button class="${tabClass('settings')}" data-tab="settings" role="tab" aria-selected="${this.activeTab === 'settings'}" id="us-tab-settings" aria-controls="us-tab-panel-settings">${t('header.tabSettings')}</button>
+          <button class="${tabClass('data')}" data-tab="data" role="tab" aria-selected="${this.activeTab === 'data'}" id="us-tab-data" aria-controls="us-tab-panel-data">Data</button>
           <button class="${tabClass('panels')}" data-tab="panels" role="tab" aria-selected="${this.activeTab === 'panels'}" id="us-tab-panels" aria-controls="us-tab-panel-panels">${t('header.tabPanels')}</button>
           <button class="${tabClass('sources')}" data-tab="sources" role="tab" aria-selected="${this.activeTab === 'sources'}" id="us-tab-sources" aria-controls="us-tab-panel-sources">${t('header.tabSources')}</button>
           <button class="${tabClass('profile')}" data-tab="profile" role="tab" aria-selected="${this.activeTab === 'profile'}" id="us-tab-profile" aria-controls="us-tab-panel-profile">Profile</button>
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'settings' ? ' active' : ''}" data-panel-id="settings" id="us-tab-panel-settings" role="tabpanel" aria-labelledby="us-tab-settings">
           ${prefs.html}
+        </div>
+        <div class="unified-settings-tab-panel${this.activeTab === 'data' ? ' active' : ''}" data-panel-id="data" id="us-tab-panel-data" role="tabpanel" aria-labelledby="us-tab-data">
+          <div class="data-manager-shell" id="usDataManager"></div>
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'panels' ? ' active' : ''}" data-panel-id="panels" id="us-tab-panel-panels" role="tabpanel" aria-labelledby="us-tab-panels">
           <div class="unified-settings-region-wrapper">
@@ -338,6 +368,7 @@ export class UnifiedSettings {
     }
 
     this.renderPanelCategoryPills();
+    this.renderDataTab();
     this.renderPanelsTab();
     this.renderRegionPills();
     this.renderSourcesGrid();
@@ -561,13 +592,91 @@ export class UnifiedSettings {
     container.innerHTML = sources.map(source => {
       const isEnabled = !disabled.has(source);
       const escaped = escapeHtml(source);
+      const tier = getSourceTier(source);
+      const type = getSourceType(source);
+      const risk = getSourcePropagandaRisk(source);
+      const panelId = getSourcePanelId(source);
       return `
         <div class="source-toggle-item ${isEnabled ? 'active' : ''}" data-source="${escaped}">
           <div class="source-toggle-checkbox">${isEnabled ? '\u2713' : ''}</div>
-          <span class="source-toggle-label">${escaped}</span>
+          <div class="source-toggle-copy">
+            <span class="source-toggle-label">${escaped}</span>
+            <span class="source-toggle-meta">Tier ${tier} • ${escapeHtml(type)} • ${escapeHtml(panelId)}${risk.risk !== 'low' ? ` • ${escapeHtml(risk.risk)} risk` : ''}</span>
+          </div>
         </div>
       `;
     }).join('');
+  }
+
+  private renderDataTab(): void {
+    const container = this.overlay.querySelector('#usDataManager');
+    if (!container) return;
+
+    const panelSettings = this.config.getPanelSettings();
+    const enabledPanels = Object.values(panelSettings).filter((panel) => panel.enabled).length;
+    const disabled = this.config.getDisabledSources();
+    const allSources = this.config.getAllSourceNames();
+    const enabledSources = allSources.length - disabled.size;
+    const mapLayers = this.config.getMapLayers();
+    const enabledLayers = Object.values(mapLayers).filter(Boolean).length;
+    const marketplaceItems = this.config.getMarketplaceItems();
+    const compatiblePacks = MISSION_PACKS.filter((pack) => pack.compatibleVariants.includes(SITE_VARIANT as MarketplaceVariant));
+
+    container.innerHTML = `
+      <section class="data-manager-summary">
+        <div><strong>${enabledPanels}</strong><span>Panels enabled</span></div>
+        <div><strong>${enabledSources}</strong><span>Sources enabled</span></div>
+        <div><strong>${enabledLayers}</strong><span>Map layers enabled</span></div>
+        <div><strong>${marketplaceItems.length}</strong><span>Packages installed</span></div>
+      </section>
+
+      <section class="data-manager-section">
+        <div class="data-manager-section-head">
+          <div>
+            <strong>Add / Manage Data</strong>
+            <span>One place to grow the workspace across panels, layers, sources, and packages.</span>
+          </div>
+          <button class="data-manager-primary" type="button" data-open-marketplace="true">Open catalog</button>
+        </div>
+      </section>
+
+      <section class="data-manager-section">
+        <div class="data-manager-section-head">
+          <div>
+            <strong>Mission packs</strong>
+            <span>Apply a goal-oriented workspace starter.</span>
+          </div>
+        </div>
+        <div class="data-manager-pack-grid">
+          ${compatiblePacks.map((pack) => `
+            <article class="data-manager-pack-card">
+              <div class="data-manager-pack-kicker">${escapeHtml(pack.domain.replace('-', ' '))}</div>
+              <strong>${escapeHtml(pack.name)}</strong>
+              <p>${escapeHtml(pack.tagline)}</p>
+              <div class="data-manager-pack-meta">${pack.recommendedPanels.length} panels • ${pack.recommendedLayers.length} layers • ${pack.datasetIds.length} datasets</div>
+              <button type="button" data-apply-pack="${escapeHtml(pack.id)}">Apply workspace</button>
+            </article>
+          `).join('')}
+        </div>
+      </section>
+
+      <section class="data-manager-section">
+        <div class="data-manager-section-head">
+          <div>
+            <strong>Installed marketplace packages</strong>
+            <span>${marketplaceItems.length > 0 ? 'Currently extending this workspace.' : 'No installed packages yet.'}</span>
+          </div>
+        </div>
+        <div class="data-manager-installed-grid">
+          ${marketplaceItems.map((item) => `
+            <article class="data-manager-installed-card">
+              <strong>${escapeHtml(item.manifest.name)}</strong>
+              <span>${escapeHtml(item.manifest.category)} • ${item.enabled ? 'enabled' : 'disabled'}</span>
+            </article>
+          `).join('') || '<div class="data-manager-empty">Install catalog packages to add reusable map, search, and panel surfaces.</div>'}
+        </div>
+      </section>
+    `;
   }
 
   private updateSourcesCounter(): void {

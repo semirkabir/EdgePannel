@@ -46,6 +46,13 @@ export {
   getVariantStorageKey,
 } from './panels';
 
+export {
+  MISSION_PACKS,
+  getMissionPack,
+  type MissionPack,
+  type MissionPackDomain,
+} from './mission-packs';
+
 // ============================================
 // VARIANT-SPECIFIC EXPORTS
 // Only import what's needed for each variant

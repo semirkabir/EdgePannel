@@ -1,6 +1,7 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import type { AirlineIntelPanel } from '@/components/AirlineIntelPanel';
 import type { PanelConfig } from '@/types';
+import type { MarketplaceVariant } from '@/types/marketplace';
 import type { MapView } from '@/components';
 import type { ClusteredEvent } from '@/types';
 import type { DashboardSnapshot } from '@/services/storage';
@@ -14,6 +15,7 @@ import {
   debounce,
   saveToStorage,
   ExportPanel,
+  generateId,
   getCurrentTheme,
   setThemeWithLinkedMap,
 } from '@/utils';
@@ -25,6 +27,8 @@ import {
   FEEDS,
   INTEL_SOURCES,
   DEFAULT_PANELS,
+  MONITOR_COLORS,
+  getMissionPack,
   getVariantStorageKey,
 } from '@/config';
 import {
@@ -66,6 +70,7 @@ import {
   setPanelDensityPreference,
 } from './ui-preferences';
 import { getHeaderTimezone, getClockFormat, getHeaderDateFormat, type HeaderDateFormat } from '@/services/preferences-content';
+import { loadAlertRules, normalizeAlertRule, saveAlertRules } from '@/services/alert-rules';
 
 function getDatePart(parts: Intl.DateTimeFormatPart[], type: string): string {
   return parts.find((part) => part.type === type)?.value ?? '';
@@ -127,6 +132,8 @@ function formatClockTime(tz: string): string {
   }
 }
 
+const WORKSPACE_SETUP_DISMISSED_KEY = 'wm-workspace-setup-dismissed-v1';
+
 export interface EventHandlerCallbacks {
   updateSearchIndex: () => void;
   loadAllData: () => Promise<void>;
@@ -162,6 +169,7 @@ export class EventHandlerManager implements AppModule {
     mapResizeVisChange:   null as (() => void) | null,
     mapFullscreenEsc:     null as ((e: KeyboardEvent) => void) | null,
     mobileMenuKey:        null as ((e: KeyboardEvent) => void) | null,
+    missionPackApply:     null as ((e: Event) => void) | null,
   };
   private kbShortcutsOverlay: HTMLElement | null = null;
   private statusDropdownEl: HTMLElement | null = null;
@@ -203,11 +211,13 @@ export class EventHandlerManager implements AppModule {
     this.setupEventListeners();
     this.applyPanelDensity();
     this.setupShellGuidance();
+    this.setupWorkspaceSetup();
     this.setupMobileHelpSheet();
     this.setupIdleDetection();
     this.setupTvMode();
     this.setupBloombergShortcuts();
     this.setupStatusDropdown();
+    this.setupMissionPackHandling();
 
     // Update header status indicator when auth state changes
     subscribeToAuth(() => {
@@ -336,6 +346,10 @@ export class EventHandlerManager implements AppModule {
       document.removeEventListener('keydown', this.handlers.mobileMenuKey);
       this.handlers.mobileMenuKey = null;
     }
+    if (this.handlers.missionPackApply) {
+      window.removeEventListener('wm:apply-mission-pack', this.handlers.missionPackApply);
+      this.handlers.missionPackApply = null;
+    }
     if (this.handlers.bloombergKey) {
       document.removeEventListener('keydown', this.handlers.bloombergKey);
       this.handlers.bloombergKey = null;
@@ -352,6 +366,106 @@ export class EventHandlerManager implements AppModule {
     this.ctx.situationRoomDrawer = null;
     this.ctx.visitorCounter?.destroy();
     this.ctx.visitorCounter = null;
+  }
+
+  private setupMissionPackHandling(): void {
+    this.handlers.missionPackApply = (event: Event) => {
+      const detail = (event as CustomEvent<{ packId?: string }>).detail;
+      if (detail?.packId) this.applyMissionPack(detail.packId);
+    };
+    window.addEventListener('wm:apply-mission-pack', this.handlers.missionPackApply);
+  }
+
+  private setupWorkspaceSetup(): void {
+    const overlay = document.getElementById('workspaceSetupOverlay');
+    if (!overlay) return;
+
+    const dismiss = (): void => {
+      overlay.classList.remove('open');
+      localStorage.setItem(WORKSPACE_SETUP_DISMISSED_KEY, '1');
+    };
+
+    document.getElementById('workspaceSetupClose')?.addEventListener('click', dismiss);
+    document.getElementById('workspaceSetupSkip')?.addEventListener('click', dismiss);
+    overlay.querySelectorAll<HTMLElement>('[data-setup-pack]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const packId = button.dataset.setupPack;
+        if (!packId) return;
+        window.dispatchEvent(new CustomEvent('wm:apply-mission-pack', { detail: { packId } }));
+        dismiss();
+      });
+    });
+
+    if (!localStorage.getItem(WORKSPACE_SETUP_DISMISSED_KEY)) {
+      window.setTimeout(() => overlay.classList.add('open'), 450);
+    }
+  }
+
+  private applyMissionPack(packId: string): void {
+    const pack = getMissionPack(packId);
+    if (!pack || !pack.compatibleVariants.includes(SITE_VARIANT as MarketplaceVariant)) return;
+
+    let enabledPanels = 0;
+    for (const panelId of pack.recommendedPanels) {
+      const panel = this.ctx.panelSettings[panelId];
+      if (panel && !panel.enabled) {
+        panel.enabled = true;
+        enabledPanels += 1;
+      }
+    }
+    saveToStorage(getVariantStorageKey(STORAGE_KEYS.panels, SITE_VARIANT), this.ctx.panelSettings);
+    this.applyPanelSettings();
+    pack.recommendedPanels.forEach((panelId) => {
+      if (this.ctx.panelSettings[panelId]?.enabled) this.callbacks.loadDataForPanel(panelId);
+    });
+
+    let enabledLayers = 0;
+    for (const layer of pack.recommendedLayers) {
+      if (!this.ctx.mapLayers[layer]) {
+        this.ctx.mapLayers[layer] = true;
+        enabledLayers += 1;
+      }
+    }
+    saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
+    this.ctx.map?.setLayers(this.ctx.mapLayers);
+
+    let enabledSources = 0;
+    for (const source of pack.recommendedSources) {
+      if (this.ctx.disabledSources.delete(source)) enabledSources += 1;
+    }
+    saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.disabledSources));
+
+    const monitorPanel = this.ctx.panels['monitors'] as import('@/components').MonitorPanel | undefined;
+    const existingMonitors = monitorPanel?.getMonitors() ?? this.ctx.monitors;
+    const monitorNames = new Set(existingMonitors.map((monitor) => monitor.name || monitor.keywords.join(',')));
+    const newMonitors = pack.monitorTemplates
+      .filter((monitor) => !monitorNames.has(monitor.name || monitor.keywords.join(',')))
+      .map((monitor, index) => ({
+        ...monitor,
+        id: generateId(),
+        color: MONITOR_COLORS[(existingMonitors.length + index) % MONITOR_COLORS.length] ?? '#60a5fa',
+      }));
+    if (newMonitors.length > 0) {
+      this.ctx.monitors = [...existingMonitors, ...newMonitors];
+      monitorPanel?.setMonitors(this.ctx.monitors);
+      saveToStorage(STORAGE_KEYS.monitors, this.ctx.monitors);
+      monitorPanel?.renderResults(this.ctx.newsStore.allNews);
+    }
+
+    const alertRules = loadAlertRules();
+    const existingRuleNames = new Set(alertRules.map((rule) => rule.name));
+    const addedRules = pack.alertRuleTemplates
+      .filter((rule) => rule.name && !existingRuleNames.has(rule.name))
+      .map((rule) => normalizeAlertRule(rule));
+    if (addedRules.length > 0) {
+      saveAlertRules([...alertRules, ...addedRules]);
+    }
+
+    this.ctx.unifiedSettings?.refreshPanelToggles();
+    showShellNotification(
+      `${pack.name} applied: ${enabledPanels} panels, ${enabledLayers} layers, ${enabledSources} sources${newMonitors.length ? `, ${newMonitors.length} monitor` : ''}.`,
+      'success',
+    );
   }
 
   private setupEventListeners(): void {
@@ -927,6 +1041,11 @@ export class EventHandlerManager implements AppModule {
         }
       },
       isDesktopApp: this.ctx.isDesktopApp,
+      getMapLayers: () => this.ctx.mapLayers,
+      openMarketplace: () => {
+        void this.ctx.marketplace?.openModal();
+      },
+      getMarketplaceItems: () => this.ctx.marketplace?.getViewItems() ?? [],
     });
 
     const mount = document.getElementById('unifiedSettingsMount');

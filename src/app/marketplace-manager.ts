@@ -73,6 +73,10 @@ export class MarketplaceManager implements AppModule {
     return this.service.getSearchItems(SITE_VARIANT as MarketplaceVariant);
   }
 
+  public getViewItems() {
+    return this.service.getViewItems(SITE_VARIANT as MarketplaceVariant);
+  }
+
   public openSearchResult(data: MarketplaceSearchResultData): void {
     if (data.preferredOpenAction === 'modal') {
       // Catalog item — open the marketplace modal and pre-select this item
