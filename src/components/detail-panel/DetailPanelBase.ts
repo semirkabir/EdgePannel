@@ -79,14 +79,14 @@ export abstract class DetailPanelBase {
     this.closeButton.addEventListener('click', () => this.hide());
 
     this.panel.addEventListener('click', (e) => {
-      const target = e.target;
-      if (
-        this.isMaximizedState
-        && target instanceof HTMLElement
-        && !target.closest(`.${this.contentClassName}`)
-      ) {
-        this.minimize();
-      }
+      if (!this.isMaximizedState) return;
+      // Use composedPath() — it captures the original dispatch-time ancestors
+      // even when a click handler re-renders and detaches the target before
+      // this bubble-phase listener fires (e.g. content.replaceChildren()).
+      const contentEl = this.panel.querySelector(`.${this.contentClassName}`);
+      const path = e.composedPath();
+      if (!contentEl || path.includes(contentEl)) return;
+      this.minimize();
     });
   }
 

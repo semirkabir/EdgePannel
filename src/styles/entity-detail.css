@@ -77,14 +77,21 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
   padding: 12px 0 32px;
 }
 
-/* Cards don't stretch to equal height */
+/* Cards stretch to fill their grid cell height evenly — no orphan gaps */
 .entity-detail-panel.edp-maximized .edp-company-profile [data-slot="tab-content"] .edp-card {
-  height: fit-content;
+  display: flex;
+  flex-direction: column;
+  height: auto;
   min-width: 0;
+  margin-bottom: 0;
+}
+
+.entity-detail-panel.edp-maximized .edp-company-profile [data-slot="tab-content"] .edp-card .edp-card-body {
+  flex: 1;
 }
 
 /* Wide cards span all columns */
@@ -392,7 +399,8 @@
   background: transparent;
   color: var(--text-dim);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   cursor: pointer;
 }
 
@@ -447,6 +455,46 @@
   background: var(--semantic-critical, #ef4444);
 }
 
+/* ── Bar-chart period selection ─────────────────────────────────────── */
+
+/* When any bar is active, dim the non-selected bars */
+.cp-financial-chart.cp-fin-has-selection .cp-financial-chart-bar-wrap:not(.cp-fin-bar-active) .cp-financial-chart-bar {
+  opacity: 0.28;
+}
+.cp-financial-chart.cp-fin-has-selection .cp-financial-chart-bar-wrap:not(.cp-fin-bar-active) .cp-financial-chart-label {
+  opacity: 0.45;
+}
+
+/* Selected bar: brighter + subtle ring */
+.cp-financial-chart-bar-wrap.cp-fin-bar-active .cp-financial-chart-bar {
+  filter: brightness(1.25);
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+  border-radius: 4px 4px 0 0;
+}
+
+/* Table: dim non-selected period columns */
+.cp-financial-cell.cp-fin-col-dimmed {
+  opacity: 0.28;
+  transition: opacity 0.15s;
+}
+.cp-financial-cell.cp-fin-col-active {
+  opacity: 1;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 9%, transparent);
+  transition: opacity 0.15s, background 0.15s;
+}
+
+/* Header cell gets the same highlight treatment */
+.cp-financial-table-header .cp-financial-cell.cp-fin-col-active {
+  color: var(--accent-blue, #60a5fa);
+}
+
+.cp-financial-chart-bar-wrap {
+  transition: opacity 0.15s;
+}
+
 .cp-financial-chart-label,
 .cp-estimate-label {
   font-size: 10px;
@@ -471,6 +519,23 @@
   display: grid;
   grid-template-columns: 180px repeat(var(--period-count, 4), minmax(88px, 1fr));
   border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+}
+
+/* ── Right-panel compact mode: shrink columns so all periods fit at 430px ── */
+/* Label: 100px → period columns share the rest equally (no horizontal scroll) */
+.entity-detail-panel:not(.edp-maximized) .cp-financial-table {
+  min-width: 0;
+  width: 100%;
+}
+.entity-detail-panel:not(.edp-maximized) .cp-financial-table-row {
+  grid-template-columns: 100px repeat(var(--period-count, 4), minmax(0, 1fr));
+}
+.entity-detail-panel:not(.edp-maximized) .cp-financial-row-label {
+  font-size: 11px;
+}
+.entity-detail-panel:not(.edp-maximized) .cp-financial-cell {
+  font-size: 11px;
+  padding: 7px 6px;
 }
 
 .cp-simple-table-row {

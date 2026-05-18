@@ -163,9 +163,11 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.closeButton.addEventListener('click', () => this.hide());
 
     this.panel.addEventListener('click', (e) => {
-      if (this.isMaximizedState && !(e.target as HTMLElement).closest('.panel-content')) {
-        this.minimize();
-      }
+      if (!this.isMaximizedState) return;
+      const contentEl = this.panel.querySelector('.panel-content');
+      const path = e.composedPath();
+      if (!contentEl || path.includes(contentEl)) return;
+      this.minimize();
     });
   }
 

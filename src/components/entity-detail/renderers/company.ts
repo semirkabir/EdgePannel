@@ -997,10 +997,12 @@ export class CompanyRenderer implements EntityRenderer {
       const [statementCard, statementBody] = ctx.sectionCard('Statements');
       statementCard.classList.add('edp-card--wide');
       statementBody.append(this.buildFinancialControls(ctx, content, data));
-      statementBody.append(buildFinancialChart(ctx, periods, this.activeFinancialStatement));
+      const chartEl = buildFinancialChart(ctx, periods, this.activeFinancialStatement);
       const rows = buildFinancialRows(periods, this.activeFinancialStatement)
         .filter((item) => item.label.toLowerCase().includes(this.financialSearch.toLowerCase()));
-      statementBody.append(buildFinancialTable(ctx, periods, rows, data.profile?.currency || 'USD'));
+      const tableWrap = buildFinancialTable(ctx, periods, rows, data.profile?.currency || 'USD');
+      statementBody.append(chartEl, tableWrap);
+      wireFinancialChartSelection(chartEl, tableWrap);
       content.append(statementCard);
     }
 
@@ -2025,6 +2027,45 @@ function buildFinancialTable(
   }
   wrap.append(table);
   return wrap;
+}
+
+/**
+ * Wires bar-chart clicks to the table: clicking a bar highlights that period's
+ * column in the table and dims the others. Clicking the same bar again clears
+ * the selection and restores all columns to full opacity.
+ */
+function wireFinancialChartSelection(chart: HTMLElement, tableWrap: HTMLElement): void {
+  const barWraps = [...chart.querySelectorAll<HTMLElement>('.cp-financial-chart-bar-wrap')];
+  if (barWraps.length === 0) return;
+
+  let activeIdx: number | null = null;
+
+  const applySelection = (idx: number | null): void => {
+    activeIdx = idx;
+
+    // Bar states
+    chart.classList.toggle('cp-fin-has-selection', idx !== null);
+    barWraps.forEach((bw, i) => bw.classList.toggle('cp-fin-bar-active', i === idx));
+
+    // Table column states: each row has .cp-financial-cell elements in order
+    const tableRows = [...tableWrap.querySelectorAll<HTMLElement>('.cp-financial-table-row')];
+    tableRows.forEach((row) => {
+      const cells = [...row.querySelectorAll<HTMLElement>('.cp-financial-cell')];
+      cells.forEach((cell, i) => {
+        if (idx === null) {
+          cell.classList.remove('cp-fin-col-active', 'cp-fin-col-dimmed');
+        } else {
+          cell.classList.toggle('cp-fin-col-active', i === idx);
+          cell.classList.toggle('cp-fin-col-dimmed', i !== idx);
+        }
+      });
+    });
+  };
+
+  barWraps.forEach((bw, i) => {
+    bw.style.cursor = 'pointer';
+    bw.addEventListener('click', () => applySelection(activeIdx === i ? null : i));
+  });
 }
 
 function percentFromRatio(value: number | undefined): number | undefined {
