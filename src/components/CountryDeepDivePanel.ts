@@ -45,14 +45,6 @@ const CDP_ICON_FULLSCREEN = `<svg width="14" height="14" viewBox="0 0 24 24" fil
   <line x1="3" y1="21" x2="10" y2="14"/>
 </svg>`;
 
-// Compress icon: two inward-facing arrow pairs.
-// Shown in the maximized state to communicate "click to collapse back to panel".
-const CDP_ICON_COMPRESS = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <polyline points="4 14 10 14 10 20"/>
-  <polyline points="20 10 14 10 14 4"/>
-  <line x1="10" y1="14" x2="3" y2="21"/>
-  <line x1="21" y1="3" x2="14" y2="10"/>
-</svg>`;
 
 type ThreatLevel = 'critical' | 'high' | 'medium' | 'low' | 'info';
 type TrendDirection = 'up' | 'down' | 'flat';
@@ -101,8 +93,6 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
   private economicIndicators: CountryDeepDiveEconomicIndicator[] = [];
   private infrastructureByType = new Map<AssetType, RelatedAsset[]>();
   private activeInfraLayer: CountryInfraAssetType | null = null;
-  private maximizeButton: HTMLButtonElement | null = null;
-  private rightPanelButton: HTMLButtonElement | null = null;
   private currentHeadlineCount = 0;
   private currentMarkets: PredictionMarket[] = [];
 
@@ -689,7 +679,6 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     rightPanelBtn.addEventListener('click', () => {
       if (this.isMaximizedState) this.minimize();
     });
-    this.rightPanelButton = rightPanelBtn;
 
     // Full-screen button: expands to full viewport
     const maxBtn = this.el('button', 'cdp-mode-btn cdp-maximize-btn') as HTMLButtonElement;
@@ -700,7 +689,6 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       if (this.isMaximizedState) this.minimize();
       else this.maximize();
     });
-    this.maximizeButton = maxBtn;
 
     const shareBtn = this.el('button', 'cdp-action-btn cdp-share-btn') as HTMLButtonElement;
     shareBtn.setAttribute('type', 'button');

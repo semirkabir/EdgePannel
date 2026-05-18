@@ -995,6 +995,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     if (hasFinancials) {
       const [statementCard, statementBody] = ctx.sectionCard('Statements');
+      statementCard.classList.add('edp-card--wide');
       statementBody.append(this.buildFinancialControls(ctx, content, data));
       statementBody.append(buildFinancialChart(ctx, periods, this.activeFinancialStatement));
       const rows = buildFinancialRows(periods, this.activeFinancialStatement)
@@ -1129,7 +1130,7 @@ export class CompanyRenderer implements EntityRenderer {
     // Analyst consensus
     if (data.recommendations.length > 0) {
       const [card, body] = ctx.sectionCard('Analyst Consensus');
-      card.classList.add('cp-card-with-action');
+      card.classList.add('cp-card-with-action', 'edp-card--wide');
       const detailButton = ctx.el('button', 'cp-card-action-btn', 'Open details') as HTMLButtonElement;
       detailButton.type = 'button';
       detailButton.addEventListener('click', () => {
@@ -1222,6 +1223,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     if (data.epsEstimates.data.length > 0 || data.revenueEstimates.data.length > 0 || data.earningsSurprises.length > 0) {
       const [card, body] = ctx.sectionCard('Earnings & Revenue');
+      card.classList.add('edp-card--wide');
       const latest = data.earningsSurprises[0];
       if (latest) {
         const summary = ctx.el('div', 'cp-mini-kpi-grid');
@@ -1318,6 +1320,7 @@ export class CompanyRenderer implements EntityRenderer {
         return;
       }
       const [card, body] = ctx.sectionCard('');
+      card.classList.add('edp-card--wide');
       (card.querySelector('.edp-section-card-title') as HTMLElement | null)?.remove();
       for (const item of filtered.slice(0, 25)) {
         const newsRow = ctx.el('div', 'cp-news-row');
@@ -1485,6 +1488,7 @@ export class CompanyRenderer implements EntityRenderer {
     }
 
     const [card, body] = ctx.sectionCard('Top Institutional Holders');
+    card.classList.add('edp-card--wide');
 
     // Header
     const hdr = ctx.el('div', 'cp-holders-row cp-holders-hdr');
@@ -1697,7 +1701,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     if (data.recommendations.length > 0) {
       const [card, body] = ctx.sectionCard('Analyst Consensus');
-      card.classList.add('cp-card-with-action');
+      card.classList.add('cp-card-with-action', 'edp-card--wide');
       const detailButton = ctx.el('button', 'cp-card-action-btn', 'Open details') as HTMLButtonElement;
       detailButton.type = 'button';
       detailButton.addEventListener('click', () => ctx.navigate(buildAnalystDetailsView(ctx, data)));
@@ -1735,6 +1739,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     if (data.epsEstimates.data.length > 0 || data.revenueEstimates.data.length > 0) {
       const [card, body] = ctx.sectionCard('Forward Estimates');
+      card.classList.add('edp-card--wide');
       if (data.epsEstimates.data.length > 0) body.append(buildEstimateStrip(ctx, 'EPS Estimates', data.epsEstimates, false));
       if (data.revenueEstimates.data.length > 0) body.append(buildEstimateStrip(ctx, 'Revenue Estimates', data.revenueEstimates, true));
       content.append(card);
@@ -1742,12 +1747,14 @@ export class CompanyRenderer implements EntityRenderer {
 
     if (data.earningsSurprises.length > 0) {
       const [card, body] = ctx.sectionCard('Earnings Surprises');
+      card.classList.add('edp-card--wide');
       body.append(buildEarningsTable(ctx, data.earningsSurprises.slice(0, 10)));
       content.append(card);
     }
 
     if (data.ratingActions.length > 0) {
       const [card, body] = ctx.sectionCard('Firm Rating Actions');
+      card.classList.add('edp-card--wide');
       const table = ctx.el('div', 'cp-analyst-action-table');
       table.append(simpleTableRow(ctx, ['Date', 'Firm', 'Action', 'From', 'To'], true));
       for (const action of data.ratingActions.slice(0, 20)) {
@@ -1795,6 +1802,7 @@ export class CompanyRenderer implements EntityRenderer {
     content.append(summCard);
 
     const [txnCard, txnBody] = ctx.sectionCard('Transaction History');
+    txnCard.classList.add('edp-card--wide');
     const hdr = ctx.el('div', 'cp-holders-row cp-holders-hdr');
     hdr.append(ctx.el('span', 'cp-holders-name', 'Insider'));
     hdr.append(ctx.el('span', 'cp-holders-shares', 'Shares'));
@@ -1833,6 +1841,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     if (hasSurprises) {
       const [card, body] = ctx.sectionCard('Earnings History');
+      card.classList.add('edp-card--wide');
       const latest = data.earningsSurprises[0];
       if (latest) {
         const kpiGrid = ctx.el('div', 'cp-mini-kpi-grid');
@@ -1857,6 +1866,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     if (hasDividends) {
       const [card, body] = ctx.sectionCard('Dividend History');
+      card.classList.add('edp-card--wide');
       if (data.metrics?.dividendYieldIndicatedAnnual) {
         body.append(row(ctx, 'Indicated yield', fmtPercent(data.metrics.dividendYieldIndicatedAnnual)));
       }
@@ -1870,6 +1880,7 @@ export class CompanyRenderer implements EntityRenderer {
   private renderFilingsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
     if (data.ownership.length > 0) {
       const [ownersCard, ownersBody] = ctx.sectionCard('13F Ownership Snapshot');
+      ownersCard.classList.add('edp-card--wide');
       const note = ctx.el('p', 'edp-description');
       note.textContent = `Latest institutional ownership disclosures tied to ${data.ticker} via 13F reporting.`;
       ownersBody.append(note);
@@ -1913,6 +1924,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     for (const year of years) {
       const [card, body] = ctx.sectionCard(`Issuer SEC Filings · ${year}`);
+      card.classList.add('edp-card--wide');
       for (const filing of byYear.get(year)!) {
         body.append(buildFilingRow(ctx, filing));
       }
