@@ -344,7 +344,7 @@ async function buildPredictionMarketDetailFallback(
   const market = data[0];
   if (!market) return null;
 
-  const tokenIds = normalizeTokenIds(market.clobTokenIds);
+  const tokenIds = normalizeTokenIds(market.clobTokenIds ?? market.clob_token_ids);
   const tokenId = tokenIds[0] || '';
   const conditionId = market.conditionId || market.condition_id || '';
   const marketId = String(market.id || '');

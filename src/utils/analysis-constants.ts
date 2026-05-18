@@ -230,6 +230,7 @@ export function generateDedupeKey(type: string, identifier: string, value: numbe
 // Signal context: "Why it matters" explanations (Quick Win #3)
 // Each signal type has a brief explanation of its analytical significance
 export type SignalType =
+  | 'prediction_mover'
   | 'prediction_leads_news'
   | 'news_leads_markets'
   | 'silent_divergence'
@@ -252,6 +253,11 @@ export interface SignalContext {
 }
 
 export const SIGNAL_CONTEXT: Record<SignalType, SignalContext> = {
+  prediction_mover: {
+    whyItMatters: 'Large moves in highly traded prediction markets can reveal shifting expectations before the broader narrative settles.',
+    actionableInsight: 'Review the market, volume, and related news to determine whether the move reflects new information or momentum.',
+    confidenceNote: 'Confidence is higher when the market is liquid and the move is backed by meaningful 24-hour volume.',
+  },
   prediction_leads_news: {
     whyItMatters: 'Prediction markets often price in information before it becomes news—traders may have early access to developments.',
     actionableInsight: 'Monitor for breaking news in the next 1-6 hours that could explain the market move.',

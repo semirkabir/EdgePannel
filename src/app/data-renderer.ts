@@ -1,6 +1,6 @@
 import type { AppContext } from '@/app/app-context';
 import type { MarketData } from '@/types';
-import type { PredictionMarket } from '@/services/prediction';
+import type { GeoPredictionMarket, PredictionMarket } from '@/services/prediction';
 import type { SolarWeatherSnapshot } from '@/services/solar-weather';
 import type { GetShippingRatesResponse, GetChokepointStatusResponse } from '@/services/supply-chain';
 import type { SupplementalSignal } from '@/services/supplemental-signal-bus';
@@ -10,7 +10,9 @@ import {
   fetchCrypto,
   fetchMarketRiskOverlay,
   fetchPredictions,
-  fetchGeoTaggedMarkets,
+  fetchPredictionMoverSignals,
+  fetchGeoTaggedMarketsInitial,
+  refreshGeoTaggedMarkets,
   fetchFredData,
   fetchOilAnalytics,
   fetchRecentAwards,
@@ -295,6 +297,14 @@ export class DataRenderer {
       dataFreshness.recordUpdate('polymarket', predictions.length);
       dataFreshness.recordUpdate('predictions', predictions.length);
 
+      void fetchPredictionMoverSignals()
+        .then(async (signals) => {
+          if (signals.length === 0) return;
+          const { addToSignalHistory } = await import('@/services/correlation');
+          addToSignalHistory(signals);
+        })
+        .catch(() => {});
+
       void this.runCorrelationAnalysis();
     } catch (error) {
       this.ctx.statusPanel?.updateFeed('Polymarket', { status: 'error', errorMessage: String(error) });
@@ -307,12 +317,35 @@ export class DataRenderer {
 
   async loadPolymarketGeo(): Promise<void> {
     try {
-      const markets = await fetchGeoTaggedMarkets();
-      this.ctx.intelligenceStore.setPolymarketGeo(markets);
-      this.ctx.map?.setPolymarketMarkets(markets);
-      this.ctx.map?.setLayerReady('polymarketMarkets', markets.length > 0);
-      this.ctx.statusPanel?.updateFeed('Polymarket Map', { status: 'ok', itemCount: markets.length });
-      dataFreshness.recordUpdate('polymarket', markets.length);
+      const applyMarkets = (markets: GeoPredictionMarket[]): void => {
+        this.ctx.intelligenceStore.setPolymarketGeo(markets);
+        this.ctx.map?.setPolymarketMarkets(markets);
+        this.ctx.map?.setLayerReady('polymarketMarkets', markets.length > 0);
+        this.ctx.statusPanel?.updateFeed('Polymarket Map', { status: 'ok', itemCount: markets.length });
+        dataFreshness.recordUpdate('polymarket', markets.length);
+      };
+
+      const initial = await fetchGeoTaggedMarketsInitial();
+      if (initial.markets.length > 0) {
+        applyMarkets(initial.markets);
+      } else {
+        this.ctx.map?.setLayerReady('polymarketMarkets', false);
+      }
+
+      if (initial.needsRefresh) {
+        void refreshGeoTaggedMarkets()
+          .then((markets) => {
+            if (markets.length > 0) applyMarkets(markets);
+          })
+          .catch((error) => {
+            console.warn('[Polymarket] background map refresh failed:', error);
+            if (initial.markets.length === 0) {
+              this.ctx.map?.setLayerReady('polymarketMarkets', false);
+              this.ctx.statusPanel?.updateFeed('Polymarket Map', { status: 'error', errorMessage: String(error) });
+              dataFreshness.recordError('polymarket', String(error));
+            }
+          });
+      }
     } catch (error) {
       this.ctx.map?.setLayerReady('polymarketMarkets', false);
       this.ctx.statusPanel?.updateFeed('Polymarket Map', { status: 'error', errorMessage: String(error) });

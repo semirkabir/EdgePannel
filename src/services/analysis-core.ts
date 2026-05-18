@@ -109,6 +109,7 @@ export interface MarketDataCore {
 }
 
 export type SignalType =
+  | 'prediction_mover'
   | 'prediction_leads_news'
   | 'news_leads_markets'
   | 'silent_divergence'
@@ -144,6 +145,18 @@ export interface CorrelationSignalCore {
     baseline?: number;
     multiplier?: number;
     sourceCount?: number;
+    marketTitle?: string;
+    marketSlug?: string;
+    marketUrl?: string;
+    currentPrice?: number;
+    dayChangePoints?: number;
+    dayChangeDirection?: 'up' | 'down';
+    volume24h?: number;
+    totalVolume?: number;
+    liquidity?: number;
+    relevanceScore?: number;
+    importanceScore?: number;
+    priceHistory24h?: Array<{ timestamp: number; price: number }>;
   };
 }
 

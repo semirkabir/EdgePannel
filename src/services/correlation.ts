@@ -24,6 +24,7 @@ const recentSignalKeys = new Map<string, number>();
 
 const DEFAULT_DEDUPE_TTL = 30 * 60 * 1000;
 const DEDUPE_TTLS: Record<string, number> = {
+  prediction_mover: 6 * 60 * 60 * 1000,
   silent_divergence: 6 * 60 * 60 * 1000,
   flow_price_divergence: 6 * 60 * 60 * 1000,
   explained_market_move: 6 * 60 * 60 * 1000,

@@ -1,5 +1,5 @@
 import type { GeoPredictionMarket, PolymarketEvent, PolymarketMarket, PredictionMarket } from './types';
-import { isMarketExcluded, parseMarketPrice, buildMarketUrl, parseEndDate, isExpired } from './market-utils';
+import { isMarketExcluded, parseMarketPrice, buildMarketUrl, parseEndDate, isExpired, normalizeTokenIds } from './market-utils';
 import { fetchEventsByTag, polyFetch } from './polymarket-client';
 import { getPersistentCache, setPersistentCache, cacheAgeMs } from '@/services/persistent-cache';
 import { geotagPredictionMarket, COUNTRY_BOUNDS, sampleInsideCountry } from './geotagging';
@@ -9,9 +9,13 @@ import { isCoordinateInCountry, nameToCountryCode } from '../country-geometry';
 const GLOBAL_DISCOVERY_TAGS = ['world', 'politics', 'elections', 'geopolitics', 'economics', 'middle-east', 'asia', 'europe'];
 const GLOBAL_DISCOVERY_PAGE_SIZE = 500;
 const GLOBAL_DISCOVERY_PAGES = 5;
-const GEO_MARKETS_CACHE_KEY = 'prediction:geo-markets:v2';
+const QUICK_DISCOVERY_TAG_LIMIT = 120;
+const QUICK_DISCOVERY_PAGE_SIZE = 200;
+const QUICK_DISCOVERY_PAGES = 1;
+const GEO_MARKETS_CACHE_KEY = 'prediction:geo-markets:v3';
 const GEO_MARKETS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const GEO_MARKETS_STALE_TTL_MS = 24 * 60 * 60 * 1000;
+let inFlightGeoMarketsRefresh: Promise<GeoPredictionMarket[]> | null = null;
 
 const COUNTRY_TAG_MAP: Record<string, string[]> = {
   'United States': ['usa', 'politics', 'elections'],
@@ -248,6 +252,32 @@ const COUNTRY_SPREAD_DEGREES: Record<string, { lon: number; lat: number }> = {
 const GEO_MARKETS_PER_COUNTRY = 120;
 const GEO_MARKETS_TOTAL_LIMIT = 10_000;
 
+type TagEventFetcher = (tag: string, limit?: number) => Promise<PolymarketEvent[]>;
+
+type Candidate = {
+  market: GeoPredictionMarket;
+  matchScore: number;
+};
+
+export interface GeoTaggedMarketsInitialLoad {
+  markets: GeoPredictionMarket[];
+  needsRefresh: boolean;
+  source: 'fresh-cache' | 'stale-cache' | 'quick-refresh' | 'empty';
+}
+
+function createTagEventFetcher(): TagEventFetcher {
+  const requests = new Map<string, Promise<PolymarketEvent[]>>();
+  return (tag: string, limit = 50) => {
+    const key = `${tag}:${limit}`;
+    const cached = requests.get(key);
+    if (cached) return cached;
+
+    const request = fetchEventsByTag(tag, limit);
+    requests.set(key, request);
+    return request;
+  };
+}
+
 function hashStringToUnit(value: string): number {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i++) {
@@ -438,6 +468,10 @@ function getMarketLiquidity(market: PolymarketMarket): number {
         : 0;
 }
 
+function getMarketTokenIds(market: PolymarketMarket): string[] {
+  return normalizeTokenIds(market.clobTokenIds ?? market.clob_token_ids);
+}
+
 function eventToPredictionMarket(
   event: PolymarketEvent,
   variants: string[],
@@ -467,6 +501,8 @@ function eventToPredictionMarket(
       title: topMarket.question || event.title,
       yesPrice: parseMarketPrice(topMarket),
       volume: vol || event.volume || 0,
+      conditionId: topMarket.conditionId || topMarket.condition_id,
+      tokenIds: getMarketTokenIds(topMarket),
       url: buildMarketUrl(event.slug, topMarket.slug),
       endDate: parseEndDate(topMarket.endDate ?? event.endDate),
       slug: topMarket.slug,
@@ -499,6 +535,8 @@ export function eventToGroupedPredictionMarket(event: PolymarketEvent): Predicti
         yesPrice: parseMarketPrice(market),
         volume,
         liquidity: getMarketLiquidity(market),
+        conditionId: market.conditionId || market.condition_id,
+        tokenIds: getMarketTokenIds(market),
         url: buildMarketUrl(event.slug, market.slug),
         endDate: parseEndDate(market.endDate ?? event.endDate),
         slug: market.slug,
@@ -536,6 +574,8 @@ export function eventToGroupedPredictionMarket(event: PolymarketEvent): Predicti
     yesPrice: representative.yesPrice,
     volume: totalVolume,
     liquidity: totalLiquidity,
+    conditionId: representative.conditionId,
+    tokenIds: representative.tokenIds,
     url: representative.url || buildMarketUrl(event.slug),
     endDate: earliestEndDate ?? parseEndDate(event.endDate),
     slug: representative.slug || event.slug,
@@ -559,6 +599,8 @@ function marketToPredictionMarket(market: PolymarketMarket): PredictionMarket | 
     yesPrice: parseMarketPrice(market),
     volume,
     liquidity: getMarketLiquidity(market),
+    conditionId: market.conditionId || market.condition_id,
+    tokenIds: getMarketTokenIds(market),
     url: buildMarketUrl(typeof eventSlug === 'string' ? eventSlug : undefined, slug),
     endDate: parseEndDate(market.endDate),
     slug,
@@ -586,18 +628,30 @@ function toGeoCandidate(market: PredictionMarket, matchScore = 1): { market: Geo
   };
 }
 
-async function fetchDiscoveryEvents(): Promise<PolymarketEvent[]> {
-  const tagResults = await Promise.all(GLOBAL_DISCOVERY_TAGS.map(tag => fetchEventsByTag(tag, GLOBAL_DISCOVERY_PAGE_SIZE)));
+interface DiscoveryOptions {
+  pageSize?: number;
+  pages?: number;
+  tagLimit?: number;
+}
+
+async function fetchDiscoveryEvents(
+  options: DiscoveryOptions = {},
+  fetchTagEvents: TagEventFetcher = fetchEventsByTag,
+): Promise<PolymarketEvent[]> {
+  const pageSize = options.pageSize ?? GLOBAL_DISCOVERY_PAGE_SIZE;
+  const pages = options.pages ?? GLOBAL_DISCOVERY_PAGES;
+  const tagLimit = options.tagLimit ?? GLOBAL_DISCOVERY_PAGE_SIZE;
+  const tagResults = await Promise.all(GLOBAL_DISCOVERY_TAGS.map(tag => fetchTagEvents(tag, tagLimit)));
   const pagedResults = await Promise.all(
-    Array.from({ length: GLOBAL_DISCOVERY_PAGES }, (_, page) => polyFetch('events', {
+    Array.from({ length: pages }, (_, page) => polyFetch('events', {
       closed: 'false',
       active: 'true',
       archived: 'false',
       end_date_min: new Date().toISOString(),
       order: 'volume',
       ascending: 'false',
-      limit: String(GLOBAL_DISCOVERY_PAGE_SIZE),
-      offset: String(page * GLOBAL_DISCOVERY_PAGE_SIZE),
+      limit: String(pageSize),
+      offset: String(page * pageSize),
     }).then(async (response) => {
       if (!response.ok) return [] as PolymarketEvent[];
       const data = await response.json();
@@ -617,17 +671,19 @@ async function fetchDiscoveryEvents(): Promise<PolymarketEvent[]> {
     .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
 }
 
-async function fetchDiscoveryMarkets(): Promise<PredictionMarket[]> {
+async function fetchDiscoveryMarkets(options: DiscoveryOptions = {}): Promise<PredictionMarket[]> {
+  const pageSize = options.pageSize ?? GLOBAL_DISCOVERY_PAGE_SIZE;
+  const pages = options.pages ?? GLOBAL_DISCOVERY_PAGES;
   const pageResults = await Promise.all(
-    Array.from({ length: GLOBAL_DISCOVERY_PAGES }, (_, page) => polyFetch('markets', {
+    Array.from({ length: pages }, (_, page) => polyFetch('markets', {
       closed: 'false',
       active: 'true',
       archived: 'false',
       end_date_min: new Date().toISOString(),
       order: 'volume',
       ascending: 'false',
-      limit: String(GLOBAL_DISCOVERY_PAGE_SIZE),
-      offset: String(page * GLOBAL_DISCOVERY_PAGE_SIZE),
+      limit: String(pageSize),
+      offset: String(page * pageSize),
     }).then(async (response) => {
       if (!response.ok) return [] as PolymarketMarket[];
       const data = await response.json();
@@ -671,13 +727,16 @@ async function runThrottled<T, R>(
   return results;
 }
 
-export async function fetchCountryMarkets(country: string): Promise<PredictionMarket[]> {
+export async function fetchCountryMarkets(
+  country: string,
+  fetchTagEvents: TagEventFetcher = fetchEventsByTag,
+): Promise<PredictionMarket[]> {
   const tags = COUNTRY_TAG_MAP[country] ?? ['geopolitics', 'world'];
   const uniqueTags = [...new Set(tags)].slice(0, 3);
   const variants = getCountryVariants(country);
 
   try {
-    const eventResults = await Promise.all(uniqueTags.map(tag => fetchEventsByTag(tag, 160)));
+    const eventResults = await Promise.all(uniqueTags.map(tag => fetchTagEvents(tag, 160)));
     const seen = new Set<string>();
     const markets: PredictionMarket[] = [];
 
@@ -769,77 +828,119 @@ async function fetchGroqGeotags(
   }
 }
 
+function getGeoCountries(): string[] {
+  return Object.keys(COUNTRY_TAG_MAP).filter(country => COUNTRY_CENTROIDS[country]);
+}
+
+function makeCountryCandidate(country: string, market: PredictionMarket, matchScore: number): Candidate | null {
+  const centroid = COUNTRY_CENTROIDS[country];
+  if (!centroid) return null;
+
+  const [lon, lat] = spreadMarketAroundCountry(country, market, centroid);
+  return {
+    market: {
+      ...market,
+      country,
+      lon,
+      lat,
+    },
+    matchScore,
+  };
+}
+
+function findBestCountryForEvent(event: PolymarketEvent, countries: string[]): Candidate | null {
+  const groupedMarket = eventToGroupedPredictionMarket(event);
+  if (groupedMarket) {
+    const eventCandidate = toGeoCandidate(groupedMarket, 10);
+    if (eventCandidate) return eventCandidate;
+  }
+
+  const eventTitle = event.title ?? '';
+  const marketTitles = (event.markets ?? []).map(m => m.question ?? '');
+  let bestCountry = '';
+  let bestScore = 0;
+
+  for (const country of countries) {
+    const score = countryMatchScore(eventTitle, marketTitles, country);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCountry = country;
+    }
+  }
+
+  if (!bestCountry || bestScore <= 0) return null;
+  const market = eventToPredictionMarket(event, getCountryVariants(bestCountry));
+  return market ? toGeoCandidate(market, bestScore) ?? makeCountryCandidate(bestCountry, market, bestScore) : null;
+}
+
+function findBestCountryForMarket(market: PredictionMarket, countries: string[]): Candidate | null {
+  const directCandidate = toGeoCandidate(market, 6);
+  if (directCandidate) return directCandidate;
+
+  let bestCountry = '';
+  let bestScore = 0;
+
+  for (const country of countries) {
+    const score = countryMatchScore('', [market.title], country);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCountry = country;
+    }
+  }
+
+  return bestCountry && bestScore > 0 ? makeCountryCandidate(bestCountry, market, bestScore) : null;
+}
+
+function dedupeCandidates(candidates: Candidate[]): GeoPredictionMarket[] {
+  const deduped = new Map<string, Candidate>();
+  for (const candidate of candidates) {
+    const key = getMarketEventKey(candidate.market);
+    const existing = deduped.get(key);
+    if (
+      !existing ||
+      candidate.matchScore > existing.matchScore ||
+      (candidate.matchScore === existing.matchScore && (candidate.market.volume ?? 0) > (existing.market.volume ?? 0))
+    ) {
+      deduped.set(key, candidate);
+    }
+  }
+
+  return [...deduped.values()]
+    .map(({ market }) => market)
+    .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
+    .slice(0, GEO_MARKETS_TOTAL_LIMIT);
+}
+
+async function fetchGeoTaggedMarketsQuick(): Promise<GeoPredictionMarket[]> {
+  const countries = getGeoCountries();
+  const fetchTagEvents = createTagEventFetcher();
+  const quickOptions = {
+    pageSize: QUICK_DISCOVERY_PAGE_SIZE,
+    pages: QUICK_DISCOVERY_PAGES,
+    tagLimit: QUICK_DISCOVERY_TAG_LIMIT,
+  };
+  const [events, markets] = await Promise.all([
+    fetchDiscoveryEvents(quickOptions, fetchTagEvents),
+    fetchDiscoveryMarkets(quickOptions),
+  ]);
+
+  const candidates = [
+    ...events.map(event => findBestCountryForEvent(event, countries)),
+    ...markets.map(market => findBestCountryForMarket(market, countries)),
+  ].filter((candidate): candidate is Candidate => Boolean(candidate));
+
+  return dedupeCandidates(candidates);
+}
+
 async function fetchGeoTaggedMarketsFresh(): Promise<GeoPredictionMarket[]> {
-  type Candidate = {
-    market: GeoPredictionMarket;
-    matchScore: number;
-  };
-
-  const countries = Object.keys(COUNTRY_TAG_MAP).filter(country => COUNTRY_CENTROIDS[country]);
-  const makeCandidate = (country: string, market: PredictionMarket, matchScore: number): Candidate | null => {
-    const centroid = COUNTRY_CENTROIDS[country];
-    if (!centroid) return null;
-
-    const [lon, lat] = spreadMarketAroundCountry(country, market, centroid);
-    return {
-      market: {
-        ...market,
-        country,
-        lon,
-        lat,
-      },
-      matchScore,
-    };
-  };
-
-  const findBestCountryForEvent = (event: PolymarketEvent): Candidate | null => {
-    const groupedMarket = eventToGroupedPredictionMarket(event);
-    if (groupedMarket) {
-      const eventCandidate = toGeoCandidate(groupedMarket, 10);
-      if (eventCandidate) return eventCandidate;
-    }
-
-    const eventTitle = event.title ?? '';
-    const marketTitles = (event.markets ?? []).map(m => m.question ?? '');
-    let bestCountry = '';
-    let bestScore = 0;
-
-    for (const country of countries) {
-      const score = countryMatchScore(eventTitle, marketTitles, country);
-      if (score > bestScore) {
-        bestScore = score;
-        bestCountry = country;
-      }
-    }
-
-    if (!bestCountry || bestScore <= 0) return null;
-    const market = eventToPredictionMarket(event, getCountryVariants(bestCountry));
-    return market ? toGeoCandidate(market, bestScore) ?? makeCandidate(bestCountry, market, bestScore) : null;
-  };
-
-  const findBestCountryForMarket = (market: PredictionMarket): Candidate | null => {
-    const directCandidate = toGeoCandidate(market, 6);
-    if (directCandidate) return directCandidate;
-
-    let bestCountry = '';
-    let bestScore = 0;
-
-    for (const country of countries) {
-      const score = countryMatchScore('', [market.title], country);
-      if (score > bestScore) {
-        bestScore = score;
-        bestCountry = country;
-      }
-    }
-
-    return bestCountry && bestScore > 0 ? makeCandidate(bestCountry, market, bestScore) : null;
-  };
+  const countries = getGeoCountries();
+  const fetchTagEvents = createTagEventFetcher();
 
   const countryResultsPromise = runThrottled(countries, 6, async (country) => {
     const centroid = COUNTRY_CENTROIDS[country];
     if (!centroid) return [] as Candidate[];
 
-    const markets = await fetchCountryMarkets(country);
+    const markets = await fetchCountryMarkets(country, fetchTagEvents);
     return markets.map((market): Candidate => {
       const directCandidate = toGeoCandidate(market, countVariantMatches(market.title, country));
       if (directCandidate) return directCandidate;
@@ -858,7 +959,7 @@ async function fetchGeoTaggedMarketsFresh(): Promise<GeoPredictionMarket[]> {
   });
   const [results, discoveryEvents, discoveryMarkets] = await Promise.all([
     countryResultsPromise,
-    fetchDiscoveryEvents(),
+    fetchDiscoveryEvents({}, fetchTagEvents),
     fetchDiscoveryMarkets(),
   ]);
 
@@ -870,9 +971,10 @@ async function fetchGeoTaggedMarketsFresh(): Promise<GeoPredictionMarket[]> {
   // Build event geotag inheritance map: eventId → GeoPredictionMarket geotag.
   // Child markets that fail their own geotagging inherit the parent event's location.
   const eventGeotags = new Map<string, GeoPredictionMarket>();
+  const deduped = new Map<string, Candidate>();
 
   const discoveryCandidateResults = discoveryEvents.map((event) => {
-    const candidate = findBestCountryForEvent(event);
+    const candidate = findBestCountryForEvent(event, countries);
     if (candidate) {
       // Record the event's geotag for child market inheritance
       if (event.id) {
@@ -926,7 +1028,7 @@ async function fetchGeoTaggedMarketsFresh(): Promise<GeoPredictionMarket[]> {
     return candidate;
   });
   const discoveryMarketCandidates = discoveryMarkets.map((market) => {
-    const candidate = findBestCountryForMarket(market);
+    const candidate = findBestCountryForMarket(market, countries);
     if (!candidate && (market.volume ?? 0) >= GROQ_VOLUME_THRESHOLD) {
       unmatchedForGroq.push({
         title: market.title,
@@ -946,7 +1048,6 @@ async function fetchGeoTaggedMarketsFresh(): Promise<GeoPredictionMarket[]> {
     ...discoveryMarketCandidates,
   ].filter((candidate): candidate is Candidate => Boolean(candidate));
 
-  const deduped = new Map<string, Candidate>();
   for (const candidates of [...results, discoveryCandidates]) {
     for (const candidate of candidates) {
       const key = getMarketEventKey(candidate.market);
@@ -1069,4 +1170,47 @@ export async function fetchGeoTaggedMarketsWithCache(refresh: () => Promise<GeoP
 
 export async function fetchGeoTaggedMarkets(): Promise<GeoPredictionMarket[]> {
   return fetchGeoTaggedMarketsWithCache();
+}
+
+export async function fetchGeoTaggedMarketsInitial(): Promise<GeoTaggedMarketsInitialLoad> {
+  const cached = await getPersistentCache<GeoPredictionMarket[]>(GEO_MARKETS_CACHE_KEY);
+  if (cached && cached.data.length > 0) {
+    const age = cacheAgeMs(cached.updatedAt);
+    if (age < GEO_MARKETS_CACHE_TTL_MS) {
+      return { markets: cached.data, needsRefresh: false, source: 'fresh-cache' };
+    }
+    if (age < GEO_MARKETS_STALE_TTL_MS) {
+      return { markets: cached.data, needsRefresh: true, source: 'stale-cache' };
+    }
+  }
+
+  try {
+    const quickMarkets = await fetchGeoTaggedMarketsQuick();
+    if (quickMarkets.length > 0) {
+      return { markets: quickMarkets, needsRefresh: true, source: 'quick-refresh' };
+    }
+  } catch (error) {
+    console.warn('[Polymarket] quick geotagged market refresh failed:', error);
+  }
+
+  return { markets: [], needsRefresh: true, source: 'empty' };
+}
+
+export async function refreshGeoTaggedMarkets(): Promise<GeoPredictionMarket[]> {
+  if (!inFlightGeoMarketsRefresh) {
+    inFlightGeoMarketsRefresh = (async () => {
+      const markets = await fetchGeoTaggedMarketsFresh();
+      if (markets.length > 0) {
+        try {
+          await setPersistentCache(GEO_MARKETS_CACHE_KEY, markets);
+        } catch {
+          // Cache persistence is opportunistic; fresh markets should still render.
+        }
+      }
+      return markets;
+    })().finally(() => {
+      inFlightGeoMarketsRefresh = null;
+    });
+  }
+  return inFlightGeoMarketsRefresh;
 }

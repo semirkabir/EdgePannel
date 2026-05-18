@@ -129,7 +129,8 @@ export class DataLoaderManager implements AppModule {
 
   public hasActivePredictionConsumer(): boolean {
     return this.isPanelEnabled('polymarket')
-      || (this.ctx.predictionBriefPage?.isVisible?.() ?? false);
+      || (this.ctx.predictionBriefPage?.isVisible?.() ?? false)
+      || Boolean(this.ctx.findingsBadge);
   }
 
   public hasActiveEconomicConsumer(): boolean {

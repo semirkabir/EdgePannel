@@ -7,6 +7,7 @@ import { getSignalContext } from '@/utils/analysis-constants';
 import { escapeHtml } from '@/utils/sanitize';
 import { trackFindingClicked } from '@/services/analytics';
 import { isLoggedIn } from '@/services/user-auth';
+import { notificationSeverityFromConfidence } from '@/services/notifications';
 
 const LOW_COUNT_THRESHOLD = 3;
 const MAX_VISIBLE_FINDINGS = 10;
@@ -33,7 +34,7 @@ const FILTER_TYPE_MAP: Record<AlertFilter, string[]> = {
   all: [],
   instability: ['cii_spike', 'cascade', 'hotspot_escalation', 'breaking'],
   military: ['military_flight', 'military_vessel', 'military_surge', 'active_strike', 'geo_convergence', 'ais_disruption'],
-  market: ['news_leads_markets', 'prediction_leads_news', 'explained_market_move', 'flow_price_divergence', 'flow_drop', 'sector_cascade', 'keyword_spike', 'velocity_spike', 'temporal_anomaly'],
+  market: ['prediction_mover', 'news_leads_markets', 'prediction_leads_news', 'explained_market_move', 'flow_price_divergence', 'flow_drop', 'sector_cascade', 'keyword_spike', 'velocity_spike', 'temporal_anomaly'],
   civil: ['protest', 'convergence', 'triangulation', 'internet_outage', 'satellite_fire'],
 };
 
@@ -434,7 +435,7 @@ export class IntelligenceFindingsBadge {
       title: s.title,
       description: s.description,
       confidence: s.confidence,
-      priority: s.confidence >= 0.7 ? 'high' as const : s.confidence >= 0.5 ? 'medium' as const : 'low' as const,
+      priority: notificationSeverityFromConfidence(s.confidence) as UnifiedFinding['priority'],
       timestamp: s.timestamp,
       original: s,
     }));
@@ -705,6 +706,7 @@ export class IntelligenceFindingsBadge {
       const insight = this.getInsight(finding);
       const toneClass = this.getFindingToneClass(finding);
       const eyebrow = this.getFindingEyebrow(finding);
+      const sparkline = this.renderFindingSparkline(finding);
 
       return `
         <div class="finding-item ${priorityClass} ${toneClass}" data-finding-id="${escapeHtml(finding.id)}">
@@ -719,6 +721,7 @@ export class IntelligenceFindingsBadge {
             <span class="finding-confidence ${priorityClass}">${t(`components.intelligenceFindings.priority.${finding.priority}`)}</span>
           </div>
           <div class="finding-description">${escapeHtml(finding.description)}</div>
+          ${sparkline}
           <div class="finding-meta">
             <span class="finding-insight">${escapeHtml(insight)}</span>
             <span class="finding-time">${timeAgo}</span>
@@ -774,6 +777,39 @@ export class IntelligenceFindingsBadge {
     return t('components.intelligenceFindings.insights.review');
   }
 
+  private renderFindingSparkline(finding: UnifiedFinding): string {
+    if (finding.source !== 'signal' || finding.type !== 'prediction_mover') return '';
+    const data = (finding.original as CorrelationSignal).data;
+    const history = data.priceHistory24h || [];
+    if (history.length < 2) return '';
+
+    const width = 220;
+    const height = 34;
+    const pad = 2;
+    const prices = history.map((point) => point.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min || 1;
+    const points = history.map((point, index) => {
+      const x = pad + (index / (history.length - 1)) * (width - pad * 2);
+      const y = height - pad - ((point.price - min) / range) * (height - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const rising = (data.dayChangePoints ?? 0) >= 0;
+    const lineColor = rising ? 'var(--status-ok)' : 'var(--status-critical)';
+    const fillColor = rising ? 'rgba(34,197,94,0.14)' : 'rgba(239,68,68,0.14)';
+    const area = `${pad},${height - pad} ${points} ${width - pad},${height - pad}`;
+
+    return `
+      <div class="finding-sparkline-row" aria-hidden="true">
+        <svg class="finding-sparkline" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+          <polygon points="${area}" fill="${fillColor}"></polygon>
+          <polyline points="${points}" fill="none" stroke="${lineColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        </svg>
+      </div>
+    `;
+  }
+
   private getTypeIcon(type: string): string {
     const icons: Record<string, string> = {
       // Correlation signals
@@ -781,6 +817,7 @@ export class IntelligenceFindingsBadge {
       silent_divergence: '🔇',
       flow_price_divergence: '📊',
       explained_market_move: '💡',
+      prediction_mover: '📈',
       prediction_leads_news: '🔮',
       geo_convergence: '🌍',
       hotspot_escalation: '⚠️',
@@ -822,6 +859,7 @@ export class IntelligenceFindingsBadge {
       silent_divergence: 'tone-divergence',
       flow_price_divergence: 'tone-divergence',
       flow_drop: 'tone-divergence',
+      prediction_mover: 'tone-market',
       prediction_leads_news: 'tone-market',
       news_leads_markets: 'tone-market',
       explained_market_move: 'tone-market',
@@ -856,6 +894,7 @@ export class IntelligenceFindingsBadge {
       silent_divergence: 'Silent Divergence',
       flow_price_divergence: 'Flow Divergence',
       flow_drop: 'Flow Drop',
+      prediction_mover: 'Prediction Mover',
       prediction_leads_news: 'Prediction Lead',
       news_leads_markets: 'News Lead',
       explained_market_move: 'Market Move',

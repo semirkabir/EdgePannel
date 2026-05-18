@@ -25,6 +25,9 @@ export interface LiveBookSnapshot {
   hash?: string;
   lastTradePrice?: number;
   lastTradeSide?: 'BUY' | 'SELL';
+  bestBid?: number;
+  bestAsk?: number;
+  spread?: number;
 }
 
 export type BookListener = (snapshot: LiveBookSnapshot) => void;
@@ -41,12 +44,13 @@ interface ServerBookLevel {
 }
 
 interface ServerEvent {
-  event_type: 'book' | 'price_change' | 'tick_size_change' | 'last_trade_price' | string;
+  event_type: 'book' | 'price_change' | 'tick_size_change' | 'last_trade_price' | 'best_bid_ask' | string;
   asset_id?: string;
   market?: string;
   bids?: ServerBookLevel[];
   asks?: ServerBookLevel[];
   changes?: PriceChangeEntry[];
+  price_changes?: PriceChangeEntry[];
   hash?: string;
   timestamp?: string | number;
   tick_size?: string;
@@ -55,6 +59,9 @@ interface ServerEvent {
   price?: string | number;
   size?: string | number;
   side?: 'BUY' | 'SELL';
+  best_bid?: string | number;
+  best_ask?: string | number;
+  spread?: string | number;
 }
 
 interface TokenState {
@@ -162,7 +169,7 @@ function handleServerEvent(raw: unknown): void {
       case 'price_change': {
         let bids = state.snapshot.bids;
         let asks = state.snapshot.asks;
-        for (const change of ev.changes || []) {
+        for (const change of ev.price_changes || ev.changes || []) {
           const price = parseNum(change.price);
           const size = parseNum(change.size);
           if (change.side === 'BUY') {
@@ -176,6 +183,17 @@ function handleServerEvent(raw: unknown): void {
           bids,
           asks,
           hash: ev.hash || state.snapshot.hash,
+          timestamp: parseTimestamp(ev.timestamp) || Date.now(),
+        };
+        emit(state);
+        break;
+      }
+      case 'best_bid_ask': {
+        state.snapshot = {
+          ...state.snapshot,
+          bestBid: parseNum(ev.best_bid),
+          bestAsk: parseNum(ev.best_ask),
+          spread: parseNum(ev.spread),
           timestamp: parseTimestamp(ev.timestamp) || Date.now(),
         };
         emit(state);
@@ -213,7 +231,11 @@ function sendSubscribe(): void {
   const assetIds = [...states.keys()];
   if (assetIds.length === 0) return;
   try {
-    socket.send(JSON.stringify({ type: 'market', assets_ids: assetIds }));
+    socket.send(JSON.stringify({
+      type: 'market',
+      assets_ids: assetIds,
+      custom_feature_enabled: true,
+    }));
   } catch (e) {
     console.warn('[PolymarketWS] subscribe send failed:', e);
   }

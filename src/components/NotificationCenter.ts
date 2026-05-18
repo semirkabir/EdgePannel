@@ -6,20 +6,27 @@
 
 import { signalAggregator, type SignalType } from '@/services/signal-aggregator';
 import type { BreakingAlert } from '@/services/breaking-news-alerts';
-import { requestNotificationPermission, getAlertSettings } from '@/services/breaking-news-alerts';
+import { requestNotificationPermission } from '@/services/breaking-news-alerts';
 import { getRecentSignals, type CorrelationSignal } from '@/services/correlation';
 import { getRecentAlerts, type UnifiedAlert } from '@/services/cross-module-integration';
+import {
+  formatNotificationAge,
+  notificationFamilyLabel,
+  notificationSeverityFromConfidence,
+  type AppNotification,
+  type NotificationFamily,
+  type NotificationSeverity,
+} from '@/services/notifications';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface NotificationItem {
-  id: string;
+interface NotificationItem extends Omit<AppNotification, 'timestamp' | 'family' | 'severity'> {
   kind: 'signal' | 'breaking' | 'intel' | 'finding';
-  title: string;
+  family: NotificationFamily;
+  severity: Exclude<NotificationSeverity, 'info'>;
   detail?: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
   signalType?: SignalType;
   country?: string;
   lat?: number;
@@ -52,14 +59,6 @@ const SIGNAL_ICONS: Record<SignalType, string> = {
   supplemental: '🧩',
 };
 
-function timeAgo(ts: number): string {
-  const diff = Date.now() - ts;
-  if (diff < 60_000) return 'just now';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return `${Math.floor(diff / 86_400_000)}d ago`;
-}
-
 function severityClass(s: string): string {
   switch (s) {
     case 'critical': return 'notif-critical';
@@ -67,6 +66,12 @@ function severityClass(s: string): string {
     case 'medium': return 'notif-medium';
     default: return 'notif-low';
   }
+}
+
+function familyForKind(kind: NotificationItem['kind']): NotificationFamily {
+  if (kind === 'breaking') return 'alert';
+  if (kind === 'intel') return 'system';
+  return 'finding';
 }
 
 /* ------------------------------------------------------------------ */
@@ -78,8 +83,6 @@ export class NotificationCenter {
   private badgeEl: HTMLElement;
   private dropdownEl: HTMLElement;
   private listEl: HTMLElement;
-  private bannerEl: HTMLElement;
-  private toastContainerEl: HTMLElement;
   private items: NotificationItem[] = [];
   private seenSignalIds = new Set<string>();
   private seenFindingIds = new Set<string>();
@@ -90,11 +93,6 @@ export class NotificationCenter {
   private onFindingClick: ((signal: CorrelationSignal) => void) | null = null;
   private onAlertClick: ((alert: UnifiedAlert) => void) | null = null;
   private permissionRequested = false;
-  private audio: HTMLAudioElement | null = null;
-  private lastSoundMs = 0;
-  private activeBanners: NotificationItem[] = [];
-  private readonly SOUND_COOLDOWN_MS = 5 * 60 * 1000;
-  private readonly BANNER_DISMISS_MS = 60_000;
 
   /* ---- lifecycle ---- */
 
@@ -105,8 +103,8 @@ export class NotificationCenter {
     // Bell button
     const btn = document.createElement('button');
     btn.className = 'notif-bell-btn';
-    btn.title = 'Activity';
-    btn.innerHTML = '💻';
+    btn.title = 'Activity inbox';
+    btn.innerHTML = '🔔';
     btn.addEventListener('click', () => this.toggle());
     this.el.appendChild(btn);
 
@@ -121,9 +119,12 @@ export class NotificationCenter {
     this.dropdownEl.className = 'notif-dropdown';
     this.dropdownEl.style.display = 'none';
 
-    // Dropdown header - just the mark all button
+    // Dropdown header
     const hdr = document.createElement('div');
     hdr.className = 'notif-dropdown-header';
+    const title = document.createElement('div');
+    title.className = 'notif-dropdown-title';
+    title.textContent = 'Activity Inbox';
     const markAllBtn = document.createElement('button');
     markAllBtn.className = 'notif-mark-all';
     markAllBtn.title = 'Mark all read';
@@ -132,24 +133,13 @@ export class NotificationCenter {
       e.stopPropagation();
       this.markAllRead();
     });
-    hdr.appendChild(markAllBtn);
+    hdr.append(title, markAllBtn);
     this.dropdownEl.appendChild(hdr);
 
     // List
     this.listEl = document.createElement('div');
     this.listEl.className = 'notif-list';
     this.dropdownEl.appendChild(this.listEl);
-
-    // Banner area for breaking alerts
-    this.bannerEl = document.createElement('div');
-    this.bannerEl.className = 'notif-banners';
-    this.bannerEl.style.display = 'none';
-    this.dropdownEl.appendChild(this.bannerEl);
-
-    // Top-right toast container for breaking alert banners (visible without opening dropdown)
-    this.toastContainerEl = document.createElement('div');
-    this.toastContainerEl.className = 'notif-toast-container';
-    document.body.appendChild(this.toastContainerEl);
 
     // Empty state
     const empty = document.createElement('div');
@@ -158,9 +148,6 @@ export class NotificationCenter {
     this.listEl.appendChild(empty);
 
     this.el.appendChild(this.dropdownEl);
-
-    // Initialize audio for breaking alerts
-    this.initAudio();
 
     // Load persisted state
     this.loadState();
@@ -232,193 +219,6 @@ export class NotificationCenter {
     this.onAlertClick = handler;
   }
 
-  /* ---- audio ---- */
-
-  private initAudio(): void {
-    this.audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQYjfKapmWswEjCJvuPQfSoXZZ+3qqBJESSP0unGaxMJVYiytrFeLhR6p8znrFUXRW+bs7V3Qx1hn8Xjp1cYPnegprhkMCFmoLi1k0sZTYGlqqlUIA==');
-    this.audio.volume = 0.3;
-  }
-
-  private playSound(): void {
-    const settings = getAlertSettings();
-    if (!settings.soundEnabled || !this.audio) return;
-    if (Date.now() - this.lastSoundMs < this.SOUND_COOLDOWN_MS) return;
-    this.audio.currentTime = 0;
-    this.audio.play()?.catch(() => {});
-    this.lastSoundMs = Date.now();
-  }
-
-  /* ---- banners ---- */
-
-  private showBannerAlert(item: NotificationItem): void {
-    if (this.activeBanners.some(b => b.id === item.id)) return;
-    if (this.activeBanners.length >= 3) {
-      const oldest = this.activeBanners.shift();
-      if (oldest) this.removeBannerElement(oldest.id);
-    }
-
-    this.activeBanners.push(item);
-    this.renderToasts();
-    this.updateBadge();
-
-    setTimeout(() => this.dismissBanner(item.id), this.BANNER_DISMISS_MS);
-  }
-
-  private dismissBanner(id: string): void {
-    const idx = this.activeBanners.findIndex(b => b.id === id);
-    if (idx !== -1) {
-      this.activeBanners.splice(idx, 1);
-      this.removeBannerElement(id);
-      const toast = this.toastContainerEl.querySelector(`[data-banner-id="${id}"]`);
-      if (toast) {
-        (toast as HTMLElement).style.opacity = '0';
-        (toast as HTMLElement).style.transform = 'translateX(20px) scale(0.96)';
-        setTimeout(() => toast.remove(), 220);
-      }
-      this.renderBanners();
-    }
-  }
-
-  private removeBannerElement(id: string): void {
-    const existing = this.bannerEl.querySelector(`[data-banner-id="${id}"]`);
-    if (existing) existing.remove();
-  }
-
-  private renderBanners(): void {
-    this.bannerEl.replaceChildren();
-    if (this.activeBanners.length === 0) {
-      this.bannerEl.style.display = 'none';
-      return;
-    }
-    this.bannerEl.style.display = '';
-
-    for (const item of this.activeBanners) {
-      const banner = document.createElement('div');
-      banner.className = `notif-banner ${item.severity === 'critical' ? 'critical' : 'high'}`;
-      banner.dataset.bannerId = item.id;
-
-      const icon = document.createElement('span');
-      icon.className = 'notif-banner-icon';
-      icon.textContent = '🚨';
-
-      const content = document.createElement('div');
-      content.className = 'notif-banner-content';
-
-      const title = document.createElement('div');
-      title.className = 'notif-banner-title';
-      title.textContent = item.title;
-
-      const source = document.createElement('div');
-      source.className = 'notif-banner-source';
-      source.textContent = item.detail || '';
-
-      content.appendChild(title);
-      content.appendChild(source);
-
-      const dismiss = document.createElement('button');
-      dismiss.className = 'notif-banner-dismiss';
-      dismiss.textContent = '×';
-      dismiss.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.dismissBanner(item.id);
-      });
-
-      banner.appendChild(icon);
-      banner.appendChild(content);
-      banner.appendChild(dismiss);
-
-      banner.addEventListener('click', () => {
-        this.markRead(item.id);
-        if (item.link) {
-          window.open(item.link, '_blank', 'noopener');
-        }
-        this.dismissBanner(item.id);
-      });
-
-      this.bannerEl.appendChild(banner);
-    }
-  }
-
-  private renderToasts(): void {
-    // Remove stale toast elements from DOM that are no longer in activeBanners
-    const activeIds = new Set(this.activeBanners.map(b => b.id));
-    for (const toast of this.toastContainerEl.querySelectorAll('[data-banner-id]')) {
-      const id = toast.getAttribute('data-banner-id');
-      if (id && !activeIds.has(id)) toast.remove();
-    }
-
-    for (const item of this.activeBanners) {
-      const existing = this.toastContainerEl.querySelector(`[data-banner-id="${item.id}"]`);
-      if (existing) continue; // already rendered
-
-      const toast = document.createElement('div');
-      toast.className = `notif-banner notif-toast-banner ${item.severity === 'critical' ? 'critical' : 'high'}`;
-      toast.dataset.bannerId = item.id;
-      toast.setAttribute('role', 'alert');
-
-      const icon = document.createElement('span');
-      icon.className = 'notif-banner-icon';
-      icon.textContent = '🚨';
-
-      const content = document.createElement('div');
-      content.className = 'notif-banner-content';
-
-      const title = document.createElement('div');
-      title.className = 'notif-banner-title';
-      title.textContent = item.title;
-
-      const source = document.createElement('div');
-      source.className = 'notif-banner-source';
-      source.textContent = item.detail || '';
-
-      content.appendChild(title);
-      content.appendChild(source);
-
-      const viewBtn = document.createElement('button');
-      viewBtn.className = 'notif-banner-view';
-      viewBtn.textContent = 'View';
-      viewBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.dismissBanner(item.id);
-        this.show(); // Open the notification dropdown
-        this.scrollToItem(item.id);
-      });
-
-      const dismiss = document.createElement('button');
-      dismiss.className = 'notif-banner-dismiss';
-      dismiss.textContent = '×';
-      dismiss.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.dismissBanner(item.id);
-      });
-
-      toast.appendChild(icon);
-      toast.appendChild(content);
-      toast.appendChild(viewBtn);
-      toast.appendChild(dismiss);
-
-      toast.addEventListener('click', () => {
-        if (item.link) window.open(item.link, '_blank', 'noopener');
-      });
-
-      // Animate in
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateX(20px) scale(0.97)';
-      requestAnimationFrame(() => {
-        toast.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
-        toast.style.opacity = '1';
-        toast.style.transform = 'translateX(0) scale(1)';
-      });
-
-      this.toastContainerEl.appendChild(toast);
-    }
-  }
-
-  private scrollToItem(id: string): void {
-    const el = this.listEl.querySelector(`[data-item-id="${id}"]`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-
   /* ---- toggle ---- */
 
   private toggle(): void {
@@ -452,6 +252,7 @@ export class NotificationCenter {
     const item: NotificationItem = {
       id: `brk-${alert.id}`,
       kind: 'breaking',
+      family: 'alert',
       title: alert.headline,
       detail: alert.source,
       severity: alert.threatLevel,
@@ -460,16 +261,13 @@ export class NotificationCenter {
       read: false,
     };
     this.addItem(item);
-    this.playSound();
-    if (alert.threatLevel === 'critical' || alert.threatLevel === 'high') {
-      this.showBannerAlert(item);
-    }
   };
 
   private onIntelUpdate = (): void => {
     this.addItem({
       id: `intel-${Date.now()}`,
       kind: 'intel',
+      family: 'system',
       title: 'Intelligence assessment updated',
       severity: 'medium',
       timestamp: Date.now(),
@@ -505,6 +303,7 @@ export class NotificationCenter {
         this.addItem({
           id: sigId,
           kind: 'signal',
+          family: 'finding',
           title: sig.title,
           detail: sig.countryName,
           severity: sig.severity,
@@ -533,9 +332,10 @@ export class NotificationCenter {
       this.addItem({
         id: sigId,
         kind: 'finding',
+        family: 'finding',
         title: sig.title,
         detail: sig.description?.slice(0, 100) || sig.type,
-        severity: sig.confidence >= 0.7 ? 'high' : sig.confidence >= 0.5 ? 'medium' : 'low',
+        severity: notificationSeverityFromConfidence(sig.confidence) as NotificationItem['severity'],
         timestamp: sig.timestamp.getTime(),
         read: false,
         originalSignal: sig,
@@ -550,6 +350,7 @@ export class NotificationCenter {
       this.addItem({
         id: alertId,
         kind: 'finding',
+        family: 'finding',
         title: alert.title,
         detail: alert.summary?.slice(0, 100) || alert.type,
         severity: alert.priority,
@@ -567,9 +368,10 @@ export class NotificationCenter {
     const item: NotificationItem = {
       id,
       kind: 'finding',
+      family: 'finding',
       title: signal.title,
       detail: signal.description?.slice(0, 120) || '',
-      severity: signal.confidence >= 0.7 ? 'high' : signal.confidence >= 0.5 ? 'medium' : 'low',
+      severity: notificationSeverityFromConfidence(signal.confidence) as NotificationItem['severity'],
       timestamp: signal.timestamp.getTime(),
       read: false,
       originalSignal: signal,
@@ -648,9 +450,13 @@ export class NotificationCenter {
 
       const body = document.createElement('div');
       body.className = 'notif-body';
+      const kicker = document.createElement('div');
+      kicker.className = 'notif-kicker';
+      kicker.textContent = notificationFamilyLabel(item.family);
       const titleDiv = document.createElement('div');
       titleDiv.className = 'notif-title';
       titleDiv.textContent = item.title;
+      body.appendChild(kicker);
       body.appendChild(titleDiv);
       if (item.detail) {
         const detailDiv = document.createElement('div');
@@ -661,7 +467,7 @@ export class NotificationCenter {
 
       const timeSpan = document.createElement('span');
       timeSpan.className = 'notif-time';
-      timeSpan.textContent = timeAgo(item.timestamp);
+      timeSpan.textContent = formatNotificationAge(item.timestamp);
 
       row.appendChild(iconSpan);
       row.appendChild(body);
@@ -712,7 +518,10 @@ export class NotificationCenter {
       if (!raw) return;
       const data = JSON.parse(raw);
       if (Array.isArray(data.items)) {
-        this.items = data.items;
+        this.items = data.items.map((item: NotificationItem) => ({
+          ...item,
+          family: item.family || familyForKind(item.kind),
+        }));
       }
       if (Array.isArray(data.seenIds)) {
         this.seenSignalIds = new Set(data.seenIds);

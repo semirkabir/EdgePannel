@@ -18,6 +18,7 @@ import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { fetchHotspotContext } from '@/services/gdelt-intel';
 import { isModifiedArticleClick, openArticleFromElement } from '@/services/article-open';
+import { subscribeToOrderbook, type LiveBookSnapshot } from '@/services/polymarket-orderbook-ws';
 import type {
   TechEventPopupData, TechHQClusterData, TechEventClusterData,
   GpsJammingPopupData, IranEventPopupData, StockExchangePopupData,
@@ -103,6 +104,21 @@ function renderPredictionMarketPopup(market: GeoPredictionMarket): string {
     const days = Math.ceil((new Date(market.endDate).getTime() - Date.now()) / 86_400_000);
     return days > 0 ? `<span class="pm-popup-days">${days}d left</span>` : '';
   })();
+  const liveBookHtml = market.tokenIds?.[0]
+    ? `
+      <div class="pm-popup-live" data-pm-live>
+        <div class="pm-popup-live-head">
+          <span class="pm-popup-live-dot"></span>
+          <span data-pm-live-status>Connecting live book…</span>
+        </div>
+        <div class="pm-popup-live-grid">
+          <span>Bid <strong data-pm-live-bid>—</strong></span>
+          <span>Ask <strong data-pm-live-ask>—</strong></span>
+          <span>Spread <strong data-pm-live-spread>—</strong></span>
+        </div>
+      </div>
+    `
+    : '';
   return `
     <div class="popup-header predictionMarket">
       <div class="pm-popup-header-content">
@@ -130,8 +146,15 @@ function renderPredictionMarketPopup(market: GeoPredictionMarket): string {
         <span>${escapeHtml(formatPredictionMarketVolume(market.volume))}</span>
         ${daysStr}
       </div>
+      ${liveBookHtml}
     </div>
   `;
+}
+
+function formatPredictionBookPrice(price?: number): string {
+  if (price == null || !Number.isFinite(price)) return '—';
+  const pct = price * 100;
+  return `${pct >= 10 ? pct.toFixed(1).replace(/\.0$/, '') : pct.toFixed(2).replace(/0$/, '').replace(/\.$/, '')}%`;
 }
 
 export class MapPopup {
@@ -146,6 +169,7 @@ export class MapPopup {
   private readonly mobileDismissThreshold = 96;
   private outsideListenerTimeoutId: number | null = null;
   private currentData: PopupData | null = null;
+  private polymarketLiveUnsubscribe: (() => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -180,6 +204,7 @@ export class MapPopup {
     this.popup.scrollTop = 0;
     const popupBody = this.popup.querySelector<HTMLElement>('.popup-body');
     if (popupBody) popupBody.scrollTop = 0;
+    this.bindPredictionMarketLive(data);
 
     // Close button handler via event delegation on the popup element.
     // This avoids re-querying and re-attaching listeners after innerHTML.
@@ -413,6 +438,11 @@ export class MapPopup {
       this.outsideListenerTimeoutId = null;
     }
 
+    if (this.polymarketLiveUnsubscribe) {
+      this.polymarketLiveUnsubscribe();
+      this.polymarketLiveUnsubscribe = null;
+    }
+
     if (this.popup) {
       this.popup.removeEventListener('touchstart', this.handleSheetTouchStart);
       this.popup.removeEventListener('touchmove', this.handleSheetTouchMove);
@@ -429,6 +459,34 @@ export class MapPopup {
       document.removeEventListener('keydown', this.handleEscapeKey);
       this.onClose?.();
     }
+  }
+
+  private bindPredictionMarketLive(data: PopupData): void {
+    if (data.type !== 'predictionMarket' || !this.popup) return;
+    const market = data.data as GeoPredictionMarket;
+    const tokenId = market.tokenIds?.[0] || '';
+    if (!tokenId) return;
+
+    const liveRoot = this.popup.querySelector<HTMLElement>('[data-pm-live]');
+    const status = this.popup.querySelector<HTMLElement>('[data-pm-live-status]');
+    const bidEl = this.popup.querySelector<HTMLElement>('[data-pm-live-bid]');
+    const askEl = this.popup.querySelector<HTMLElement>('[data-pm-live-ask]');
+    const spreadEl = this.popup.querySelector<HTMLElement>('[data-pm-live-spread]');
+    if (!liveRoot || !status || !bidEl || !askEl || !spreadEl) return;
+
+    const applySnapshot = (snapshot: LiveBookSnapshot): void => {
+      if (!this.popup || this.currentData !== data) return;
+      const bestBid = snapshot.bestBid ?? snapshot.bids[0]?.price;
+      const bestAsk = snapshot.bestAsk ?? snapshot.asks[0]?.price;
+      const spread = snapshot.spread ?? (bestBid != null && bestAsk != null ? bestAsk - bestBid : undefined);
+      liveRoot.classList.add('is-live');
+      status.textContent = 'Live book';
+      bidEl.textContent = formatPredictionBookPrice(bestBid);
+      askEl.textContent = formatPredictionBookPrice(bestAsk);
+      spreadEl.textContent = formatPredictionBookPrice(spread);
+    };
+
+    this.polymarketLiveUnsubscribe = subscribeToOrderbook(tokenId, applySnapshot);
   }
 
   public setOnClose(callback: () => void): void {

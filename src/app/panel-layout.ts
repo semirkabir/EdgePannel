@@ -69,7 +69,6 @@ import {
   SITE_VARIANT,
   getVariantStorageKey,
 } from '@/config';
-import { BETA_MODE } from '@/config/beta';
 import { t } from '@/services/i18n';
 import { getCurrentTheme } from '@/utils';
 import { trackCriticalBannerAction } from '@/services/analytics';

@@ -21,7 +21,7 @@ import { getAiFlowSettings, subscribeAiFlowChange, isHeadlineMemoryEnabled } fro
 import { startLearning } from '@/services/country-instability';
 import { loadFromStorage, parseMapUrlState, saveToStorage, isMobileDevice } from '@/utils';
 import type { ParsedMapUrlState } from '@/utils';
-import { SignalModal, IntelligenceGapBadge, PredictionBriefPage } from '@/components';
+import { BreakingNewsBanner, SignalModal, IntelligenceGapBadge, PredictionBriefPage } from '@/components';
 import { IntelligenceFindingPanel } from '@/components/IntelligenceFindingPanel';
 import { initBreakingNewsAlerts, destroyBreakingNewsAlerts } from '@/services/breaking-news-alerts';
 import { isDesktopRuntime, waitForSidecarReady } from '@/services/runtime';
@@ -386,6 +386,7 @@ export class App {
       statusPanel: null,
       searchModal: null,
       findingsBadge: null,
+      breakingNewsBanner: null,
       playbackControl: null,
       exportPanel: null,
       unifiedSettings: null,
@@ -639,6 +640,7 @@ export class App {
         if (localStorage.getItem('wm-settings-open') === '1') return;
         this.state.findingPanel?.showAlert(alert);
       });
+      this.state.breakingNewsBanner = new BreakingNewsBanner();
       initBreakingNewsAlerts();
     }
 
@@ -649,6 +651,9 @@ export class App {
     this.eventHandlers.setupPizzIntIndicator();
     this.eventHandlers.setupExportPanel();
     this.eventHandlers.setupUnifiedSettings();
+    if (!this.state.isMobile) {
+      this.eventHandlers.setupNotificationCenter();
+    }
 
     // Phase 4: SearchManager, MapLayerHandlers, CountryIntel
     await this.marketplace.init();
@@ -723,6 +728,7 @@ export class App {
     // Clean up subscriptions, map, AIS, and breaking news
     this.unsubAiFlow?.();
     this.state.notificationCenter?.destroy();
+    this.state.breakingNewsBanner?.destroy();
     destroyBreakingNewsAlerts();
     this.state.map?.destroy();
     disconnectAisStream();

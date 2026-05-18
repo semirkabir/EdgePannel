@@ -2315,6 +2315,11 @@
         "actionableInsight": "Monitor for breaking news in the next 1-6 hours that could explain the market move.",
         "confidenceNote": "Higher confidence if multiple prediction markets move in same direction."
       },
+      "prediction_mover": {
+        "whyItMatters": "Large moves in highly traded prediction markets can reveal shifting expectations before the broader narrative settles.",
+        "actionableInsight": "Review the market, volume, and related news to determine whether the move reflects new information or momentum.",
+        "confidenceNote": "Confidence is higher when the market is liquid and the move is backed by meaningful 24-hour volume."
+      },
       "news_leads_markets": {
         "whyItMatters": "News is breaking faster than markets are reacting—potential mispricing opportunity.",
         "actionableInsight": "Watch for market catch-up as algorithms and traders digest the news.",

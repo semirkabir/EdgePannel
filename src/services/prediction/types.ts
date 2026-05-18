@@ -5,6 +5,8 @@ export interface PredictionMarket {
   yesPrice: number;
   volume?: number;
   liquidity?: number;
+  conditionId?: string;
+  tokenIds?: string[];
   url?: string;
   endDate?: string;
   slug?: string;
@@ -37,6 +39,14 @@ export interface PolymarketMarket {
   resolution_source?: string;
   liquidity?: number | string;
   liquidityNum?: number;
+  volume24hr?: number;
+  volume24hrClob?: number;
+  oneDayPriceChange?: number | null;
+  oneHourPriceChange?: number | null;
+  oneWeekPriceChange?: number | null;
+  lastTradePrice?: number | null;
+  bestBid?: number | null;
+  bestAsk?: number | null;
   eventSlug?: string;
   event_slug?: string;
   eventId?: string | number;
@@ -44,6 +54,7 @@ export interface PolymarketMarket {
   conditionId?: string;
   condition_id?: string;
   clobTokenIds?: string[] | string;
+  clob_token_ids?: string[] | string;
   id?: string | number;
   tags?: Array<{ label?: string; slug?: string }>;
 }
@@ -53,6 +64,7 @@ export interface PolymarketEvent {
   title: string;
   slug: string;
   volume?: number;
+  volume24hr?: number;
   liquidity?: number;
   markets?: PolymarketMarket[];
   tags?: Array<{ slug: string }>;

@@ -15,6 +15,7 @@ import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/s
 import type { StrategicPosturePanel } from '@/components/StrategicPosturePanel';
 import type { NewsItem } from '@/types';
 import type { CIIPanel } from '@/components';
+import { showShellNotification } from '@/app/shell-notifications';
 import { getCountrySignals } from './signal-aggregator';
 import {
   fetchCountryBrief,
@@ -398,13 +399,7 @@ export class CountryIntelManager implements AppModule {
   }
 
   showToast(msg: string): void {
-    document.querySelector('.toast-notification')?.remove();
-    const el = document.createElement('div');
-    el.className = 'toast-notification';
-    el.textContent = msg;
-    document.body.appendChild(el);
-    requestAnimationFrame(() => el.classList.add('visible'));
-    setTimeout(() => { el.classList.remove('visible'); setTimeout(() => el.remove(), 300); }, 3000);
+    showShellNotification(msg, 'info', 3000);
   }
 
   getCountrySignals(code: string, country: string): CountryBriefSignals {

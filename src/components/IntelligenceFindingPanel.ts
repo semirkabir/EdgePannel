@@ -7,6 +7,7 @@ import { getSignalContext, type SignalType } from '@/utils/analysis-constants';
 import { buildArticleLinkAttributes } from '@/services/article-open';
 
 const SIGNAL_TYPE_LABELS: Record<string, string> = {
+  prediction_mover: '📈',
   prediction_leads_news: '🔮',
   news_leads_markets: '📰',
   silent_divergence: '🔇',
@@ -203,6 +204,7 @@ export class IntelligenceFindingPanel {
     const correlatedNews = data.correlatedNews as string[] | undefined;
     const newsCorrelation = data.newsCorrelation as string | undefined;
     const relatedArticles = data.relatedArticles as RelatedArticle[] | undefined;
+    const isPredictionMover = signal.type === 'prediction_mover';
 
     const featuredImage = this.getFeaturedImage(relatedArticles)
       ?? news.find((item) => item.imageUrl && item.imageUrl.trim().length > 0)?.imageUrl
@@ -231,6 +233,7 @@ export class IntelligenceFindingPanel {
         </div>
       </div>
       ${this.renderSignalStats(signal)}
+      ${isPredictionMover ? this.renderPredictionMoverSection(signal) : ''}
       ${lat && lon ? `
         <div class="ifp-section">
           <div class="ifp-section-title">Location</div>
@@ -247,6 +250,82 @@ export class IntelligenceFindingPanel {
     `;
 
     this.open();
+  }
+
+  private renderPredictionMoverSection(signal: CorrelationSignal): string {
+    const data = signal.data;
+    const history = data.priceHistory24h || [];
+    const currentPrice = typeof data.currentPrice === 'number' ? data.currentPrice : null;
+    const dayChange = typeof data.dayChangePoints === 'number' ? data.dayChangePoints : null;
+    const volume24h = typeof data.volume24h === 'number' ? data.volume24h : null;
+    const totalVolume = typeof data.totalVolume === 'number' ? data.totalVolume : null;
+    const liquidity = typeof data.liquidity === 'number' ? data.liquidity : null;
+    const marketUrl = typeof data.marketUrl === 'string' ? data.marketUrl : '';
+
+    return `
+      <div class="ifp-section">
+        <div class="ifp-section-title">24h prediction move</div>
+        <div class="ifp-detail-grid">
+          <div class="ifp-detail-card ifp-detail-card-highlight">
+            <div class="ifp-detail-label">Current yes</div>
+            <div class="ifp-detail-value">${currentPrice === null ? '—' : `${currentPrice.toFixed(1)}%`}</div>
+          </div>
+          <div class="ifp-detail-card">
+            <div class="ifp-detail-label">24h move</div>
+            <div class="ifp-detail-value ${dayChange !== null && dayChange < 0 ? 'ifp-value-down' : 'ifp-value-up'}">${dayChange === null ? '—' : `${dayChange >= 0 ? '+' : ''}${dayChange.toFixed(1)} pts`}</div>
+          </div>
+          <div class="ifp-detail-card">
+            <div class="ifp-detail-label">24h volume</div>
+            <div class="ifp-detail-value">${this.formatCompactUsd(volume24h)}</div>
+          </div>
+          <div class="ifp-detail-card">
+            <div class="ifp-detail-label">Liquidity</div>
+            <div class="ifp-detail-value">${this.formatCompactUsd(liquidity)}</div>
+          </div>
+        </div>
+        ${history.length >= 2 ? this.renderPredictionMoverChart(history) : ''}
+        <div class="ifp-mover-foot">
+          <span>Total volume ${this.formatCompactUsd(totalVolume)}</span>
+          ${marketUrl ? `<a href="${escapeHtml(marketUrl)}" target="_blank" rel="noopener noreferrer">Open market →</a>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderPredictionMoverChart(history: Array<{ timestamp: number; price: number }>): string {
+    const width = 420;
+    const height = 120;
+    const padX = 8;
+    const padY = 8;
+    const prices = history.map((point) => point.price);
+    const min = Math.max(0, Math.min(...prices) - 2);
+    const max = Math.min(100, Math.max(...prices) + 2);
+    const range = max - min || 1;
+    const points = history.map((point, index) => {
+      const x = padX + (index / (history.length - 1)) * (width - padX * 2);
+      const y = height - padY - ((point.price - min) / range) * (height - padY * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const rising = history[history.length - 1]!.price >= history[0]!.price;
+    const area = `${padX},${height - padY} ${points} ${width - padX},${height - padY}`;
+    const lineColor = rising ? 'var(--status-ok)' : 'var(--status-critical)';
+    const fillColor = rising ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)';
+
+    return `
+      <div class="ifp-mover-chart-wrap">
+        <svg class="ifp-mover-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="24 hour prediction market price chart">
+          <polygon points="${area}" fill="${fillColor}"></polygon>
+          <polyline points="${points}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        </svg>
+      </div>
+    `;
+  }
+
+  private formatCompactUsd(value: number | null): string {
+    if (value === null || !Number.isFinite(value)) return '—';
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+    if (value >= 1_000) return `$${Math.round(value / 1_000)}K`;
+    return `$${Math.round(value)}`;
   }
 
   showAlert(alert: UnifiedAlert): void {
