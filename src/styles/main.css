@@ -1376,7 +1376,7 @@ canvas,
   flex-shrink: 0;
   isolation: isolate;
   position: relative;
-  z-index: 500;
+  z-index: 600;
 }
 
 /* -- Tauri desktop: separate title bar for traffic lights -- */
