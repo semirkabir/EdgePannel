@@ -64,6 +64,30 @@ describe('stripDuplicateLeadImage', () => {
     assert(!article.content.includes('Caption for the hero'), 'caption should also be removed');
   });
 
+  it('ignores topic metadata before the lead image when stripping duplicates', () => {
+    const html = `<!DOCTYPE html><html><head><title>Test Article</title><meta property="og:image" content="${heroUrl}"></head><body>
+      <article>
+        <p>
+          <a href="/data-breach-notification-c-327">Data Breach Notification</a>,
+          <a href="/data-security-c-934">Data Security</a>,
+          <a href="/hipaahitech-c-282">HIPAA/HITECH</a>
+        </p>
+        <span>Incident Involved an Unnamed Third-Party Vendor</span>
+        <figure>
+          <img src="${heroUrl}" alt="Public NYC Health System Notifying 1.8M of Hack" width="800" height="600" />
+          <figcaption>Image: NYC Health + Hospitals</figcaption>
+        </figure>
+        <p>New York City's municipal healthcare system disclosed a breach affecting patients after a third-party vendor incident.</p>
+        <p>Second paragraph with additional text here to ensure we meet the minimum content length threshold.</p>
+      </article>
+    </body></html>`;
+    const article = parseArticleHtml(html, baseUrl);
+    assert(article, 'should parse successfully');
+    assert(!article.content.includes(heroUrl), 'duplicate hero after topic metadata should be stripped');
+    assert(!article.content.includes('Image: NYC Health + Hospitals'), 'duplicate hero caption should be stripped');
+    assert(article.content.includes('municipal healthcare system'), 'substantive article body should remain');
+  });
+
   it('strips CDN resize suffixes when matching (e.g. -w800, _640x360)', () => {
     const resized = 'https://media.npr.org/assets/img/2026/04/21/hero-image-w800.jpg';
     const html = doc(`

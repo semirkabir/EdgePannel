@@ -214,6 +214,7 @@ const LAZY_IMAGE_ATTRS = [
   'data-url',
 ];
 const DUPLICATE_LEAD_TEXT_THRESHOLD = 40;
+const DUPLICATE_LEAD_METADATA_MAX_LENGTH = 160;
 const EMPTY_CONTAINER_TAGS = new Set(['div', 'figure', 'p', 'section', 'span']);
 
 function normalizeText(value) {
@@ -391,6 +392,36 @@ function getDocumentOrderIndex(el, root) {
   return -1;
 }
 
+function getElementTextLength(el) {
+  return normalizeText(el?.textContent).length;
+}
+
+function getLinkedTextLength(el) {
+  return Array.from(el?.querySelectorAll?.('a') || [])
+    .reduce((total, anchor) => total + normalizeText(anchor.textContent).length, 0);
+}
+
+function isMetadataLikeLeadParagraph(paragraph) {
+  const text = normalizeText(paragraph.textContent);
+  if (!text || text.length > DUPLICATE_LEAD_METADATA_MAX_LENGTH) return false;
+
+  const linkedTextLength = getLinkedTextLength(paragraph);
+  if (linkedTextLength && linkedTextLength / Math.max(text.length, 1) > 0.6) return true;
+
+  const anchors = Array.from(paragraph.querySelectorAll('a'));
+  if (anchors.length >= 2 && /(^|[\s,|•])([A-Z][A-Za-z/&+-]+[\s,]*){2,}$/.test(text)) return true;
+
+  return false;
+}
+
+function getFirstSubstantiveParagraph(contentDoc) {
+  return Array.from(contentDoc.querySelectorAll('p'))
+    .find((p) => (
+      getElementTextLength(p) >= DUPLICATE_LEAD_TEXT_THRESHOLD
+      && !isMetadataLikeLeadParagraph(p)
+    ));
+}
+
 function stripDuplicateLeadImage(contentHtml, baseUrl, heroImageUrl) {
   if (!contentHtml) return contentHtml;
 
@@ -403,9 +434,7 @@ function stripDuplicateLeadImage(contentHtml, baseUrl, heroImageUrl) {
 
   const normalizedHero = absolutizeUrl(heroImageUrl, baseUrl);
   if (normalizedHero) {
-    const paragraphs = Array.from(contentDoc.querySelectorAll('p'))
-      .filter((p) => normalizeText(p.textContent).length >= DUPLICATE_LEAD_TEXT_THRESHOLD);
-    const firstMeaningfulParagraph = paragraphs[0];
+    const firstMeaningfulParagraph = getFirstSubstantiveParagraph(contentDoc);
     const firstParaIndex = firstMeaningfulParagraph
       ? getDocumentOrderIndex(firstMeaningfulParagraph, contentDoc.body)
       : -1;
