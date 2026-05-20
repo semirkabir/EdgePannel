@@ -2456,14 +2456,37 @@ export class MapComponent {
           e.stopPropagation();
           const rect = this.container.getBoundingClientRect();
           if (isCluster) {
+            const clusterData = {
+              id: `tech-hq-${primaryItem.city.toLowerCase().replace(/\s+/g, '-')}`,
+              items: cluster.items,
+              city: primaryItem.city,
+              country: primaryItem.country,
+              count: cluster.items.length,
+              faangCount: cluster.items.filter(item => item.type === 'faang').length,
+              unicornCount: cluster.items.filter(item => item.type === 'unicorn').length,
+              publicCount: cluster.items.filter(item => item.type === 'public').length,
+              primaryType: primaryItem.type,
+              lat: cluster.center[1],
+              lon: cluster.center[0],
+            };
+            if (this.onEntityClick) {
+              this.popup.hide();
+              this.onEntityClick('techHQCluster', clusterData);
+              return;
+            }
             // Show cluster popup with list of companies
             this.popup.show({
               type: 'techHQCluster',
-              data: { items: cluster.items, city: primaryItem.city, country: primaryItem.country },
+              data: clusterData,
               x: e.clientX - rect.left,
               y: e.clientY - rect.top,
             });
           } else {
+            if (this.onEntityClick) {
+              this.popup.hide();
+              this.onEntityClick('techHQ', primaryItem);
+              return;
+            }
             this.popup.show({
               type: 'techHQ',
               data: primaryItem,

@@ -15,6 +15,70 @@
   overflow: hidden;
 }
 
+.edp-tech-hq-company-list {
+  gap: 6px;
+}
+
+.edp-tech-hq-company {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--frame-border-subtle);
+  border-radius: 8px;
+  background: var(--ui-surface-inset);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.edp-tech-hq-company:hover,
+.edp-tech-hq-company:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--ui-surface-inset));
+  outline: none;
+}
+
+.edp-tech-hq-company:active {
+  transform: translateY(1px);
+}
+
+.edp-tech-hq-company-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.edp-tech-hq-company-meta {
+  min-width: 0;
+  max-width: 44%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+@media (max-width: 520px) {
+  .edp-tech-hq-company {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .edp-tech-hq-company-meta {
+    max-width: 100%;
+    text-align: left;
+  }
+}
+
 .detail-panel.dp-active,
 .entity-detail-panel.edp-active {
   right: 0;
