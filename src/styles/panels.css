@@ -12,10 +12,12 @@
   gap: 2px;
   padding: 8px 10px 0;
   overflow-x: auto;
+  overflow-y: hidden;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   scrollbar-width: none;
   -ms-overflow-style: none;
+  scroll-padding-inline: 10px;
 }
 
 /* When .panel-content contains tabs (at any depth), remove top padding
@@ -60,6 +62,8 @@
   transition: all 0.15s ease;
   white-space: nowrap;
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 220px;
 }
 
 .panel-tab:hover {
@@ -79,6 +83,9 @@
 
 .panel-tab .tab-label {
   font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .panel-tab.active .tab-label {

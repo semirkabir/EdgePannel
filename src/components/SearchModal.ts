@@ -214,12 +214,15 @@ export class SearchModal {
 
     if (this.isMobile) {
       this.overlay.className = 'search-overlay search-mobile';
+      this.overlay.setAttribute('role', 'dialog');
+      this.overlay.setAttribute('aria-modal', 'true');
+      this.overlay.setAttribute('aria-label', 'Search');
       this.overlay.innerHTML = `
         <div class="search-sheet">
           <div class="search-sheet-handle"></div>
           <div class="search-sheet-header">
             <span class="search-sheet-icon">\u{1F50D}</span>
-            <input type="text" class="search-input" placeholder="${this.placeholder}" autofocus />
+            <input type="text" class="search-input" placeholder="${this.placeholder}" aria-label="Search dashboard" autofocus />
             <button class="search-sheet-cancel" aria-label="Close">\u00D7</button>
           </div>
           <div class="search-command-row">
@@ -254,11 +257,14 @@ export class SearchModal {
       }
     } else {
       this.overlay.className = 'search-overlay';
+      this.overlay.setAttribute('role', 'dialog');
+      this.overlay.setAttribute('aria-modal', 'true');
+      this.overlay.setAttribute('aria-label', 'Search');
       this.overlay.innerHTML = `
         <div class="search-modal">
           <div class="search-header">
             <span class="search-icon">\u2325</span>
-            <input type="text" class="search-input" placeholder="${this.placeholder}" autofocus />
+            <input type="text" class="search-input" placeholder="${this.placeholder}" aria-label="Search dashboard" autofocus />
             <kbd class="search-kbd">ESC</kbd>
           </div>
           <div class="search-command-row">

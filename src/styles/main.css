@@ -28578,3 +28578,419 @@ body[data-panel-density="comfortable"] .panel-tabs {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ==========================================================================
+   UI/UX polish pass: calmer chrome, clearer trays, stronger touch targets
+   ========================================================================== */
+
+.header-right {
+  gap: 8px;
+}
+
+.header-live-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-live-actions:empty {
+  display: none;
+}
+
+.header-live-actions > button,
+.header-live-actions > .playback-control > .playback-toggle,
+.header-live-actions > .export-panel-container > .export-btn,
+.header-live-actions > .visitor-counter,
+.header-live-actions > .notif-center > .notif-bell-btn {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 0 rgba(0, 0, 0, 0.5),
+    0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
+.header-overflow-menu {
+  position: relative;
+}
+
+.header-overflow-menu summary {
+  list-style: none;
+}
+
+.header-overflow-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.header-overflow-btn {
+  width: 32px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--frame-border);
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--ctrl-bg-hover) 0%, var(--ctrl-bg) 100%);
+  color: var(--text-dim);
+  cursor: var(--wm-cursor-pointer);
+  box-shadow: var(--depth-resting), inset 0 1px 0 var(--frame-inset-highlight);
+}
+
+.header-overflow-btn:hover,
+.header-overflow-menu[open] .header-overflow-btn {
+  border-color: var(--frame-border-strong);
+  color: var(--text);
+  background: var(--ctrl-bg-hover);
+}
+
+.header-overflow-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  background: color-mix(in srgb, var(--surface) 94%, black 6%);
+  border: 1px solid var(--frame-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+  z-index: 1200;
+}
+
+.header-overflow-panel::before {
+  content: 'More actions';
+  padding: 2px 4px 6px;
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header-overflow-panel .save-reset-dropdown,
+.header-overflow-panel #unifiedSettingsMount,
+.header-overflow-panel .agent-chat-open-btn,
+.header-overflow-panel .theme-toggle-btn,
+.header-overflow-panel .fullscreen-btn,
+.header-overflow-panel .tv-mode-btn,
+.header-overflow-panel .copy-link-btn,
+.header-overflow-panel .unified-settings-btn {
+  width: 100%;
+}
+
+.header-overflow-panel .theme-toggle-btn,
+.header-overflow-panel .fullscreen-btn,
+.header-overflow-panel .tv-mode-btn,
+.header-overflow-panel .unified-settings-btn,
+.header-overflow-panel .agent-chat-open-btn,
+.header-overflow-panel .copy-link-btn {
+  min-height: 34px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.header-overflow-panel .theme-toggle-btn {
+  overflow: visible;
+}
+
+.header-overflow-panel .theme-toggle-btn .theme-icon {
+  position: static;
+  width: 16px;
+  height: 16px;
+}
+
+.header-overflow-panel .theme-toggle-btn .theme-icon--moon,
+.header-overflow-panel .theme-toggle-btn .theme-icon--sun {
+  transform: none !important;
+}
+
+.header-overflow-panel .theme-toggle-btn[data-theme="dark"] .theme-icon--moon,
+.header-overflow-panel .theme-toggle-btn[data-theme="light"] .theme-icon--sun {
+  display: none;
+}
+
+.header-action-label,
+.header-overflow-panel .unified-settings-btn::after {
+  color: var(--text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.header-overflow-panel .unified-settings-btn::after {
+  content: 'Profile & settings';
+}
+
+.header-overflow-panel .save-reset-dropdown {
+  height: auto;
+}
+
+.header-overflow-panel .save-reset-menu {
+  position: static;
+  display: grid;
+  margin-top: 4px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.intel-findings-badge {
+  min-width: 48px;
+}
+
+.intel-findings-badge.status-high {
+  box-shadow: 0 0 0 1px rgba(255, 168, 44, 0.25), 0 4px 12px rgba(255, 128, 0, 0.12);
+}
+
+.panel-header {
+  min-height: 34px;
+}
+
+.panel-title {
+  letter-spacing: 0.01em;
+}
+
+.panel-remove-btn {
+  opacity: 0.5;
+  transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.panel:hover .panel-remove-btn,
+.panel-remove-btn:focus-visible {
+  opacity: 1;
+}
+
+.map-bottom-grid::after {
+  content: 'Drop panels here to keep them under the map';
+  border-width: 1px;
+  border-color: color-mix(in srgb, var(--frame-border) 70%, transparent);
+  color: color-mix(in srgb, var(--text-dim) 70%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.deckgl-time-slider .layers-panel {
+  max-height: min(360px, 46vh);
+  background: color-mix(in srgb, var(--bg) 88%, black 12%) !important;
+}
+
+.deckgl-layer-toggles .toggle-list {
+  padding: 6px;
+  gap: 4px;
+  scrollbar-width: thin !important;
+}
+
+.deckgl-layer-toggles .toggle-list::-webkit-scrollbar {
+  display: block !important;
+  width: 6px;
+}
+
+.deckgl-layer-toggles .toggle-list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-dim) 35%, transparent);
+  border-radius: 999px;
+}
+
+.deckgl-layer-toggles .layer-toggle {
+  min-height: 32px;
+  padding: 7px 9px;
+  border-radius: 6px;
+}
+
+.deckgl-layer-toggles .layer-toggle:hover {
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  background: color-mix(in srgb, var(--surface-hover) 70%, transparent);
+}
+
+.deckgl-layer-toggles .layer-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+}
+
+.aircraft-density-control {
+  padding: 6px 8px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+.aircraft-density-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.aircraft-density-value {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.map-tray {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+}
+
+.map-tray-collapse {
+  min-width: 28px;
+  min-height: 28px;
+}
+
+.unified-settings-modal {
+  outline: none;
+}
+
+.unified-settings-panel-note {
+  margin: 0 0 10px;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.unified-settings-tab:focus-visible,
+.unified-settings-region-pill:focus-visible,
+.search-result-item:focus-visible,
+.search-quick-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.search-overlay {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.search-modal {
+  border-color: color-mix(in srgb, var(--frame-border-strong) 72%, transparent);
+}
+
+.search-command-row {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+}
+
+.search-quick-actions {
+  gap: 8px;
+}
+
+.search-quick-action {
+  min-height: 38px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+@media (max-width: 1100px) {
+  .header-live-actions .visitor-counter,
+  .header-live-actions .playback-control,
+  .header-live-actions .export-panel-container {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .hamburger-btn,
+  .mobile-menu-close {
+    width: 40px;
+    height: 40px;
+  }
+
+  .deckgl-controls .map-btn,
+  .map-btn {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .map-dim-btn {
+    min-width: 40px;
+    min-height: 32px;
+  }
+
+  .deckgl-time-slider {
+    max-width: calc(100vw - 88px);
+  }
+
+  .deckgl-time-slider .time-options {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .deckgl-time-slider .time-options::-webkit-scrollbar {
+    display: none;
+  }
+
+  .deckgl-time-slider .time-btn,
+  .deckgl-time-slider .time-settings-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .deckgl-time-slider .layers-row .layers-toggle-btn,
+  .deckgl-time-slider .layers-row .layers-row-help,
+  .deckgl-time-slider .layers-row .layers-row-clear,
+  .deckgl-time-slider .layers-row .layers-row-marketplace {
+    min-height: 40px;
+  }
+
+  .deckgl-time-slider .layers-panel {
+    max-height: min(54vh, 460px);
+    border-radius: 0 0 14px 14px !important;
+  }
+
+  .deckgl-layer-toggles .layer-toggle {
+    min-height: 44px;
+    padding: 10px 10px;
+  }
+
+  .deckgl-layer-toggles .layer-toggle input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+  }
+
+  .deckgl-layer-toggles .map-tray-search-input {
+    height: 40px;
+    font-size: 12px;
+  }
+
+  .panel-tabs {
+    padding-bottom: 2px;
+    scroll-snap-type: x proximity;
+  }
+
+  .panel-tab {
+    min-height: 40px;
+    max-width: min(70vw, 220px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    scroll-snap-align: start;
+  }
+
+  .panel-tab .tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .live-channel-btn {
+    min-height: 36px;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .map-bottom-grid::after {
+    font-size: 10px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .layer-toggles {
+    max-height: 54vh !important;
+    overflow-y: auto !important;
+  }
+
+  .deckgl-layer-toggles .toggle-list,
+  .layer-toggles:not(.deckgl-layer-toggles) {
+    max-height: 42vh !important;
+  }
+}

@@ -978,9 +978,11 @@ export class EventHandlerManager implements AppModule {
     this.ctx.exportPanel = new ExportPanel();
 
     const headerRight = this.ctx.container.querySelector('.header-right');
-    if (headerRight) {
+    const liveActions = this.ctx.container.querySelector('.header-live-actions');
+    const actionParent = liveActions || headerRight;
+    if (actionParent) {
       // Insert export panel first, then visitor counter before it so eye sits left of camera
-      headerRight.insertBefore(this.ctx.exportPanel.getElement(), headerRight.firstChild);
+      actionParent.insertBefore(this.ctx.exportPanel.getElement(), actionParent.firstChild);
       const visitorCounter = new VisitorCounter(() => {
         void this.ctx.situationRoomDrawer?.open();
       });
@@ -989,7 +991,7 @@ export class EventHandlerManager implements AppModule {
         getViewerCount: () => visitorCounter.getCount(),
         onUnreadCountChange: (count) => visitorCounter.setUnreadCount(count),
       });
-      headerRight.insertBefore(visitorCounter.getElement(), this.ctx.exportPanel.getElement());
+      actionParent.insertBefore(visitorCounter.getElement(), this.ctx.exportPanel.getElement());
     }
   }
 
@@ -1056,6 +1058,7 @@ export class EventHandlerManager implements AppModule {
     if (this.ctx.isDesktopApp) {
       this.ctx.agentChatPanel = new AgentChatPanel();
       const headerRight = this.ctx.container.querySelector<HTMLElement>('.header-right');
+      const overflowPanel = document.getElementById('headerOverflowPanel');
       const agentBtn = document.createElement('button');
       agentBtn.type = 'button';
       agentBtn.className = 'agent-chat-open-btn';
@@ -1065,8 +1068,10 @@ export class EventHandlerManager implements AppModule {
       agentBtn.addEventListener('click', () => {
         void this.ctx.agentChatPanel?.open();
       });
-      if (headerRight) {
-        headerRight.insertBefore(agentBtn, mount || null);
+      if (overflowPanel) {
+        overflowPanel.insertBefore(agentBtn, mount || null);
+      } else if (headerRight) {
+        headerRight.insertBefore(agentBtn, mount?.parentElement === headerRight ? mount : null);
       }
     }
 
@@ -1093,9 +1098,12 @@ export class EventHandlerManager implements AppModule {
       if (localStorage.getItem('wm-settings-open') === '1') return;
       this.ctx.findingPanel?.showAlert(alert);
     });
-    const settingsMount = document.getElementById('unifiedSettingsMount');
+    const liveActions = this.ctx.container.querySelector<HTMLElement>('.header-live-actions');
     const headerRight = this.ctx.container.querySelector<HTMLElement>('.header-right');
-    if (headerRight) {
+    if (liveActions) {
+      nc.mount(liveActions);
+    } else if (headerRight) {
+      const settingsMount = document.getElementById('unifiedSettingsMount');
       nc.mount(headerRight, settingsMount);
     }
   }
@@ -1113,8 +1121,10 @@ export class EventHandlerManager implements AppModule {
     });
 
     const headerRight = this.ctx.container.querySelector('.header-right');
-    if (headerRight) {
-      headerRight.insertBefore(this.ctx.playbackControl.getElement(), headerRight.firstChild);
+    const liveActions = this.ctx.container.querySelector('.header-live-actions');
+    const actionParent = liveActions || headerRight;
+    if (actionParent) {
+      actionParent.insertBefore(this.ctx.playbackControl.getElement(), actionParent.firstChild);
     }
   }
 

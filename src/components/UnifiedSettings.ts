@@ -99,6 +99,7 @@ export class UnifiedSettings {
     this.overlay.className = 'modal-overlay';
     this.overlay.id = 'unifiedSettingsModal';
     this.overlay.setAttribute('role', 'dialog');
+    this.overlay.setAttribute('aria-modal', 'true');
     this.overlay.setAttribute('aria-label', t('header.settings'));
 
     this.escapeHandler = (e: KeyboardEvent) => {
@@ -258,6 +259,9 @@ export class UnifiedSettings {
     this.overlay.classList.add('active');
     localStorage.setItem('wm-settings-open', '1');
     document.addEventListener('keydown', this.escapeHandler);
+    requestAnimationFrame(() => {
+      this.overlay.querySelector<HTMLElement>('.unified-settings-modal')?.focus();
+    });
     
     // Ensure profile tab renders if it's the profile tab
     if (this.activeTab === 'profile') {
@@ -306,7 +310,7 @@ export class UnifiedSettings {
     });
 
     this.overlay.innerHTML = `
-      <div class="modal unified-settings-modal">
+      <div class="modal unified-settings-modal" tabindex="-1">
         <div class="modal-header">
           <span class="modal-title">${t('header.settings')}</span>
           <button class="modal-close unified-settings-close" aria-label="Close">\u00d7</button>
@@ -322,14 +326,16 @@ export class UnifiedSettings {
           ${prefs.html}
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'data' ? ' active' : ''}" data-panel-id="data" id="us-tab-panel-data" role="tabpanel" aria-labelledby="us-tab-data">
+          <p class="unified-settings-panel-note">Start from a mission pack or open the catalog to add data without hunting across panels.</p>
           <div class="data-manager-shell" id="usDataManager"></div>
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'panels' ? ' active' : ''}" data-panel-id="panels" id="us-tab-panel-panels" role="tabpanel" aria-labelledby="us-tab-panels">
+          <p class="unified-settings-panel-note">Choose which panels stay visible in the workspace. Use categories or search to narrow the list.</p>
           <div class="unified-settings-region-wrapper">
             <div class="unified-settings-region-bar" id="usPanelCatBar"></div>
           </div>
           <div class="panels-search">
-            <input type="text" placeholder="${t('header.filterPanels')}" value="${escapeHtml(this.panelFilter)}" />
+            <input type="text" aria-label="${t('header.filterPanels')}" placeholder="${t('header.filterPanels')}" value="${escapeHtml(this.panelFilter)}" />
           </div>
           <div class="panel-toggle-grid" id="usPanelToggles"></div>
           <div class="panels-footer">
@@ -343,11 +349,12 @@ export class UnifiedSettings {
           </div>
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'sources' ? ' active' : ''}" data-panel-id="sources" id="us-tab-panel-sources" role="tabpanel" aria-labelledby="us-tab-sources">
+          <p class="unified-settings-panel-note">Control feed noise by source. Disabled sources stop contributing to news panels and summaries.</p>
           <div class="unified-settings-region-wrapper">
             <div class="unified-settings-region-bar" id="usRegionBar"></div>
           </div>
           <div class="sources-search">
-            <input type="text" placeholder="${t('header.filterSources')}" value="${escapeHtml(this.sourceFilter)}" />
+            <input type="text" aria-label="${t('header.filterSources')}" placeholder="${t('header.filterSources')}" value="${escapeHtml(this.sourceFilter)}" />
           </div>
           <div class="sources-toggle-grid" id="usSourceToggles"></div>
           <div class="sources-footer">

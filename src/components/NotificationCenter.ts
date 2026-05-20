@@ -104,6 +104,9 @@ export class NotificationCenter {
     const btn = document.createElement('button');
     btn.className = 'notif-bell-btn';
     btn.title = 'Activity inbox';
+    btn.setAttribute('aria-label', 'Activity inbox');
+    btn.setAttribute('aria-haspopup', 'menu');
+    btn.setAttribute('aria-expanded', 'false');
     btn.innerHTML = '🔔';
     btn.addEventListener('click', () => this.toggle());
     this.el.appendChild(btn);
@@ -233,6 +236,7 @@ export class NotificationCenter {
     }
     this.ensurePollingStarted();
     this.open = true;
+    this.el.querySelector('.notif-bell-btn')?.setAttribute('aria-expanded', 'true');
     this.dropdownEl.style.display = '';
     this.renderList();
     requestAnimationFrame(() => this.dropdownEl.classList.add('active'));
@@ -240,6 +244,7 @@ export class NotificationCenter {
 
   private close(): void {
     this.open = false;
+    this.el.querySelector('.notif-bell-btn')?.setAttribute('aria-expanded', 'false');
     this.dropdownEl.classList.remove('active');
     this.schedulePollingStop();
     setTimeout(() => { if (!this.open) this.dropdownEl.style.display = 'none'; }, 200);

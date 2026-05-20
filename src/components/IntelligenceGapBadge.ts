@@ -180,6 +180,9 @@ export class IntelligenceFindingsBadge {
     this.badge.className = 'intel-findings-badge';
     this.badge.dataset.tooltipAnchor = 'element';
     this.badge.title = t('components.intelligenceFindings.badgeTitle');
+    this.badge.setAttribute('aria-label', t('components.intelligenceFindings.badgeTitle'));
+    this.badge.setAttribute('aria-haspopup', 'menu');
+    this.badge.setAttribute('aria-expanded', 'false');
     this.badge.innerHTML = `<span class="findings-icon">${INTELLIGENCE_ICON}</span><span class="findings-count">0</span>`;
 
     this.dropdown = document.createElement('div');
@@ -365,7 +368,7 @@ export class IntelligenceFindingsBadge {
   }
 
   private mount(): void {
-    const headerRight = document.querySelector('.header-right');
+    const headerRight = document.querySelector('.header-live-actions, .header-right');
     if (headerRight) {
       this.badge.appendChild(this.dropdown);
       headerRight.insertBefore(this.badge, headerRight.firstChild);
@@ -920,6 +923,7 @@ export class IntelligenceFindingsBadge {
     this.isOpen = !this.isOpen;
     this.dropdown.classList.toggle('open', this.isOpen);
     this.badge.classList.toggle('active', this.isOpen);
+    this.badge.setAttribute('aria-expanded', String(this.isOpen));
     if (this.isOpen) {
       this.update();
     }
@@ -929,6 +933,7 @@ export class IntelligenceFindingsBadge {
     this.isOpen = false;
     this.dropdown.classList.remove('open');
     this.badge.classList.remove('active');
+    this.badge.setAttribute('aria-expanded', 'false');
   }
 
   private showAllFindings(): void {
