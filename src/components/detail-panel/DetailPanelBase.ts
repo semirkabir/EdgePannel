@@ -11,6 +11,8 @@ export interface DetailPanelBaseOptions {
   maximizedClassName?: string;
   closeText?: string;
   closeAriaLabel?: string;
+  /** Short uppercase label shown in the top-left corner of the panel shell, e.g. "RELEASES" */
+  panelTypeLabel?: string;
 }
 
 /**
@@ -159,6 +161,14 @@ export abstract class DetailPanelBase {
     panel.setAttribute('aria-hidden', 'true');
 
     const shell = this.el('div', options.shellClassName ?? 'dp-shell');
+
+    // Optional panel-type label (e.g. "RELEASES", "ARTICLE")
+    if (options.panelTypeLabel) {
+      const typeLabel = this.el('span', 'edp-panel-type-label', options.panelTypeLabel);
+      typeLabel.setAttribute('aria-hidden', 'true');
+      shell.append(typeLabel);
+    }
+
     const close = this.el('button', options.closeClassName ?? 'dp-close', options.closeText ?? 'x') as HTMLButtonElement;
     close.id = options.closeId;
     close.setAttribute('aria-label', options.closeAriaLabel ?? 'Close');

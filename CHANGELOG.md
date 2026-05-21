@@ -4,6 +4,15 @@ All notable changes to EdgePannel are documented here.
 
 ## [Unreleased]
 
+### Highlights
+
+- **UI Polish — Header, Panels & Onboarding** — Normalized header overflow menu, polished right-panel chrome, reduced panel-header visual noise, and standardized empty/loading states across all panels
+- **What's New panel** — Release timeline panel auto-parsed from `CHANGELOG.md` at build time; updates automatically whenever the changelog is updated
+- **Search discoverability** — `⌘K` / `Ctrl+K` shortcut badge added to search button; command palette hints rotated on open
+- **Semantic badge system** — Unified notification/count badges across the header; neutral=count, amber=attention, red=urgent/actionable; applied via CSS custom-property tokens and modifier classes
+- **Onboarding hints** — First-run dismissible hint chips for search, layer controls, panel drag, right-panel expand, and save/reset layout; stored in localStorage, non-blocking
+- **Responsive QA** — Layout verified and fixed at 1365×906, 1440×900, 1920×1080, and 2560×1440; new breakpoints at 1400px and 2200px for better header density control
+
 ### Architecture — Modular Refactoring
 
 - **Event Bus** — lightweight pub/sub (`AppEventBus`) replaces direct callback wiring between modules

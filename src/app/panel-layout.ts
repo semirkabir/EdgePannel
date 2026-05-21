@@ -61,6 +61,7 @@ import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
 import { debounce, saveToStorage, loadFromStorage } from '@/utils';
+import { applyStoredMapHeight, scheduleMapResize } from '@/utils/map-layout-height';
 import { escapeHtml } from '@/utils/sanitize';
 import {
   FEEDS,
@@ -312,17 +313,27 @@ export class PanelLayoutManager implements AppModule {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
         </div>
-        <div class="header-right">
-          <button class="search-btn" id="searchBtn"><kbd>⌥</kbd> ${t('header.search')}</button>
-          ${this.ctx.isDesktopApp ? '' : `<div class="save-reset-dropdown" id="saveResetDropdown"><button class="copy-link-btn" id="saveResetLayoutBtn">${t('header.saveResetLayout')}</button><div class="save-reset-menu"><button id="saveLayoutBtn">${t('header.saveLayout')}</button><button id="resetLayoutBtn">${t('header.resetLayout')}</button></div></div>`}
+        <div class="header-right" aria-label="Dashboard actions">
+          <div class="header-live-actions" id="headerLiveActions" aria-label="Live dashboard actions"></div>
+          <button class="search-btn" id="searchBtn" aria-label="${t('header.search')}"><kbd class="search-kbd-hint">${/Mac|iPhone|iPad|iPod/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd><span class="search-ticker"><span class="search-ticker-text">${t('header.search')}</span></span></button>
+          <details class="header-overflow-menu" id="headerOverflowMenu">
+            <summary class="header-overflow-btn" aria-label="More actions" title="More actions">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </summary>
+            <div class="header-overflow-panel" id="headerOverflowPanel" role="menu" aria-label="More dashboard actions">
+              ${this.ctx.isDesktopApp ? '' : `<div class="save-reset-dropdown" id="saveResetDropdown"><button class="copy-link-btn" id="saveResetLayoutBtn" role="menuitem">${t('header.saveResetLayout')}</button><div class="save-reset-menu"><button id="saveLayoutBtn" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span class="header-action-label">${t('header.saveLayout')}</span></button><button id="resetLayoutBtn" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span class="header-action-label">${t('header.resetLayout')}</span></button></div></div>`}
 
-          <button class="theme-toggle-btn" id="headerThemeToggle" title="${t('header.toggleTheme')}" data-theme="${getCurrentTheme()}">
-            <span class="theme-icon theme-icon--sun"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
-            <span class="theme-icon theme-icon--moon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></span>
-          </button>
-          ${this.ctx.isDesktopApp ? '' : `<button class="fullscreen-btn" id="fullscreenBtn" title="${t('header.fullscreen')}">⛶</button>`}
-          ${SITE_VARIANT === 'happy' ? `<button class="tv-mode-btn" id="tvModeBtn" title="TV Mode (Shift+T)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></button>` : ''}
-          <span id="unifiedSettingsMount"></span>
+              <button class="theme-toggle-btn" id="headerThemeToggle" title="${t('header.toggleTheme')}" aria-label="${t('header.toggleTheme')}" data-theme="${getCurrentTheme()}" role="menuitem">
+                <span class="theme-icon theme-icon--sun"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+                <span class="theme-icon theme-icon--moon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></span>
+                <span class="header-action-label">${t('header.toggleTheme')}</span>
+              </button>
+              ${this.ctx.isDesktopApp ? '' : `<button class="fullscreen-btn" id="fullscreenBtn" title="${t('header.fullscreen')}" aria-label="${t('header.fullscreen')}" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg><span class="header-action-label">${t('header.fullscreen')}</span></button>`}
+              <button class="whats-new-btn" id="whatsNewBtn" title="${t('header.whatsNew')}" aria-label="${t('header.whatsNew')}" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4M19 17v4M3 5h4M17 19h4"/></svg><span class="header-action-label">${t('header.whatsNew')}</span></button>
+              ${SITE_VARIANT === 'happy' ? `<button class="tv-mode-btn" id="tvModeBtn" title="TV Mode (Shift+T)" aria-label="TV Mode" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span class="header-action-label">TV Mode</span></button>` : ''}
+              <span id="unifiedSettingsMount"></span>
+            </div>
+          </details>
         </div>
       </div>
       <div class="shell-guidance-strip hidden" id="shellGuidanceStrip" role="note">
@@ -514,6 +525,7 @@ export class PanelLayoutManager implements AppModule {
       </div>
     `;
 
+    applyStoredMapHeight();
     this.createPanels();
     this.setupCustomCategoryHandlers();
 
@@ -806,16 +818,7 @@ export class PanelLayoutManager implements AppModule {
       timeRange: '7d',
     }, preferGlobe);
 
-    // Double-rAF: the first frame ends JS execution, the second fires after the
-    // browser has completed its first layout pass and paint. At that point the
-    // flex/grid chain resolves and mapContainer has its true pixel dimensions.
-    // Without this, MapLibre bakes the initial 0-height canvas into its projection
-    // matrix, causing vertical stretching until the user pans.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        this.ctx.map?.resize();
-      });
-    });
+    scheduleMapResize(this.ctx.map);
 
     this.ctx.map.initEscalationGetters();
     this.ctx.currentTimeRange = this.ctx.map.getTimeRange();

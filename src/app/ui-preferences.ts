@@ -9,6 +9,7 @@ export const UI_PREFERENCE_KEYS = {
   deckLegendCollapsed: 'wm-ui-deck-legend-collapsed',
   svgLegendCollapsed: 'wm-ui-svg-legend-collapsed',
   svgLayersCollapsed: 'wm-ui-svg-layers-collapsed',
+  powerHintsDismissed: 'wm-ui-power-hints-dismissed-v1',
 } as const;
 
 function readBoolean(key: string, fallback = false): boolean {

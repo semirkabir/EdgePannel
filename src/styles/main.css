@@ -1812,10 +1812,11 @@ canvas,
 
 .brand-logo {
   display: block;
-  width: 180px;
-  height: 36px;
-  object-fit: cover;
-  object-position: center;
+  width: auto;
+  max-width: 180px;
+  height: 28px;
+  object-fit: contain;
+  object-position: left center;
   image-rendering: auto;
   flex: 0 0 auto;
 }
@@ -2222,13 +2223,62 @@ canvas,
   transform: translateY(1px);
 }
 
+.notif-bell-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.notif-bell-icon svg {
+  flex-shrink: 0;
+}
+
+/* ── Unified badge token system ───────────────────────────────────────── */
+/* Three semantic states shared across notif-badge, panel-count, findings */
+:root {
+  /* neutral: plain count, no urgency */
+  --badge-neutral-bg:     var(--ctrl-bg, rgba(255,255,255,0.07));
+  --badge-neutral-border: var(--frame-border, rgba(255,255,255,0.12));
+  --badge-neutral-fg:     var(--text-dim, rgba(255,255,255,0.55));
+  /* attention: something needs a look (amber) */
+  --badge-attention-bg:     color-mix(in srgb, #f0a020 14%, transparent);
+  --badge-attention-border: color-mix(in srgb, #f0a020 40%, transparent);
+  --badge-attention-fg:     #f0a020;
+  /* urgent: actionable / high severity (red) */
+  --badge-urgent-bg:     color-mix(in srgb, #ef4444 14%, transparent);
+  --badge-urgent-border: color-mix(in srgb, #ef4444 40%, transparent);
+  --badge-urgent-fg:     #ef4444;
+}
+
 .notif-badge {
   position: absolute; top: -4px; right: -4px;
   min-width: 16px; height: 16px; padding: 0 4px;
-  background: var(--semantic-critical, #ef4444);
-  color: #fff; font-size: 10px; font-weight: 700;
-  line-height: 16px; text-align: center;
+  /* default: attention (amber) — non-zero unread but not necessarily critical */
+  background: var(--badge-attention-bg);
+  color: var(--badge-attention-fg);
+  border: 1px solid var(--badge-attention-border);
+  font-size: 10px; font-weight: 700;
+  line-height: 14px; text-align: center;
   border-radius: 8px; pointer-events: none;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+/* Semantic modifier states applied by NotificationCenter.updateBadge() */
+.notif-badge.badge--neutral {
+  background: var(--badge-neutral-bg);
+  color:      var(--badge-neutral-fg);
+  border-color: var(--badge-neutral-border);
+}
+.notif-badge.badge--attention {
+  background: var(--badge-attention-bg);
+  color:      var(--badge-attention-fg);
+  border-color: var(--badge-attention-border);
+}
+.notif-badge.badge--urgent {
+  background: var(--badge-urgent-bg);
+  color:      var(--badge-urgent-fg);
+  border-color: var(--badge-urgent-border);
 }
 
 .notif-dropdown {
@@ -2375,12 +2425,48 @@ canvas,
   align-items: center;
   gap: 6px;
   height: 28px;
+  width: 230px;
   box-sizing: border-box;
   transition: background var(--motion-fast) var(--ease-standard),
               border-color var(--motion-fast) var(--ease-standard),
               color var(--motion-fast) var(--ease-standard),
               transform var(--motion-fast) var(--ease-press),
               box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.search-ticker {
+  flex: 1;
+  overflow: hidden;
+  perspective: 400px;
+  display: flex;
+  align-items: center;
+}
+
+.search-ticker-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform-origin: center top;
+  color: var(--text-dim);
+}
+
+.search-ticker-text.ticker-flip-out {
+  animation: search-ticker-flip-out 0.18s ease-in forwards;
+}
+
+.search-ticker-text.ticker-flip-in {
+  animation: search-ticker-flip-in 0.22s ease-out forwards;
+}
+
+@keyframes search-ticker-flip-out {
+  from { transform: rotateX(0deg); opacity: 1; }
+  to   { transform: rotateX(-80deg); opacity: 0; }
+}
+
+@keyframes search-ticker-flip-in {
+  from { transform: rotateX(80deg); opacity: 0; }
+  to   { transform: rotateX(0deg); opacity: 1; }
 }
 
 .search-btn:hover {
@@ -2447,6 +2533,8 @@ canvas,
   left: 0;
   background: var(--bg-card, var(--bg));
   border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
   z-index: 100;
   min-width: 100%;
 }
@@ -2599,6 +2687,7 @@ canvas,
   border-radius: 3px;
   font-size: 10px;
   font-family: inherit;
+  flex-shrink: 0;
   transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1), background 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -2606,6 +2695,14 @@ canvas,
   transform: scale(1.15) translateY(-1px);
   background: var(--bg);
   box-shadow: 0 2px 5px rgba(0,0,0,0.22);
+}
+
+/* Keyboard shortcut hint badge in search button */
+.search-btn .search-kbd-hint {
+  border: 1px solid var(--frame-border);
+  box-shadow: 0 1px 0 var(--frame-border);
+  color: var(--text-dim);
+  letter-spacing: 0.01em;
 }
 
 .main-content {
@@ -2645,14 +2742,20 @@ canvas,
 .map-section .panel-header {
   flex-shrink: 0;
   gap: 6px;
-  padding: 8px 12px 8px 14px;
+  padding: 8px 12px 8px 8px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
-/* No negative margin — the panel has overflow:hidden so pulling left clips the title */
 .map-section .panel-header-left {
   margin-left: 0;
+  padding-left: 0;
+}
+
+.map-section .brand-logo {
+  margin-left: 0;
+  height: 28px;
+  max-width: 200px;
 }
 
 .map-section .map-container {
@@ -3311,6 +3414,18 @@ body.panel-resize-active iframe {
   animation: count-bump 0.5s ease-out;
 }
 
+/* Semantic modifier states — reuse the same token system as notif-badge */
+.panel-count.badge--attention {
+  background:   var(--badge-attention-bg);
+  color:        var(--badge-attention-fg);
+  border-color: var(--badge-attention-border);
+}
+.panel-count.badge--urgent {
+  background:   var(--badge-urgent-bg);
+  color:        var(--badge-urgent-fg);
+  border-color: var(--badge-urgent-border);
+}
+
 /* ── Panel copy button ────────────────────────────────────────── */
 .panel-copy-btn {
   display: none !important;
@@ -3772,6 +3887,9 @@ body.panel-resize-active iframe {
 
 .panel-info-tooltip strong {
   color: var(--accent);
+}
+
+.panel-info-tooltip > strong {
   display: block;
   margin-bottom: 4px;
 }
@@ -9320,6 +9438,14 @@ a.prediction-link:hover {
   line-height: 1.4;
 }
 
+.panel-error-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: 0.65;
+  margin-top: 2px;
+  text-align: center;
+}
+
 .panel-empty {
   display: flex;
   align-items: center;
@@ -12885,6 +13011,36 @@ body.urgency-mode #header {
   background: var(--bg);
 }
 
+.search-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  perspective: 400px;
+}
+
+.search-input-ticker {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.search-input-wrap .search-input {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  background: transparent;
+}
+
+.search-input-wrap.has-value .search-input-ticker {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .search-icon {
   font-size: 14px;
   color: var(--text-dim);
@@ -13125,18 +13281,17 @@ body.urgency-mode #header {
   padding: 8px 16px 12px;
 }
 
+.search-sheet-header .search-input-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
 .search-sheet-icon {
   font-size: 16px;
 }
 
 .search-sheet-header .search-input {
-  flex: 1;
   font-size: 15px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  font-family: inherit;
-  outline: none;
 }
 
 .search-sheet-cancel {
@@ -28274,6 +28429,93 @@ body[data-panel-density="comfortable"] .panel-tabs {
 /* Custom cursor declarations are in src/styles/cursors.css —
    imported unlayered in main.ts so they beat this @layer base file. */
 
+/* ── Onboarding hint chips ────────────────────────────────────────────────── */
+.ohint-layer {
+  /* Transparent overlay container — no pointer-events so it doesn't block UI */
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 10015;
+}
+
+.ohint-chip {
+  pointer-events: auto;
+  position: fixed;
+  width: 240px;
+  padding: 12px 14px 10px;
+  background: color-mix(in srgb, var(--surface, #16161e) 96%, white 4%);
+  border: 1px solid color-mix(in srgb, var(--accent, #4c8cf8) 55%, transparent);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3),
+              inset 0 1px 0 rgba(255,255,255,0.06);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text, #e8e8f0);
+}
+
+.ohint-chip::before {
+  /* Subtle accent top-border glow */
+  content: '';
+  position: absolute; top: -1px; left: 16px; right: 16px; height: 1px;
+  background: color-mix(in srgb, var(--accent, #4c8cf8) 70%, transparent);
+  border-radius: 999px;
+}
+
+.ohint-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent, #4c8cf8);
+  margin-bottom: 5px;
+}
+
+.ohint-body {
+  font-size: 12px;
+  color: var(--text-dim, rgba(255,255,255,0.72));
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.ohint-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ohint-dismiss-one {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--accent, #4c8cf8);
+  color: #fff;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: var(--wm-cursor-pointer, pointer);
+  transition: opacity 0.15s;
+}
+.ohint-dismiss-one:hover { opacity: 0.85; }
+
+.ohint-dismiss-all {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted, rgba(255,255,255,0.4));
+  border: none;
+  font-size: 11px;
+  cursor: var(--wm-cursor-pointer, pointer);
+  transition: color 0.15s;
+}
+.ohint-dismiss-all:hover { color: var(--text-dim, rgba(255,255,255,0.6)); }
+
+[data-theme="light"] .ohint-chip {
+  background: #fff;
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 45%, transparent);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06);
+  color: #1a1a2e;
+}
+[data-theme="light"] .ohint-body { color: #444; }
+[data-theme="light"] .ohint-dismiss-all { color: #888; }
+
 /* ── Global Tooltip ───────────────────────────────────────────────────────── */
 #wm-tooltip {
   position: fixed;
@@ -28576,5 +28818,657 @@ body[data-panel-density="comfortable"] .panel-tabs {
   .data-manager-summary,
   .marketplace-modal-trust-grid {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ==========================================================================
+   UI/UX polish pass: calmer chrome, clearer trays, stronger touch targets
+   ========================================================================== */
+
+.header-right {
+  gap: 8px;
+}
+
+.header-live-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-live-actions:empty {
+  display: none;
+}
+
+.header-live-actions > button,
+.header-live-actions > .playback-control > .playback-toggle,
+.header-live-actions > .export-panel-container > .export-btn,
+.header-live-actions > .visitor-counter,
+.header-live-actions > .notif-center > .notif-bell-btn {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 0 rgba(0, 0, 0, 0.5),
+    0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
+.header-overflow-menu {
+  position: relative;
+}
+
+.header-overflow-menu summary {
+  list-style: none;
+}
+
+.header-overflow-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.header-overflow-btn {
+  width: 32px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--frame-border);
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--ctrl-bg-hover) 0%, var(--ctrl-bg) 100%);
+  color: var(--text-dim);
+  cursor: var(--wm-cursor-pointer);
+  box-shadow: var(--depth-resting), inset 0 1px 0 var(--frame-inset-highlight);
+}
+
+.header-overflow-btn svg {
+  flex-shrink: 0;
+}
+
+.header-overflow-btn:hover,
+.header-overflow-menu[open] .header-overflow-btn {
+  border-color: var(--frame-border-strong);
+  color: var(--text);
+  background: var(--ctrl-bg-hover);
+}
+
+.header-overflow-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  background: color-mix(in srgb, var(--surface) 94%, black 6%);
+  border: 1px solid var(--frame-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+  z-index: 1200;
+}
+
+.header-overflow-panel::before {
+  content: 'More actions';
+  padding: 2px 4px 6px;
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header-overflow-panel .save-reset-dropdown,
+.header-overflow-panel .save-reset-menu,
+.header-overflow-panel #unifiedSettingsMount,
+.header-overflow-panel .agent-chat-open-btn,
+.header-overflow-panel .theme-toggle-btn,
+.header-overflow-panel .fullscreen-btn,
+.header-overflow-panel .whats-new-btn,
+.header-overflow-panel .tv-mode-btn,
+.header-overflow-panel .copy-link-btn,
+.header-overflow-panel .unified-settings-btn {
+  width: 100%;
+}
+
+/* ── Normalized overflow row base ──────────────────────────────────
+   Every menu row gets the same bordered button treatment.
+   ─────────────────────────────────────────────────────────────── */
+.header-overflow-panel .theme-toggle-btn,
+.header-overflow-panel .fullscreen-btn,
+.header-overflow-panel .whats-new-btn,
+.header-overflow-panel .tv-mode-btn,
+.header-overflow-panel .unified-settings-btn,
+.header-overflow-panel .agent-chat-open-btn,
+.header-overflow-panel .copy-link-btn,
+.header-overflow-panel .save-reset-menu button {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-family: var(--font-body);
+  text-align: left;
+  /* Unified bordered style */
+  background: var(--ctrl-bg);
+  border: 1px solid var(--frame-border);
+  color: var(--text);
+  cursor: var(--wm-cursor-pointer);
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+/* Hover state — all rows */
+.header-overflow-panel .theme-toggle-btn:hover,
+.header-overflow-panel .fullscreen-btn:hover,
+.header-overflow-panel .whats-new-btn:hover,
+.header-overflow-panel .tv-mode-btn:hover,
+.header-overflow-panel .unified-settings-btn:hover,
+.header-overflow-panel .agent-chat-open-btn:hover,
+.header-overflow-panel .copy-link-btn:hover,
+.header-overflow-panel .save-reset-menu button:hover {
+  background: var(--ctrl-bg-hover);
+  border-color: var(--frame-border-strong);
+  color: var(--text);
+  box-shadow: var(--depth-hover), inset 0 1px 0 var(--frame-inset-highlight);
+}
+
+/* Focus-visible ring — all rows */
+.header-overflow-panel .theme-toggle-btn:focus-visible,
+.header-overflow-panel .fullscreen-btn:focus-visible,
+.header-overflow-panel .whats-new-btn:focus-visible,
+.header-overflow-panel .tv-mode-btn:focus-visible,
+.header-overflow-panel .unified-settings-btn:focus-visible,
+.header-overflow-panel .agent-chat-open-btn:focus-visible,
+.header-overflow-panel .copy-link-btn:focus-visible,
+.header-overflow-panel .save-reset-menu button:focus-visible {
+  outline: none;
+  border-color: var(--frame-border-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 65%, transparent),
+              inset 0 1px 0 var(--frame-inset-highlight);
+}
+
+/* SVG icon transitions — all rows */
+.header-overflow-panel .theme-toggle-btn svg,
+.header-overflow-panel .fullscreen-btn svg,
+.header-overflow-panel .whats-new-btn svg,
+.header-overflow-panel .tv-mode-btn svg,
+.header-overflow-panel .agent-chat-open-btn svg,
+.header-overflow-panel .copy-link-btn svg,
+.header-overflow-panel .save-reset-menu button svg {
+  flex-shrink: 0;
+  transform-origin: center;
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+/* Icon scale on hover — consistent across all rows */
+.header-overflow-panel .theme-toggle-btn:hover svg,
+.header-overflow-panel .theme-toggle-btn:focus-visible svg,
+.header-overflow-panel .fullscreen-btn:hover svg,
+.header-overflow-panel .fullscreen-btn:focus-visible svg,
+.header-overflow-panel .tv-mode-btn:hover svg,
+.header-overflow-panel .tv-mode-btn:focus-visible svg,
+.header-overflow-panel .agent-chat-open-btn:hover svg,
+.header-overflow-panel .agent-chat-open-btn:focus-visible svg,
+.header-overflow-panel .copy-link-btn:hover svg,
+.header-overflow-panel .copy-link-btn:focus-visible svg,
+.header-overflow-panel .save-reset-menu button:hover svg,
+.header-overflow-panel .save-reset-menu button:focus-visible svg {
+  transform: scale(1.1);
+  color: var(--accent);
+}
+
+/* What's New sparkle — keeps the signature effect */
+.header-overflow-panel .whats-new-btn svg {
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    filter var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.header-overflow-panel .whats-new-btn:hover svg,
+.header-overflow-panel .whats-new-btn:focus-visible svg {
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
+  animation: whats-new-sparkle 900ms var(--ease-standard) both;
+}
+
+/* Theme toggle specifics */
+.header-overflow-panel .theme-toggle-btn {
+  overflow: visible;
+}
+
+.header-overflow-panel .theme-toggle-btn .theme-icon {
+  position: static;
+  width: 16px;
+  height: 16px;
+}
+
+.header-overflow-panel .theme-toggle-btn .theme-icon--moon,
+.header-overflow-panel .theme-toggle-btn .theme-icon--sun {
+  transform: none !important;
+}
+
+.header-overflow-panel .theme-toggle-btn[data-theme="dark"] .theme-icon--moon,
+.header-overflow-panel .theme-toggle-btn[data-theme="light"] .theme-icon--sun {
+  display: none;
+}
+
+.header-action-label,
+.header-overflow-panel .unified-settings-btn::after {
+  color: var(--text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.header-overflow-panel .unified-settings-btn::after {
+  content: 'Profile & settings';
+}
+
+.header-overflow-panel .save-reset-dropdown {
+  display: block;
+  position: static;
+  height: auto;
+}
+
+.header-overflow-panel .save-reset-dropdown > .copy-link-btn {
+  display: none;
+}
+
+.header-overflow-panel .save-reset-menu {
+  position: static;
+  display: flex !important;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.header-overflow-panel .save-reset-menu button {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.header-overflow-panel .save-reset-menu button .header-action-label {
+  color: var(--text);
+}
+
+@keyframes whats-new-sparkle {
+  0% { transform: rotate(0deg) scale(1); }
+  35% { transform: rotate(-10deg) scale(1.16); }
+  65% { transform: rotate(8deg) scale(1.08); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-overflow-panel .whats-new-btn:hover svg,
+  .header-overflow-panel .whats-new-btn:focus-visible svg {
+    animation: none;
+    transform: scale(1.08);
+  }
+
+  .header-overflow-panel .theme-toggle-btn:hover svg,
+  .header-overflow-panel .fullscreen-btn:hover svg,
+  .header-overflow-panel .tv-mode-btn:hover svg,
+  .header-overflow-panel .agent-chat-open-btn:hover svg,
+  .header-overflow-panel .copy-link-btn:hover svg,
+  .header-overflow-panel .save-reset-menu button:hover svg {
+    transform: scale(1.08);
+  }
+}
+
+
+.intel-findings-badge {
+  min-width: 48px;
+}
+
+.intel-findings-badge.status-high {
+  box-shadow: 0 0 0 1px rgba(255, 168, 44, 0.25), 0 4px 12px rgba(255, 128, 0, 0.12);
+}
+
+.panel-header {
+  min-height: 34px;
+}
+
+.panel-title {
+  letter-spacing: 0.01em;
+  /* Title stays strong — no secondary dimming */
+}
+
+/* Secondary panel-header controls — dim at rest, reveal on hover */
+.panel-copy-btn,
+.panel-count,
+.panel-freshness-dot {
+  opacity: 0.35;
+  transition: opacity var(--motion-fast, 120ms) ease;
+}
+
+.panel:hover .panel-copy-btn,
+.panel:hover .panel-count,
+.panel:hover .panel-freshness-dot,
+.panel-copy-btn:focus-visible {
+  opacity: 1;
+}
+
+/* Data badge — keep visible but use subdued weight for non-critical states */
+.panel-data-badge.live {
+  font-weight: 600;
+}
+
+.panel-data-badge.cached,
+.panel-data-badge.unavailable {
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.panel-remove-btn {
+  opacity: 0.5;
+  transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.panel:hover .panel-remove-btn,
+.panel-remove-btn:focus-visible {
+  opacity: 1;
+}
+
+/* Alert panel red — only genuine critical severity */
+.panel-header-error {
+  background: color-mix(in srgb, var(--semantic-critical, #ef4444) 6%, transparent) !important;
+  border-bottom-color: color-mix(in srgb, var(--semantic-critical, #ef4444) 22%, transparent) !important;
+}
+
+.map-bottom-grid::after {
+  content: 'Drop panels here to keep them under the map';
+  border-width: 1px;
+  border-color: color-mix(in srgb, var(--frame-border) 70%, transparent);
+  color: color-mix(in srgb, var(--text-dim) 70%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.deckgl-time-slider .layers-panel {
+  max-height: min(360px, 46vh);
+  background: color-mix(in srgb, var(--bg) 88%, black 12%) !important;
+}
+
+.deckgl-layer-toggles .toggle-list {
+  padding: 6px;
+  gap: 4px;
+  scrollbar-width: thin !important;
+}
+
+.deckgl-layer-toggles .toggle-list::-webkit-scrollbar {
+  display: block !important;
+  width: 6px;
+}
+
+.deckgl-layer-toggles .toggle-list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-dim) 35%, transparent);
+  border-radius: 999px;
+}
+
+.deckgl-layer-toggles .layer-toggle {
+  min-height: 32px;
+  padding: 7px 9px;
+  border-radius: 6px;
+}
+
+.deckgl-layer-toggles .layer-toggle:hover {
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  background: color-mix(in srgb, var(--surface-hover) 70%, transparent);
+}
+
+.deckgl-layer-toggles .layer-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+}
+
+.aircraft-density-control {
+  padding: 6px 8px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+.aircraft-density-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.aircraft-density-value {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.map-tray {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+}
+
+.map-tray-collapse {
+  min-width: 28px;
+  min-height: 28px;
+}
+
+.unified-settings-modal {
+  outline: none;
+}
+
+.unified-settings-panel-note {
+  margin: 0 0 10px;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.unified-settings-tab:focus-visible,
+.unified-settings-region-pill:focus-visible,
+.search-result-item:focus-visible,
+.search-quick-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.search-overlay {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.search-modal {
+  border-color: color-mix(in srgb, var(--frame-border-strong) 72%, transparent);
+}
+
+.search-command-row {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+}
+
+.search-quick-actions {
+  gap: 8px;
+}
+
+.search-quick-action {
+  min-height: 38px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+@media (max-width: 1100px) {
+  .header-live-actions .visitor-counter,
+  .header-live-actions .playback-control,
+  .header-live-actions .export-panel-container {
+    display: none;
+  }
+}
+
+/* ── Visual QA: target widths 1365×906, 1440×900, 1920×1080, 2560×1440 ──── */
+
+/*
+ * 1365–1440px: sits between the 1100px mobile-trim breakpoint and the 1600px
+ * side-by-side breakpoint. The header right side carries visitor-counter,
+ * playback, export, notif-bell, search (230px), and overflow — all visible
+ * and tight. Raise the hide threshold to 1400px so 1365px gets a clean header.
+ */
+@media (max-width: 1400px) {
+  .header-live-actions .visitor-counter,
+  .header-live-actions .playback-control,
+  .header-live-actions .export-panel-container {
+    display: none;
+  }
+
+  /* Narrow the search box a bit to prevent right-side overflow */
+  .search-btn {
+    width: clamp(150px, 14vw, 210px);
+  }
+}
+
+/*
+ * 1365–1599px: stacked layout (no side-by-side yet). Ensure the header
+ * overflow panel doesn't clip off the right edge when the viewport is narrow.
+ */
+@media (max-width: 1599px) {
+  .header-overflow-panel {
+    max-width: calc(100vw - 32px);
+  }
+}
+
+/*
+ * 2200px+: ultra-wide. Make the search button proportionally wider and give
+ * the panel grid wider minimum columns so panels don't look tiny.
+ */
+@media (min-width: 2200px) {
+  .search-btn {
+    width: clamp(230px, 11vw, 320px);
+  }
+}
+
+/* Side-by-side layout starts at 1600px; at 2200px+ widen panel columns
+ * so panels don't look undersized on ultra-wide displays. */
+@media (min-width: 2200px) {
+  .panels-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+
+/*
+ * 2560px specific: panel rows can be taller since vertical space is abundant.
+ */
+@media (min-width: 2400px) {
+  .panels-grid {
+    grid-auto-rows: minmax(220px, 420px);
+  }
+}
+
+@media (max-width: 768px) {
+  .hamburger-btn,
+  .mobile-menu-close {
+    width: 40px;
+    height: 40px;
+  }
+
+  .deckgl-controls .map-btn,
+  .map-btn {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .map-dim-btn {
+    min-width: 40px;
+    min-height: 32px;
+  }
+
+  .deckgl-time-slider {
+    max-width: calc(100vw - 88px);
+  }
+
+  .deckgl-time-slider .time-options {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .deckgl-time-slider .time-options::-webkit-scrollbar {
+    display: none;
+  }
+
+  .deckgl-time-slider .time-btn,
+  .deckgl-time-slider .time-settings-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .deckgl-time-slider .layers-row .layers-toggle-btn,
+  .deckgl-time-slider .layers-row .layers-row-help,
+  .deckgl-time-slider .layers-row .layers-row-clear,
+  .deckgl-time-slider .layers-row .layers-row-marketplace {
+    min-height: 40px;
+  }
+
+  .deckgl-time-slider .layers-panel {
+    max-height: min(54vh, 460px);
+    border-radius: 0 0 14px 14px !important;
+  }
+
+  .deckgl-layer-toggles .layer-toggle {
+    min-height: 44px;
+    padding: 10px 10px;
+  }
+
+  .deckgl-layer-toggles .layer-toggle input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+  }
+
+  .deckgl-layer-toggles .map-tray-search-input {
+    height: 40px;
+    font-size: 12px;
+  }
+
+  .panel-tabs {
+    padding-bottom: 2px;
+    scroll-snap-type: x proximity;
+  }
+
+  .panel-tab {
+    min-height: 40px;
+    max-width: min(70vw, 220px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    scroll-snap-align: start;
+  }
+
+  .panel-tab .tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .live-channel-btn {
+    min-height: 36px;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .map-bottom-grid::after {
+    font-size: 10px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .layer-toggles {
+    max-height: 54vh !important;
+    overflow-y: auto !important;
+  }
+
+  .deckgl-layer-toggles .toggle-list,
+  .layer-toggles:not(.deckgl-layer-toggles) {
+    max-height: 42vh !important;
   }
 }

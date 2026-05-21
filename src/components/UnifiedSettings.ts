@@ -21,7 +21,7 @@ import { loginWithGoogle, logoutUser } from '@/services/firebase-auth';
 import { User } from 'firebase/auth';
 import { renderPreferences } from '@/services/preferences-content';
 
-const USER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+const SETTINGS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
 export interface UnifiedSettingsConfig {
   getPanelSettings: () => Record<string, PanelConfig>;
@@ -99,6 +99,7 @@ export class UnifiedSettings {
     this.overlay.className = 'modal-overlay';
     this.overlay.id = 'unifiedSettingsModal';
     this.overlay.setAttribute('role', 'dialog');
+    this.overlay.setAttribute('aria-modal', 'true');
     this.overlay.setAttribute('aria-label', t('header.settings'));
 
     this.escapeHandler = (e: KeyboardEvent) => {
@@ -258,6 +259,9 @@ export class UnifiedSettings {
     this.overlay.classList.add('active');
     localStorage.setItem('wm-settings-open', '1');
     document.addEventListener('keydown', this.escapeHandler);
+    requestAnimationFrame(() => {
+      this.overlay.querySelector<HTMLElement>('.unified-settings-modal')?.focus();
+    });
     
     // Ensure profile tab renders if it's the profile tab
     if (this.activeTab === 'profile') {
@@ -281,7 +285,7 @@ export class UnifiedSettings {
     btn.className = 'unified-settings-btn';
     btn.id = 'unifiedSettingsBtn';
     btn.setAttribute('aria-label', t('header.settings'));
-    btn.innerHTML = USER_SVG;
+    btn.innerHTML = SETTINGS_SVG;
     btn.addEventListener('click', () => this.open());
     return btn;
   }
@@ -306,7 +310,7 @@ export class UnifiedSettings {
     });
 
     this.overlay.innerHTML = `
-      <div class="modal unified-settings-modal">
+      <div class="modal unified-settings-modal" tabindex="-1">
         <div class="modal-header">
           <span class="modal-title">${t('header.settings')}</span>
           <button class="modal-close unified-settings-close" aria-label="Close">\u00d7</button>
@@ -322,14 +326,16 @@ export class UnifiedSettings {
           ${prefs.html}
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'data' ? ' active' : ''}" data-panel-id="data" id="us-tab-panel-data" role="tabpanel" aria-labelledby="us-tab-data">
+          <p class="unified-settings-panel-note">Start from a mission pack or open the catalog to add data without hunting across panels.</p>
           <div class="data-manager-shell" id="usDataManager"></div>
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'panels' ? ' active' : ''}" data-panel-id="panels" id="us-tab-panel-panels" role="tabpanel" aria-labelledby="us-tab-panels">
+          <p class="unified-settings-panel-note">Choose which panels stay visible in the workspace. Use categories or search to narrow the list.</p>
           <div class="unified-settings-region-wrapper">
             <div class="unified-settings-region-bar" id="usPanelCatBar"></div>
           </div>
           <div class="panels-search">
-            <input type="text" placeholder="${t('header.filterPanels')}" value="${escapeHtml(this.panelFilter)}" />
+            <input type="text" aria-label="${t('header.filterPanels')}" placeholder="${t('header.filterPanels')}" value="${escapeHtml(this.panelFilter)}" />
           </div>
           <div class="panel-toggle-grid" id="usPanelToggles"></div>
           <div class="panels-footer">
@@ -343,11 +349,12 @@ export class UnifiedSettings {
           </div>
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'sources' ? ' active' : ''}" data-panel-id="sources" id="us-tab-panel-sources" role="tabpanel" aria-labelledby="us-tab-sources">
+          <p class="unified-settings-panel-note">Control feed noise by source. Disabled sources stop contributing to news panels and summaries.</p>
           <div class="unified-settings-region-wrapper">
             <div class="unified-settings-region-bar" id="usRegionBar"></div>
           </div>
           <div class="sources-search">
-            <input type="text" placeholder="${t('header.filterSources')}" value="${escapeHtml(this.sourceFilter)}" />
+            <input type="text" aria-label="${t('header.filterSources')}" placeholder="${t('header.filterSources')}" value="${escapeHtml(this.sourceFilter)}" />
           </div>
           <div class="sources-toggle-grid" id="usSourceToggles"></div>
           <div class="sources-footer">

@@ -321,6 +321,11 @@ export class MapContainer {
   }
 
   public resize(): void {
+    const { clientWidth: w, clientHeight: h } = this.container;
+    if (w <= 0 || h <= 0) {
+      requestAnimationFrame(() => this.resize());
+      return;
+    }
     if (this.useDeckGL) {
       this.deckGLMap?.resize();
     } else {

@@ -784,7 +784,7 @@ export class DeckGLMap {
       this.initDeck();
       this.loadCountryBoundaries();
       this.fetchServerBases();
-      this.render();
+      this.syncMapSizeAfterLayout();
     });
 
     this.createControls();
@@ -905,16 +905,7 @@ export class DeckGLMap {
         this.initDeck();
         this.loadCountryBoundaries();
         this.fetchServerBases();
-        // Sync canvas to container — the container may have reached its final
-        // CSS size (e.g. saved map height restored from localStorage) after the
-        // map was constructed, leaving the canvas at a stale dimension that only
-        // self-corrects on the first user interaction. Calling resize() here and
-        // once more after layout settles eliminates the "stretched map" symptom.
-        this.maplibreMap?.resize();
-        this.render();
-        requestAnimationFrame(() => {
-          this.maplibreMap?.resize();
-        });
+        this.syncMapSizeAfterLayout();
       });
     };
 
@@ -1092,7 +1083,18 @@ export class DeckGLMap {
   }
 
   public resize(): void {
-    this.maplibreMap?.resize();
+    this.syncMapSizeAfterLayout();
+  }
+
+  /** Re-sync MapLibre canvas to container after layout or restored map height. */
+  private syncMapSizeAfterLayout(): void {
+    if (!this.maplibreMap) return;
+    this.maplibreMap.resize();
+    this.render();
+    requestAnimationFrame(() => {
+      this.maplibreMap?.resize();
+      this.render();
+    });
   }
 
   private getSetSignature(set: Set<string>): string {
@@ -5042,12 +5044,17 @@ export class DeckGLMap {
     const layersToggleBtn = document.createElement('button');
     layersToggleBtn.className = 'layers-toggle-btn';
     layersToggleBtn.id = 'layersToggleBtn';
+    layersToggleBtn.type = 'button';
     layersToggleBtn.title = 'Toggle Layers';
+    layersToggleBtn.setAttribute('aria-controls', 'layersPanel');
+    layersToggleBtn.setAttribute('aria-expanded', 'false');
     layersToggleBtn.innerHTML = 'LAYERS <span class="layers-btn-count"></span>';
 
     const layersClearBtn = document.createElement('button');
     layersClearBtn.className = 'layers-row-clear';
+    layersClearBtn.type = 'button';
     layersClearBtn.title = 'Clear all layers';
+    layersClearBtn.setAttribute('aria-label', 'Clear all layers');
     layersClearBtn.textContent = '✕';
     layersClearBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -5073,7 +5080,9 @@ export class DeckGLMap {
 
     const layersHelpBtn = document.createElement('button');
     layersHelpBtn.className = 'layer-help-btn layers-row-help';
+    layersHelpBtn.type = 'button';
     layersHelpBtn.title = t('components.deckgl.layerGuide');
+    layersHelpBtn.setAttribute('aria-label', t('components.deckgl.layerGuide'));
     layersHelpBtn.textContent = '?';
     layersHelpBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -5114,9 +5123,12 @@ export class DeckGLMap {
     const layersPanel = document.createElement('div');
     layersPanel.className = 'layers-panel deckgl-layers-panel deckgl-layer-toggles';
     layersPanel.id = 'layersPanel';
+    layersPanel.setAttribute('role', 'region');
+    layersPanel.setAttribute('aria-label', 'Map layers');
     const layersOpen = getTrayOpenPreference('deckLayersOpen', settings.layersOpenDefault);
     layersPanel.style.display = layersOpen ? 'block' : 'none';
     layersToggleBtn.classList.toggle('active', layersOpen);
+    layersToggleBtn.setAttribute('aria-expanded', String(layersOpen));
     layersRow.classList.toggle('active', layersOpen);
     slider.appendChild(layersPanel);
 
@@ -5133,6 +5145,7 @@ export class DeckGLMap {
         const open = panel.style.display === 'none';
         panel.style.display = open ? 'block' : 'none';
         layersToggleBtn.classList.toggle('active', open);
+        layersToggleBtn.setAttribute('aria-expanded', String(open));
         layersRow.classList.toggle('active', open);
         setTrayOpenPreference('deckLayersOpen', open);
       }
@@ -5398,6 +5411,7 @@ export class DeckGLMap {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = this.state.layers[key as keyof MapLayers] || false;
+      checkbox.setAttribute('aria-label', `${label} layer`);
       if (isLocked) checkbox.disabled = true;
       toggle.appendChild(checkbox);
 
@@ -5428,11 +5442,11 @@ export class DeckGLMap {
       densityContainer.className = 'aircraft-density-control';
       densityContainer.style.display = this.state.layers.flights ? 'block' : 'none';
       densityContainer.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;padding:0 12px;">
-          <span style="font-size:11px;color:var(--text-secondary);">Aircraft Density</span>
-          <span class="aircraft-density-value" style="font-size:11px;color:var(--accent);font-weight:600;">${this.aircraftDensity}%</span>
+        <div class="aircraft-density-header">
+          <span>Aircraft Density</span>
+          <span class="aircraft-density-value">${this.aircraftDensity}%</span>
         </div>
-        <input type="range" class="aircraft-density-slider" min="5" max="100" value="${this.aircraftDensity}" step="5">
+        <input type="range" class="aircraft-density-slider" min="5" max="100" value="${this.aircraftDensity}" step="5" aria-label="Aircraft density">
       `;
       (flightsToggle.parentNode as HTMLElement).insertBefore(densityContainer, flightsToggle.nextSibling);
 
@@ -5637,6 +5651,7 @@ export class DeckGLMap {
       const anyEnabled = cat.layers.some(l => this.state.layers[l]);
       checkbox.checked = allEnabled;
       checkbox.indeterminate = !allEnabled && anyEnabled;
+      checkbox.setAttribute('aria-label', `${cat.name} layer group`);
       item.appendChild(checkbox);
 
       const iconSpan = document.createElement('span');
@@ -5652,7 +5667,9 @@ export class DeckGLMap {
 
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'custom-category-delete-btn';
+      deleteBtn.type = 'button';
       deleteBtn.title = 'Delete category';
+      deleteBtn.setAttribute('aria-label', `Delete ${cat.name} category`);
       deleteBtn.innerHTML = '&times;';
       item.appendChild(deleteBtn);
 
@@ -5729,6 +5746,7 @@ export class DeckGLMap {
       checkbox.type = 'checkbox';
       checkbox.checked = layer.enabled;
       checkbox.disabled = !layer.variantCompatible;
+      checkbox.setAttribute('aria-label', `${layer.name} marketplace layer`);
       item.appendChild(checkbox);
 
       const iconSpan = document.createElement('span');

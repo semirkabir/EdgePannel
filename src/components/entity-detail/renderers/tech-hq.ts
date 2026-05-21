@@ -15,30 +15,50 @@ function badgeClass(type: TechHQ['type']): string {
   return 'edp-badge';
 }
 
+function companyMeta(item: TechHQ): string {
+  return [TYPE_LABELS[item.type], item.marketCap, item.employees != null ? `${item.employees.toLocaleString()} employees` : null]
+    .filter(Boolean)
+    .join(' - ');
+}
+
+function renderTechHQProfile(hq: TechHQ, ctx: EntityRenderContext): HTMLElement {
+  const container = ctx.el('div', 'edp-generic');
+
+  const header = ctx.el('div', 'edp-header');
+  header.append(ctx.el('h2', 'edp-title', hq.company));
+  header.append(ctx.el('div', 'edp-subtitle', `${hq.city}, ${hq.country}`));
+
+  const badgeRow = ctx.el('div', 'edp-badge-row');
+  badgeRow.append(ctx.badge(TYPE_LABELS[hq.type].toUpperCase(), badgeClass(hq.type)));
+  header.append(badgeRow);
+  container.append(header);
+
+  const [card, body] = ctx.sectionCard('Details');
+  body.append(row(ctx, 'City', hq.city));
+  body.append(row(ctx, 'Country', hq.country));
+  body.append(row(ctx, 'Category', TYPE_LABELS[hq.type]));
+  if (hq.employees != null) body.append(row(ctx, 'Employees', hq.employees.toLocaleString()));
+  if (hq.marketCap != null) body.append(row(ctx, 'Market Cap', hq.marketCap));
+  body.append(row(ctx, 'Coordinates', `${hq.lat.toFixed(4)}\u00b0, ${hq.lon.toFixed(4)}\u00b0`));
+  container.append(card);
+
+  return container;
+}
+
+function buildCompanyListItem(item: TechHQ, ctx: EntityRenderContext): HTMLElement {
+  const button = ctx.el('button', `edp-tech-hq-company edp-tech-hq-company-${item.type}`) as HTMLButtonElement;
+  button.type = 'button';
+  button.append(ctx.el('span', 'edp-tech-hq-company-name', item.company));
+  button.append(ctx.el('span', 'edp-tech-hq-company-meta', companyMeta(item) || `${item.city}, ${item.country}`));
+  button.addEventListener('click', () => {
+    ctx.navigate(renderTechHQProfile(item, ctx));
+  });
+  return button;
+}
+
 export class TechHQRenderer implements EntityRenderer {
   renderSkeleton(data: unknown, ctx: EntityRenderContext): HTMLElement {
-    const hq = data as TechHQ;
-    const container = ctx.el('div', 'edp-generic');
-
-    const header = ctx.el('div', 'edp-header');
-    header.append(ctx.el('h2', 'edp-title', hq.company));
-    header.append(ctx.el('div', 'edp-subtitle', `${hq.city}, ${hq.country}`));
-
-    const badgeRow = ctx.el('div', 'edp-badge-row');
-    badgeRow.append(ctx.badge(TYPE_LABELS[hq.type].toUpperCase(), badgeClass(hq.type)));
-    header.append(badgeRow);
-    container.append(header);
-
-    const [card, body] = ctx.sectionCard('Details');
-    body.append(row(ctx, 'City', hq.city));
-    body.append(row(ctx, 'Country', hq.country));
-    body.append(row(ctx, 'Category', TYPE_LABELS[hq.type]));
-    if (hq.employees != null) body.append(row(ctx, 'Employees', hq.employees.toLocaleString()));
-    if (hq.marketCap != null) body.append(row(ctx, 'Market Cap', hq.marketCap));
-    body.append(row(ctx, 'Coordinates', `${hq.lat.toFixed(4)}°, ${hq.lon.toFixed(4)}°`));
-    container.append(card);
-
-    return container;
+    return renderTechHQProfile(data as TechHQ, ctx);
   }
 }
 
@@ -51,8 +71,9 @@ export class TechHQClusterRenderer implements EntityRenderer {
     const publicCount = cluster.publicCount ?? cluster.items.filter((item) => item.type === 'public').length;
     const sortedItems = [...cluster.items].sort((a, b) => {
       const order = { faang: 0, unicorn: 1, public: 2 };
-      return (order[a.type] ?? 3) - (order[b.type] ?? 3);
+      return (order[a.type] ?? 3) - (order[b.type] ?? 3) || a.company.localeCompare(b.company);
     });
+    const primaryType = cluster.primaryType ?? sortedItems[0]?.type ?? 'public';
 
     const container = ctx.el('div', 'edp-generic');
 
@@ -62,7 +83,7 @@ export class TechHQClusterRenderer implements EntityRenderer {
 
     const badgeRow = ctx.el('div', 'edp-badge-row');
     badgeRow.append(ctx.badge(`${totalCount} COMPANIES`, 'edp-badge'));
-    badgeRow.append(ctx.badge(TYPE_LABELS[cluster.primaryType].toUpperCase(), badgeClass(cluster.primaryType)));
+    badgeRow.append(ctx.badge(TYPE_LABELS[primaryType].toUpperCase(), badgeClass(primaryType)));
     header.append(badgeRow);
     container.append(header);
 
@@ -81,19 +102,16 @@ export class TechHQClusterRenderer implements EntityRenderer {
     detailsBody.append(row(ctx, 'Unicorn Count', String(unicornCount)));
     detailsBody.append(row(ctx, 'Public Count', String(publicCount)));
     if (cluster.sampled != null) detailsBody.append(row(ctx, 'Sampled', cluster.sampled ? 'Yes' : 'No'));
-    detailsBody.append(row(ctx, 'Coordinates', `${cluster.lat.toFixed(4)}°, ${cluster.lon.toFixed(4)}°`));
+    if (Number.isFinite(cluster.lat) && Number.isFinite(cluster.lon)) {
+      detailsBody.append(row(ctx, 'Coordinates', `${cluster.lat.toFixed(4)}\u00b0, ${cluster.lon.toFixed(4)}\u00b0`));
+    }
     container.append(detailsCard);
 
     if (sortedItems.length > 0) {
       const [companiesCard, companiesBody] = ctx.sectionCard('Companies');
-      for (const item of sortedItems.slice(0, 10)) {
-        const meta = [TYPE_LABELS[item.type], item.marketCap, item.employees != null ? `${item.employees.toLocaleString()} employees` : null]
-          .filter(Boolean)
-          .join(' • ');
-        companiesBody.append(row(ctx, item.company, meta || `${item.city}, ${item.country}`));
-      }
-      if (sortedItems.length > 10) {
-        companiesBody.append(row(ctx, 'More', `${sortedItems.length - 10} additional companies`));
+      companiesBody.classList.add('edp-tech-hq-company-list');
+      for (const item of sortedItems) {
+        companiesBody.append(buildCompanyListItem(item, ctx));
       }
       container.append(companiesCard);
     }

@@ -1,8 +1,9 @@
 import type { CableAdvisory, RepairShip, UnderseaCable } from '@/types';
+import { getRpcBaseUrl } from '@/services/rpc-client';
 import { UNDERSEA_CABLES } from '@/config';
 import { MaritimeServiceClient, type NavigationalWarning } from '@/generated/client/worldmonitor/maritime/v1/service_client';
 
-const maritimeClient = new MaritimeServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
+const maritimeClient = new MaritimeServiceClient(getRpcBaseUrl(), { fetch: (...args) => globalThis.fetch(...args) });
 
 interface CableActivity {
   advisories: CableAdvisory[];
@@ -113,7 +114,7 @@ function findNearestCable(lat: number, lon: number): UnderseaCable | null {
   for (const cable of UNDERSEA_CABLES) {
     for (const point of cable.points) {
       const [cableLon, cableLat] = point;
-      const dist = Math.sqrt(Math.pow(lat - cableLat, 2) + Math.pow(lon - cableLon, 2));
+      const dist = Math.sqrt((lat - cableLat) ** 2 + (lon - cableLon) ** 2);
       if (dist < minDist && dist < 5) { // Within 5 degrees
         minDist = dist;
         nearest = cable;

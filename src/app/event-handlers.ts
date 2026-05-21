@@ -19,6 +19,8 @@ import {
   getCurrentTheme,
   setThemeWithLinkedMap,
 } from '@/utils';
+import { applyStoredMapHeight, scheduleMapResize } from '@/utils/map-layout-height';
+import { startSearchTicker } from '@/utils/search-ticker';
 import {
   IDLE_PAUSE_MS,
   STORAGE_KEYS,
@@ -54,6 +56,8 @@ import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { VisitorCounter } from '@/components/VisitorCounter';
 import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { WhatsNewPanel } from '@/components/WhatsNewPanel';
+import { OnboardingHints } from '@/components/OnboardingHints';
 import { t } from '@/services/i18n';
 import { TvModeController } from '@/services/tv-mode';
 import { buildShareUrl } from './event-handler-view';
@@ -174,9 +178,11 @@ export class EventHandlerManager implements AppModule {
   private kbShortcutsOverlay: HTMLElement | null = null;
   private statusDropdownEl: HTMLElement | null = null;
   private statusDropdownTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchTickerStop: (() => void) | null = null;
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
+  private whatsNewPanel: WhatsNewPanel | null = null;
 
   private readonly idlePauseMs = IDLE_PAUSE_MS;
   private readonly debouncedUrlSync = debounce(() => {
@@ -213,6 +219,7 @@ export class EventHandlerManager implements AppModule {
     this.setupShellGuidance();
     this.setupWorkspaceSetup();
     this.setupMobileHelpSheet();
+    new OnboardingHints().init();
     this.setupIdleDetection();
     this.setupTvMode();
     this.setupBloombergShortcuts();
@@ -274,6 +281,8 @@ export class EventHandlerManager implements AppModule {
   }
 
   destroy(): void {
+    this.searchTickerStop?.();
+    this.searchTickerStop = null;
     this.debouncedUrlSync.cancel();
     if (this.handlers.fullscreen) {
       document.removeEventListener('fullscreenchange', this.handlers.fullscreen);
@@ -366,6 +375,8 @@ export class EventHandlerManager implements AppModule {
     this.ctx.situationRoomDrawer = null;
     this.ctx.visitorCounter?.destroy();
     this.ctx.visitorCounter = null;
+    this.whatsNewPanel?.hide();
+    this.whatsNewPanel = null;
   }
 
   private setupMissionPackHandling(): void {
@@ -481,6 +492,10 @@ export class EventHandlerManager implements AppModule {
     document.getElementById('searchMobileFab')?.addEventListener('click', openSearch);
     document.getElementById('shellGuidanceSearch')?.addEventListener('click', openSearch);
 
+    this.searchTickerStop = startSearchTicker(
+      document.querySelector<HTMLElement>('.header-right .search-ticker-text'),
+    );
+
     document.getElementById('saveLayoutBtn')?.addEventListener('click', async () => {
       if (!checkFeatureAccess('save-layout')) return;
       const shareUrl = this.getShareUrl();
@@ -551,6 +566,14 @@ export class EventHandlerManager implements AppModule {
         });
       });
     }
+
+    document.getElementById('whatsNewBtn')?.addEventListener('click', () => {
+      this.ctx.countryBriefPage?.hide();
+      this.ctx.entityDetailPanel?.hide();
+      this.whatsNewPanel ??= new WhatsNewPanel();
+      this.whatsNewPanel.show();
+      document.getElementById('headerOverflowMenu')?.removeAttribute('open');
+    });
 
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     if (!this.ctx.isDesktopApp && fullscreenBtn) {
@@ -981,9 +1004,11 @@ export class EventHandlerManager implements AppModule {
     this.ctx.exportPanel = new ExportPanel();
 
     const headerRight = this.ctx.container.querySelector('.header-right');
-    if (headerRight) {
+    const liveActions = this.ctx.container.querySelector('.header-live-actions');
+    const actionParent = liveActions || headerRight;
+    if (actionParent) {
       // Insert export panel first, then visitor counter before it so eye sits left of camera
-      headerRight.insertBefore(this.ctx.exportPanel.getElement(), headerRight.firstChild);
+      actionParent.insertBefore(this.ctx.exportPanel.getElement(), actionParent.firstChild);
       const visitorCounter = new VisitorCounter(() => {
         void this.ctx.situationRoomDrawer?.open();
       });
@@ -992,7 +1017,7 @@ export class EventHandlerManager implements AppModule {
         getViewerCount: () => visitorCounter.getCount(),
         onUnreadCountChange: (count) => visitorCounter.setUnreadCount(count),
       });
-      headerRight.insertBefore(visitorCounter.getElement(), this.ctx.exportPanel.getElement());
+      actionParent.insertBefore(visitorCounter.getElement(), this.ctx.exportPanel.getElement());
     }
   }
 
@@ -1059,6 +1084,7 @@ export class EventHandlerManager implements AppModule {
     if (this.ctx.isDesktopApp) {
       this.ctx.agentChatPanel = new AgentChatPanel();
       const headerRight = this.ctx.container.querySelector<HTMLElement>('.header-right');
+      const overflowPanel = document.getElementById('headerOverflowPanel');
       const agentBtn = document.createElement('button');
       agentBtn.type = 'button';
       agentBtn.className = 'agent-chat-open-btn';
@@ -1068,8 +1094,10 @@ export class EventHandlerManager implements AppModule {
       agentBtn.addEventListener('click', () => {
         void this.ctx.agentChatPanel?.open();
       });
-      if (headerRight) {
-        headerRight.insertBefore(agentBtn, mount || null);
+      if (overflowPanel) {
+        overflowPanel.insertBefore(agentBtn, mount || null);
+      } else if (headerRight) {
+        headerRight.insertBefore(agentBtn, mount?.parentElement === headerRight ? mount : null);
       }
     }
 
@@ -1096,9 +1124,12 @@ export class EventHandlerManager implements AppModule {
       if (localStorage.getItem('wm-settings-open') === '1') return;
       this.ctx.findingPanel?.showAlert(alert);
     });
-    const settingsMount = document.getElementById('unifiedSettingsMount');
+    const liveActions = this.ctx.container.querySelector<HTMLElement>('.header-live-actions');
     const headerRight = this.ctx.container.querySelector<HTMLElement>('.header-right');
-    if (headerRight) {
+    if (liveActions) {
+      nc.mount(liveActions);
+    } else if (headerRight) {
+      const settingsMount = document.getElementById('unifiedSettingsMount');
       nc.mount(headerRight, settingsMount);
     }
   }
@@ -1116,8 +1147,10 @@ export class EventHandlerManager implements AppModule {
     });
 
     const headerRight = this.ctx.container.querySelector('.header-right');
-    if (headerRight) {
-      headerRight.insertBefore(this.ctx.playbackControl.getElement(), headerRight.firstChild);
+    const liveActions = this.ctx.container.querySelector('.header-live-actions');
+    const actionParent = liveActions || headerRight;
+    if (actionParent) {
+      actionParent.insertBefore(this.ctx.playbackControl.getElement(), actionParent.firstChild);
     }
   }
 
@@ -1305,28 +1338,8 @@ export class EventHandlerManager implements AppModule {
 
     const getBottomResizeTarget = () => (window.innerWidth >= 1600 ? mapContainer : mapSection);
 
-    const savedHeight = localStorage.getItem(MAP_HEIGHT_KEY);
-    if (savedHeight) {
-      const numeric = Number.parseInt(savedHeight, 10);
-      if (Number.isFinite(numeric)) {
-        const clamped = clamp(numeric, getMinHeight(), getMaxHeight());
-        if (window.innerWidth >= 1600) {
-          mapContainer.style.flex = 'none';
-          mapContainer.style.setProperty('height', `${clamped}px`, 'important');
-        } else {
-          mapSection.style.flex = 'none';
-          mapSection.style.setProperty('height', `${clamped}px`, 'important');
-        }
-        if (clamped !== numeric) {
-          localStorage.setItem(MAP_HEIGHT_KEY, `${clamped}px`);
-        }
-        // Sync the map canvas to the restored container height. The map may or
-        // may not be initialized yet; if it is, resize() corrects it immediately.
-        // The deferred call covers the case where the map loads after this runs.
-        requestAnimationFrame(() => this.ctx.map?.resize());
-      } else {
-        localStorage.removeItem(MAP_HEIGHT_KEY);
-      }
+    if (applyStoredMapHeight()) {
+      scheduleMapResize(this.ctx.map);
     }
     hydrateSidebarSplit();
 

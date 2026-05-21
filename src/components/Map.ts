@@ -759,6 +759,8 @@ export class MapComponent {
     const toggles = document.createElement('div');
     toggles.className = 'layer-toggles map-tray';
     toggles.id = 'layerToggles';
+    toggles.setAttribute('role', 'region');
+    toggles.setAttribute('aria-label', 'Map layers');
     const header = document.createElement('div');
     header.className = 'map-tray-header';
     const title = document.createElement('span');
@@ -769,11 +771,15 @@ export class MapComponent {
     const collapseBtn = document.createElement('button');
     collapseBtn.className = 'map-tray-collapse';
     collapseBtn.type = 'button';
+    collapseBtn.setAttribute('aria-label', 'Collapse layers');
+    collapseBtn.setAttribute('aria-expanded', 'true');
     const body = document.createElement('div');
     body.className = 'map-tray-body';
     const applyCollapsedState = (collapsed: boolean) => {
       body.classList.toggle('collapsed', collapsed);
       collapseBtn.textContent = collapsed ? '+' : '−';
+      collapseBtn.setAttribute('aria-label', collapsed ? 'Expand layers' : 'Collapse layers');
+      collapseBtn.setAttribute('aria-expanded', String(!collapsed));
       toggles.classList.toggle('collapsed', collapsed);
       setTrayOpenPreference('svgLayersCollapsed', collapsed);
     };
@@ -812,8 +818,11 @@ export class MapComponent {
 
     layers.forEach((layer) => {
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.className = `layer-toggle ${this.state.layers[layer] ? 'active' : ''}`;
       btn.dataset.layer = layer;
+      btn.setAttribute('aria-pressed', String(Boolean(this.state.layers[layer])));
+      btn.setAttribute('aria-label', `${this.getLayerLabel(layer)} layer`);
       const icon = this.createSharedIcon(layer, 'layer-toggle-icon');
       const label = document.createElement('span');
       label.className = 'layer-toggle-label';
@@ -821,6 +830,7 @@ export class MapComponent {
       btn.append(icon, label);
       btn.addEventListener('click', () => {
         this.toggleLayer(layer);
+        btn.setAttribute('aria-pressed', String(btn.classList.contains('active')));
         enforceLayerLimit();
       });
       body.appendChild(btn);
@@ -828,6 +838,7 @@ export class MapComponent {
 
     // Add help button
     const helpBtn = document.createElement('button');
+    helpBtn.type = 'button';
     helpBtn.className = 'layer-help-btn';
     helpBtn.textContent = '?';
     helpBtn.title = t('components.deckgl.layerGuide');
@@ -2456,14 +2467,37 @@ export class MapComponent {
           e.stopPropagation();
           const rect = this.container.getBoundingClientRect();
           if (isCluster) {
+            const clusterData = {
+              id: `tech-hq-${primaryItem.city.toLowerCase().replace(/\s+/g, '-')}`,
+              items: cluster.items,
+              city: primaryItem.city,
+              country: primaryItem.country,
+              count: cluster.items.length,
+              faangCount: cluster.items.filter(item => item.type === 'faang').length,
+              unicornCount: cluster.items.filter(item => item.type === 'unicorn').length,
+              publicCount: cluster.items.filter(item => item.type === 'public').length,
+              primaryType: primaryItem.type,
+              lat: cluster.center[1],
+              lon: cluster.center[0],
+            };
+            if (this.onEntityClick) {
+              this.popup.hide();
+              this.onEntityClick('techHQCluster', clusterData);
+              return;
+            }
             // Show cluster popup with list of companies
             this.popup.show({
               type: 'techHQCluster',
-              data: { items: cluster.items, city: primaryItem.city, country: primaryItem.country },
+              data: clusterData,
               x: e.clientX - rect.left,
               y: e.clientY - rect.top,
             });
           } else {
+            if (this.onEntityClick) {
+              this.popup.hide();
+              this.onEntityClick('techHQ', primaryItem);
+              return;
+            }
             this.popup.show({
               type: 'techHQ',
               data: primaryItem,
