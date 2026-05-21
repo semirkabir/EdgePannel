@@ -401,10 +401,15 @@ export function renderBasePopup(base: import('@/types').MilitaryBase): string {
   if (enriched.catSpace) categories.push('Space');
   if (enriched.catTraining) categories.push('Training');
 
+  const ciiScore = base._enrichCii;
+  const ciiColor = ciiScore ? (ciiScore.level === 'critical' || ciiScore.level === 'high' ? '#f87171' : ciiScore.level === 'elevated' ? '#fbbf24' : '#4ade80') : null;
+  const nearbyConflicts = base._enrichNearbyConflicts ?? [];
+
   return `
     <div class="popup-header base">
       <span class="popup-title">${escapeHtml(base.name.toUpperCase())}</span>
       <span class="popup-badge ${typeColors[base.type] || 'low'}">${escapeHtml(typeLabels[base.type] || base.type.toUpperCase())}</span>
+      ${nearbyConflicts.length > 0 ? pbadge('ACTIVE CONFLICT ZONE', 'high') : ''}
       <button class="popup-close" aria-label="Close">×</button>
     </div>
     <div class="popup-body">
@@ -422,7 +427,9 @@ export function renderBasePopup(base: import('@/types').MilitaryBase): string {
           <span class="stat-label">${t('popups.coordinates')}</span>
           <span class="stat-value">${base.lat.toFixed(2)}°, ${base.lon.toFixed(2)}°</span>
         </div>
+        ${ciiScore ? stat('Country Stability', `<span style="color:${ciiColor}">${escapeHtml(ciiScore.level.toUpperCase())} (${ciiScore.score.toFixed(0)}/100)</span>`) : ''}
       </div>
+      ${nearbyConflicts.length > 0 ? section('Nearby Conflicts (500km)', `<div class="popup-tags">${nearbyConflicts.map(c => `<span class="popup-tag">${escapeHtml(c.type)} · ${c.deaths} deaths · ${c.distKm}km</span>`).join('')}</div>`) : ''}
     </div>
   `;
 }
@@ -459,10 +466,21 @@ export function renderNuclearPopup(facility: NuclearFacility): string {
     'decommissioned': 'low',
   };
 
+  const nearbyEq = facility._enrichNearbyEarthquakes;
+  const seismicHtml = nearbyEq && nearbyEq.length > 0 ? `
+    <div class="popup-section">
+      <span class="section-label" style="color:#fb923c">⚠ Nearby Seismic Activity</span>
+      <div class="popup-tags">
+        ${nearbyEq.map(eq => `<span class="popup-tag" title="${escapeHtml(eq.place)}">M${eq.mag.toFixed(1)} · ${Math.round(eq.distKm)}km</span>`).join('')}
+      </div>
+    </div>
+  ` : '';
+
   return `
     <div class="popup-header nuclear">
       <span class="popup-title">${escapeHtml(facility.name.toUpperCase())}</span>
       <span class="popup-badge ${statusColors[facility.status] || 'low'}">${escapeHtml(facility.status.toUpperCase())}</span>
+      ${nearbyEq && nearbyEq.length > 0 ? `<span class="popup-badge high">SEISMIC RISK</span>` : ''}
       <button class="popup-close" aria-label="Close">×</button>
     </div>
     <div class="popup-body">
@@ -480,6 +498,7 @@ export function renderNuclearPopup(facility: NuclearFacility): string {
           <span class="stat-value">${facility.lat.toFixed(2)}°, ${facility.lon.toFixed(2)}°</span>
         </div>
       </div>
+      ${seismicHtml}
       <p class="popup-description">${t('popups.nuclear.description')}</p>
     </div>
   `;
@@ -583,10 +602,21 @@ export function renderPipelinePopup(pipeline: Pipeline): string {
   };
   const typeIcon = pipeline.type === 'oil' ? '🛢' : pipeline.type === 'gas' ? '🔥' : '⛽';
 
+  const sanctioned = pipeline._enrichSanctionedCountries;
+  const sanctionHtml = sanctioned && sanctioned.length > 0 ? `
+    <div class="popup-section">
+      <span class="section-label" style="color:#f87171">⚠ Sanctions Exposure</span>
+      <div class="popup-tags">
+        ${sanctioned.map(s => `<span class="popup-tag" style="border-color:#f87171;color:#f87171">${escapeHtml(s.code)} — ${escapeHtml(s.severity.toUpperCase())}</span>`).join('')}
+      </div>
+    </div>
+  ` : '';
+
   return `
     <div class="popup-header pipeline ${pipeline.type}">
       <span class="popup-title">${typeIcon} ${escapeHtml(pipeline.name.toUpperCase())}</span>
       <span class="popup-badge ${typeColors[pipeline.type] || 'low'}">${escapeHtml(pipeline.type.toUpperCase())}</span>
+      ${sanctioned && sanctioned.length > 0 ? `<span class="popup-badge high">SANCTIONED ROUTE</span>` : ''}
       <button class="popup-close" aria-label="Close">×</button>
     </div>
     <div class="popup-body">
@@ -615,6 +645,7 @@ export function renderPipelinePopup(pipeline: Pipeline): string {
         </div>
         ` : ''}
       </div>
+      ${sanctionHtml}
       ${pipeline.countries && pipeline.countries.length > 0 ? `
         <div class="popup-section">
           <span class="section-label">${t('popups.countries')}</span>
@@ -679,6 +710,7 @@ export function renderKindnessEventPopup(point: KindnessPoint): string {
 
 export function renderUcdpEventPopup(event: import('@/types').UcdpGeoEvent): string {
   const typeLabel = event.type_of_violence?.replace(/-/g, ' ') ?? 'Armed Conflict';
+  const displaced = event._enrichDisplacedCount;
   return `
     <div class="popup-header conflict">
       <span class="popup-title">${escapeHtml(event.side_a)} vs ${escapeHtml(event.side_b)}</span>
@@ -690,6 +722,7 @@ export function renderUcdpEventPopup(event: import('@/types').UcdpGeoEvent): str
         ${stat(t('popups.country'), escapeHtml(event.country))}
         ${event.deaths_best > 0 ? stat('Est. Deaths', event.deaths_best.toLocaleString()) : ''}
         ${event.date_start ? stat('Date', escapeHtml(event.date_start)) : ''}
+        ${displaced != null && displaced > 0 ? stat('Refugees / Displaced', `<span style="color:#fb923c">${displaced.toLocaleString()}</span>`) : ''}
       </div>
     </div>
   `;

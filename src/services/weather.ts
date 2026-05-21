@@ -106,6 +106,110 @@ function calculateCentroid(coords: [number, number][]): [number, number] | undef
   return [sum[0] / coords.length, sum[1] / coords.length];
 }
 
+// ── GDACS Global Disaster Alert and Coordination System ─────────────────────
+
+interface GDACSProperties {
+  eventtype: string;
+  alertlevel: string;
+  country: string;
+  name: string;
+  fromdate: string;
+  todate: string;
+}
+
+interface GDACSFeature {
+  properties: GDACSProperties;
+  geometry?: {
+    type: string;
+    coordinates: number[] | number[][] | number[][][];
+  };
+}
+
+interface GDACSResponse {
+  features: GDACSFeature[];
+}
+
+const GDACS_API = '/api/gdacs';
+
+const gdacsBreaker = createCircuitBreaker<WeatherAlert[]>({ name: 'GDACS Global Alerts', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
+
+export async function fetchGDACSAlerts(): Promise<WeatherAlert[]> {
+  return gdacsBreaker.execute(async () => {
+    const response = await fetch(GDACS_API);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data: GDACSResponse = await response.json();
+    if (!Array.isArray(data.features)) return [];
+
+    return data.features
+      .filter(f => f.properties?.alertlevel && f.properties.alertlevel !== 'Green')
+      .slice(0, 50)
+      .map(f => {
+        const p = f.properties;
+        const severity: WeatherAlert['severity'] =
+          p.alertlevel === 'Red' ? 'Extreme' :
+          p.alertlevel === 'Orange' ? 'Severe' : 'Moderate';
+
+        // Map GDACS event type to our WeatherCategory slug (used for layer routing)
+        const eventLabel =
+          p.eventtype === 'TC' ? 'Tropical Cyclone' :
+          p.eventtype === 'FL' ? 'Flood' :
+          p.eventtype === 'VO' ? 'Volcanic Activity' :
+          p.eventtype === 'WF' ? 'Wildfire' :
+          p.eventtype === 'DR' ? 'Drought' :
+          p.name || 'Natural Disaster';
+
+        const coords = extractGDACSCoordinates(f.geometry);
+        return {
+          id: `gdacs-${p.eventtype}-${p.fromdate}-${encodeURIComponent(p.country)}`,
+          event: eventLabel,
+          severity,
+          headline: `${p.alertlevel} Alert — ${escapeGDACSText(p.name)}`,
+          description: `${p.alertlevel} level ${eventLabel.toLowerCase()} alert issued for ${p.country}.`,
+          areaDesc: `${p.country} — ${escapeGDACSText(p.name)}`,
+          onset: new Date(p.fromdate),
+          expires: new Date(p.todate),
+          coordinates: coords,
+          centroid: calculateCentroid(coords),
+        } satisfies WeatherAlert;
+      });
+  }, []);
+}
+
+function extractGDACSCoordinates(geometry?: GDACSFeature['geometry']): [number, number][] {
+  if (!geometry) return [];
+  try {
+    if (geometry.type === 'Point') {
+      const c = geometry.coordinates as number[];
+      return [[c[0]!, c[1]!]];
+    }
+    if (geometry.type === 'Polygon') {
+      const c = geometry.coordinates as number[][][];
+      return c[0]?.map(p => [p[0]!, p[1]!] as [number, number]) ?? [];
+    }
+    if (geometry.type === 'MultiPolygon') {
+      const c = geometry.coordinates as unknown as number[][][][];
+      return c[0]?.[0]?.map(p => [p[0]!, p[1]!] as [number, number]) ?? [];
+    }
+  } catch {
+    return [];
+  }
+  return [];
+}
+
+function escapeGDACSText(s: string): string {
+  return (s || '').replace(/[<>&"']/g, c =>
+    c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c === '"' ? '&quot;' : '&#39;');
+}
+
+/** Fetch NWS (US) + GDACS (global) alerts merged. */
+export async function fetchAllWeatherAlerts(): Promise<WeatherAlert[]> {
+  const [nws, gdacs] = await Promise.all([fetchWeatherAlerts(), fetchGDACSAlerts()]);
+  return [...nws, ...gdacs];
+}
+
+// ── Weather category classification ──────────────────────────────────────────
+
 export type WeatherCategory =
   'tornado' | 'flood' | 'thunderstorm' | 'snow' | 'heat' |
   'hurricane' | 'fire' | 'wind' | 'default';

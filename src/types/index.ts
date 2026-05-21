@@ -340,6 +340,8 @@ export interface UcdpGeoEvent {
   deaths_high: number;
   type_of_violence: UcdpEventType;
   source_original: string;
+  // Runtime enrichment (populated at click time by DeckGLMap)
+  _enrichDisplacedCount?: number;
 }
 
 // WorldPop Population Exposure
@@ -385,6 +387,9 @@ export interface MilitaryBase {
   arm?: string;               // Armed forces branch (Navy, Air Force, Army, etc.)
   status?: 'active' | 'planned' | 'controversial' | 'closed';
   source?: string;            // Reference URL
+  // Runtime enrichment (populated at click time by DeckGLMap)
+  _enrichNearbyConflicts?: Array<{ type: string; deaths: number; distKm: number; date: string }>;
+  _enrichCii?: { score: number; level: string } | null;
 }
 
 export interface MilitaryBaseEnriched extends MilitaryBase {
@@ -422,6 +427,9 @@ export interface UnderseaCable {
   capacityTbps?: number;
   rfsYear?: number;      // Ready for service year
   owners?: string[];
+  // Runtime enrichment (populated at click time by DeckGLMap)
+  _enrichNearbyOutages?: number;
+  _enrichNearbyJamming?: boolean;
 }
 
 export type CableAdvisorySeverity = 'fault' | 'degraded';
@@ -509,6 +517,8 @@ export interface NuclearFacility {
   type: NuclearFacilityType;
   status: 'active' | 'contested' | 'inactive' | 'decommissioned' | 'construction';
   operator?: string;  // Operating country
+  // Runtime enrichment (populated at click time by DeckGLMap)
+  _enrichNearbyEarthquakes?: Array<{ mag: number; distKm: number; place: string }>;
 }
 
 export interface GammaIrradiator {
@@ -548,6 +558,8 @@ export interface Pipeline {
   capacityMbpd?: number;         // Million barrels per day (oil)
   capacityBcmY?: number;         // Billion cubic meters/year (gas)
   alternatives?: string[];       // Pipeline IDs that could substitute
+  // Runtime enrichment (populated at click time by DeckGLMap)
+  _enrichSanctionedCountries?: Array<{ code: string; severity: string }>;
 }
 
 export interface Earthquake {
@@ -718,6 +730,9 @@ export interface CriticalMineralProject {
   operator: string;
   status: 'producing' | 'development' | 'exploration';
   significance: string;
+  // Runtime enrichment (populated at click time by DeckGLMap)
+  _enrichCii?: { score: number; level: string } | null;
+  _enrichSanctioned?: 'severe' | 'high' | 'moderate' | null;
 }
 
 export interface AppState {

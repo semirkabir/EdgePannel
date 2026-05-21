@@ -993,6 +993,78 @@ function weatherProxyPlugin(): Plugin {
   };
 }
 
+function sanctionsProxyPlugin(): Plugin {
+  const OFAC_URL = 'https://www.treasury.gov/ofac/downloads/sanctions/1.0/sdn_advanced.json';
+  const MAX_ENTRIES = 200;
+  return {
+    name: 'sanctions-proxy',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/sanctions')) return next();
+        try {
+          const response = await fetch(OFAC_URL, {
+            headers: { 'User-Agent': 'WorldMonitor/1.0', Accept: 'application/json' },
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!response.ok) throw new Error(`OFAC HTTP ${response.status}`);
+          const data = await response.json() as any;
+          const publishDate = data?.sdnList?.publishInformation?.publishDate || new Date().toISOString();
+          const entries: any[] = data?.sdnList?.sdnEntry ?? [];
+          const sorted = [...entries].sort((a, b) => parseInt(b.uid ?? '0', 10) - parseInt(a.uid ?? '0', 10));
+          const normalised = sorted.slice(0, MAX_ENTRIES).map((entry: any) => ({
+            id: `ofac-${entry.uid ?? entry.lastName?.slice(0, 12) ?? 'unk'}`,
+            name: entry.firstName ? `${entry.firstName} ${entry.lastName}`.trim() : (entry.lastName || '').trim(),
+            type: ({ individual: 'person', entity: 'company', vessel: 'vessel', aircraft: 'aircraft' } as Record<string, string>)[(entry.sdnType || '').toLowerCase()] || 'other',
+            countries: [...new Set<string>([...(entry.addressList?.address ?? []).map((a: any) => a.country), ...(entry.nationalityList?.nationality ?? []).map((n: any) => n.country)].filter(Boolean).map((c: string) => c.toUpperCase()))].slice(0, 5),
+            programs: (entry.programList?.program ?? []).slice(0, 6),
+            dateAdded: publishDate,
+            source: 'OFAC',
+            aliases: (entry.akaList?.aka ?? []).filter((a: any) => a.type === 'a.k.a.' && a.lastName).map((a: any) => `${a.firstName || ''} ${a.lastName}`.trim()).slice(0, 4),
+          }));
+          const payload = JSON.stringify({ entities: normalised, publishDate });
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'public, max-age=21600');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end(payload);
+        } catch (err: any) {
+          res.statusCode = err.name === 'AbortError' ? 504 : 502;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ entities: [], error: 'OFAC fetch failed' }));
+        }
+      });
+    },
+  };
+}
+
+function gdacsProxyPlugin(): Plugin {
+  const GDACS_URL = 'https://www.gdacs.org/gdacsapi/api/events/geteventlist/EVENTS?eventlist=TC,FL,VO,WF&alertlevel=Red,Orange&limit=50';
+  return {
+    name: 'gdacs-proxy',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/gdacs')) return next();
+        try {
+          const response = await fetch(GDACS_URL, {
+            headers: { 'User-Agent': 'WorldMonitor/1.0', Accept: 'application/json' },
+            signal: AbortSignal.timeout(15000),
+          });
+          const data = await response.text();
+          res.statusCode = response.status;
+          res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
+          res.setHeader('Cache-Control', 'public, max-age=600');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end(data);
+        } catch (err: any) {
+          res.statusCode = err.name === 'AbortError' ? 504 : 502;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ features: [] }));
+        }
+      });
+    },
+  };
+}
+
 function marketRiskPlugin(): Plugin {
   const CBOE_VIX_URL = 'https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv';
   const CFTC_COT_URL = 'https://www.cftc.gov/dea/newcot/FinFutWk.txt';
@@ -1220,6 +1292,8 @@ export default defineConfig({
     fetchArticlePlugin(),
     portfolioDataPlugin(),
     weatherProxyPlugin(),
+    gdacsProxyPlugin(),
+    sanctionsProxyPlugin(),
     marketRiskPlugin(),
     planespottersProxyPlugin(),
     usaSpendingProxyPlugin(),

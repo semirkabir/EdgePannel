@@ -593,12 +593,26 @@ export class IntelligenceFindingPanel {
           <div class="ifp-mono-card">${escapeHtml(newsCorrelation)}</div>
         </div>
       ` : ''}
-      ${relatedTopics.length ? `
-        <div class="ifp-section">
-          <div class="ifp-section-title">Related topics</div>
-          ${this.renderSearchTags(relatedTopics)}
-        </div>
-      ` : ''}
+      ${(() => {
+        const articles = (signal.data as Record<string, unknown>).relatedArticles as RelatedArticle[] | undefined;
+        if (articles && articles.length) {
+          return `
+            <div class="ifp-section">
+              <div class="ifp-section-title">Related articles</div>
+              ${this.renderRelatedArticlesList(articles)}
+            </div>
+          `;
+        }
+        if (relatedTopics.length) {
+          return `
+            <div class="ifp-section">
+              <div class="ifp-section-title">Related topics</div>
+              ${this.renderSearchTags(relatedTopics)}
+            </div>
+          `;
+        }
+        return '';
+      })()}
       ${correlatedNews && correlatedNews.length ? `
         <div class="ifp-section">
           <div class="ifp-section-title">Correlated headlines</div>
@@ -608,6 +622,27 @@ export class IntelligenceFindingPanel {
         </div>
       ` : ''}
     `;
+  }
+
+  private renderRelatedArticlesList(articles: RelatedArticle[]): string {
+    return articles.slice(0, 6).map((article) => {
+      const articleAttrs = buildArticleLinkAttributes({
+        url: article.link,
+        title: article.title,
+        source: article.source,
+      });
+      return `
+        <a class="ifp-news-item" href="${escapeHtml(article.link)}" target="_blank" rel="noopener" ${articleAttrs}>
+          <span class="ifp-threat-dot none"></span>
+          <span class="ifp-news-body">
+            <span class="ifp-news-headline">${escapeHtml(article.title)}</span>
+            <span class="ifp-news-meta">
+              <span class="ifp-news-source">${escapeHtml(article.source)}</span>
+            </span>
+          </span>
+        </a>
+      `;
+    }).join('');
   }
 
   private renderSearchTags(terms: string[]): string {

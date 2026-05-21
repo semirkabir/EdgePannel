@@ -561,7 +561,8 @@ async function handleSpike(spike: TrendingSpike, config: TrendingConfig): Promis
       data: {
         term: spike.term,
         newsVelocity: spike.count,
-        relatedTopics: [spike.term, ...relatedArticles.map(a => a.title)],
+        relatedTopics: [spike.term],
+        relatedArticles,
         baseline: spike.baseline,
         multiplier: spike.baseline > 0 ? spike.multiplier : undefined,
         sourceCount: spike.uniqueSources,

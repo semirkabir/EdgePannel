@@ -24,6 +24,13 @@ const capacityBreaker = createCircuitBreaker<GetEnergyCapacityResponse>({ name: 
 const emptyEiaFallback: GetEnergyPricesResponse = { prices: [] };
 const emptyCapacityFallback: GetEnergyCapacityResponse = { series: [] };
 
+// ---- Runtime cache (for popup enrichment without async) ----
+let _cachedOilAnalytics: OilAnalytics | null = null;
+
+export function getCachedOilAnalytics(): OilAnalytics | null {
+  return _cachedOilAnalytics;
+}
+
 // ---- Types ----
 
 export interface OilDataPoint {
@@ -112,6 +119,7 @@ export async function fetchOilAnalytics(): Promise<OilAnalytics> {
       dataFreshness.recordUpdate('oil', metricCount);
     }
 
+    _cachedOilAnalytics = result;
     return result;
   } catch {
     dataFreshness.recordError('oil', 'Fetch failed');

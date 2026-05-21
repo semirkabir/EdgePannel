@@ -3,10 +3,30 @@ import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 
 export function renderAPTPopup(apt: APTGroup): string {
+  const threatColor = apt.threatLevel === 'critical' ? '#f87171'
+    : apt.threatLevel === 'high' ? '#fb923c'
+    : apt.threatLevel === 'medium' ? '#fbbf24'
+    : '#6b7280';
+  const threatLabel = (apt.threatLevel ?? 'unknown').toUpperCase();
+
+  const targetsSection = apt.targets?.length
+    ? `<div class="popup-section"><span class="section-label">Targets</span><div class="popup-tags">${apt.targets.map(t => `<span class="popup-tag">${escapeHtml(t)}</span>`).join('')}</div></div>`
+    : '';
+  const techniquesSection = apt.techniques?.length
+    ? `<div class="popup-section"><span class="section-label">Techniques</span><div class="popup-tags">${apt.techniques.map(t => `<span class="popup-tag">${escapeHtml(t)}</span>`).join('')}</div></div>`
+    : '';
+  const opsSection = apt.knownOps?.length
+    ? `<div class="popup-section"><span class="section-label">Known Operations</span><div class="popup-ops">${apt.knownOps.map(op =>
+        op.url
+          ? `<a class="popup-op-link" href="${escapeHtml(op.url)}" target="_blank" rel="noopener noreferrer">↗ ${escapeHtml(op.name)}</a>`
+          : `<span class="popup-op-link">${escapeHtml(op.name)}</span>`
+      ).join('')}</div></div>`
+    : '';
+
   return `
     <div class="popup-header apt">
       <span class="popup-title">${escapeHtml(apt.name)}</span>
-      <span class="popup-badge high">${t('popups.threat')}</span>
+      <span class="popup-badge high" style="background:${threatColor}22;color:${threatColor};border-color:${threatColor}44">${threatLabel}</span>
       <button class="popup-close" aria-label="Close">×</button>
     </div>
     <div class="popup-body">
@@ -16,12 +36,12 @@ export function renderAPTPopup(apt: APTGroup): string {
           <span class="stat-label">${t('popups.sponsor')}</span>
           <span class="stat-value">${escapeHtml(apt.sponsor)}</span>
         </div>
-        <div class="popup-stat">
-          <span class="stat-label">${t('popups.origin')}</span>
-          <span class="stat-value">${apt.lat.toFixed(1)}°, ${apt.lon.toFixed(1)}°</span>
-        </div>
+        ${apt.active ? `<div class="popup-stat"><span class="stat-label">Active</span><span class="stat-value">${escapeHtml(apt.active)}</span></div>` : ''}
       </div>
-      <p class="popup-description">${t('popups.apt.description')}</p>
+      ${apt.description ? `<p class="popup-description">${escapeHtml(apt.description)}</p>` : ''}
+      ${targetsSection}
+      ${techniquesSection}
+      ${opsSection}
     </div>
   `;
 }

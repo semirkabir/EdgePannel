@@ -101,7 +101,6 @@ export class SearchModal {
   private recentSearches: string[] = [];
   private onSelect?: (result: SearchResult) => void;
   private onCommand?: (command: Command) => void;
-  private placeholder: string;
   private activePanelIds: Set<string> = new Set();
   private quickActionIds: string[] = [];
   private isMobile: boolean;
@@ -111,9 +110,8 @@ export class SearchModal {
   private modalTickerEl: HTMLElement | null = null;
   private inputWrap: HTMLElement | null = null;
 
-  constructor(container: HTMLElement, options?: SearchModalOptions) {
+  constructor(container: HTMLElement, _options?: SearchModalOptions) {
     this.container = container;
-    this.placeholder = options?.placeholder || t('modals.search.placeholder');
     this.isMobile = isMobileDevice();
     this.loadRecentSearches();
   }
@@ -218,7 +216,6 @@ export class SearchModal {
 
   private createModal(): void {
     this.overlay = document.createElement('div');
-    const placeholder = escapeHtml(this.placeholder);
 
     if (this.isMobile) {
       this.overlay.className = 'search-overlay search-mobile';

@@ -120,6 +120,8 @@ import type { RenewableInstallation } from '@/services/renewable-installations';
 import type { SpeciesRecovery } from '@/services/conservation-data';
 import type { GeoPredictionMarket } from '@/services/prediction';
 import { getCountriesGeoJson, getCountryAtCoordinates, getCountryBbox } from '@/services/country-geometry';
+import { haversineKm } from '@/utils/geo';
+import { getCachedOilAnalytics } from '@/services/economic/eia';
 import type { FeatureCollection, Geometry } from 'geojson';
 import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferences';
 import type { MarketplaceRuntimeLayer } from '@/types/marketplace';
@@ -4640,6 +4642,155 @@ export class DeckGLMap {
         .slice(0, 5);
       data = { ...data, relatedEvents: related };
     }
+
+    // ── Cross-layer enrichments ─────────────────────────────────────────────
+    // Nuclear → nearby seismic activity (M≥5.0, within 400 km, last 90 days)
+    if (popupType === 'nuclear' && data.lat != null && data.lon != null) {
+      const cutoffMs = Date.now() - 90 * 86_400_000;
+      const nearby = this.earthquakes
+        .filter(eq => eq.magnitude >= 5.0 && (eq.occurredAt ?? 0) * 1000 > cutoffMs && eq.location != null)
+        .map(eq => ({ eq, distKm: haversineKm(data.lat, data.lon, eq.location!.latitude, eq.location!.longitude) }))
+        .filter(({ distKm }) => distKm <= 400)
+        .sort((a, b) => b.eq.magnitude - a.eq.magnitude)
+        .slice(0, 4)
+        .map(({ eq, distKm }) => ({ mag: eq.magnitude, distKm: Math.round(distKm), place: eq.place }));
+      data = { ...data, _enrichNearbyEarthquakes: nearby };
+    }
+
+    // Pipeline → sanctions exposure (check origin + destination + transit ISO codes)
+    if (popupType === 'pipeline' && this.sanctionsCountriesMap.size > 0) {
+      const allCodes: string[] = [
+        ...(data.transitCountries ?? []),
+        data.origin?.country,
+        data.destination?.country,
+      ].filter(Boolean) as string[];
+      const sanctioned = [...new Set(allCodes)]
+        .filter(code => this.sanctionsCountriesMap.has(code))
+        .map(code => ({ code, severity: this.sanctionsCountriesMap.get(code) as string }));
+      if (sanctioned.length > 0) data = { ...data, _enrichSanctionedCountries: sanctioned };
+    }
+
+    // Critical mineral → country CII + sanctions
+    if ((popupType === 'mineral') && data.lat != null && data.lon != null) {
+      const countryHit = getCountryAtCoordinates(data.lat, data.lon);
+      if (countryHit) {
+        const cii = this.ciiScoresMap.get(countryHit.code);
+        const sanction = this.sanctionsCountriesMap.get(countryHit.code);
+        data = {
+          ...data,
+          _enrichCii: cii ?? null,
+          _enrichSanctioned: sanction ?? null,
+        };
+      }
+    }
+
+    // Central bank → country CII + sanctions
+    if (popupType === 'centralBank' && data.lat != null && data.lon != null) {
+      const countryHit = getCountryAtCoordinates(data.lat, data.lon);
+      if (countryHit) {
+        const cii = this.ciiScoresMap.get(countryHit.code);
+        const sanction = this.sanctionsCountriesMap.get(countryHit.code);
+        data = {
+          ...data,
+          enrichCii: cii ?? null,
+          enrichSanctioned: sanction ?? null,
+        };
+      }
+    }
+
+    // Stock exchange → country CII
+    if (popupType === 'stockExchange' && data.lat != null && data.lon != null) {
+      const countryHit = getCountryAtCoordinates(data.lat, data.lon);
+      if (countryHit) {
+        const cii = this.ciiScoresMap.get(countryHit.code);
+        if (cii) data = { ...data, enrichCii: cii };
+      }
+    }
+
+    // Commodity hub → live EIA oil prices
+    if (popupType === 'commodityHub') {
+      const oilData = getCachedOilAnalytics();
+      if (oilData) {
+        const commodities: string[] = (data.commodities ?? []).map((c: string) => c.toLowerCase());
+        const isOilHub = commodities.some(c => /oil|petroleum|crude|energy/.test(c));
+        // Show prices for energy hubs OR if no commodity filter, show for all hubs
+        if (isOilHub || commodities.length === 0) {
+          data = {
+            ...data,
+            enrichWtiPrice: oilData.wtiPrice?.current ?? null,
+            enrichBrentPrice: oilData.brentPrice?.current ?? null,
+          };
+        }
+      }
+    }
+
+    // Undersea cable → nearby internet outages + GPS jamming
+    if (popupType === 'cable' && data.points?.length > 0) {
+      // Sample up to 5 points along cable path for proximity checks
+      const pts: Array<[number, number]> = data.points as Array<[number, number]>;
+      const step = Math.max(1, Math.floor(pts.length / 5));
+      const samples = pts.filter((_: [number, number], i: number) => i % step === 0);
+      const nearbyOutages = this.outages.filter(outage =>
+        samples.some(([lon, lat]: [number, number]) => haversineKm(lat, lon, outage.lat, outage.lon) <= 1500),
+      ).length;
+      const nearbyJamming = this.gpsJammingHexes.some(hex =>
+        hex.level === 'high' && samples.some(([lon, lat]: [number, number]) => haversineKm(lat, lon, hex.lat, hex.lon) <= 500),
+      );
+      data = {
+        ...data,
+        _enrichNearbyOutages: nearbyOutages,
+        _enrichNearbyJamming: nearbyJamming,
+      };
+    }
+
+    // UCDP armed conflict event → cross-reference displacement flows
+    if (popupType === 'ucdpEvent' && data.country) {
+      const countryName = (data.country as string).toLowerCase();
+      const displaced = this.displacementFlows
+        .filter(f => f.originName?.toLowerCase() === countryName)
+        .reduce((sum, f) => sum + (f.refugees || 0), 0);
+      if (displaced > 0) data = { ...data, _enrichDisplacedCount: displaced };
+    }
+
+    // Protest event → nearby conflict hotspots (within 300 km)
+    if (popupType === 'protest' && data.lat != null && data.lon != null) {
+      const nearbyHotspots = this.hotspots
+        .filter(h => haversineKm(data.lat, data.lon, h.lat, h.lon) <= 300)
+        .sort((a, b) => haversineKm(data.lat, data.lon, a.lat, a.lon) - haversineKm(data.lat, data.lon, b.lat, b.lon))
+        .slice(0, 3)
+        .map(h => h.name);
+      if (nearbyHotspots.length) data = { ...data, relatedHotspots: nearbyHotspots };
+    }
+
+    // Financial center → country stability (CII)
+    if (popupType === 'financialCenter' && data.lat != null && data.lon != null) {
+      const fcLoc = getCountryAtCoordinates(data.lat, data.lon);
+      const fcCii = fcLoc ? (this.ciiScoresMap.get(fcLoc.code) ?? null) : null;
+      data = { ...data, _enrichCii: fcCii };
+    }
+
+    // Military base → CII + nearby UCDP armed conflicts (500 km, last 180 days)
+    if (popupType === 'base' && data.lat != null && data.lon != null) {
+      const baseLoc = getCountryAtCoordinates(data.lat, data.lon);
+      const baseCii = baseLoc ? (this.ciiScoresMap.get(baseLoc.code) ?? null) : null;
+      const baseCutoffMs = Date.now() - 180 * 86_400_000;
+      const nearbyConflicts = this.ucdpEvents
+        .filter(ev => new Date(ev.date_start).getTime() > baseCutoffMs)
+        .map(ev => ({ ev, distKm: haversineKm(data.lat, data.lon, ev.latitude, ev.longitude) }))
+        .filter(({ distKm }) => distKm <= 500)
+        .sort((a, b) => a.distKm - b.distKm)
+        .slice(0, 5)
+        .map(({ ev, distKm }) => ({
+          type: ev.type_of_violence === 'state-based' ? 'Armed Conflict'
+              : ev.type_of_violence === 'non-state' ? 'Non-State Conflict'
+              : 'One-Sided Violence',
+          deaths: ev.deaths_best ?? 0,
+          distKm: Math.round(distKm),
+          date: ev.date_start,
+        }));
+      data = { ...data, _enrichCii: baseCii, _enrichNearbyConflicts: nearbyConflicts };
+    }
+    // ── End cross-layer enrichments ─────────────────────────────────────────
 
     // Get click coordinates relative to container
     const x = info.x ?? 0;

@@ -999,8 +999,8 @@ export class SignalPublisher {
 
   async loadWeatherAlerts(): Promise<void> {
     try {
-      const { fetchWeatherAlerts } = await import('@/services');
-      const alerts = await fetchWeatherAlerts();
+      const { fetchAllWeatherAlerts } = await import('@/services');
+      const alerts = await fetchAllWeatherAlerts();
       this.ctx.mapStore.map?.setWeatherAlerts(alerts);
       this.ctx.mapStore.map?.setLayerReady('weather', alerts.length > 0);
       this.ctx.statusPanel?.updateFeed('Weather', { status: 'ok', itemCount: alerts.length });

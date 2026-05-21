@@ -69,6 +69,8 @@ export interface StockExchangePopupData {
   tradingHours?: string;
   timezone?: string;
   description?: string;
+  // Runtime enrichment (populated at click time by DeckGLMap)
+  enrichCii?: { score: number; level: string } | null;
 }
 
 export interface FinancialCenterPopupData {
@@ -80,6 +82,8 @@ export interface FinancialCenterPopupData {
   gfciRank?: number;
   specialties?: string[];
   description?: string;
+  // Runtime enrichment
+  _enrichCii?: { score: number; level: string } | null;
 }
 
 export interface CentralBankPopupData {
@@ -91,6 +95,9 @@ export interface CentralBankPopupData {
   type: string;
   currency?: string;
   description?: string;
+  // Runtime enrichment (populated at click time by DeckGLMap)
+  enrichCii?: { score: number; level: string } | null;
+  enrichSanctioned?: 'severe' | 'high' | 'moderate' | null;
 }
 
 export interface CommodityHubPopupData {
@@ -101,6 +108,9 @@ export interface CommodityHubPopupData {
   type: string;
   commodities?: string[];
   description?: string;
+  // Runtime enrichment (populated at click time by DeckGLMap)
+  enrichWtiPrice?: number | null;
+  enrichBrentPrice?: number | null;
 }
 
 export interface ProtestClusterData {

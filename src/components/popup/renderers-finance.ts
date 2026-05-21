@@ -19,6 +19,8 @@ function tags(items: string[]): string {
 
 export function renderStockExchangePopup(exchange: StockExchangePopupData): string {
   const tierClass = exchange.tier === 'mega' ? 'high' : exchange.tier === 'major' ? 'medium' : 'low';
+  const ciiScore = exchange.enrichCii;
+  const ciiColor = ciiScore ? (ciiScore.level === 'critical' || ciiScore.level === 'high' ? '#f87171' : ciiScore.level === 'elevated' ? '#fbbf24' : '#4ade80') : null;
   return `
     <div class="popup-header exchange">
       <span class="popup-title">${escapeHtml(exchange.shortName)}</span>
@@ -31,6 +33,7 @@ export function renderStockExchangePopup(exchange: StockExchangePopupData): stri
         ${stat(t('popups.location'), `${escapeHtml(exchange.city)}, ${escapeHtml(exchange.country)}`)}
         ${exchange.marketCap ? stat(t('popups.stockExchange.marketCap'), `$${exchange.marketCap}T`) : ''}
         ${exchange.tradingHours ? stat(t('popups.tradingHours'), escapeHtml(exchange.tradingHours)) : ''}
+        ${ciiScore ? stat('Country Stability', `<span style="color:${ciiColor}">${escapeHtml(ciiScore.level.toUpperCase())} (${ciiScore.score.toFixed(0)}/100)</span>`) : ''}
       </div>
       ${exchange.description ? `<p class="popup-description">${escapeHtml(exchange.description)}</p>` : ''}
     </div>
@@ -38,6 +41,8 @@ export function renderStockExchangePopup(exchange: StockExchangePopupData): stri
 }
 
 export function renderFinancialCenterPopup(center: FinancialCenterPopupData): string {
+  const ciiScore = center._enrichCii;
+  const ciiColor = ciiScore ? (ciiScore.level === 'critical' || ciiScore.level === 'high' ? '#f87171' : ciiScore.level === 'elevated' ? '#fbbf24' : '#4ade80') : null;
   return `
     <div class="popup-header financial-center">
       <span class="popup-title">${escapeHtml(center.name)}</span>
@@ -48,6 +53,7 @@ export function renderFinancialCenterPopup(center: FinancialCenterPopupData): st
       <div class="popup-stats">
         ${stat(t('popups.location'), `${escapeHtml(center.city)}, ${escapeHtml(center.country)}`)}
         ${center.gfciRank ? stat(t('popups.financialCenter.gfciRank'), `#${center.gfciRank}`) : ''}
+        ${ciiScore ? stat('Country Stability', `<span style="color:${ciiColor}">${escapeHtml(ciiScore.level.toUpperCase())} (${ciiScore.score.toFixed(0)}/100)</span>`) : ''}
       </div>
       ${center.specialties?.length ? section(t('popups.financialCenter.specialties'), tags(center.specialties.map(s => escapeHtml(s)))) : ''}
       ${center.description ? `<p class="popup-description">${escapeHtml(center.description)}</p>` : ''}
@@ -56,10 +62,15 @@ export function renderFinancialCenterPopup(center: FinancialCenterPopupData): st
 }
 
 export function renderCentralBankPopup(bank: CentralBankPopupData): string {
+  const ciiScore = bank.enrichCii;
+  const ciiColor = ciiScore ? (ciiScore.level === 'critical' || ciiScore.level === 'high' ? '#f87171' : ciiScore.level === 'elevated' ? '#fbbf24' : '#4ade80') : null;
+  const sanctionLevel = bank.enrichSanctioned;
+  const sanctionColor = sanctionLevel === 'severe' ? '#f87171' : sanctionLevel === 'high' ? '#fb923c' : '#fbbf24';
   return `
     <div class="popup-header central-bank">
       <span class="popup-title">${escapeHtml(bank.shortName)}</span>
       ${pbadge(bank.type.toUpperCase(), '')}
+      ${sanctionLevel ? pbadge('SANCTIONED', 'high') : ''}
       <button class="popup-close" aria-label="Close">×</button>
     </div>
     <div class="popup-body">
@@ -67,6 +78,8 @@ export function renderCentralBankPopup(bank: CentralBankPopupData): string {
       <div class="popup-stats">
         ${stat(t('popups.location'), `${escapeHtml(bank.city)}, ${escapeHtml(bank.country)}`)}
         ${bank.currency ? stat(t('popups.centralBank.currency'), escapeHtml(bank.currency)) : ''}
+        ${ciiScore ? stat('Country Stability', `<span style="color:${ciiColor}">${escapeHtml(ciiScore.level.toUpperCase())} (${ciiScore.score.toFixed(0)}/100)</span>`) : ''}
+        ${sanctionLevel ? stat('Sanctions Risk', `<span style="color:${sanctionColor}">${escapeHtml(sanctionLevel.toUpperCase())}</span>`) : ''}
       </div>
       ${bank.description ? `<p class="popup-description">${escapeHtml(bank.description)}</p>` : ''}
     </div>
@@ -74,6 +87,7 @@ export function renderCentralBankPopup(bank: CentralBankPopupData): string {
 }
 
 export function renderCommodityHubPopup(hub: CommodityHubPopupData): string {
+  const showOil = hub.enrichWtiPrice != null || hub.enrichBrentPrice != null;
   return `
     <div class="popup-header commodity-hub">
       <span class="popup-title">${escapeHtml(hub.name)}</span>
@@ -83,8 +97,11 @@ export function renderCommodityHubPopup(hub: CommodityHubPopupData): string {
     <div class="popup-body">
       <div class="popup-stats">
         ${stat(t('popups.location'), `${escapeHtml(hub.city)}, ${escapeHtml(hub.country)}`)}
+        ${hub.enrichWtiPrice != null ? stat('WTI Crude', `<strong>$${hub.enrichWtiPrice.toFixed(2)}</strong>/bbl`) : ''}
+        ${hub.enrichBrentPrice != null ? stat('Brent Crude', `<strong>$${hub.enrichBrentPrice.toFixed(2)}</strong>/bbl`) : ''}
       </div>
       ${hub.commodities?.length ? section(t('popups.commodityHub.commodities'), tags(hub.commodities.map(c => escapeHtml(c)))) : ''}
+      ${showOil ? `<p class="popup-description" style="font-size:0.75rem;opacity:0.6">Live prices via EIA</p>` : ''}
       ${hub.description ? `<p class="popup-description">${escapeHtml(hub.description)}</p>` : ''}
     </div>
   `;

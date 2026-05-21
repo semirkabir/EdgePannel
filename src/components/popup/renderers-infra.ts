@@ -123,6 +123,17 @@ export function renderCablePopup(cable: UnderseaCable, cableAdvisories: CableAdv
           </ul>
         </div>
       ` : ''}
+      ${cable._enrichNearbyOutages != null && cable._enrichNearbyOutages > 0 ? `
+        <div class="popup-section">
+          <span class="section-label" style="color:#fb923c">⚡ Regional Internet Outages</span>
+          <p class="popup-description" style="margin:4px 0 0">${cable._enrichNearbyOutages} active outage${cable._enrichNearbyOutages > 1 ? 's' : ''} detected within 1,500 km of this cable's path${cable._enrichNearbyJamming ? ' · <span style="color:#fbbf24">GPS jamming active nearby</span>' : ''}</p>
+        </div>
+      ` : cable._enrichNearbyJamming ? `
+        <div class="popup-section">
+          <span class="section-label" style="color:#fbbf24">📡 GPS Jamming Detected</span>
+          <p class="popup-description" style="margin:4px 0 0">Active GPS jamming detected within 500 km of this cable's landing points</p>
+        </div>
+      ` : ''}
       <p class="popup-description">${t('popups.cable.description')}</p>
     </div>
   `;
@@ -462,12 +473,17 @@ export function renderMineralPopup(mine: CriticalMineralProject): string {
   };
 
   const icon = mine.mineral === 'Lithium' ? '🔋' : mine.mineral === 'Rare Earths' ? '🧲' : '💎';
+  const ciiScore = mine._enrichCii;
+  const ciiColor = ciiScore ? (ciiScore.level === 'critical' || ciiScore.level === 'high' ? '#f87171' : ciiScore.level === 'elevated' ? '#fbbf24' : '#4ade80') : null;
+  const sanctioned = mine._enrichSanctioned;
+  const sanctionColor = sanctioned === 'severe' ? '#f87171' : '#fb923c';
 
   return `
     <div class="popup-header mineral ${mine.status}">
       <span class="popup-icon">${icon}</span>
       <span class="popup-title">${escapeHtml(mine.name.toUpperCase())}</span>
       <span class="popup-badge ${statusColors[mine.status] || 'normal'}">${statusLabels[mine.status] || mine.status.toUpperCase()}</span>
+      ${sanctioned ? `<span class="popup-badge high">SANCTIONED</span>` : ''}
       <button class="popup-close" aria-label="Close">×</button>
     </div>
     <div class="popup-body">
@@ -485,6 +501,8 @@ export function renderMineralPopup(mine: CriticalMineralProject): string {
           <span class="stat-label">${t('popups.coordinates')}</span>
           <span class="stat-value">${mine.lat.toFixed(2)}°, ${mine.lon.toFixed(2)}°</span>
         </div>
+        ${ciiScore ? `<div class="popup-stat"><span class="stat-label">Country Stability</span><span class="stat-value" style="color:${ciiColor}">${escapeHtml(ciiScore.level.toUpperCase())} (${ciiScore.score.toFixed(0)}/100)</span></div>` : ''}
+        ${sanctioned ? `<div class="popup-stat"><span class="stat-label">Sanctions Risk</span><span class="stat-value" style="color:${sanctionColor}">${escapeHtml(sanctioned.toUpperCase())}</span></div>` : ''}
       </div>
       <p class="popup-description">${escapeHtml(mine.significance)}</p>
     </div>
