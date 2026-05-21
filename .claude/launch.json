@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "Dev (default/full)",
-      "runtimeExecutable": "/bin/bash",
-      "runtimeArgs": ["-c", "export PATH=\"/Users/mir/.nvm/versions/node/v22.17.1/bin:$PATH\" && npm run dev"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
       "port": 3000
     },
     {
@@ -29,6 +29,12 @@
       "name": "Dev (commodity)",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:commodity"],
+      "port": 3000
+    },
+    {
+      "name": "Dev (conflicts)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:conflicts"],
       "port": 3000
     },
     {

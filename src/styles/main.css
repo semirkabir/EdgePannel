@@ -10664,8 +10664,10 @@ a.prediction-link:hover {
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   padding: 4px 8px;
+  min-width: 74px;
   height: 28px;
   box-sizing: border-box;
   border: 1px solid var(--border);
@@ -10995,20 +10997,21 @@ a.prediction-link:hover {
 /* Count label */
 .vc-count {
   font-variant-numeric: tabular-nums;
-  min-width: 22px;
-  text-align: left;
 }
 
 /* Trending arrow */
 .vc-trend {
   font-size: 8px;
   opacity: 0;
-  transition: opacity 0.3s;
+  max-width: 0;
+  overflow: hidden;
+  transition: opacity 0.35s ease, max-width 0.35s ease;
   line-height: 1;
 }
 
 .vc-trend--visible {
   opacity: 1;
+  max-width: 12px;
 }
 
 .vc-trend--up {
