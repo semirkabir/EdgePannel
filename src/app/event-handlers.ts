@@ -56,6 +56,8 @@ import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { VisitorCounter } from '@/components/VisitorCounter';
 import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { WhatsNewPanel } from '@/components/WhatsNewPanel';
+import { OnboardingHints } from '@/components/OnboardingHints';
 import { t } from '@/services/i18n';
 import { TvModeController } from '@/services/tv-mode';
 import { buildShareUrl } from './event-handler-view';
@@ -180,6 +182,7 @@ export class EventHandlerManager implements AppModule {
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
+  private whatsNewPanel: WhatsNewPanel | null = null;
 
   private readonly idlePauseMs = IDLE_PAUSE_MS;
   private readonly debouncedUrlSync = debounce(() => {
@@ -216,6 +219,7 @@ export class EventHandlerManager implements AppModule {
     this.setupShellGuidance();
     this.setupWorkspaceSetup();
     this.setupMobileHelpSheet();
+    new OnboardingHints().init();
     this.setupIdleDetection();
     this.setupTvMode();
     this.setupBloombergShortcuts();
@@ -371,6 +375,8 @@ export class EventHandlerManager implements AppModule {
     this.ctx.situationRoomDrawer = null;
     this.ctx.visitorCounter?.destroy();
     this.ctx.visitorCounter = null;
+    this.whatsNewPanel?.hide();
+    this.whatsNewPanel = null;
   }
 
   private setupMissionPackHandling(): void {
@@ -557,6 +563,14 @@ export class EventHandlerManager implements AppModule {
         });
       });
     }
+
+    document.getElementById('whatsNewBtn')?.addEventListener('click', () => {
+      this.ctx.countryBriefPage?.hide();
+      this.ctx.entityDetailPanel?.hide();
+      this.whatsNewPanel ??= new WhatsNewPanel();
+      this.whatsNewPanel.show();
+      document.getElementById('headerOverflowMenu')?.removeAttribute('open');
+    });
 
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     if (!this.ctx.isDesktopApp && fullscreenBtn) {

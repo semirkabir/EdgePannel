@@ -218,6 +218,7 @@ export class SearchModal {
 
   private createModal(): void {
     this.overlay = document.createElement('div');
+    const placeholder = escapeHtml(this.placeholder);
 
     if (this.isMobile) {
       this.overlay.className = 'search-overlay search-mobile';
@@ -231,7 +232,7 @@ export class SearchModal {
             <span class="search-sheet-icon">\u{1F50D}</span>
             <div class="search-input-wrap">
               <span class="search-input-ticker search-ticker" aria-hidden="true"><span class="search-ticker-text"></span></span>
-              <input type="text" class="search-input" placeholder=" " aria-label="Search dashboard" autofocus />
+              <input type="text" class="search-input" placeholder="${placeholder}" aria-label="Search dashboard" autofocus />
             </div>
             <button class="search-sheet-cancel" aria-label="Close">\u00D7</button>
           </div>
@@ -276,7 +277,7 @@ export class SearchModal {
             <span class="search-icon">\u2325</span>
             <div class="search-input-wrap">
               <span class="search-input-ticker search-ticker" aria-hidden="true"><span class="search-ticker-text"></span></span>
-              <input type="text" class="search-input" placeholder=" " aria-label="Search dashboard" autofocus />
+              <input type="text" class="search-input" placeholder="${placeholder}" aria-label="Search dashboard" autofocus />
             </div>
             <kbd class="search-kbd">ESC</kbd>
           </div>

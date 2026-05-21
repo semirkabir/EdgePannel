@@ -107,7 +107,7 @@ export class NotificationCenter {
     btn.setAttribute('aria-label', 'Activity inbox');
     btn.setAttribute('aria-haspopup', 'menu');
     btn.setAttribute('aria-expanded', 'false');
-    btn.innerHTML = '🔔';
+    btn.innerHTML = `<span class="notif-bell-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>`;
     btn.addEventListener('click', () => this.toggle());
     this.el.appendChild(btn);
 
@@ -414,13 +414,19 @@ export class NotificationCenter {
   /* ---- badge ---- */
 
   private updateBadge(): void {
-    const unread = this.items.filter(i => !i.read).length;
-    if (unread > 0) {
-      this.badgeEl.textContent = unread > 99 ? '99+' : String(unread);
-      this.badgeEl.style.display = '';
-    } else {
+    const unreadItems = this.items.filter(i => !i.read);
+    const unread = unreadItems.length;
+    if (unread === 0) {
       this.badgeEl.style.display = 'none';
+      return;
     }
+    this.badgeEl.textContent = unread > 99 ? '99+' : String(unread);
+    this.badgeEl.style.display = '';
+    // Semantic state: urgent if any unread is critical/high, attention otherwise
+    const hasUrgent = unreadItems.some(i => i.severity === 'critical' || i.severity === 'high');
+    this.badgeEl.classList.toggle('badge--urgent', hasUrgent);
+    this.badgeEl.classList.toggle('badge--attention', !hasUrgent);
+    this.badgeEl.classList.remove('badge--neutral');
   }
 
   /* ---- render ---- */

@@ -2223,13 +2223,62 @@ canvas,
   transform: translateY(1px);
 }
 
+.notif-bell-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.notif-bell-icon svg {
+  flex-shrink: 0;
+}
+
+/* ── Unified badge token system ───────────────────────────────────────── */
+/* Three semantic states shared across notif-badge, panel-count, findings */
+:root {
+  /* neutral: plain count, no urgency */
+  --badge-neutral-bg:     var(--ctrl-bg, rgba(255,255,255,0.07));
+  --badge-neutral-border: var(--frame-border, rgba(255,255,255,0.12));
+  --badge-neutral-fg:     var(--text-dim, rgba(255,255,255,0.55));
+  /* attention: something needs a look (amber) */
+  --badge-attention-bg:     color-mix(in srgb, #f0a020 14%, transparent);
+  --badge-attention-border: color-mix(in srgb, #f0a020 40%, transparent);
+  --badge-attention-fg:     #f0a020;
+  /* urgent: actionable / high severity (red) */
+  --badge-urgent-bg:     color-mix(in srgb, #ef4444 14%, transparent);
+  --badge-urgent-border: color-mix(in srgb, #ef4444 40%, transparent);
+  --badge-urgent-fg:     #ef4444;
+}
+
 .notif-badge {
   position: absolute; top: -4px; right: -4px;
   min-width: 16px; height: 16px; padding: 0 4px;
-  background: var(--semantic-critical, #ef4444);
-  color: #fff; font-size: 10px; font-weight: 700;
-  line-height: 16px; text-align: center;
+  /* default: attention (amber) — non-zero unread but not necessarily critical */
+  background: var(--badge-attention-bg);
+  color: var(--badge-attention-fg);
+  border: 1px solid var(--badge-attention-border);
+  font-size: 10px; font-weight: 700;
+  line-height: 14px; text-align: center;
   border-radius: 8px; pointer-events: none;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+/* Semantic modifier states applied by NotificationCenter.updateBadge() */
+.notif-badge.badge--neutral {
+  background: var(--badge-neutral-bg);
+  color:      var(--badge-neutral-fg);
+  border-color: var(--badge-neutral-border);
+}
+.notif-badge.badge--attention {
+  background: var(--badge-attention-bg);
+  color:      var(--badge-attention-fg);
+  border-color: var(--badge-attention-border);
+}
+.notif-badge.badge--urgent {
+  background: var(--badge-urgent-bg);
+  color:      var(--badge-urgent-fg);
+  border-color: var(--badge-urgent-border);
 }
 
 .notif-dropdown {
@@ -2646,6 +2695,14 @@ canvas,
   transform: scale(1.15) translateY(-1px);
   background: var(--bg);
   box-shadow: 0 2px 5px rgba(0,0,0,0.22);
+}
+
+/* Keyboard shortcut hint badge in search button */
+.search-btn .search-kbd-hint {
+  border: 1px solid var(--frame-border);
+  box-shadow: 0 1px 0 var(--frame-border);
+  color: var(--text-dim);
+  letter-spacing: 0.01em;
 }
 
 .main-content {
@@ -3355,6 +3412,18 @@ body.panel-resize-active iframe {
 
 .panel-count.bump {
   animation: count-bump 0.5s ease-out;
+}
+
+/* Semantic modifier states — reuse the same token system as notif-badge */
+.panel-count.badge--attention {
+  background:   var(--badge-attention-bg);
+  color:        var(--badge-attention-fg);
+  border-color: var(--badge-attention-border);
+}
+.panel-count.badge--urgent {
+  background:   var(--badge-urgent-bg);
+  color:        var(--badge-urgent-fg);
+  border-color: var(--badge-urgent-border);
 }
 
 /* ── Panel copy button ────────────────────────────────────────── */
@@ -9367,6 +9436,14 @@ a.prediction-link:hover {
   text-align: center;
   max-width: 180px;
   line-height: 1.4;
+}
+
+.panel-error-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: 0.65;
+  margin-top: 2px;
+  text-align: center;
 }
 
 .panel-empty {
@@ -28352,6 +28429,93 @@ body[data-panel-density="comfortable"] .panel-tabs {
 /* Custom cursor declarations are in src/styles/cursors.css —
    imported unlayered in main.ts so they beat this @layer base file. */
 
+/* ── Onboarding hint chips ────────────────────────────────────────────────── */
+.ohint-layer {
+  /* Transparent overlay container — no pointer-events so it doesn't block UI */
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 10015;
+}
+
+.ohint-chip {
+  pointer-events: auto;
+  position: fixed;
+  width: 240px;
+  padding: 12px 14px 10px;
+  background: color-mix(in srgb, var(--surface, #16161e) 96%, white 4%);
+  border: 1px solid color-mix(in srgb, var(--accent, #4c8cf8) 55%, transparent);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3),
+              inset 0 1px 0 rgba(255,255,255,0.06);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text, #e8e8f0);
+}
+
+.ohint-chip::before {
+  /* Subtle accent top-border glow */
+  content: '';
+  position: absolute; top: -1px; left: 16px; right: 16px; height: 1px;
+  background: color-mix(in srgb, var(--accent, #4c8cf8) 70%, transparent);
+  border-radius: 999px;
+}
+
+.ohint-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent, #4c8cf8);
+  margin-bottom: 5px;
+}
+
+.ohint-body {
+  font-size: 12px;
+  color: var(--text-dim, rgba(255,255,255,0.72));
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.ohint-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ohint-dismiss-one {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--accent, #4c8cf8);
+  color: #fff;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: var(--wm-cursor-pointer, pointer);
+  transition: opacity 0.15s;
+}
+.ohint-dismiss-one:hover { opacity: 0.85; }
+
+.ohint-dismiss-all {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted, rgba(255,255,255,0.4));
+  border: none;
+  font-size: 11px;
+  cursor: var(--wm-cursor-pointer, pointer);
+  transition: color 0.15s;
+}
+.ohint-dismiss-all:hover { color: var(--text-dim, rgba(255,255,255,0.6)); }
+
+[data-theme="light"] .ohint-chip {
+  background: #fff;
+  border-color: color-mix(in srgb, var(--accent, #2563eb) 45%, transparent);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06);
+  color: #1a1a2e;
+}
+[data-theme="light"] .ohint-body { color: #444; }
+[data-theme="light"] .ohint-dismiss-all { color: #888; }
+
 /* ── Global Tooltip ───────────────────────────────────────────────────────── */
 #wm-tooltip {
   position: fixed;
@@ -28754,14 +28918,19 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .header-overflow-panel .agent-chat-open-btn,
 .header-overflow-panel .theme-toggle-btn,
 .header-overflow-panel .fullscreen-btn,
+.header-overflow-panel .whats-new-btn,
 .header-overflow-panel .tv-mode-btn,
 .header-overflow-panel .copy-link-btn,
 .header-overflow-panel .unified-settings-btn {
   width: 100%;
 }
 
+/* ── Normalized overflow row base ──────────────────────────────────
+   Every menu row gets the same bordered button treatment.
+   ─────────────────────────────────────────────────────────────── */
 .header-overflow-panel .theme-toggle-btn,
 .header-overflow-panel .fullscreen-btn,
+.header-overflow-panel .whats-new-btn,
 .header-overflow-panel .tv-mode-btn,
 .header-overflow-panel .unified-settings-btn,
 .header-overflow-panel .agent-chat-open-btn,
@@ -28777,8 +28946,98 @@ body[data-panel-density="comfortable"] .panel-tabs {
   font-size: 11px;
   font-family: var(--font-body);
   text-align: left;
+  /* Unified bordered style */
+  background: var(--ctrl-bg);
+  border: 1px solid var(--frame-border);
+  color: var(--text);
+  cursor: var(--wm-cursor-pointer);
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 0 var(--frame-inset-highlight);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
 }
 
+/* Hover state — all rows */
+.header-overflow-panel .theme-toggle-btn:hover,
+.header-overflow-panel .fullscreen-btn:hover,
+.header-overflow-panel .whats-new-btn:hover,
+.header-overflow-panel .tv-mode-btn:hover,
+.header-overflow-panel .unified-settings-btn:hover,
+.header-overflow-panel .agent-chat-open-btn:hover,
+.header-overflow-panel .copy-link-btn:hover,
+.header-overflow-panel .save-reset-menu button:hover {
+  background: var(--ctrl-bg-hover);
+  border-color: var(--frame-border-strong);
+  color: var(--text);
+  box-shadow: var(--depth-hover), inset 0 1px 0 var(--frame-inset-highlight);
+}
+
+/* Focus-visible ring — all rows */
+.header-overflow-panel .theme-toggle-btn:focus-visible,
+.header-overflow-panel .fullscreen-btn:focus-visible,
+.header-overflow-panel .whats-new-btn:focus-visible,
+.header-overflow-panel .tv-mode-btn:focus-visible,
+.header-overflow-panel .unified-settings-btn:focus-visible,
+.header-overflow-panel .agent-chat-open-btn:focus-visible,
+.header-overflow-panel .copy-link-btn:focus-visible,
+.header-overflow-panel .save-reset-menu button:focus-visible {
+  outline: none;
+  border-color: var(--frame-border-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 65%, transparent),
+              inset 0 1px 0 var(--frame-inset-highlight);
+}
+
+/* SVG icon transitions — all rows */
+.header-overflow-panel .theme-toggle-btn svg,
+.header-overflow-panel .fullscreen-btn svg,
+.header-overflow-panel .whats-new-btn svg,
+.header-overflow-panel .tv-mode-btn svg,
+.header-overflow-panel .agent-chat-open-btn svg,
+.header-overflow-panel .copy-link-btn svg,
+.header-overflow-panel .save-reset-menu button svg {
+  flex-shrink: 0;
+  transform-origin: center;
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+/* Icon scale on hover — consistent across all rows */
+.header-overflow-panel .theme-toggle-btn:hover svg,
+.header-overflow-panel .theme-toggle-btn:focus-visible svg,
+.header-overflow-panel .fullscreen-btn:hover svg,
+.header-overflow-panel .fullscreen-btn:focus-visible svg,
+.header-overflow-panel .tv-mode-btn:hover svg,
+.header-overflow-panel .tv-mode-btn:focus-visible svg,
+.header-overflow-panel .agent-chat-open-btn:hover svg,
+.header-overflow-panel .agent-chat-open-btn:focus-visible svg,
+.header-overflow-panel .copy-link-btn:hover svg,
+.header-overflow-panel .copy-link-btn:focus-visible svg,
+.header-overflow-panel .save-reset-menu button:hover svg,
+.header-overflow-panel .save-reset-menu button:focus-visible svg {
+  transform: scale(1.1);
+  color: var(--accent);
+}
+
+/* What's New sparkle — keeps the signature effect */
+.header-overflow-panel .whats-new-btn svg {
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    filter var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.header-overflow-panel .whats-new-btn:hover svg,
+.header-overflow-panel .whats-new-btn:focus-visible svg {
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
+  animation: whats-new-sparkle 900ms var(--ease-standard) both;
+}
+
+/* Theme toggle specifics */
 .header-overflow-panel .theme-toggle-btn {
   overflow: visible;
 }
@@ -28830,21 +29089,35 @@ body[data-panel-density="comfortable"] .panel-tabs {
 
 .header-overflow-panel .save-reset-menu button {
   width: 100%;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  cursor: var(--wm-cursor-pointer);
   white-space: nowrap;
-  box-sizing: border-box;
-  transition: background var(--motion-fast) var(--ease-standard);
-}
-
-.header-overflow-panel .save-reset-menu button:hover {
-  background: var(--ctrl-bg-hover);
 }
 
 .header-overflow-panel .save-reset-menu button .header-action-label {
   color: var(--text);
+}
+
+@keyframes whats-new-sparkle {
+  0% { transform: rotate(0deg) scale(1); }
+  35% { transform: rotate(-10deg) scale(1.16); }
+  65% { transform: rotate(8deg) scale(1.08); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-overflow-panel .whats-new-btn:hover svg,
+  .header-overflow-panel .whats-new-btn:focus-visible svg {
+    animation: none;
+    transform: scale(1.08);
+  }
+
+  .header-overflow-panel .theme-toggle-btn:hover svg,
+  .header-overflow-panel .fullscreen-btn:hover svg,
+  .header-overflow-panel .tv-mode-btn:hover svg,
+  .header-overflow-panel .agent-chat-open-btn:hover svg,
+  .header-overflow-panel .copy-link-btn:hover svg,
+  .header-overflow-panel .save-reset-menu button:hover svg {
+    transform: scale(1.08);
+  }
 }
 
 
@@ -28862,6 +29135,33 @@ body[data-panel-density="comfortable"] .panel-tabs {
 
 .panel-title {
   letter-spacing: 0.01em;
+  /* Title stays strong — no secondary dimming */
+}
+
+/* Secondary panel-header controls — dim at rest, reveal on hover */
+.panel-copy-btn,
+.panel-count,
+.panel-freshness-dot {
+  opacity: 0.35;
+  transition: opacity var(--motion-fast, 120ms) ease;
+}
+
+.panel:hover .panel-copy-btn,
+.panel:hover .panel-count,
+.panel:hover .panel-freshness-dot,
+.panel-copy-btn:focus-visible {
+  opacity: 1;
+}
+
+/* Data badge — keep visible but use subdued weight for non-critical states */
+.panel-data-badge.live {
+  font-weight: 600;
+}
+
+.panel-data-badge.cached,
+.panel-data-badge.unavailable {
+  opacity: 0.7;
+  font-weight: 500;
 }
 
 .panel-remove-btn {
@@ -28872,6 +29172,12 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .panel:hover .panel-remove-btn,
 .panel-remove-btn:focus-visible {
   opacity: 1;
+}
+
+/* Alert panel red — only genuine critical severity */
+.panel-header-error {
+  background: color-mix(in srgb, var(--semantic-critical, #ef4444) 6%, transparent) !important;
+  border-bottom-color: color-mix(in srgb, var(--semantic-critical, #ef4444) 22%, transparent) !important;
 }
 
 .map-bottom-grid::after {
@@ -28998,6 +29304,64 @@ body[data-panel-density="comfortable"] .panel-tabs {
   .header-live-actions .playback-control,
   .header-live-actions .export-panel-container {
     display: none;
+  }
+}
+
+/* ── Visual QA: target widths 1365×906, 1440×900, 1920×1080, 2560×1440 ──── */
+
+/*
+ * 1365–1440px: sits between the 1100px mobile-trim breakpoint and the 1600px
+ * side-by-side breakpoint. The header right side carries visitor-counter,
+ * playback, export, notif-bell, search (230px), and overflow — all visible
+ * and tight. Raise the hide threshold to 1400px so 1365px gets a clean header.
+ */
+@media (max-width: 1400px) {
+  .header-live-actions .visitor-counter,
+  .header-live-actions .playback-control,
+  .header-live-actions .export-panel-container {
+    display: none;
+  }
+
+  /* Narrow the search box a bit to prevent right-side overflow */
+  .search-btn {
+    width: clamp(150px, 14vw, 210px);
+  }
+}
+
+/*
+ * 1365–1599px: stacked layout (no side-by-side yet). Ensure the header
+ * overflow panel doesn't clip off the right edge when the viewport is narrow.
+ */
+@media (max-width: 1599px) {
+  .header-overflow-panel {
+    max-width: calc(100vw - 32px);
+  }
+}
+
+/*
+ * 2200px+: ultra-wide. Make the search button proportionally wider and give
+ * the panel grid wider minimum columns so panels don't look tiny.
+ */
+@media (min-width: 2200px) {
+  .search-btn {
+    width: clamp(230px, 11vw, 320px);
+  }
+}
+
+/* Side-by-side layout starts at 1600px; at 2200px+ widen panel columns
+ * so panels don't look undersized on ultra-wide displays. */
+@media (min-width: 2200px) {
+  .panels-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+
+/*
+ * 2560px specific: panel rows can be taller since vertical space is abundant.
+ */
+@media (min-width: 2400px) {
+  .panels-grid {
+    grid-auto-rows: minmax(220px, 420px);
   }
 }
 
