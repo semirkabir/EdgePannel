@@ -5170,7 +5170,8 @@ export class DeckGLMap {
     const slider = document.createElement('div');
     slider.className = 'time-slider deckgl-time-slider';
     const settings = loadDeckControlSettings();
-    const timeButtons = TIME_RANGE_OPTIONS.map(range =>
+    const sortedRanges = [...TIME_RANGE_OPTIONS].sort((a, b) => getTimeRangeWindowMs(a) - getTimeRangeWindowMs(b));
+    const timeButtons = sortedRanges.map(range =>
       `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${this.getTimeRangeControlLabel(range)}</button>`
     ).join('');
     slider.innerHTML = `
@@ -5344,7 +5345,7 @@ export class DeckGLMap {
       <div class="mcs-section">
         <div class="mcs-section-title">Lookback display</div>
         <div class="mcs-check-grid">
-          ${TIME_RANGE_OPTIONS.map(range => `
+          ${[...TIME_RANGE_OPTIONS].sort((a, b) => getTimeRangeWindowMs(a) - getTimeRangeWindowMs(b)).map(range => `
             <label class="mcs-check">
               <input type="checkbox" data-time-range-setting="${range}">
               <span>${this.getTimeRangeControlLabel(range)}</span>

@@ -8,6 +8,10 @@ export interface CustomLookbackConfig {
 
 export const TIME_RANGE_OPTIONS: TimeRange[] = ['1h', '6h', '24h', '48h', '7d', 'custom', 'all'];
 
+export function getSortedTimeRanges(): TimeRange[] {
+  return [...TIME_RANGE_OPTIONS].sort((a, b) => getTimeRangeWindowMs(a) - getTimeRangeWindowMs(b));
+}
+
 const CUSTOM_LOOKBACK_STORAGE_KEY = 'wm-custom-lookback';
 const DEFAULT_CUSTOM_LOOKBACK: CustomLookbackConfig = { value: 12, unit: 'h' };
 
