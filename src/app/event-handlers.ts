@@ -431,9 +431,12 @@ export class EventHandlerManager implements AppModule {
 
     let enabledSources = 0;
     for (const source of pack.recommendedSources) {
-      if (this.ctx.disabledSources.delete(source)) enabledSources += 1;
+      if (!this.ctx.uiStore.isSourceEnabled(source)) {
+        this.ctx.uiStore.enableSource(source);
+        enabledSources += 1;
+      }
     }
-    saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.disabledSources));
+    saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.uiStore.disabledSources));
 
     const monitorPanel = this.ctx.panels['monitors'] as import('@/components').MonitorPanel | undefined;
     const existingMonitors = monitorPanel?.getMonitors() ?? this.ctx.monitors;
@@ -1008,19 +1011,19 @@ export class EventHandlerManager implements AppModule {
       },
       getDisabledSources: () => this.ctx.disabledSources,
       toggleSource: (name: string) => {
-        if (this.ctx.disabledSources.has(name)) {
-          this.ctx.disabledSources.delete(name);
+        if (this.ctx.uiStore.isSourceEnabled(name)) {
+          this.ctx.uiStore.disableSource(name);
         } else {
-          this.ctx.disabledSources.add(name);
+          this.ctx.uiStore.enableSource(name);
         }
-        saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.disabledSources));
+        saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.uiStore.disabledSources));
       },
       setSourcesEnabled: (names: string[], enabled: boolean) => {
         for (const name of names) {
-          if (enabled) this.ctx.disabledSources.delete(name);
-          else this.ctx.disabledSources.add(name);
+          if (enabled) this.ctx.uiStore.enableSource(name);
+          else this.ctx.uiStore.disableSource(name);
         }
-        saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.disabledSources));
+        saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.uiStore.disabledSources));
       },
       getAllSourceNames: () => this.getAllSourceNames(),
       getLocalizedPanelName: (key: string, fallback: string) => this.getLocalizedPanelName(key, fallback),

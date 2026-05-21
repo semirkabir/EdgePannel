@@ -350,14 +350,19 @@ export class App {
       }
     }
 
-    const disabledSources = new Set(loadFromStorage<string[]>(STORAGE_KEYS.disabledFeeds, []));
-
     // Create modular state slices (P1)
     const eventBus = createEventBus();
     const newsStore = createNewsStore(eventBus);
     const intelligenceStore = createIntelligenceStore(eventBus);
     const uiStore = createUIStore(eventBus);
     const mapStore = createMapStore(eventBus);
+
+    // Initialize UIStore's disabledSources from persisted storage so the
+    // news pipeline (which reads uiStore.disabledSources) and event handlers
+    // (which write via ctx.disabledSources) both operate on the same Set.
+    for (const s of loadFromStorage<string[]>(STORAGE_KEYS.disabledFeeds, [])) {
+      uiStore.disableSource(s);
+    }
 
     // Build shared state object
     this.state = {
@@ -376,7 +381,7 @@ export class App {
       latestClusters: [],
       intelligenceCache: {},
       cyberThreatsCache: null,
-      disabledSources,
+      disabledSources: uiStore.disabledSources,
       currentTimeRange: '7d',
       inFlight: new Set(),
       seenGeoAlerts: new Set(),
