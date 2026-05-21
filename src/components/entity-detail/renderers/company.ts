@@ -49,6 +49,10 @@ import {
   type FinancialStatementKind,
   type NormalizedFinancialPeriod,
 } from '@/services/market/company-financials';
+import {
+  fetchEarningsCallTranscripts,
+  type EarningsCallTranscript,
+} from '@/services/market/earnings-transcripts';
 
 interface CompanyData {
   ticker: string;
@@ -79,6 +83,7 @@ interface CompanyEnriched {
   dividends: StockDividend[];
   revenueBreakdown: RevenueBreakdown | null;
   ratingActions: UpgradeDowngradeAction[];
+  earningsCalls: EarningsCallTranscript[];
 }
 
 const client = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
@@ -660,7 +665,7 @@ export class CompanyRenderer implements EntityRenderer {
       profile, metrics, peers, news,
       priceTarget, recommendations, insiderTxns, optionChain, ownership, earningsSurprises,
       financialsAnnual, financialsQuarterly, epsEstimates, revenueEstimates, dividends,
-      revenueBreakdown, ratingActions,
+      revenueBreakdown, ratingActions, earningsCalls,
     ] = await settleInBatches<unknown>([
       () => fetchCompanyProfile(ticker),
       () => fetchCompanyMetrics(ticker),
@@ -679,6 +684,7 @@ export class CompanyRenderer implements EntityRenderer {
       () => fetchStockDividends(ticker),
       () => fetchRevenueBreakdown(ticker),
       () => fetchUpgradeDowngrade(ticker),
+      () => fetchEarningsCallTranscripts(ticker),
     ]);
 
     const quote = quotesResp.status === 'fulfilled'
@@ -714,6 +720,7 @@ export class CompanyRenderer implements EntityRenderer {
       dividends: settledValue<StockDividend[]>(dividends, []),
       revenueBreakdown: settledValue<RevenueBreakdown | null>(revenueBreakdown, null),
       ratingActions: settledValue<UpgradeDowngradeAction[]>(ratingActions, []),
+      earningsCalls: settledValue<EarningsCallTranscript[]>(earningsCalls, []),
     };
   }
 
@@ -1835,10 +1842,42 @@ export class CompanyRenderer implements EntityRenderer {
   private renderEventsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
     const hasSurprises = data.earningsSurprises.length > 0;
     const hasDividends = data.dividends.length > 0;
+    const hasCalls = data.earningsCalls.length > 0;
 
-    if (!hasSurprises && !hasDividends) {
+    if (!hasSurprises && !hasDividends && !hasCalls) {
       content.append(ctx.makeEmpty('No events data available'));
       return;
+    }
+
+    if (hasCalls) {
+      const [card, body] = ctx.sectionCard('Earnings Call Transcripts');
+      card.classList.add('edp-card--wide');
+      const note = ctx.el('p', 'edp-description');
+      note.textContent = 'SEC EDGAR 8-K filings with earnings results or transcripts (Items 2.02 / 7.01).';
+      body.append(note);
+
+      for (const call of data.earningsCalls) {
+        const rowEl = ctx.el('div', 'edp-disclosure-row');
+        rowEl.append(ctx.el('span', 'edp-disclosure-badge', call.quarter || 'Filing'));
+        const info = ctx.el('div', 'edp-disclosure-info');
+        info.append(ctx.el('span', 'edp-disclosure-name', `Earnings Release`));
+        const detail = [
+          call.filingDate ? `Filed ${call.filingDate}` : '',
+          call.reportDate ? `Period ${call.reportDate}` : '',
+        ].filter(Boolean).join(' · ');
+        info.append(ctx.el('span', 'edp-disclosure-detail', detail || 'EDGAR 8-K filing'));
+        rowEl.append(info);
+
+        const link = ctx.el('a', 'edp-btn-sm') as HTMLAnchorElement;
+        link.href = sanitizeUrl(call.indexUrl);
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'EDGAR';
+        rowEl.append(link);
+        body.append(rowEl);
+      }
+
+      content.append(card);
     }
 
     if (hasSurprises) {

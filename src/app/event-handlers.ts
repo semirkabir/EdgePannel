@@ -174,6 +174,7 @@ export class EventHandlerManager implements AppModule {
   private kbShortcutsOverlay: HTMLElement | null = null;
   private statusDropdownEl: HTMLElement | null = null;
   private statusDropdownTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchTickerInterval: ReturnType<typeof setInterval> | null = null;
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -274,6 +275,10 @@ export class EventHandlerManager implements AppModule {
   }
 
   destroy(): void {
+    if (this.searchTickerInterval !== null) {
+      clearInterval(this.searchTickerInterval);
+      this.searchTickerInterval = null;
+    }
     this.debouncedUrlSync.cancel();
     if (this.handlers.fullscreen) {
       document.removeEventListener('fullscreenchange', this.handlers.fullscreen);
@@ -477,6 +482,39 @@ export class EventHandlerManager implements AppModule {
     document.getElementById('mobileSearchBtn')?.addEventListener('click', openSearch);
     document.getElementById('searchMobileFab')?.addEventListener('click', openSearch);
     document.getElementById('shellGuidanceSearch')?.addEventListener('click', openSearch);
+
+    const tickerPhrases = [
+      'Search',
+      "Trump's market positions?",
+      'Polymarket: Gaza ceasefire odds?',
+      'Which politicians hold Nvidia?',
+      'Portfolio geopolitical risk score',
+      'Taiwan Strait escalation risk?',
+      'Iran nuclear deal signals',
+      'Polymarket: Fed rate cut odds?',
+      'Energy infrastructure threats',
+      'Senate 2025 race predictions',
+      'Who funds which campaigns?',
+      'Optimize for conflict exposure',
+      'Red Sea shipping disruptions',
+      'Polymarket: BTC above 100k?',
+      'Pelosi portfolio tracker',
+    ];
+    const tickerEl = document.querySelector<HTMLElement>('.search-ticker-text');
+    if (tickerEl) {
+      let phraseIdx = 0;
+      this.searchTickerInterval = setInterval(() => {
+        phraseIdx = (phraseIdx + 1) % tickerPhrases.length;
+        tickerEl.classList.add('ticker-flip-out');
+        setTimeout(() => {
+          tickerEl.textContent = tickerPhrases[phraseIdx] ?? 'Search';
+          tickerEl.classList.remove('ticker-flip-out');
+          void tickerEl.offsetWidth;
+          tickerEl.classList.add('ticker-flip-in');
+          setTimeout(() => tickerEl.classList.remove('ticker-flip-in'), 250);
+        }, 180);
+      }, 3200);
+    }
 
     document.getElementById('saveLayoutBtn')?.addEventListener('click', async () => {
       if (!checkFeatureAccess('save-layout')) return;
