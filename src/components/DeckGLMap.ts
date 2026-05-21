@@ -4310,11 +4310,13 @@ export class DeckGLMap {
     layersToggleBtn.className = 'layers-toggle-btn';
     layersToggleBtn.id = 'layersToggleBtn';
     layersToggleBtn.title = 'Toggle Layers';
+    layersToggleBtn.setAttribute('aria-label', 'Toggle map layers');
     layersToggleBtn.textContent = 'LAYERS';
 
     const layersClearBtn = document.createElement('button');
     layersClearBtn.className = 'layers-row-clear';
     layersClearBtn.title = 'Clear all layers';
+    layersClearBtn.setAttribute('aria-label', 'Clear all map layers');
     layersClearBtn.textContent = '✕';
     layersClearBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -4324,6 +4326,7 @@ export class DeckGLMap {
     const layersHelpBtn = document.createElement('button');
     layersHelpBtn.className = 'layer-help-btn layers-row-help';
     layersHelpBtn.title = t('components.deckgl.layerGuide');
+    layersHelpBtn.setAttribute('aria-label', t('components.deckgl.layerGuide'));
     layersHelpBtn.textContent = '?';
     layersHelpBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -4386,6 +4389,36 @@ export class DeckGLMap {
       icon: def.icon,
       premium: def.premium,
     }));
+    const updateLayerStatus = () => {
+      const activeLabels = layerConfig
+        .filter(({ key }) => Boolean(this.state.layers[key as keyof MapLayers]))
+        .map(({ label }) => label);
+      const summary = activeLabels.length === 0
+        ? 'No active layers'
+        : activeLabels.length === 1
+          ? (activeLabels[0] ?? 'Active layer')
+          : activeLabels.length === 2
+            ? activeLabels.join(' + ')
+            : `${activeLabels[0] ?? 'Layer'} + ${activeLabels.length - 1}`;
+      status.textContent = summary;
+      status.title = activeLabels.join(', ') || 'No active layers';
+
+      const rowButton = this.container.querySelector<HTMLButtonElement>('#layersToggleBtn');
+      if (rowButton) {
+        const label = document.createElement('span');
+        label.className = 'layers-toggle-label';
+        label.textContent = 'LAYERS';
+        const count = document.createElement('span');
+        count.className = 'layers-toggle-count';
+        count.textContent = String(activeLabels.length);
+        const active = document.createElement('span');
+        active.className = 'layers-toggle-active-name';
+        active.textContent = summary;
+        rowButton.replaceChildren(label, count, active);
+        rowButton.title = activeLabels.length ? `Active map layers: ${activeLabels.join(', ')}` : 'Toggle map layers';
+        rowButton.setAttribute('aria-label', rowButton.title);
+      }
+    };
 
     const header = document.createElement('div');
     header.className = 'map-tray-header';
@@ -4472,7 +4505,7 @@ export class DeckGLMap {
     }
 
     // Render existing custom categories
-    this.renderCustomCategories(list, status, layersPanel, layerConfig);
+    this.renderCustomCategories(list, status, layersPanel, layerConfig, updateLayerStatus);
 
     layersPanel.appendChild(list);
 
@@ -4494,12 +4527,12 @@ export class DeckGLMap {
           }
           this.refreshLegend();
           this.enforceLayerLimit();
-          status.textContent = `${layersPanel.querySelectorAll('.layer-toggle input:checked').length} active`;
+          updateLayerStatus();
         }
       });
     });
     this.enforceLayerLimit();
-    status.textContent = `${layersPanel.querySelectorAll('.layer-toggle input:checked').length} active`;
+    updateLayerStatus();
 
     // Manual scroll: intercept wheel, prevent map zoom, scroll the list ourselves
     const toggleList = toggles.querySelector('.toggle-list');
@@ -4519,6 +4552,7 @@ export class DeckGLMap {
     status: HTMLElement,
     layersPanel: HTMLElement,
     layerConfig: Array<{ key: string; label: string; icon: string; premium?: string }>,
+    updateLayerStatus?: () => void,
   ): void {
     // Remove existing custom category elements
     list.querySelectorAll('.custom-category-item, .custom-category-divider').forEach(el => el.remove());
@@ -4570,7 +4604,8 @@ export class DeckGLMap {
         this.render();
         this.refreshLegend();
         this.enforceLayerLimit();
-        status.textContent = `${layersPanel.querySelectorAll('.layer-toggle input:checked').length} active`;
+        if (updateLayerStatus) updateLayerStatus();
+        else status.textContent = `${layersPanel.querySelectorAll('.layer-toggle input:checked').length} active`;
         // Sync individual toggles in the panel
         cat.layers.forEach(l => {
           const cb = layersPanel.querySelector<HTMLInputElement>(`.layer-toggle[data-layer="${l}"] input`);

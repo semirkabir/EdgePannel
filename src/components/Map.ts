@@ -424,6 +424,14 @@ export class MapComponent {
     return resolveLayerLabel(LAYER_REGISTRY[layer], t);
   }
 
+  private getActiveLayerSummary(activeLayers: (keyof MapLayers)[]): string {
+    if (activeLayers.length === 0) return 'No active layers';
+    const labels = activeLayers.map((layer) => this.getLayerLabel(layer));
+    if (labels.length === 1) return labels[0] ?? 'Active layer';
+    if (labels.length === 2) return labels.join(' + ');
+    return `${labels[0] ?? 'Layer'} + ${labels.length - 1}`;
+  }
+
   private createSharedIcon(layer: keyof MapLayers, className: string, color = resolveLayerAccentColor(layer, this.getThemeMode())): HTMLDivElement {
     const icon = document.createElement('div');
     icon.className = `${className} map-shared-icon`;
@@ -440,7 +448,10 @@ export class MapComponent {
 
     const activeLayers = this.getVariantLayerKeys().filter((layer) => this.state.layers[layer]);
     if (status) {
-      status.textContent = activeLayers.length === 0 ? 'No active layers' : `${activeLayers.length} active`;
+      status.textContent = this.getActiveLayerSummary(activeLayers);
+      status.title = activeLayers.length === 0
+        ? 'No active layers'
+        : activeLayers.map((layer) => this.getLayerLabel(layer)).join(', ');
     }
     if (activeLayers.length === 0) {
       itemsRoot.innerHTML = '<div class="map-legend-item"><span class="map-legend-empty">No active layers</span></div>';
@@ -472,6 +483,8 @@ export class MapComponent {
     const collapseBtn = document.createElement('button');
     collapseBtn.className = 'map-tray-collapse';
     collapseBtn.type = 'button';
+    collapseBtn.title = 'Collapse layer list';
+    collapseBtn.setAttribute('aria-label', 'Collapse layer list');
     const body = document.createElement('div');
     body.className = 'map-tray-body';
     const applyCollapsedState = (collapsed: boolean) => {
@@ -510,7 +523,14 @@ export class MapComponent {
           b.classList.remove('limit-reached');
         }
       });
-      status.textContent = activeCount === 0 ? 'No active layers' : `${activeCount} active`;
+      const activeLayers = allBtns
+        .filter(b => b.classList.contains('active'))
+        .map(b => b.dataset.layer as keyof MapLayers)
+        .filter(Boolean);
+      status.textContent = this.getActiveLayerSummary(activeLayers);
+      status.title = activeLayers.length === 0
+        ? 'No active layers'
+        : activeLayers.map((layer) => this.getLayerLabel(layer)).join(', ');
     };
 
     layers.forEach((layer) => {
@@ -521,6 +541,8 @@ export class MapComponent {
       const label = document.createElement('span');
       label.className = 'layer-toggle-label';
       label.textContent = this.getLayerLabel(layer);
+      btn.title = `Toggle ${this.getLayerLabel(layer)} layer`;
+      btn.setAttribute('aria-label', `Toggle ${this.getLayerLabel(layer)} layer`);
       btn.append(icon, label);
       btn.addEventListener('click', () => {
         this.toggleLayer(layer);

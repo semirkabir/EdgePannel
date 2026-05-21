@@ -235,10 +235,10 @@ export class SearchModal {
     } else {
       this.overlay.className = 'search-overlay';
       this.overlay.innerHTML = `
-        <div class="search-modal">
+        <div class="search-modal" role="dialog" aria-modal="true" aria-label="Search and command palette">
           <div class="search-header">
             <span class="search-icon">\u2325</span>
-            <input type="text" class="search-input" placeholder="${this.placeholder}" autofocus />
+            <input type="text" class="search-input" placeholder="${this.placeholder}" aria-label="Search countries, layers, panels, and commands" autofocus />
             <kbd class="search-kbd">ESC</kbd>
           </div>
           <div class="search-command-row">
@@ -249,7 +249,7 @@ export class SearchModal {
           </div>
           <div class="search-results"></div>
           <div class="search-footer">
-            <span>Search countries, layers, panels, and live entities</span>
+            <span>Jump to countries, panels, layers, briefings, and live entities</span>
           </div>
         </div>
       `;
@@ -814,6 +814,8 @@ export class SearchModal {
       const btn = document.createElement('button');
       btn.className = 'search-quick-action';
       btn.type = 'button';
+      btn.title = describeCommandAction(command);
+      btn.setAttribute('aria-label', `${resolveCommandLabel(command)}. ${describeCommandAction(command)}`);
 
       const icon = document.createElement('span');
       icon.className = 'search-quick-action-icon';
@@ -823,7 +825,11 @@ export class SearchModal {
       label.className = 'search-quick-action-label';
       label.textContent = resolveCommandLabel(command);
 
-      btn.append(icon, label);
+      const hint = document.createElement('span');
+      hint.className = 'search-quick-action-hint';
+      hint.textContent = describeCommandAction(command);
+
+      btn.append(icon, label, hint);
       btn.addEventListener('click', () => {
         this.close();
         this.onCommand?.(command);

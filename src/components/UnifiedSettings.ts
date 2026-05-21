@@ -276,7 +276,7 @@ export class UnifiedSettings {
     });
 
     this.overlay.innerHTML = `
-      <div class="modal unified-settings-modal">
+      <div class="modal unified-settings-modal unified-settings-modal--${this.activeTab}">
         <div class="modal-header">
           <span class="modal-title">${t('header.settings')}</span>
           <button class="modal-close unified-settings-close" aria-label="Close">\u00d7</button>
@@ -291,6 +291,10 @@ export class UnifiedSettings {
           ${prefs.html}
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'panels' ? ' active' : ''}" data-panel-id="panels" id="us-tab-panel-panels" role="tabpanel" aria-labelledby="us-tab-panels">
+          <div class="unified-settings-panel-intro">
+            <strong>Workspace panels</strong>
+            <span>Choose what appears in the dashboard grid. Use search or region filters to keep the layout focused.</span>
+          </div>
           <div class="unified-settings-region-wrapper">
             <div class="unified-settings-region-bar" id="usPanelCatBar"></div>
           </div>
@@ -309,6 +313,10 @@ export class UnifiedSettings {
           </div>
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'sources' ? ' active' : ''}" data-panel-id="sources" id="us-tab-panel-sources" role="tabpanel" aria-labelledby="us-tab-sources">
+          <div class="unified-settings-panel-intro">
+            <strong>Data sources</strong>
+            <span>Turn feeds on or off without changing the panels themselves.</span>
+          </div>
           <div class="unified-settings-region-wrapper">
             <div class="unified-settings-region-bar" id="usRegionBar"></div>
           </div>
