@@ -61,6 +61,7 @@ import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
 import { debounce, saveToStorage, loadFromStorage } from '@/utils';
+import { applyStoredMapHeight, scheduleMapResize } from '@/utils/map-layout-height';
 import { escapeHtml } from '@/utils/sanitize';
 import {
   FEEDS,
@@ -316,8 +317,8 @@ export class PanelLayoutManager implements AppModule {
           <div class="header-live-actions" id="headerLiveActions" aria-label="Live dashboard actions"></div>
           <button class="search-btn" id="searchBtn" aria-label="${t('header.search')}"><kbd>⌥</kbd><span class="search-ticker"><span class="search-ticker-text">${t('header.search')}</span></span></button>
           <details class="header-overflow-menu" id="headerOverflowMenu">
-            <summary class="header-overflow-btn" aria-label="More dashboard actions" title="More dashboard actions">
-              <span aria-hidden="true">•••</span>
+            <summary class="header-overflow-btn" aria-label="${t('header.settings')}" title="${t('header.settings')}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </summary>
             <div class="header-overflow-panel" id="headerOverflowPanel" role="menu" aria-label="More dashboard actions">
               ${this.ctx.isDesktopApp ? '' : `<div class="save-reset-dropdown" id="saveResetDropdown"><button class="copy-link-btn" id="saveResetLayoutBtn" role="menuitem">${t('header.saveResetLayout')}</button><div class="save-reset-menu"><button id="saveLayoutBtn" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span class="header-action-label">${t('header.saveLayout')}</span></button><button id="resetLayoutBtn" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span class="header-action-label">${t('header.resetLayout')}</span></button></div></div>`}
@@ -523,6 +524,7 @@ export class PanelLayoutManager implements AppModule {
       </div>
     `;
 
+    applyStoredMapHeight();
     this.createPanels();
     this.setupCustomCategoryHandlers();
 
@@ -815,16 +817,7 @@ export class PanelLayoutManager implements AppModule {
       timeRange: '7d',
     }, preferGlobe);
 
-    // Double-rAF: the first frame ends JS execution, the second fires after the
-    // browser has completed its first layout pass and paint. At that point the
-    // flex/grid chain resolves and mapContainer has its true pixel dimensions.
-    // Without this, MapLibre bakes the initial 0-height canvas into its projection
-    // matrix, causing vertical stretching until the user pans.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        this.ctx.map?.resize();
-      });
-    });
+    scheduleMapResize(this.ctx.map);
 
     this.ctx.map.initEscalationGetters();
     this.ctx.currentTimeRange = this.ctx.map.getTimeRange();

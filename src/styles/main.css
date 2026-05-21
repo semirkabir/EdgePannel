@@ -1812,10 +1812,11 @@ canvas,
 
 .brand-logo {
   display: block;
-  width: 180px;
-  height: 36px;
-  object-fit: cover;
-  object-position: center;
+  width: auto;
+  max-width: 180px;
+  height: 28px;
+  object-fit: contain;
+  object-position: left center;
   image-rendering: auto;
   flex: 0 0 auto;
 }
@@ -2483,6 +2484,8 @@ canvas,
   left: 0;
   background: var(--bg-card, var(--bg));
   border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
   z-index: 100;
   min-width: 100%;
 }
@@ -2682,14 +2685,20 @@ canvas,
 .map-section .panel-header {
   flex-shrink: 0;
   gap: 6px;
-  padding: 8px 12px 8px 14px;
+  padding: 8px 12px 8px 8px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
-/* No negative margin — the panel has overflow:hidden so pulling left clips the title */
 .map-section .panel-header-left {
   margin-left: 0;
+  padding-left: 0;
+}
+
+.map-section .brand-logo {
+  margin-left: 0;
+  height: 28px;
+  max-width: 200px;
 }
 
 .map-section .map-container {
@@ -12925,6 +12934,36 @@ body.urgency-mode #header {
   background: var(--bg);
 }
 
+.search-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  perspective: 400px;
+}
+
+.search-input-ticker {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.search-input-wrap .search-input {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  background: transparent;
+}
+
+.search-input-wrap.has-value .search-input-ticker {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .search-icon {
   font-size: 14px;
   color: var(--text-dim);
@@ -13165,18 +13204,17 @@ body.urgency-mode #header {
   padding: 8px 16px 12px;
 }
 
+.search-sheet-header .search-input-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
 .search-sheet-icon {
   font-size: 16px;
 }
 
 .search-sheet-header .search-input {
-  flex: 1;
   font-size: 15px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  font-family: inherit;
-  outline: none;
 }
 
 .search-sheet-cancel {
@@ -28674,6 +28712,10 @@ body[data-panel-density="comfortable"] .panel-tabs {
   box-shadow: var(--depth-resting), inset 0 1px 0 var(--frame-inset-highlight);
 }
 
+.header-overflow-btn svg {
+  flex-shrink: 0;
+}
+
 .header-overflow-btn:hover,
 .header-overflow-menu[open] .header-overflow-btn {
   border-color: var(--frame-border-strong);
@@ -28707,6 +28749,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
 }
 
 .header-overflow-panel .save-reset-dropdown,
+.header-overflow-panel .save-reset-menu,
 .header-overflow-panel #unifiedSettingsMount,
 .header-overflow-panel .agent-chat-open-btn,
 .header-overflow-panel .theme-toggle-btn,
@@ -28722,14 +28765,15 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .header-overflow-panel .tv-mode-btn,
 .header-overflow-panel .unified-settings-btn,
 .header-overflow-panel .agent-chat-open-btn,
-.header-overflow-panel .copy-link-btn {
+.header-overflow-panel .copy-link-btn,
+.header-overflow-panel .save-reset-menu button {
   display: flex;
   align-items: center;
   min-height: 34px;
   justify-content: flex-start;
   gap: 10px;
   padding: 0 10px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 11px;
   font-family: var(--font-body);
   text-align: left;
@@ -28767,7 +28811,9 @@ body[data-panel-density="comfortable"] .panel-tabs {
 }
 
 .header-overflow-panel .save-reset-dropdown {
-  display: contents;
+  display: block;
+  position: static;
+  height: auto;
 }
 
 .header-overflow-panel .save-reset-dropdown > .copy-link-btn {
@@ -28776,25 +28822,18 @@ body[data-panel-density="comfortable"] .panel-tabs {
 
 .header-overflow-panel .save-reset-menu {
   position: static;
-  display: contents;
+  display: flex !important;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
 .header-overflow-panel .save-reset-menu button {
   width: 100%;
-  min-height: 34px;
-  padding: 0 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
   background: transparent;
   border: none;
   color: var(--text);
-  font-family: inherit;
   cursor: var(--wm-cursor-pointer);
-  text-align: left;
   white-space: nowrap;
   box-sizing: border-box;
   transition: background var(--motion-fast) var(--ease-standard);
@@ -28808,10 +28847,6 @@ body[data-panel-density="comfortable"] .panel-tabs {
   color: var(--text);
 }
 
-.header-overflow-panel .save-reset-dropdown + .theme-toggle-btn {
-  border-top: 1px solid var(--frame-border);
-  margin-top: 2px;
-}
 
 .intel-findings-badge {
   min-width: 48px;

@@ -784,7 +784,7 @@ export class DeckGLMap {
       this.initDeck();
       this.loadCountryBoundaries();
       this.fetchServerBases();
-      this.render();
+      this.syncMapSizeAfterLayout();
     });
 
     this.createControls();
@@ -905,16 +905,7 @@ export class DeckGLMap {
         this.initDeck();
         this.loadCountryBoundaries();
         this.fetchServerBases();
-        // Sync canvas to container — the container may have reached its final
-        // CSS size (e.g. saved map height restored from localStorage) after the
-        // map was constructed, leaving the canvas at a stale dimension that only
-        // self-corrects on the first user interaction. Calling resize() here and
-        // once more after layout settles eliminates the "stretched map" symptom.
-        this.maplibreMap?.resize();
-        this.render();
-        requestAnimationFrame(() => {
-          this.maplibreMap?.resize();
-        });
+        this.syncMapSizeAfterLayout();
       });
     };
 
@@ -1092,7 +1083,18 @@ export class DeckGLMap {
   }
 
   public resize(): void {
-    this.maplibreMap?.resize();
+    this.syncMapSizeAfterLayout();
+  }
+
+  /** Re-sync MapLibre canvas to container after layout or restored map height. */
+  private syncMapSizeAfterLayout(): void {
+    if (!this.maplibreMap) return;
+    this.maplibreMap.resize();
+    this.render();
+    requestAnimationFrame(() => {
+      this.maplibreMap?.resize();
+      this.render();
+    });
   }
 
   private getSetSignature(set: Set<string>): string {

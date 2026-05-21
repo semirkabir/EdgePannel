@@ -3,6 +3,7 @@ import { t } from '@/services/i18n';
 import { trackSearchUsed } from '@/services/analytics';
 import { getAllCommands, type Command } from '@/config/commands';
 import { isMobileDevice } from '@/utils';
+import { startSearchTicker } from '@/utils/search-ticker';
 import { describeCommandAction, getSearchResultActionLabel } from './search-ux';
 
 interface CommandResult {
@@ -106,6 +107,9 @@ export class SearchModal {
   private isMobile: boolean;
   private asyncSearchTimer: ReturnType<typeof setTimeout> | null = null;
   private asyncSearchVersion = 0;
+  private modalTickerStop: (() => void) | null = null;
+  private modalTickerEl: HTMLElement | null = null;
+  private inputWrap: HTMLElement | null = null;
 
   constructor(container: HTMLElement, options?: SearchModalOptions) {
     this.container = container;
@@ -158,6 +162,7 @@ export class SearchModal {
     if (this.overlay) return;
     this.isMobile = isMobileDevice();
     this.createModal();
+    this.startModalTicker();
     this.input?.focus();
     this.showRecentOrEmpty();
     if (this.isMobile) this.renderChips();
@@ -168,6 +173,7 @@ export class SearchModal {
     this.open();
     if (!this.input) return;
     this.input.value = normalized;
+    this.syncInputTickerVisibility();
     if (normalized) {
       this.handleSearch();
     } else {
@@ -178,6 +184,7 @@ export class SearchModal {
   }
 
   public close(): void {
+    this.stopModalTicker();
     if (this.viewportHandler && window.visualViewport) {
       window.visualViewport.removeEventListener('resize', this.viewportHandler);
       this.viewportHandler = null;
@@ -222,7 +229,10 @@ export class SearchModal {
           <div class="search-sheet-handle"></div>
           <div class="search-sheet-header">
             <span class="search-sheet-icon">\u{1F50D}</span>
-            <input type="text" class="search-input" placeholder="${this.placeholder}" aria-label="Search dashboard" autofocus />
+            <div class="search-input-wrap">
+              <span class="search-input-ticker search-ticker" aria-hidden="true"><span class="search-ticker-text"></span></span>
+              <input type="text" class="search-input" placeholder=" " aria-label="Search dashboard" autofocus />
+            </div>
             <button class="search-sheet-cancel" aria-label="Close">\u00D7</button>
           </div>
           <div class="search-command-row">
@@ -264,7 +274,10 @@ export class SearchModal {
         <div class="search-modal">
           <div class="search-header">
             <span class="search-icon">\u2325</span>
-            <input type="text" class="search-input" placeholder="${this.placeholder}" aria-label="Search dashboard" autofocus />
+            <div class="search-input-wrap">
+              <span class="search-input-ticker search-ticker" aria-hidden="true"><span class="search-ticker-text"></span></span>
+              <input type="text" class="search-input" placeholder=" " aria-label="Search dashboard" autofocus />
+            </div>
             <kbd class="search-kbd">ESC</kbd>
           </div>
           <div class="search-command-row">
@@ -288,10 +301,34 @@ export class SearchModal {
     }
 
     this.input = this.overlay.querySelector('.search-input');
+    this.inputWrap = this.overlay.querySelector('.search-input-wrap');
+    this.modalTickerEl = this.overlay.querySelector('.search-input-ticker .search-ticker-text');
     this.resultsList = this.overlay.querySelector('.search-results');
 
-    this.input?.addEventListener('input', () => this.handleSearch());
+    this.syncInputTickerVisibility();
+    this.input?.addEventListener('input', () => {
+      this.syncInputTickerVisibility();
+      this.handleSearch();
+    });
     this.input?.addEventListener('keydown', (e) => this.handleKeydown(e));
+  }
+
+  private startModalTicker(): void {
+    this.stopModalTicker();
+    const headerPhrase = document.querySelector<HTMLElement>('.header-right .search-ticker-text')?.textContent?.trim();
+    this.modalTickerStop = startSearchTicker(this.modalTickerEl, {
+      initialPhrase: headerPhrase || undefined,
+    });
+  }
+
+  private stopModalTicker(): void {
+    this.modalTickerStop?.();
+    this.modalTickerStop = null;
+  }
+
+  private syncInputTickerVisibility(): void {
+    if (!this.inputWrap || !this.input) return;
+    this.inputWrap.classList.toggle('has-value', this.input.value.trim().length > 0);
   }
 
   private matchCommands(query: string): CommandResult[] {

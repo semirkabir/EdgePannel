@@ -19,6 +19,8 @@ import {
   getCurrentTheme,
   setThemeWithLinkedMap,
 } from '@/utils';
+import { applyStoredMapHeight, scheduleMapResize } from '@/utils/map-layout-height';
+import { startSearchTicker } from '@/utils/search-ticker';
 import {
   IDLE_PAUSE_MS,
   STORAGE_KEYS,
@@ -174,7 +176,7 @@ export class EventHandlerManager implements AppModule {
   private kbShortcutsOverlay: HTMLElement | null = null;
   private statusDropdownEl: HTMLElement | null = null;
   private statusDropdownTimer: ReturnType<typeof setTimeout> | null = null;
-  private searchTickerInterval: ReturnType<typeof setInterval> | null = null;
+  private searchTickerStop: (() => void) | null = null;
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -275,10 +277,8 @@ export class EventHandlerManager implements AppModule {
   }
 
   destroy(): void {
-    if (this.searchTickerInterval !== null) {
-      clearInterval(this.searchTickerInterval);
-      this.searchTickerInterval = null;
-    }
+    this.searchTickerStop?.();
+    this.searchTickerStop = null;
     this.debouncedUrlSync.cancel();
     if (this.handlers.fullscreen) {
       document.removeEventListener('fullscreenchange', this.handlers.fullscreen);
@@ -483,38 +483,9 @@ export class EventHandlerManager implements AppModule {
     document.getElementById('searchMobileFab')?.addEventListener('click', openSearch);
     document.getElementById('shellGuidanceSearch')?.addEventListener('click', openSearch);
 
-    const tickerPhrases = [
-      'Search',
-      "Trump's market positions?",
-      'Polymarket: Gaza ceasefire odds?',
-      'Which politicians hold Nvidia?',
-      'Portfolio geopolitical risk score',
-      'Taiwan Strait escalation risk?',
-      'Iran nuclear deal signals',
-      'Polymarket: Fed rate cut odds?',
-      'Energy infrastructure threats',
-      'Senate 2025 race predictions',
-      'Who funds which campaigns?',
-      'Optimize for conflict exposure',
-      'Red Sea shipping disruptions',
-      'Polymarket: BTC above 100k?',
-      'Pelosi portfolio tracker',
-    ];
-    const tickerEl = document.querySelector<HTMLElement>('.search-ticker-text');
-    if (tickerEl) {
-      let phraseIdx = 0;
-      this.searchTickerInterval = setInterval(() => {
-        phraseIdx = (phraseIdx + 1) % tickerPhrases.length;
-        tickerEl.classList.add('ticker-flip-out');
-        setTimeout(() => {
-          tickerEl.textContent = tickerPhrases[phraseIdx] ?? 'Search';
-          tickerEl.classList.remove('ticker-flip-out');
-          void tickerEl.offsetWidth;
-          tickerEl.classList.add('ticker-flip-in');
-          setTimeout(() => tickerEl.classList.remove('ticker-flip-in'), 250);
-        }, 180);
-      }, 3200);
-    }
+    this.searchTickerStop = startSearchTicker(
+      document.querySelector<HTMLElement>('.header-right .search-ticker-text'),
+    );
 
     document.getElementById('saveLayoutBtn')?.addEventListener('click', async () => {
       if (!checkFeatureAccess('save-layout')) return;
@@ -1350,28 +1321,8 @@ export class EventHandlerManager implements AppModule {
 
     const getBottomResizeTarget = () => (window.innerWidth >= 1600 ? mapContainer : mapSection);
 
-    const savedHeight = localStorage.getItem(MAP_HEIGHT_KEY);
-    if (savedHeight) {
-      const numeric = Number.parseInt(savedHeight, 10);
-      if (Number.isFinite(numeric)) {
-        const clamped = clamp(numeric, getMinHeight(), getMaxHeight());
-        if (window.innerWidth >= 1600) {
-          mapContainer.style.flex = 'none';
-          mapContainer.style.setProperty('height', `${clamped}px`, 'important');
-        } else {
-          mapSection.style.flex = 'none';
-          mapSection.style.setProperty('height', `${clamped}px`, 'important');
-        }
-        if (clamped !== numeric) {
-          localStorage.setItem(MAP_HEIGHT_KEY, `${clamped}px`);
-        }
-        // Sync the map canvas to the restored container height. The map may or
-        // may not be initialized yet; if it is, resize() corrects it immediately.
-        // The deferred call covers the case where the map loads after this runs.
-        requestAnimationFrame(() => this.ctx.map?.resize());
-      } else {
-        localStorage.removeItem(MAP_HEIGHT_KEY);
-      }
+    if (applyStoredMapHeight()) {
+      scheduleMapResize(this.ctx.map);
     }
     hydrateSidebarSplit();
 
