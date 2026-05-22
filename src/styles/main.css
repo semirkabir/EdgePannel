@@ -21211,9 +21211,9 @@ button.cluster-flight-item:focus-visible {
   height: 8px;
   border-radius: 50%;
 }
-.insight-pip.multi-pip { background: var(--blue); box-shadow: 0 0 8px rgba(59, 130, 246, 0.5); }
-.insight-pip.fast-pip { background: var(--orange); box-shadow: 0 0 8px rgba(251, 146, 60, 0.5); }
-.insight-pip.alert-pip { background: var(--red); box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
+.insight-pip.multi-pip { background: var(--text); box-shadow: none; opacity: 0.55; }
+.insight-pip.fast-pip  { background: var(--text); box-shadow: none; opacity: 0.55; }
+.insight-pip.alert-pip { background: var(--red); box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); opacity: 1; }
 
 .pulse-rapid { animation: pulse-rapid 0.8s ease-in-out infinite; }
 .pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
