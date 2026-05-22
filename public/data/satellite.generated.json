@@ -1,0 +1,65 @@
+[
+  {
+    "id": "sat-25544",
+    "noradId": 25544,
+    "name": "ISS (International Space Station)",
+    "operator": "International",
+    "category": "scientific",
+    "tle1": "1 25544U 98067A   26141.60337037  .00016717  00000-0  30043-3 0  9998",
+    "tle2": "2 25544  51.6409 313.4357 0005118  82.5290  45.3855 15.49887711467439"
+  },
+  {
+    "id": "sat-48274",
+    "noradId": 48274,
+    "name": "CSS (Tiangong Space Station)",
+    "operator": "China",
+    "category": "scientific",
+    "tle1": "1 48274U 21035A   26141.51731481  .00010372  00000-0  17522-3 0  9995",
+    "tle2": "2 48274  41.4741 123.6394 0004113  66.7214 293.4116 15.59723412285117"
+  },
+  {
+    "id": "sat-40115",
+    "noradId": 40115,
+    "name": "WorldView-3 (Maxar High-Res)",
+    "operator": "United States (Maxar)",
+    "category": "imaging",
+    "tle1": "1 40115U 14048A   26141.49386574  .00001391  00000-0  74154-4 0  9999",
+    "tle2": "2 40115  97.9734 233.1141 0012211  52.8841 307.3112 14.78311211629811"
+  },
+  {
+    "id": "sat-39232",
+    "noradId": 39232,
+    "name": "USA-245 (KH-11 Keyhole Spy)",
+    "operator": "United States (NRO)",
+    "category": "military",
+    "tle1": "1 39232U 13043A   26141.22915509  .00002131  00000-0  90111-4 0  9992",
+    "tle2": "2 39232  97.6891 189.2312 0010912  88.5112 271.6912 15.02113211710923"
+  },
+  {
+    "id": "sat-53338",
+    "noradId": 53338,
+    "name": "Kosmos-2558 (Military Inspector)",
+    "operator": "Russia",
+    "category": "military",
+    "tle1": "1 53338U 22089A   26141.31124431  .00001211  00000-0  51112-4 0  9991",
+    "tle2": "2 53338  97.4391 195.4121 0008912  76.5112 283.5821 15.11321111091223"
+  },
+  {
+    "id": "sat-40697",
+    "noradId": 40697,
+    "name": "Sentinel-2A (ESA Optical)",
+    "operator": "Europe (ESA)",
+    "category": "imaging",
+    "tle1": "1 40697U 15028A   26141.51214431  .00000112  00000-0  18121-4 0  9998",
+    "tle2": "2 40697  98.5681 210.1245 0001211  81.5432 278.5831 14.39121111582112"
+  },
+  {
+    "id": "sat-39075",
+    "noradId": 39075,
+    "name": "Landsat 8 (USGS Earth Obs)",
+    "operator": "United States (USGS)",
+    "category": "imaging",
+    "tle1": "1 39075U 13008A   26141.48911221  .00000213  00000-0  29131-4 0  9999",
+    "tle2": "2 39075  98.2012 198.5412 0001198  74.5821 285.4912 14.58211211698213"
+  }
+]

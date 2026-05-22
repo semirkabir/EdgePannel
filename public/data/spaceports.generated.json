@@ -1,0 +1,272 @@
+[
+  {
+    "id": "spaceport-sweden",
+    "name": "Spaceport Sweden",
+    "lat": 67.8557995,
+    "lon": 20.2252821,
+    "country": "Sweden",
+    "operator": "Virgin",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "spaceport-curaao",
+    "name": "Spaceport Curaçao",
+    "lat": 12.188463,
+    "lon": -68.960945,
+    "country": "Netherlands",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "spaceport-malaysia",
+    "name": "Spaceport Malaysia",
+    "lat": 3.6575107,
+    "lon": 101.5368831,
+    "country": "Malaysia",
+    "operator": "Langkasa VTOL Spaceplane",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "spaceport-america",
+    "name": "Spaceport America",
+    "lat": 33.134596,
+    "lon": -107.1011931,
+    "country": "USA",
+    "operator": "Virgin, SpaceX, UP Aerospace",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "cecil-airport",
+    "name": "Cecil Airport",
+    "lat": 30.2221996,
+    "lon": -81.8805437,
+    "country": "USA",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "kodiak-launch-complex",
+    "name": "Kodiak Launch Complex",
+    "lat": 57.2413249,
+    "lon": -154.1187217,
+    "country": "USA",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "mid-atlantic-regional-spaceport",
+    "name": "Mid-Atlantic Regional Spaceport",
+    "lat": 37.843333,
+    "lon": -75.478056,
+    "country": "USA",
+    "operator": "Orbital Sciences",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "clinton-sherman-industrial-airpark",
+    "name": "Clinton-Sherman Industrial Airpark",
+    "lat": 35.339722,
+    "lon": -99.200556,
+    "country": "Unknown",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "ras-al-khaimah-spaceport",
+    "name": "Ras Al Khaimah spaceport",
+    "lat": 25.8006926,
+    "lon": 55.9761994,
+    "country": "United Arab Emirates",
+    "operator": "Space Adventures",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "corn-ranch",
+    "name": "Corn Ranch",
+    "lat": 31.423333,
+    "lon": -104.758889,
+    "country": "USA",
+    "operator": "Blue Origin, Jeff Bezos",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "mojave-air-and-space-port",
+    "name": "Mojave Air and Space Port",
+    "lat": 35.059444,
+    "lon": -118.151667,
+    "country": "USA",
+    "operator": "SpaceShipOne, XCOR, Masten",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "xichang-satellite-launch-center",
+    "name": "Xichang Satellite Launch Center",
+    "lat": 28.246017,
+    "lon": 102.026556,
+    "country": "PRC",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "High"
+  },
+  {
+    "id": "wenchang-satellite-launch-center",
+    "name": "Wenchang Satellite Launch Center",
+    "lat": 19.567,
+    "lon": 110.867,
+    "country": "PRC",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "High"
+  },
+  {
+    "id": "jiuquan-satellite-launch-center",
+    "name": "Jiuquan Satellite Launch Center",
+    "lat": 40.960556,
+    "lon": 100.298333,
+    "country": "PRC",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "High"
+  },
+  {
+    "id": "moffett-field",
+    "name": "Moffett Field",
+    "lat": 37.415,
+    "lon": -122.048333,
+    "country": "USA",
+    "operator": "NASA, Google…",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "edwards-air-force-base",
+    "name": "Edwards Air Force Base",
+    "lat": 34.905556,
+    "lon": -117.883611,
+    "country": "USA",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "baikonur-cosmodrome",
+    "name": "Baikonur Cosmodrome",
+    "lat": 45.965,
+    "lon": 63.305,
+    "country": "Russia",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Medium"
+  },
+  {
+    "id": "cape-canaveral-station",
+    "name": "Cape Canaveral Station",
+    "lat": 28.488889,
+    "lon": -80.577778,
+    "country": "USA",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "High"
+  },
+  {
+    "id": "kennedy-space-center",
+    "name": "Kennedy Space Center",
+    "lat": 28.524058,
+    "lon": -80.65085,
+    "country": "USA",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "High"
+  },
+  {
+    "id": "barreira-do-inferno-center",
+    "name": "Barreira do Inferno Center",
+    "lat": -5.925,
+    "lon": -35.163056,
+    "country": "Brasil",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "alcntara-launch-center",
+    "name": "Alcântara Launch Center",
+    "lat": -2.373056,
+    "lon": -44.396389,
+    "country": "Brasil",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Low"
+  },
+  {
+    "id": "guiana-space-centre",
+    "name": "Guiana Space Centre",
+    "lat": 5.237222,
+    "lon": -52.760556,
+    "country": "France",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Medium"
+  },
+  {
+    "id": "broglio-space-centre",
+    "name": "Broglio Space Centre",
+    "lat": -2.938333,
+    "lon": 40.2125,
+    "country": "Kenya",
+    "operator": "Italian Space Agency",
+    "status": "inactive",
+    "launches": "Low"
+  },
+  {
+    "id": "satish-dhawan-space-centre",
+    "name": "Satish Dhawan Space Centre",
+    "lat": 13.719939,
+    "lon": 80.230425,
+    "country": "India",
+    "operator": "Unknown Operator",
+    "status": "active",
+    "launches": "Medium"
+  },
+  {
+    "id": "vandenberg-air-force-base",
+    "name": "Vandenberg Air Force Base",
+    "lat": 34.732778,
+    "lon": -120.568056,
+    "country": "USA",
+    "operator": "NASA, SpaceX",
+    "status": "active",
+    "launches": "Medium"
+  },
+  {
+    "id": "spacex-boca-chica-private-spaceport",
+    "name": "SpaceX Boca Chica Private Spaceport",
+    "lat": 26.0489858,
+    "lon": -97.2384354,
+    "country": "USA",
+    "operator": "SpaceX",
+    "status": "active",
+    "launches": "High"
+  },
+  {
+    "id": "vostochny-cosmodrome",
+    "name": "Vostochny Cosmodrome",
+    "lat": 51.884553,
+    "lon": 128.334778,
+    "country": "Russia",
+    "operator": "Roscosmos",
+    "status": "active",
+    "launches": "Low"
+  }
+]

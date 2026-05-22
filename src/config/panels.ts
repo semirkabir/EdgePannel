@@ -34,6 +34,7 @@ const BASE_LAYERS: MapLayers = {
   miningSites: false, processingPlants: false, commodityPorts: false,
   aptGroups: false,
   gemRisk: false, democracy: false, elections: false,
+  earthquakes: false, navWarnings: false, marketPerf: false, tariffBarriers: false,
 };
 
 // ============================================
