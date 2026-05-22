@@ -53,7 +53,7 @@
   font-size: 10px;
   letter-spacing: 0.01em;
   padding: 6px 28px 6px 10px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: border-color 0.15s;
   white-space: nowrap;
 }
@@ -118,7 +118,7 @@
   align-items: center;
   gap: 6px;
   padding: 5px 8px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   border-radius: 3px;
   border: 1px solid transparent;
   background: transparent;
@@ -282,7 +282,7 @@
   color: var(--settings-text-secondary);
   font: inherit;
   font-size: 13px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: background 0.12s, color 0.12s;
   text-align: left;
   position: relative;
@@ -427,7 +427,7 @@
   border: 1px solid var(--settings-border);
   border-radius: 8px;
   background: var(--settings-surface);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: background 0.15s, border-color 0.15s;
   text-align: left;
   font: inherit;
@@ -504,7 +504,7 @@
   border: 1px solid var(--settings-border);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   text-align: left;
   color: inherit;
   font: inherit;
@@ -607,7 +607,7 @@
   color: inherit;
   text-align: left;
   font: inherit;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: border-color 0.15s, background 0.15s, transform 0.15s;
 }
 
@@ -671,7 +671,7 @@
   border: 1px solid var(--settings-border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   color: inherit;
   font: inherit;
   transition: border-color 0.15s, background 0.15s, transform 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
@@ -738,7 +738,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   user-select: none;
   transition: background 0.12s;
 }
@@ -767,7 +767,7 @@
 
 .settings-feat-slider {
   position: absolute;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   inset: 0;
   background: rgba(255, 255, 255, 0.15);
   border-radius: 10px;
@@ -971,7 +971,7 @@
   border-radius: 6px !important;
   color: var(--settings-text) !important;
   font-size: 12px !important;
-  cursor: pointer !important;
+  cursor: var(--wm-cursor-pointer) !important;
   transition: border-color 0.15s;
 }
 
@@ -1021,7 +1021,7 @@
   border-radius: 4px;
   padding: 4px 10px;
   text-decoration: none;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: background 0.15s, border-color 0.15s;
 }
 
@@ -1067,7 +1067,7 @@
   font-weight: 600;
   padding: 8px 24px;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   min-width: 80px;
   text-align: center;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
@@ -1138,7 +1138,7 @@
   font-size: 13px;
   padding: 8px 16px;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: background 0.15s;
 }
 
@@ -1177,7 +1177,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   color: var(--settings-text-secondary);
 }
 
@@ -1215,7 +1215,7 @@
   align-items: center;
   gap: 5px;
   color: var(--settings-text-secondary);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .diag-traffic-controls button {
@@ -1226,7 +1226,7 @@
   font-size: 12px;
   padding: 4px 12px;
   border-radius: 4px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: background 0.15s, color 0.15s;
 }
 
@@ -1421,7 +1421,7 @@ tr.diag-err td { color: var(--settings-red); }
   background: none;
   border: none;
   color: var(--settings-text-secondary);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   font-size: 16px;
   padding: 2px 4px;
   opacity: 0.6;
@@ -1466,7 +1466,7 @@ tr.diag-err td { color: var(--settings-red); }
   font-weight: 600;
   padding: 8px 20px;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   white-space: nowrap;
   transition: background 0.15s;
 }

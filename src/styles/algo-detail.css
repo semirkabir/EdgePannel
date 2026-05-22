@@ -12,11 +12,12 @@
 .ad-card,
 .algo-card {
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-top: 1px solid rgba(255, 255, 255, 0.12); /* beveled glass specularity highlight */
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.25);
   backdrop-filter: var(--panel-glass-blur);
   -webkit-backdrop-filter: var(--panel-glass-blur);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 18px rgba(0, 0, 0, 0.12);
 }
 
 .ad-header {
@@ -72,7 +73,7 @@
 .algo-chip-row button,
 .algo-strategy {
   font-family: var(--font-body);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .ad-icon-btn,
@@ -92,7 +93,11 @@
   text-transform: uppercase;
   backdrop-filter: var(--panel-glass-blur);
   -webkit-backdrop-filter: var(--panel-glass-blur);
-  transition: all 0.2s ease;
+  transition: background var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard),
+              color var(--motion-fast) var(--ease-standard),
+              box-shadow var(--motion-fast) var(--ease-standard),
+              transform var(--motion-fast) var(--ease-press);
 }
 .ad-icon-btn:hover, .ad-tabs button:hover, .ad-primary:hover, .ad-row button:hover, .ad-chip-row button:hover, .algo-open:hover, .algo-chip-row button:hover {
   background: rgba(255, 255, 255, 0.08);
@@ -248,7 +253,10 @@
   background: rgba(0, 0, 0, 0.2);
   backdrop-filter: var(--panel-glass-blur);
   -webkit-backdrop-filter: var(--panel-glass-blur);
-  transition: all 0.2s ease;
+  transition: background var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard),
+              transform var(--motion-fast) var(--ease-standard),
+              box-shadow var(--motion-fast) var(--ease-standard);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 .ad-row:hover {
@@ -298,7 +306,10 @@
   -webkit-backdrop-filter: var(--panel-glass-blur);
   color: var(--text);
   text-align: left;
-  transition: all 0.2s ease;
+  transition: background var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard),
+              transform var(--motion-fast) var(--ease-standard),
+              box-shadow var(--motion-fast) var(--ease-standard);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 .algo-strategy:hover {

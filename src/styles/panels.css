@@ -58,8 +58,8 @@
   color: var(--text-dim);
   font-size: 11px;
   font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  cursor: var(--wm-cursor-pointer);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   white-space: nowrap;
   flex-shrink: 0;
   min-width: 0;
@@ -274,7 +274,7 @@
 }
 
 .climate-row {
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .climate-row:hover {
@@ -331,7 +331,7 @@
   border-radius: 6px;
   background: var(--surface);
   color: var(--text-secondary);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   text-align: left;
 }
 
@@ -514,7 +514,7 @@
 }
 
 .disp-row {
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .disp-row:hover {
@@ -614,7 +614,7 @@
 }
 
 .ucdp-row {
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .ucdp-row:hover {
@@ -715,7 +715,7 @@
   border: none;
   color: var(--text-dim);
   font-size: 14px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   padding: 0 2px;
   line-height: 1;
 }
@@ -745,7 +745,7 @@
   border-radius: 6px;
   font-size: 10px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   text-decoration: none;
   transition: background 0.15s;
 }
@@ -785,7 +785,7 @@
   border: none;
   color: var(--text-dim, #888);
   font-size: 9px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   padding: 4px 0 0;
   text-align: center;
   width: 100%;
@@ -1062,9 +1062,9 @@
   color: var(--text-dim);
   padding: 3px 10px;
   font-size: 10px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   border-radius: 3px;
-  transition: all 0.15s;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
 }
 
 .sa-filter:hover {
@@ -1197,7 +1197,7 @@
   color: var(--text-dim);
   padding: 3px 10px;
   font-size: 10px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   border-radius: 3px;
 }
 
@@ -1398,11 +1398,11 @@
   border-radius: 4px;
   color: var(--text-dim);
   font-size: 13px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
 }
 
 .fdi-filter-toggle:hover {
@@ -1435,7 +1435,7 @@
   font-size: 10px;
   padding: 3px 6px;
   outline: none;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   max-width: 140px;
 }
 
@@ -1458,8 +1458,8 @@
   color: var(--text-dim);
   font-size: 9px;
   padding: 2px 7px;
-  cursor: pointer;
-  transition: all 0.15s;
+  cursor: var(--wm-cursor-pointer);
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
   white-space: nowrap;
 }
 
@@ -1485,7 +1485,7 @@
   align-items: baseline;
   padding: 7px 8px;
   border-bottom: 1px solid var(--border-subtle);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: background 0.1s;
   gap: 0 6px;
 }
@@ -1599,7 +1599,7 @@
   border: none;
   color: var(--text-dim);
   font-size: 15px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   padding: 2px 4px;
   line-height: 1;
   opacity: 0.6;
@@ -1817,7 +1817,7 @@
   gap: 6px;
   padding: 4px 6px;
   border-radius: 3px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   font-size: 11px;
   transition: background 0.1s;
 }
@@ -2189,7 +2189,7 @@
   min-height: 120px;
   overflow-y: auto;
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: height 0.2s ease, min-height 0.2s ease, padding 0.2s ease, border-top-color 0.2s ease;
   position: relative;
   z-index: 5;
   scrollbar-width: none;
@@ -2288,11 +2288,11 @@
   border: none;
   color: var(--text-dim);
   font-size: 18px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   padding: 2px 6px;
   margin-right: 4px;
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: color 0.15s, background-color 0.15s;
   line-height: 1;
 }
 
@@ -2568,7 +2568,7 @@
   text-decoration: none;
   padding: 4px 8px;
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: color 0.15s, background-color 0.15s;
 }
 
 .article-external-link:hover {
@@ -2617,7 +2617,7 @@
   border-radius: 4px;
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   margin-top: 8px;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
 .article-error-external:hover {
@@ -2927,11 +2927,11 @@
   border: none;
   color: var(--text-dim);
   font-size: 18px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   padding: 2px 6px;
   margin-right: 4px;
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: color 0.15s, background-color 0.15s;
   line-height: 1;
 }
 
@@ -3207,7 +3207,7 @@
   text-decoration: none;
   padding: 4px 8px;
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: color 0.15s, background-color 0.15s;
 }
 
 .article-external-link:hover {
@@ -3256,7 +3256,7 @@
   border-radius: 4px;
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   margin-top: 8px;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
 .article-error-external:hover {

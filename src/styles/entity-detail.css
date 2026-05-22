@@ -30,7 +30,7 @@
   border-radius: 8px;
   background: var(--ui-surface-inset);
   color: var(--text);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   text-align: left;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
@@ -225,7 +225,7 @@
   color: var(--text);
   font-size: 14px;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -270,7 +270,7 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 82%, white 8%);
   color: var(--text);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transform: translateY(-2px);
   box-shadow:
     0 4px 0 0 color-mix(in srgb, var(--frame-border) 45%, black 55%),
@@ -465,7 +465,7 @@
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .cp-control-btn.is-active {
@@ -646,7 +646,7 @@
   color: var(--text);
   font-size: 11px;
   font-weight: 900;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .cp-estimate-strip {
@@ -1102,7 +1102,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .edp-conflict-ops-mode.is-active {
@@ -1711,7 +1711,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   position: relative;
   transition: color 0.15s ease;
 }
@@ -1852,7 +1852,7 @@
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0.01em;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   position: relative;
   transition: color 0.15s ease;
 }
@@ -2570,7 +2570,7 @@
   font-weight: 700 !important;
   letter-spacing: 0.05em !important;
   box-shadow: 0 2px 6px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-  transition: all 0.15s ease !important;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease !important;
   cursor: default !important;
 }
 
@@ -3122,7 +3122,7 @@
 .edp-vessel-item-button {
   width: 100%;
   text-align: left;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   font: inherit;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
@@ -3599,7 +3599,7 @@
 
 .ticker-link {
   color: var(--accent, #FFD700);
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   font-weight: 600;
   border-bottom: 1px solid transparent;
   transition: border-color 0.15s;
@@ -3707,7 +3707,7 @@
   font-size: 10px;
   font-weight: 800;
   line-height: 1;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .edp-tv-kind-btn {
@@ -3887,7 +3887,7 @@
 }
 
 .edp-mover-cell.ticker-link {
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .edp-mover-cell.ticker-link:hover {
@@ -3986,7 +3986,7 @@
   color: var(--text-dim);
   font-size: 11px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   transition: background 0.15s, color 0.15s;
@@ -4104,7 +4104,7 @@
   color: var(--accent-blue, #60a5fa);
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: background 0.15s, border-color 0.15s;
 }
 
@@ -4508,7 +4508,7 @@
   color: var(--text-dim);
   font-size: 11px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   text-transform: capitalize;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
@@ -4541,7 +4541,7 @@
   color: var(--text-dim);
   font-size: 11px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
@@ -4712,7 +4712,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .cp-holders-open-btn:hover {
@@ -4951,7 +4951,7 @@
   color: var(--text-dim);
   background: transparent;
   border: none;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: color 0.15s, border-color 0.15s;
@@ -5537,7 +5537,7 @@
   font-family: var(--font-body);
   font-size: 10.5px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   letter-spacing: 0.01em;
   transition: color 0.12s, border-color 0.12s, background 0.12s;
   white-space: nowrap;
@@ -5813,7 +5813,7 @@
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   position: relative;
   transition: color 0.15s ease;
 }
@@ -5890,7 +5890,7 @@
 }
 
 .edp-holdings-row-clickable {
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
@@ -6219,7 +6219,7 @@
   overflow: hidden;
   display: flex;
   align-items: stretch;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   font-family: inherit;
   background: color-mix(in srgb, var(--border) 80%, transparent);
   color: var(--text);

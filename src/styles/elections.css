@@ -109,7 +109,7 @@
   padding: 8px;
   border-bottom: 1px solid var(--border-subtle);
   transition: background 0.1s;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .elections-item:last-child {

@@ -27,7 +27,7 @@
   padding: 4px 10px;
   font-size: 0.8rem;
   font-weight: 500;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   white-space: nowrap;
   transition: all 0.2s;
 }
@@ -249,7 +249,7 @@
   border: none;
   padding: 8px 16px;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   font-weight: 500;
   transition: opacity 0.2s;
 }
@@ -294,7 +294,7 @@
 .rule-action-btn {
   background: none;
   border: none;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
   opacity: 0.7;
   font-size: 1rem;
   transition: opacity 0.2s;
@@ -428,7 +428,7 @@
   color: var(--text);
   background: rgba(255,255,255,0.07);
   padding: 7px 9px;
-  cursor: pointer;
+  cursor: var(--wm-cursor-pointer);
 }
 
 .aw-command-row,
