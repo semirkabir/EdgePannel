@@ -886,6 +886,11 @@ export class SignalPublisher {
     } catch (err) {
       console.warn('[DataLoader] Governance baselines failed (non-fatal):', err);
     }
+
+    // Load supplemental map layers alongside governance baselines
+    void this.loadNavWarnings();
+    void this.loadMarketPerfScores();
+    void this.loadTariffBarriers();
   }
 
   async refreshTemporalBaseline(): Promise<void> {
@@ -893,6 +898,87 @@ export class SignalPublisher {
     signalAggregator.ingestTemporalAnomalies(anomalies, trackedTypes);
     ingestTemporalAnomaliesForCII(anomalies);
     this.deps.refreshCiiAndBrief();
+  }
+
+  async loadNavWarnings(): Promise<void> {
+    try {
+      const { MaritimeServiceClient } = await import('@/generated/client/worldmonitor/maritime/v1/service_client');
+      const client = new MaritimeServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
+      const result = await client.listNavigationalWarnings({ pageSize: 100, cursor: '', area: '' });
+      const warnings = (result.warnings ?? [])
+        .filter(w => w.location?.latitude && w.location?.longitude)
+        .map(w => ({
+          id: w.id,
+          title: w.title,
+          text: w.text,
+          area: w.area,
+          lat: w.location!.latitude,
+          lon: w.location!.longitude,
+          issuedAt: w.issuedAt,
+        }));
+      this.ctx.mapStore.map?.setNavWarnings(warnings);
+      this.ctx.mapStore.map?.setLayerReady('navWarnings', warnings.length > 0);
+    } catch (err) {
+      console.debug('[DataLoader] Nav warnings failed (non-fatal):', err);
+    }
+  }
+
+  async loadMarketPerfScores(): Promise<void> {
+    try {
+      const { MarketServiceClient } = await import('@/generated/client/worldmonitor/market/v1/service_client');
+      const client = new MarketServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
+
+      // Major economies with stock indices
+      const COUNTRY_CODES = [
+        'US', 'GB', 'DE', 'FR', 'JP', 'CN', 'HK', 'IN', 'KR', 'TW',
+        'AU', 'BR', 'CA', 'MX', 'AR', 'ZA', 'SA', 'AE', 'IL', 'TR',
+        'PL', 'NL', 'CH', 'ES', 'IT', 'SE', 'NO', 'SG', 'TH', 'MY',
+      ];
+
+      const results = await Promise.allSettled(
+        COUNTRY_CODES.map(code => client.getCountryStockIndex({ countryCode: code }))
+      );
+
+      const scores = results
+        .map((r, i) => {
+          if (r.status !== 'fulfilled' || !r.value.available) return null;
+          return { code: COUNTRY_CODES[i]!, changePercent: r.value.weekChangePercent };
+        })
+        .filter((s): s is NonNullable<typeof s> => s != null);
+
+      this.ctx.mapStore.map?.setMarketPerfScores(scores);
+      this.ctx.mapStore.map?.setLayerReady('marketPerf', scores.length > 0);
+    } catch (err) {
+      console.debug('[DataLoader] Market perf scores failed (non-fatal):', err);
+    }
+  }
+
+  async loadTariffBarriers(): Promise<void> {
+    try {
+      const { fetchTradeRestrictions } = await import('@/services/trade');
+      const { nameToCountryCode } = await import('@/services/country-geometry');
+      const result = await fetchTradeRestrictions([], 50);
+      if (!result.restrictions.length) return;
+
+      // Group by reporting country, take first restriction per country
+      const byCountry = new Map<string, typeof result.restrictions[0]>();
+      for (const r of result.restrictions) {
+        if (!byCountry.has(r.reportingCountry)) byCountry.set(r.reportingCountry, r);
+      }
+
+      const barriers: Array<{ code: string; level: 'high' | 'moderate' | 'low'; rate?: number }> = [];
+      for (const [countryName, restriction] of byCountry) {
+        const iso2 = nameToCountryCode(countryName);
+        if (!iso2) continue;
+        const level = restriction.status as 'high' | 'moderate' | 'low';
+        barriers.push({ code: iso2, level });
+      }
+
+      this.ctx.mapStore.map?.setTariffBarriers(barriers);
+      this.ctx.mapStore.map?.setLayerReady('tariffBarriers', barriers.length > 0);
+    } catch (err) {
+      console.debug('[DataLoader] Tariff barriers failed (non-fatal):', err);
+    }
   }
 
   private async loadCachedPosturesForBanner(): Promise<void> {

@@ -139,6 +139,10 @@ const layers = {
   aptGroups: false,
   gemRisk: false,
   democracy: false, elections: false,
+  earthquakes: false,
+  navWarnings: false,
+  marketPerf: false,
+  tariffBarriers: false,
 };
 
 await initI18n();

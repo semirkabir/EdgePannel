@@ -501,6 +501,18 @@ export class MapContainer {
     }
   }
 
+  public setNavWarnings(warnings: Array<{ id: string; title: string; text: string; area: string; lat: number; lon: number; issuedAt: number }>): void {
+    if (this.useDeckGL) this.deckGLMap?.setNavWarnings(warnings);
+  }
+
+  public setMarketPerfScores(scores: Array<{ code: string; changePercent: number }>): void {
+    if (this.useDeckGL) this.deckGLMap?.setMarketPerfScores(scores);
+  }
+
+  public setTariffBarriers(barriers: Array<{ code: string; level: 'high' | 'moderate' | 'low'; rate?: number }>): void {
+    if (this.useDeckGL) this.deckGLMap?.setTariffBarriers(barriers);
+  }
+
   public setTechEvents(events: TechEventMarker[]): void {
     this.cachedTechEvents = events;
     if (this.useDeckGL) {

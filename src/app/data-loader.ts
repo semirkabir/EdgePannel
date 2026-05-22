@@ -547,6 +547,18 @@ export class DataLoaderManager implements AppModule {
         case 'polymarketMarkets':
           await this.loadPolymarketGeo();
           break;
+        case 'earthquakes':
+          await sp?.loadNatural?.();
+          break;
+        case 'navWarnings':
+          await sp?.loadNavWarnings?.();
+          break;
+        case 'marketPerf':
+          await sp?.loadMarketPerfScores?.();
+          break;
+        case 'tariffBarriers':
+          await sp?.loadTariffBarriers?.();
+          break;
       }
     } finally {
       this.ctx.inFlight.delete(layer);
@@ -819,6 +831,18 @@ export class DataLoaderManager implements AppModule {
 
   async loadGovernanceBaselines(): Promise<void> {
     await this.callbacks.signalPublisher?.loadGovernanceBaselines?.();
+  }
+
+  async loadNavWarnings(): Promise<void> {
+    await this.callbacks.signalPublisher?.loadNavWarnings?.();
+  }
+
+  async loadMarketPerfScores(): Promise<void> {
+    await this.callbacks.signalPublisher?.loadMarketPerfScores?.();
+  }
+
+  async loadTariffBarriers(): Promise<void> {
+    await this.callbacks.signalPublisher?.loadTariffBarriers?.();
   }
 
   async loadPositiveEvents(): Promise<void> {

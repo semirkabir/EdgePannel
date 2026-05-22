@@ -80,6 +80,8 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   flights: true,
   military: true,
   natural: false,
+  earthquakes: false,
+  navWarnings: true,
   spaceports: false,
   minerals: false,
   fires: false,
@@ -117,6 +119,8 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   gemRisk: false,
   democracy: false,
   elections: false,
+  marketPerf: false,
+  tariffBarriers: false,
 };
 
 export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
@@ -141,6 +145,8 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   flights: false,
   military: true,
   natural: true,
+  earthquakes: false,
+  navWarnings: false,
   spaceports: false,
   minerals: false,
   fires: false,
@@ -178,6 +184,8 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   gemRisk: false,
   democracy: false,
   elections: false,
+  marketPerf: false,
+  tariffBarriers: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

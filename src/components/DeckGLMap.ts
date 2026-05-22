@@ -99,6 +99,7 @@ import {
   COMMODITY_PORTS as COMMODITY_GEO_PORTS,
   MINING_SITES,
 } from '@/config';
+import { getSatellitePosition, getOrbitalPath } from '@/services/satellite-orbit';
 import type { GulfInvestment } from '@/types';
 import { resolveTradeRouteSegments, TRADE_ROUTES as TRADE_ROUTES_LIST, type TradeRouteSegment } from '@/config/trade-routes';
 import { getLayersForVariant, resolveLayerLabel, resolveLayerAccentColor, resolveLayerIcon, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
@@ -122,7 +123,7 @@ import type { GeoPredictionMarket } from '@/services/prediction';
 import { getCountriesGeoJson, getCountryAtCoordinates, getCountryBbox } from '@/services/country-geometry';
 import { haversineKm } from '@/utils/geo';
 import { getCachedOilAnalytics } from '@/services/economic/eia';
-import type { FeatureCollection, Geometry } from 'geojson';
+import type { Feature, FeatureCollection, Geometry, LineString, Point } from 'geojson';
 import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferences';
 import type { MarketplaceRuntimeLayer } from '@/types/marketplace';
 import {
@@ -138,6 +139,21 @@ import {
 export type { TimeRange };
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 type MapInteractionMode = 'flat' | '3d';
+type GlobeLineFeature = Feature<LineString, { id: string; name: string; color: string; width: number; kind: string }>;
+type GlobePointFeature = Feature<Point, { id: string; name: string; color: string; radius: number; kind: string; heading?: number; altitudeMeters?: number }>;
+type GlobeLineCollection = FeatureCollection<LineString, GlobeLineFeature['properties']>;
+type GlobePointCollection = FeatureCollection<Point, GlobePointFeature['properties']>;
+type GlobeAltitudeKind = 'aircraft' | 'satellite';
+type GlobeAltitudePoint = {
+  lon: number;
+  lat: number;
+  altitudeMeters: number;
+  size: number;
+  color: [number, number, number, number];
+};
+type SatellitePositionRecord = import('@/types').SatelliteData & {
+  position: { lat: number; lon: number; alt: number };
+};
 
 const DECK_CONTROL_SETTINGS_KEY = 'wm-deck-control-settings';
 
@@ -409,6 +425,38 @@ function refreshColorsIfThemeChanged(): void {
   }
 }
 
+function rgbaCss([r, g, b, a = 255]: [number, number, number, number]): string {
+  return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
+}
+
+const METERS_PER_MILE = 1609.344;
+const GLOBE_AIRCRAFT_MIN_ALTITUDE_M = 6 * METERS_PER_MILE;
+const GLOBE_AIRCRAFT_MAX_ALTITUDE_M = 8 * METERS_PER_MILE;
+const GLOBE_LEO_MIN_ALTITUDE_M = 160_000;
+const GLOBE_LEO_MAX_ALTITUDE_M = 2_000_000;
+const GLOBE_LEO_FALLBACK_ALTITUDE_M = 550_000;
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function stableUnitInterval(key: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 0xffffffff;
+}
+
+function lngLatToMercatorUnit(lon: number, lat: number): [number, number] {
+  const safeLat = clampNumber(lat, -85.05112878, 85.05112878);
+  const x = (lon + 180) / 360;
+  const sinLat = Math.sin((safeLat * Math.PI) / 180);
+  const y = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
+  return [x, y];
+}
+
 const SHARED_LAYER_ICON_MAPPING = { marker: { x: 0, y: 0, width: 32, height: 32, mask: false } };
 const WEATHER_PNG_ICON_MAPPING = { marker: { x: 0, y: 0, width: 512, height: 512, mask: false } };
 const WEATHER_THUNDERSTORM_ICON_ATLAS = 'https://cdn-icons-png.flaticon.com/512/3104/3104612.png';
@@ -425,6 +473,33 @@ const AIS_VESSEL_ICON_ATLAS = `data:image/svg+xml;charset=utf-8,${encodeURICompo
 // Port icon — anchor (white, for mask-mode tinting by port type)
 const AIS_PORT_ICON_MAPPING = { port: { x: 0, y: 0, width: 64, height: 64, mask: false } };
 const AIS_PORT_ICON_ATLAS = '/icons/port.png';
+
+const GLOBE_NATIVE_SOURCES = [
+  'wm-globe-cables',
+  'wm-globe-cable-advisories',
+  'wm-globe-pipelines',
+  'wm-globe-trade-routes',
+  'wm-globe-trade-chokepoints',
+  'wm-globe-flight-delays',
+  'wm-globe-aircraft',
+  'wm-globe-satellites',
+] as const;
+
+const GLOBE_NATIVE_LAYERS = [
+  'wm-globe-cables-line',
+  'wm-globe-pipelines-line',
+  'wm-globe-trade-routes-line',
+  'wm-globe-cable-advisories-circle',
+  'wm-globe-trade-chokepoints-circle',
+  'wm-globe-flight-delays-circle',
+  'wm-globe-aircraft-circle',
+  'wm-globe-satellites-circle',
+  'wm-globe-aircraft-altitude',
+  'wm-globe-satellites-altitude',
+] as const;
+
+const EMPTY_GLOBE_LINE_COLLECTION: GlobeLineCollection = { type: 'FeatureCollection', features: [] };
+const EMPTY_GLOBE_POINT_COLLECTION: GlobePointCollection = { type: 'FeatureCollection', features: [] };
 
 const AVIATION_AIRPORT_ICON_MAPPING = { airport: { x: 0, y: 0, width: 512, height: 512, mask: false } };
 const AVIATION_AIRPORT_ICON_ATLAS = '/icons/airport.png';
@@ -582,6 +657,7 @@ export class DeckGLMap {
   private serverBaseClusters: ServerBaseCluster[] = [];
   private serverBasesLoaded = false;
   private naturalEvents: NaturalEvent[] = [];
+  private navWarnings: Array<{ id: string; title: string; text: string; area: string; lat: number; lon: number; issuedAt: number }> = [];
   private firmsFireData: Array<{ lat: number; lon: number; brightness: number; frp: number; confidence: number; region: string; acq_date: string; daynight: string }> = [];
   private techEvents: TechEventMarker[] = [];
   private flightDelays: AirportDelayAlert[] = [];
@@ -624,6 +700,14 @@ export class DeckGLMap {
   // Sanctions choropleth data
   private sanctionsCountriesMap: Map<string, 'severe' | 'high' | 'moderate'> = new Map();
   private sanctionsVersion = 0;
+
+  // Market Performance choropleth data
+  private marketPerfMap: Map<string, { changePercent: number }> = new Map();
+  private marketPerfVersion = 0;
+
+  // Tariff Barriers choropleth data
+  private tariffBarriersMap: Map<string, { level: 'high' | 'moderate' | 'low'; rate?: number }> = new Map();
+  private tariffBarriersVersion = 0;
 
   // Democracy choropleth data
   private democracyScoresMap: Map<string, { score: number; regimeType: string }> = new Map();
@@ -685,9 +769,6 @@ export class DeckGLMap {
   private customCategories: CustomCategory[] = loadCustomCategories();
   private usedFallbackStyle = false;
   private _globeProjection = false;
-  private _spinGlobeRaf: number | null = null;
-  private _spinPaused = false;
-  private _spinResumeTimer: ReturnType<typeof setTimeout> | null = null;
   private styleLoadTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private tileMonitorGeneration = 0;
 
@@ -717,7 +798,9 @@ export class DeckGLMap {
   private protestSuperclusterSource: SocialUnrestEvent[] = [];
   private newsPulseIntervalId: ReturnType<typeof setInterval> | null = null;
   private dayNightIntervalId: ReturnType<typeof setInterval> | null = null;
-  private cableFlowIntervalId: ReturnType<typeof setInterval> | null = null;
+  private cableFlowAnimationId: number | null = null;
+  private satelliteAnimationId: number | null = null;
+  private satelliteCatalog: import('@/types').SatelliteData[] = [];
   private cachedNightPolygon: [number, number][] | null = null;
   private readonly startupTime = Date.now();
   private lastCableHighlightSignature = '';
@@ -733,6 +816,7 @@ export class DeckGLMap {
   private lastAircraftFetchCenter: [number, number] | null = null;
   private lastAircraftFetchZoom = -1;
   private aircraftFetchSeq = 0;
+  private satellitePositionCache: { bucket: number; signature: string; positions: SatellitePositionRecord[] } | null = null;
 
   constructor(container: HTMLElement, initialState: DeckMapState) {
     this.container = container;
@@ -1549,10 +1633,11 @@ export class DeckGLMap {
     refreshColorsIfThemeChanged();
     const layers: (Layer | null | false)[] = [];
     const { layers: mapLayers } = this.state;
+    const useGlobeNative = this._globeProjection;
     const fullRebuild = !dirtyLayers || dirtyLayers.size === 0;
     const isDirty = (layerKey: string) => fullRebuild || dirtyLayers.has(layerKey);
 
-    const filteredEarthquakes = mapLayers.natural && isDirty('natural') ? this.getFilteredData('natural', this.earthquakes, (eq: Earthquake) => eq.occurredAt) : this.getFilteredData('natural', this.earthquakes, (eq: Earthquake) => eq.occurredAt);
+    const filteredEarthquakes = (mapLayers.natural || mapLayers.earthquakes) ? this.getFilteredData('earthquakes', this.earthquakes, (eq: Earthquake) => eq.occurredAt) : [];
     const filteredNaturalEvents = mapLayers.natural && isDirty('natural') ? this.getFilteredData('natural_events', this.naturalEvents, (e: NaturalEvent) => e.date) : this.getFilteredData('natural_events', this.naturalEvents, (e: NaturalEvent) => e.date);
     const filteredWeatherAlerts = mapLayers.weather && isDirty('weather') ? this.weatherAlerts.filter(a => a.expires > new Date()) : this.weatherAlerts.filter(a => a.expires > new Date());
     const filteredOutages = mapLayers.outages && isDirty('outages') ? this.getFilteredData('outages', this.outages, (o: InternetOutage) => o.pubDate) : this.getFilteredData('outages', this.outages, (o: InternetOutage) => o.pubDate);
@@ -1574,7 +1659,7 @@ export class DeckGLMap {
     }
 
     // Undersea cables layer
-    if (mapLayers.cables) {
+    if (mapLayers.cables && !useGlobeNative) {
       layers.push(this.createCablesLayer());
       layers.push(this.createCableFlowLayer());
     } else {
@@ -1582,7 +1667,7 @@ export class DeckGLMap {
     }
 
     // Pipelines layer
-    if (mapLayers.pipelines) {
+    if (mapLayers.pipelines && !useGlobeNative) {
       layers.push(this.createPipelinesLayer());
     } else {
       this.layerCache.delete('pipelines-layer');
@@ -1633,7 +1718,7 @@ export class DeckGLMap {
     }
 
     // Earthquakes layer
-    if (mapLayers.natural && filteredEarthquakes.length > 0) {
+    if ((mapLayers.natural || mapLayers.earthquakes) && filteredEarthquakes.length > 0) {
       layers.push(this.createEarthquakesLayer(filteredEarthquakes));
     }
     layers.push(this.createEmptyGhost('earthquakes-layer'));
@@ -1646,6 +1731,11 @@ export class DeckGLMap {
     // Satellite fires layer (NASA FIRMS)
     if (mapLayers.fires && this.firmsFireData.length > 0) {
       layers.push(this.createFiresLayer());
+    }
+
+    // Navigational Warnings layer
+    if (mapLayers.navWarnings && this.navWarnings.length > 0) {
+      layers.push(this.createNavWarningsLayer());
     }
 
     // Weather alerts layer
@@ -1706,26 +1796,31 @@ export class DeckGLMap {
     }
 
     // Cable advisories layer (shown with cables)
-    if (mapLayers.cables && filteredCableAdvisories.length > 0) {
+    if (mapLayers.cables && !useGlobeNative && filteredCableAdvisories.length > 0) {
       layers.push(this.createCableAdvisoriesLayer(filteredCableAdvisories));
     }
 
     // Repair ships layer (shown with cables)
-    if (mapLayers.cables && this.repairShips.length > 0) {
+    if (mapLayers.cables && !useGlobeNative && this.repairShips.length > 0) {
       layers.push(this.createRepairShipsLayer());
     }
 
     // Flight delays layer
-    if (mapLayers.flights && filteredFlightDelays.length > 0) {
+    if (mapLayers.flights && !useGlobeNative && filteredFlightDelays.length > 0) {
       layers.push(this.createFlightDelaysLayer(filteredFlightDelays));
     }
 
     // Aircraft trajectory (trail + heading) for selected aircraft — rendered under icons
-    layers.push(...this.createAircraftTrajectoryLayers());
+    if (!useGlobeNative) layers.push(...this.createAircraftTrajectoryLayers());
 
     // Aircraft positions layer (live tracking, under flights toggle)
-    if (mapLayers.flights && this.aircraftPositions.length > 0) {
+    if (mapLayers.flights && !useGlobeNative && this.aircraftPositions.length > 0) {
       layers.push(this.createAircraftPositionsLayer());
+    }
+
+    // Satellite orbit tracker
+    if (mapLayers.satellite && !useGlobeNative) {
+      layers.push(...this.createSatelliteLayers());
     }
 
     // Protests layer (Supercluster-based deck.gl layers)
@@ -1820,7 +1915,7 @@ export class DeckGLMap {
     }
 
     // Trade routes layer
-    if (mapLayers.tradeRoutes) {
+    if (mapLayers.tradeRoutes && !useGlobeNative) {
       layers.push(this.createTradeRoutesLayer());
       layers.push(this.createTradeChokepointsLayer());
     } else {
@@ -1897,6 +1992,16 @@ export class DeckGLMap {
       const elecLayer = this.createElectionsChoroplethLayer();
       if (elecLayer) layers.push(elecLayer);
     }
+    // Market Performance choropleth
+    if (mapLayers.marketPerf) {
+      const mktLayer = this.createMarketPerfChoroplethLayer();
+      if (mktLayer) layers.push(mktLayer);
+    }
+    // Tariff Barriers choropleth
+    if (mapLayers.tariffBarriers) {
+      const tariffLayer = this.createTariffBarriersChoroplethLayer();
+      if (tariffLayer) layers.push(tariffLayer);
+    }
     // Phase 8: Species recovery zones
     if (mapLayers.speciesRecovery && this.speciesRecoveryZones.length > 0) {
       layers.push(this.createSpeciesRecoveryLayer());
@@ -1921,6 +2026,480 @@ export class DeckGLMap {
       console.warn(`[DeckGLMap] buildLayers took ${elapsed.toFixed(2)}ms (>16ms budget), ${result.length} layers`);
     }
     return result;
+  }
+
+  private syncGlobeNativeLayers(): void {
+    const map = this.maplibreMap;
+    if (!map) return;
+    if (!this._globeProjection) {
+      this.removeGlobeNativeLayers();
+      return;
+    }
+    if (!map.isStyleLoaded()) return;
+
+    this.upsertGlobeSource('wm-globe-cables', this.state.layers.cables ? this.buildGlobeCableCollection() : EMPTY_GLOBE_LINE_COLLECTION);
+    this.upsertGlobeSource('wm-globe-cable-advisories', this.state.layers.cables ? this.buildGlobeCableAdvisoryCollection() : EMPTY_GLOBE_POINT_COLLECTION);
+    this.upsertGlobeSource('wm-globe-pipelines', this.state.layers.pipelines ? this.buildGlobePipelineCollection() : EMPTY_GLOBE_LINE_COLLECTION);
+    this.upsertGlobeSource('wm-globe-trade-routes', this.state.layers.tradeRoutes ? this.buildGlobeTradeRouteCollection() : EMPTY_GLOBE_LINE_COLLECTION);
+    this.upsertGlobeSource('wm-globe-trade-chokepoints', this.state.layers.tradeRoutes ? this.buildGlobeTradeChokepointCollection() : EMPTY_GLOBE_POINT_COLLECTION);
+    this.upsertGlobeSource('wm-globe-flight-delays', this.state.layers.flights ? this.buildGlobeFlightDelayCollection() : EMPTY_GLOBE_POINT_COLLECTION);
+    this.upsertGlobeSource('wm-globe-aircraft', this.state.layers.flights ? this.buildGlobeAircraftCollection() : EMPTY_GLOBE_POINT_COLLECTION);
+    this.upsertGlobeSource('wm-globe-satellites', this.state.layers.satellite ? this.buildGlobeSatelliteCollection() : EMPTY_GLOBE_POINT_COLLECTION);
+    this.ensureGlobeNativeLayerStyles();
+  }
+
+  private upsertGlobeSource(id: typeof GLOBE_NATIVE_SOURCES[number], data: GlobeLineCollection | GlobePointCollection): void {
+    const map = this.maplibreMap;
+    if (!map) return;
+    const source = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
+    if (source) {
+      source.setData(data);
+    } else {
+      map.addSource(id, { type: 'geojson', data });
+    }
+  }
+
+  private ensureGlobeNativeLayerStyles(): void {
+    const map = this.maplibreMap;
+    if (!map) return;
+    const addLine = (id: typeof GLOBE_NATIVE_LAYERS[number], source: typeof GLOBE_NATIVE_SOURCES[number], opacity = 0.9): void => {
+      if (map.getLayer(id)) return;
+      map.addLayer({
+        id,
+        type: 'line',
+        source,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': ['get', 'width'],
+          'line-opacity': opacity,
+        },
+      } as maplibregl.LayerSpecification);
+    };
+    const addCircle = (id: typeof GLOBE_NATIVE_LAYERS[number], source: typeof GLOBE_NATIVE_SOURCES[number]): void => {
+      if (map.getLayer(id)) return;
+      map.addLayer({
+        id,
+        type: 'circle',
+        source,
+        paint: {
+          'circle-color': ['get', 'color'],
+          'circle-radius': ['get', 'radius'],
+          'circle-opacity': 0.9,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 1,
+          'circle-stroke-opacity': 0.65,
+        },
+      } as maplibregl.LayerSpecification);
+    };
+
+    addLine('wm-globe-cables-line', 'wm-globe-cables', 0.82);
+    addLine('wm-globe-pipelines-line', 'wm-globe-pipelines', 0.86);
+    addLine('wm-globe-trade-routes-line', 'wm-globe-trade-routes', 0.72);
+    addCircle('wm-globe-cable-advisories-circle', 'wm-globe-cable-advisories');
+    addCircle('wm-globe-trade-chokepoints-circle', 'wm-globe-trade-chokepoints');
+    addCircle('wm-globe-flight-delays-circle', 'wm-globe-flight-delays');
+    addCircle('wm-globe-aircraft-circle', 'wm-globe-aircraft');
+    addCircle('wm-globe-satellites-circle', 'wm-globe-satellites');
+    this.ensureGlobeAltitudeLayer('wm-globe-aircraft-altitude', 'aircraft');
+    this.ensureGlobeAltitudeLayer('wm-globe-satellites-altitude', 'satellite');
+  }
+
+  private ensureGlobeAltitudeLayer(id: 'wm-globe-aircraft-altitude' | 'wm-globe-satellites-altitude', kind: GlobeAltitudeKind): void {
+    const map = this.maplibreMap;
+    if (!map || map.getLayer(id)) return;
+    map.addLayer(this.createGlobeAltitudeLayer(id, kind));
+  }
+
+  private removeGlobeNativeLayers(): void {
+    const map = this.maplibreMap;
+    if (!map) return;
+    for (const id of [...GLOBE_NATIVE_LAYERS].reverse()) {
+      if (map.getLayer(id)) map.removeLayer(id);
+    }
+    for (const id of GLOBE_NATIVE_SOURCES) {
+      if (map.getSource(id)) map.removeSource(id);
+    }
+  }
+
+  private lineFeature(id: string, name: string, coordinates: [number, number][], color: string, width: number, kind: string): GlobeLineFeature | null {
+    const clean = coordinates.filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat));
+    if (clean.length < 2) return null;
+    return {
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: clean },
+      properties: { id, name, color, width, kind },
+    };
+  }
+
+  private pointFeature(id: string, name: string, lon: number, lat: number, color: string, radius: number, kind: string, heading?: number, altitudeMeters?: number): GlobePointFeature | null {
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+    const coordinates = altitudeMeters != null && Number.isFinite(altitudeMeters) ? [lon, lat, altitudeMeters] : [lon, lat];
+    return {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates },
+      properties: { id, name, color, radius, kind, ...(heading != null ? { heading } : {}), ...(altitudeMeters != null ? { altitudeMeters } : {}) },
+    };
+  }
+
+  private getGlobeAircraftPositions(): PositionSample[] {
+    const density = this.aircraftDensity / 100;
+    return density >= 1
+      ? this.aircraftPositions
+      : this.aircraftPositions.filter((_, index) => (index / Math.max(1, this.aircraftPositions.length)) < density);
+  }
+
+  private getGlobeAircraftAltitudeMeters(position: PositionSample): number {
+    const sourceMeters = (position.altitudeFt ?? 0) * 0.3048;
+    if (Number.isFinite(sourceMeters) && sourceMeters > 0) {
+      return clampNumber(sourceMeters, GLOBE_AIRCRAFT_MIN_ALTITUDE_M, GLOBE_AIRCRAFT_MAX_ALTITUDE_M);
+    }
+    const offset = stableUnitInterval(position.icao24 || position.callsign || 'aircraft');
+    return GLOBE_AIRCRAFT_MIN_ALTITUDE_M + offset * (GLOBE_AIRCRAFT_MAX_ALTITUDE_M - GLOBE_AIRCRAFT_MIN_ALTITUDE_M);
+  }
+
+  private getGlobeSatelliteAltitudeMeters(altitudeKm: number): number {
+    const altitudeMeters = Number.isFinite(altitudeKm) ? altitudeKm * 1000 : GLOBE_LEO_FALLBACK_ALTITUDE_M;
+    return clampNumber(altitudeMeters, GLOBE_LEO_MIN_ALTITUDE_M, GLOBE_LEO_MAX_ALTITUDE_M);
+  }
+
+  private getSatelliteCatalogSignature(): string {
+    const catalog = this.satelliteCatalog;
+    const first = catalog[0]?.noradId ?? 'none';
+    const last = catalog[catalog.length - 1]?.noradId ?? 'none';
+    return `${catalog.length}:${first}:${last}`;
+  }
+
+  private getSatellitePositions(now = Date.now()): SatellitePositionRecord[] {
+    const bucket = Math.floor(now / 30_000);
+    const signature = this.getSatelliteCatalogSignature();
+    if (this.satellitePositionCache?.bucket === bucket && this.satellitePositionCache.signature === signature) {
+      return this.satellitePositionCache.positions;
+    }
+
+    const positions = (this.satelliteCatalog ?? [])
+      .map((satellite) => ({
+        ...satellite,
+        position: getSatellitePosition(satellite, now),
+      }))
+      .filter((satellite) => (
+        Number.isFinite(satellite.position.lon) &&
+        Number.isFinite(satellite.position.lat) &&
+        Number.isFinite(satellite.position.alt)
+      ));
+
+    this.satellitePositionCache = { bucket, signature, positions };
+    return positions;
+  }
+
+  private getGlobeAircraftAltitudePoints(): GlobeAltitudePoint[] {
+    if (!this.state.layers.flights) return [];
+    return this.getGlobeAircraftPositions()
+      .map((position) => ({
+        lon: position.lon,
+        lat: position.lat,
+        altitudeMeters: this.getGlobeAircraftAltitudeMeters(position),
+        size: position.onGround ? 8 : 10,
+        color: position.onGround ? [156, 163, 175, 0.84] : [96, 165, 250, 0.94],
+      } satisfies GlobeAltitudePoint))
+      .filter((point) => Number.isFinite(point.lon) && Number.isFinite(point.lat));
+  }
+
+  private getGlobeSatelliteAltitudePoints(): GlobeAltitudePoint[] {
+    if (!this.state.layers.satellite) return [];
+    return this.getSatellitePositions()
+      .map((satellite) => ({
+        lon: satellite.position.lon,
+        lat: satellite.position.lat,
+        altitudeMeters: this.getGlobeSatelliteAltitudeMeters(satellite.position.alt),
+        size: 9,
+        color: [34, 211, 238, 0.94],
+      } satisfies GlobeAltitudePoint))
+      .filter((point) => Number.isFinite(point.lon) && Number.isFinite(point.lat));
+  }
+
+  private createGlobeAltitudeLayer(id: 'wm-globe-aircraft-altitude' | 'wm-globe-satellites-altitude', kind: GlobeAltitudeKind): maplibregl.CustomLayerInterface {
+    const owner = this;
+    let buffer: WebGLBuffer | null = null;
+    let program: WebGLProgram | null = null;
+    let shaderVariant = '';
+    let aMercator = -1;
+    let aAltitude = -1;
+    let aSize = -1;
+    let aColor = -1;
+    let uProjectionMatrix: WebGLUniformLocation | null = null;
+    let uTileMercatorCoords: WebGLUniformLocation | null = null;
+    let uClippingPlane: WebGLUniformLocation | null = null;
+    let uProjectionTransition: WebGLUniformLocation | null = null;
+    let uFallbackMatrix: WebGLUniformLocation | null = null;
+
+    const compileShader = (gl: WebGLRenderingContext | WebGL2RenderingContext, type: number, source: string): WebGLShader | null => {
+      const shader = gl.createShader(type);
+      if (!shader) return null;
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.warn(`[DeckGLMap] Failed to compile ${id} shader:`, gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+      }
+      return shader;
+    };
+
+    const disposeProgram = (gl: WebGLRenderingContext | WebGL2RenderingContext): void => {
+      if (program) gl.deleteProgram(program);
+      program = null;
+      shaderVariant = '';
+    };
+
+    const ensureProgram = (gl: WebGLRenderingContext | WebGL2RenderingContext, options: maplibregl.CustomRenderMethodInput): WebGLProgram | null => {
+      if (program && shaderVariant === options.shaderData.variantName) return program;
+      disposeProgram(gl);
+      const vertexSource = `
+        precision highp float;
+        ${options.shaderData.vertexShaderPrelude}
+        ${options.shaderData.define}
+        attribute vec2 a_mercator;
+        attribute float a_altitude;
+        attribute float a_size;
+        attribute vec4 a_color;
+        varying vec4 v_color;
+        void main() {
+          gl_Position = projectTileFor3D(a_mercator, a_altitude);
+          gl_PointSize = a_size;
+          v_color = a_color;
+        }
+      `;
+      const fragmentSource = `
+        precision mediump float;
+        varying vec4 v_color;
+        void main() {
+          vec2 delta = gl_PointCoord - vec2(0.5);
+          float dist = dot(delta, delta);
+          if (dist > 0.25) discard;
+          float glow = smoothstep(0.25, 0.02, dist);
+          gl_FragColor = vec4(v_color.rgb, v_color.a * glow);
+        }
+      `;
+      const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
+      const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+      if (!vertexShader || !fragmentShader) return null;
+
+      const nextProgram = gl.createProgram();
+      if (!nextProgram) return null;
+      gl.attachShader(nextProgram, vertexShader);
+      gl.attachShader(nextProgram, fragmentShader);
+      gl.linkProgram(nextProgram);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      if (!gl.getProgramParameter(nextProgram, gl.LINK_STATUS)) {
+        console.warn(`[DeckGLMap] Failed to link ${id} shader:`, gl.getProgramInfoLog(nextProgram));
+        gl.deleteProgram(nextProgram);
+        return null;
+      }
+      program = nextProgram;
+      shaderVariant = options.shaderData.variantName;
+      aMercator = gl.getAttribLocation(program, 'a_mercator');
+      aAltitude = gl.getAttribLocation(program, 'a_altitude');
+      aSize = gl.getAttribLocation(program, 'a_size');
+      aColor = gl.getAttribLocation(program, 'a_color');
+      uProjectionMatrix = gl.getUniformLocation(program, 'u_projection_matrix');
+      uTileMercatorCoords = gl.getUniformLocation(program, 'u_projection_tile_mercator_coords');
+      uClippingPlane = gl.getUniformLocation(program, 'u_projection_clipping_plane');
+      uProjectionTransition = gl.getUniformLocation(program, 'u_projection_transition');
+      uFallbackMatrix = gl.getUniformLocation(program, 'u_projection_fallback_matrix');
+      return program;
+    };
+
+    return {
+      id,
+      type: 'custom',
+      renderingMode: '3d',
+      onAdd(_map, gl) {
+        buffer = gl.createBuffer();
+      },
+      onRemove(_map, gl) {
+        if (buffer) gl.deleteBuffer(buffer);
+        buffer = null;
+        disposeProgram(gl);
+      },
+      render(gl, options) {
+        if (!buffer) return;
+        const activeProgram = ensureProgram(gl, options);
+        if (!activeProgram) return;
+        const points = kind === 'aircraft' ? owner.getGlobeAircraftAltitudePoints() : owner.getGlobeSatelliteAltitudePoints();
+        if (points.length === 0) return;
+
+        const vertexData = new Float32Array(points.length * 8);
+        for (let i = 0; i < points.length; i++) {
+          const point = points[i]!;
+          const [x, y] = lngLatToMercatorUnit(point.lon, point.lat);
+          const [r, g, b, a] = point.color;
+          const rn = r > 1 ? r / 255 : r;
+          const gn = g > 1 ? g / 255 : g;
+          const bn = b > 1 ? b / 255 : b;
+          const offset = i * 8;
+          vertexData[offset] = x;
+          vertexData[offset + 1] = y;
+          vertexData[offset + 2] = point.altitudeMeters;
+          vertexData[offset + 3] = point.size;
+          vertexData[offset + 4] = rn * a;
+          vertexData[offset + 5] = gn * a;
+          vertexData[offset + 6] = bn * a;
+          vertexData[offset + 7] = a;
+        }
+
+        gl.useProgram(activeProgram);
+        gl.uniformMatrix4fv(uProjectionMatrix, false, options.defaultProjectionData.mainMatrix);
+        gl.uniform4fv(uTileMercatorCoords, options.defaultProjectionData.tileMercatorCoords);
+        gl.uniform4fv(uClippingPlane, options.defaultProjectionData.clippingPlane);
+        gl.uniform1f(uProjectionTransition, options.defaultProjectionData.projectionTransition);
+        gl.uniformMatrix4fv(uFallbackMatrix, false, options.defaultProjectionData.fallbackMatrix);
+
+        const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(aMercator);
+        gl.vertexAttribPointer(aMercator, 2, gl.FLOAT, false, stride, 0);
+        gl.enableVertexAttribArray(aAltitude);
+        gl.vertexAttribPointer(aAltitude, 1, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
+        gl.enableVertexAttribArray(aSize);
+        gl.vertexAttribPointer(aSize, 1, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+        gl.enableVertexAttribArray(aColor);
+        gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
+        gl.depthMask(false);
+        gl.drawArrays(gl.POINTS, 0, points.length);
+        gl.depthMask(true);
+        gl.disableVertexAttribArray(aMercator);
+        gl.disableVertexAttribArray(aAltitude);
+        gl.disableVertexAttribArray(aSize);
+        gl.disableVertexAttribArray(aColor);
+      },
+    };
+  }
+
+  private buildGlobeCableCollection(): GlobeLineCollection {
+    return {
+      type: 'FeatureCollection',
+      features: UNDERSEA_CABLES.map((cable) => {
+        const health = this.healthByCableId[cable.id];
+        const color = health?.status === 'fault'
+          ? rgbaCss(COLORS.cableFault)
+          : health?.status === 'degraded'
+            ? rgbaCss(COLORS.cableDegraded)
+            : rgbaCss(COLORS.cable);
+        const width = health?.status === 'fault' ? 3 : health?.status === 'degraded' ? 2.4 : 1.6;
+        return this.lineFeature(cable.id, cable.name, cable.points, color, width, 'cable');
+      }).filter((feature): feature is GlobeLineFeature => feature != null),
+    };
+  }
+
+  private buildGlobePipelineCollection(): GlobeLineCollection {
+    return {
+      type: 'FeatureCollection',
+      features: PIPELINES.map((pipeline) => {
+        const color = PIPELINE_COLORS[pipeline.type as keyof typeof PIPELINE_COLORS] || '#999999';
+        return this.lineFeature(pipeline.id, pipeline.name, pipeline.points, color, 2, 'pipeline');
+      }).filter((feature): feature is GlobeLineFeature => feature != null),
+    };
+  }
+
+  private buildGlobeTradeRouteCollection(): GlobeLineCollection {
+    return {
+      type: 'FeatureCollection',
+      features: this.tradeRouteSegments.map((segment) => {
+        const color = segment.status === 'disrupted'
+          ? 'rgba(255,80,80,0.9)'
+          : segment.status === 'high_risk'
+            ? 'rgba(255,180,50,0.82)'
+            : segment.category === 'energy'
+              ? 'rgba(255,150,50,0.78)'
+              : 'rgba(100,200,255,0.76)';
+        const width = segment.category === 'energy' ? 2.4 : 1.8;
+        return this.lineFeature(`${segment.routeId}-${segment.segmentIndex}`, segment.routeName, [segment.sourcePosition, segment.targetPosition], color, width, 'tradeRoute');
+      }).filter((feature): feature is GlobeLineFeature => feature != null),
+    };
+  }
+
+  private buildGlobeTradeChokepointCollection(): GlobePointCollection {
+    const routeWaypointIds = new Set<string>();
+    for (const segment of this.tradeRouteSegments) {
+      const route = TRADE_ROUTES_LIST.find((entry) => entry.id === segment.routeId);
+      if (route) for (const waypoint of route.waypoints) routeWaypointIds.add(waypoint);
+    }
+    return {
+      type: 'FeatureCollection',
+      features: STRATEGIC_WATERWAYS
+        .filter((waterway) => routeWaypointIds.has(waterway.id))
+        .map((waterway) => this.pointFeature(waterway.id, waterway.name, waterway.lon, waterway.lat, 'rgba(255,190,70,0.95)', 5, 'tradeChokepoint'))
+        .filter((feature): feature is GlobePointFeature => feature != null),
+    };
+  }
+
+  private buildGlobeCableAdvisoryCollection(): GlobePointCollection {
+    const advisories = this.getFilteredData('cable_advisories', this.cableAdvisories, (advisory: CableAdvisory) => advisory.reported);
+    return {
+      type: 'FeatureCollection',
+      features: advisories
+        .map((advisory) => this.pointFeature(
+          advisory.id,
+          advisory.title,
+          advisory.lon,
+          advisory.lat,
+          advisory.severity === 'fault' ? rgbaCss(COLORS.cableFault) : rgbaCss(COLORS.cableDegraded),
+          advisory.severity === 'fault' ? 6 : 5,
+          'cableAdvisory',
+        ))
+        .filter((feature): feature is GlobePointFeature => feature != null),
+    };
+  }
+
+  private buildGlobeFlightDelayCollection(): GlobePointCollection {
+    const delays = this.getFilteredData('flight_delays', this.flightDelays, (delay: AirportDelayAlert) => delay.updatedAt);
+    const severityColor = (severity: AirportDelayAlert['severity']): string => {
+      if (severity === 'severe') return 'rgba(255,50,50,0.95)';
+      if (severity === 'major') return 'rgba(255,110,40,0.92)';
+      if (severity === 'moderate') return 'rgba(255,190,40,0.9)';
+      return 'rgba(120,200,255,0.86)';
+    };
+    return {
+      type: 'FeatureCollection',
+      features: delays
+        .map((delay) => this.pointFeature(delay.id, delay.name, delay.lon, delay.lat, severityColor(delay.severity), delay.severity === 'severe' ? 7 : 5, 'flightDelay'))
+        .filter((feature): feature is GlobePointFeature => feature != null),
+    };
+  }
+
+  private buildGlobeAircraftCollection(): GlobePointCollection {
+    return {
+      type: 'FeatureCollection',
+      features: this.getGlobeAircraftPositions()
+        .map((position) => this.pointFeature(
+          position.icao24,
+          position.callsign || position.icao24,
+          position.lon,
+          position.lat,
+          position.onGround ? 'rgba(156,163,175,0.84)' : 'rgba(96,165,250,0.94)',
+          position.onGround ? 4 : 5,
+          'aircraft',
+          position.trackDeg,
+          this.getGlobeAircraftAltitudeMeters(position),
+        ))
+        .filter((feature): feature is GlobePointFeature => feature != null),
+    };
+  }
+
+  private buildGlobeSatelliteCollection(): GlobePointCollection {
+    return {
+      type: 'FeatureCollection',
+      features: this.getSatellitePositions()
+        .map((satellite) => {
+          const pos = satellite.position;
+          const color = pos.alt < 2000 ? 'rgba(34,211,238,0.94)' : pos.alt < 35000 ? 'rgba(74,222,128,0.9)' : 'rgba(251,191,36,0.9)';
+          return this.pointFeature(satellite.id, satellite.name, pos.lon, pos.lat, color, 4, 'satellite', undefined, this.getGlobeSatelliteAltitudeMeters(pos.alt));
+        })
+        .filter((feature): feature is GlobePointFeature => feature != null),
+    };
   }
 
   private createMarketplaceLayers(): Layer[] {
@@ -2352,6 +2931,43 @@ export class DeckGLMap {
     });
   }
 
+  private createSatelliteLayers(): Layer[] {
+    const now = Date.now();
+    const satellites = this.getSatellitePositions(now);
+    const orbitPaths = satellites.slice(0, 60).map((satellite) => ({
+      id: satellite.id,
+      name: satellite.name,
+      path: getOrbitalPath(satellite, now).map(([lon, lat]) => [lon, lat] as [number, number]),
+    }));
+
+    return [
+      new PathLayer({
+        id: 'satellite-orbits-layer',
+        data: orbitPaths,
+        getPath: (d: { path: [number, number][] }) => d.path,
+        getColor: [34, 211, 238, 72] as [number, number, number, number],
+        getWidth: 1,
+        widthMinPixels: 1,
+        widthMaxPixels: 2,
+        pickable: false,
+      }),
+      new ScatterplotLayer({
+        id: 'satellites-layer',
+        data: satellites,
+        getPosition: (d) => [d.position.lon, d.position.lat, d.position.alt * 1000],
+        getFillColor: (d) => d.position.alt < 2000
+          ? [34, 211, 238, 230] as [number, number, number, number]
+          : d.position.alt < 35000
+            ? [74, 222, 128, 220] as [number, number, number, number]
+            : [251, 191, 36, 220] as [number, number, number, number],
+        getRadius: 20000,
+        radiusMinPixels: 4,
+        radiusMaxPixels: 9,
+        pickable: true,
+      }),
+    ];
+  }
+
   private createAircraftTrajectoryLayers(): Layer[] {
     const layers: Layer[] = [];
     if (!this.selectedAircraftIcao || !this.selectedAircraftType) return layers;
@@ -2507,6 +3123,20 @@ export class DeckGLMap {
       },
       pickable: true,
       billboard: true,
+    });
+  }
+
+  private createNavWarningsLayer(): IconLayer {
+    return new IconLayer({
+      id: 'nav-warnings-layer',
+      data: this.navWarnings,
+      getPosition: (d) => [d.lon, d.lat],
+      getIcon: () => 'marker',
+      getSize: 18,
+      iconAtlas: getSharedLayerIconAtlas('navWarnings'),
+      iconMapping: SHARED_LAYER_ICON_MAPPING,
+      pickable: true,
+      opacity: 0.9,
     });
   }
 
@@ -3888,6 +4518,62 @@ export class DeckGLMap {
     });
   }
 
+  private static marketPerfColor(changePercent: number): [number, number, number, number] {
+    if (changePercent > 2)  return [22, 163, 74, 120];
+    if (changePercent > 0)  return [74, 222, 128, 100];
+    if (changePercent > -2) return [248, 113, 113, 100];
+    return [185, 28, 28, 130];
+  }
+
+  private createMarketPerfChoroplethLayer(): GeoJsonLayer | null {
+    if (!this.countriesGeoJsonData || this.marketPerfMap.size === 0) return null;
+    const perf = this.marketPerfMap;
+    return new GeoJsonLayer({
+      id: 'market-perf-choropleth-layer',
+      data: this.countriesGeoJsonData,
+      filled: true,
+      stroked: true,
+      getFillColor: (feature: { properties?: Record<string, unknown> }) => {
+        const code = feature.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const entry = code ? perf.get(code) : undefined;
+        return entry ? DeckGLMap.marketPerfColor(entry.changePercent) : [0, 0, 0, 0];
+      },
+      getLineColor: [80, 80, 80, 60] as [number, number, number, number],
+      getLineWidth: 1,
+      lineWidthMinPixels: 0.5,
+      pickable: true,
+      updateTriggers: { getFillColor: [this.marketPerfVersion] },
+    });
+  }
+
+  private static readonly TARIFF_LEVEL_COLORS: Record<string, [number, number, number, number]> = {
+    high:     [180, 83, 9, 140],
+    moderate: [217, 119, 6, 110],
+    low:      [101, 163, 13, 90],
+  };
+
+  private createTariffBarriersChoroplethLayer(): GeoJsonLayer | null {
+    if (!this.countriesGeoJsonData || this.tariffBarriersMap.size === 0) return null;
+    const barriers = this.tariffBarriersMap;
+    const colors = DeckGLMap.TARIFF_LEVEL_COLORS;
+    return new GeoJsonLayer({
+      id: 'tariff-barriers-choropleth-layer',
+      data: this.countriesGeoJsonData,
+      filled: true,
+      stroked: true,
+      getFillColor: (feature: { properties?: Record<string, unknown> }) => {
+        const code = feature.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const entry = code ? barriers.get(code) : undefined;
+        return entry ? (colors[entry.level] ?? [0, 0, 0, 0]) : [0, 0, 0, 0];
+      },
+      getLineColor: [80, 80, 80, 60] as [number, number, number, number],
+      getLineWidth: 1,
+      lineWidthMinPixels: 0.5,
+      pickable: true,
+      updateTriggers: { getFillColor: [this.tariffBarriersVersion] },
+    });
+  }
+
   private static readonly DEMOCRACY_LEVEL_COLORS: Record<string, [number, number, number, number]> = {
     'Full Democracy':  [30, 140, 50, 140],
     'Democracy':       [80, 180, 80, 130],
@@ -4070,6 +4756,22 @@ export class DeckGLMap {
 
       case 'natural-events-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.title)}</strong><br/>${text(obj.category || t('components.deckgl.tooltip.naturalEvent'))}</div>` };
+      case 'nav-warnings-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.title)}</strong><br/>${text(obj.area)}</div>` };
+      case 'market-perf-choropleth-layer': {
+        const code = (obj as any)?.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const entry = code ? this.marketPerfMap.get(code) : undefined;
+        if (!entry) return null;
+        const sign = entry.changePercent >= 0 ? '+' : '';
+        return { html: `<div class="deckgl-tooltip"><strong>${code}</strong><br/>Weekly: ${sign}${entry.changePercent.toFixed(2)}%</div>` };
+      }
+      case 'tariff-barriers-choropleth-layer': {
+        const code = (obj as any)?.properties?.['ISO3166-1-Alpha-2'] as string | undefined;
+        const entry = code ? this.tariffBarriersMap.get(code) : undefined;
+        if (!entry) return null;
+        const rateStr = entry.rate != null ? ` (${entry.rate.toFixed(1)}% avg)` : '';
+        return { html: `<div class="deckgl-tooltip"><strong>${code}</strong><br/>Tariff barrier: ${entry.level}${rateStr}</div>` };
+      }
       case 'ais-vessels-layer': {
         const shipTypeLabel = (() => {
           const st = obj.shipType ?? 0;
@@ -4171,6 +4873,8 @@ export class DeckGLMap {
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)} (${text(obj.iata)})</strong><br/>${text(obj.severity)}: ${text(obj.reason)}</div>` };
       case 'aircraft-positions-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.callsign || obj.icao24)}</strong><br/>${obj.altitudeFt?.toLocaleString() ?? 0} ft · ${obj.groundSpeedKts ?? 0} kts · ${Math.round(obj.trackDeg ?? 0)}°</div>` };
+      case 'satellites-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.operator || '')}<br/>${text(obj.category || 'satellite')}</div>` };
       case 'apt-groups-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.aka)}<br/>${t('popups.sponsor')}: ${text(obj.sponsor)}</div>` };
       case 'minerals-layer':
@@ -6375,12 +7079,14 @@ export class DeckGLMap {
       this.stopPulseAnimation();
       this.stopDayNightTimer();
       this.manageCableFlowAnimation(false);
+      this.manageSatelliteAnimation(false);
       return;
     }
 
     this.syncPulseAnimation();
     if (this.state.layers.dayNight) this.startDayNightTimer();
     this.manageCableFlowAnimation(this.state.layers.cables);
+    this.manageSatelliteAnimation(!!this.state.layers.satellite);
     if (!paused && this.renderPending) {
       this.renderPending = false;
       this.render();
@@ -6390,12 +7096,14 @@ export class DeckGLMap {
   private updateLayers(force = false): void {
     if (!force && (this.renderPaused || this.webglLost || !this.maplibreMap)) return;
     this.manageCableFlowAnimation(this.state.layers.cables);
+    this.manageSatelliteAnimation(!!this.state.layers.satellite);
     const startTime = performance.now();
     const dirty = this.dirtyLayers.size > 0 ? new Set(this.dirtyLayers) : undefined;
     this.dirtyLayers.clear();
     try {
       this.deckOverlay?.setProps({ layers: this.buildLayers(dirty) });
     } catch { /* map may be mid-teardown (null.getProjection) */ }
+    this.syncGlobeNativeLayers();
     this.maplibreMap?.triggerRepaint();
     const elapsed = performance.now() - startTime;
     if (import.meta.env.DEV && elapsed > 16) {
@@ -6714,6 +7422,7 @@ export class DeckGLMap {
   public setEarthquakes(earthquakes: Earthquake[]): void {
     this.earthquakes = earthquakes;
     this.render('natural');
+    this.render('earthquakes');
   }
 
   public setWeatherAlerts(alerts: WeatherAlert[]): void {
@@ -6872,15 +7581,37 @@ export class DeckGLMap {
 
   private manageCableFlowAnimation(enabled: boolean): void {
     if (enabled) {
-      if (!this.cableFlowIntervalId) {
-        this.cableFlowIntervalId = setInterval(() => {
-          if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
-          this.render('cables');
-        }, 240);
+      if (!this.cableFlowAnimationId) {
+        const tick = () => {
+          if (!this.cableFlowAnimationId) return;
+          if (!this.renderPaused && !this.webglLost && this.maplibreMap) {
+            this.render('cables');
+          }
+          this.cableFlowAnimationId = requestAnimationFrame(tick);
+        };
+        this.cableFlowAnimationId = requestAnimationFrame(tick);
       }
-    } else if (this.cableFlowIntervalId) {
-      clearInterval(this.cableFlowIntervalId);
-      this.cableFlowIntervalId = null;
+    } else if (this.cableFlowAnimationId) {
+      cancelAnimationFrame(this.cableFlowAnimationId);
+      this.cableFlowAnimationId = null;
+    }
+  }
+
+  private manageSatelliteAnimation(enabled: boolean): void {
+    if (enabled) {
+      if (!this.satelliteAnimationId) {
+        const tick = () => {
+          if (!this.satelliteAnimationId) return;
+          if (!this.renderPaused && !this.webglLost && this.maplibreMap) {
+            this.render('satellite');
+          }
+          this.satelliteAnimationId = requestAnimationFrame(tick);
+        };
+        this.satelliteAnimationId = requestAnimationFrame(tick);
+      }
+    } else if (this.satelliteAnimationId) {
+      cancelAnimationFrame(this.satelliteAnimationId);
+      this.satelliteAnimationId = null;
     }
   }
 
@@ -6938,6 +7669,23 @@ export class DeckGLMap {
   public setFires(fires: Array<{ lat: number; lon: number; brightness: number; frp: number; confidence: number; region: string; acq_date: string; daynight: string }>): void {
     this.firmsFireData = fires;
     this.render('fires');
+  }
+
+  public setNavWarnings(warnings: Array<{ id: string; title: string; text: string; area: string; lat: number; lon: number; issuedAt: number }>): void {
+    this.navWarnings = warnings;
+    this.render('navWarnings');
+  }
+
+  public setMarketPerfScores(scores: Array<{ code: string; changePercent: number }>): void {
+    this.marketPerfMap = new Map(scores.map(s => [s.code, { changePercent: s.changePercent }]));
+    this.marketPerfVersion++;
+    this.render('marketPerf');
+  }
+
+  public setTariffBarriers(barriers: Array<{ code: string; level: 'high' | 'moderate' | 'low'; rate?: number }>): void {
+    this.tariffBarriersMap = new Map(barriers.map(b => [b.code, { level: b.level, rate: b.rate }]));
+    this.tariffBarriersVersion++;
+    this.render('tariffBarriers');
   }
 
   public setTechEvents(events: TechEventMarker[]): void {
@@ -7747,6 +8495,7 @@ export class DeckGLMap {
       // setStyle resets projection to mercator — restore globe if active
       if (this._globeProjection) {
         this.maplibreMap?.setProjection({ type: 'globe' });
+        this.syncGlobeNativeLayers();
       }
       this.render();
     });
@@ -7811,6 +8560,7 @@ export class DeckGLMap {
       this.updateCountryLayerPaint(paintTheme);
       if (this._globeProjection) {
         this.maplibreMap?.setProjection({ type: 'globe' });
+        this.syncGlobeNativeLayers();
       }
       this.render();
     });
@@ -7852,10 +8602,8 @@ export class DeckGLMap {
       (this.maplibreMap as any).dragRotate?.enable();
       (this.maplibreMap as any).touchPitch?.enable();
       this.container.classList.add('globe-projection');
-      this._startGlobeSpin();
     } else {
       this.container.classList.remove('globe-projection');
-      this._stopGlobeSpin();
       if (MAP_INTERACTION_MODE === 'flat') {
         // Restore flat-mode constraints
         this.maplibreMap.setMaxPitch(0);
@@ -7866,70 +8614,9 @@ export class DeckGLMap {
       }
     }
 
+    this.syncGlobeNativeLayers();
     this.maplibreMap.resize();
     this.render();
-  }
-
-  private _startGlobeSpin(): void {
-    this._stopGlobeSpin();
-    this._spinPaused = false;
-
-    const canvas = this.maplibreMap?.getCanvas();
-    if (!canvas) return;
-
-    const pauseSpin = () => {
-      this._spinPaused = true;
-      if (this._spinResumeTimer) clearTimeout(this._spinResumeTimer);
-    };
-    const schedulResume = () => {
-      if (this._spinResumeTimer) clearTimeout(this._spinResumeTimer);
-      this._spinResumeTimer = setTimeout(() => {
-        this._spinPaused = false;
-      }, 60_000);
-    };
-
-    canvas.addEventListener('mousedown', pauseSpin);
-    canvas.addEventListener('touchstart', pauseSpin, { passive: true });
-    canvas.addEventListener('mouseup', schedulResume);
-    canvas.addEventListener('touchend', schedulResume, { passive: true });
-    // Store cleanup refs on the canvas so _stopGlobeSpin can remove them
-    (canvas as any)._wmSpinHandlers = { pauseSpin, schedulResume };
-
-    const SPIN_DEG_PER_MS = 0.0015;
-    let last = 0;
-    const tick = (now: number) => {
-      if (!this._globeProjection || !this.maplibreMap) return;
-      if (!this._spinPaused) {
-        const dt = last ? Math.min(now - last, 100) : 0;
-        if (dt > 0) {
-          const c = this.maplibreMap.getCenter();
-          this.maplibreMap.setCenter([c.lng - SPIN_DEG_PER_MS * dt, c.lat]);
-        }
-      }
-      last = now;
-      this._spinGlobeRaf = requestAnimationFrame(tick);
-    };
-    this._spinGlobeRaf = requestAnimationFrame(tick);
-  }
-
-  private _stopGlobeSpin(): void {
-    if (this._spinGlobeRaf != null) {
-      cancelAnimationFrame(this._spinGlobeRaf);
-      this._spinGlobeRaf = null;
-    }
-    if (this._spinResumeTimer) {
-      clearTimeout(this._spinResumeTimer);
-      this._spinResumeTimer = null;
-    }
-    const canvas = this.maplibreMap?.getCanvas();
-    if (canvas && (canvas as any)._wmSpinHandlers) {
-      const { pauseSpin, schedulResume } = (canvas as any)._wmSpinHandlers;
-      canvas.removeEventListener('mousedown', pauseSpin);
-      canvas.removeEventListener('touchstart', pauseSpin);
-      canvas.removeEventListener('mouseup', schedulResume);
-      canvas.removeEventListener('touchend', schedulResume);
-      delete (canvas as any)._wmSpinHandlers;
-    }
   }
 
   public destroy(): void {
@@ -7949,11 +8636,12 @@ export class DeckGLMap {
       clearTimeout(this.styleLoadTimeoutId);
       this.styleLoadTimeoutId = null;
     }
-    this._stopGlobeSpin();
     this.container.classList.remove('globe-projection');
     this.stopPulseAnimation();
     this.stopDayNightTimer();
     this.manageCableFlowAnimation(false);
+    this.manageSatelliteAnimation(false);
+    this.removeGlobeNativeLayers();
     if (this.aircraftFetchTimer) {
       clearInterval(this.aircraftFetchTimer);
       this.aircraftFetchTimer = null;

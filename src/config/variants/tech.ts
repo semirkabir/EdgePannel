@@ -236,6 +236,8 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   flights: false,
   military: false,
   natural: false,
+  earthquakes: false,
+  navWarnings: false,
   spaceports: false,
   minerals: false,
   fires: false,
@@ -272,6 +274,8 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   aptGroups: false,
   gemRisk: false,
   democracy: false, elections: false,
+  marketPerf: false,
+  tariffBarriers: false,
 };
 
 // Mobile defaults for tech variant
@@ -298,6 +302,8 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   flights: false,
   military: false,
   natural: false,
+  earthquakes: false,
+  navWarnings: false,
   spaceports: false,
   minerals: false,
   fires: false,
@@ -334,6 +340,8 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   aptGroups: false,
   gemRisk: false,
   democracy: false, elections: false,
+  marketPerf: false,
+  tariffBarriers: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

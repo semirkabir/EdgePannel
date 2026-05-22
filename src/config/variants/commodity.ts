@@ -61,6 +61,8 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   waterways: true,          // Strategic shipping chokepoints
   tradeRoutes: true,        // Commodity trade routes
   natural: true,            // Earthquakes/natural events (affect mine operations)
+  earthquakes: true,        // Dedicated earthquake layer (commodity monitoring)
+  navWarnings: false,       // Nav warnings (not commodity-relevant by default)
   weather: true,            // Weather impacting operations
 
   // ── All non-commodity layers (DISABLED) ───────────────────────────────────
@@ -118,6 +120,8 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   governanceChoropleth: false,
   gemRisk: false,
   democracy: false, elections: false,
+  marketPerf: false,
+  tariffBarriers: true,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,6 +138,8 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   waterways: false,
   tradeRoutes: false,
   natural: true,
+  earthquakes: false,
+  navWarnings: false,
   weather: false,
 
   // All others disabled on mobile
@@ -181,6 +187,8 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   governanceChoropleth: false,
   gemRisk: false,
   democracy: false, elections: false,
+  marketPerf: false,
+  tariffBarriers: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

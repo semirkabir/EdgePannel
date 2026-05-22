@@ -103,12 +103,15 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   outages:                  def('outages',                  ICONS.wifiOff,   'internetOutages',        'Internet Outages'),
   cyberThreats:             def('cyberThreats',             ICONS.bug,       'cyberThreats',           'Cyber Threats'),
   natural:                  def('natural',                  ICONS.globe,     'naturalEvents',          'Natural Events'),
+  earthquakes:              def('earthquakes',              ICONS.globe,     'earthquakes',            'Earthquakes'),
+  navWarnings:              def('navWarnings',              ICONS.waves,     'navWarnings',            'Nav Warnings'),
   fires:                    def('fires',                    ICONS.flame,     'fires',                  'Fires'),
   waterways:                def('waterways',                ICONS.waves,     'strategicWaterways',     'Strategic Waterways'),
   economic:                 def('economic',                 ICONS.chart,     'economicCenters',        'Economic Centers'),
   polymarketMarkets:        def('polymarketMarkets',        ICONS.chart,     'polymarketMarkets',      'Prediction Markets', ['flat', 'globe']),
   minerals:                 def('minerals',                 ICONS.gem,       'criticalMinerals',       'Critical Minerals'),
   gpsJamming:               def('gpsJamming',               ICONS.satellite, 'gpsJamming',             'GPS Jamming', ['flat', 'globe'], _desktop ? 'locked' : undefined),
+  satellite:                def('satellite',                ICONS.satellite, 'satellite',              'Satellites', ['flat', 'globe']),
   ciiChoropleth:            def('ciiChoropleth',            ICONS.globe,     'ciiChoropleth',          'CII Instability', ['flat', 'globe'], _desktop ? 'enhanced' : undefined),
   governanceChoropleth:    def('governanceChoropleth',    ICONS.shield,    'governanceChoropleth',   'Governance Quality', ['flat', 'globe']),
   dayNight:                 def('dayNight',                 ICONS.sunMoon,   'dayNight',               'Day/Night', ['flat']),
@@ -135,6 +138,8 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   gemRisk:                  def('gemRisk',                  ICONS.globe,     'gemRisk',                'Seismic Risk',        ['flat', 'globe']),
   democracy:                def('democracy',                ICONS.building,  'democracy',              'Democracy Index',     ['flat', 'globe']),
   elections:                def('elections',                ICONS.ballot,    'elections',              'Elections',           ['flat', 'globe']),
+  marketPerf:               def('marketPerf',               ICONS.chart,     'marketPerf',             'Market Performance',  ['flat', 'globe']),
+  tariffBarriers:           def('tariffBarriers',           ICONS.ban,       'tariffBarriers',         'Tariff Barriers',     ['flat', 'globe']),
 };
 
 // ── Weather category icon/color/label maps ───────────────────────────────────
@@ -193,6 +198,8 @@ export function resolveLayerAccentColor(key: keyof MapLayers, theme: 'light' | '
     case 'gulfInvestments': return light ? '#0f766e' : '#5eead4';
     case 'weather': return light ? '#2563eb' : '#93c5fd';
     case 'natural': return light ? '#dc2626' : '#fca5a5';
+    case 'earthquakes': return light ? '#c2410c' : '#fb923c';
+    case 'navWarnings': return light ? '#0369a1' : '#38bdf8';
     case 'fires': return light ? '#c2410c' : '#fb923c';
     case 'waterways': return light ? '#0369a1' : '#60a5fa';
     case 'economic': return light ? '#475569' : '#cbd5e1';
@@ -209,9 +216,12 @@ export function resolveLayerAccentColor(key: keyof MapLayers, theme: 'light' | '
     case 'aptGroups': return light ? '#991b1b' : '#f87171';
     case 'iranAttacks': return light ? '#b91c1c' : '#fb7185';
     case 'sanctions': return light ? '#dc2626' : '#fca5a5';
+    case 'satellite': return light ? '#06b6d4' : '#22d3ee';
     case 'democracy': return light ? '#1d4ed8' : '#93c5fd';
     case 'elections': return light ? '#7c3aed' : '#c4b5fd';
     case 'gemRisk': return light ? '#c2410c' : '#fb923c';
+    case 'marketPerf': return light ? '#15803d' : '#4ade80';
+    case 'tariffBarriers': return light ? '#b45309' : '#fbbf24';
     case 'conflicts':
     case 'ucdpEvents': return light ? '#b91c1c' : '#f87171';
     case 'bases':
@@ -233,14 +243,14 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'cables', 'pipelines', 'datacenters', 'military',
     'ais', 'tradeRoutes', 'flights', 'protests',
     'ucdpEvents', 'displacement', 'climate', 'weather',
-    'outages', 'cyberThreats', 'aptGroups', 'natural', 'fires',
-    'waterways', 'economic', 'polymarketMarkets', 'minerals', 'gpsJamming',
+    'outages', 'cyberThreats', 'aptGroups', 'natural', 'earthquakes', 'fires',
+    'waterways', 'navWarnings', 'economic', 'marketPerf', 'polymarketMarkets', 'minerals', 'gpsJamming', 'satellite',
     'ciiChoropleth', 'governanceChoropleth', 'dayNight',
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions', 'techEvents',
     'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments',
     'positiveEvents', 'kindness', 'happiness', 'speciesRecovery', 'renewableInstallations',
     'miningSites', 'processingPlants', 'commodityPorts',
-    'iranAttacks', 'sanctions', 'democracy', 'gemRisk', 'elections',
+    'iranAttacks', 'sanctions', 'tariffBarriers', 'democracy', 'gemRisk', 'elections',
   ],
   tech: [
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions',
@@ -249,7 +259,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
   ],
   finance: [
     'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs',
-    'gulfInvestments', 'tradeRoutes', 'economic', 'governanceChoropleth',
+    'gulfInvestments', 'tradeRoutes', 'economic', 'marketPerf', 'tariffBarriers', 'governanceChoropleth',
   ],
   happy: [
     'positiveEvents', 'kindness', 'happiness',
@@ -258,15 +268,15 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
   commodity: [
     'miningSites', 'processingPlants', 'commodityPorts', 'commodityHubs',
     'minerals', 'pipelines', 'waterways', 'tradeRoutes',
-    'natural', 'weather',
+    'natural', 'earthquakes', 'tariffBarriers', 'weather',
   ],
   conflicts: [
     'hotspots', 'conflicts',
     'bases', 'nuclear', 'irradiators', 'gpsJamming',
-    'military', 'ais', 'flights', 'protests',
+    'military', 'ais', 'navWarnings', 'flights', 'protests',
     'ucdpEvents', 'displacement', 'ciiChoropleth', 'governanceChoropleth',
     'cables', 'pipelines',
-    'cyberThreats', 'aptGroups', 'outages', 'minerals', 'elections',
+    'cyberThreats', 'aptGroups', 'outages', 'minerals', 'sanctions', 'tariffBarriers', 'elections',
   ],
 };
 

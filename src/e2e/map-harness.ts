@@ -190,6 +190,10 @@ const allLayersEnabled: MapLayers = {
   aptGroups: false,
   gemRisk: false,
   democracy: false, elections: false,
+  earthquakes: false,
+  navWarnings: false,
+  marketPerf: false,
+  tariffBarriers: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -247,6 +251,10 @@ const allLayersDisabled: MapLayers = {
   aptGroups: false,
   gemRisk: false,
   democracy: false, elections: false,
+  earthquakes: false,
+  navWarnings: false,
+  marketPerf: false,
+  tariffBarriers: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: Array<{

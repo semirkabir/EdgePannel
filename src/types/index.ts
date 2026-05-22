@@ -517,6 +517,12 @@ export interface NuclearFacility {
   type: NuclearFacilityType;
   status: 'active' | 'contested' | 'inactive' | 'decommissioned' | 'construction';
   operator?: string;  // Operating country
+  capacity?: number;       // in MWe
+  reactorType?: string;    // e.g. PWR, BWR
+  reactorModel?: string;   // e.g. VVER-1000
+  constructionStart?: string;
+  operationalFrom?: string;
+  operationalTo?: string;
   // Runtime enrichment (populated at click time by DeckGLMap)
   _enrichNearbyEarthquakes?: Array<{ mag: number; distKm: number; place: string }>;
 }
@@ -609,6 +615,8 @@ export interface MapLayers {
   flights: boolean;
   military: boolean;
   natural: boolean;
+  earthquakes: boolean;
+  navWarnings: boolean;
   spaceports: boolean;
   minerals: boolean;
   fires: boolean;
@@ -643,6 +651,8 @@ export interface MapLayers {
   iranAttacks: boolean;
   // GPS/GNSS interference layer
   gpsJamming: boolean;
+  // Satellite tracking layer
+  satellite?: boolean;
 
   // CII choropleth layer
   ciiChoropleth: boolean;
@@ -661,6 +671,10 @@ export interface MapLayers {
   democracy: boolean;
   // Elections layer
   elections: boolean;
+  // Market Performance choropleth
+  marketPerf: boolean;
+  // Tariff Barriers choropleth
+  tariffBarriers: boolean;
 }
 
 export interface AIDataCenter {
@@ -1426,6 +1440,38 @@ export interface MapDatacenterCluster {
   existingCount?: number;
   plannedCount?: number;
   sampled?: boolean;
+}
+
+export interface SanctionedAsset {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  type: 'port' | 'bank' | 'yacht' | 'real_estate' | 'other';
+  sanctionCountry: string;
+  program: string;
+  description: string;
+  owner?: string;
+  value?: string;
+}
+
+export interface SatelliteData {
+  id: string;
+  noradId: number;
+  name: string;
+  operator: string;
+  category: 'imaging' | 'military' | 'scientific' | 'other';
+  tle1?: string;
+  tle2?: string;
+  source?: 'celestrak' | 'generated' | 'fallback';
+  sourceGroup?: string;
+  epoch?: string;
+  meanMotion?: number;
+  eccentricity?: number;
+  inclination?: number;
+  raan?: number;
+  argPerigee?: number;
+  meanAnomaly?: number;
 }
 
 // ── Country Profiles (enriched static data) ──────────────────────────────────
