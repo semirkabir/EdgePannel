@@ -20,6 +20,7 @@ export default async function handler(req) {
   const url = new URL(req.url);
   const endpoint = url.searchParams.get('endpoint');
   const symbol = url.searchParams.get('symbol');
+  const transcriptId = url.searchParams.get('id');
   const from = url.searchParams.get('from');
   const to = url.searchParams.get('to');
 
@@ -38,6 +39,28 @@ export default async function handler(req) {
         finnhubUrl.searchParams.set('symbol', symbol || '');
         finnhubUrl.searchParams.set('from', from || new Date().toISOString().split('T')[0]);
         finnhubUrl.searchParams.set('to', to || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]);
+        break;
+
+      case 'earnings-transcripts-list':
+        if (!symbol) {
+          return new Response(JSON.stringify({ error: 'symbol is required for earnings-transcripts-list' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+        finnhubUrl = new URL('https://finnhub.io/api/v1/stock/transcripts/list');
+        finnhubUrl.searchParams.set('symbol', symbol);
+        break;
+
+      case 'earnings-transcript':
+        if (!transcriptId) {
+          return new Response(JSON.stringify({ error: 'id is required for earnings-transcript' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+        finnhubUrl = new URL('https://finnhub.io/api/v1/stock/transcripts');
+        finnhubUrl.searchParams.set('id', transcriptId);
         break;
 
       case 'ipo-calendar':

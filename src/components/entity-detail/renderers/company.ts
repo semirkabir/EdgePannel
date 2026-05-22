@@ -54,8 +54,15 @@ import {
 } from '@/services/market/company-financials';
 import {
   fetchEarningsCallTranscripts,
+  fetchEarningsCallTranscriptDetail,
   type EarningsCallTranscript,
 } from '@/services/market/earnings-transcripts';
+import {
+  fetchSecCompanyFacts,
+  type SecCompanyFacts,
+  type SecCompanyFactMetric,
+  type SecCompanyFactSignal,
+} from '@/services/market/sec-company-facts';
 
 interface CompanyData {
   ticker: string;
@@ -87,6 +94,7 @@ interface CompanyEnriched {
   revenueBreakdown: RevenueBreakdown | null;
   ratingActions: UpgradeDowngradeAction[];
   earningsCalls: EarningsCallTranscript[];
+  secFacts: SecCompanyFacts | null;
   finnhubQuote: StockQuote | null;
   yahooQuote: StockQuote | null;
 }
@@ -692,7 +700,7 @@ export class CompanyRenderer implements EntityRenderer {
       profile, metrics, peers, news,
       priceTarget, recommendations, insiderTxns, optionChain, ownership, earningsSurprises,
       financialsAnnual, financialsQuarterly, epsEstimates, revenueEstimates, dividends,
-      revenueBreakdown, ratingActions, earningsCalls, finnhubQuote, yahooQuote,
+      revenueBreakdown, ratingActions, earningsCalls, secFacts, finnhubQuote, yahooQuote,
     ] = await settleInBatches<unknown>([
       () => fetchCompanyProfile(ticker),
       () => fetchCompanyMetrics(ticker),
@@ -712,6 +720,7 @@ export class CompanyRenderer implements EntityRenderer {
       () => fetchRevenueBreakdown(ticker),
       () => fetchUpgradeDowngrade(ticker),
       () => fetchEarningsCallTranscripts(ticker),
+      () => fetchSecCompanyFacts(ticker),
       () => fetchStockQuote(ticker),
       () => fetchYahooQuote(ticker),
     ]);
@@ -750,6 +759,7 @@ export class CompanyRenderer implements EntityRenderer {
       revenueBreakdown: settledValue<RevenueBreakdown | null>(revenueBreakdown, null),
       ratingActions: settledValue<UpgradeDowngradeAction[]>(ratingActions, []),
       earningsCalls: settledValue<EarningsCallTranscript[]>(earningsCalls, []),
+      secFacts: settledValue<SecCompanyFacts | null>(secFacts, null),
       finnhubQuote: settledValue<StockQuote | null>(finnhubQuote, null),
       yahooQuote: settledValue<StockQuote | null>(yahooQuote, null),
     };
@@ -889,6 +899,10 @@ export class CompanyRenderer implements EntityRenderer {
     addFact('Currency', data.profile?.currency || '-');
     factsBody.append(facts);
     content.append(factsCard);
+
+    if (data.secFacts && hasSecFactsData(data.secFacts)) {
+      content.append(buildSecCompanyFactsCard(ctx, data.secFacts));
+    }
 
     if (data.profile?.description) {
       const [card, body] = ctx.sectionCard('About');
@@ -1906,19 +1920,34 @@ export class CompanyRenderer implements EntityRenderer {
 
           const info = ctx.el('div', 'edp-disclosure-info');
           info.append(ctx.el('span', 'edp-disclosure-name', call.label));
-          const detail = [
-            call.filingDate ? `Filed ${call.filingDate}` : '',
-            call.reportDate && call.reportDate !== call.filingDate ? `Period ${call.reportDate}` : '',
-          ].filter(Boolean).join(' · ');
-          info.append(ctx.el('span', 'edp-disclosure-detail', detail || 'SEC EDGAR 8-K'));
+          const detail = call.source === 'finnhub'
+            ? [
+                call.filingDate ? `Published ${call.filingDate}` : '',
+                call.quarter ? call.quarter : '',
+                'Finnhub transcript',
+              ].filter(Boolean).join(' · ')
+            : [
+                call.filingDate ? `Filed ${call.filingDate}` : '',
+                call.reportDate && call.reportDate !== call.filingDate ? `Period ${call.reportDate}` : '',
+                'SEC EDGAR 8-K',
+              ].filter(Boolean).join(' · ');
+          info.append(ctx.el('span', 'edp-disclosure-detail', detail));
           rowEl.append(info);
 
-          const link = ctx.el('a', 'edp-btn-sm') as HTMLAnchorElement;
-          link.href = sanitizeUrl(call.indexUrl);
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          link.textContent = 'EDGAR ↗';
-          rowEl.append(link);
+          if (call.transcriptId) {
+            const btn = ctx.el('button', 'edp-btn-sm') as HTMLButtonElement;
+            btn.type = 'button';
+            btn.textContent = 'Open transcript';
+            btn.addEventListener('click', () => openEarningsTranscript(ctx, call));
+            rowEl.append(btn);
+          } else if (call.indexUrl) {
+            const link = ctx.el('a', 'edp-btn-sm') as HTMLAnchorElement;
+            link.href = sanitizeUrl(call.indexUrl);
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'EDGAR ↗';
+            rowEl.append(link);
+          }
           body.append(rowEl);
         }
 
@@ -1927,7 +1956,7 @@ export class CompanyRenderer implements EntityRenderer {
 
       buildFilingCard(
         'Earnings Releases & Transcripts',
-        'SEC EDGAR 8-K filings — results of operations (2.02) and Reg FD transcripts (7.01).',
+        'Earnings call transcripts from Finnhub when available, with SEC EDGAR 8-K earnings releases as fallback.',
         earningsFilings,
       );
       buildFilingCard(
@@ -2238,6 +2267,140 @@ function simpleTableRow(ctx: EntityRenderContext, cells: string[], header = fals
   const rowEl = ctx.el('div', header ? 'cp-simple-table-row cp-simple-table-header' : 'cp-simple-table-row');
   for (const cell of cells) rowEl.append(ctx.el('span', '', cell));
   return rowEl;
+}
+
+function hasSecFactsData(facts: SecCompanyFacts): boolean {
+  return facts.signals.length > 0 || facts.metrics.some((metric) => metric.quarterly || metric.annual);
+}
+
+function secMetricPeriodLabel(metric: SecCompanyFactMetric): string {
+  const period = metric.quarterly ?? metric.annual;
+  if (!period) return '-';
+  const fiscal = [period.fp, period.fy ? String(period.fy) : ''].filter(Boolean).join(' ');
+  const filed = period.filed ? `filed ${fmtDate(period.filed)}` : '';
+  return [fiscal || period.form, filed].filter(Boolean).join(' · ');
+}
+
+function secMetricValue(metric: SecCompanyFactMetric): string {
+  const period = metric.quarterly ?? metric.annual;
+  if (!period) return '-';
+  if (metric.unit === 'shares') return fmtShares(period.value);
+  return fmtFinancialValue(period.value);
+}
+
+function formatSecSignalValue(signal: SecCompanyFactSignal): string {
+  if (signal.format === 'percent') return fmtPercent(signal.value * 100);
+  if (signal.format === 'multiple') return fmtMetric(signal.value, 'x');
+  return fmtPlainNumber(signal.value);
+}
+
+function secSignalClass(signal: SecCompanyFactSignal): string {
+  if (signal.kind === 'positive') return 'cp-mini-kpi-value cp-positive';
+  if (signal.kind === 'negative') return 'cp-mini-kpi-value cp-negative';
+  return 'cp-mini-kpi-value';
+}
+
+function buildSecCompanyFactsCard(ctx: EntityRenderContext, facts: SecCompanyFacts): HTMLElement {
+  const [card, body] = ctx.sectionCard('SEC Company Facts');
+  card.classList.add('edp-card--wide');
+
+  const note = ctx.el('p', 'edp-description');
+  note.textContent = facts.cik
+    ? `Official SEC XBRL facts for ${facts.entityName || facts.ticker} · CIK ${facts.cik.replace(/^0+/, '') || facts.cik}`
+    : `Official SEC XBRL facts for ${facts.entityName || facts.ticker}`;
+  body.append(note);
+
+  if (facts.signals.length > 0) {
+    const grid = ctx.el('div', 'cp-mini-kpi-grid');
+    for (const signal of facts.signals.slice(0, 6)) {
+      const item = ctx.el('div', 'cp-mini-kpi');
+      item.append(ctx.el('span', 'cp-mini-kpi-label', signal.label));
+      item.append(ctx.el('span', secSignalClass(signal), formatSecSignalValue(signal)));
+      grid.append(item);
+    }
+    body.append(grid);
+  }
+
+  const selected = ['revenue', 'netIncome', 'cash', 'debt', 'rAndD', 'sharesDiluted']
+    .map((id) => facts.metrics.find((metric) => metric.id === id))
+    .filter((metric): metric is SecCompanyFactMetric => Boolean(metric?.concept && (metric.quarterly || metric.annual)));
+
+  if (selected.length > 0) {
+    const table = ctx.el('div', 'cp-simple-table');
+    table.append(simpleTableRow(ctx, ['Metric', 'Latest', 'Period', 'YoY'], true));
+    for (const metric of selected) {
+      const yoy = metric.quarterlyYoY ?? metric.annualYoY;
+      table.append(simpleTableRow(ctx, [
+        metric.label,
+        secMetricValue(metric),
+        secMetricPeriodLabel(metric),
+        yoy === null || yoy === undefined ? '-' : fmtPercent(yoy * 100),
+      ]));
+    }
+    body.append(table);
+  }
+
+  if (facts.sourceUrl) {
+    const link = ctx.el('a', 'cp-link') as HTMLAnchorElement;
+    link.href = sanitizeUrl(facts.sourceUrl);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'SEC companyfacts JSON';
+    body.append(link);
+  }
+
+  return card;
+}
+
+function openEarningsTranscript(ctx: EntityRenderContext, call: EarningsCallTranscript): void {
+  if (!call.transcriptId) return;
+
+  const view = ctx.el('div', 'cp-transcript-detail-view');
+  const header = ctx.el('div', 'edp-header');
+  header.append(ctx.el('h2', 'edp-title', call.label));
+  header.append(ctx.el('div', 'edp-subtitle', [call.quarter, call.filingDate].filter(Boolean).join(' · ')));
+  view.append(header);
+
+  const [card, body] = ctx.sectionCard('Transcript');
+  body.append(ctx.makeLoading('Loading earnings call transcript…'));
+  view.append(card);
+  ctx.navigate(view);
+
+  void fetchEarningsCallTranscriptDetail(call.transcriptId)
+    .then((detail) => {
+      if (ctx.signal.aborted) return;
+      body.replaceChildren();
+
+      if (!detail || detail.transcript.length === 0) {
+        body.append(ctx.makeEmpty('Transcript text unavailable'));
+        return;
+      }
+
+      if (detail.audioUrl) {
+        const audioLink = ctx.el('a', 'edp-btn-sm') as HTMLAnchorElement;
+        audioLink.href = sanitizeUrl(detail.audioUrl);
+        audioLink.target = '_blank';
+        audioLink.rel = 'noopener noreferrer';
+        audioLink.textContent = 'Audio ↗';
+        body.append(audioLink);
+      }
+
+      for (const entry of detail.transcript.slice(0, 80)) {
+        const block = ctx.el('div', 'edp-disclosure-info');
+        const speaker = ctx.el('span', 'edp-disclosure-name', entry.name);
+        block.append(speaker);
+        if (entry.session) block.append(ctx.el('span', 'edp-disclosure-detail', entry.session));
+        for (const speech of entry.speech) {
+          if (!speech.trim()) continue;
+          block.append(ctx.el('p', 'edp-description', speech));
+        }
+        body.append(block);
+      }
+    })
+    .catch((error) => {
+      if (ctx.signal.aborted) return;
+      body.replaceChildren(ctx.makeEmpty(`Transcript unavailable: ${error instanceof Error ? error.message : String(error)}`));
+    });
 }
 
 function buildDividendTable(ctx: EntityRenderContext, dividends: StockDividend[]): HTMLElement {

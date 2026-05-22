@@ -3,6 +3,7 @@ import type { EntityRenderer, EntityRenderContext, EntityRendererRegistry } from
 import { GenericEntityRenderer } from './entity-detail/renderers/generic';
 import { DetailPanelBase } from './detail-panel/DetailPanelBase';
 import { attachEntityGraphEnrichment } from './entity-detail/entity-graph-enrichment';
+import { attachExternalDatasetEnrichment } from './entity-detail/external-enrichment';
 import { resolveEntityHeroImage, type EntityHeroImage } from '@/services/entity-hero-image';
 import { sanitizeUrl } from '@/utils/sanitize';
 
@@ -77,6 +78,7 @@ export class EntityDetailPanel extends DetailPanelBase {
               }
             });
             void this.attachEntityGraph(type, data, ctx, signal);
+            void this.attachExternalEnrichment(type, data, ctx, signal);
           }
         })
         .catch((err) => {
@@ -87,9 +89,11 @@ export class EntityDetailPanel extends DetailPanelBase {
           errorEl.textContent = 'Failed to load details. Please try again later.';
           this.content.append(errorEl);
           void this.attachEntityGraph(type, data, ctx, signal);
+          void this.attachExternalEnrichment(type, data, ctx, signal);
         });
     } else {
       void this.attachEntityGraph(type, data, ctx, this.abortController.signal);
+      void this.attachExternalEnrichment(type, data, ctx, this.abortController.signal);
     }
   }
 
@@ -226,6 +230,21 @@ export class EntityDetailPanel extends DetailPanelBase {
     } catch (error) {
       if (!signal.aborted && this.currentData === data) {
         console.warn('[EntityDetailPanel] Entity graph enrichment failed:', error);
+      }
+    }
+  }
+
+  private async attachExternalEnrichment(
+    type: PopupType,
+    data: unknown,
+    ctx: EntityRenderContext,
+    signal: AbortSignal,
+  ): Promise<void> {
+    try {
+      await attachExternalDatasetEnrichment(this.content, type, data, ctx, signal);
+    } catch (error) {
+      if (!signal.aborted && this.currentData === data) {
+        console.warn('[EntityDetailPanel] External dataset enrichment failed:', error);
       }
     }
   }
