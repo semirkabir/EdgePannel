@@ -1881,34 +1881,60 @@ export class CompanyRenderer implements EntityRenderer {
     }
 
     if (hasCalls) {
-      const [card, body] = ctx.sectionCard('Earnings Call Transcripts');
-      card.classList.add('edp-card--wide');
-      const note = ctx.el('p', 'edp-description');
-      note.textContent = 'SEC EDGAR 8-K filings with earnings results or transcripts (Items 2.02 / 7.01).';
-      body.append(note);
+      // Split into earnings/transcripts vs press releases
+      const earningsFilings = data.earningsCalls.filter(c => c.kind === 'earnings' || c.kind === 'transcript');
+      const pressFilings    = data.earningsCalls.filter(c => c.kind === 'press-release' || c.kind === 'filing');
 
-      for (const call of data.earningsCalls) {
-        const rowEl = ctx.el('div', 'edp-disclosure-row');
-        rowEl.append(ctx.el('span', 'edp-disclosure-badge', call.quarter || 'Filing'));
-        const info = ctx.el('div', 'edp-disclosure-info');
-        info.append(ctx.el('span', 'edp-disclosure-name', `Earnings Release`));
-        const detail = [
-          call.filingDate ? `Filed ${call.filingDate}` : '',
-          call.reportDate ? `Period ${call.reportDate}` : '',
-        ].filter(Boolean).join(' · ');
-        info.append(ctx.el('span', 'edp-disclosure-detail', detail || 'EDGAR 8-K filing'));
-        rowEl.append(info);
+      const buildFilingCard = (title: string, note: string, filings: typeof data.earningsCalls): void => {
+        if (filings.length === 0) return;
+        const [card, body] = ctx.sectionCard(title);
+        card.classList.add('edp-card--wide');
+        const noteEl = ctx.el('p', 'edp-description');
+        noteEl.textContent = note;
+        body.append(noteEl);
 
-        const link = ctx.el('a', 'edp-btn-sm') as HTMLAnchorElement;
-        link.href = sanitizeUrl(call.indexUrl);
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = 'EDGAR';
-        rowEl.append(link);
-        body.append(rowEl);
-      }
+        for (const call of filings) {
+          const rowEl = ctx.el('div', 'edp-disclosure-row');
 
-      content.append(card);
+          // Badge: quarter for earnings, filing date month/year for press releases
+          const badgeText = call.quarter || (call.filingDate ? call.filingDate.slice(0, 7) : '8-K');
+          const badge = ctx.el('span', 'edp-disclosure-badge', badgeText);
+          if (call.kind === 'earnings')      badge.style.setProperty('--badge-accent', 'var(--accent)');
+          if (call.kind === 'transcript')    badge.style.setProperty('--badge-accent', '#7b9ef7');
+          if (call.kind === 'press-release') badge.style.setProperty('--badge-accent', 'var(--text-dim)');
+          rowEl.append(badge);
+
+          const info = ctx.el('div', 'edp-disclosure-info');
+          info.append(ctx.el('span', 'edp-disclosure-name', call.label));
+          const detail = [
+            call.filingDate ? `Filed ${call.filingDate}` : '',
+            call.reportDate && call.reportDate !== call.filingDate ? `Period ${call.reportDate}` : '',
+          ].filter(Boolean).join(' · ');
+          info.append(ctx.el('span', 'edp-disclosure-detail', detail || 'SEC EDGAR 8-K'));
+          rowEl.append(info);
+
+          const link = ctx.el('a', 'edp-btn-sm') as HTMLAnchorElement;
+          link.href = sanitizeUrl(call.indexUrl);
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'EDGAR ↗';
+          rowEl.append(link);
+          body.append(rowEl);
+        }
+
+        content.append(card);
+      };
+
+      buildFilingCard(
+        'Earnings Releases & Transcripts',
+        'SEC EDGAR 8-K filings — results of operations (2.02) and Reg FD transcripts (7.01).',
+        earningsFilings,
+      );
+      buildFilingCard(
+        'Press Releases & Filings',
+        'Other material 8-K disclosures filed with the SEC.',
+        pressFilings,
+      );
     }
 
     if (hasSurprises) {
