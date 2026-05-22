@@ -164,6 +164,21 @@ export async function fetchStockQuote(symbol: string): Promise<StockQuote | null
   return data;
 }
 
+export async function fetchYahooQuote(symbol: string): Promise<StockQuote | null> {
+  try {
+    const url = new URL('/api/market-data', window.location.origin);
+    url.searchParams.set('endpoint', 'yahoo-quote');
+    url.searchParams.set('symbol', symbol);
+    const resp = await fetch(url.toString());
+    if (!resp.ok) return null;
+    const data = await resp.json() as StockQuote & { currency?: string; shortName?: string };
+    if (!data || !data.c) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Company Profile ─────────────────────────────────────────────────────────
 
 export interface CompanyProfile {

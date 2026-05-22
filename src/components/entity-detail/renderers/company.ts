@@ -22,6 +22,7 @@ import {
   fetchRevenueBreakdown,
   fetchUpgradeDowngrade,
   fetchStockQuote,
+  fetchYahooQuote,
   type StockQuote,
   type CompanyProfile,
   type CompanyMetrics,
@@ -87,6 +88,7 @@ interface CompanyEnriched {
   ratingActions: UpgradeDowngradeAction[];
   earningsCalls: EarningsCallTranscript[];
   finnhubQuote: StockQuote | null;
+  yahooQuote: StockQuote | null;
 }
 
 const client = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
@@ -328,6 +330,11 @@ function getRangeChangePercent(data: CompanyEnriched, range: ChartRange): number
     return data.finnhubQuote!.dp;
   }
 
+  // Yahoo Finance day change percent
+  if (range === '1D' && Number.isFinite(data.yahooQuote?.dp)) {
+    return data.yahooQuote!.dp;
+  }
+
   const closes = getHistoricalCloses(data);
   if (closes.length < 2) return null;
 
@@ -346,6 +353,11 @@ function getSnapshotPrice(data: CompanyEnriched): { price: number | null; source
   // Direct Finnhub quote — current price field 'c'
   if (Number.isFinite(data.finnhubQuote?.c) && (data.finnhubQuote?.c ?? 0) > 0) {
     return { price: data.finnhubQuote!.c, source: 'quote' };
+  }
+
+  // Yahoo Finance fallback — no API key required
+  if (Number.isFinite(data.yahooQuote?.c) && (data.yahooQuote?.c ?? 0) > 0) {
+    return { price: data.yahooQuote!.c, source: 'quote' };
   }
 
   // Fall back to last historical close
@@ -680,7 +692,7 @@ export class CompanyRenderer implements EntityRenderer {
       profile, metrics, peers, news,
       priceTarget, recommendations, insiderTxns, optionChain, ownership, earningsSurprises,
       financialsAnnual, financialsQuarterly, epsEstimates, revenueEstimates, dividends,
-      revenueBreakdown, ratingActions, earningsCalls, finnhubQuote,
+      revenueBreakdown, ratingActions, earningsCalls, finnhubQuote, yahooQuote,
     ] = await settleInBatches<unknown>([
       () => fetchCompanyProfile(ticker),
       () => fetchCompanyMetrics(ticker),
@@ -701,6 +713,7 @@ export class CompanyRenderer implements EntityRenderer {
       () => fetchUpgradeDowngrade(ticker),
       () => fetchEarningsCallTranscripts(ticker),
       () => fetchStockQuote(ticker),
+      () => fetchYahooQuote(ticker),
     ]);
 
     const quote = quotesResp.status === 'fulfilled'
@@ -738,6 +751,7 @@ export class CompanyRenderer implements EntityRenderer {
       ratingActions: settledValue<UpgradeDowngradeAction[]>(ratingActions, []),
       earningsCalls: settledValue<EarningsCallTranscript[]>(earningsCalls, []),
       finnhubQuote: settledValue<StockQuote | null>(finnhubQuote, null),
+      yahooQuote: settledValue<StockQuote | null>(yahooQuote, null),
     };
   }
 

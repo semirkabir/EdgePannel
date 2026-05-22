@@ -254,6 +254,51 @@ export default async function handler(req) {
         finnhubUrl.searchParams.set('symbol', symbol);
         break;
 
+      case 'yahoo-quote': {
+        // Yahoo Finance fallback — no API key required, proxied server-side to avoid CORS
+        if (!symbol) {
+          return new Response(JSON.stringify({ error: 'symbol is required for yahoo-quote' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
+        try {
+          const yahooResp = await fetch(yahooUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+          });
+          if (!yahooResp.ok) {
+            return new Response(JSON.stringify({ error: `Yahoo Finance returned ${yahooResp.status}` }), {
+              status: yahooResp.status,
+              headers: { ...cors, 'Content-Type': 'application/json' },
+            });
+          }
+          const yahooData = await yahooResp.json();
+          const meta = yahooData?.chart?.result?.[0]?.meta ?? {};
+          // Normalize to same shape as Finnhub quote {c, d, dp, h, l, o, pc}
+          const regularPrice = meta.regularMarketPrice ?? 0;
+          const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? regularPrice;
+          const change = regularPrice - prevClose;
+          const changePct = prevClose ? (change / prevClose) * 100 : 0;
+          return new Response(JSON.stringify({
+            c: regularPrice,
+            d: change,
+            dp: changePct,
+            h: meta.regularMarketDayHigh ?? regularPrice,
+            l: meta.regularMarketDayLow ?? regularPrice,
+            o: meta.regularMarketOpen ?? regularPrice,
+            pc: prevClose,
+            currency: meta.currency ?? '',
+            shortName: meta.shortName ?? meta.symbol ?? symbol,
+          }), { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
+        } catch (err) {
+          return new Response(JSON.stringify({ error: err.message }), {
+            status: 500,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown endpoint: ${endpoint}` }), {
           status: 400,
