@@ -21,6 +21,8 @@ import {
   fetchStockDividends,
   fetchRevenueBreakdown,
   fetchUpgradeDowngrade,
+  fetchStockQuote,
+  type StockQuote,
   type CompanyProfile,
   type CompanyMetrics,
   type CompanyNewsItem,
@@ -84,6 +86,7 @@ interface CompanyEnriched {
   revenueBreakdown: RevenueBreakdown | null;
   ratingActions: UpgradeDowngradeAction[];
   earningsCalls: EarningsCallTranscript[];
+  finnhubQuote: StockQuote | null;
 }
 
 const client = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
@@ -320,6 +323,11 @@ function getRangeChangePercent(data: CompanyEnriched, range: ChartRange): number
     return data.quote!.change;
   }
 
+  // Finnhub quote dp = day change percent (pre-computed)
+  if (range === '1D' && Number.isFinite(data.finnhubQuote?.dp)) {
+    return data.finnhubQuote!.dp;
+  }
+
   const closes = getHistoricalCloses(data);
   if (closes.length < 2) return null;
 
@@ -330,10 +338,17 @@ function getRangeChangePercent(data: CompanyEnriched, range: ChartRange): number
 }
 
 function getSnapshotPrice(data: CompanyEnriched): { price: number | null; source: 'quote' | 'close' | null } {
+  // Proto RPC quote (requires backend)
   if (Number.isFinite(data.quote?.price)) {
     return { price: data.quote!.price, source: 'quote' };
   }
 
+  // Direct Finnhub quote — current price field 'c'
+  if (Number.isFinite(data.finnhubQuote?.c) && (data.finnhubQuote?.c ?? 0) > 0) {
+    return { price: data.finnhubQuote!.c, source: 'quote' };
+  }
+
+  // Fall back to last historical close
   const closes = getHistoricalCloses(data);
   const latestClose = closes[closes.length - 1]?.close;
   return Number.isFinite(latestClose)
@@ -665,7 +680,7 @@ export class CompanyRenderer implements EntityRenderer {
       profile, metrics, peers, news,
       priceTarget, recommendations, insiderTxns, optionChain, ownership, earningsSurprises,
       financialsAnnual, financialsQuarterly, epsEstimates, revenueEstimates, dividends,
-      revenueBreakdown, ratingActions, earningsCalls,
+      revenueBreakdown, ratingActions, earningsCalls, finnhubQuote,
     ] = await settleInBatches<unknown>([
       () => fetchCompanyProfile(ticker),
       () => fetchCompanyMetrics(ticker),
@@ -685,6 +700,7 @@ export class CompanyRenderer implements EntityRenderer {
       () => fetchRevenueBreakdown(ticker),
       () => fetchUpgradeDowngrade(ticker),
       () => fetchEarningsCallTranscripts(ticker),
+      () => fetchStockQuote(ticker),
     ]);
 
     const quote = quotesResp.status === 'fulfilled'
@@ -721,6 +737,7 @@ export class CompanyRenderer implements EntityRenderer {
       revenueBreakdown: settledValue<RevenueBreakdown | null>(revenueBreakdown, null),
       ratingActions: settledValue<UpgradeDowngradeAction[]>(ratingActions, []),
       earningsCalls: settledValue<EarningsCallTranscript[]>(earningsCalls, []),
+      finnhubQuote: settledValue<StockQuote | null>(finnhubQuote, null),
     };
   }
 
