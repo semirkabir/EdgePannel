@@ -156,12 +156,12 @@ const NAME_ALIASES: Record<string, string> = {
   'Netanyahu': 'Israel', 'Israeli': 'Israel', 'IDF': 'Israel',
   'Putin': 'Russia', 'Russian': 'Russia',
   'Zelensky': 'Ukraine', 'Zelenskyy': 'Ukraine', 'Ukrainian': 'Ukraine',
-  'Xi': 'China', 'Chinese': 'China',
+  'Xi': 'China',
   'Modi': 'India', 'Indian': 'India',
   'Erdogan': 'Turkey', 'Turkish': 'Turkey',
   'MBS': 'Saudi Arabia', 'Saudi': 'Saudi Arabia',
   'Khamenei': 'Iran', 'IRGC': 'Iran',
-  'Kim Jong Un': 'North Korea', 'DPRK': 'North Korea',
+  'Kim Jong Un': 'North Korea',
   'Lula': 'Brazil', 'Brazilian': 'Brazil',
   'Macron': 'France', 'French': 'France',
   'Scholz': 'Germany', 'German': 'Germany',
@@ -325,6 +325,7 @@ ${marketLines}`;
         const idx = entry.line - 1;
         if (idx < 0 || idx >= batch.length) return null;
         const market = batch[idx];
+        if (!market) return null;
         const countryName = entry.country;
         if (!countryName) return null;
 
