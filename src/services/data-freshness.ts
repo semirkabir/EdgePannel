@@ -52,7 +52,8 @@ export type DataSourceId =
   | 'renewable_mix'  // Renewable generation mix / grid stress
   | 'security_advisories'  // Government travel/security advisories
   | 'gpsjam'               // GPS/GNSS interference
-  | 'webcams';             // Windy live webcams
+  | 'webcams'              // Windy live webcams
+  | 'ecb_fx';             // ECB daily FX reference rates
 
 export type FreshnessStatus = 'fresh' | 'stale' | 'very_stale' | 'no_data' | 'disabled' | 'error';
 
@@ -124,6 +125,7 @@ const SOURCE_METADATA: Record<DataSourceId, { name: string; requiredForRisk: boo
   security_advisories: { name: 'Security Advisories', requiredForRisk: false, panelId: 'security-advisories' },
   gpsjam: { name: 'GPS/GNSS Interference', requiredForRisk: false, panelId: 'map' },
   webcams: { name: 'Live Webcams (Windy)', requiredForRisk: false, panelId: 'live-webcams' },
+  ecb_fx: { name: 'ECB FX Rates', requiredForRisk: false, panelId: 'economic' },
 };
 
 import type { ManagedService } from './managed-service';
@@ -477,6 +479,7 @@ const INTELLIGENCE_GAP_MESSAGES: Record<DataSourceId, string> = {
   security_advisories: 'Government travel advisory data unavailable—security alerts may be missed',
   gpsjam: 'GPS/GNSS interference data unavailable—jamming zones undetected',
   webcams: 'Live webcam feeds unavailable—Windy API not responding',
+  ecb_fx: 'ECB FX reference rates unavailable—currency data may be stale',
 };
 
 /**

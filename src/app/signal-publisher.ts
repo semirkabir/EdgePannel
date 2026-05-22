@@ -891,6 +891,7 @@ export class SignalPublisher {
     void this.loadNavWarnings();
     void this.loadMarketPerfScores();
     void this.loadTariffBarriers();
+    void this.loadEcbFxRates();
   }
 
   async refreshTemporalBaseline(): Promise<void> {
@@ -978,6 +979,20 @@ export class SignalPublisher {
       this.ctx.mapStore.map?.setLayerReady('tariffBarriers', barriers.length > 0);
     } catch (err) {
       console.debug('[DataLoader] Tariff barriers failed (non-fatal):', err);
+    }
+  }
+
+  async loadEcbFxRates(): Promise<void> {
+    try {
+      const { fetchEcbFxRates } = await import('@/services/economic/ecb-fx');
+      const rates = await fetchEcbFxRates();
+      if (rates.length) {
+        dataFreshness.recordUpdate('ecb_fx', rates.length);
+        console.debug('[DataLoader] ECB FX rates loaded:', rates.length, 'currencies');
+      }
+    } catch (err) {
+      console.debug('[DataLoader] ECB FX rates failed (non-fatal):', err);
+      dataFreshness.recordError('ecb_fx', String(err));
     }
   }
 

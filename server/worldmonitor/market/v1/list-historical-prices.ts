@@ -9,7 +9,7 @@ import type {
   PriceSeries,
   DailyPrice,
 } from '../../../../src/generated/server/worldmonitor/market/v1/service_server';
-import { UPSTREAM_TIMEOUT_MS, parseStringArray } from './_shared';
+import { UPSTREAM_TIMEOUT_MS, parseStringArray, getRelayBaseUrl, getRelayHeaders } from './_shared';
 import { CHROME_UA, yahooGate } from '../../../_shared/constants';
 import { cachedFetchJson } from '../../../_shared/redis';
 
@@ -34,19 +34,44 @@ interface HistoricalChartResponse {
 const inMemoryCache = new Map<string, { data: ListHistoricalPricesResponse; timestamp: number }>();
 const IN_MEMORY_CACHE_TTL = 900_000; // 15 minutes
 
-function fetchHistoricalChart(symbol: string, months: number): Promise<HistoricalChartResponse | null> {
+async function fetchHistoricalChart(symbol: string, months: number): Promise<HistoricalChartResponse | null> {
   const range = months <= 1 ? '1mo' : months <= 3 ? '3mo' : months <= 6 ? '6mo' : months <= 12 ? '1y' : '2y';
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+  const path = `v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
 
-  return yahooGate().then(() =>
-    fetch(url, {
+  // Direct Yahoo first
+  try {
+    await yahooGate();
+    const resp = await fetch(`https://query1.finance.yahoo.com/${path}`, {
       headers: { 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    }).then(async (resp) => {
-      if (!resp.ok) return null;
+    });
+    if (resp.ok) {
       return (await resp.json()) as HistoricalChartResponse;
-    }).catch(() => null)
-  );
+    }
+    console.warn(`[list-historical-prices] Yahoo direct HTTP ${resp.status} for ${symbol}`);
+  } catch (err) {
+    console.warn(`[list-historical-prices] Yahoo direct error for ${symbol}:`, (err as Error).message);
+  }
+
+  // Fallback: Railway relay (different IP, avoids rate-limiting)
+  const relayBase = getRelayBaseUrl();
+  if (relayBase) {
+    try {
+      const relayUrl = `${relayBase}/yahoo-chart?symbol=${encodeURIComponent(symbol)}&range=${range}&interval=1d`;
+      const resp = await fetch(relayUrl, {
+        headers: getRelayHeaders(),
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+      if (resp.ok) {
+        return (await resp.json()) as HistoricalChartResponse;
+      }
+      console.warn(`[list-historical-prices] Yahoo relay HTTP ${resp.status} for ${symbol}`);
+    } catch (err) {
+      console.warn(`[list-historical-prices] Yahoo relay error for ${symbol}:`, (err as Error).message);
+    }
+  }
+
+  return null;
 }
 
 function parseHistoricalData(chart: HistoricalChartResponse, symbol: string): PriceSeries | null {

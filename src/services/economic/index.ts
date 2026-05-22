@@ -59,3 +59,15 @@ export {
   fetchBisData,
 } from './bis';
 export type { BisData, BisPolicyRate, BisExchangeRate, BisCreditToGdp } from './bis';
+
+// ECB FX (European Central Bank daily reference rates)
+export {
+  fetchEcbFxRates,
+  getCachedFxRates,
+  getFxRateByCountry,
+  getFxRateByCurrency,
+  getVsUsd,
+  CURRENCY_COUNTRY,
+  CURRENCY_NAME,
+} from './ecb-fx';
+export type { EcbFxRate } from './ecb-fx';

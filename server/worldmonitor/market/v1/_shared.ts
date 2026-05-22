@@ -7,7 +7,7 @@ import { CHROME_UA, yahooGate } from '../../../_shared/constants';
 // Relay helpers (Railway proxy for Yahoo when Vercel IPs are rate-limited)
 // ========================================================================
 
-function getRelayBaseUrl(): string | null {
+export function getRelayBaseUrl(): string | null {
   const relayUrl = process.env.WS_RELAY_URL;
   if (!relayUrl) return null;
   return relayUrl
@@ -15,7 +15,7 @@ function getRelayBaseUrl(): string | null {
     .replace(/\/$/, '');
 }
 
-function getRelayHeaders(): Record<string, string> {
+export function getRelayHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'User-Agent': CHROME_UA };
   const relaySecret = process.env.RELAY_SHARED_SECRET;
   if (relaySecret) {

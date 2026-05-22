@@ -1037,6 +1037,38 @@ function sanctionsProxyPlugin(): Plugin {
   };
 }
 
+function ecbFxPlugin(): Plugin {
+  const ECB_CURRENCIES =
+    'USD+JPY+GBP+CHF+CNY+INR+BRL+CAD+AUD+NZD+MXN+TRY+PLN+HUF+CZK+RON+ZAR+KRW+SGD+HKD+NOK+SEK+DKK+IDR+MYR+PHP+THB+ILS+BGN+HRK+ISK+DZD';
+  const ECB_URL =
+    `https://data-api.ecb.europa.eu/service/data/EXR/D.${ECB_CURRENCIES}.EUR.SP00.A` +
+    `?format=jsondata&lastNObservations=2`;
+  return {
+    name: 'ecb-fx-proxy',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/ecb-fx')) return next();
+        try {
+          const response = await fetch(ECB_URL, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(15_000),
+          });
+          const data = await response.text();
+          res.statusCode = response.status;
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end(data);
+        } catch (err: any) {
+          res.statusCode = err.name === 'AbortError' ? 504 : 502;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ rates: [], error: 'ECB proxy error' }));
+        }
+      });
+    },
+  };
+}
+
 function gdacsProxyPlugin(): Plugin {
   const GDACS_URL = 'https://www.gdacs.org/gdacsapi/api/events/geteventlist/EVENTS?eventlist=TC,FL,VO,WF&alertlevel=Red,Orange&limit=50';
   return {
@@ -1293,6 +1325,7 @@ export default defineConfig({
     portfolioDataPlugin(),
     weatherProxyPlugin(),
     gdacsProxyPlugin(),
+    ecbFxPlugin(),
     sanctionsProxyPlugin(),
     marketRiskPlugin(),
     planespottersProxyPlugin(),
