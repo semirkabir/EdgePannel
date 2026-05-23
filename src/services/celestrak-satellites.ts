@@ -226,6 +226,22 @@ function writeCachedSatellites(satellites: SatelliteData[]): void {
   }
 }
 
+const CURATED_URL = '/data/satellite.generated.json';
+
+/**
+ * Loads the curated set of notable satellites bundled with the app. This is a
+ * small, hand-picked catalog (ISS, Tiangong, key imaging/military sats) served
+ * as a static file — reliable in dev and prod, and sized for icon rendering
+ * rather than the full ~10k-entry CelesTrak catalog.
+ */
+export async function fetchCuratedSatellites(): Promise<SatelliteData[]> {
+  const resp = await fetch(CURATED_URL);
+  if (!resp.ok) throw new Error(`satellite.generated.json returned ${resp.status}`);
+  const data = await resp.json();
+  if (!Array.isArray(data)) throw new Error('satellite.generated.json is not an array');
+  return data as SatelliteData[];
+}
+
 export async function fetchCelesTrakSatellites(): Promise<SatelliteData[]> {
   const cached = readCachedSatellites();
   if (cached?.length) return cached;

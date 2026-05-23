@@ -30,6 +30,7 @@ export {
   renderUcdpEventPopup,
   renderSpeciesRecoveryPopup,
   renderRenewableInstallationPopup,
+  renderSanctionedAssetPopup,
 } from './renderers-geo';
 
 export {

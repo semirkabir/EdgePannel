@@ -25,7 +25,11 @@
       "Bash(curl -s -w \"\\\\nHTTP_STATUS:%{http_code}\\\\n\" \"http://localhost:3005/api/fetch-article?url=https%3A%2F%2Fnews.google.com%2Frss%2Farticles%2FCBMimAFBVV95cUxORTZwdFF0bkVNbjdPN1VpSVVKeGNvMkVYVnlCa2NveWtmRUUzLTktNWxwTnFrYnZEb3NEZUxmQXY2M1RHR1NIeS1WUXNFTDBRXzROd3RSazFxeFpDQmFxMjE1cW9NWWJNUDU1Q2MxTXY4Y3djZmZWdDBReDB5MFd0a1ZCWDVwSkVvMmMwWHVVWEJBRmloQlRETw%3Foc%3D5\")",
       "Bash(node -e \"import\\('./api/_google-news-resolver.js'\\).then\\(m => console.log\\('OK:', Object.keys\\(m\\)\\)\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
       "Bash(node -e \"import\\('./api/fetch-article.js'\\).then\\(m => console.log\\('OK'\\)\\).catch\\(e => { console.error\\('FAIL:', e.message\\); process.exit\\(1\\); }\\)\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}bytes\\\\n\" http://localhost:3000/data/satellite.generated.json)",
+      "Bash(git log *)",
+      "Bash(node scripts/parse-satellite.mjs)",
+      "Bash(node -e \"console.log\\(JSON.parse\\(require\\('fs'\\).readFileSync\\('./public/data/satellite.generated.json','utf8'\\)\\).length, 'satellites'\\)\")"
     ]
   }
 }

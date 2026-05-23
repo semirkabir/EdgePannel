@@ -1,4 +1,4 @@
-import type { ConflictZone, Hotspot, NewsItem, MilitaryBase, StrategicWaterway, APTGroup, NuclearFacility, EconomicCenter, GammaIrradiator, Pipeline, UnderseaCable, CableAdvisory, RepairShip, InternetOutage, AIDataCenter, AisDisruptionEvent, SocialUnrestEvent, MilitaryFlight, MilitaryVessel, MilitaryFlightCluster, MilitaryVesselCluster, NaturalEvent, Port, Spaceport, CriticalMineralProject, CyberThreat, GulfInvestment, UcdpGeoEvent } from '@/types';
+import type { ConflictZone, Hotspot, NewsItem, MilitaryBase, StrategicWaterway, APTGroup, NuclearFacility, EconomicCenter, GammaIrradiator, Pipeline, UnderseaCable, CableAdvisory, RepairShip, InternetOutage, AIDataCenter, AisDisruptionEvent, SocialUnrestEvent, MilitaryFlight, MilitaryVessel, MilitaryFlightCluster, MilitaryVesselCluster, NaturalEvent, Port, Spaceport, CriticalMineralProject, CyberThreat, GulfInvestment, UcdpGeoEvent, SanctionedAsset } from '@/types';
 import type { PositiveGeoEvent } from '@/services/positive-events-geo';
 import type { KindnessPoint } from '@/services/kindness-data';
 import type { SpeciesRecovery } from '@/services/conservation-data';
@@ -31,7 +31,7 @@ import {
   renderWaterwayPopup, renderNuclearPopup, renderEconomicPopup,
   renderIrradiatorPopup, renderPipelinePopup, renderFirePopup,
   renderPositiveEventPopup, renderKindnessEventPopup, renderUcdpEventPopup,
-  renderSpeciesRecoveryPopup, renderRenewableInstallationPopup,
+  renderSpeciesRecoveryPopup, renderRenewableInstallationPopup, renderSanctionedAssetPopup,
 } from './popup/renderers-geo';
 import {
   renderMilitaryFlightPopup, renderMilitaryVesselPopup,
@@ -63,11 +63,11 @@ import {
   renderAPTPopup, renderCyberThreatPopup,
 } from './popup/renderers-special';
 
-export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'cyberThreat' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'cable-advisory' | 'repair-ship' | 'outage' | 'datacenter' | 'datacenterCluster' | 'ais' | 'aisVessel' | 'maritimeGeo' | 'protest' | 'protestCluster' | 'flight' | 'aircraft' | 'militaryFlight' | 'militaryVessel' | 'militaryFlightCluster' | 'militaryVesselCluster' | 'natEvent' | 'port' | 'spaceport' | 'mineral' | 'startupHub' | 'cloudRegion' | 'techHQ' | 'accelerator' | 'techEvent' | 'techHQCluster' | 'techEventCluster' | 'techActivity' | 'geoActivity' | 'stockExchange' | 'financialCenter' | 'centralBank' | 'commodityHub' | 'iranEvent' | 'gpsJamming' | 'gulfInvestment' | 'tradeRoute' | 'commodityPort' | 'fire' | 'positiveEvent' | 'kindnessEvent' | 'ucdpEvent' | 'speciesRecovery' | 'renewableInstallation' | 'company' | 'predictionMarket' | 'crypto' | 'article' | 'ciiCountry' | 'governanceCountry' | 'sanctionsCountry' | 'democracyCountry' | 'gemRiskCountry' | 'congressPolitician' | 'institution' | 'congressTrade' | 'sector';
+export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'cyberThreat' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'cable-advisory' | 'repair-ship' | 'outage' | 'datacenter' | 'datacenterCluster' | 'ais' | 'aisVessel' | 'maritimeGeo' | 'protest' | 'protestCluster' | 'flight' | 'aircraft' | 'militaryFlight' | 'militaryVessel' | 'militaryFlightCluster' | 'militaryVesselCluster' | 'natEvent' | 'port' | 'spaceport' | 'mineral' | 'startupHub' | 'cloudRegion' | 'techHQ' | 'accelerator' | 'techEvent' | 'techHQCluster' | 'techEventCluster' | 'techActivity' | 'geoActivity' | 'stockExchange' | 'financialCenter' | 'centralBank' | 'commodityHub' | 'iranEvent' | 'gpsJamming' | 'gulfInvestment' | 'tradeRoute' | 'commodityPort' | 'fire' | 'positiveEvent' | 'kindnessEvent' | 'ucdpEvent' | 'speciesRecovery' | 'renewableInstallation' | 'sanctionedAsset' | 'company' | 'predictionMarket' | 'crypto' | 'article' | 'ciiCountry' | 'governanceCountry' | 'sanctionsCountry' | 'democracyCountry' | 'gemRiskCountry' | 'congressPolitician' | 'institution' | 'congressTrade' | 'sector';
 
 interface PopupData {
   type: PopupType;
-  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | CyberThreat | NuclearFacility | EconomicCenter | GeoPredictionMarket | GammaIrradiator | Pipeline | UnderseaCable | CableAdvisory | RepairShip | InternetOutage | AIDataCenter | AisDisruptionEvent | MaritimeGeospatialFeature | SocialUnrestEvent | AirportDelayAlert | PositionSample | MilitaryFlight | MilitaryVessel | MilitaryFlightCluster | MilitaryVesselCluster | NaturalEvent | Port | Spaceport | CriticalMineralProject | StartupHub | CloudRegion | TechHQ | Accelerator | TechEventPopupData | TechHQClusterData | TechEventClusterData | ProtestClusterData | DatacenterClusterData | TechHubActivity | GeoHubActivity | StockExchangePopupData | FinancialCenterPopupData | CentralBankPopupData | CommodityHubPopupData | IranEventPopupData | GpsJammingPopupData | GulfInvestment | TradeRouteSegment | CommodityPort | { region?: string; brightness?: number; frp?: number; acq_date?: string } | PositiveGeoEvent | KindnessPoint | UcdpGeoEvent | SpeciesRecovery | RenewableInstallation;
+  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | CyberThreat | NuclearFacility | EconomicCenter | GeoPredictionMarket | GammaIrradiator | Pipeline | UnderseaCable | CableAdvisory | RepairShip | InternetOutage | AIDataCenter | AisDisruptionEvent | MaritimeGeospatialFeature | SocialUnrestEvent | AirportDelayAlert | PositionSample | MilitaryFlight | MilitaryVessel | MilitaryFlightCluster | MilitaryVesselCluster | NaturalEvent | Port | Spaceport | CriticalMineralProject | StartupHub | CloudRegion | TechHQ | Accelerator | TechEventPopupData | TechHQClusterData | TechEventClusterData | ProtestClusterData | DatacenterClusterData | TechHubActivity | GeoHubActivity | StockExchangePopupData | FinancialCenterPopupData | CentralBankPopupData | CommodityHubPopupData | IranEventPopupData | GpsJammingPopupData | GulfInvestment | TradeRouteSegment | CommodityPort | { region?: string; brightness?: number; frp?: number; acq_date?: string } | PositiveGeoEvent | KindnessPoint | UcdpGeoEvent | SpeciesRecovery | RenewableInstallation | SanctionedAsset;
   relatedNews?: NewsItem[];
   x: number;
   y: number;
@@ -616,6 +616,8 @@ export class MapPopup {
         return renderSpeciesRecoveryPopup(data.data as SpeciesRecovery);
       case 'renewableInstallation':
         return renderRenewableInstallationPopup(data.data as RenewableInstallation);
+      case 'sanctionedAsset':
+        return renderSanctionedAssetPopup(data.data as SanctionedAsset);
       default:
         return '';
     }

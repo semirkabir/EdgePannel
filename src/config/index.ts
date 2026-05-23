@@ -80,7 +80,8 @@ export {
 } from './geo';
 
 export { GAMMA_IRRADIATORS } from './irradiators';
-export { PIPELINES, PIPELINE_COLORS } from './pipelines';
+export { PIPELINES, PIPELINE_COLORS, hydrateGeneratedPipelines } from './pipelines';
+export { SANCTIONED_ASSETS, hydrateGeneratedSanctionedAssets } from './sanctioned-assets';
 export { PORTS } from './ports';
 export { MONITORED_AIRPORTS, FAA_AIRPORTS } from './airports';
 export {

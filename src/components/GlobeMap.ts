@@ -471,8 +471,6 @@ export class GlobeMap {
   private currentView: MapView = 'global';
 
   // Datacenter clustering state
-  private datacenterClusters: (DatacenterMarker | { _kind: 'datacenterCluster'; _lat: number; _lng: number; count: number; items: DatacenterMarker[] })[] = [];
-  private lastClusterZoom = -1;
 
   // Click callbacks
   private onHotspotClickCb: ((h: Hotspot) => void) | null = null;
@@ -1320,41 +1318,7 @@ export class GlobeMap {
   // ─── Datacenter clustering ────────────────────────────────────────────────
 
   private computeDatacenterClusters(): (DatacenterMarker | { _kind: 'datacenterCluster'; _lat: number; _lng: number; count: number; items: DatacenterMarker[] })[] {
-    if (!this.globe) return this.datacenterMarkers;
-
-    const pov = this.globe.pointOfView();
-    const altitude = pov?.altitude ?? 2;
-    const zoomLevel = Math.max(0, Math.min(4, Math.floor(5 - altitude * 1.2)));
-    
-    if (zoomLevel >= 3 || this.datacenterMarkers.length === 0) {
-      this.lastClusterZoom = zoomLevel;
-      return this.datacenterMarkers;
-    }
-
-    if (zoomLevel === this.lastClusterZoom) {
-      return this.datacenterClusters;
-    }
-
-    const clusterRadius = zoomLevel === 0 ? 8 : zoomLevel === 1 ? 5 : 3;
-    const clustered: Map<string, { _kind: 'datacenterCluster'; _lat: number; _lng: number; count: number; items: DatacenterMarker[] }> = new Map();
-    const clusteredIds = new Set<string>();
-
-    for (const dc of this.datacenterMarkers) {
-      if (clusteredIds.has(dc.id)) continue;
-
-      const key = `${Math.round(dc._lat / clusterRadius)}_${Math.round(dc._lng / clusterRadius)}`;
-      if (!clustered.has(key)) {
-        clustered.set(key, { _kind: 'datacenterCluster', _lat: dc._lat, _lng: dc._lng, count: 0, items: [] });
-      }
-      const cluster = clustered.get(key)!;
-      cluster.count++;
-      cluster.items.push(dc);
-      clusteredIds.add(dc.id);
-    }
-
-    this.lastClusterZoom = zoomLevel;
-    this.datacenterClusters = [...clustered.values()];
-    return this.datacenterClusters;
+    return this.datacenterMarkers;
   }
 
   private getDatacenterClusterItems(): GlobeMarker[] {

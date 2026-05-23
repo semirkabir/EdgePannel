@@ -1,4 +1,4 @@
-import type { ConflictZone, Hotspot, NuclearFacility, EconomicCenter, GammaIrradiator, Pipeline, StrategicWaterway } from '@/types';
+import type { ConflictZone, Hotspot, NuclearFacility, EconomicCenter, GammaIrradiator, Pipeline, StrategicWaterway, SanctionedAsset } from '@/types';
 import type { PositiveGeoEvent } from '@/services/positive-events-geo';
 import type { KindnessPoint } from '@/services/kindness-data';
 import type { SpeciesRecovery } from '@/services/conservation-data';
@@ -766,6 +766,30 @@ export function renderRenewableInstallationPopup(installation: RenewableInstalla
         ${stat('Year', String(installation.year))}
         ${stat('Status', escapeHtml(installation.status.replace(/_/g, ' ')))}
       </div>
+    </div>
+  `;
+}
+
+export function renderSanctionedAssetPopup(asset: SanctionedAsset): string {
+  const typeLabel = asset.type.replace(/_/g, ' ');
+  const value = asset.value ? stat('Value', escapeHtml(asset.value)) : '';
+  const owner = asset.owner ? stat('Owner / linked party', escapeHtml(asset.owner)) : '';
+  return `
+    <div class="popup-header sanctions high">
+      <span class="popup-icon">!</span>
+      <span class="popup-title">${escapeHtml(asset.name.toUpperCase())}</span>
+      ${pbadge(typeLabel.toUpperCase(), 'high')}
+      <button class="popup-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="popup-body">
+      <div class="popup-subtitle">${escapeHtml(asset.sanctionCountry)} sanctions exposure</div>
+      <div class="popup-stats">
+        ${stat('Program', escapeHtml(asset.program))}
+        ${owner}
+        ${value}
+        ${stat(t('popups.coordinates'), `${asset.lat.toFixed(2)}&deg;, ${asset.lon.toFixed(2)}&deg;`)}
+      </div>
+      <p class="popup-description">${escapeHtml(asset.description)}</p>
     </div>
   `;
 }

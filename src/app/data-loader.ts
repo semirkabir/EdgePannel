@@ -542,6 +542,7 @@ export class DataLoaderManager implements AppModule {
         case 'displacement':
         case 'climate':
         case 'gpsJamming':
+        case 'satellite':
           await sp?.loadIntelligenceSignals?.();
           break;
         case 'polymarketMarkets':

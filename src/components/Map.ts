@@ -4,7 +4,7 @@ import { escapeHtml } from '@/utils/sanitize';
 import { getCSSColor, getCurrentTheme } from '@/utils';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { Feature, Geometry } from 'geojson';
-import type { MapLayers, Hotspot, NewsItem, InternetOutage, RelatedAsset, AssetType, AisDisruptionEvent, AisDensityZone, CableAdvisory, RepairShip, SocialUnrestEvent, MilitaryFlight, MilitaryVessel, MilitaryFlightCluster, MilitaryVesselCluster, NaturalEvent, CyberThreat, CableHealthRecord, UcdpGeoEvent } from '@/types';
+import type { MapLayers, Hotspot, NewsItem, InternetOutage, RelatedAsset, AssetType, AisDisruptionEvent, AisDensityZone, CableAdvisory, RepairShip, SocialUnrestEvent, MilitaryFlight, MilitaryVessel, MilitaryFlightCluster, MilitaryVesselCluster, NaturalEvent, CyberThreat, CableHealthRecord, UcdpGeoEvent, SanctionedAsset } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import { filterRenderableAircraftPositions, sampleAircraftPositions } from '@/services/aviation';
 import type { MaritimeGeospatialFeature, MaritimeGeospatialSnapshot } from '@/services/maritime';
@@ -29,6 +29,8 @@ import {
   PIPELINES,
   PIPELINE_COLORS,
   SANCTIONED_COUNTRIES,
+  SANCTIONED_ASSETS,
+  hydrateGeneratedSanctionedAssets,
   STRATEGIC_WATERWAYS,
   APT_GROUPS,
   ECONOMIC_CENTERS,
@@ -303,6 +305,7 @@ export class MapComponent {
   private renderScheduled = false;
   private lastRenderTime = 0;
   private readonly MIN_RENDER_INTERVAL_MS = 100;
+  private sanctionedAssetsHydrationStarted = false;
   private healthCheckLoop: SmartPollLoopHandle | null = null;
   private legendEl: HTMLElement | null = null;
 
@@ -1788,8 +1791,18 @@ export class MapComponent {
     return clusters;
   }
 
+  private hydrateSanctionedAssetsIfNeeded(): void {
+    if (this.sanctionedAssetsHydrationStarted) return;
+    this.sanctionedAssetsHydrationStarted = true;
+    void hydrateGeneratedSanctionedAssets().then((added) => {
+      if (added <= 0) return;
+      this.render();
+    });
+  }
+
   private renderOverlays(projection: d3.GeoProjection): void {
     this.overlays.innerHTML = '';
+    if (this.state.layers.sanctions) this.hydrateSanctionedAssetsIfNeeded();
 
     // Strategic waterways
     if (this.state.layers.waterways) {
@@ -2252,9 +2265,8 @@ export class MapComponent {
     }
 
     // AI Data Centers
-    const MIN_GPU_COUNT = 10000;
     if (this.state.layers.datacenters) {
-      AI_DATA_CENTERS.filter(dc => (dc.chipCount || 0) >= MIN_GPU_COUNT).forEach((dc) => {
+      AI_DATA_CENTERS.filter(dc => dc.status !== 'decommissioned').forEach((dc) => {
         const pos = projection([dc.lon, dc.lat]);
         if (!pos) return;
 
@@ -2307,6 +2319,48 @@ export class MapComponent {
           this.popup.show({
             type: 'spaceport',
             data: port,
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        });
+
+        this.overlays.appendChild(div);
+      });
+    }
+
+    if (this.state.layers.sanctions && SANCTIONED_ASSETS.length > 0) {
+      const colors: Record<SanctionedAsset['type'], string> = {
+        yacht: '#60a5fa',
+        bank: '#f87171',
+        port: '#fb923c',
+        real_estate: '#d8b4fe',
+        other: '#facc15',
+      };
+      SANCTIONED_ASSETS.forEach((asset) => {
+        const pos = projection([asset.lon, asset.lat]);
+        if (!pos) return;
+
+        const div = document.createElement('div');
+        div.className = `sanctioned-asset-marker ${asset.type}`;
+        div.style.left = `${pos[0]}px`;
+        div.style.top = `${pos[1]}px`;
+        div.style.position = 'absolute';
+        div.style.width = '11px';
+        div.style.height = '11px';
+        div.style.marginLeft = '-5px';
+        div.style.marginTop = '-5px';
+        div.style.borderRadius = '50%';
+        div.style.border = '1px solid rgba(255,255,255,.85)';
+        div.style.background = colors[asset.type] ?? colors.other;
+        div.style.boxShadow = '0 0 10px rgba(248,113,113,.55)';
+        div.title = `${asset.name} - ${asset.sanctionCountry}`;
+
+        div.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rect = this.container.getBoundingClientRect();
+          this.popup.show({
+            type: 'sanctionedAsset',
+            data: asset,
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
           });

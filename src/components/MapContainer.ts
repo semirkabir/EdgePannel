@@ -114,6 +114,7 @@ export class MapContainer {
   private cachedMilitaryVessels: MilitaryVessel[] | null = null;
   private cachedMilitaryVesselClusters: MilitaryVesselCluster[] | null = null;
   private cachedNaturalEvents: NaturalEvent[] | null = null;
+  private cachedSatellites: import('@/types').SatelliteData[] | null = null;
   private cachedFires: FireMarker[] | null = null;
   private cachedTechEvents: TechEventMarker[] | null = null;
   private cachedUcdpEvents: UcdpGeoEvent[] | null = null;
@@ -287,6 +288,7 @@ export class MapContainer {
     if (this.cachedMilitaryFlights) this.setMilitaryFlights(this.cachedMilitaryFlights, this.cachedMilitaryFlightClusters ?? []);
     if (this.cachedMilitaryVessels) this.setMilitaryVessels(this.cachedMilitaryVessels, this.cachedMilitaryVesselClusters ?? []);
     if (this.cachedNaturalEvents) this.setNaturalEvents(this.cachedNaturalEvents);
+    if (this.cachedSatellites) this.setSatellites(this.cachedSatellites);
     if (this.cachedFires) this.setFires(this.cachedFires);
     if (this.cachedTechEvents) this.setTechEvents(this.cachedTechEvents);
     if (this.cachedUcdpEvents) this.setUcdpEvents(this.cachedUcdpEvents);
@@ -490,6 +492,11 @@ export class MapContainer {
   public setNaturalEvents(events: NaturalEvent[]): void {
     this.cachedNaturalEvents = events;
     if (this.useDeckGL) { this.deckGLMap?.setNaturalEvents(events); } else { this.svgMap?.setNaturalEvents(events); }
+  }
+
+  public setSatellites(satellites: import('@/types').SatelliteData[]): void {
+    this.cachedSatellites = satellites;
+    if (this.useDeckGL) this.deckGLMap?.setSatellites(satellites);
   }
 
   public setFires(fires: FireMarker[]): void {

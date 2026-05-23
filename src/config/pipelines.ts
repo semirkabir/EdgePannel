@@ -1,8 +1,9 @@
 import type { Pipeline } from '@/types';
+import { getCSSColor } from '@/utils';
 
 // Major international oil and gas pipelines
 // Sources: Global Energy Monitor, EIA, public domain geographic data
-export const PIPELINES: Pipeline[] = [
+const CURATED_PIPELINES: Pipeline[] = [
   // ===== MAJOR OIL PIPELINES =====
 
   // North America
@@ -1010,7 +1011,40 @@ export const PIPELINES: Pipeline[] = [
 
 ];
 
-import { getCSSColor } from '@/utils';
+export const PIPELINES: Pipeline[] = [
+  ...CURATED_PIPELINES,
+];
+
+let generatedPipelinesPromise: Promise<number> | null = null;
+
+export function hydrateGeneratedPipelines(): Promise<number> {
+  if (generatedPipelinesPromise) return generatedPipelinesPromise;
+
+  generatedPipelinesPromise = fetch('/data/pipelines.generated.json')
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Pipeline dataset HTTP ${response.status}`);
+      return response.json() as Promise<Pipeline[]>;
+    })
+    .then((generated) => {
+      const existingIds = new Set(PIPELINES.map((pipeline) => pipeline.id));
+      let added = 0;
+      for (const pipeline of generated) {
+        if (!pipeline?.id || existingIds.has(pipeline.id)) continue;
+        PIPELINES.push(pipeline);
+        existingIds.add(pipeline.id);
+        added++;
+      }
+      return added;
+    })
+    .catch((error) => {
+      generatedPipelinesPromise = null;
+      console.warn('[Pipelines] Failed to load generated pipeline dataset:', error);
+      return 0;
+    });
+
+  return generatedPipelinesPromise;
+}
+
 
 // Pipeline colors by type — fixed category colors (not theme-dependent)
 export const PIPELINE_COLORS: Record<string, string> = {

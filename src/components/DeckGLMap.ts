@@ -36,6 +36,7 @@ import type {
   CyberThreat,
   CableHealthRecord,
   MilitaryBaseEnriched,
+  SanctionedAsset,
 } from '@/types';
 import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } from '@/services/military-bases';
 import type { MilitaryBaseType } from '@/types';
@@ -78,6 +79,9 @@ import {
   GAMMA_IRRADIATORS,
   PIPELINES,
   PIPELINE_COLORS,
+  hydrateGeneratedPipelines,
+  SANCTIONED_ASSETS,
+  hydrateGeneratedSanctionedAssets,
   STRATEGIC_WATERWAYS,
   ECONOMIC_CENTERS,
   AI_DATA_CENTERS,
@@ -100,6 +104,8 @@ import {
   MINING_SITES,
 } from '@/config';
 import { getSatellitePosition, getOrbitalPath } from '@/services/satellite-orbit';
+import spaceportIconUrl from '@/assets/spaceport.png';
+import satelliteIconUrl from '@/assets/sattelite.png';
 import type { GulfInvestment } from '@/types';
 import { resolveTradeRouteSegments, TRADE_ROUTES as TRADE_ROUTES_LIST, type TradeRouteSegment } from '@/config/trade-routes';
 import { getLayersForVariant, resolveLayerLabel, resolveLayerAccentColor, resolveLayerIcon, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
@@ -801,6 +807,9 @@ export class DeckGLMap {
   private cableFlowAnimationId: number | null = null;
   private satelliteAnimationId: number | null = null;
   private satelliteCatalog: import('@/types').SatelliteData[] = [];
+  private satelliteHoverPopup: maplibregl.Popup | null = null;
+  private pipelineHydrationStarted = false;
+  private sanctionedAssetsHydrationStarted = false;
   private cachedNightPolygon: [number, number][] | null = null;
   private readonly startupTime = Date.now();
   private lastCableHighlightSignature = '';
@@ -1440,7 +1449,7 @@ export class DeckGLMap {
     const useProtests = layers.protests && this.protestSuperclusterSource.length > 0;
     const useTechHQ = SITE_VARIANT === 'tech' && layers.techHQs;
     const useTechEvents = SITE_VARIANT === 'tech' && layers.techEvents && this.techEvents.length > 0;
-    const useDatacenterClusters = layers.datacenters && zoom < 5;
+    const useDatacenterClusters = false;
     const layerMask = `${Number(useProtests)}${Number(useTechHQ)}${Number(useTechEvents)}${Number(useDatacenterClusters)}`;
     if (zoom === this.lastSCZoom && boundsKey === this.lastSCBoundsKey && layerMask === this.lastSCMask) return;
     this.lastSCZoom = zoom;
@@ -1707,14 +1716,9 @@ export class DeckGLMap {
       layers.push(...this.createHotspotsLayers());
     }
 
-    // Datacenters layer - SQUARE icons at zoom >= 5, cluster dots at zoom < 5
-    const currentZoom = this.maplibreMap?.getZoom() || 2;
+    // Datacenters layer - render individual sites at every zoom.
     if (mapLayers.datacenters) {
-      if (currentZoom >= 5) {
-        layers.push(this.createDatacentersLayer());
-      } else {
-        layers.push(...this.createDatacenterClusterLayers());
-      }
+      layers.push(this.createDatacentersLayer());
     }
 
     // Earthquakes layer
@@ -1974,8 +1978,10 @@ export class DeckGLMap {
     }
     // Sanctions choropleth
     if (mapLayers.sanctions) {
+      this.hydrateSanctionedAssetsIfNeeded();
       const sancLayer = this.createSanctionsChoroplethLayer();
       if (sancLayer) layers.push(sancLayer);
+      if (SANCTIONED_ASSETS.length > 0) layers.push(this.createSanctionedAssetsLayer());
     }
     // Democracy Index choropleth
     if (mapLayers.democracy) {
@@ -2100,7 +2106,17 @@ export class DeckGLMap {
     addCircle('wm-globe-trade-chokepoints-circle', 'wm-globe-trade-chokepoints');
     addCircle('wm-globe-flight-delays-circle', 'wm-globe-flight-delays');
     addCircle('wm-globe-aircraft-circle', 'wm-globe-aircraft');
-    addCircle('wm-globe-satellites-circle', 'wm-globe-satellites');
+    // Satellites display as textured icon sprites at orbital altitude (below). A
+    // transparent ground-level circle is kept purely as a hover/click hit target,
+    // sized generously to cover the icon that floats above its ground point.
+    if (!map.getLayer('wm-globe-satellites-circle')) {
+      map.addLayer({
+        id: 'wm-globe-satellites-circle',
+        type: 'circle',
+        source: 'wm-globe-satellites',
+        paint: { 'circle-color': 'rgba(0,0,0,0)', 'circle-opacity': 0, 'circle-radius': 22 },
+      } as maplibregl.LayerSpecification);
+    }
     this.ensureGlobeAltitudeLayer('wm-globe-aircraft-altitude', 'aircraft');
     this.ensureGlobeAltitudeLayer('wm-globe-satellites-altitude', 'satellite');
   }
@@ -2212,7 +2228,7 @@ export class DeckGLMap {
         lon: satellite.position.lon,
         lat: satellite.position.lat,
         altitudeMeters: this.getGlobeSatelliteAltitudeMeters(satellite.position.alt),
-        size: 9,
+        size: 30,
         color: [34, 211, 238, 0.94],
       } satisfies GlobeAltitudePoint))
       .filter((point) => Number.isFinite(point.lon) && Number.isFinite(point.lat));
@@ -2220,6 +2236,7 @@ export class DeckGLMap {
 
   private createGlobeAltitudeLayer(id: 'wm-globe-aircraft-altitude' | 'wm-globe-satellites-altitude', kind: GlobeAltitudeKind): maplibregl.CustomLayerInterface {
     const owner = this;
+    const useIcon = kind === 'satellite';
     let buffer: WebGLBuffer | null = null;
     let program: WebGLProgram | null = null;
     let shaderVariant = '';
@@ -2232,6 +2249,10 @@ export class DeckGLMap {
     let uClippingPlane: WebGLUniformLocation | null = null;
     let uProjectionTransition: WebGLUniformLocation | null = null;
     let uFallbackMatrix: WebGLUniformLocation | null = null;
+    let uTexture: WebGLUniformLocation | null = null;
+    let uUseTexture: WebGLUniformLocation | null = null;
+    let iconTexture: WebGLTexture | null = null;
+    let iconReady = false;
 
     const compileShader = (gl: WebGLRenderingContext | WebGL2RenderingContext, type: number, source: string): WebGLShader | null => {
       const shader = gl.createShader(type);
@@ -2270,7 +2291,25 @@ export class DeckGLMap {
           v_color = a_color;
         }
       `;
-      const fragmentSource = `
+      const fragmentSource = useIcon ? `
+        precision mediump float;
+        varying vec4 v_color;
+        uniform sampler2D u_texture;
+        uniform float u_use_texture;
+        void main() {
+          if (u_use_texture > 0.5) {
+            vec4 tex = texture2D(u_texture, vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
+            if (tex.a < 0.04) discard;
+            gl_FragColor = vec4(tex.rgb, tex.a * v_color.a);
+          } else {
+            vec2 delta = gl_PointCoord - vec2(0.5);
+            float dist = dot(delta, delta);
+            if (dist > 0.25) discard;
+            float glow = smoothstep(0.25, 0.02, dist);
+            gl_FragColor = vec4(v_color.rgb, v_color.a * glow);
+          }
+        }
+      ` : `
         precision mediump float;
         varying vec4 v_color;
         void main() {
@@ -2308,6 +2347,10 @@ export class DeckGLMap {
       uClippingPlane = gl.getUniformLocation(program, 'u_projection_clipping_plane');
       uProjectionTransition = gl.getUniformLocation(program, 'u_projection_transition');
       uFallbackMatrix = gl.getUniformLocation(program, 'u_projection_fallback_matrix');
+      if (useIcon) {
+        uTexture = gl.getUniformLocation(program, 'u_texture');
+        uUseTexture = gl.getUniformLocation(program, 'u_use_texture');
+      }
       return program;
     };
 
@@ -2317,10 +2360,29 @@ export class DeckGLMap {
       renderingMode: '3d',
       onAdd(_map, gl) {
         buffer = gl.createBuffer();
+        if (useIcon) {
+          iconTexture = gl.createTexture();
+          const img = new Image();
+          img.onload = () => {
+            if (!iconTexture) return;
+            gl.bindTexture(gl.TEXTURE_2D, iconTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            iconReady = true;
+            owner.maplibreMap?.triggerRepaint();
+          };
+          img.src = satelliteIconUrl;
+        }
       },
       onRemove(_map, gl) {
         if (buffer) gl.deleteBuffer(buffer);
         buffer = null;
+        if (iconTexture) gl.deleteTexture(iconTexture);
+        iconTexture = null;
+        iconReady = false;
         disposeProgram(gl);
       },
       render(gl, options) {
@@ -2355,6 +2417,14 @@ export class DeckGLMap {
         gl.uniform4fv(uClippingPlane, options.defaultProjectionData.clippingPlane);
         gl.uniform1f(uProjectionTransition, options.defaultProjectionData.projectionTransition);
         gl.uniformMatrix4fv(uFallbackMatrix, false, options.defaultProjectionData.fallbackMatrix);
+        if (useIcon) {
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, iconTexture);
+          gl.uniform1i(uTexture, 0);
+          gl.uniform1f(uUseTexture, iconReady ? 1.0 : 0.0);
+        }
 
         const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -2395,6 +2465,7 @@ export class DeckGLMap {
   }
 
   private buildGlobePipelineCollection(): GlobeLineCollection {
+    this.hydratePipelinesIfNeeded();
     return {
       type: 'FeatureCollection',
       features: PIPELINES.map((pipeline) => {
@@ -2622,7 +2693,20 @@ export class DeckGLMap {
     });
   }
 
+  private hydratePipelinesIfNeeded(): void {
+    if (this.pipelineHydrationStarted) return;
+    this.pipelineHydrationStarted = true;
+    void hydrateGeneratedPipelines().then((added) => {
+      if (added <= 0) return;
+      this.layerCache.delete('pipelines-layer');
+      this.lastPipelineHighlightSignature = '';
+      this.render('pipelines');
+      this.refreshLegend();
+    });
+  }
+
   private createPipelinesLayer(): PathLayer {
+    this.hydratePipelinesIfNeeded();
     const highlightedPipelines = this.highlightedAssets.pipeline;
     const cacheKey = 'pipelines-layer';
     const cached = this.layerCache.get(cacheKey) as PathLayer | undefined;
@@ -2853,7 +2937,7 @@ export class DeckGLMap {
       data: SPACEPORTS,
       getPosition: (d) => [d.lon, d.lat],
       getIcon: () => 'rocket',
-      iconAtlas: 'https://cdn-icons-png.flaticon.com/512/1086/1086091.png',
+      iconAtlas: spaceportIconUrl,
       iconMapping: { rocket: { x: 0, y: 0, width: 512, height: 512, mask: false } },
       getSize: () => 28,
       sizeMinPixels: 14,
@@ -2933,7 +3017,10 @@ export class DeckGLMap {
 
   private createSatelliteLayers(): Layer[] {
     const now = Date.now();
-    const satellites = this.getSatellitePositions(now);
+    const allSatellites = this.getSatellitePositions(now);
+    // Full-color icons can't scale to the ~10k-entry CelesTrak catalog without
+    // crippling the map, so cap how many are drawn as markers.
+    const satellites = allSatellites.slice(0, 400);
     const orbitPaths = satellites.slice(0, 60).map((satellite) => ({
       id: satellite.id,
       name: satellite.name,
@@ -2951,19 +3038,18 @@ export class DeckGLMap {
         widthMaxPixels: 2,
         pickable: false,
       }),
-      new ScatterplotLayer({
+      new IconLayer({
         id: 'satellites-layer',
         data: satellites,
         getPosition: (d) => [d.position.lon, d.position.lat, d.position.alt * 1000],
-        getFillColor: (d) => d.position.alt < 2000
-          ? [34, 211, 238, 230] as [number, number, number, number]
-          : d.position.alt < 35000
-            ? [74, 222, 128, 220] as [number, number, number, number]
-            : [251, 191, 36, 220] as [number, number, number, number],
-        getRadius: 20000,
-        radiusMinPixels: 4,
-        radiusMaxPixels: 9,
+        getIcon: () => 'satellite',
+        iconAtlas: satelliteIconUrl,
+        iconMapping: { satellite: { x: 0, y: 0, width: 512, height: 512, mask: false } },
+        getSize: () => 24,
+        sizeMinPixels: 12,
+        sizeMaxPixels: 32,
         pickable: true,
+        billboard: true,
       }),
     ];
   }
@@ -3997,6 +4083,7 @@ export class DeckGLMap {
     return layers;
   }
 
+  // @ts-ignore -- datacenter clustering is intentionally disabled; keep factory for quick rollback if density becomes unmanageable.
   private createDatacenterClusterLayers(): Layer[] {
     this.updateClusterData();
     const layers: Layer[] = [];
@@ -4518,6 +4605,41 @@ export class DeckGLMap {
     });
   }
 
+  private hydrateSanctionedAssetsIfNeeded(): void {
+    if (this.sanctionedAssetsHydrationStarted) return;
+    this.sanctionedAssetsHydrationStarted = true;
+    void hydrateGeneratedSanctionedAssets().then((added) => {
+      if (added <= 0) return;
+      this.render('sanctions');
+      this.refreshLegend();
+    });
+  }
+
+  private static readonly SANCTIONED_ASSET_COLORS: Record<SanctionedAsset['type'], [number, number, number, number]> = {
+    yacht: [96, 165, 250, 230],
+    bank: [248, 113, 113, 230],
+    port: [251, 146, 60, 230],
+    real_estate: [216, 180, 254, 230],
+    other: [250, 204, 21, 230],
+  };
+
+  private createSanctionedAssetsLayer(): ScatterplotLayer<SanctionedAsset> {
+    return new ScatterplotLayer<SanctionedAsset>({
+      id: 'sanctioned-assets-layer',
+      data: SANCTIONED_ASSETS,
+      getPosition: (asset) => [asset.lon, asset.lat],
+      getFillColor: (asset) => DeckGLMap.SANCTIONED_ASSET_COLORS[asset.type] ?? DeckGLMap.SANCTIONED_ASSET_COLORS.other,
+      getLineColor: [255, 255, 255, 220] as [number, number, number, number],
+      getRadius: (asset) => asset.type === 'bank' || asset.type === 'port' ? 42000 : 30000,
+      radiusMinPixels: 4,
+      radiusMaxPixels: 13,
+      lineWidthMinPixels: 1,
+      stroked: true,
+      filled: true,
+      pickable: true,
+    });
+  }
+
   private static marketPerfColor(changePercent: number): [number, number, number, number] {
     if (changePercent > 2)  return [22, 163, 74, 120];
     if (changePercent > 0)  return [74, 222, 128, 100];
@@ -4978,6 +5100,8 @@ export class DeckGLMap {
         const sancColor = DeckGLMap.SANCTION_LEVEL_HEX[sancLevel] ?? '#888';
         return { html: `<div class="deckgl-tooltip"><strong>${text(sancName)}</strong><br/><span style="color:${sancColor};font-weight:600;text-transform:capitalize">${sancLevel} sanctions</span></div>` };
       }
+      case 'sanctioned-assets-layer':
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.type.replace(/_/g, ' '))} - ${text(obj.sanctionCountry)}</div>` };
       case 'democracy-choropleth-layer': {
         const demName = obj.properties?.name ?? 'Unknown';
         const demCode = obj.properties?.['ISO3166-1-Alpha-2'];
@@ -5319,6 +5443,7 @@ export class DeckGLMap {
       'renewable-installations-layer': 'renewableInstallation',
       'governance-choropleth-layer': 'governanceCountry',
       'sanctions-choropleth-layer': 'sanctionsCountry',
+      'sanctioned-assets-layer': 'sanctionedAsset',
       'democracy-choropleth-layer': 'democracyCountry',
       'gem-risk-choropleth-layer': 'gemRiskCountry',
     };
@@ -5650,6 +5775,7 @@ export class DeckGLMap {
       'renewable-installations-layer': 'renewableInstallation',
       'governance-choropleth-layer': 'governanceCountry',
       'sanctions-choropleth-layer': 'sanctionsCountry',
+      'sanctioned-assets-layer': 'sanctionedAsset',
       'democracy-choropleth-layer': 'democracyCountry',
       'gem-risk-choropleth-layer': 'gemRiskCountry',
     };
@@ -7666,6 +7792,12 @@ export class DeckGLMap {
     this.render('natural');
   }
 
+  public setSatellites(satellites: import('@/types').SatelliteData[]): void {
+    this.satelliteCatalog = satellites;
+    this.satellitePositionCache = null;
+    this.render('satellite');
+  }
+
   public setFires(fires: Array<{ lat: number; lon: number; brightness: number; frp: number; confidence: number; region: string; acq_date: string; daynight: string }>): void {
     this.firmsFireData = fires;
     this.render('fires');
@@ -8365,8 +8497,44 @@ export class DeckGLMap {
     this.countryHoverSetup = true;
     const map = this.maplibreMap;
     let hoveredName: string | null = null;
+    let satelliteHovered = false;
+    const SAT_HIT_LAYER = 'wm-globe-satellites-circle';
+    const querySatellite = (point: maplibregl.Point): maplibregl.MapGeoJSONFeature | null => {
+      if (!map.getLayer(SAT_HIT_LAYER)) return null;
+      return map.queryRenderedFeatures(point, { layers: [SAT_HIT_LAYER] })[0] ?? null;
+    };
+    const satelliteHtml = (id: string | undefined): string | null => {
+      if (!id) return null;
+      const sat = this.satelliteCatalog.find((s) => s.id === id);
+      if (!sat) return null;
+      const category = sat.category ? sat.category.charAt(0).toUpperCase() + sat.category.slice(1) : 'Satellite';
+      const operator = sat.operator ? `<br/>${escapeHtml(sat.operator)}` : '';
+      return `<strong>${escapeHtml(sat.name)}</strong>${operator}<br/>${escapeHtml(category)}`;
+    };
 
     map.on('mousemove', (e) => {
+      const satelliteFeature = querySatellite(e.point);
+      const satellitePopupHtml = satelliteHtml(satelliteFeature?.properties?.id as string | undefined);
+      if (satellitePopupHtml) {
+        satelliteHovered = true;
+        if (hoveredName) {
+          hoveredName = null;
+          try {
+            map.setFilter('country-hover-fill', ['==', ['get', 'name'], '']);
+          } catch { /* style not done loading during theme switch */ }
+        }
+        map.getCanvas().style.cursor = resolveInlineCursor('pointer');
+        if (!this.satelliteHoverPopup) {
+          this.satelliteHoverPopup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 14 });
+        }
+        this.satelliteHoverPopup.setLngLat(e.lngLat).setHTML(satellitePopupHtml).addTo(map);
+        return;
+      }
+      if (satelliteHovered) {
+        satelliteHovered = false;
+        map.getCanvas().style.cursor = resolveInlineCursor('');
+        this.satelliteHoverPopup?.remove();
+      }
       if (!this.onCountryClick) return;
       const features = map.queryRenderedFeatures(e.point, { layers: ['country-interactive'] });
       const name = features?.[0]?.properties?.name as string | undefined;
@@ -8385,6 +8553,8 @@ export class DeckGLMap {
     });
 
     map.on('mouseout', () => {
+      satelliteHovered = false;
+      this.satelliteHoverPopup?.remove();
       if (hoveredName) {
         hoveredName = null;
         try {
@@ -8395,6 +8565,13 @@ export class DeckGLMap {
     });
 
     map.on('click', (e) => {
+      const satellitePopupHtml = satelliteHtml(querySatellite(e.point)?.properties?.id as string | undefined);
+      if (satellitePopupHtml) {
+        this.entityClickConsumedAt = Date.now();
+        new maplibregl.Popup({ closeButton: true, closeOnClick: true, offset: 14 })
+          .setLngLat(e.lngLat).setHTML(satellitePopupHtml).addTo(map);
+        return;
+      }
       if (!this.onCountryClick) return;
       // If a DeckGL entity icon was clicked in this same event loop, skip country detection
       if (Date.now() - this.entityClickConsumedAt < 100) return;

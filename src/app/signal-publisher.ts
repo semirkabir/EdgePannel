@@ -28,6 +28,7 @@ import {
   fetchCachedTheaterPosture,
 } from '@/services';
 import { fetchGpsInterference } from '@/services/gps-interference';
+import { fetchCelesTrakSatellites, fetchCuratedSatellites } from '@/services/celestrak-satellites';
 import { fetchOrefAlerts } from '@/services/oref-alerts';
 import { fetchSecurityAdvisories } from '@/services/security-advisories';
 import { fetchTelegramFeed } from '@/services/telegram-intel';
@@ -431,6 +432,32 @@ export class SignalPublisher {
           this.ctx.statusPanel?.updateFeed('GPS Jam', { status: 'error' });
           dataFreshness.recordError('gpsjam', String(error));
         }
+      })());
+    }
+
+    if (this.ctx.mapLayers.satellite) {
+      tasks.push((async () => {
+        // Cap the tracked set: the full CelesTrak catalog is ~10k entries, and
+        // propagating every orbit each frame would stall the map.
+        const CAP = 400;
+        let rendered = 0;
+        // Render the curated set first so satellites appear immediately, then
+        // upgrade to the full live catalog if CelesTrak is reachable (it only
+        // resolves in production / when the proxy is available).
+        try {
+          const curated = await fetchCuratedSatellites();
+          if (curated.length) { this.ctx.map?.setSatellites(curated.slice(0, CAP)); rendered = curated.length; }
+        } catch (curatedError) {
+          console.warn('[Intelligence] Curated satellite set unavailable.', curatedError);
+        }
+        try {
+          const full = await fetchCelesTrakSatellites();
+          if (full.length) { this.ctx.map?.setSatellites(full.slice(0, CAP)); rendered = Math.min(full.length, CAP); }
+        } catch (catalogError) {
+          console.warn('[Intelligence] CelesTrak catalog unavailable; keeping curated set.', catalogError);
+        }
+        this.ctx.map?.setLayerReady('satellite', rendered > 0);
+        this.ctx.statusPanel?.updateFeed('Satellites', { status: rendered > 0 ? 'ok' : 'error', itemCount: rendered });
       })());
     }
 
