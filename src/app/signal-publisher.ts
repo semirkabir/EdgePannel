@@ -437,22 +437,19 @@ export class SignalPublisher {
 
     if (this.ctx.mapLayers.satellite) {
       tasks.push((async () => {
-        // Cap the tracked set: the full CelesTrak catalog is ~10k entries, and
-        // propagating every orbit each frame would stall the map.
-        const CAP = 400;
         let rendered = 0;
         // Render the curated set first so satellites appear immediately, then
         // upgrade to the full live catalog if CelesTrak is reachable (it only
         // resolves in production / when the proxy is available).
         try {
           const curated = await fetchCuratedSatellites();
-          if (curated.length) { this.ctx.map?.setSatellites(curated.slice(0, CAP)); rendered = curated.length; }
+          if (curated.length) { this.ctx.map?.setSatellites(curated); rendered = curated.length; }
         } catch (curatedError) {
           console.warn('[Intelligence] Curated satellite set unavailable.', curatedError);
         }
         try {
           const full = await fetchCelesTrakSatellites();
-          if (full.length) { this.ctx.map?.setSatellites(full.slice(0, CAP)); rendered = Math.min(full.length, CAP); }
+          if (full.length) { this.ctx.map?.setSatellites(full); rendered = full.length; }
         } catch (catalogError) {
           console.warn('[Intelligence] CelesTrak catalog unavailable; keeping curated set.', catalogError);
         }

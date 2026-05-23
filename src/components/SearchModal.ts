@@ -326,7 +326,20 @@ export class SearchModal {
 
   private syncInputTickerVisibility(): void {
     if (!this.inputWrap || !this.input) return;
-    this.inputWrap.classList.toggle('has-value', this.input.value.trim().length > 0);
+    const hasValue = this.input.value.trim().length > 0;
+    this.inputWrap.classList.toggle('has-value', hasValue);
+
+    const ticker = this.inputWrap.querySelector<HTMLElement>('.search-input-ticker');
+    if (ticker) {
+      ticker.hidden = hasValue;
+    }
+
+    if (hasValue) {
+      this.stopModalTicker();
+      if (this.modalTickerEl) this.modalTickerEl.textContent = '';
+    } else if (this.overlay && !this.modalTickerStop) {
+      this.startModalTicker();
+    }
   }
 
   private matchCommands(query: string): CommandResult[] {
@@ -356,6 +369,7 @@ export class SearchModal {
   }
 
   private handleSearch(): void {
+    this.syncInputTickerVisibility();
     const query = this.input?.value.trim().toLowerCase() || '';
 
     if (!query) {

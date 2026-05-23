@@ -13087,6 +13087,10 @@ body.urgency-mode #header {
   overflow: hidden;
 }
 
+.search-input-ticker[hidden] {
+  display: none !important;
+}
+
 .search-input-wrap .search-input {
   position: relative;
   z-index: 1;

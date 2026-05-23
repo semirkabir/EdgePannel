@@ -46,6 +46,7 @@ import type { GeoPredictionMarket } from '@/services/prediction';
 
 export type { TimeRange };
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
+export const MAP_MODE_CHANGE_EVENT = 'wm-map-mode-changed';
 
 export interface MapContainerState {
   zoom: number;
@@ -195,7 +196,13 @@ export class MapContainer {
         if (this.useGlobe) {
           // Defer globe projection until MapLibre + deck.gl settle.
           // setGlobeProjection internally uses rAF + idle to ensure projection sticks.
-          setTimeout(() => this.deckGLMap?.setGlobeProjection(true), 100);
+          setTimeout(() => {
+            const active = this.deckGLMap?.setGlobeProjection(true) === true;
+            this.useGlobe = active;
+            this.notifyModeChange();
+          }, 100);
+        } else {
+          this.notifyModeChange();
         }
       } catch (error) {
         console.warn('[MapContainer] DeckGL initialization failed, falling back to SVG map', error);
@@ -205,6 +212,8 @@ export class MapContainer {
     } else {
       this.initSvgMap('[MapContainer] Initializing SVG map (mobile/fallback mode)');
     }
+
+    this.notifyModeChange();
 
     // Automatic resize on container change (fixes gaps on load/layout shift)
     if (typeof ResizeObserver !== 'undefined') {
@@ -219,11 +228,12 @@ export class MapContainer {
 
   /** Switch to 3D globe mode at runtime (called from Settings). */
   public switchToGlobe(): void {
-    if (this.useGlobe) return;
+    if (this.isGlobeMode()) return;
     this.useGlobe = true;
     // Prefer MapLibre globe projection so all themes and deck.gl layers stay intact.
     if (this.deckGLMap) {
-      this.deckGLMap.setGlobeProjection(true);
+      this.useGlobe = this.deckGLMap.setGlobeProjection(true);
+      this.notifyModeChange();
     } else {
       // Fallback: SVG mode can't do globe, create a DeckGLMap for it
       const snapshot = this.getState();
@@ -239,6 +249,7 @@ export class MapContainer {
       // init() defers setGlobeProjection via setTimeout when useGlobe is true
       this.restoreViewport(snapshot, center);
       this.rehydrateActiveMap();
+      this.notifyModeChange();
     }
   }
 
@@ -249,11 +260,18 @@ export class MapContainer {
 
   /** Switch back to flat map at runtime (called from Settings). */
   public switchToFlat(): void {
-    if (!this.useGlobe) return;
+    if (!this.useGlobe && !this.isGlobeMode()) return;
     this.useGlobe = false;
     if (this.deckGLMap) {
       this.deckGLMap.setGlobeProjection(false);
     }
+    this.notifyModeChange();
+  }
+
+  private notifyModeChange(): void {
+    window.dispatchEvent(new CustomEvent(MAP_MODE_CHANGE_EVENT, {
+      detail: { mode: this.isGlobeMode() ? 'globe' : 'flat' },
+    }));
   }
 
   private restoreViewport(snapshot: MapContainerState, center: { lat: number; lon: number } | null): void {
@@ -311,7 +329,7 @@ export class MapContainer {
   }
 
   public isGlobeMode(): boolean {
-    return this.useGlobe || (this.deckGLMap?.isGlobeProjection ?? false);
+    return this.deckGLMap?.isGlobeProjection === true;
   }
 
 

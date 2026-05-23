@@ -103,7 +103,7 @@ import {
   COMMODITY_PORTS as COMMODITY_GEO_PORTS,
   MINING_SITES,
 } from '@/config';
-import { getSatellitePosition, getOrbitalPath } from '@/services/satellite-orbit';
+import { getSatellitePosition } from '@/services/satellite-orbit';
 import spaceportIconUrl from '@/assets/spaceport.png';
 import satelliteIconUrl from '@/assets/sattelite.png';
 import type { GulfInvestment } from '@/types';
@@ -160,8 +160,18 @@ type GlobeAltitudePoint = {
 type SatellitePositionRecord = import('@/types').SatelliteData & {
   position: { lat: number; lon: number; alt: number };
 };
+type SatellitePositionSampleCache = {
+  signature: string;
+  startMs: number;
+  endMs: number;
+  start: SatellitePositionRecord[];
+  endById: Map<string, SatellitePositionRecord>;
+};
 
 const DECK_CONTROL_SETTINGS_KEY = 'wm-deck-control-settings';
+const SATELLITE_ICON_LIMIT = 400;
+const SATELLITE_ANIMATION_FRAME_MS = 250;
+const SATELLITE_POSITION_SAMPLE_MS = 30_000;
 
 interface DeckControlSettings {
   visibleTimeRanges: TimeRange[];
@@ -825,7 +835,9 @@ export class DeckGLMap {
   private lastAircraftFetchCenter: [number, number] | null = null;
   private lastAircraftFetchZoom = -1;
   private aircraftFetchSeq = 0;
-  private satellitePositionCache: { bucket: number; signature: string; positions: SatellitePositionRecord[] } | null = null;
+  private satelliteVisiblePositionCache: { bucket: number; signature: string; positions: SatellitePositionRecord[] } | null = null;
+  private satellitePositionSampleCache: SatellitePositionSampleCache | null = null;
+  private lastSatelliteAnimationFrameMs = 0;
 
   constructor(container: HTMLElement, initialState: DeckMapState) {
     this.container = container;
@@ -2186,14 +2198,8 @@ export class DeckGLMap {
     return `${catalog.length}:${first}:${last}`;
   }
 
-  private getSatellitePositions(now = Date.now()): SatellitePositionRecord[] {
-    const bucket = Math.floor(now / 30_000);
-    const signature = this.getSatelliteCatalogSignature();
-    if (this.satellitePositionCache?.bucket === bucket && this.satellitePositionCache.signature === signature) {
-      return this.satellitePositionCache.positions;
-    }
-
-    const positions = (this.satelliteCatalog ?? [])
+  private computeSatellitePositions(satellites: import('@/types').SatelliteData[], now: number): SatellitePositionRecord[] {
+    return satellites
       .map((satellite) => ({
         ...satellite,
         position: getSatellitePosition(satellite, now),
@@ -2203,8 +2209,66 @@ export class DeckGLMap {
         Number.isFinite(satellite.position.lat) &&
         Number.isFinite(satellite.position.alt)
       ));
+  }
 
-    this.satellitePositionCache = { bucket, signature, positions };
+  private normalizeInterpolatedLongitude(lon: number): number {
+    let normalized = ((lon + 180) % 360 + 360) % 360 - 180;
+    if (normalized === -180) normalized = 180;
+    return normalized;
+  }
+
+  private interpolateSatellitePositions(start: SatellitePositionRecord[], endById: Map<string, SatellitePositionRecord>, progress: number): SatellitePositionRecord[] {
+    const t = Math.max(0, Math.min(1, progress));
+    return start
+      .map((satellite) => {
+        const end = endById.get(satellite.id);
+        if (!end) return satellite;
+        const startPos = satellite.position;
+        const endPos = end.position;
+        const lonDelta = ((endPos.lon - startPos.lon + 540) % 360) - 180;
+        return {
+          ...satellite,
+          position: {
+            lon: this.normalizeInterpolatedLongitude(startPos.lon + lonDelta * t),
+            lat: startPos.lat + (endPos.lat - startPos.lat) * t,
+            alt: startPos.alt + (endPos.alt - startPos.alt) * t,
+          },
+        };
+      })
+      .filter((satellite) => (
+        Number.isFinite(satellite.position.lon) &&
+        Number.isFinite(satellite.position.lat) &&
+        Number.isFinite(satellite.position.alt)
+      ));
+  }
+
+  private getSatellitePositionSamples(now: number, signature: string): SatellitePositionSampleCache {
+    const cached = this.satellitePositionSampleCache;
+    if (cached && cached.signature === signature && now >= cached.startMs && now <= cached.endMs) {
+      return cached;
+    }
+
+    const startMs = Math.floor(now / SATELLITE_POSITION_SAMPLE_MS) * SATELLITE_POSITION_SAMPLE_MS;
+    const endMs = startMs + SATELLITE_POSITION_SAMPLE_MS;
+    const catalog = this.satelliteCatalog ?? [];
+    const start = this.computeSatellitePositions(catalog, startMs);
+    const end = this.computeSatellitePositions(catalog, endMs);
+    const endById = new Map(end.map((satellite) => [satellite.id, satellite]));
+    const nextCache = { signature, startMs, endMs, start, endById };
+    this.satellitePositionSampleCache = nextCache;
+    return nextCache;
+  }
+
+  private getVisibleSatellitePositions(now = Date.now()): SatellitePositionRecord[] {
+    const bucket = Math.floor(now / SATELLITE_ANIMATION_FRAME_MS);
+    const signature = this.getSatelliteCatalogSignature();
+    if (this.satelliteVisiblePositionCache?.bucket === bucket && this.satelliteVisiblePositionCache.signature === signature) {
+      return this.satelliteVisiblePositionCache.positions;
+    }
+
+    const samples = this.getSatellitePositionSamples(now, signature);
+    const positions = this.interpolateSatellitePositions(samples.start, samples.endById, (now - samples.startMs) / (samples.endMs - samples.startMs));
+    this.satelliteVisiblePositionCache = { bucket, signature, positions };
     return positions;
   }
 
@@ -2223,7 +2287,7 @@ export class DeckGLMap {
 
   private getGlobeSatelliteAltitudePoints(): GlobeAltitudePoint[] {
     if (!this.state.layers.satellite) return [];
-    return this.getSatellitePositions()
+    return this.getVisibleSatellitePositions()
       .map((satellite) => ({
         lon: satellite.position.lon,
         lat: satellite.position.lat,
@@ -2492,6 +2556,19 @@ export class DeckGLMap {
     };
   }
 
+  private satellitePanelData(id: string | undefined, fallback?: SatellitePositionRecord): SatellitePositionRecord | null {
+    const satellite = fallback ?? (id ? this.getVisibleSatellitePositions().find((item) => item.id === id) : undefined);
+    if (!satellite) return null;
+    const position = satellite.position ?? getSatellitePosition(satellite, Date.now());
+    return {
+      ...satellite,
+      position,
+      lat: position.lat,
+      lon: position.lon,
+      alt: position.alt,
+    } as SatellitePositionRecord & { lat: number; lon: number; alt: number };
+  }
+
   private buildGlobeTradeChokepointCollection(): GlobePointCollection {
     const routeWaypointIds = new Set<string>();
     for (const segment of this.tradeRouteSegments) {
@@ -2563,7 +2640,7 @@ export class DeckGLMap {
   private buildGlobeSatelliteCollection(): GlobePointCollection {
     return {
       type: 'FeatureCollection',
-      features: this.getSatellitePositions()
+      features: this.getVisibleSatellitePositions()
         .map((satellite) => {
           const pos = satellite.position;
           const color = pos.alt < 2000 ? 'rgba(34,211,238,0.94)' : pos.alt < 35000 ? 'rgba(74,222,128,0.9)' : 'rgba(251,191,36,0.9)';
@@ -3017,30 +3094,35 @@ export class DeckGLMap {
 
   private createSatelliteLayers(): Layer[] {
     const now = Date.now();
-    const allSatellites = this.getSatellitePositions(now);
-    // Full-color icons can't scale to the ~10k-entry CelesTrak catalog without
-    // crippling the map, so cap how many are drawn as markers.
-    const satellites = allSatellites.slice(0, 400);
-    const orbitPaths = satellites.slice(0, 60).map((satellite) => ({
-      id: satellite.id,
-      name: satellite.name,
-      path: getOrbitalPath(satellite, now).map(([lon, lat]) => [lon, lat] as [number, number]),
-    }));
+    // Render the full CelesTrak active catalog as cheap pickable dots, then
+    // promote a stable subset to richer icons so the map stays legible.
+    const satellites = this.getVisibleSatellitePositions(now);
+    const iconSatellites = satellites.slice(0, SATELLITE_ICON_LIMIT);
 
     return [
-      new PathLayer({
-        id: 'satellite-orbits-layer',
-        data: orbitPaths,
-        getPath: (d: { path: [number, number][] }) => d.path,
-        getColor: [34, 211, 238, 72] as [number, number, number, number],
-        getWidth: 1,
-        widthMinPixels: 1,
-        widthMaxPixels: 2,
-        pickable: false,
+      new ScatterplotLayer({
+        id: 'satellites-dot-layer',
+        data: satellites,
+        getPosition: (d: SatellitePositionRecord) => [d.position.lon, d.position.lat, d.position.alt * 1000],
+        getRadius: 1.6,
+        radiusUnits: 'pixels',
+        radiusMinPixels: 1,
+        radiusMaxPixels: 3,
+        getFillColor: (d: SatellitePositionRecord) => (
+          d.category === 'military'
+            ? [248, 113, 113, 205] as [number, number, number, number]
+            : d.category === 'imaging'
+              ? [52, 211, 153, 205] as [number, number, number, number]
+              : d.category === 'scientific'
+                ? [96, 165, 250, 205] as [number, number, number, number]
+                : [34, 211, 238, 190] as [number, number, number, number]
+        ),
+        pickable: true,
+        stroked: false,
       }),
       new IconLayer({
         id: 'satellites-layer',
-        data: satellites,
+        data: iconSatellites,
         getPosition: (d) => [d.position.lon, d.position.lat, d.position.alt * 1000],
         getIcon: () => 'satellite',
         iconAtlas: satelliteIconUrl,
@@ -4996,6 +5078,7 @@ export class DeckGLMap {
       case 'aircraft-positions-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.callsign || obj.icao24)}</strong><br/>${obj.altitudeFt?.toLocaleString() ?? 0} ft · ${obj.groundSpeedKts ?? 0} kts · ${Math.round(obj.trackDeg ?? 0)}°</div>` };
       case 'satellites-layer':
+      case 'satellites-dot-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.operator || '')}<br/>${text(obj.category || 'satellite')}</div>` };
       case 'apt-groups-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.aka)}<br/>${t('popups.sponsor')}: ${text(obj.sponsor)}</div>` };
@@ -5414,6 +5497,8 @@ export class DeckGLMap {
       'ports-layer': 'port',
       'flight-delays-layer': 'flight',
       'aircraft-positions-layer': 'aircraft',
+      'satellites-layer': 'satellite',
+      'satellites-dot-layer': 'satellite',
       'startup-hubs-layer': 'startupHub',
       'tech-hqs-layer': 'techHQ',
       'accelerators-layer': 'accelerator',
@@ -5746,6 +5831,8 @@ export class DeckGLMap {
       'ports-layer': 'port',
       'flight-delays-layer': 'flight',
       'aircraft-positions-layer': 'aircraft',
+      'satellites-layer': 'satellite',
+      'satellites-dot-layer': 'satellite',
       'startup-hubs-layer': 'startupHub',
       'tech-hqs-layer': 'techHQ',
       'accelerators-layer': 'accelerator',
@@ -5793,6 +5880,9 @@ export class DeckGLMap {
       const conflictId = info.object.properties.id;
       const fullConflict = CONFLICT_ZONES.find(c => c.id === conflictId);
       if (fullConflict) data = fullConflict;
+    }
+    if (popupType === 'satellite') {
+      data = this.satellitePanelData((data as { id?: string }).id, data as SatellitePositionRecord) ?? data;
     }
 
     // Toggle trajectory on aircraft/military-flight click
@@ -7728,16 +7818,25 @@ export class DeckGLMap {
       if (!this.satelliteAnimationId) {
         const tick = () => {
           if (!this.satelliteAnimationId) return;
-          if (!this.renderPaused && !this.webglLost && this.maplibreMap) {
+          const now = performance.now();
+          if (
+            !this.renderPaused &&
+            !this.webglLost &&
+            this.maplibreMap &&
+            now - this.lastSatelliteAnimationFrameMs >= SATELLITE_ANIMATION_FRAME_MS
+          ) {
+            this.lastSatelliteAnimationFrameMs = now;
             this.render('satellite');
           }
           this.satelliteAnimationId = requestAnimationFrame(tick);
         };
+        this.lastSatelliteAnimationFrameMs = 0;
         this.satelliteAnimationId = requestAnimationFrame(tick);
       }
     } else if (this.satelliteAnimationId) {
       cancelAnimationFrame(this.satelliteAnimationId);
       this.satelliteAnimationId = null;
+      this.lastSatelliteAnimationFrameMs = 0;
     }
   }
 
@@ -7794,7 +7893,8 @@ export class DeckGLMap {
 
   public setSatellites(satellites: import('@/types').SatelliteData[]): void {
     this.satelliteCatalog = satellites;
-    this.satellitePositionCache = null;
+    this.satelliteVisiblePositionCache = null;
+    this.satellitePositionSampleCache = null;
     this.render('satellite');
   }
 
@@ -8565,11 +8665,20 @@ export class DeckGLMap {
     });
 
     map.on('click', (e) => {
-      const satellitePopupHtml = satelliteHtml(querySatellite(e.point)?.properties?.id as string | undefined);
-      if (satellitePopupHtml) {
+      const satelliteId = querySatellite(e.point)?.properties?.id as string | undefined;
+      const satellite = this.satellitePanelData(satelliteId);
+      if (satellite) {
         this.entityClickConsumedAt = Date.now();
-        new maplibregl.Popup({ closeButton: true, closeOnClick: true, offset: 14 })
-          .setLngLat(e.lngLat).setHTML(satellitePopupHtml).addTo(map);
+        this.satelliteHoverPopup?.remove();
+        if (this.onEntityClick) {
+          this.onEntityClick('satellite', satellite);
+        } else {
+          const satellitePopupHtml = satelliteHtml(satelliteId);
+          if (satellitePopupHtml) {
+            new maplibregl.Popup({ closeButton: true, closeOnClick: true, offset: 14 })
+              .setLngLat(e.lngLat).setHTML(satellitePopupHtml).addTo(map);
+          }
+        }
         return;
       }
       if (!this.onCountryClick) return;
@@ -8767,11 +8876,19 @@ export class DeckGLMap {
   }
 
   /** Toggle between globe and mercator projection. All themes and layers stay intact. */
-  public setGlobeProjection(enabled: boolean): void {
-    if (!this.maplibreMap || this._globeProjection === enabled) return;
-    this._globeProjection = enabled;
+  public setGlobeProjection(enabled: boolean): boolean {
+    if (!this.maplibreMap) return this._globeProjection;
+    if (this._globeProjection === enabled) return this._globeProjection;
 
-    this.maplibreMap.setProjection({ type: enabled ? 'globe' : 'mercator' });
+    try {
+      this.maplibreMap.setProjection({ type: enabled ? 'globe' : 'mercator' });
+      this._globeProjection = enabled;
+    } catch (error) {
+      console.warn(`[DeckGLMap] Failed to switch to ${enabled ? 'globe' : 'mercator'} projection`, error);
+      this._globeProjection = false;
+      this.container.classList.remove('globe-projection');
+      return false;
+    }
 
     if (enabled) {
       // Allow pitch and rotation for a natural globe feel
@@ -8794,6 +8911,7 @@ export class DeckGLMap {
     this.syncGlobeNativeLayers();
     this.maplibreMap.resize();
     this.render();
+    return this._globeProjection;
   }
 
   public destroy(): void {

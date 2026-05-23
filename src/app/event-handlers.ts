@@ -58,6 +58,7 @@ import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { WhatsNewPanel } from '@/components/WhatsNewPanel';
 import { OnboardingHints } from '@/components/OnboardingHints';
+import { MAP_MODE_CHANGE_EVENT } from '@/components/MapContainer';
 import { t } from '@/services/i18n';
 import { TvModeController } from '@/services/tv-mode';
 import { buildShareUrl } from './event-handler-view';
@@ -174,6 +175,7 @@ export class EventHandlerManager implements AppModule {
     mapFullscreenEsc:     null as ((e: KeyboardEvent) => void) | null,
     mobileMenuKey:        null as ((e: KeyboardEvent) => void) | null,
     missionPackApply:     null as ((e: Event) => void) | null,
+    mapModeChanged:       null as ((e: Event) => void) | null,
   };
   private kbShortcutsOverlay: HTMLElement | null = null;
   private statusDropdownEl: HTMLElement | null = null;
@@ -358,6 +360,10 @@ export class EventHandlerManager implements AppModule {
     if (this.handlers.missionPackApply) {
       window.removeEventListener('wm:apply-mission-pack', this.handlers.missionPackApply);
       this.handlers.missionPackApply = null;
+    }
+    if (this.handlers.mapModeChanged) {
+      window.removeEventListener(MAP_MODE_CHANGE_EVENT, this.handlers.mapModeChanged);
+      this.handlers.mapModeChanged = null;
     }
     if (this.handlers.bloombergKey) {
       document.removeEventListener('keydown', this.handlers.bloombergKey);
@@ -1857,21 +1863,38 @@ export class EventHandlerManager implements AppModule {
   private setupMapDimensionToggle(): void {
     const toggle = document.getElementById('mapDimensionToggle');
     if (!toggle) return;
+
+    const syncButtons = (mode = this.ctx.map?.isGlobeMode() ? 'globe' : 'flat') => {
+      toggle.querySelectorAll<HTMLButtonElement>('.map-dim-btn').forEach(button => {
+        button.classList.toggle('active', button.dataset.mode === mode);
+      });
+    };
+
+    syncButtons();
+    this.handlers.mapModeChanged = (event: Event) => {
+      const mode = (event as CustomEvent<{ mode?: 'flat' | 'globe' }>).detail?.mode;
+      syncButtons(mode === 'globe' ? 'globe' : 'flat');
+    };
+    window.addEventListener(MAP_MODE_CHANGE_EVENT, this.handlers.mapModeChanged);
+
     toggle.querySelectorAll<HTMLButtonElement>('.map-dim-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const mode = btn.dataset.mode;
         if (!mode) return;
         const isGlobe = mode === 'globe';
         const alreadyGlobe = this.ctx.map?.isGlobeMode() ?? false;
-        if (isGlobe === alreadyGlobe) return;
-        toggle.querySelectorAll('.map-dim-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        if (isGlobe === alreadyGlobe) {
+          saveToStorage(STORAGE_KEYS.mapMode, isGlobe ? 'globe' : 'flat');
+          syncButtons();
+          return;
+        }
         saveToStorage(STORAGE_KEYS.mapMode, isGlobe ? 'globe' : 'flat');
         if (isGlobe) {
           this.ctx.map?.switchToGlobe();
         } else {
           this.ctx.map?.switchToFlat();
         }
+        syncButtons();
       });
     });
   }

@@ -1465,6 +1465,7 @@ export interface SatelliteData {
   tle2?: string;
   source?: 'celestrak' | 'generated' | 'fallback';
   sourceGroup?: string;
+  objectId?: string;
   epoch?: string;
   meanMotion?: number;
   eccentricity?: number;
@@ -1472,6 +1473,10 @@ export interface SatelliteData {
   raan?: number;
   argPerigee?: number;
   meanAnomaly?: number;
+  elementSetNo?: number;
+  bstar?: number;
+  meanMotionDot?: number;
+  meanMotionDdot?: number;
 }
 
 // ── Country Profiles (enriched static data) ──────────────────────────────────

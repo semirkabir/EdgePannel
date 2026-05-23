@@ -34,6 +34,7 @@ import { AcceleratorRenderer } from '@/components/entity-detail/renderers/accele
 import { TechEventClusterRenderer } from '@/components/entity-detail/renderers/tech-event-cluster';
 import { AircraftRenderer } from '@/components/entity-detail/renderers/aircraft';
 import { SpaceportRenderer } from '@/components/entity-detail/renderers/spaceport';
+import { SatelliteRenderer } from '@/components/entity-detail/renderers/satellite';
 import { CompanyRenderer } from '@/components/entity-detail/renderers/company';
 import { CryptoRenderer } from '@/components/entity-detail/renderers/crypto';
 import { CongressPoliticianRenderer } from '@/components/entity-detail/renderers/congress-politician';
@@ -154,6 +155,7 @@ export class EntityIntelManager implements AppModule {
       techEventCluster: new TechEventClusterRenderer(),
       aircraft: new AircraftRenderer(),
       spaceport: new SpaceportRenderer(),
+      satellite: new SatelliteRenderer(),
       company: new CompanyRenderer(),
       crypto: new CryptoRenderer(),
       congressPolitician: new CongressPoliticianRenderer(),

@@ -10,6 +10,7 @@ type SatelliteCategory = SatelliteData['category'];
 
 type CelesTrakGpRecord = {
   OBJECT_NAME?: string;
+  OBJECT_ID?: string;
   EPOCH?: string;
   MEAN_MOTION?: number;
   ECCENTRICITY?: number;
@@ -18,6 +19,10 @@ type CelesTrakGpRecord = {
   ARG_OF_PERICENTER?: number;
   MEAN_ANOMALY?: number;
   NORAD_CAT_ID?: number;
+  ELEMENT_SET_NO?: number;
+  BSTAR?: number;
+  MEAN_MOTION_DOT?: number;
+  MEAN_MOTION_DDOT?: number;
 };
 
 type CachedSatellites = {
@@ -119,6 +124,7 @@ function normalizeCelesTrakRecord(record: CelesTrakGpRecord, sourceGroup: string
     category: categoryForGroup(sourceGroup),
     source: 'celestrak',
     sourceGroup,
+    objectId: typeof record.OBJECT_ID === 'string' ? record.OBJECT_ID : undefined,
     epoch: record.EPOCH,
     meanMotion,
     eccentricity,
@@ -126,6 +132,10 @@ function normalizeCelesTrakRecord(record: CelesTrakGpRecord, sourceGroup: string
     raan,
     argPerigee,
     meanAnomaly,
+    elementSetNo: Number.isFinite(Number(record.ELEMENT_SET_NO)) ? Number(record.ELEMENT_SET_NO) : undefined,
+    bstar: Number.isFinite(Number(record.BSTAR)) ? Number(record.BSTAR) : undefined,
+    meanMotionDot: Number.isFinite(Number(record.MEAN_MOTION_DOT)) ? Number(record.MEAN_MOTION_DOT) : undefined,
+    meanMotionDdot: Number.isFinite(Number(record.MEAN_MOTION_DDOT)) ? Number(record.MEAN_MOTION_DDOT) : undefined,
   };
 }
 
