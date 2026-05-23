@@ -3244,18 +3244,33 @@ export const ECONOMIC_CENTERS: EconomicCenter[] = [
 ];
 
 export const SPACEPORTS: Spaceport[] = [
-  { id: 'ksc', name: 'Kennedy Space Center', lat: 28.57, lon: -80.64, country: 'USA', operator: 'NASA/Space Force', status: 'active', launches: 'High' },
-  { id: 'vandenberg', name: 'Vandenberg SFB', lat: 34.74, lon: -120.57, country: 'USA', operator: 'US Space Force', status: 'active', launches: 'Medium' },
-  { id: 'boca_chica', name: 'Starbase', lat: 25.99, lon: -97.15, country: 'USA', operator: 'SpaceX', status: 'active', launches: 'High' },
-  { id: 'baikonur', name: 'Baikonur Cosmodrome', lat: 45.96, lon: 63.30, country: 'Kazakhstan', operator: 'Roscosmos', status: 'active', launches: 'Medium' },
+  // Major government launch sites
+  { id: 'ksc', name: 'Kennedy Space Center', lat: 28.524, lon: -80.651, country: 'USA', operator: 'NASA/Space Force', status: 'active', launches: 'High' },
+  { id: 'cape_canaveral', name: 'Cape Canaveral SFS', lat: 28.489, lon: -80.578, country: 'USA', operator: 'US Space Force', status: 'active', launches: 'High' },
+  { id: 'vandenberg', name: 'Vandenberg SFB', lat: 34.733, lon: -120.568, country: 'USA', operator: 'US Space Force/NASA/SpaceX', status: 'active', launches: 'Medium' },
+  { id: 'wallops', name: 'Mid-Atlantic Regional Spaceport', lat: 37.843, lon: -75.478, country: 'USA', operator: 'Rocket Lab/Northrop Grumman', status: 'active', launches: 'Low' },
+  { id: 'kodiak', name: 'Kodiak Launch Complex', lat: 57.241, lon: -154.119, country: 'USA', operator: 'Pacific Spaceport Complex', status: 'active', launches: 'Low' },
+  { id: 'baikonur', name: 'Baikonur Cosmodrome', lat: 45.965, lon: 63.305, country: 'Kazakhstan', operator: 'Roscosmos', status: 'active', launches: 'Medium' },
   { id: 'plesetsk', name: 'Plesetsk Cosmodrome', lat: 62.92, lon: 40.57, country: 'Russia', operator: 'Roscosmos/Military', status: 'active', launches: 'Medium' },
-  { id: 'vostochny', name: 'Vostochny Cosmodrome', lat: 51.88, lon: 128.33, country: 'Russia', operator: 'Roscosmos', status: 'active', launches: 'Low' },
-  { id: 'jiuquan', name: 'Jiuquan SLC', lat: 40.96, lon: 100.29, country: 'China', operator: 'CNSA', status: 'active', launches: 'High' },
-  { id: 'xichang', name: 'Xichang SLC', lat: 28.24, lon: 102.02, country: 'China', operator: 'CNSA', status: 'active', launches: 'High' },
-  { id: 'wenchang', name: 'Wenchang SLC', lat: 19.61, lon: 110.95, country: 'China', operator: 'CNSA', status: 'active', launches: 'Medium' },
-  { id: 'kourou', name: 'Guiana Space Centre', lat: 5.23, lon: -52.76, country: 'France', operator: 'ESA/CNES', status: 'active', launches: 'Medium' },
-  { id: 'sriharikota', name: 'Satish Dhawan SC', lat: 13.72, lon: 80.23, country: 'India', operator: 'ISRO', status: 'active', launches: 'Medium' },
+  { id: 'vostochny', name: 'Vostochny Cosmodrome', lat: 51.885, lon: 128.335, country: 'Russia', operator: 'Roscosmos', status: 'active', launches: 'Low' },
+  { id: 'jiuquan', name: 'Jiuquan SLC', lat: 40.961, lon: 100.298, country: 'China', operator: 'CNSA', status: 'active', launches: 'High' },
+  { id: 'xichang', name: 'Xichang SLC', lat: 28.246, lon: 102.027, country: 'China', operator: 'CNSA', status: 'active', launches: 'High' },
+  { id: 'wenchang', name: 'Wenchang SLC', lat: 19.567, lon: 110.867, country: 'China', operator: 'CNSA', status: 'active', launches: 'Medium' },
+  { id: 'kourou', name: 'Guiana Space Centre', lat: 5.237, lon: -52.761, country: 'France', operator: 'ESA/CNES/ArianeGroup', status: 'active', launches: 'Medium' },
+  { id: 'sriharikota', name: 'Satish Dhawan SC', lat: 13.720, lon: 80.230, country: 'India', operator: 'ISRO', status: 'active', launches: 'Medium' },
   { id: 'tanegashima', name: 'Tanegashima SC', lat: 30.40, lon: 130.97, country: 'Japan', operator: 'JAXA', status: 'active', launches: 'Low' },
+  { id: 'barreira_inferno', name: 'Barreira do Inferno', lat: -5.925, lon: -35.163, country: 'Brazil', operator: 'CLBI/FAB', status: 'active', launches: 'Low' },
+  { id: 'alcantara', name: 'Alcântara Launch Center', lat: -2.373, lon: -44.396, country: 'Brazil', operator: 'AEB/Embraer', status: 'active', launches: 'Low' },
+  { id: 'broglio', name: 'Broglio Space Centre', lat: -2.938, lon: 40.213, country: 'Kenya', operator: 'Italian Space Agency', status: 'inactive', launches: 'Low' },
+  // Commercial spaceports
+  { id: 'boca_chica', name: 'Starbase', lat: 26.049, lon: -97.238, country: 'USA', operator: 'SpaceX', status: 'active', launches: 'High' },
+  { id: 'corn_ranch', name: 'Corn Ranch', lat: 31.423, lon: -104.759, country: 'USA', operator: 'Blue Origin', status: 'active', launches: 'Low' },
+  { id: 'mojave', name: 'Mojave Air and Space Port', lat: 35.059, lon: -118.152, country: 'USA', operator: 'Multiple (Virgin, XCOR, Masten)', status: 'active', launches: 'Low' },
+  { id: 'spaceport_america', name: 'Spaceport America', lat: 33.135, lon: -107.101, country: 'USA', operator: 'Virgin Galactic/SpaceX', status: 'active', launches: 'Low' },
+  { id: 'spaceport_sweden', name: 'Spaceport Sweden (Esrange)', lat: 67.856, lon: 20.225, country: 'Sweden', operator: 'Swedish Space Corporation', status: 'active', launches: 'Low' },
+  { id: 'spaceport_malaysia', name: 'Spaceport Malaysia', lat: 3.658, lon: 101.537, country: 'Malaysia', operator: 'Langkasa VTOL', status: 'active', launches: 'Low' },
+  { id: 'rak_spaceport', name: 'Ras Al Khaimah Spaceport', lat: 25.801, lon: 55.976, country: 'UAE', operator: 'Space Adventures', status: 'active', launches: 'Low' },
+  { id: 'spaceport_curacao', name: 'Spaceport Curaçao', lat: 12.188, lon: -68.961, country: 'Netherlands', operator: 'SXC', status: 'active', launches: 'Low' },
 ];
 
 export const CRITICAL_MINERALS: CriticalMineralProject[] = [
