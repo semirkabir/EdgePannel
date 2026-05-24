@@ -28,6 +28,7 @@ import {
   GAMMA_IRRADIATORS,
   PIPELINES,
   PIPELINE_COLORS,
+  hydrateGeneratedPipelines,
   SANCTIONED_COUNTRIES,
   SANCTIONED_ASSETS,
   hydrateGeneratedSanctionedAssets,
@@ -83,6 +84,8 @@ import {
 } from '@/utils/time-range';
 export type { TimeRange };
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
+type InfrastructureLineType = 'cable' | 'pipeline';
+type InfrastructureLineSelection = { type: InfrastructureLineType; id: string };
 
 function getPredictionMarketColor(yesPrice: number, volumeHeat = 0): string {
   const pct = Math.max(0, Math.min(100, Number.isFinite(yesPrice) ? yesPrice : 50));
@@ -299,6 +302,7 @@ export class MapComponent {
     processingPlant: new Set(),
     commodityPort: new Set(),
   };
+  private selectedInfrastructureLine: InfrastructureLineSelection | null = null;
   private boundVisibilityHandler!: () => void;
   private handleThemeChange: () => void;
   private resizeObserver: ResizeObserver | null = null;
@@ -306,6 +310,7 @@ export class MapComponent {
   private lastRenderTime = 0;
   private readonly MIN_RENDER_INTERVAL_MS = 100;
   private sanctionedAssetsHydrationStarted = false;
+  private pipelineHydrationStarted = false;
   private healthCheckLoop: SmartPollLoopHandle | null = null;
   private legendEl: HTMLElement | null = null;
 
@@ -1286,6 +1291,10 @@ export class MapComponent {
     });
 
     this.container.addEventListener('click', (e) => {
+      if (this.selectedInfrastructureLine) {
+        this.selectedInfrastructureLine = null;
+        this.render();
+      }
       if (!this.onCountryClick) return;
       if (performance.now() - lastDragEndTime < 300) return;
       const containerRect = this.container.getBoundingClientRect();
@@ -1601,16 +1610,18 @@ export class MapComponent {
       const advisoryClass = cableAdvisory ? `cable-${cableAdvisory.severity}` : '';
       const healthRecord = this.healthByCableId[cable.id];
       const healthClass = healthRecord?.status === 'fault' ? 'cable-health-fault' : healthRecord?.status === 'degraded' ? 'cable-health-degraded' : '';
-      const highlightClass = isHighlighted ? 'asset-highlight asset-highlight-cable' : '';
+      const selectedClass = this.isSelectedInfrastructureLine('cable', cable.id) ? 'asset-highlight asset-highlight-cable' : '';
+      const dimClass = this.shouldDimInfrastructureLine('cable', cable.id) ? 'asset-dimmed' : '';
+      const highlightClass = selectedClass || isHighlighted ? 'asset-highlight asset-highlight-cable' : '';
 
       const path = cableGroup
         .append('path')
-        .attr('class', `cable-path ${advisoryClass} ${healthClass} ${highlightClass}`.trim())
+        .attr('class', `cable-path ${advisoryClass} ${healthClass} ${highlightClass} ${dimClass}`.trim())
         .attr('d', lineGenerator(cable.points));
 
       cableGroup
         .append('path')
-        .attr('class', `cable-flow-path ${advisoryClass} ${healthClass} ${highlightClass}`.trim())
+        .attr('class', `cable-flow-path ${advisoryClass} ${healthClass} ${highlightClass} ${dimClass}`.trim())
         .attr('d', lineGenerator(cable.points))
         .style('animation-delay', `${index * -0.22}s`);
 
@@ -1618,6 +1629,8 @@ export class MapComponent {
 
       path.on('click', (event: MouseEvent) => {
         event.stopPropagation();
+        this.selectInfrastructureLine('cable', cable.id);
+        this.fitProjectedLine(cable.points);
         const rect = this.container.getBoundingClientRect();
         this.popup.show({
           type: 'cable',
@@ -1631,6 +1644,7 @@ export class MapComponent {
 
   private renderPipelines(projection: d3.GeoProjection): void {
     if (!this.dynamicLayerGroup) return;
+    this.hydratePipelinesIfNeeded();
     const pipelineGroup = this.dynamicLayerGroup.append('g').attr('class', 'pipelines');
 
     PIPELINES.forEach((pipeline) => {
@@ -1645,9 +1659,12 @@ export class MapComponent {
       const dashArray = pipeline.status === 'construction' ? '4,2' : 'none';
 
       const isHighlighted = this.highlightedAssets.pipeline.has(pipeline.id);
+      const selectedClass = this.isSelectedInfrastructureLine('pipeline', pipeline.id) ? ' asset-highlight asset-highlight-pipeline' : '';
+      const dimClass = this.shouldDimInfrastructureLine('pipeline', pipeline.id) ? ' asset-dimmed' : '';
+      const highlightClass = selectedClass || isHighlighted ? ' asset-highlight asset-highlight-pipeline' : '';
       const path = pipelineGroup
         .append('path')
-        .attr('class', `pipeline-path pipeline-${pipeline.type} pipeline-${pipeline.status}${isHighlighted ? ' asset-highlight asset-highlight-pipeline' : ''}`)
+        .attr('class', `pipeline-path pipeline-${pipeline.type} pipeline-${pipeline.status}${highlightClass}${dimClass}`)
         .attr('d', lineGenerator(pipeline.points))
         .attr('fill', 'none')
         .attr('stroke', color)
@@ -1664,6 +1681,8 @@ export class MapComponent {
 
       path.on('click', (event: MouseEvent) => {
         event.stopPropagation();
+        this.selectInfrastructureLine('pipeline', pipeline.id);
+        this.fitProjectedLine(pipeline.points);
         const rect = this.container.getBoundingClientRect();
         this.popup.show({
           type: 'pipeline',
@@ -1672,6 +1691,14 @@ export class MapComponent {
           y: event.clientY - rect.top,
         });
       });
+    });
+  }
+
+  private hydratePipelinesIfNeeded(): void {
+    if (this.pipelineHydrationStarted) return;
+    this.pipelineHydrationStarted = true;
+    void hydrateGeneratedPipelines().then((added) => {
+      if (added > 0) this.render();
     });
   }
 
@@ -4015,8 +4042,17 @@ export class MapComponent {
 
   public triggerPipelineClick(id: string): void {
     const pipeline = PIPELINES.find(p => p.id === id);
+    if (!pipeline) {
+      void hydrateGeneratedPipelines().then(() => {
+        const hydrated = PIPELINES.find(p => p.id === id);
+        if (hydrated) this.triggerPipelineClick(id);
+      });
+      return;
+    }
     if (!pipeline || pipeline.points.length === 0) return;
 
+    this.selectInfrastructureLine('pipeline', pipeline.id);
+    this.fitProjectedLine(pipeline.points);
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
     const projection = this.getProjection(width, height);
@@ -4036,6 +4072,8 @@ export class MapComponent {
     const cable = UNDERSEA_CABLES.find(c => c.id === id);
     if (!cable || cable.points.length === 0) return;
 
+    this.selectInfrastructureLine('cable', cable.id);
+    this.fitProjectedLine(cable.points);
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
     const projection = this.getProjection(width, height);
@@ -4171,6 +4209,47 @@ export class MapComponent {
     }
 
     this.render();
+  }
+
+  private isSelectedInfrastructureLine(type: InfrastructureLineType, id: string): boolean {
+    return this.selectedInfrastructureLine?.type === type && this.selectedInfrastructureLine.id === id;
+  }
+
+  private shouldDimInfrastructureLine(type: InfrastructureLineType, id: string): boolean {
+    return this.selectedInfrastructureLine != null && !this.isSelectedInfrastructureLine(type, id);
+  }
+
+  private selectInfrastructureLine(type: InfrastructureLineType, id: string): void {
+    this.selectedInfrastructureLine = { type, id };
+    this.render();
+  }
+
+  private fitProjectedLine(points: [number, number][]): void {
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    const projection = this.getProjection(width, height);
+    const projected = points
+      .map((point) => projection(point))
+      .filter((point): point is [number, number] => point != null && Number.isFinite(point[0]) && Number.isFinite(point[1]));
+    if (projected.length === 0) return;
+
+    const xs = projected.map(([x]) => x);
+    const ys = projected.map(([, y]) => y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const lineWidth = Math.max(1, maxX - minX);
+    const lineHeight = Math.max(1, maxY - minY);
+    const zoomX = (width * 0.78) / lineWidth;
+    const zoomY = (height * 0.78) / lineHeight;
+    this.state.zoom = Math.max(1, Math.min(8, Math.min(zoomX, zoomY)));
+    this.state.pan = {
+      x: width / 2 - (minX + lineWidth / 2),
+      y: height / 2 - (minY + lineHeight / 2),
+    };
+    this.applyTransform();
+    this.ensureBaseLayerIntact();
   }
 
   private clampPan(): void {

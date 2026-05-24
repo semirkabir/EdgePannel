@@ -402,6 +402,19 @@ export default async function handler(req) {
         }
       }
 
+      case 'stock-splits':
+        if (!symbol) {
+          return new Response(JSON.stringify({ error: 'symbol is required for stock-splits' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+        finnhubUrl = new URL('https://finnhub.io/api/v1/stock/split');
+        finnhubUrl.searchParams.set('symbol', symbol);
+        finnhubUrl.searchParams.set('from', from || new Date(Date.now() - 5 * 365 * 86400000).toISOString().split('T')[0]);
+        finnhubUrl.searchParams.set('to', to || new Date().toISOString().split('T')[0]);
+        break;
+
       default:
         return new Response(JSON.stringify({ error: `Unknown endpoint: ${endpoint}` }), {
           status: 400,

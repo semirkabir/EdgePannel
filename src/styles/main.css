@@ -7464,6 +7464,18 @@ body.playback-mode #shellGuidanceStrip {
   animation-duration: 2.2s;
 }
 
+.cable-path.asset-dimmed {
+  opacity: 0.16 !important;
+  filter: none !important;
+  animation: none !important;
+}
+
+.cable-flow-path.asset-dimmed {
+  opacity: 0.12 !important;
+  filter: none !important;
+  animation-duration: 5.5s;
+}
+
 @keyframes cable-health-fault-pulse {
 
   0%,
@@ -7552,6 +7564,12 @@ body.playback-mode #shellGuidanceStrip {
   stroke-width: 4.5 !important;
   filter: drop-shadow(0 0 10px var(--accent));
   animation: asset-pulse-glow 1.2s ease-in-out infinite;
+}
+
+.pipeline-path.asset-dimmed {
+  opacity: 0.18 !important;
+  filter: none !important;
+  animation: none !important;
 }
 
 .cable-path.asset-highlight {

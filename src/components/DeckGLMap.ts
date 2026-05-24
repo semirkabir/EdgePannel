@@ -145,6 +145,8 @@ import {
 export type { TimeRange };
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 type MapInteractionMode = 'flat' | '3d';
+type InfrastructureLineType = 'cable' | 'pipeline';
+type InfrastructureLineSelection = { type: InfrastructureLineType; id: string };
 type GlobeLineFeature = Feature<LineString, { id: string; name: string; color: string; width: number; kind: string }>;
 type GlobePointFeature = Feature<Point, { id: string; name: string; color: string; radius: number; kind: string; heading?: number; altitudeMeters?: number }>;
 type GlobeLineCollection = FeatureCollection<LineString, GlobeLineFeature['properties']>;
@@ -777,6 +779,7 @@ export class DeckGLMap {
     processingPlant: new Set(),
     commodityPort: new Set(),
   };
+  private selectedInfrastructureLine: InfrastructureLineSelection | null = null;
 
   private renderScheduled = false;
   private renderPaused = false;
@@ -1114,6 +1117,7 @@ export class DeckGLMap {
           this.handleEntityClick(info);
         } else {
           // Empty map click — clear any active aircraft trajectory
+          this.clearInfrastructureLineSelection();
           if (this.selectedAircraftIcao) {
             this.selectedAircraftIcao = null;
             this.selectedAircraftType = null;
@@ -1206,6 +1210,36 @@ export class DeckGLMap {
 
   private getSetSignature(set: Set<string>): string {
     return [...set].sort().join('|');
+  }
+
+  private getInfrastructureSelectionSignature(): string {
+    return this.selectedInfrastructureLine
+      ? `${this.selectedInfrastructureLine.type}:${this.selectedInfrastructureLine.id}`
+      : '';
+  }
+
+  private isSelectedInfrastructureLine(type: InfrastructureLineType, id: string): boolean {
+    return this.selectedInfrastructureLine?.type === type && this.selectedInfrastructureLine.id === id;
+  }
+
+  private shouldDimInfrastructureLine(type: InfrastructureLineType, id: string): boolean {
+    return this.selectedInfrastructureLine != null && !this.isSelectedInfrastructureLine(type, id);
+  }
+
+  private selectInfrastructureLine(type: InfrastructureLineType, id: string): void {
+    if (this.selectedInfrastructureLine?.type === type && this.selectedInfrastructureLine.id === id) return;
+    this.selectedInfrastructureLine = { type, id };
+    this.layerCache.delete('cables-layer');
+    this.layerCache.delete('pipelines-layer');
+    this.render();
+  }
+
+  private clearInfrastructureLineSelection(): void {
+    if (!this.selectedInfrastructureLine) return;
+    this.selectedInfrastructureLine = null;
+    this.layerCache.delete('cables-layer');
+    this.layerCache.delete('pipelines-layer');
+    this.render();
   }
 
   private hasRecentNews(now = Date.now()): boolean {
@@ -2064,6 +2098,7 @@ export class DeckGLMap {
     this.upsertGlobeSource('wm-globe-aircraft', this.state.layers.flights ? this.buildGlobeAircraftCollection() : EMPTY_GLOBE_POINT_COLLECTION);
     this.upsertGlobeSource('wm-globe-satellites', this.state.layers.satellite ? this.buildGlobeSatelliteCollection() : EMPTY_GLOBE_POINT_COLLECTION);
     this.ensureGlobeNativeLayerStyles();
+    if (!this.countryHoverSetup) this.setupCountryHover();
   }
 
   private upsertGlobeSource(id: typeof GLOBE_NATIVE_SOURCES[number], data: GlobeLineCollection | GlobePointCollection): void {
@@ -2126,7 +2161,7 @@ export class DeckGLMap {
         id: 'wm-globe-satellites-circle',
         type: 'circle',
         source: 'wm-globe-satellites',
-        paint: { 'circle-color': 'rgba(0,0,0,0)', 'circle-opacity': 0, 'circle-radius': 22 },
+        paint: { 'circle-color': 'rgba(0,0,0,0.01)', 'circle-opacity': 0.01, 'circle-radius': 24 },
       } as maplibregl.LayerSpecification);
     }
     this.ensureGlobeAltitudeLayer('wm-globe-aircraft-altitude', 'aircraft');
@@ -2517,12 +2552,18 @@ export class DeckGLMap {
       type: 'FeatureCollection',
       features: UNDERSEA_CABLES.map((cable) => {
         const health = this.healthByCableId[cable.id];
-        const color = health?.status === 'fault'
+        const selected = this.isSelectedInfrastructureLine('cable', cable.id);
+        const dimmed = this.shouldDimInfrastructureLine('cable', cable.id);
+        const color = selected
+          ? rgbaCss(COLORS.cableHighlight)
+          : dimmed
+            ? 'rgba(90, 120, 130, 0.16)'
+            : health?.status === 'fault'
           ? rgbaCss(COLORS.cableFault)
           : health?.status === 'degraded'
             ? rgbaCss(COLORS.cableDegraded)
             : rgbaCss(COLORS.cable);
-        const width = health?.status === 'fault' ? 3 : health?.status === 'degraded' ? 2.4 : 1.6;
+        const width = selected ? 4 : dimmed ? 0.9 : health?.status === 'fault' ? 3 : health?.status === 'degraded' ? 2.4 : 1.6;
         return this.lineFeature(cable.id, cable.name, cable.points, color, width, 'cable');
       }).filter((feature): feature is GlobeLineFeature => feature != null),
     };
@@ -2533,8 +2574,15 @@ export class DeckGLMap {
     return {
       type: 'FeatureCollection',
       features: PIPELINES.map((pipeline) => {
-        const color = PIPELINE_COLORS[pipeline.type as keyof typeof PIPELINE_COLORS] || '#999999';
-        return this.lineFeature(pipeline.id, pipeline.name, pipeline.points, color, 2, 'pipeline');
+        const selected = this.isSelectedInfrastructureLine('pipeline', pipeline.id);
+        const dimmed = this.shouldDimInfrastructureLine('pipeline', pipeline.id);
+        const color = selected
+          ? 'rgba(255,100,100,0.92)'
+          : dimmed
+            ? 'rgba(120,105,105,0.16)'
+            : PIPELINE_COLORS[pipeline.type as keyof typeof PIPELINE_COLORS] || '#999999';
+        const width = selected ? 4 : dimmed ? 0.9 : 2;
+        return this.lineFeature(pipeline.id, pipeline.name, pipeline.points, color, width, 'pipeline');
       }).filter((feature): feature is GlobeLineFeature => feature != null),
     };
   }
@@ -2688,7 +2736,8 @@ export class DeckGLMap {
     const highlightedCables = this.highlightedAssets.cable;
     const cacheKey = 'cables-layer';
     const cached = this.layerCache.get(cacheKey) as PathLayer | undefined;
-    const highlightSignature = this.getSetSignature(highlightedCables);
+    const selectionSignature = this.getInfrastructureSelectionSignature();
+    const highlightSignature = `${this.getSetSignature(highlightedCables)}|${selectionSignature}`;
     const healthSignature = Object.keys(this.healthByCableId).sort().join(',');
     if (cached && highlightSignature === this.lastCableHighlightSignature && healthSignature === this.lastCableHealthSignature) return cached;
 
@@ -2698,6 +2747,8 @@ export class DeckGLMap {
       data: UNDERSEA_CABLES,
       getPath: (d) => d.points,
       getColor: (d) => {
+        if (this.isSelectedInfrastructureLine('cable', d.id)) return COLORS.cableHighlight;
+        if (this.shouldDimInfrastructureLine('cable', d.id)) return [90, 120, 130, 36] as [number, number, number, number];
         if (highlightedCables.has(d.id)) return COLORS.cableHighlight;
         const h = health[d.id];
         if (h?.status === 'fault') return COLORS.cableFault;
@@ -2705,6 +2756,8 @@ export class DeckGLMap {
         return COLORS.cable;
       },
       getWidth: (d) => {
+        if (this.isSelectedInfrastructureLine('cable', d.id)) return 4;
+        if (this.shouldDimInfrastructureLine('cable', d.id)) return 0.8;
         if (highlightedCables.has(d.id)) return 3;
         const h = health[d.id];
         if (h?.status === 'fault') return 2.5;
@@ -2728,6 +2781,8 @@ export class DeckGLMap {
   }
 
   private getCableFlowColor(cableId: string): [number, number, number, number] {
+    if (this.isSelectedInfrastructureLine('cable', cableId)) return [255, 244, 244, 255];
+    if (this.shouldDimInfrastructureLine('cable', cableId)) return [130, 150, 155, 34];
     if (this.highlightedAssets.cable.has(cableId)) return [255, 244, 244, 255];
     const health = this.healthByCableId[cableId];
     if (health?.status === 'fault') return [255, 150, 150, 245];
@@ -2787,7 +2842,8 @@ export class DeckGLMap {
     const highlightedPipelines = this.highlightedAssets.pipeline;
     const cacheKey = 'pipelines-layer';
     const cached = this.layerCache.get(cacheKey) as PathLayer | undefined;
-    const highlightSignature = this.getSetSignature(highlightedPipelines);
+    const selectionSignature = this.getInfrastructureSelectionSignature();
+    const highlightSignature = `${this.getSetSignature(highlightedPipelines)}|${selectionSignature}|${PIPELINES.length}`;
     if (cached && highlightSignature === this.lastPipelineHighlightSignature) return cached;
 
     const layer = new PathLayer({
@@ -2795,6 +2851,12 @@ export class DeckGLMap {
       data: PIPELINES,
       getPath: (d) => d.points,
       getColor: (d) => {
+        if (this.isSelectedInfrastructureLine('pipeline', d.id)) {
+          return [255, 100, 100, 200] as [number, number, number, number];
+        }
+        if (this.shouldDimInfrastructureLine('pipeline', d.id)) {
+          return [120, 105, 105, 40] as [number, number, number, number];
+        }
         if (highlightedPipelines.has(d.id)) {
           return [255, 100, 100, 200] as [number, number, number, number];
         }
@@ -2802,7 +2864,11 @@ export class DeckGLMap {
         const hex = PIPELINE_COLORS[colorKey] || '#666666';
         return this.hexToRgba(hex, 150);
       },
-      getWidth: (d) => highlightedPipelines.has(d.id) ? 3 : 1.5,
+      getWidth: (d) => {
+        if (this.isSelectedInfrastructureLine('pipeline', d.id)) return 4;
+        if (this.shouldDimInfrastructureLine('pipeline', d.id)) return 0.9;
+        return highlightedPipelines.has(d.id) ? 3 : 1.5;
+      },
       widthMinPixels: 1,
       widthMaxPixels: 4,
       pickable: true,
@@ -5918,6 +5984,13 @@ export class DeckGLMap {
     // Block the native MaplibreGL map.on('click') from also firing country panel
     this.entityClickConsumedAt = Date.now();
 
+    if (popupType === 'cable' || popupType === 'pipeline') {
+      const id = typeof data?.id === 'string' ? data.id : '';
+      if (id) this.selectInfrastructureLine(popupType, id);
+    } else {
+      this.clearInfrastructureLineSelection();
+    }
+
     // Zoom to the clicked entity location
     this.zoomToEntity(info, layerId);
 
@@ -5926,6 +5999,11 @@ export class DeckGLMap {
 
   private zoomToEntity(info: PickingInfo, layerId: string): void {
     if (!this.maplibreMap) return;
+
+    if (layerId === 'cables-layer' || layerId === 'pipelines-layer') {
+      const points = info.object?.points as [number, number][] | undefined;
+      if (points && this.fitLineBounds(points)) return;
+    }
 
     // Skip zooming for cluster items that need expansion instead
     if (layerId === 'tech-hq-clusters-layer') {
@@ -5973,6 +6051,55 @@ export class DeckGLMap {
         zoom: isChoropleth ? 5 : 12,
         duration: 800,
       });
+    }
+  }
+
+  private fitLineBounds(points: [number, number][]): boolean {
+    if (!this.maplibreMap) return false;
+    const clean = points.filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat));
+    if (clean.length === 0) return false;
+
+    const unwrapped: [number, number][] = [];
+    for (const [rawLon, lat] of clean) {
+      let lon = ((rawLon + 180) % 360 + 360) % 360 - 180;
+      const previous = unwrapped[unwrapped.length - 1]?.[0];
+      if (previous != null) {
+        while (lon - previous > 180) lon -= 360;
+        while (previous - lon > 180) lon += 360;
+      }
+      unwrapped.push([lon, lat]);
+    }
+
+    const lons = unwrapped.map(([lon]) => lon);
+    const lats = unwrapped.map(([, lat]) => lat);
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+
+    if (!Number.isFinite(minLon) || !Number.isFinite(maxLon) || !Number.isFinite(minLat) || !Number.isFinite(maxLat)) return false;
+
+    const lonSpan = maxLon - minLon;
+    const latSpan = maxLat - minLat;
+    const center: [number, number] = [minLon + lonSpan / 2, minLat + latSpan / 2];
+    if (lonSpan < 0.02 && latSpan < 0.02) {
+      this.maplibreMap.flyTo({ center, zoom: 8, duration: 800 });
+      return true;
+    }
+
+    try {
+      this.maplibreMap.fitBounds(
+        [[minLon, minLat], [maxLon, maxLat]],
+        {
+          padding: { top: 84, bottom: 84, left: 84, right: 84 },
+          maxZoom: 8,
+          duration: 800,
+        },
+      );
+      return true;
+    } catch {
+      this.maplibreMap.flyTo({ center, zoom: 5, duration: 800 });
+      return true;
     }
   }
 
@@ -8322,7 +8449,16 @@ export class DeckGLMap {
 
   public triggerPipelineClick(id: string): void {
     const pipeline = PIPELINES.find(p => p.id === id);
+    if (!pipeline) {
+      void hydrateGeneratedPipelines().then(() => {
+        const hydrated = PIPELINES.find(p => p.id === id);
+        if (hydrated) this.triggerPipelineClick(id);
+      });
+      return;
+    }
     if (pipeline && pipeline.points.length > 0) {
+      this.selectInfrastructureLine('pipeline', pipeline.id);
+      this.fitLineBounds(pipeline.points);
       const midIdx = Math.floor(pipeline.points.length / 2);
       const midPoint = pipeline.points[midIdx];
       // Don't pan - show popup at projected screen position or center
@@ -8335,6 +8471,8 @@ export class DeckGLMap {
   public triggerCableClick(id: string): void {
     const cable = UNDERSEA_CABLES.find(c => c.id === id);
     if (cable && cable.points.length > 0) {
+      this.selectInfrastructureLine('cable', cable.id);
+      this.fitLineBounds(cable.points);
       const midIdx = Math.floor(cable.points.length / 2);
       const midPoint = cable.points[midIdx];
       // Don't pan - show popup at projected screen position or center
@@ -8599,9 +8737,24 @@ export class DeckGLMap {
     let hoveredName: string | null = null;
     let satelliteHovered = false;
     const SAT_HIT_LAYER = 'wm-globe-satellites-circle';
+    const INFRA_LINE_LAYERS = ['wm-globe-cables-line', 'wm-globe-pipelines-line'];
     const querySatellite = (point: maplibregl.Point): maplibregl.MapGeoJSONFeature | null => {
       if (!map.getLayer(SAT_HIT_LAYER)) return null;
       return map.queryRenderedFeatures(point, { layers: [SAT_HIT_LAYER] })[0] ?? null;
+    };
+    const queryInfrastructureLine = (point: maplibregl.Point): maplibregl.MapGeoJSONFeature | null => {
+      const layers = INFRA_LINE_LAYERS.filter((layer) => map.getLayer(layer));
+      if (layers.length === 0) return null;
+      return map.queryRenderedFeatures(point, { layers })[0] ?? null;
+    };
+    const clearCountryHover = (): void => {
+      if (!hoveredName) return;
+      hoveredName = null;
+      try {
+        if (map.getLayer('country-hover-fill')) {
+          map.setFilter('country-hover-fill', ['==', ['get', 'name'], '']);
+        }
+      } catch { /* style not done loading during theme switch */ }
     };
     const satelliteHtml = (id: string | undefined): string | null => {
       if (!id) return null;
@@ -8617,12 +8770,7 @@ export class DeckGLMap {
       const satellitePopupHtml = satelliteHtml(satelliteFeature?.properties?.id as string | undefined);
       if (satellitePopupHtml) {
         satelliteHovered = true;
-        if (hoveredName) {
-          hoveredName = null;
-          try {
-            map.setFilter('country-hover-fill', ['==', ['get', 'name'], '']);
-          } catch { /* style not done loading during theme switch */ }
-        }
+        clearCountryHover();
         map.getCanvas().style.cursor = resolveInlineCursor('pointer');
         if (!this.satelliteHoverPopup) {
           this.satelliteHoverPopup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 14 });
@@ -8635,7 +8783,16 @@ export class DeckGLMap {
         map.getCanvas().style.cursor = resolveInlineCursor('');
         this.satelliteHoverPopup?.remove();
       }
-      if (!this.onCountryClick) return;
+      const infrastructureFeature = queryInfrastructureLine(e.point);
+      if (infrastructureFeature) {
+        clearCountryHover();
+        map.getCanvas().style.cursor = resolveInlineCursor('pointer');
+        return;
+      }
+      if (!this.onCountryClick || !map.getLayer('country-interactive')) {
+        map.getCanvas().style.cursor = resolveInlineCursor('');
+        return;
+      }
       const features = map.queryRenderedFeatures(e.point, { layers: ['country-interactive'] });
       const name = features?.[0]?.properties?.name as string | undefined;
 
@@ -8644,9 +8801,8 @@ export class DeckGLMap {
           hoveredName = name;
           map.setFilter('country-hover-fill', ['==', ['get', 'name'], name]);
           map.getCanvas().style.cursor = resolveInlineCursor('pointer');
-        } else if (!name && hoveredName) {
-          hoveredName = null;
-          map.setFilter('country-hover-fill', ['==', ['get', 'name'], '']);
+        } else if (!name) {
+          clearCountryHover();
           map.getCanvas().style.cursor = resolveInlineCursor('');
         }
       } catch { /* style not done loading during theme switch */ }
@@ -8655,13 +8811,8 @@ export class DeckGLMap {
     map.on('mouseout', () => {
       satelliteHovered = false;
       this.satelliteHoverPopup?.remove();
-      if (hoveredName) {
-        hoveredName = null;
-        try {
-          map.setFilter('country-hover-fill', ['==', ['get', 'name'], '']);
-        } catch { /* style not done loading */ }
-        map.getCanvas().style.cursor = resolveInlineCursor('');
-      }
+      clearCountryHover();
+      map.getCanvas().style.cursor = resolveInlineCursor('');
     });
 
     map.on('click', (e) => {
@@ -8681,7 +8832,23 @@ export class DeckGLMap {
         }
         return;
       }
-      if (!this.onCountryClick) return;
+      const infrastructureFeature = queryInfrastructureLine(e.point);
+      const infrastructureKind = infrastructureFeature?.properties?.kind as InfrastructureLineType | undefined;
+      const infrastructureId = infrastructureFeature?.properties?.id as string | undefined;
+      const infrastructureData = infrastructureKind === 'cable'
+        ? UNDERSEA_CABLES.find((cable) => cable.id === infrastructureId)
+        : infrastructureKind === 'pipeline'
+          ? PIPELINES.find((pipeline) => pipeline.id === infrastructureId)
+          : undefined;
+      if (infrastructureData) {
+        this.entityClickConsumedAt = Date.now();
+        this.satelliteHoverPopup?.remove();
+        this.selectInfrastructureLine(infrastructureKind as InfrastructureLineType, infrastructureData.id);
+        this.fitLineBounds(infrastructureData.points);
+        this.onEntityClick?.(infrastructureKind as InfrastructureLineType, infrastructureData);
+        return;
+      }
+      if (!this.onCountryClick || !map.getLayer('country-interactive')) return;
       // If a DeckGL entity icon was clicked in this same event loop, skip country detection
       if (Date.now() - this.entityClickConsumedAt < 100) return;
       const features = map.queryRenderedFeatures(e.point, { layers: ['country-interactive'] });

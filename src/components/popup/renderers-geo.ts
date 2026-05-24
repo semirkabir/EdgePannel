@@ -600,8 +600,6 @@ export function renderPipelinePopup(pipeline: Pipeline): string {
     'operating': t('popups.pipeline.status.operating'),
     'construction': t('popups.pipeline.status.construction'),
   };
-  const typeIcon = pipeline.type === 'oil' ? '🛢' : pipeline.type === 'gas' ? '🔥' : '⛽';
-
   const sanctioned = pipeline._enrichSanctionedCountries;
   const sanctionHtml = sanctioned && sanctioned.length > 0 ? `
     <div class="popup-section">
@@ -614,7 +612,7 @@ export function renderPipelinePopup(pipeline: Pipeline): string {
 
   return `
     <div class="popup-header pipeline ${pipeline.type}">
-      <span class="popup-title">${typeIcon} ${escapeHtml(pipeline.name.toUpperCase())}</span>
+      <span class="popup-title">${escapeHtml(pipeline.name.toUpperCase())}</span>
       <span class="popup-badge ${typeColors[pipeline.type] || 'low'}">${escapeHtml(pipeline.type.toUpperCase())}</span>
       ${sanctioned && sanctioned.length > 0 ? `<span class="popup-badge high">SANCTIONED ROUTE</span>` : ''}
       <button class="popup-close" aria-label="Close">×</button>

@@ -12,7 +12,7 @@ import { calculateCII, TIER1_COUNTRIES } from '@/services/country-instability';
 import { CURATED_COUNTRIES } from '@/config/countries';
 import { getCountryBbox } from '@/services/country-geometry';
 import { INTEL_HOTSPOTS, CONFLICT_ZONES, MILITARY_BASES, UNDERSEA_CABLES, NUCLEAR_FACILITIES } from '@/config/geo';
-import { PIPELINES } from '@/config/pipelines';
+import { PIPELINES, hydrateGeneratedPipelines } from '@/config/pipelines';
 import { AI_DATA_CENTERS } from '@/config/ai-datacenters';
 import { GAMMA_IRRADIATORS } from '@/config/irradiators';
 import { TECH_COMPANIES } from '@/config/tech-companies';
@@ -137,12 +137,10 @@ export class SearchManager implements AppModule {
         data: b,
       })));
 
-      this.ctx.searchModal.registerSource('pipeline', PIPELINES.map(p => ({
-        id: p.id,
-        title: p.name,
-        subtitle: `${p.type} ${p.operator || ''} ${p.countries?.join(' ') || ''}`.trim(),
-        data: p,
-      })));
+      this.registerPipelineSource();
+      void hydrateGeneratedPipelines().then((added) => {
+        if (added > 0) this.registerPipelineSource();
+      });
 
       this.ctx.searchModal.registerSource('cable', UNDERSEA_CABLES.map(c => ({
         id: c.id,
@@ -615,6 +613,15 @@ export class SearchManager implements AppModule {
         data: { code, name },
       };
     });
+  }
+
+  private registerPipelineSource(): void {
+    this.ctx.searchModal?.registerSource('pipeline', PIPELINES.map(p => ({
+      id: p.id,
+      title: p.name,
+      subtitle: `${p.type} ${p.operator || ''} ${p.countries?.join(' ') || ''}`.trim(),
+      data: p,
+    })));
   }
 
   private buildCompanySearchItems(): { id: string; title: string; subtitle: string; searchText: string; data: { ticker: string; name: string } }[] {

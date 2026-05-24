@@ -23,6 +23,8 @@ import {
   fetchUpgradeDowngrade,
   fetchStockQuote,
   fetchYahooQuote,
+  fetchStockSplits,
+  fetchUpcomingEarnings,
   type StockQuote,
   type CompanyProfile,
   type CompanyMetrics,
@@ -34,9 +36,11 @@ import {
   type EarningsSurprise,
   type EstimateSeries,
   type StockDividend,
+  type StockSplit,
   type RevenueBreakdown,
   type UpgradeDowngradeAction,
   type FinancialReport,
+  type EarningsEvent,
 } from '@/services/market/finnhub-extra';
 import {
   fetchCompanyInstitutionHolders13F,
@@ -101,11 +105,17 @@ interface CompanyEnriched {
   secFacts: SecCompanyFacts | null;
   finnhubQuote: StockQuote | null;
   yahooQuote: StockQuote | null;
+  stockSplits: StockSplit[];
+  upcomingEarnings: EarningsEvent | null;
+  epsEstimatesAnnual: EstimateSeries;
+  revenueEstimatesAnnual: EstimateSeries;
 }
+
+type EvKind = EarningsCallTranscript['kind'] | 'dividend' | 'split' | 'upcoming';
 
 interface EvCard {
   key: string;
-  kind: EarningsCallTranscript['kind'];
+  kind: EvKind;
   title: string;
   quarter: string;
   date: string;
@@ -116,6 +126,10 @@ interface EvCard {
   epsSurprisePct: number | null;
   transcriptRef?: EarningsCallTranscript;
   indexUrl: string;
+  amount?: number;
+  splitRatio?: string;
+  isUpcoming?: boolean;
+  hour?: string;
 }
 
 const client = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
@@ -674,7 +688,8 @@ export class CompanyRenderer implements EntityRenderer {
   private chartWindowStart = -1;
   /** Parent row keys that are collapsed. Empty = all expanded. */
   private collapsedFinancialParents = new Set<FinancialMetricKey>();
-  private eventsFilter: 'all' | 'earnings' | 'corporate' = 'all';
+  private eventsFilter: 'all' | 'earnings' | 'dividends' | 'splits' = 'all';
+  private forecastFreq: 'annual' | 'quarterly' = 'annual';
 
   renderSkeleton(data: unknown, ctx: EntityRenderContext): HTMLElement {
     const { ticker, name } = data as CompanyData;
@@ -717,7 +732,7 @@ export class CompanyRenderer implements EntityRenderer {
     const [quotesResp, filingsResp, historicalResp] = await Promise.allSettled([
       client.listMarketQuotes({ symbols: [ticker] }, { signal }),
       client.listSecFilings({ ticker, filingTypes: [], limit: 30 }, { signal }),
-      client.listHistoricalPrices({ symbols: [ticker], months: 12 }, { signal }),
+      client.listHistoricalPrices({ symbols: [ticker], months: 24 }, { signal }),
     ]);
 
     const [
@@ -725,6 +740,7 @@ export class CompanyRenderer implements EntityRenderer {
       priceTarget, recommendations, insiderTxns, optionChain, ownership, etfHoldings, earningsSurprises,
       financialsAnnual, financialsQuarterly, epsEstimates, revenueEstimates, dividends,
       revenueBreakdown, ratingActions, earningsCalls, secFacts, finnhubQuote, yahooQuote,
+      epsEstimatesAnnual, revenueEstimatesAnnual, stockSplits, upcomingEarnings,
     ] = await settleInBatches<unknown>([
       () => fetchCompanyProfile(ticker),
       () => fetchCompanyMetrics(ticker),
@@ -748,6 +764,10 @@ export class CompanyRenderer implements EntityRenderer {
       () => fetchSecCompanyFacts(ticker),
       () => fetchStockQuote(ticker),
       () => fetchYahooQuote(ticker),
+      () => fetchEpsEstimates(ticker, 'annual'),
+      () => fetchRevenueEstimates(ticker, 'annual'),
+      () => fetchStockSplits(ticker),
+      () => fetchUpcomingEarnings(ticker),
     ]);
 
     const quote = quotesResp.status === 'fulfilled'
@@ -788,6 +808,10 @@ export class CompanyRenderer implements EntityRenderer {
       secFacts: settledValue<SecCompanyFacts | null>(secFacts, null),
       finnhubQuote: settledValue<StockQuote | null>(finnhubQuote, null),
       yahooQuote: settledValue<StockQuote | null>(yahooQuote, null),
+      stockSplits: settledValue<StockSplit[]>(stockSplits, []),
+      upcomingEarnings: settledValue<EarningsEvent | null>(upcomingEarnings, null),
+      epsEstimatesAnnual: settledValue<EstimateSeries>(epsEstimatesAnnual, { symbol: ticker, freq: 'annual', data: [] }),
+      revenueEstimatesAnnual: settledValue<EstimateSeries>(revenueEstimatesAnnual, { symbol: ticker, freq: 'annual', data: [] }),
     };
   }
 
@@ -1218,45 +1242,63 @@ export class CompanyRenderer implements EntityRenderer {
   }
 
   private renderForecastsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-    // Price target visualization
+    const epsData = this.forecastFreq === 'annual' ? data.epsEstimatesAnnual : data.epsEstimates;
+    const revData = this.forecastFreq === 'annual' ? data.revenueEstimatesAnnual : data.revenueEstimates;
+
+    // ── Annual / Quarterly toggle ─────────────────────────────────────────
+    const toggleWrap = ctx.el('div', 'cp-freq-toggle-wrap');
+    for (const [freq, label] of [['annual', 'Annual'], ['quarterly', 'Quarterly']] as const) {
+      const btn = ctx.el('button', `cp-freq-toggle${this.forecastFreq === freq ? ' cp-freq-toggle-active' : ''}`) as HTMLButtonElement;
+      btn.type = 'button';
+      btn.textContent = label;
+      btn.addEventListener('click', () => {
+        this.forecastFreq = freq;
+        content.replaceChildren();
+        this.renderForecastsTab(content, data, ctx);
+      });
+      toggleWrap.append(btn);
+    }
+    content.append(toggleWrap);
+
+    // ── Price target cone ─────────────────────────────────────────────────
     if (data.priceTarget && data.quote?.price) {
       const [card, body] = ctx.sectionCard('Price Target');
       const pt = data.priceTarget;
       const currentPrice = data.quote.price;
+      const upside = ((pt.targetMean - currentPrice) / currentPrice) * 100;
+      const analystCount = pt.numberAnalysts
+        ?? (data.recommendations[0]
+          ? data.recommendations[0].strongBuy + data.recommendations[0].buy + data.recommendations[0].hold + data.recommendations[0].sell + data.recommendations[0].strongSell
+          : null);
 
-      // Build visual gauge
-      const gauge = buildPriceTargetGauge(ctx, currentPrice, pt.targetLow, pt.targetMean, pt.targetHigh);
-      body.append(gauge);
+      const targetHeader = ctx.el('div', 'cp-forecast-target-header');
+      targetHeader.append(ctx.el('div', `cp-forecast-target-price ${upside >= 0 ? 'cp-positive' : 'cp-negative'}`, fmtPrice(pt.targetMean)));
+      const narrative = ctx.el('div', 'cp-forecast-target-narrative');
+      narrative.textContent = `${Math.abs(upside).toFixed(1)}% ${upside >= 0 ? 'upside' : 'downside'} from current${analystCount ? ` · ${analystCount} analysts` : ''}`;
+      targetHeader.append(narrative);
+      body.append(targetHeader);
 
-      // Stats row below gauge
+      const closesRaw = getHistoricalCloses(data);
+      if (closesRaw.length >= 2) {
+        body.append(buildForecastConeChart(ctx, closesRaw, pt, currentPrice));
+      } else {
+        body.append(buildPriceTargetGauge(ctx, currentPrice, pt.targetLow, pt.targetMean, pt.targetHigh));
+      }
+
       const statsRow = ctx.el('div', 'cp-forecast-stats');
-      const items: [string, string, string][] = [
-        ['Low',    fmtPrice(pt.targetLow),    'cp-negative'],
-        ['Mean',   fmtPrice(pt.targetMean),   ''],
+      for (const [lbl, val, cls] of [
+        ['Low', fmtPrice(pt.targetLow), 'cp-negative'],
+        ['Mean', fmtPrice(pt.targetMean), ''],
         ['Median', fmtPrice(pt.targetMedian), ''],
-        ['High',   fmtPrice(pt.targetHigh),   'cp-positive'],
-      ];
-      for (const [label, value, cls] of items) {
+        ['High', fmtPrice(pt.targetHigh), 'cp-positive'],
+      ] as [string, string, string][]) {
         const item = ctx.el('div', 'cp-forecast-stat-item');
-        item.append(ctx.el('span', 'cp-forecast-stat-label', label));
-        item.append(ctx.el('span', `cp-forecast-stat-value ${cls}`.trim(), value));
+        item.append(ctx.el('span', 'cp-forecast-stat-label', lbl));
+        item.append(ctx.el('span', `cp-forecast-stat-value ${cls}`.trim(), val));
         statsRow.append(item);
       }
       body.append(statsRow);
-
-      // Upside from current
-      const upside = ((pt.targetMean - currentPrice) / currentPrice) * 100;
-      const upsideRow = ctx.el('div', 'edp-detail-row');
-      upsideRow.append(ctx.el('span', 'edp-detail-label', 'Implied Upside (Mean)'));
-      upsideRow.append(ctx.el('span',
-        upside >= 0 ? 'edp-detail-value cp-positive' : 'edp-detail-value cp-negative',
-        fmtChange(upside)));
-      body.append(upsideRow);
-
-      if (pt.lastUpdated) {
-        body.append(ctx.el('div', 'cp-forecast-updated', 'Updated ' + fmtDate(pt.lastUpdated)));
-      }
-
+      if (pt.lastUpdated) body.append(ctx.el('div', 'cp-forecast-updated', 'Updated ' + fmtDate(pt.lastUpdated)));
       content.append(card);
     } else if (data.priceTarget) {
       const [card, body] = ctx.sectionCard('Price Target');
@@ -1266,21 +1308,20 @@ export class CompanyRenderer implements EntityRenderer {
       content.append(card);
     }
 
-    // Analyst consensus
+    // ── Analyst consensus + gauge ─────────────────────────────────────────
     if (data.recommendations.length > 0) {
       const [card, body] = ctx.sectionCard('Analyst Consensus');
       card.classList.add('cp-card-with-action', 'edp-card--wide');
       const detailButton = ctx.el('button', 'cp-card-action-btn', 'Open details') as HTMLButtonElement;
       detailButton.type = 'button';
-      detailButton.addEventListener('click', () => {
-        ctx.navigate(buildAnalystDetailsView(ctx, data));
-      });
+      detailButton.addEventListener('click', () => ctx.navigate(buildAnalystDetailsView(ctx, data)));
       card.append(detailButton);
       const latest = data.recommendations[0]!;
       const total = latest.strongBuy + latest.buy + latest.hold + latest.sell + latest.strongSell;
 
       if (total > 0) {
-        // Summary counts
+        body.append(buildAnalystGaugeSvg(ctx, latest));
+
         const buys = latest.strongBuy + latest.buy;
         const sells = latest.sell + latest.strongSell;
         const summaryRow = ctx.el('div', 'cp-consensus-summary');
@@ -1289,16 +1330,14 @@ export class CompanyRenderer implements EntityRenderer {
         summaryRow.append(buildConsensusCount(ctx, sells, 'Sell', 'cp-negative'));
         body.append(summaryRow);
 
-        // Rating bar
         const ratingBar = ctx.el('div', 'cp-rating-bar');
-        const segments: [number, string, string][] = [
+        for (const [count, color, label] of [
           [latest.strongBuy,  '#16a34a', 'Strong Buy'],
           [latest.buy,        '#22c55e', 'Buy'],
           [latest.hold,       '#eab308', 'Hold'],
           [latest.sell,       '#f97316', 'Sell'],
           [latest.strongSell, '#ef4444', 'Strong Sell'],
-        ];
-        for (const [count, color, label] of segments) {
+        ] as [number, string, string][]) {
           if (count === 0) continue;
           const seg = ctx.el('div', 'cp-rating-segment');
           seg.style.width = ((count / total) * 100) + '%';
@@ -1309,27 +1348,23 @@ export class CompanyRenderer implements EntityRenderer {
         }
         body.append(ratingBar);
 
-        // Legend
         const legend = ctx.el('div', 'cp-rating-legend');
-        const entries: [string, number, string][] = [
+        for (const [label, count, color] of [
           ['Strong Buy',  latest.strongBuy,  '#16a34a'],
           ['Buy',         latest.buy,         '#22c55e'],
           ['Hold',        latest.hold,        '#eab308'],
           ['Sell',        latest.sell,        '#f97316'],
           ['Strong Sell', latest.strongSell,  '#ef4444'],
-        ];
-        for (const [label, count, color] of entries) {
+        ] as [string, number, string][]) {
           const item = ctx.el('div', 'cp-rating-legend-item');
           const dot = ctx.el('span', 'cp-rating-dot');
           dot.style.backgroundColor = color;
-          item.append(dot);
-          item.append(ctx.el('span', '', `${label} (${count})`));
+          item.append(dot, ctx.el('span', '', `${label} (${count})`));
           legend.append(item);
         }
         body.append(legend);
       }
 
-      // Historical trend
       if (data.recommendations.length > 1) {
         body.append(ctx.el('div', 'cp-trend-title', 'Historical Consensus'));
         for (const rec of data.recommendations.slice(0, 6)) {
@@ -1338,14 +1373,10 @@ export class CompanyRenderer implements EntityRenderer {
           const tRow = ctx.el('div', 'cp-trend-row');
           tRow.append(ctx.el('span', 'cp-trend-period', rec.period));
           const miniBar = ctx.el('div', 'cp-rating-bar cp-rating-bar-mini');
-          const segs: [number, string][] = [
-            [rec.strongBuy,  '#16a34a'],
-            [rec.buy,        '#22c55e'],
-            [rec.hold,       '#eab308'],
-            [rec.sell,       '#f97316'],
-            [rec.strongSell, '#ef4444'],
-          ];
-          for (const [c, col] of segs) {
+          for (const [c, col] of [
+            [rec.strongBuy, '#16a34a'], [rec.buy, '#22c55e'], [rec.hold, '#eab308'],
+            [rec.sell, '#f97316'], [rec.strongSell, '#ef4444'],
+          ] as [number, string][]) {
             if (c === 0) continue;
             const s = ctx.el('div', 'cp-rating-segment');
             s.style.width = ((c / tTotal) * 100) + '%';
@@ -1356,41 +1387,34 @@ export class CompanyRenderer implements EntityRenderer {
           body.append(tRow);
         }
       }
-
       content.append(card);
     }
 
-    if (data.epsEstimates.data.length > 0 || data.revenueEstimates.data.length > 0 || data.earningsSurprises.length > 0) {
-      const [card, body] = ctx.sectionCard('Earnings & Revenue');
+    // ── EPS section ───────────────────────────────────────────────────────
+    if (epsData.data.length > 0 || data.earningsSurprises.length > 0) {
+      const [card, body] = ctx.sectionCard('EPS Estimates');
       card.classList.add('edp-card--wide');
-      const latest = data.earningsSurprises[0];
-      if (latest) {
-        const summary = ctx.el('div', 'cp-mini-kpi-grid');
-        for (const [label, value] of [
-          ['Latest EPS', fmtMetric(latest.actual)],
-          ['Estimate', fmtMetric(latest.estimate)],
-          ['Surprise', fmtChange(latest.surprisePercent ?? 0)],
-        ]) {
-          const item = ctx.el('div', 'cp-mini-kpi');
-          item.append(ctx.el('span', 'cp-mini-kpi-label', label));
-          item.append(ctx.el('span', 'cp-mini-kpi-value', value));
-          summary.append(item);
-        }
-        body.append(summary);
-      }
-      if (data.epsEstimates.data.length > 0) {
-        body.append(buildEstimateStrip(ctx, 'EPS Estimates', data.epsEstimates, false));
-      }
-      if (data.revenueEstimates.data.length > 0) {
-        body.append(buildEstimateStrip(ctx, 'Revenue Estimates', data.revenueEstimates, true));
+      if (epsData.data.length > 0) {
+        body.append(buildEstimateComparisonChart(ctx, epsData, false));
+        body.append(buildEstimateMetricsTable(ctx, epsData, false));
       }
       if (data.earningsSurprises.length > 0) {
+        body.append(ctx.el('div', 'cp-trend-title', 'Historical EPS Surprise'));
         body.append(buildEarningsTable(ctx, data.earningsSurprises.slice(0, 8)));
       }
       content.append(card);
     }
 
-    // Insider transactions
+    // ── Revenue section ───────────────────────────────────────────────────
+    if (revData.data.length > 0) {
+      const [card, body] = ctx.sectionCard('Revenue Estimates');
+      card.classList.add('edp-card--wide');
+      body.append(buildEstimateComparisonChart(ctx, revData, true));
+      body.append(buildEstimateMetricsTable(ctx, revData, true));
+      content.append(card);
+    }
+
+    // ── Insider activity ──────────────────────────────────────────────────
     if (data.insiderTxns.length > 0) {
       const [card, body] = ctx.sectionCard('Recent Insider Activity');
       for (const tx of data.insiderTxns.slice(0, 8)) {
@@ -1403,9 +1427,7 @@ export class CompanyRenderer implements EntityRenderer {
         details.append(ctx.el('span',
           isPurchase ? 'cp-insider-badge cp-positive' : isSale ? 'cp-insider-badge cp-negative' : 'cp-insider-badge',
           typeLabel));
-        if (tx.transactionValue) {
-          details.append(ctx.el('span', 'cp-insider-val', fmtLargeNumber(Math.abs(tx.transactionValue))));
-        }
+        if (tx.transactionValue) details.append(ctx.el('span', 'cp-insider-val', fmtLargeNumber(Math.abs(tx.transactionValue))));
         details.append(ctx.el('span', 'cp-insider-date', tx.transactionDate));
         txRow.append(details);
         body.append(txRow);
@@ -1417,12 +1439,15 @@ export class CompanyRenderer implements EntityRenderer {
       !data.priceTarget
       && data.recommendations.length === 0
       && data.insiderTxns.length === 0
-      && data.epsEstimates.data.length === 0
-      && data.revenueEstimates.data.length === 0
+      && epsData.data.length === 0
+      && revData.data.length === 0
       && data.earningsSurprises.length === 0
     ) {
       content.append(ctx.makeEmpty('No forecast data available'));
+      return;
     }
+
+    content.append(ctx.el('div', 'cp-forecast-disclaimer', 'Estimates are analyst consensus, not investment advice.'));
   }
 
   // ─── News Tab ────────────────────────────────────────────────────────────
@@ -1739,6 +1764,8 @@ export class CompanyRenderer implements EntityRenderer {
     const latestAssets = getLatestFinancialValue(periods, 'assets');
     const latestEquity = getLatestFinancialValue(periods, 'equity');
     const latestOcf = getLatestFinancialValue(periods, 'operatingCashFlow');
+    const latestEbitda = getLatestFinancialValue(periods, 'ebitda');
+    const latestEbit = getLatestFinancialValue(periods, 'ebit');
     const marketCap = data.profile?.marketCapitalization
       ? data.profile.marketCapitalization * 1_000_000
       : m?.marketCapitalization;
@@ -1760,7 +1787,16 @@ export class CompanyRenderer implements EntityRenderer {
         : undefined, 'x')],
       ['EV',          fmtFinancialValue(ev)],
       ['EV/Revenue',  fmtMetric(ev && latestRevenue ? ev / latestRevenue : undefined, 'x')],
-      ['EV/EBITDA',   '—'],
+      ['EV/EBITDA',   fmtMetric(ev !== undefined && latestEbitda ? ev / latestEbitda : undefined, 'x')],
+      ['EV/EBIT',     fmtMetric(ev !== undefined && latestEbit ? ev / latestEbit : undefined, 'x')],
+      ['PEG',         fmtMetric(
+        (m?.peBasicExclExtraTTM || m?.peAnnual) && m?.epsGrowthTTMYoy && m.epsGrowthTTMYoy > 0
+          ? ((m.peBasicExclExtraTTM ?? m.peAnnual)!) / (m.epsGrowthTTMYoy * 100)
+          : undefined, 'x')],
+      ['FCF Yield',   fmtMetric(
+        m?.freeCashFlowPerShareAnnual && (data.quote?.price ?? 0) > 0
+          ? (m.freeCashFlowPerShareAnnual / (data.quote?.price ?? 1)) * 100
+          : undefined, '%')],
       ['Beta',        fmtMetric(m?.beta)],
     ];
     for (const [label, value] of multiples) {
@@ -2019,17 +2055,21 @@ export class CompanyRenderer implements EntityRenderer {
   // ─── Events Tab ──────────────────────────────────────────────────────────
 
   private renderEventsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-    if (data.earningsCalls.length === 0 && data.earningsSurprises.length === 0) {
+    const hasAnyData = data.earningsCalls.length > 0
+      || data.earningsSurprises.length > 0
+      || data.dividends.length > 0
+      || data.stockSplits.length > 0
+      || data.upcomingEarnings !== null;
+
+    if (!hasAnyData) {
       content.append(ctx.makeEmpty('No events data available'));
       return;
     }
 
-    // ── Build unified event list ────────────────────────────────────────────
-    // Key: quarter string (e.g. "Q1 2026") or date-based for non-quarterly events
+    // ── Build unified event list ──────────────────────────────────────────
     const eventMap = new Map<string, EvCard>();
 
     const getSurprise = (reportDate: string, quarter: string): EarningsSurprise | undefined => {
-      // Try matching on report/period date first, then by year+quarter label
       let s = data.earningsSurprises.find((x) => x.period === reportDate);
       if (!s && quarter) {
         const qm = quarter.match(/Q(\d)/);
@@ -2047,49 +2087,63 @@ export class CompanyRenderer implements EntityRenderer {
       const dateKey = call.filingDate || call.reportDate || '';
       const mapKey = call.quarter || dateKey;
       if (!mapKey) continue;
-
       const existing = eventMap.get(mapKey);
       const surprise = getSurprise(call.reportDate, call.quarter);
-
-      // Determine primary kind — prefer earnings/transcript over filing
       const kindPriority = (k: EarningsCallTranscript['kind']) =>
         k === 'earnings' ? 0 : k === 'transcript' ? 1 : k === 'press-release' ? 2 : 3;
-
       if (existing) {
-        // Merge: pick the higher-priority kind and accumulate actions
-        if (kindPriority(call.kind) < kindPriority(existing.kind)) existing.kind = call.kind;
-        if (call.transcriptId && !existing.transcriptRef) {
-          existing.transcriptRef = call;
-        }
+        const ek = existing.kind as EarningsCallTranscript['kind'];
+        if (kindPriority(call.kind) < kindPriority(ek)) existing.kind = call.kind;
+        if (call.transcriptId && !existing.transcriptRef) existing.transcriptRef = call;
         if (call.indexUrl && !existing.indexUrl) existing.indexUrl = call.indexUrl;
       } else {
         const isQ4 = call.quarter?.startsWith('Q4');
         eventMap.set(mapKey, {
-          key: mapKey,
-          kind: call.kind,
-          title: buildEventTitle(call),
-          quarter: call.quarter,
-          date: dateKey,
+          key: mapKey, kind: call.kind, title: buildEventTitle(call),
+          quarter: call.quarter, date: dateKey,
           year: parseInt(dateKey.slice(0, 4) || '0') || 0,
           isAnnual: isQ4 || false,
-          epsActual: surprise?.actual ?? null,
-          epsEstimate: surprise?.estimate ?? null,
+          epsActual: surprise?.actual ?? null, epsEstimate: surprise?.estimate ?? null,
           epsSurprisePct: surprise?.surprisePercent ?? null,
-          transcriptRef: call.transcriptId ? call : undefined,
-          indexUrl: call.indexUrl || '',
+          transcriptRef: call.transcriptId ? call : undefined, indexUrl: call.indexUrl || '',
         });
       }
     }
 
-    // Sort newest-first
+    // Merge dividends
+    for (const div of data.dividends) {
+      const dateStr = div.exDate || div.date;
+      if (!dateStr) continue;
+      const key = `dividend-${dateStr}`;
+      const year = parseInt(dateStr.slice(0, 4) || '0') || 0;
+      eventMap.set(key, {
+        key, kind: 'dividend', title: 'Dividend', quarter: '', date: dateStr, year,
+        isAnnual: false, epsActual: null, epsEstimate: null, epsSurprisePct: null,
+        amount: div.amount, indexUrl: '',
+      });
+    }
+
+    // Merge splits
+    for (const split of data.stockSplits) {
+      if (!split.date) continue;
+      const key = `split-${split.date}`;
+      const year = parseInt(split.date.slice(0, 4) || '0') || 0;
+      eventMap.set(key, {
+        key, kind: 'split', title: 'Stock Split', quarter: '', date: split.date, year,
+        isAnnual: false, epsActual: null, epsEstimate: null, epsSurprisePct: null,
+        splitRatio: `${split.toFactor}:${split.fromFactor}`, indexUrl: '',
+      });
+    }
+
     const allEvents = [...eventMap.values()].sort((a, b) => b.date.localeCompare(a.date));
 
-    // ── Filter chips ────────────────────────────────────────────────────────
+    // ── Filter chips ──────────────────────────────────────────────────────
     const filterBar = ctx.el('div', 'cp-ev-filter-bar');
     const filters: Array<[typeof this.eventsFilter, string]> = [
       ['all', 'All'],
       ['earnings', 'Earnings'],
-      ['corporate', 'Corporate'],
+      ['dividends', 'Dividends'],
+      ['splits', 'Splits'],
     ];
     for (const [val, label] of filters) {
       const chip = ctx.el('button', `cp-ev-chip${this.eventsFilter === val ? ' is-active' : ''}`) as HTMLButtonElement;
@@ -2104,19 +2158,36 @@ export class CompanyRenderer implements EntityRenderer {
     }
     content.append(filterBar);
 
-    // ── Apply filter ────────────────────────────────────────────────────────
+    // ── Upcoming earnings (above year groups) ─────────────────────────────
+    if (data.upcomingEarnings && (this.eventsFilter === 'all' || this.eventsFilter === 'earnings')) {
+      const ue = data.upcomingEarnings;
+      content.append(ctx.el('div', 'cp-ev-year', 'Upcoming'));
+      const upcomingGrid = ctx.el('div', 'cp-ev-grid cp-ev-upcoming');
+      upcomingGrid.append(buildEvCard(ctx, {
+        key: 'upcoming', kind: 'upcoming', title: 'Next Earnings',
+        quarter: ue.quarter ? `Q${ue.quarter} ${ue.year}` : String(ue.year),
+        date: ue.date, year: ue.year,
+        isAnnual: false, isUpcoming: true,
+        epsActual: null, epsEstimate: ue.epsEstimate ?? null, epsSurprisePct: null,
+        hour: ue.hour, indexUrl: '',
+      }));
+      content.append(upcomingGrid);
+    }
+
+    // ── Apply filter ──────────────────────────────────────────────────────
     const filtered = allEvents.filter((ev) => {
-      if (this.eventsFilter === 'earnings')  return ev.kind === 'earnings' || ev.kind === 'transcript';
-      if (this.eventsFilter === 'corporate') return ev.kind === 'press-release' || ev.kind === 'filing';
+      if (this.eventsFilter === 'earnings')  return ev.kind === 'earnings' || ev.kind === 'transcript' || ev.kind === 'press-release' || ev.kind === 'filing';
+      if (this.eventsFilter === 'dividends') return ev.kind === 'dividend';
+      if (this.eventsFilter === 'splits')    return ev.kind === 'split';
       return true;
     });
 
-    if (filtered.length === 0) {
+    if (filtered.length === 0 && !(data.upcomingEarnings && (this.eventsFilter === 'all' || this.eventsFilter === 'earnings'))) {
       content.append(ctx.makeEmpty('No events in this category'));
       return;
     }
 
-    // ── Group by year ───────────────────────────────────────────────────────
+    // ── Group by year ─────────────────────────────────────────────────────
     const byYear = new Map<number, EvCard[]>();
     for (const ev of filtered) {
       if (!byYear.has(ev.year)) byYear.set(ev.year, []);
@@ -2124,13 +2195,9 @@ export class CompanyRenderer implements EntityRenderer {
     }
 
     for (const [year, yearCards] of [...byYear.entries()].sort((a, b) => b[0] - a[0])) {
-      const yearHeading = ctx.el('div', 'cp-ev-year', String(year || '—'));
-      content.append(yearHeading);
-
+      content.append(ctx.el('div', 'cp-ev-year', String(year || '—')));
       const grid = ctx.el('div', 'cp-ev-grid');
-      for (const ev of yearCards) {
-        grid.append(buildEvCard(ctx, ev));
-      }
+      for (const ev of yearCards) grid.append(buildEvCard(ctx, ev));
       content.append(grid);
     }
   }
@@ -2662,6 +2729,218 @@ function buildDividendTable(ctx: EntityRenderContext, dividends: StockDividend[]
   return table;
 }
 
+function buildForecastConeChart(
+  ctx: EntityRenderContext,
+  closes: HistoricalClose[],
+  pt: PriceTarget,
+  currentPrice: number,
+): HTMLElement {
+  const wrap = ctx.el('div', 'cp-forecast-cone');
+  const W = 600, H = 150;
+  const hist = closes.slice(-24);
+  const histCount = hist.length;
+  if (histCount < 2) return wrap;
+
+  const allValues = [
+    ...hist.map(h => h.close),
+    pt.targetLow, pt.targetMean, pt.targetHigh, currentPrice,
+  ];
+  const yMin = Math.min(...allValues) * 0.97;
+  const yMax = Math.max(...allValues) * 1.03;
+  const ySpan = yMax - yMin || 1;
+  const totalPoints = histCount + 4;
+
+  const toX = (i: number) => (i / (totalPoints - 1)) * W;
+  const toY = (v: number) => H - ((v - yMin) / ySpan * H);
+
+  const histXEnd = toX(histCount - 1);
+  const fwdEndX = W;
+  const fwdStartY = toY(currentPrice).toFixed(1);
+  const fwdEndLowY = toY(pt.targetLow).toFixed(1);
+  const fwdEndMeanY = toY(pt.targetMean).toFixed(1);
+  const fwdEndHighY = toY(pt.targetHigh).toFixed(1);
+  const histPts = hist.map((h, i) => `${toX(i).toFixed(1)},${toY(h.close).toFixed(1)}`).join(' ');
+  const divX = histXEnd.toFixed(1);
+
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:${H}px;display:block">
+    <defs>
+      <linearGradient id="coneGrad${W}" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="var(--accent,#6366f1)" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="var(--accent,#6366f1)" stop-opacity="0.04"/>
+      </linearGradient>
+    </defs>
+    <line x1="${divX}" y1="0" x2="${divX}" y2="${H}" stroke="var(--border,#444)" stroke-width="1" stroke-dasharray="3,3"/>
+    <polygon points="${divX},${fwdStartY} ${fwdEndX},${fwdEndHighY} ${fwdEndX},${fwdEndLowY}" fill="url(#coneGrad${W})"/>
+    <line x1="${divX}" y1="${fwdStartY}" x2="${fwdEndX}" y2="${fwdEndHighY}" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.8"/>
+    <line x1="${divX}" y1="${fwdStartY}" x2="${fwdEndX}" y2="${fwdEndLowY}" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.8"/>
+    <line x1="${divX}" y1="${fwdStartY}" x2="${fwdEndX}" y2="${fwdEndMeanY}" stroke="var(--accent,#6366f1)" stroke-width="2"/>
+    <polyline points="${histPts}" fill="none" stroke="var(--text-primary,#e5e7eb)" stroke-width="1.5" stroke-linejoin="round"/>
+    <circle cx="${divX}" cy="${fwdStartY}" r="4" fill="var(--accent,#6366f1)"/>
+    <text x="${fwdEndX - 4}" y="${Math.max(12, parseFloat(fwdEndHighY) - 4)}" text-anchor="end" fill="#22c55e" font-size="9">Hi ${fmtPrice(pt.targetHigh)}</text>
+    <text x="${fwdEndX - 4}" y="${Math.max(12, parseFloat(fwdEndMeanY) - 4)}" text-anchor="end" fill="var(--accent,#818cf8)" font-size="9">Avg ${fmtPrice(pt.targetMean)}</text>
+    <text x="${fwdEndX - 4}" y="${Math.min(H - 2, parseFloat(fwdEndLowY) + 11)}" text-anchor="end" fill="#ef4444" font-size="9">Lo ${fmtPrice(pt.targetLow)}</text>
+    <text x="4" y="11" fill="var(--text-dim,#777)" font-size="9">24mo History</text>
+    <text x="${(parseFloat(divX) + 4).toFixed(0)}" y="11" fill="var(--text-dim,#777)" font-size="9">+1Y Target</text>
+  </svg>`;
+  return wrap;
+}
+
+function buildAnalystGaugeSvg(ctx: EntityRenderContext, rec: RecommendationTrend): HTMLElement {
+  const wrap = ctx.el('div', 'cp-analyst-gauge');
+  const total = rec.strongBuy + rec.buy + rec.hold + rec.sell + rec.strongSell;
+  if (total === 0) return wrap;
+
+  const score = (rec.strongBuy * 5 + rec.buy * 4 + rec.hold * 3 + rec.sell * 2 + rec.strongSell * 1) / total;
+  const t = (score - 1) / 4;
+  const cx = 100, cy = 85, R = 65;
+
+  const arcPt = (deg: number, r = R): [string, string] => [
+    (cx + r * Math.cos((deg * Math.PI) / 180)).toFixed(1),
+    (cy + r * Math.sin((deg * Math.PI) / 180)).toFixed(1),
+  ];
+
+  // 5 sectors: Strong Sell (180°→216°), Sell (216°→252°), Hold (252°→288°), Buy (288°→324°), Strong Buy (324°→360°)
+  // sweep-flag=1 (clockwise in SVG) draws the upper arc going left→top→right
+  const sectorColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#16a34a'];
+  const sectors = sectorColors.map((color, i) => {
+    const [sx, sy] = arcPt(180 + i * 36);
+    const [ex, ey] = arcPt(180 + (i + 1) * 36);
+    return `<path d="M ${sx} ${sy} A ${R} ${R} 0 0 1 ${ex} ${ey}" fill="none" stroke="${color}" stroke-width="12" stroke-linecap="butt"/>`;
+  }).join('\n    ');
+
+  // Needle: angle 180°=Strong Sell → 360°=Strong Buy
+  const needleAngleDeg = 180 + t * 180;
+  const needleRad = (needleAngleDeg * Math.PI) / 180;
+  const nl = R * 0.7;
+  const nx = (cx + nl * Math.cos(needleRad)).toFixed(1);
+  const ny = (cy + nl * Math.sin(needleRad)).toFixed(1);
+
+  const label = score >= 4.5 ? 'Strong Buy' : score >= 3.5 ? 'Buy' : score >= 2.5 ? 'Hold' : score >= 1.5 ? 'Sell' : 'Strong Sell';
+  const lc = score >= 3.5 ? '#22c55e' : score >= 2.5 ? '#eab308' : '#ef4444';
+
+  wrap.innerHTML = `<svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg" style="width:200px;height:100px;display:block;margin:0 auto">
+    ${sectors}
+    <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="var(--text-primary,#e5e7eb)" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="var(--text-primary,#e5e7eb)"/>
+    <text x="${cx}" y="98" text-anchor="middle" fill="${lc}" font-size="10" font-weight="700">${label}</text>
+    <text x="16" y="92" fill="#ef4444" font-size="8" text-anchor="middle">SS</text>
+    <text x="184" y="92" fill="#16a34a" font-size="8" text-anchor="middle">SB</text>
+  </svg>`;
+  return wrap;
+}
+
+function buildEstimateComparisonChart(
+  ctx: EntityRenderContext,
+  series: EstimateSeries,
+  isCurrency: boolean,
+): HTMLElement {
+  const wrap = ctx.el('div', 'cp-estimate-compare-chart');
+  const points = series.data.slice(-8);
+  if (points.length === 0) return wrap;
+
+  const vals = points.flatMap(p => {
+    const a = isCurrency ? (p.revenue ?? p.actual) : p.actual;
+    const e = p.estimate;
+    return ([a, e] as (number | undefined)[]).filter((v): v is number => v !== undefined && Number.isFinite(v));
+  });
+  const maxAbs = Math.max(...vals.map(Math.abs), 1);
+
+  const barsWrap = ctx.el('div', 'cp-estimate-bars-wrap');
+  for (const point of points) {
+    const actual = isCurrency ? (point.revenue ?? point.actual) : point.actual;
+    const estimate = point.estimate;
+    const hasActual = actual !== undefined && actual !== null && Number.isFinite(actual);
+    const isForecasted = !hasActual;
+
+    const col = ctx.el('div', `cp-estimate-col${isForecasted ? ' cp-estimate-col-forecast' : ''}`);
+    const barGroup = ctx.el('div', 'cp-estimate-bar-group');
+
+    const fmtV = (v: number | null | undefined) => isCurrency ? fmtFinancialValue(v) : fmtMetric(v ?? undefined);
+
+    if (hasActual) {
+      const h = Math.max(4, (Math.abs(actual!) / maxAbs) * 80);
+      const bar = ctx.el('div', `cp-estimate-bar cp-estimate-bar-reported${actual! < 0 ? ' cp-negative' : ''}`);
+      bar.style.height = `${h}px`;
+      bar.title = `Reported: ${fmtV(actual)}`;
+      barGroup.append(bar);
+    }
+
+    if (estimate !== undefined && estimate !== null && Number.isFinite(estimate)) {
+      const h = Math.max(4, (Math.abs(estimate) / maxAbs) * 80);
+      const bar = ctx.el('div', `cp-estimate-bar ${isForecasted ? 'cp-estimate-bar-estimate cp-forecast-region' : 'cp-estimate-bar-estimate'}`);
+      bar.style.height = `${h}px`;
+      bar.title = `Estimate: ${fmtV(estimate)}`;
+      barGroup.append(bar);
+    }
+
+    col.append(barGroup);
+    col.append(ctx.el('span', 'cp-estimate-period-label', point.period));
+    barsWrap.append(col);
+  }
+
+  const legend = ctx.el('div', 'cp-estimate-legend');
+  const dotR = ctx.el('span', 'cp-estimate-legend-dot cp-estimate-bar-reported');
+  const dotE = ctx.el('span', 'cp-estimate-legend-dot cp-estimate-bar-estimate');
+  legend.append(dotR, ctx.el('span', 'cp-estimate-legend-text', 'Reported'));
+  legend.append(dotE, ctx.el('span', 'cp-estimate-legend-text', 'Estimate'));
+  wrap.append(barsWrap, legend);
+  return wrap;
+}
+
+function buildEstimateMetricsTable(
+  ctx: EntityRenderContext,
+  series: EstimateSeries,
+  isCurrency: boolean,
+): HTMLElement {
+  const wrap = ctx.el('div', 'cp-estimate-metrics-table');
+  const points = series.data.slice(-8);
+  if (points.length === 0) return wrap;
+  wrap.style.setProperty('--period-count', String(points.length));
+
+  const fmtV = (v: number | null | undefined) => isCurrency ? fmtFinancialValue(v) : fmtMetric(v ?? undefined);
+
+  const headerRow = ctx.el('div', 'cp-est-table-row cp-est-table-header');
+  headerRow.append(ctx.el('span', 'cp-est-table-cell cp-est-table-label', ''));
+  for (const p of points) headerRow.append(ctx.el('span', 'cp-est-table-cell', p.period));
+  wrap.append(headerRow);
+
+  const reportedRow = ctx.el('div', 'cp-est-table-row');
+  reportedRow.append(ctx.el('span', 'cp-est-table-cell cp-est-table-label', 'Reported'));
+  for (const p of points) {
+    const v = isCurrency ? (p.revenue ?? p.actual) : p.actual;
+    const ok = v !== undefined && v !== null && Number.isFinite(v);
+    reportedRow.append(ctx.el('span', `cp-est-table-cell${ok ? '' : ' cp-text-dim'}`, ok ? fmtV(v) : '—'));
+  }
+  wrap.append(reportedRow);
+
+  const estimateRow = ctx.el('div', 'cp-est-table-row');
+  estimateRow.append(ctx.el('span', 'cp-est-table-cell cp-est-table-label', 'Estimate'));
+  for (const p of points) {
+    const ok = p.estimate !== undefined && p.estimate !== null && Number.isFinite(p.estimate);
+    estimateRow.append(ctx.el('span', `cp-est-table-cell${ok ? '' : ' cp-text-dim'}`, ok ? fmtV(p.estimate) : '—'));
+  }
+  wrap.append(estimateRow);
+
+  const surpriseRow = ctx.el('div', 'cp-est-table-row');
+  surpriseRow.append(ctx.el('span', 'cp-est-table-cell cp-est-table-label', 'Surprise'));
+  for (const p of points) {
+    const actual = isCurrency ? (p.revenue ?? p.actual) : p.actual;
+    const est = p.estimate;
+    const hasA = actual !== undefined && actual !== null && Number.isFinite(actual);
+    const hasE = est !== undefined && est !== null && Number.isFinite(est) && est !== 0;
+    if (hasA && hasE) {
+      const pct = ((actual! - est!) / Math.abs(est!)) * 100;
+      surpriseRow.append(ctx.el('span', `cp-est-table-cell ${pct >= 0 ? 'cp-positive' : 'cp-negative'}`,
+        (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%'));
+    } else {
+      surpriseRow.append(ctx.el('span', 'cp-est-table-cell cp-text-dim', '—'));
+    }
+  }
+  wrap.append(surpriseRow);
+
+  return wrap;
+}
+
 function buildEstimateStrip(
   ctx: EntityRenderContext,
   title: string,
@@ -2737,7 +3016,7 @@ function buildAnalystDetailsView(ctx: EntityRenderContext, data: CompanyEnriched
     actionsBody.append(ctx.makeEmpty('No firm-level rating actions from the current data source'));
   } else {
     const table = ctx.el('div', 'cp-analyst-action-table');
-    table.append(simpleTableRow(ctx, ['Date', 'Firm', 'Action', 'From', 'To', 'Analyst'], true));
+    table.append(simpleTableRow(ctx, ['Date', 'Firm', 'Action', 'From', 'To'], true));
     for (const action of data.ratingActions.slice(0, 40)) {
       table.append(simpleTableRow(ctx, [
         action.gradeTime ? fmtDate(action.gradeTime) : '-',
@@ -2745,7 +3024,6 @@ function buildAnalystDetailsView(ctx: EntityRenderContext, data: CompanyEnriched
         action.action || '-',
         action.fromGrade || '-',
         action.toGrade || '-',
-        'Unavailable',
       ]));
     }
     actionsBody.append(table);
@@ -2942,21 +3220,40 @@ function buildEvCard(ctx: EntityRenderContext, ev: EvCard): HTMLElement {
   const kindLabel = ev.kind === 'earnings' ? 'Earnings'
     : ev.kind === 'transcript' ? 'Transcript'
     : ev.kind === 'press-release' ? 'Press Release'
+    : ev.kind === 'dividend' ? 'Dividend'
+    : ev.kind === 'split' ? 'Split'
+    : ev.kind === 'upcoming' ? 'Upcoming'
     : 'Filing';
   headerRow.append(ctx.el('span', `cp-ev-badge cp-ev-badge-${ev.kind}`, kindLabel));
   if (ev.isAnnual) headerRow.append(ctx.el('span', 'cp-ev-annual-tag', 'Annual'));
+  if (ev.hour) headerRow.append(ctx.el('span', 'cp-ev-hour-tag', ev.hour.toUpperCase()));
   card.append(headerRow);
 
   // Title
   card.append(ctx.el('div', 'cp-ev-card-title', ev.title || ev.quarter || '—'));
+  if (ev.quarter && ev.title) {
+    card.append(ctx.el('div', 'cp-ev-card-quarter', ev.quarter));
+  }
 
   // Date
   if (ev.date) {
     card.append(ctx.el('div', 'cp-ev-card-date', fmtDate(ev.date)));
   }
 
-  // EPS row — only shown for earnings/transcript events that have data
-  if ((ev.kind === 'earnings' || ev.kind === 'transcript') &&
+  if (ev.kind === 'dividend' && ev.amount !== undefined) {
+    const detailRow = ctx.el('div', 'cp-ev-card-detail');
+    detailRow.append(ctx.el('span', 'cp-ev-eps-label', 'Amount'));
+    detailRow.append(ctx.el('span', 'cp-ev-card-detail-value', fmtPrice(ev.amount)));
+    card.append(detailRow);
+  } else if (ev.kind === 'split' && ev.splitRatio) {
+    const detailRow = ctx.el('div', 'cp-ev-card-detail');
+    detailRow.append(ctx.el('span', 'cp-ev-eps-label', 'Ratio'));
+    detailRow.append(ctx.el('span', 'cp-ev-card-detail-value', ev.splitRatio));
+    card.append(detailRow);
+  }
+
+  // EPS row — shown for earnings/transcript and upcoming earnings cards that have data
+  if ((ev.kind === 'earnings' || ev.kind === 'transcript' || ev.kind === 'upcoming') &&
       (ev.epsActual !== null || ev.epsEstimate !== null)) {
     const epsRow = ctx.el('div', 'cp-ev-card-eps');
     epsRow.append(ctx.el('span', 'cp-ev-eps-label', 'EPS'));

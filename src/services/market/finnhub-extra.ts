@@ -280,6 +280,7 @@ export interface PriceTarget {
   targetLow: number;
   targetMean: number;
   targetMedian: number;
+  numberAnalysts?: number;
 }
 
 export async function fetchPriceTarget(symbol: string): Promise<PriceTarget | null> {
@@ -487,4 +488,30 @@ export async function fetchRevenueBreakdown(symbol: string): Promise<RevenueBrea
 export async function fetchUpgradeDowngrade(symbol: string): Promise<UpgradeDowngradeAction[]> {
   const data = await fetchFinnhub('upgrade-downgrade', { symbol });
   return Array.isArray(data) ? data : [];
+}
+
+// ─── Stock Splits ─────────────────────────────────────────────────────────────
+
+export interface StockSplit {
+  symbol: string;
+  date: string;
+  fromFactor: number;
+  toFactor: number;
+}
+
+export async function fetchStockSplits(symbol: string): Promise<StockSplit[]> {
+  const from = new Date(Date.now() - 5 * 365 * 86400000).toISOString().split('T')[0];
+  const to = new Date().toISOString().split('T')[0];
+  const data = await fetchFinnhub('stock-splits', { symbol, from, to });
+  return Array.isArray(data) ? (data as StockSplit[]) : [];
+}
+
+export async function fetchUpcomingEarnings(symbol: string): Promise<EarningsEvent | null> {
+  const from = new Date().toISOString().split('T')[0];
+  const to = new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0];
+  const data = await fetchFinnhub('earnings-calendar', { symbol, from, to }) as FinnhubEarningsResponse;
+  const events = data?.earningsCalendar ?? [];
+  if (events.length === 0) return null;
+  const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
+  return sorted[0] ?? null;
 }

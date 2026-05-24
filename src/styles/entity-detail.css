@@ -685,7 +685,7 @@
 }
 
 .cp-analyst-action-table .cp-simple-table-row {
-  grid-template-columns: 90px minmax(140px, 1fr) 88px 92px 92px 92px;
+  grid-template-columns: 90px minmax(140px, 1fr) 88px 92px 92px;
 }
 
 .cp-financial-table-header,
@@ -820,6 +820,135 @@
 
 .cp-estimate-strip {
   margin-top: 14px;
+}
+
+.cp-estimate-compare-chart {
+  margin-top: 6px;
+}
+
+.cp-estimate-bars-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  min-height: 132px;
+  padding: 10px 4px 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+}
+
+.cp-estimate-col {
+  flex: 1 0 44px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 44px;
+}
+
+.cp-estimate-col-forecast {
+  opacity: 0.82;
+}
+
+.cp-estimate-bar-group {
+  height: 88px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+}
+
+.cp-estimate-bar {
+  width: 12px;
+  min-height: 4px;
+  border-radius: 4px 4px 0 0;
+  background: var(--status-live, #38bdf8);
+}
+
+.cp-estimate-bar-reported {
+  background: var(--status-live, #38bdf8);
+}
+
+.cp-estimate-bar-estimate {
+  background: color-mix(in srgb, var(--accent, #ffb347) 82%, white 18%);
+}
+
+.cp-estimate-bar.cp-negative {
+  background: var(--semantic-critical, #ef4444);
+}
+
+.cp-forecast-region {
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent, #ffb347) 80%, white 20%) 0 4px,
+    color-mix(in srgb, var(--accent, #ffb347) 46%, transparent) 4px 8px
+  );
+}
+
+.cp-estimate-period-label {
+  color: var(--text-dim);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.cp-estimate-legend {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 12px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.cp-estimate-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.cp-estimate-legend-text {
+  margin-right: 5px;
+}
+
+.cp-estimate-metrics-table {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.cp-est-table-row {
+  display: grid;
+  grid-template-columns: 84px repeat(var(--period-count, 8), minmax(74px, 1fr));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+}
+
+.cp-est-table-row:last-child {
+  border-bottom: 0;
+}
+
+.cp-est-table-header {
+  background: color-mix(in srgb, var(--status-live, #38bdf8) 14%, transparent);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.cp-est-table-cell {
+  padding: 8px 9px;
+  color: var(--text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cp-est-table-label {
+  color: var(--text-dim);
+  font-weight: 700;
+  text-align: left;
+}
+
+.cp-text-dim {
+  color: var(--text-dim);
 }
 
 .cp-estimate-chart {
@@ -4515,6 +4644,76 @@
   margin: 8px 0 4px;
 }
 
+.cp-freq-toggle-wrap {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  margin: 0 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.cp-freq-toggle {
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: var(--wm-cursor-pointer);
+}
+
+.cp-freq-toggle-active {
+  background: color-mix(in srgb, var(--status-live, #38bdf8) 22%, transparent);
+  color: var(--text);
+}
+
+.cp-forecast-target-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.cp-forecast-target-price {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-forecast-target-narrative {
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.cp-forecast-cone {
+  margin: 8px 0 12px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 86%, black 14%);
+}
+
+.cp-analyst-gauge {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 8px;
+}
+
+.cp-forecast-disclaimer {
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: right;
+}
+
 .cp-forecast-track {
   position: relative;
   height: 10px;
@@ -7023,6 +7222,9 @@
 .cp-ev-card-transcript { border-left: 3px solid #60a5fa; }
 .cp-ev-card-press-release { border-left: 3px solid #a78bfa; }
 .cp-ev-card-filing    { border-left: 3px solid var(--text-dim, #777); }
+.cp-ev-card-dividend  { border-left: 3px solid #2dd4bf; }
+.cp-ev-card-split     { border-left: 3px solid #f59e0b; }
+.cp-ev-card-upcoming  { border-left: 3px solid var(--accent, #ffb347); }
 
 /* Card header row */
 .cp-ev-card-header {
@@ -7064,6 +7266,21 @@
   color: var(--text-dim, #777);
 }
 
+.cp-ev-badge-dividend {
+  background: color-mix(in srgb, #2dd4bf 18%, transparent);
+  color: #5eead4;
+}
+
+.cp-ev-badge-split {
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  color: #fbbf24;
+}
+
+.cp-ev-badge-upcoming {
+  background: color-mix(in srgb, var(--accent, #ffb347) 20%, transparent);
+  color: var(--accent, #ffb347);
+}
+
 /* Annual tag pill */
 .cp-ev-annual-tag {
   display: inline-block;
@@ -7075,6 +7292,18 @@
   text-transform: uppercase;
   background: color-mix(in srgb, var(--accent, #ffb347) 18%, transparent);
   color: var(--accent, #ffb347);
+}
+
+.cp-ev-hour-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--status-live, #38bdf8) 16%, transparent);
+  color: var(--status-live, #38bdf8);
 }
 
 /* Title */
@@ -7094,6 +7323,28 @@
   font-size: 11px;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+}
+
+.cp-ev-card-quarter {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cp-ev-card-detail {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-ev-card-detail-value {
+  color: var(--text);
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
 }
 
 /* EPS row */
