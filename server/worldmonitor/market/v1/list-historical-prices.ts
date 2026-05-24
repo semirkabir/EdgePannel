@@ -31,6 +31,16 @@ interface HistoricalChartResponse {
   };
 }
 
+interface FinnhubCandleResponse {
+  s: string; // 'ok' or 'no_data'
+  c?: number[];
+  h?: number[];
+  l?: number[];
+  o?: number[];
+  t?: number[];
+  v?: number[];
+}
+
 const inMemoryCache = new Map<string, { data: ListHistoricalPricesResponse; timestamp: number }>();
 const IN_MEMORY_CACHE_TTL = 900_000; // 15 minutes
 
@@ -38,19 +48,29 @@ async function fetchHistoricalChart(symbol: string, months: number): Promise<His
   const range = months <= 1 ? '1mo' : months <= 3 ? '3mo' : months <= 6 ? '6mo' : months <= 12 ? '1y' : '2y';
   const path = `v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
 
-  // Direct Yahoo first
-  try {
-    await yahooGate();
-    const resp = await fetch(`https://query1.finance.yahoo.com/${path}`, {
-      headers: { 'User-Agent': CHROME_UA },
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    });
-    if (resp.ok) {
-      return (await resp.json()) as HistoricalChartResponse;
+  // Try both Yahoo hosts — query1 and query2 have independent rate limits
+  for (const host of ['https://query1.finance.yahoo.com', 'https://query2.finance.yahoo.com']) {
+    try {
+      await yahooGate();
+      const resp = await fetch(`${host}/${path}`, {
+        headers: {
+          'User-Agent': CHROME_UA,
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+      if (resp.ok) {
+        return (await resp.json()) as HistoricalChartResponse;
+      }
+      if (resp.status !== 429 && resp.status !== 403) {
+        console.warn(`[list-historical-prices] Yahoo ${host} HTTP ${resp.status} for ${symbol}`);
+        break; // Non-rate-limit error, don't retry other host
+      }
+      console.warn(`[list-historical-prices] Yahoo ${host} HTTP ${resp.status} for ${symbol}, trying next host`);
+    } catch (err) {
+      console.warn(`[list-historical-prices] Yahoo ${host} error for ${symbol}:`, (err as Error).message);
     }
-    console.warn(`[list-historical-prices] Yahoo direct HTTP ${resp.status} for ${symbol}`);
-  } catch (err) {
-    console.warn(`[list-historical-prices] Yahoo direct error for ${symbol}:`, (err as Error).message);
   }
 
   // Fallback: Railway relay (different IP, avoids rate-limiting)
@@ -72,6 +92,87 @@ async function fetchHistoricalChart(symbol: string, months: number): Promise<His
   }
 
   return null;
+}
+
+async function fetchFinnhubCandles(symbol: string, months: number): Promise<PriceSeries | null> {
+  const apiKey = process.env.FINNHUB_API_KEY;
+  if (!apiKey) return null;
+
+  const to = Math.floor(Date.now() / 1000);
+  const from = to - Math.round(months * 30.44 * 86400);
+  const url = `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=D&from=${from}&to=${to}`;
+
+  try {
+    const resp = await fetch(url, {
+      headers: { 'X-Finnhub-Token': apiKey },
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn(`[list-historical-prices] Finnhub candle HTTP ${resp.status} for ${symbol}`);
+      return null;
+    }
+    const data = (await resp.json()) as FinnhubCandleResponse;
+    if (data.s !== 'ok' || !data.t?.length || !data.c?.length) return null;
+
+    const prices: DailyPrice[] = [];
+    for (let i = 0; i < data.t.length; i++) {
+      const close = data.c[i];
+      const volume = data.v?.[i];
+      if (close != null && Number.isFinite(close)) {
+        prices.push({
+          date: new Date(data.t[i]! * 1000).toISOString().slice(0, 10),
+          close,
+          volume: volume != null ? String(Math.round(volume)) : '0',
+        });
+      }
+    }
+    return prices.length >= 2 ? { symbol, prices } : null;
+  } catch (err) {
+    console.warn(`[list-historical-prices] Finnhub candle error for ${symbol}:`, (err as Error).message);
+    return null;
+  }
+}
+
+async function fetchStooqHistory(symbol: string, months: number): Promise<PriceSeries | null> {
+  // Stooq provides free daily OHLCV; US equities use the ".us" suffix
+  const stooqSymbol = `${symbol.toLowerCase()}.us`;
+  const toDate = new Date();
+  const fromDate = new Date(toDate);
+  fromDate.setMonth(fromDate.getMonth() - months);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '');
+  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSymbol)}&d1=${fmt(fromDate)}&d2=${fmt(toDate)}&i=d`;
+
+  try {
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': CHROME_UA },
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+    if (!resp.ok) {
+      console.warn(`[list-historical-prices] Stooq HTTP ${resp.status} for ${symbol}`);
+      return null;
+    }
+    const text = await resp.text();
+    const lines = text.trim().split('\n');
+    console.log(`[list-historical-prices] Stooq ${symbol}: HTTP ${resp.status}, ${lines.length} lines, first: ${lines[0]?.slice(0, 80)}`);
+    if (lines.length < 2) return null;
+
+    // Header: Date,Open,High,Low,Close,Volume
+    const prices: DailyPrice[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i]!.split(',');
+      if (parts.length < 5) continue;
+      const date = parts[0]!.trim(); // YYYY-MM-DD
+      const close = parseFloat(parts[4]!.trim());
+      const volume = parts[5] ? parts[5].trim() : '0';
+      if (date && Number.isFinite(close) && close > 0) {
+        prices.push({ date, close, volume });
+      }
+    }
+    return prices.length >= 2 ? { symbol, prices } : null;
+  } catch (err) {
+    console.warn(`[list-historical-prices] Stooq error for ${symbol}:`, (err as Error).message);
+    return null;
+  }
 }
 
 function parseHistoricalData(chart: HistoricalChartResponse, symbol: string): PriceSeries | null {
@@ -135,6 +236,7 @@ export async function listHistoricalPrices(
 
       for (const symbol of symbols) {
         try {
+          // Yahoo Finance first
           const chart = await fetchHistoricalChart(symbol, months);
           if (chart) {
             const parsed = parseHistoricalData(chart, symbol);
@@ -143,6 +245,20 @@ export async function listHistoricalPrices(
               consecutiveFails = 0;
               continue;
             }
+          }
+          // Finnhub candles fallback
+          const finnhub = await fetchFinnhubCandles(symbol, months);
+          if (finnhub) {
+            series.push(finnhub);
+            consecutiveFails = 0;
+            continue;
+          }
+          // Stooq free historical data fallback
+          const stooq = await fetchStooqHistory(symbol, months);
+          if (stooq) {
+            series.push(stooq);
+            consecutiveFails = 0;
+            continue;
           }
           consecutiveFails++;
           if (consecutiveFails >= 5) break;

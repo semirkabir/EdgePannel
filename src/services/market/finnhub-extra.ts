@@ -312,11 +312,14 @@ export async function fetchFinancialsReported(symbol: string, freq: 'annual' | '
   url.searchParams.set('endpoint', 'financials-reported');
   url.searchParams.set('symbol', symbol);
   url.searchParams.set('freq', freq);
+  // Pull the full available history (Finnhub holds back to ~2009)
+  url.searchParams.set('from', '2009-01-01');
+  url.searchParams.set('to', new Date().toISOString().slice(0, 10));
 
   const resp = await fetch(url.toString());
   if (!resp.ok) return [];
   const data = await resp.json() as { data?: FinancialReport[] };
-  return data?.data?.slice(0, 4) ?? [];
+  return data?.data ?? [];
 }
 
 // ─── Option Chain ─────────────────────────────────────────────────────────────
@@ -369,6 +372,11 @@ export interface InstitutionalHolder {
 
 export async function fetchInstitutionalOwnership(symbol: string): Promise<InstitutionalHolder[]> {
   const data = await fetchFinnhub('stock-ownership', { symbol }) as { ownership?: InstitutionalHolder[] };
+  return data?.ownership ?? [];
+}
+
+export async function fetchFundOwnership(symbol: string): Promise<InstitutionalHolder[]> {
+  const data = await fetchFinnhub('fund-ownership', { symbol }) as { ownership?: InstitutionalHolder[] };
   return data?.ownership ?? [];
 }
 

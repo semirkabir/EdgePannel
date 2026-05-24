@@ -192,6 +192,9 @@ export default async function handler(req) {
         finnhubUrl = new URL('https://finnhub.io/api/v1/stock/financials-reported');
         finnhubUrl.searchParams.set('symbol', symbol);
         finnhubUrl.searchParams.set('freq', url.searchParams.get('freq') || 'annual');
+        // Fetch as far back as Finnhub holds (earliest EDGAR filings ~2009)
+        finnhubUrl.searchParams.set('from', url.searchParams.get('from') || '2009-01-01');
+        finnhubUrl.searchParams.set('to', url.searchParams.get('to') || new Date().toISOString().slice(0, 10));
         break;
 
       case 'stock-ownership':
@@ -205,6 +208,83 @@ export default async function handler(req) {
         finnhubUrl.searchParams.set('symbol', symbol);
         finnhubUrl.searchParams.set('limit', '10');
         break;
+
+      case 'fund-ownership': {
+        // ETF / fund ownership — try Finnhub first, fall back to Yahoo Finance (free, no key needed)
+        if (!symbol) {
+          return new Response(JSON.stringify({ error: 'symbol is required for fund-ownership' }), {
+            status: 400,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // ── Try Finnhub (premium plan only) ──────────────────────────────────
+        if (FINNHUB_API_KEY) {
+          try {
+            const fhUrl = new URL('https://finnhub.io/api/v1/stock/fund-ownership');
+            fhUrl.searchParams.set('symbol', symbol);
+            fhUrl.searchParams.set('limit', '20');
+            fhUrl.searchParams.set('token', FINNHUB_API_KEY);
+            const fhResp = await fetch(fhUrl.toString());
+            if (fhResp.ok) {
+              const fhData = await fhResp.json();
+              if (fhData?.ownership?.length) {
+                return new Response(JSON.stringify(fhData), {
+                  status: 200,
+                  headers: { ...cors, 'Content-Type': 'application/json' },
+                });
+              }
+            }
+            // 403 means plan restriction — fall through to Yahoo
+          } catch { /* fall through */ }
+        }
+
+        // ── Yahoo Finance fallback (requires crumb + cookie) ────────────────
+        try {
+          const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
+          // Step 1: get a session cookie from Yahoo
+          const initResp = await fetch('https://fc.yahoo.com', {
+            headers: { 'User-Agent': UA },
+            redirect: 'follow',
+          });
+          const rawCookieHeader = initResp.headers.get('set-cookie') ?? '';
+          // Keep only the first cookie token (name=value) from the header
+          const cookieValue = rawCookieHeader.split(';')[0];
+
+          // Step 2: exchange cookie for a crumb
+          const crumbResp = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+            headers: { 'User-Agent': UA, 'Cookie': cookieValue },
+          });
+          const crumb = crumbResp.ok ? await crumbResp.text() : '';
+
+          // Step 3: fetch fund ownership with crumb
+          const qsUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=fundOwnership${crumb ? `&crumb=${encodeURIComponent(crumb)}` : ''}`;
+          const yahooResp = await fetch(qsUrl, {
+            headers: { 'User-Agent': UA, 'Accept': 'application/json', 'Cookie': cookieValue },
+          });
+          if (!yahooResp.ok) throw new Error(`Yahoo ${yahooResp.status}`);
+          const yahooData = await yahooResp.json();
+          const ownershipList = yahooData?.quoteSummary?.result?.[0]?.fundOwnership?.ownershipList ?? [];
+          const ownership = ownershipList.map(item => ({
+            name: item.organization ?? '',
+            share: item.position?.raw ?? 0,
+            percent: (item.pctHeld?.raw ?? 0) * 100,
+            change: Math.round((item.pctChange?.raw ?? 0) * (item.position?.raw ?? 0)),
+            date: item.reportDate?.fmt ?? '',
+            filingDate: item.reportDate?.fmt ?? '',
+          }));
+          return new Response(JSON.stringify({ ownership }), {
+            status: 200,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        } catch (err) {
+          return new Response(JSON.stringify({ error: err.message, ownership: [] }), {
+            status: 200,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          });
+        }
+      }
 
       case 'earnings-surprises':
         if (!symbol) {

@@ -42,13 +42,16 @@ import {
   fetchCompanyInstitutionHolders13F,
   type CompanyInstitutionHolder,
 } from '@/services/market/normalized-13f';
+import { fetchFundOwnership, type InstitutionalHolder } from '@/services/market/finnhub-extra';
 import {
   buildFinancialRows,
   getLatestFinancialValue,
   normalizeFinancialReports,
   ratio,
   type FinancialDisplayRow,
+  type FinancialFormatType,
   type FinancialFrequency,
+  type FinancialMetricKey,
   type FinancialStatementKind,
   type NormalizedFinancialPeriod,
 } from '@/services/market/company-financials';
@@ -85,6 +88,7 @@ interface CompanyEnriched {
   insiderTxns: InsiderTransaction[];
   optionChain: OptionChainExpiry[];
   ownership: CompanyInstitutionHolder[];
+  etfHoldings: InstitutionalHolder[];
   earningsSurprises: EarningsSurprise[];
   financialsAnnual: NormalizedFinancialPeriod[];
   financialsQuarterly: NormalizedFinancialPeriod[];
@@ -97,6 +101,21 @@ interface CompanyEnriched {
   secFacts: SecCompanyFacts | null;
   finnhubQuote: StockQuote | null;
   yahooQuote: StockQuote | null;
+}
+
+interface EvCard {
+  key: string;
+  kind: EarningsCallTranscript['kind'];
+  title: string;
+  quarter: string;
+  date: string;
+  year: number;
+  isAnnual: boolean;
+  epsActual: number | null;
+  epsEstimate: number | null;
+  epsSurprisePct: number | null;
+  transcriptRef?: EarningsCallTranscript;
+  indexUrl: string;
 }
 
 const client = new MarketServiceClient('', { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) });
@@ -651,6 +670,11 @@ export class CompanyRenderer implements EntityRenderer {
   private activeFinancialFrequency: FinancialFrequency = 'quarterly';
   private activeFinancialStatement: FinancialStatementKind = 'income';
   private financialSearch = '';
+  /** Index of the first period in the 4-bar chart window. -1 = default (latest 4). */
+  private chartWindowStart = -1;
+  /** Parent row keys that are collapsed. Empty = all expanded. */
+  private collapsedFinancialParents = new Set<FinancialMetricKey>();
+  private eventsFilter: 'all' | 'earnings' | 'corporate' = 'all';
 
   renderSkeleton(data: unknown, ctx: EntityRenderContext): HTMLElement {
     const { ticker, name } = data as CompanyData;
@@ -698,7 +722,7 @@ export class CompanyRenderer implements EntityRenderer {
 
     const [
       profile, metrics, peers, news,
-      priceTarget, recommendations, insiderTxns, optionChain, ownership, earningsSurprises,
+      priceTarget, recommendations, insiderTxns, optionChain, ownership, etfHoldings, earningsSurprises,
       financialsAnnual, financialsQuarterly, epsEstimates, revenueEstimates, dividends,
       revenueBreakdown, ratingActions, earningsCalls, secFacts, finnhubQuote, yahooQuote,
     ] = await settleInBatches<unknown>([
@@ -711,6 +735,7 @@ export class CompanyRenderer implements EntityRenderer {
       () => fetchInsiderTransactions(ticker),
       () => fetchOptionChain(ticker),
       () => fetchCompanyInstitutionHolders13F(ticker),
+      () => fetchFundOwnership(ticker),
       () => fetchEarningsSurprises(ticker),
       () => fetchFinancialsReported(ticker, 'annual'),
       () => fetchFinancialsReported(ticker, 'quarterly'),
@@ -750,6 +775,7 @@ export class CompanyRenderer implements EntityRenderer {
       insiderTxns: settledValue<InsiderTransaction[]>(insiderTxns, []),
       optionChain: settledValue<OptionChainExpiry[]>(optionChain, []),
       ownership: settledValue<CompanyInstitutionHolder[]>(ownership, []),
+      etfHoldings: settledValue<InstitutionalHolder[]>(etfHoldings, []),
       earningsSurprises: settledValue<EarningsSurprise[]>(earningsSurprises, []),
       financialsAnnual: normalizeFinancialReports(settledValue<FinancialReport[]>(financialsAnnual, []), 'annual'),
       financialsQuarterly: normalizeFinancialReports(settledValue<FinancialReport[]>(financialsQuarterly, []), 'quarterly'),
@@ -803,6 +829,7 @@ export class CompanyRenderer implements EntityRenderer {
     this.activeFinancialFrequency = 'quarterly';
     this.activeFinancialStatement = 'income';
     this.financialSearch = '';
+    this.eventsFilter = 'all';
     this.renderTabContent(container, data, ctx);
 
     // Tab click handlers
@@ -1038,7 +1065,22 @@ export class CompanyRenderer implements EntityRenderer {
   // ─── Financials Tab ──────────────────────────────────────────────────────
 
   private renderFinancialsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-    const periods = this.activeFinancialFrequency === 'annual' ? data.financialsAnnual : data.financialsQuarterly;
+    const allPeriods = this.activeFinancialFrequency === 'annual' ? data.financialsAnnual : data.financialsQuarterly;
+
+    // 4-bar sliding window ─────────────────────────────────────────────────
+    const WINDOW = 4;
+    const total = allPeriods.length;
+    const defaultStart = Math.max(0, total - WINDOW);
+    // Normalise chartWindowStart: -1 means "default" (latest 4)
+    if (this.chartWindowStart < 0 || this.chartWindowStart > defaultStart) {
+      this.chartWindowStart = defaultStart;
+    }
+    const winStart = this.chartWindowStart;
+    const periods = allPeriods.slice(winStart, winStart + WINDOW);
+    const canPrev = winStart > 0;
+    const canNext = winStart < defaultStart;
+    // ──────────────────────────────────────────────────────────────────────
+
     const hasFinancials = periods.length > 0;
     if (!hasFinancials && !data.metrics) {
       content.append(ctx.makeEmpty('Financial data unavailable'));
@@ -1049,12 +1091,54 @@ export class CompanyRenderer implements EntityRenderer {
       const [statementCard, statementBody] = ctx.sectionCard('Statements');
       statementCard.classList.add('edp-card--wide');
       statementBody.append(this.buildFinancialControls(ctx, content, data));
+
+      // Chart wrapped with nav arrows
+      const chartSection = ctx.el('div', 'cp-fin-chart-section');
+      const prevBtn = ctx.el('button', `cp-fin-nav-btn cp-fin-nav-prev${canPrev ? '' : ' is-disabled'}`) as HTMLButtonElement;
+      prevBtn.type = 'button';
+      prevBtn.setAttribute('aria-label', 'Earlier periods');
+      prevBtn.textContent = '←';
+      prevBtn.disabled = !canPrev;
+      const nextBtn = ctx.el('button', `cp-fin-nav-btn cp-fin-nav-next${canNext ? '' : ' is-disabled'}`) as HTMLButtonElement;
+      nextBtn.type = 'button';
+      nextBtn.setAttribute('aria-label', 'Later periods');
+      nextBtn.textContent = '→';
+      nextBtn.disabled = !canNext;
+
+      prevBtn.addEventListener('click', () => {
+        this.chartWindowStart = Math.max(0, winStart - WINDOW);
+        content.replaceChildren();
+        this.renderFinancialsTab(content, data, ctx);
+      });
+      nextBtn.addEventListener('click', () => {
+        this.chartWindowStart = Math.min(defaultStart, winStart + WINDOW);
+        content.replaceChildren();
+        this.renderFinancialsTab(content, data, ctx);
+      });
+
       const chartEl = buildFinancialChart(ctx, periods, this.activeFinancialStatement);
-      const rows = buildFinancialRows(periods, this.activeFinancialStatement)
-        .filter((item) => item.label.toLowerCase().includes(this.financialSearch.toLowerCase()));
-      const tableWrap = buildFinancialTable(ctx, periods, rows, data.profile?.currency || 'USD');
-      statementBody.append(chartEl, tableWrap);
-      wireFinancialChartSelection(chartEl, tableWrap);
+      chartSection.append(prevBtn, chartEl, nextBtn);
+
+      const toggleParent = (key: FinancialMetricKey): void => {
+        if (this.collapsedFinancialParents.has(key)) {
+          this.collapsedFinancialParents.delete(key);
+        } else {
+          this.collapsedFinancialParents.add(key);
+        }
+        content.replaceChildren();
+        this.renderFinancialsTab(content, data, ctx);
+      };
+
+      const rows = buildFinancialRows(periods, this.activeFinancialStatement, {
+        collapsedParents: this.collapsedFinancialParents,
+        searchTerm: this.financialSearch,
+      });
+      const tableWrap = buildFinancialTable(
+        ctx, periods, rows, allPeriods, this.activeFinancialFrequency,
+        data.profile?.currency || 'USD', this.collapsedFinancialParents, toggleParent,
+      );
+      statementBody.append(chartSection, tableWrap);
+      wireFinancialChartSelection(chartEl, tableWrap, periods, allPeriods, rows, this.activeFinancialFrequency);
       content.append(statementCard);
     }
 
@@ -1112,6 +1196,7 @@ export class CompanyRenderer implements EntityRenderer {
       button.textContent = freq === 'annual' ? 'Annual' : 'Quarterly';
       button.addEventListener('click', () => {
         this.activeFinancialFrequency = freq;
+        this.chartWindowStart = -1; // reset to latest 4 for the new frequency
         content.replaceChildren();
         this.renderFinancialsTab(content, data, ctx);
       });
@@ -1536,61 +1621,110 @@ export class CompanyRenderer implements EntityRenderer {
   // ─── Holders Tab ─────────────────────────────────────────────────────────
 
   private renderHoldersTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-    if (data.ownership.length === 0) {
-      content.append(ctx.makeEmpty('Institutional ownership data unavailable'));
+    const hasInstitutional = data.ownership.length > 0;
+    const hasEtfs = data.etfHoldings.length > 0;
+
+    if (!hasInstitutional && !hasEtfs) {
+      content.append(ctx.makeEmpty('Holder data unavailable'));
       return;
     }
 
-    const [card, body] = ctx.sectionCard('Top Institutional Holders');
-    card.classList.add('edp-card--wide');
+    // ── Institutional holders ────────────────────────────────────────────────
+    if (hasInstitutional) {
+      const [card, body] = ctx.sectionCard('Top Institutional Holders');
+      card.classList.add('edp-card--wide');
 
-    // Header
-    const hdr = ctx.el('div', 'cp-holders-row cp-holders-hdr');
-    hdr.append(ctx.el('span', 'cp-holders-name', 'Institution'));
-    hdr.append(ctx.el('span', 'cp-holders-shares', 'Shares'));
-    hdr.append(ctx.el('span', 'cp-holders-pct', '%'));
-    hdr.append(ctx.el('span', 'cp-holders-change', 'Change'));
-    hdr.append(ctx.el('span', 'cp-holders-open-cell', 'Open'));
-    body.append(hdr);
+      const hdr = ctx.el('div', 'cp-holders-row cp-holders-hdr');
+      hdr.append(ctx.el('span', 'cp-holders-name', 'Institution'));
+      hdr.append(ctx.el('span', 'cp-holders-shares', 'Shares'));
+      hdr.append(ctx.el('span', 'cp-holders-pct', '%'));
+      hdr.append(ctx.el('span', 'cp-holders-change', 'Change'));
+      hdr.append(ctx.el('span', 'cp-holders-open-cell', 'Open'));
+      body.append(hdr);
 
-    const maxShares = Math.max(...data.ownership.map(h => h.shares));
+      const maxShares = Math.max(...data.ownership.map(h => h.shares));
 
-    for (const holder of data.ownership) {
-      const r2 = ctx.el('div', 'cp-holders-row');
-
-      const nameWrap = ctx.el('div', 'cp-holders-name-wrap');
-      nameWrap.append(ctx.el('div', 'cp-holders-name', holder.institutionName));
-      const metaText = [holder.latestFilingType || '13F-HR', holder.filingDate ? fmtDate(holder.filingDate) : '']
-        .filter(Boolean)
-        .join(' · ');
-      if (metaText) {
-        nameWrap.append(ctx.el('div', 'cp-holders-meta', metaText));
+      for (const holder of data.ownership) {
+        const r2 = ctx.el('div', 'cp-holders-row');
+        const nameWrap = ctx.el('div', 'cp-holders-name-wrap');
+        nameWrap.append(ctx.el('div', 'cp-holders-name', holder.institutionName));
+        const metaText = [holder.latestFilingType || '13F-HR', holder.filingDate ? fmtDate(holder.filingDate) : '']
+          .filter(Boolean).join(' · ');
+        if (metaText) nameWrap.append(ctx.el('div', 'cp-holders-meta', metaText));
+        const barWrap = ctx.el('div', 'cp-holders-bar-wrap');
+        const bar = ctx.el('div', 'cp-holders-bar');
+        bar.style.width = maxShares > 0 ? ((holder.shares / maxShares) * 100) + '%' : '0%';
+        barWrap.append(bar);
+        nameWrap.append(barWrap);
+        r2.append(nameWrap);
+        r2.append(ctx.el('span', 'cp-holders-shares', fmtShares(holder.shares)));
+        r2.append(ctx.el('span', 'cp-holders-pct', fmtMetric(holder.percent, '%')));
+        const changeClass = holder.change >= 0 ? 'cp-holders-change cp-positive' : 'cp-holders-change cp-negative';
+        r2.append(ctx.el('span', changeClass, (holder.change >= 0 ? '+' : '') + fmtShares(Math.abs(holder.change))));
+        r2.append(buildOpenInstitutionButton(ctx, holder));
+        body.append(r2);
       }
 
-      // Mini bar showing relative size
-      const barWrap = ctx.el('div', 'cp-holders-bar-wrap');
-      const bar = ctx.el('div', 'cp-holders-bar');
-      bar.style.width = maxShares > 0 ? ((holder.shares / maxShares) * 100) + '%' : '0%';
-      barWrap.append(bar);
-      nameWrap.append(barWrap);
+      const dateNote = data.ownership[0]?.filingDate
+        ? ctx.el('div', 'cp-holders-note', 'Based on 13F filings as of ' + fmtDate(data.ownership[0].filingDate))
+        : null;
+      if (dateNote) body.append(dateNote);
 
-      r2.append(nameWrap);
-      r2.append(ctx.el('span', 'cp-holders-shares', fmtShares(holder.shares)));
-      r2.append(ctx.el('span', 'cp-holders-pct', fmtMetric(holder.percent, '%')));
-
-      const changeClass = holder.change >= 0 ? 'cp-holders-change cp-positive' : 'cp-holders-change cp-negative';
-      r2.append(ctx.el('span', changeClass, (holder.change >= 0 ? '+' : '') + fmtShares(Math.abs(holder.change))));
-      r2.append(buildOpenInstitutionButton(ctx, holder));
-
-      body.append(r2);
+      content.append(card);
     }
 
-    const dateNote = data.ownership[0]?.filingDate
-      ? ctx.el('div', 'cp-holders-note', 'Based on 13F filings as of ' + fmtDate(data.ownership[0].filingDate))
-      : null;
-    if (dateNote) body.append(dateNote);
+    // ── ETF & Fund holders ───────────────────────────────────────────────────
+    if (hasEtfs) {
+      const [etfCard, etfBody] = ctx.sectionCard('ETFs & Funds');
+      etfCard.classList.add('edp-card--wide');
 
-    content.append(card);
+      const etfHdr = ctx.el('div', 'cp-holders-row cp-holders-hdr cp-holders-etf-row');
+      etfHdr.append(ctx.el('span', 'cp-holders-name', 'Fund / ETF'));
+      etfHdr.append(ctx.el('span', 'cp-holders-shares', 'Shares'));
+      etfHdr.append(ctx.el('span', 'cp-holders-pct', '%'));
+      etfHdr.append(ctx.el('span', 'cp-holders-change', 'Change'));
+      etfBody.append(etfHdr);
+
+      const maxEtfShares = Math.max(...data.etfHoldings.map(h => h.share));
+
+      for (const fund of data.etfHoldings) {
+        const r = ctx.el('div', 'cp-holders-row cp-holders-etf-row');
+
+        const nameWrap = ctx.el('div', 'cp-holders-name-wrap');
+
+        // Badge: ETF or Fund
+        const isEtf = /\betf\b|trust\b|spdr|ishares|vanguard|invesco|xtrackers|wisdomtree|direxion|proshares/i.test(fund.name);
+        const badge = ctx.el('span', isEtf ? 'cp-fund-badge cp-fund-badge-etf' : 'cp-fund-badge cp-fund-badge-fund', isEtf ? 'ETF' : 'FUND');
+        const nameLine = ctx.el('div', 'cp-holders-name');
+        nameLine.append(badge, document.createTextNode(' ' + fund.name));
+
+        nameWrap.append(nameLine);
+        if (fund.filingDate) nameWrap.append(ctx.el('div', 'cp-holders-meta', fmtDate(fund.filingDate)));
+
+        // Mini bar
+        const barWrap = ctx.el('div', 'cp-holders-bar-wrap');
+        const bar = ctx.el('div', 'cp-holders-bar cp-holders-bar-etf');
+        bar.style.width = maxEtfShares > 0 ? ((fund.share / maxEtfShares) * 100) + '%' : '0%';
+        barWrap.append(bar);
+        nameWrap.append(barWrap);
+
+        r.append(nameWrap);
+        r.append(ctx.el('span', 'cp-holders-shares', fmtShares(fund.share)));
+        r.append(ctx.el('span', 'cp-holders-pct', fmtMetric(fund.percent, '%')));
+
+        const changeClass = fund.change >= 0 ? 'cp-holders-change cp-positive' : 'cp-holders-change cp-negative';
+        r.append(ctx.el('span', changeClass, (fund.change >= 0 ? '+' : '') + fmtShares(Math.abs(fund.change))));
+
+        etfBody.append(r);
+      }
+
+      const etfNote = data.etfHoldings[0]?.filingDate
+        ? ctx.el('div', 'cp-holders-note', 'Based on fund filings as of ' + fmtDate(data.etfHoldings[0].filingDate))
+        : null;
+      if (etfNote) etfBody.append(etfNote);
+
+      content.append(etfCard);
+    }
   }
 
   // ─── Valuation Tab ───────────────────────────────────────────────────────
@@ -1885,120 +2019,119 @@ export class CompanyRenderer implements EntityRenderer {
   // ─── Events Tab ──────────────────────────────────────────────────────────
 
   private renderEventsTab(content: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-    const hasSurprises = data.earningsSurprises.length > 0;
-    const hasDividends = data.dividends.length > 0;
-    const hasCalls = data.earningsCalls.length > 0;
-
-    if (!hasSurprises && !hasDividends && !hasCalls) {
+    if (data.earningsCalls.length === 0 && data.earningsSurprises.length === 0) {
       content.append(ctx.makeEmpty('No events data available'));
       return;
     }
 
-    if (hasCalls) {
-      // Split into earnings/transcripts vs press releases
-      const earningsFilings = data.earningsCalls.filter(c => c.kind === 'earnings' || c.kind === 'transcript');
-      const pressFilings    = data.earningsCalls.filter(c => c.kind === 'press-release' || c.kind === 'filing');
+    // ── Build unified event list ────────────────────────────────────────────
+    // Key: quarter string (e.g. "Q1 2026") or date-based for non-quarterly events
+    const eventMap = new Map<string, EvCard>();
 
-      const buildFilingCard = (title: string, note: string, filings: typeof data.earningsCalls): void => {
-        if (filings.length === 0) return;
-        const [card, body] = ctx.sectionCard(title);
-        card.classList.add('edp-card--wide');
-        const noteEl = ctx.el('p', 'edp-description');
-        noteEl.textContent = note;
-        body.append(noteEl);
-
-        for (const call of filings) {
-          const rowEl = ctx.el('div', 'edp-disclosure-row');
-
-          // Badge: quarter for earnings, filing date month/year for press releases
-          const badgeText = call.quarter || (call.filingDate ? call.filingDate.slice(0, 7) : '8-K');
-          const badge = ctx.el('span', 'edp-disclosure-badge', badgeText);
-          if (call.kind === 'earnings')      badge.style.setProperty('--badge-accent', 'var(--accent)');
-          if (call.kind === 'transcript')    badge.style.setProperty('--badge-accent', '#7b9ef7');
-          if (call.kind === 'press-release') badge.style.setProperty('--badge-accent', 'var(--text-dim)');
-          rowEl.append(badge);
-
-          const info = ctx.el('div', 'edp-disclosure-info');
-          info.append(ctx.el('span', 'edp-disclosure-name', call.label));
-          const detail = call.source === 'finnhub'
-            ? [
-                call.filingDate ? `Published ${call.filingDate}` : '',
-                call.quarter ? call.quarter : '',
-                'Finnhub transcript',
-              ].filter(Boolean).join(' · ')
-            : [
-                call.filingDate ? `Filed ${call.filingDate}` : '',
-                call.reportDate && call.reportDate !== call.filingDate ? `Period ${call.reportDate}` : '',
-                'SEC EDGAR 8-K',
-              ].filter(Boolean).join(' · ');
-          info.append(ctx.el('span', 'edp-disclosure-detail', detail));
-          rowEl.append(info);
-
-          if (call.transcriptId) {
-            const btn = ctx.el('button', 'edp-btn-sm') as HTMLButtonElement;
-            btn.type = 'button';
-            btn.textContent = 'Open transcript';
-            btn.addEventListener('click', () => openEarningsTranscript(ctx, call));
-            rowEl.append(btn);
-          } else if (call.indexUrl) {
-            const link = ctx.el('a', 'edp-btn-sm') as HTMLAnchorElement;
-            link.href = sanitizeUrl(call.indexUrl);
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = 'EDGAR ↗';
-            rowEl.append(link);
-          }
-          body.append(rowEl);
+    const getSurprise = (reportDate: string, quarter: string): EarningsSurprise | undefined => {
+      // Try matching on report/period date first, then by year+quarter label
+      let s = data.earningsSurprises.find((x) => x.period === reportDate);
+      if (!s && quarter) {
+        const qm = quarter.match(/Q(\d)/);
+        const ym = quarter.match(/(\d{4})/);
+        if (qm && ym) {
+          s = data.earningsSurprises.find(
+            (x) => x.quarter === parseInt(qm[1]!) && x.year === parseInt(ym[1]!),
+          );
         }
+      }
+      return s;
+    };
 
-        content.append(card);
-      };
+    for (const call of data.earningsCalls) {
+      const dateKey = call.filingDate || call.reportDate || '';
+      const mapKey = call.quarter || dateKey;
+      if (!mapKey) continue;
 
-      buildFilingCard(
-        'Earnings Releases & Transcripts',
-        'Earnings call transcripts from Finnhub when available, with SEC EDGAR 8-K earnings releases as fallback.',
-        earningsFilings,
-      );
-      buildFilingCard(
-        'Press Releases & Filings',
-        'Other material 8-K disclosures filed with the SEC.',
-        pressFilings,
-      );
+      const existing = eventMap.get(mapKey);
+      const surprise = getSurprise(call.reportDate, call.quarter);
+
+      // Determine primary kind — prefer earnings/transcript over filing
+      const kindPriority = (k: EarningsCallTranscript['kind']) =>
+        k === 'earnings' ? 0 : k === 'transcript' ? 1 : k === 'press-release' ? 2 : 3;
+
+      if (existing) {
+        // Merge: pick the higher-priority kind and accumulate actions
+        if (kindPriority(call.kind) < kindPriority(existing.kind)) existing.kind = call.kind;
+        if (call.transcriptId && !existing.transcriptRef) {
+          existing.transcriptRef = call;
+        }
+        if (call.indexUrl && !existing.indexUrl) existing.indexUrl = call.indexUrl;
+      } else {
+        const isQ4 = call.quarter?.startsWith('Q4');
+        eventMap.set(mapKey, {
+          key: mapKey,
+          kind: call.kind,
+          title: buildEventTitle(call),
+          quarter: call.quarter,
+          date: dateKey,
+          year: parseInt(dateKey.slice(0, 4) || '0') || 0,
+          isAnnual: isQ4 || false,
+          epsActual: surprise?.actual ?? null,
+          epsEstimate: surprise?.estimate ?? null,
+          epsSurprisePct: surprise?.surprisePercent ?? null,
+          transcriptRef: call.transcriptId ? call : undefined,
+          indexUrl: call.indexUrl || '',
+        });
+      }
     }
 
-    if (hasSurprises) {
-      const [card, body] = ctx.sectionCard('Earnings History');
-      card.classList.add('edp-card--wide');
-      const latest = data.earningsSurprises[0];
-      if (latest) {
-        const kpiGrid = ctx.el('div', 'cp-mini-kpi-grid');
-        for (const [label, value] of [
-          ['Latest EPS',  fmtMetric(latest.actual)],
-          ['Estimate',    fmtMetric(latest.estimate)],
-          ['Surprise',    fmtChange(latest.surprisePercent ?? 0)],
-        ]) {
-          const item = ctx.el('div', 'cp-mini-kpi');
-          item.append(ctx.el('span', 'cp-mini-kpi-label', label));
-          const cls = label === 'Surprise'
-            ? ((latest.surprisePercent ?? 0) >= 0 ? 'cp-mini-kpi-value cp-positive' : 'cp-mini-kpi-value cp-negative')
-            : 'cp-mini-kpi-value';
-          item.append(ctx.el('span', cls, value));
-          kpiGrid.append(item);
-        }
-        body.append(kpiGrid);
-      }
-      body.append(buildEarningsTable(ctx, data.earningsSurprises.slice(0, 12)));
-      content.append(card);
+    // Sort newest-first
+    const allEvents = [...eventMap.values()].sort((a, b) => b.date.localeCompare(a.date));
+
+    // ── Filter chips ────────────────────────────────────────────────────────
+    const filterBar = ctx.el('div', 'cp-ev-filter-bar');
+    const filters: Array<[typeof this.eventsFilter, string]> = [
+      ['all', 'All'],
+      ['earnings', 'Earnings'],
+      ['corporate', 'Corporate'],
+    ];
+    for (const [val, label] of filters) {
+      const chip = ctx.el('button', `cp-ev-chip${this.eventsFilter === val ? ' is-active' : ''}`) as HTMLButtonElement;
+      chip.type = 'button';
+      chip.textContent = label;
+      chip.addEventListener('click', () => {
+        this.eventsFilter = val;
+        content.replaceChildren();
+        this.renderEventsTab(content, data, ctx);
+      });
+      filterBar.append(chip);
+    }
+    content.append(filterBar);
+
+    // ── Apply filter ────────────────────────────────────────────────────────
+    const filtered = allEvents.filter((ev) => {
+      if (this.eventsFilter === 'earnings')  return ev.kind === 'earnings' || ev.kind === 'transcript';
+      if (this.eventsFilter === 'corporate') return ev.kind === 'press-release' || ev.kind === 'filing';
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      content.append(ctx.makeEmpty('No events in this category'));
+      return;
     }
 
-    if (hasDividends) {
-      const [card, body] = ctx.sectionCard('Dividend History');
-      card.classList.add('edp-card--wide');
-      if (data.metrics?.dividendYieldIndicatedAnnual) {
-        body.append(row(ctx, 'Indicated yield', fmtPercent(data.metrics.dividendYieldIndicatedAnnual)));
+    // ── Group by year ───────────────────────────────────────────────────────
+    const byYear = new Map<number, EvCard[]>();
+    for (const ev of filtered) {
+      if (!byYear.has(ev.year)) byYear.set(ev.year, []);
+      byYear.get(ev.year)!.push(ev);
+    }
+
+    for (const [year, yearCards] of [...byYear.entries()].sort((a, b) => b[0] - a[0])) {
+      const yearHeading = ctx.el('div', 'cp-ev-year', String(year || '—'));
+      content.append(yearHeading);
+
+      const grid = ctx.el('div', 'cp-ev-grid');
+      for (const ev of yearCards) {
+        grid.append(buildEvCard(ctx, ev));
       }
-      body.append(buildDividendTable(ctx, data.dividends.slice(0, 12)));
-      content.append(card);
+      content.append(grid);
     }
   }
 
@@ -2130,36 +2263,127 @@ function buildFinancialChart(
   return chart;
 }
 
+function fmtCellValue(value: number | null, format?: FinancialFormatType): string {
+  if (value === null || !Number.isFinite(value)) return '—';
+  if (format === 'perShare') return '$' + value.toFixed(2);
+  if (format === 'shares') return fmtShares(value);
+  return fmtFinancialValue(value);
+}
+
 function buildFinancialTable(
   ctx: EntityRenderContext,
   periods: NormalizedFinancialPeriod[],
   rows: FinancialDisplayRow[],
+  allPeriods: NormalizedFinancialPeriod[],
+  frequency: FinancialFrequency,
   currency: string,
+  collapsedParents: Set<FinancialMetricKey>,
+  onToggleParent: (key: FinancialMetricKey) => void,
 ): HTMLElement {
   if (rows.length === 0) return ctx.makeEmpty('No matching financial rows');
+
   const wrap = ctx.el('div', 'cp-financial-table-wrap');
   const table = ctx.el('div', 'cp-financial-table');
   table.style.setProperty('--period-count', String(periods.length));
+
+  // ── Header row ──────────────────────────────────────────────────────────
   const header = ctx.el('div', 'cp-financial-table-row cp-financial-table-header');
-  header.append(ctx.el('span', 'cp-financial-row-label', `Currency: ${currency}`));
+  header.append(ctx.el('span', 'cp-financial-row-label', `Metrics · Currency: ${currency}`));
   for (const period of periods) header.append(ctx.el('span', 'cp-financial-cell', period.label));
   table.append(header);
+
+  // ── Data rows ────────────────────────────────────────────────────────────
   for (const rowItem of rows) {
-    const rowEl = ctx.el('div', 'cp-financial-table-row');
-    rowEl.append(ctx.el('span', 'cp-financial-row-label', rowItem.label));
-    for (const value of rowItem.values) rowEl.append(ctx.el('span', 'cp-financial-cell', fmtFinancialValue(value)));
+    const isCollapsed = rowItem.isParent && collapsedParents.has(rowItem.key);
+
+    // Row class list
+    let rowClass = 'cp-financial-table-row';
+    if (rowItem.highlight) rowClass += ' cp-fin-row-highlight';
+    if (rowItem.indent > 0) rowClass += ` cp-fin-row-indent-${rowItem.indent}`;
+    if (rowItem.isParent) rowClass += ' cp-fin-row-parent';
+    if (isCollapsed) rowClass += ' cp-fin-row-collapsed';
+
+    const rowEl = ctx.el('div', rowClass);
+
+    // Label cell — parent rows get a chevron toggle
+    const labelEl = ctx.el('span', 'cp-financial-row-label');
+    if (rowItem.isParent) {
+      const chevron = ctx.el('span', `cp-fin-chevron${isCollapsed ? ' is-collapsed' : ''}`);
+      chevron.textContent = isCollapsed ? '▶' : '▼';
+      labelEl.append(chevron, document.createTextNode(' ' + rowItem.label));
+      labelEl.classList.add('cp-fin-label-clickable');
+      labelEl.addEventListener('click', () => onToggleParent(rowItem.key));
+    } else {
+      labelEl.textContent = rowItem.label;
+    }
+    rowEl.append(labelEl);
+
+    // Value cells with inline YoY
+    for (let colIdx = 0; colIdx < rowItem.values.length; colIdx++) {
+      const value = rowItem.values[colIdx] ?? null;
+      const cell = ctx.el('span', 'cp-financial-cell');
+      cell.append(document.createTextNode(fmtCellValue(value, rowItem.format)));
+
+      // Always compute + show YoY for every column
+      const period = periods[colIdx];
+      if (period && value !== null) {
+        const prior = findPriorPeriod(period, allPeriods, frequency);
+        const priorVal = prior?.values[rowItem.key] ?? null;
+        const yoy = fmtYoy(value, priorVal);
+        if (yoy) {
+          const badge = document.createElement('span');
+          const isPos = yoy.startsWith('+');
+          badge.className = `cp-fin-yoy ${isPos ? 'cp-fin-yoy-pos' : 'cp-fin-yoy-neg'}`;
+          badge.textContent = yoy;
+          cell.append(badge);
+        }
+      }
+
+      rowEl.append(cell);
+    }
+
     table.append(rowEl);
   }
+
   wrap.append(table);
   return wrap;
 }
 
 /**
+ * Finds the prior-year counterpart of a period within the full period array.
+ * Quarterly: same quarter number, year − 1.
+ * Annual: year − 1.
+ */
+function findPriorPeriod(
+  period: NormalizedFinancialPeriod,
+  allPeriods: NormalizedFinancialPeriod[],
+  frequency: FinancialFrequency,
+): NormalizedFinancialPeriod | undefined {
+  if (frequency === 'annual') {
+    return allPeriods.find((p) => p.year === period.year - 1);
+  }
+  return allPeriods.find((p) => p.quarter === period.quarter && p.year === period.year - 1);
+}
+
+function fmtYoy(current: number | null, prior: number | null | undefined): string | null {
+  if (current === null || prior === null || prior === undefined || prior === 0) return null;
+  const pct = (current - prior) / Math.abs(prior) * 100;
+  return (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+}
+
+/**
  * Wires bar-chart clicks to the table: clicking a bar highlights that period's
  * column in the table and dims the others. Clicking the same bar again clears
- * the selection and restores all columns to full opacity.
+ * the selection. When a column is selected, YoY % badges appear in each cell.
  */
-function wireFinancialChartSelection(chart: HTMLElement, tableWrap: HTMLElement): void {
+function wireFinancialChartSelection(
+  chart: HTMLElement,
+  tableWrap: HTMLElement,
+  displayPeriods: NormalizedFinancialPeriod[],
+  allPeriods: NormalizedFinancialPeriod[],
+  rows: FinancialDisplayRow[],
+  frequency: FinancialFrequency,
+): void {
   const barWraps = [...chart.querySelectorAll<HTMLElement>('.cp-financial-chart-bar-wrap')];
   if (barWraps.length === 0) return;
 
@@ -2172,7 +2396,10 @@ function wireFinancialChartSelection(chart: HTMLElement, tableWrap: HTMLElement)
     chart.classList.toggle('cp-fin-has-selection', idx !== null);
     barWraps.forEach((bw, i) => bw.classList.toggle('cp-fin-bar-active', i === idx));
 
-    // Table column states: each row has .cp-financial-cell elements in order
+    // Remove stale bar-level YoY badges
+    chart.querySelectorAll<HTMLElement>('.cp-fin-bar-yoy').forEach((el) => el.remove());
+
+    // Table column highlight/dim
     const tableRows = [...tableWrap.querySelectorAll<HTMLElement>('.cp-financial-table-row')];
     tableRows.forEach((row) => {
       const cells = [...row.querySelectorAll<HTMLElement>('.cp-financial-cell')];
@@ -2185,6 +2412,25 @@ function wireFinancialChartSelection(chart: HTMLElement, tableWrap: HTMLElement)
         }
       });
     });
+
+    // Add bar-level YoY badge on the selected chart bar
+    if (idx !== null) {
+      const period = displayPeriods[idx];
+      const barWrap = barWraps[idx];
+      const primaryRow = rows[0];
+      if (period && barWrap && primaryRow) {
+        const prior = findPriorPeriod(period, allPeriods, frequency);
+        if (prior) {
+          const yoyBar = fmtYoy(primaryRow.values[idx] ?? null, prior.values[primaryRow.key] ?? null);
+          if (yoyBar) {
+            const barBadge = document.createElement('span');
+            barBadge.className = `cp-fin-bar-yoy ${yoyBar.startsWith('+') ? 'cp-fin-yoy-pos' : 'cp-fin-yoy-neg'}`;
+            barBadge.textContent = `${yoyBar} YoY`;
+            barWrap.append(barBadge);
+          }
+        }
+      }
+    }
   };
 
   barWraps.forEach((bw, i) => {
@@ -2650,4 +2896,82 @@ function buildOpenInstitutionButton(
     }));
   });
   return button;
+}
+
+// ─── Events helpers ───────────────────────────────────────────────────────────
+
+function buildEventTitle(call: EarningsCallTranscript): string {
+  if (call.label && call.label.trim()) return call.label.trim();
+  const parts: string[] = [];
+  if (call.quarter) parts.push(call.quarter);
+  if (call.kind === 'earnings') parts.push('Earnings Release');
+  else if (call.kind === 'transcript') parts.push('Earnings Call');
+  else if (call.kind === 'press-release') parts.push('Press Release');
+  else parts.push('Filing');
+  return parts.join(' · ');
+}
+
+function buildEvCard(ctx: EntityRenderContext, ev: EvCard): HTMLElement {
+  const card = ctx.el('div', `cp-ev-card cp-ev-card-${ev.kind}`);
+
+  // Header row: kind badge + annual tag
+  const headerRow = ctx.el('div', 'cp-ev-card-header');
+  const kindLabel = ev.kind === 'earnings' ? 'Earnings'
+    : ev.kind === 'transcript' ? 'Transcript'
+    : ev.kind === 'press-release' ? 'Press Release'
+    : 'Filing';
+  headerRow.append(ctx.el('span', `cp-ev-badge cp-ev-badge-${ev.kind}`, kindLabel));
+  if (ev.isAnnual) headerRow.append(ctx.el('span', 'cp-ev-annual-tag', 'Annual'));
+  card.append(headerRow);
+
+  // Title
+  card.append(ctx.el('div', 'cp-ev-card-title', ev.title || ev.quarter || '—'));
+
+  // Date
+  if (ev.date) {
+    card.append(ctx.el('div', 'cp-ev-card-date', fmtDate(ev.date)));
+  }
+
+  // EPS row — only shown for earnings/transcript events that have data
+  if ((ev.kind === 'earnings' || ev.kind === 'transcript') &&
+      (ev.epsActual !== null || ev.epsEstimate !== null)) {
+    const epsRow = ctx.el('div', 'cp-ev-card-eps');
+    epsRow.append(ctx.el('span', 'cp-ev-eps-label', 'EPS'));
+    if (ev.epsActual !== null) {
+      epsRow.append(ctx.el('span', 'cp-ev-eps-actual', fmtMetric(ev.epsActual)));
+    }
+    if (ev.epsEstimate !== null) {
+      epsRow.append(ctx.el('span', 'cp-ev-eps-vs', 'est'));
+      epsRow.append(ctx.el('span', 'cp-ev-eps-estimate', fmtMetric(ev.epsEstimate)));
+    }
+    if (ev.epsSurprisePct !== null) {
+      const positive = ev.epsSurprisePct >= 0;
+      epsRow.append(ctx.el(
+        'span',
+        `cp-ev-eps-surprise ${positive ? 'cp-positive' : 'cp-negative'}`,
+        (positive ? '+' : '') + ev.epsSurprisePct.toFixed(1) + '%',
+      ));
+    }
+    card.append(epsRow);
+  }
+
+  // Action buttons
+  const actions = ctx.el('div', 'cp-ev-card-actions');
+  if (ev.transcriptRef) {
+    const btn = ctx.el('button', 'cp-ev-action-btn', 'Transcript') as HTMLButtonElement;
+    btn.type = 'button';
+    btn.addEventListener('click', () => openEarningsTranscript(ctx, ev.transcriptRef!));
+    actions.append(btn);
+  }
+  if (ev.indexUrl) {
+    const link = ctx.el('a', 'cp-ev-action-btn cp-ev-action-link') as HTMLAnchorElement;
+    link.href = sanitizeUrl(ev.indexUrl);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'Source ↗';
+    actions.append(link);
+  }
+  if (actions.childElementCount > 0) card.append(actions);
+
+  return card;
 }

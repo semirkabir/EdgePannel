@@ -566,6 +566,84 @@
   white-space: nowrap;
 }
 
+/* ── YoY badges ─────────────────────────────────────────────────────────── */
+
+/* Table cell badge — stacked on its own line above the absolute value */
+.cp-financial-cell:has(.cp-fin-yoy) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.cp-fin-yoy {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.cp-fin-yoy-pos { color: #22c55e; }
+.cp-fin-yoy-neg { color: #ef4444; }
+
+/* Bar chart badge — sits below the period label on the active bar */
+.cp-fin-bar-yoy {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: center;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ─── Period navigation arrows ──────────────────────────────────────────── */
+.cp-fin-chart-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Chart fills the space between the two arrow buttons */
+.cp-fin-chart-section .cp-financial-chart {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.cp-fin-nav-btn {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-dim, #c78327);
+  font-size: 13px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color var(--motion-fast, 120ms), background var(--motion-fast, 120ms);
+  align-self: center;
+  white-space: nowrap;
+}
+
+.cp-fin-nav-btn:hover:not(:disabled) {
+  color: var(--text, #ffb347);
+  background: rgba(255, 179, 71, 0.1);
+}
+
+.cp-fin-nav-btn:disabled,
+.cp-fin-nav-btn.is-disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
 .cp-financial-table-wrap,
 .cp-simple-table,
 .cp-analyst-action-table {
@@ -628,6 +706,97 @@
 
 .cp-financial-cell {
   text-align: right;
+}
+
+/* ── Financial table hierarchy ──────────────────────────────────────────── */
+
+/* Highlighted rows: Total revenue, Gross profit, Net income, etc. */
+.cp-fin-row-highlight > .cp-financial-row-label {
+  font-weight: 700;
+  color: var(--text);
+}
+.cp-fin-row-highlight > .cp-financial-cell {
+  font-weight: 700;
+  color: var(--text);
+}
+.cp-fin-row-highlight {
+  background: color-mix(in srgb, var(--accent, #ffb347) 4%, transparent);
+}
+
+/* Parent rows with expand/collapse chevron */
+.cp-fin-row-parent > .cp-financial-row-label {
+  font-weight: 600;
+}
+
+/* Collapsed parent: dim the row slightly */
+.cp-fin-row-collapsed > .cp-financial-row-label,
+.cp-fin-row-collapsed > .cp-financial-cell {
+  opacity: 0.7;
+}
+
+/* Clickable label for parents */
+.cp-fin-label-clickable {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cp-fin-label-clickable:hover {
+  color: var(--text);
+}
+
+/* Chevron icon */
+.cp-fin-chevron {
+  display: inline-block;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--text-dim);
+  transition: transform 0.12s ease;
+  flex-shrink: 0;
+}
+.cp-fin-chevron.is-collapsed {
+  /* ▶ already set in JS; no transform needed */
+}
+
+/* Indented child rows */
+.cp-fin-row-indent-1 > .cp-financial-row-label {
+  padding-left: 20px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+.cp-fin-row-indent-1 > .cp-financial-cell {
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+/* In compact right-panel mode: tighter indent */
+.entity-detail-panel:not(.edp-maximized) .cp-fin-row-indent-1 > .cp-financial-row-label {
+  padding-left: 14px;
+  font-size: 10px;
+}
+.entity-detail-panel:not(.edp-maximized) .cp-fin-row-indent-1 > .cp-financial-cell {
+  font-size: 10px;
+}
+
+/* Indent level 2 (e.g. receivables under currentAssets, PP&E under nonCurrentAssets) */
+.cp-fin-row-indent-2 > .cp-financial-row-label {
+  padding-left: 36px;
+  font-size: 10px;
+  color: color-mix(in srgb, var(--text-dim) 80%, transparent);
+  font-style: italic;
+}
+.cp-fin-row-indent-2 > .cp-financial-cell {
+  font-size: 10px;
+  color: color-mix(in srgb, var(--text-dim) 80%, transparent);
+  font-style: italic;
+}
+.entity-detail-panel:not(.edp-maximized) .cp-fin-row-indent-2 > .cp-financial-row-label {
+  padding-left: 22px;
+  font-size: 9.5px;
+}
+.entity-detail-panel:not(.edp-maximized) .cp-fin-row-indent-2 > .cp-financial-cell {
+  font-size: 9.5px;
 }
 
 .cp-card-with-action {
@@ -4729,6 +4898,40 @@
   border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
 }
 
+/* ETF section: no "Open" column — 4 cols instead of 5 */
+.cp-holders-row.cp-holders-etf-row {
+  grid-template-columns: 1fr 72px 56px 72px;
+}
+
+/* ETF bar: teal accent instead of blue */
+.cp-holders-bar.cp-holders-bar-etf {
+  background: var(--accent-teal, #2dd4bf);
+}
+
+/* ETF / Fund type badge — small pill before the name */
+.cp-fund-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 1.4;
+  vertical-align: middle;
+  margin-right: 2px;
+  text-transform: uppercase;
+}
+
+.cp-fund-badge-etf {
+  background: color-mix(in srgb, var(--accent-teal, #2dd4bf) 18%, transparent);
+  color: var(--accent-teal, #2dd4bf);
+}
+
+.cp-fund-badge-fund {
+  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 18%, transparent);
+  color: var(--accent-blue, #60a5fa);
+}
+
 /* ── Earnings table ──────────────────────────────────────────────────── */
 
 .cp-earnings-table {
@@ -6743,4 +6946,223 @@
   border: 1px solid var(--frame-border, rgba(255,255,255,0.08));
   border-radius: 4px;
   padding: 2px 7px;
+}
+
+/* ── Events Tab — TradingView-inspired card layout ───────────────────────── */
+
+.cp-ev-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 10px;
+  flex-wrap: wrap;
+}
+
+.cp-ev-chip {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--frame-border, rgba(255,255,255,0.08));
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: var(--wm-cursor-pointer, pointer);
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.cp-ev-chip:hover {
+  background: color-mix(in srgb, var(--accent, #ffb347) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #ffb347) 40%, transparent);
+  color: var(--text);
+}
+
+.cp-ev-chip.is-active {
+  background: color-mix(in srgb, var(--accent, #ffb347) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #ffb347) 60%, transparent);
+  color: var(--accent, #ffb347);
+}
+
+.cp-ev-year {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 6px 0 4px;
+  border-bottom: 1px solid var(--border, #2a2a2a);
+  margin-bottom: 8px;
+}
+
+.cp-ev-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+/* Base card */
+.cp-ev-card {
+  background: color-mix(in srgb, var(--surface-elevated, #1e1e1e) 80%, transparent);
+  border: 1px solid var(--border, #2a2a2a);
+  border-radius: 8px;
+  padding: 10px 12px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.cp-ev-card:hover {
+  border-color: color-mix(in srgb, var(--accent, #ffb347) 28%, var(--border, #2a2a2a));
+  background: color-mix(in srgb, var(--accent, #ffb347) 4%, var(--surface-elevated, #1e1e1e));
+}
+
+/* Kind-specific left accent stripe */
+.cp-ev-card-earnings  { border-left: 3px solid #22c55e; }
+.cp-ev-card-transcript { border-left: 3px solid #60a5fa; }
+.cp-ev-card-press-release { border-left: 3px solid #a78bfa; }
+.cp-ev-card-filing    { border-left: 3px solid var(--text-dim, #777); }
+
+/* Card header row */
+.cp-ev-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Kind badges */
+.cp-ev-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+.cp-ev-badge-earnings {
+  background: color-mix(in srgb, #22c55e 18%, transparent);
+  color: #4ade80;
+}
+
+.cp-ev-badge-transcript {
+  background: color-mix(in srgb, #60a5fa 18%, transparent);
+  color: #93c5fd;
+}
+
+.cp-ev-badge-press-release {
+  background: color-mix(in srgb, #a78bfa 18%, transparent);
+  color: #c4b5fd;
+}
+
+.cp-ev-badge-filing {
+  background: color-mix(in srgb, var(--text-dim, #777) 18%, transparent);
+  color: var(--text-dim, #777);
+}
+
+/* Annual tag pill */
+.cp-ev-annual-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--accent, #ffb347) 18%, transparent);
+  color: var(--accent, #ffb347);
+}
+
+/* Title */
+.cp-ev-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Date */
+.cp-ev-card-date {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* EPS row */
+.cp-ev-card-eps {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.cp-ev-eps-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.cp-ev-eps-actual {
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-mono, monospace);
+}
+
+.cp-ev-eps-vs {
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+}
+
+.cp-ev-eps-estimate {
+  color: var(--text-dim);
+  font-family: var(--font-mono, monospace);
+}
+
+.cp-ev-eps-surprise {
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+}
+
+/* Action buttons row */
+.cp-ev-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.cp-ev-action-btn {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--frame-border, rgba(255,255,255,0.08));
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: var(--wm-cursor-pointer, pointer);
+  text-decoration: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.cp-ev-action-btn:hover {
+  background: color-mix(in srgb, var(--accent, #ffb347) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #ffb347) 45%, transparent);
+  color: var(--text);
 }
