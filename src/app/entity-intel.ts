@@ -45,6 +45,7 @@ import { PredictionMarketRenderer } from '@/components/entity-detail/renderers/p
 import { ConflictRenderer } from '@/components/entity-detail/renderers/conflict';
 import { ArticleRenderer } from '@/components/entity-detail/renderers/article';
 import { CongressTradeRenderer } from '@/components/entity-detail/renderers/congress-trade';
+import { SecFilingRenderer } from '@/components/entity-detail/renderers/sec-filing';
 import { SectorRenderer } from '@/components/entity-detail/renderers/sector';
 import { openArticleFromClick } from '@/services/article-open';
 
@@ -165,6 +166,7 @@ export class EntityIntelManager implements AppModule {
       predictionMarket: new PredictionMarketRenderer(),
       article: new ArticleRenderer(),
       congressTrade: new CongressTradeRenderer(),
+      secFiling: new SecFilingRenderer(),
       governanceCountry: new GovernanceCountryRenderer(),
       sector: new SectorRenderer(),
     };

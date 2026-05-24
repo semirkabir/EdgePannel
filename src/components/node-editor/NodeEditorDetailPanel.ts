@@ -132,7 +132,7 @@ export class NodeEditorDetailPanel extends DetailPanelBase {
       const def = nodeRegistry.get(node.type);
       return `
         <button class="nd-node${node.id === this.selectedNodeId ? ' nd-node-selected' : ''}" data-node-id="${escapeHtml(node.id)}" style="left:${node.x}px;top:${node.y}px">
-          <strong>${escapeHtml(node.label)}</strong>
+          <strong>${escapeHtml(node.label ?? node.type)}</strong>
           <span>${escapeHtml(def?.category ?? node.type)}</span>
           <i>${def?.implemented ? 'READY' : 'STUB'}</i>
         </button>
@@ -150,9 +150,9 @@ export class NodeEditorDetailPanel extends DetailPanelBase {
       </label>
     `).join('');
     return `
-      <h3>${escapeHtml(node.label)}</h3>
+      <h3>${escapeHtml(node.label ?? node.type)}</h3>
       <div class="nd-muted">${escapeHtml(node.type)}</div>
-      <label>Name<input id="nd-node-label" value="${escapeHtml(node.label)}"></label>
+      <label>Name<input id="nd-node-label" value="${escapeHtml(node.label ?? '')}"></label>
       ${params}
       <label class="nd-check"><input id="nd-disabled" type="checkbox"${node.disabled ? ' checked' : ''}> Disabled</label>
       <label class="nd-check"><input id="nd-continue" type="checkbox"${node.continue_on_fail ? ' checked' : ''}> Continue on fail</label>

@@ -317,7 +317,8 @@ export class MyPortfolioPanel extends Panel {
     const summary = await portfolioService.get_summary(portfolio.id);
     const sectorMap = new Map<string, number>();
     for (const holding of summary.holdings) {
-      sectorMap.set(holding.sector, (sectorMap.get(holding.sector) || 0) + holding.market_value);
+      const sect = holding.sector ?? 'Other';
+      sectorMap.set(sect, (sectorMap.get(sect) || 0) + holding.market_value);
     }
 
     const donutSegments = Array.from(sectorMap.entries())
@@ -366,14 +367,14 @@ export class MyPortfolioPanel extends Panel {
     const pnlSign = holding.unrealized_pnl >= 0 ? '+' : '';
     const dayClass = holding.day_change_percent >= 0 ? 'pf-positive' : 'pf-negative';
     const daySign = holding.day_change_percent >= 0 ? '+' : '';
-    const sectorColor = SECTOR_COLORS[holding.sector] || SECTOR_COLORS.Other;
+    const sectorColor = SECTOR_COLORS[holding.sector ?? 'Other'] || SECTOR_COLORS.Other;
 
     return `
       <div class="pf-position-row" data-symbol="${escapeHtml(holding.symbol)}">
         <div class="pf-pos-info">
           <span class="pf-pos-symbol ticker-link" data-ticker="${escapeHtml(holding.symbol)}" data-name="${escapeHtml(holding.name || holding.symbol)}">${escapeHtml(holding.symbol)}</span>
           <span class="pf-pos-name">${escapeHtml(holding.name || holding.symbol)}</span>
-          <span class="pf-pos-sector" style="background:${sectorColor}30;color:${sectorColor}">${escapeHtml(holding.sector)}</span>
+          <span class="pf-pos-sector" style="background:${sectorColor}30;color:${sectorColor}">${escapeHtml(holding.sector ?? '')}</span>
         </div>
         <div class="pf-pos-data">
           <div class="pf-pos-col">

@@ -391,3 +391,12 @@ export function getSecFilingViewerUrl(entry: SecFilingEntry): string {
   // Fallback to company filings page
   return `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${entry.cik}&type=&dateb=&owner=include&count=40&search_action=getcompany`;
 }
+
+export function getSecFilingAccessionNumber(entry: SecFilingEntry): string {
+  const idMatch = entry.id.match(/(\d{10}-\d{2}-\d{6})/);
+  if (idMatch) return idMatch[1]!;
+  const urlMatch = entry.url.match(/\/data\/\d+\/(\d{18})\//);
+  if (!urlMatch) return '';
+  const clean = urlMatch[1]!;
+  return `${clean.slice(0, 10)}-${clean.slice(10, 12)}-${clean.slice(12)}`;
+}

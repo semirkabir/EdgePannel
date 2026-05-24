@@ -134,7 +134,7 @@ export class PortfolioDetailPanel extends DetailPanelBase {
       ${this.headerHtml(summary, `${holding.symbol} Position`, false)}
       <section class="pd-position-hero">
         <div>
-          <div class="pd-kicker">${escapeHtml(holding.sector)}</div>
+          <div class="pd-kicker">${escapeHtml(holding.sector ?? '')}</div>
           <h2>${escapeHtml(holding.symbol)}</h2>
           <div class="pd-muted">${escapeHtml(holding.name || holding.symbol)}</div>
         </div>
@@ -308,7 +308,7 @@ export class PortfolioDetailPanel extends DetailPanelBase {
 
   private sectorsTabHtml(summary: PortfolioSummary): string {
     const sectors = new Map<string, number>();
-    for (const holding of summary.holdings) sectors.set(holding.sector, (sectors.get(holding.sector) ?? 0) + holding.market_value);
+    for (const holding of summary.holdings) { const s = holding.sector ?? 'Other'; sectors.set(s, (sectors.get(s) ?? 0) + holding.market_value); }
     const rows = Array.from(sectors.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([sector, value]) => `<div class="pd-table-row"><span>${escapeHtml(sector)}</span><strong>${money(value)}</strong><em>${pct((value / summary.total_market_value) * 100).replace('+', '')}</em></div>`)
@@ -350,7 +350,7 @@ export class PortfolioDetailPanel extends DetailPanelBase {
     const rows = holdings.map((holding) => `
       <button class="pd-position-row" data-pd-symbol="${escapeHtml(holding.symbol)}">
         <span>${escapeHtml(holding.symbol)}</span>
-        <em>${escapeHtml(holding.sector)}</em>
+        <em>${escapeHtml(holding.sector ?? '')}</em>
         <strong>${money(holding.market_value)}</strong>
         <b class="${pnlClass(holding.unrealized_pnl)}">${pct(holding.unrealized_pnl_percent)}</b>
       </button>
@@ -360,7 +360,7 @@ export class PortfolioDetailPanel extends DetailPanelBase {
 
   private sectorDonutHtml(summary: PortfolioSummary): string {
     const sectors = new Map<string, number>();
-    for (const holding of summary.holdings) sectors.set(holding.sector, (sectors.get(holding.sector) ?? 0) + holding.market_value);
+    for (const holding of summary.holdings) { const s = holding.sector ?? 'Other'; sectors.set(s, (sectors.get(s) ?? 0) + holding.market_value); }
     const segments = Array.from(sectors.entries()).map(([label, value]) => ({
       label,
       value,

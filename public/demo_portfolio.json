@@ -1,117 +1,47 @@
 {
   "format_version": "1.0",
-  "portfolio_name": "Demo Portfolio",
-  "owner": "Fincept User",
-  "currency": "USD",
-  "export_date": "2025-01-15T00:00:00Z",
+  "exported_at": "2026-05-23T00:00:00Z",
+  "portfolio": {
+    "id": "demo-portfolio-001",
+    "name": "Demo Portfolio",
+    "description": "A diversified 12-position reference portfolio across tech, healthcare, financials, and consumer sectors.",
+    "currency": "USD",
+    "createdAt": "2022-01-03T00:00:00Z",
+    "updatedAt": "2026-05-23T00:00:00Z",
+    "isDefault": false
+  },
+  "assets": [
+    { "id": "demo-portfolio-001:AAPL",  "portfolio_id": "demo-portfolio-001", "symbol": "AAPL",  "name": "Apple Inc.",                   "sector": "Technology",          "shares": 50,  "avg_cost": 145.20, "currency": "USD", "addedAt": "2022-01-03T00:00:00Z" },
+    { "id": "demo-portfolio-001:MSFT",  "portfolio_id": "demo-portfolio-001", "symbol": "MSFT",  "name": "Microsoft Corporation",        "sector": "Technology",          "shares": 30,  "avg_cost": 295.40, "currency": "USD", "addedAt": "2022-01-03T00:00:00Z" },
+    { "id": "demo-portfolio-001:GOOGL", "portfolio_id": "demo-portfolio-001", "symbol": "GOOGL", "name": "Alphabet Inc.",                 "sector": "Communication Services","shares": 20,  "avg_cost": 137.80, "currency": "USD", "addedAt": "2022-03-15T00:00:00Z" },
+    { "id": "demo-portfolio-001:AMZN",  "portfolio_id": "demo-portfolio-001", "symbol": "AMZN",  "name": "Amazon.com Inc.",              "sector": "Consumer Cyclical",   "shares": 25,  "avg_cost": 133.50, "currency": "USD", "addedAt": "2022-03-15T00:00:00Z" },
+    { "id": "demo-portfolio-001:NVDA",  "portfolio_id": "demo-portfolio-001", "symbol": "NVDA",  "name": "NVIDIA Corporation",           "sector": "Technology",          "shares": 40,  "avg_cost": 225.60, "currency": "USD", "addedAt": "2022-06-01T00:00:00Z" },
+    { "id": "demo-portfolio-001:META",  "portfolio_id": "demo-portfolio-001", "symbol": "META",  "name": "Meta Platforms Inc.",          "sector": "Communication Services","shares": 15,  "avg_cost": 168.40, "currency": "USD", "addedAt": "2022-11-10T00:00:00Z" },
+    { "id": "demo-portfolio-001:TSLA",  "portfolio_id": "demo-portfolio-001", "symbol": "TSLA",  "name": "Tesla Inc.",                   "sector": "Consumer Cyclical",   "shares": 20,  "avg_cost": 195.80, "currency": "USD", "addedAt": "2023-01-20T00:00:00Z" },
+    { "id": "demo-portfolio-001:JPM",   "portfolio_id": "demo-portfolio-001", "symbol": "JPM",   "name": "JPMorgan Chase & Co.",         "sector": "Financial Services",  "shares": 30,  "avg_cost": 142.30, "currency": "USD", "addedAt": "2022-01-03T00:00:00Z" },
+    { "id": "demo-portfolio-001:JNJ",   "portfolio_id": "demo-portfolio-001", "symbol": "JNJ",   "name": "Johnson & Johnson",            "sector": "Healthcare",          "shares": 20,  "avg_cost": 167.90, "currency": "USD", "addedAt": "2022-01-03T00:00:00Z" },
+    { "id": "demo-portfolio-001:V",     "portfolio_id": "demo-portfolio-001", "symbol": "V",     "name": "Visa Inc.",                    "sector": "Financial Services",  "shares": 25,  "avg_cost": 213.40, "currency": "USD", "addedAt": "2022-04-01T00:00:00Z" },
+    { "id": "demo-portfolio-001:UNH",   "portfolio_id": "demo-portfolio-001", "symbol": "UNH",   "name": "UnitedHealth Group Inc.",      "sector": "Healthcare",          "shares": 10,  "avg_cost": 470.20, "currency": "USD", "addedAt": "2022-07-15T00:00:00Z" },
+    { "id": "demo-portfolio-001:BRK.B", "portfolio_id": "demo-portfolio-001", "symbol": "BRK.B", "name": "Berkshire Hathaway Inc. Cl B", "sector": "Financial Services",  "shares": 40,  "avg_cost": 287.60, "currency": "USD", "addedAt": "2022-01-03T00:00:00Z" }
+  ],
   "transactions": [
-    {
-      "date": "2024-01-15",
-      "symbol": "AAPL",
-      "type": "BUY",
-      "quantity": 15,
-      "price": 178.5,
-      "total_value": 2677.5,
-      "notes": "Core tech position"
-    },
-    {
-      "date": "2024-01-18",
-      "symbol": "MSFT",
-      "type": "BUY",
-      "quantity": 10,
-      "price": 388.47,
-      "total_value": 3884.7,
-      "notes": "Enterprise software allocation"
-    },
-    {
-      "date": "2024-01-22",
-      "symbol": "GOOGL",
-      "type": "BUY",
-      "quantity": 18,
-      "price": 144.08,
-      "total_value": 2593.44,
-      "notes": "Search and AI exposure"
-    },
-    {
-      "date": "2024-02-01",
-      "symbol": "NVDA",
-      "type": "BUY",
-      "quantity": 8,
-      "price": 61.53,
-      "total_value": 492.24,
-      "notes": "Accelerated compute position"
-    },
-    {
-      "date": "2024-02-09",
-      "symbol": "AMZN",
-      "type": "BUY",
-      "quantity": 12,
-      "price": 174.45,
-      "total_value": 2093.4,
-      "notes": "Cloud and retail platform"
-    },
-    {
-      "date": "2024-02-16",
-      "symbol": "TSLA",
-      "type": "BUY",
-      "quantity": 9,
-      "price": 199.95,
-      "total_value": 1799.55,
-      "notes": "High-beta consumer allocation"
-    },
-    {
-      "date": "2024-03-04",
-      "symbol": "JPM",
-      "type": "BUY",
-      "quantity": 14,
-      "price": 184.3,
-      "total_value": 2580.2,
-      "notes": "Large bank anchor"
-    },
-    {
-      "date": "2024-03-11",
-      "symbol": "JNJ",
-      "type": "BUY",
-      "quantity": 11,
-      "price": 158.5,
-      "total_value": 1743.5,
-      "notes": "Healthcare defensive position"
-    },
-    {
-      "date": "2024-03-18",
-      "symbol": "XOM",
-      "type": "BUY",
-      "quantity": 16,
-      "price": 113.49,
-      "total_value": 1815.84,
-      "notes": "Energy exposure"
-    },
-    {
-      "date": "2024-04-02",
-      "symbol": "V",
-      "type": "BUY",
-      "quantity": 7,
-      "price": 278.44,
-      "total_value": 1949.08,
-      "notes": "Payments network"
-    },
-    {
-      "date": "2024-04-12",
-      "symbol": "UNH",
-      "type": "BUY",
-      "quantity": 4,
-      "price": 458.14,
-      "total_value": 1832.56,
-      "notes": "Managed care exposure"
-    },
-    {
-      "date": "2024-04-22",
-      "symbol": "PG",
-      "type": "BUY",
-      "quantity": 13,
-      "price": 160.54,
-      "total_value": 2087.02,
-      "notes": "Consumer staples stabilizer"
-    }
+    { "id": "txn-001", "portfolio_id": "demo-portfolio-001", "symbol": "AAPL",  "type": "buy", "shares": 30, "price": 148.50, "total": 4455.00,  "currency": "USD", "date": "2022-01-03", "createdAt": "2022-01-03T15:30:00Z" },
+    { "id": "txn-002", "portfolio_id": "demo-portfolio-001", "symbol": "MSFT",  "type": "buy", "shares": 20, "price": 298.20, "total": 5964.00,  "currency": "USD", "date": "2022-01-03", "createdAt": "2022-01-03T15:32:00Z" },
+    { "id": "txn-003", "portfolio_id": "demo-portfolio-001", "symbol": "JPM",   "type": "buy", "shares": 20, "price": 145.10, "total": 2902.00,  "currency": "USD", "date": "2022-01-03", "createdAt": "2022-01-03T15:33:00Z" },
+    { "id": "txn-004", "portfolio_id": "demo-portfolio-001", "symbol": "JNJ",   "type": "buy", "shares": 20, "price": 167.90, "total": 3358.00,  "currency": "USD", "date": "2022-01-03", "createdAt": "2022-01-03T15:34:00Z" },
+    { "id": "txn-005", "portfolio_id": "demo-portfolio-001", "symbol": "BRK.B", "type": "buy", "shares": 30, "price": 289.40, "total": 8682.00,  "currency": "USD", "date": "2022-01-03", "createdAt": "2022-01-03T15:35:00Z" },
+    { "id": "txn-006", "portfolio_id": "demo-portfolio-001", "symbol": "AAPL",  "type": "buy", "shares": 20, "price": 141.20, "total": 2824.00,  "currency": "USD", "date": "2022-06-30", "createdAt": "2022-06-30T15:45:00Z" },
+    { "id": "txn-007", "portfolio_id": "demo-portfolio-001", "symbol": "MSFT",  "type": "buy", "shares": 10, "price": 290.20, "total": 2902.00,  "currency": "USD", "date": "2022-06-30", "createdAt": "2022-06-30T15:46:00Z" },
+    { "id": "txn-008", "portfolio_id": "demo-portfolio-001", "symbol": "GOOGL", "type": "buy", "shares": 20, "price": 137.80, "total": 2756.00,  "currency": "USD", "date": "2022-03-15", "createdAt": "2022-03-15T15:30:00Z" },
+    { "id": "txn-009", "portfolio_id": "demo-portfolio-001", "symbol": "AMZN",  "type": "buy", "shares": 25, "price": 133.50, "total": 3337.50,  "currency": "USD", "date": "2022-03-15", "createdAt": "2022-03-15T15:31:00Z" },
+    { "id": "txn-010", "portfolio_id": "demo-portfolio-001", "symbol": "NVDA",  "type": "buy", "shares": 40, "price": 225.60, "total": 9024.00,  "currency": "USD", "date": "2022-06-01", "createdAt": "2022-06-01T15:30:00Z" },
+    { "id": "txn-011", "portfolio_id": "demo-portfolio-001", "symbol": "META",  "type": "buy", "shares": 15, "price": 168.40, "total": 2526.00,  "currency": "USD", "date": "2022-11-10", "createdAt": "2022-11-10T15:30:00Z" },
+    { "id": "txn-012", "portfolio_id": "demo-portfolio-001", "symbol": "V",     "type": "buy", "shares": 25, "price": 213.40, "total": 5335.00,  "currency": "USD", "date": "2022-04-01", "createdAt": "2022-04-01T15:30:00Z" },
+    { "id": "txn-013", "portfolio_id": "demo-portfolio-001", "symbol": "UNH",   "type": "buy", "shares": 10, "price": 470.20, "total": 4702.00,  "currency": "USD", "date": "2022-07-15", "createdAt": "2022-07-15T15:30:00Z" },
+    { "id": "txn-014", "portfolio_id": "demo-portfolio-001", "symbol": "TSLA",  "type": "buy", "shares": 20, "price": 195.80, "total": 3916.00,  "currency": "USD", "date": "2023-01-20", "createdAt": "2023-01-20T15:30:00Z" },
+    { "id": "txn-015", "portfolio_id": "demo-portfolio-001", "symbol": "JPM",   "type": "buy", "shares": 10, "price": 137.40, "total": 1374.00,  "currency": "USD", "date": "2022-10-15", "createdAt": "2022-10-15T15:30:00Z" },
+    { "id": "txn-016", "portfolio_id": "demo-portfolio-001", "symbol": "BRK.B", "type": "buy", "shares": 10, "price": 283.20, "total": 2832.00,  "currency": "USD", "date": "2022-10-15", "createdAt": "2022-10-15T15:31:00Z" },
+    { "id": "txn-017", "portfolio_id": "demo-portfolio-001", "symbol": "AAPL",  "type": "dividend", "shares": 0, "price": 0, "total": 36.00,    "currency": "USD", "date": "2023-02-16", "notes": "Q1 2023 dividend $0.92/sh × 50 sh", "createdAt": "2023-02-16T00:00:00Z" },
+    { "id": "txn-018", "portfolio_id": "demo-portfolio-001", "symbol": "MSFT",  "type": "dividend", "shares": 0, "price": 0, "total": 27.00,    "currency": "USD", "date": "2023-03-09", "notes": "Q2 2023 dividend $0.90/sh × 30 sh", "createdAt": "2023-03-09T00:00:00Z" }
   ]
 }

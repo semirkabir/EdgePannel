@@ -12,6 +12,7 @@ import "worldmonitor/market/v1/list_etf_flows.proto";
 import "worldmonitor/market/v1/get_country_stock_index.proto";
 import "worldmonitor/market/v1/list_gulf_quotes.proto";
 import "worldmonitor/market/v1/list_sec_filings.proto";
+import "worldmonitor/market/v1/get_sec_filing_analysis.proto";
 import "worldmonitor/market/v1/list_historical_prices.proto";
 
 // MarketService provides APIs for financial market data from Finnhub, Yahoo Finance, and CoinGecko.
@@ -61,6 +62,11 @@ service MarketService {
   // ListSecFilings retrieves recent SEC EDGAR filings for a company by ticker.
   rpc ListSecFilings(ListSecFilingsRequest) returns (ListSecFilingsResponse) {
     option (sebuf.http.config) = {path: "/list-sec-filings", method: HTTP_METHOD_GET};
+  }
+
+  // GetSecFilingAnalysis interprets a SEC filing into structured metrics and events.
+  rpc GetSecFilingAnalysis(GetSecFilingAnalysisRequest) returns (GetSecFilingAnalysisResponse) {
+    option (sebuf.http.config) = {path: "/get-sec-filing-analysis", method: HTTP_METHOD_GET};
   }
 
   // ListHistoricalPrices retrieves historical daily prices for specified symbols.

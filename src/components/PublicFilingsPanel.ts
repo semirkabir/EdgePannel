@@ -15,6 +15,7 @@ import {
   getFilingTypeLabel,
   countByCategory,
   getSecFilingViewerUrl,
+  getSecFilingAccessionNumber,
   type SecFilingEntry,
   type FilingsSort,
 } from '@/services/market/sec-filings';
@@ -242,6 +243,7 @@ export class PublicFilingsPanel extends Panel {
                       : 'pf-filing-type-hr';
       const filingLabel = getFilingTypeLabel(ft);
       const secUrl = getSecFilingViewerUrl(entry);
+      const accessionNumber = getSecFilingAccessionNumber(entry);
       return `
         <div class="pf-filing-row">
           <span class="pf-filing-info">
@@ -251,7 +253,8 @@ export class PublicFilingsPanel extends Panel {
           <span class="pf-filing-type-badge ${badgeClass}" title="${escapeHtml(filingLabel)}">${escapeHtml(ft)}</span>
           <span class="pf-filing-date">${escapeHtml(formatFiledDate(entry.filedAt))}</span>
           ${secUrl ? `<a class="pf-filing-link" href="${escapeHtml(secUrl)}" target="_blank" rel="noopener" title="View on SEC.gov">\u{1F4C4}</a>` : ''}
-          <button class="pf-row-open-btn" type="button" title="Open filer details" aria-label="Open filer details" data-open-kind="institution" data-cik="${escapeHtml(entry.cik)}" data-name="${escapeHtml(entry.filerName)}">\u2197</button>
+          <button class="pf-row-open-btn" type="button" title="Read filing" aria-label="Read filing" data-open-kind="secFiling" data-cik="${escapeHtml(entry.cik)}" data-name="${escapeHtml(entry.filerName)}" data-filing-type="${escapeHtml(entry.filingType)}" data-accession-number="${escapeHtml(accessionNumber)}" data-document-url="${escapeHtml(secUrl || entry.url)}" data-title="${escapeHtml(entry.title)}" data-filed-at="${escapeHtml(entry.filedAt.toISOString())}">\u2197</button>
+          <button class="pf-entity-open-btn" type="button" title="Open filer details" aria-label="Open filer details" data-cik="${escapeHtml(entry.cik)}" data-name="${escapeHtml(entry.filerName)}">\u25CE</button>
         </div>
       `;
     }).join('');
@@ -395,6 +398,19 @@ export class PublicFilingsPanel extends Panel {
         e.stopPropagation();
         const openKind = button.dataset.openKind;
 
+        if (openKind === 'secFiling') {
+          this.openEntityDetail('secFiling', {
+            cik: button.dataset.cik || '',
+            companyName: button.dataset.name || '',
+            filingType: button.dataset.filingType || '',
+            accessionNumber: button.dataset.accessionNumber || '',
+            documentUrl: button.dataset.documentUrl || '',
+            title: button.dataset.title || '',
+            filedAt: button.dataset.filedAt || '',
+          });
+          return;
+        }
+
         if (openKind === 'institution') {
           this.openEntityDetail('institution', {
             name: button.dataset.name || 'Institution',
@@ -419,6 +435,16 @@ export class PublicFilingsPanel extends Panel {
         if (trade) {
           this.openEntityDetail('congressTrade', trade);
         }
+      });
+    });
+
+    contentEl.querySelectorAll<HTMLElement>('.pf-entity-open-btn').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openEntityDetail('institution', {
+          name: button.dataset.name || 'Institution',
+          cik: button.dataset.cik || '',
+        });
       });
     });
 

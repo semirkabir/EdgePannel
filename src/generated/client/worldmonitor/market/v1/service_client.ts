@@ -187,6 +187,64 @@ export interface SecFiling {
   issuerCik: string;
 }
 
+export interface GetSecFilingAnalysisRequest {
+  ticker: string;
+  cik: string;
+  accessionNumber: string;
+  filingType: string;
+  documentUrl: string;
+}
+
+export interface SecFilingMetric {
+  id: string;
+  label: string;
+  value: number;
+  formattedValue: string;
+  unit: string;
+  kind: string;
+  yoy: number;
+  hasYoy: boolean;
+  fiscalPeriod: string;
+  filedAt: string;
+}
+
+export interface SecFilingEvent {
+  label: string;
+  value: string;
+  kind: string;
+}
+
+export interface SecFilingSeriesPoint {
+  label: string;
+  value: number;
+  filedAt: string;
+}
+
+export interface SecFilingSeries {
+  id: string;
+  label: string;
+  unit: string;
+  points: SecFilingSeriesPoint[];
+}
+
+export interface GetSecFilingAnalysisResponse {
+  ticker: string;
+  companyName: string;
+  cik: string;
+  accessionNumber: string;
+  filingType: string;
+  formCategory: string;
+  filedAt: string;
+  title: string;
+  url: string;
+  summaryBullets: string[];
+  metrics: SecFilingMetric[];
+  events: SecFilingEvent[];
+  series: SecFilingSeries[];
+  structured: boolean;
+  fallbackReason: string;
+}
+
 export interface ListHistoricalPricesRequest {
   symbols: string[];
   months: number;
@@ -476,6 +534,35 @@ export class MarketServiceClient {
     }
 
     return await resp.json() as ListSecFilingsResponse;
+  }
+
+  async getSecFilingAnalysis(req: GetSecFilingAnalysisRequest, options?: MarketServiceCallOptions): Promise<GetSecFilingAnalysisResponse> {
+    let path = "/api/market/v1/get-sec-filing-analysis";
+    const params = new URLSearchParams();
+    if (req.ticker != null && String(req.ticker) !== "") params.set("ticker", String(req.ticker));
+    if (req.cik != null && String(req.cik) !== "") params.set("cik", String(req.cik));
+    if (req.accessionNumber != null && String(req.accessionNumber) !== "") params.set("accession_number", String(req.accessionNumber));
+    if (req.filingType != null && String(req.filingType) !== "") params.set("filing_type", String(req.filingType));
+    if (req.documentUrl != null && String(req.documentUrl) !== "") params.set("document_url", String(req.documentUrl));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as GetSecFilingAnalysisResponse;
   }
 
   async listHistoricalPrices(req: ListHistoricalPricesRequest, options?: MarketServiceCallOptions): Promise<ListHistoricalPricesResponse> {

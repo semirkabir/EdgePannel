@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package worldmonitor.market.v1;
+
+import "sebuf/http/annotations.proto";
+
+// GetSecFilingAnalysisRequest identifies a SEC filing to interpret.
+message GetSecFilingAnalysisRequest {
+  // Optional ticker symbol used to resolve CIK when cik is not provided.
+  string ticker = 1 [(sebuf.http.query) = { name: "ticker" }];
+
+  // SEC Central Index Key. May be padded or unpadded.
+  string cik = 2 [(sebuf.http.query) = { name: "cik" }];
+
+  // SEC accession number, with or without dashes.
+  string accession_number = 3 [(sebuf.http.query) = { name: "accession_number" }];
+
+  // Filing form type, used when accession lookup is unavailable.
+  string filing_type = 4 [(sebuf.http.query) = { name: "filing_type" }];
+
+  // Optional EDGAR document URL from a feed row.
+  string document_url = 5 [(sebuf.http.query) = { name: "document_url" }];
+}
+
+// SecFilingMetric is a normalized number extracted from SEC facts.
+message SecFilingMetric {
+  string id = 1;
+  string label = 2;
+  double value = 3;
+  string formatted_value = 4;
+  string unit = 5;
+  string kind = 6;
+  double yoy = 7;
+  bool has_yoy = 8;
+  string fiscal_period = 9;
+  string filed_at = 10;
+}
+
+// SecFilingEvent is a form-specific disclosure or interpretation.
+message SecFilingEvent {
+  string label = 1;
+  string value = 2;
+  string kind = 3;
+}
+
+// SecFilingSeriesPoint is one chart/table point.
+message SecFilingSeriesPoint {
+  string label = 1;
+  double value = 2;
+  string filed_at = 3;
+}
+
+// SecFilingSeries is a visualization-ready series.
+message SecFilingSeries {
+  string id = 1;
+  string label = 2;
+  string unit = 3;
+  repeated SecFilingSeriesPoint points = 4;
+}
+
+// GetSecFilingAnalysisResponse contains interpreted SEC filing data.
+message GetSecFilingAnalysisResponse {
+  string ticker = 1;
+  string company_name = 2;
+  string cik = 3;
+  string accession_number = 4;
+  string filing_type = 5;
+  string form_category = 6;
+  string filed_at = 7;
+  string title = 8;
+  string url = 9;
+  repeated string summary_bullets = 10;
+  repeated SecFilingMetric metrics = 11;
+  repeated SecFilingEvent events = 12;
+  repeated SecFilingSeries series = 13;
+  bool structured = 14;
+  string fallback_reason = 15;
+}

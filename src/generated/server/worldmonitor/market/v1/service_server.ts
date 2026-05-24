@@ -187,6 +187,64 @@ export interface SecFiling {
   issuerCik: string;
 }
 
+export interface GetSecFilingAnalysisRequest {
+  ticker: string;
+  cik: string;
+  accessionNumber: string;
+  filingType: string;
+  documentUrl: string;
+}
+
+export interface SecFilingMetric {
+  id: string;
+  label: string;
+  value: number;
+  formattedValue: string;
+  unit: string;
+  kind: string;
+  yoy: number;
+  hasYoy: boolean;
+  fiscalPeriod: string;
+  filedAt: string;
+}
+
+export interface SecFilingEvent {
+  label: string;
+  value: string;
+  kind: string;
+}
+
+export interface SecFilingSeriesPoint {
+  label: string;
+  value: number;
+  filedAt: string;
+}
+
+export interface SecFilingSeries {
+  id: string;
+  label: string;
+  unit: string;
+  points: SecFilingSeriesPoint[];
+}
+
+export interface GetSecFilingAnalysisResponse {
+  ticker: string;
+  companyName: string;
+  cik: string;
+  accessionNumber: string;
+  filingType: string;
+  formCategory: string;
+  filedAt: string;
+  title: string;
+  url: string;
+  summaryBullets: string[];
+  metrics: SecFilingMetric[];
+  events: SecFilingEvent[];
+  series: SecFilingSeries[];
+  structured: boolean;
+  fallbackReason: string;
+}
+
 export interface ListHistoricalPricesRequest {
   symbols: string[];
   months: number;
@@ -261,6 +319,7 @@ export interface MarketServiceHandler {
   getCountryStockIndex(ctx: ServerContext, req: GetCountryStockIndexRequest): Promise<GetCountryStockIndexResponse>;
   listGulfQuotes(ctx: ServerContext, req: ListGulfQuotesRequest): Promise<ListGulfQuotesResponse>;
   listSecFilings(ctx: ServerContext, req: ListSecFilingsRequest): Promise<ListSecFilingsResponse>;
+  getSecFilingAnalysis(ctx: ServerContext, req: GetSecFilingAnalysisRequest): Promise<GetSecFilingAnalysisResponse>;
   listHistoricalPrices(ctx: ServerContext, req: ListHistoricalPricesRequest): Promise<ListHistoricalPricesResponse>;
 }
 
@@ -653,6 +712,57 @@ export function createMarketServiceRoutes(
 
           const result = await handler.listSecFilings(ctx, body);
           return new Response(JSON.stringify(result as ListSecFilingsResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/market/v1/get-sec-filing-analysis",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const url = new URL(req.url, "http://localhost");
+          const params = url.searchParams;
+          const body: GetSecFilingAnalysisRequest = {
+            ticker: params.get("ticker") ?? "",
+            cik: params.get("cik") ?? "",
+            accessionNumber: params.get("accession_number") ?? "",
+            filingType: params.get("filing_type") ?? "",
+            documentUrl: params.get("document_url") ?? "",
+          };
+          if (options?.validateRequest) {
+            const bodyViolations = options.validateRequest("getSecFilingAnalysis", body);
+            if (bodyViolations) {
+              throw new ValidationError(bodyViolations);
+            }
+          }
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.getSecFilingAnalysis(ctx, body);
+          return new Response(JSON.stringify(result as GetSecFilingAnalysisResponse), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });

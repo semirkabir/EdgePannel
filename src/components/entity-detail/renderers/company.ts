@@ -2871,6 +2871,29 @@ function buildFilingRow(ctx: EntityRenderContext, filing: SecFiling): HTMLElemen
     r.append(link);
   }
 
+  const readButton = ctx.el('button', 'edp-btn-sm') as HTMLButtonElement;
+  readButton.type = 'button';
+  readButton.textContent = 'Read';
+  readButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+      detail: {
+        type: 'secFiling',
+        data: {
+          cik: filing.issuerCik || '',
+          companyName: filing.issuerName || '',
+          accessionNumber: filing.accessionNumber || '',
+          filingType: filing.filingType || '',
+          documentUrl: filing.url || '',
+          title: filing.title || '',
+          filedAt: filing.filedAt || '',
+        },
+      },
+    }));
+  });
+  r.append(readButton);
+
   return r;
 }
 
