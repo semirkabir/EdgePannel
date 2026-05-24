@@ -477,6 +477,14 @@ export class MapPopup {
     }
   }
 
+  public updatePosition(x: number, y: number): void {
+    if (!this.popup || this.isMobileSheet || !this.currentData) return;
+    this.currentData.x = x;
+    this.currentData.y = y;
+    const containerRect = this.container.getBoundingClientRect();
+    this.positionDesktopPopup(this.currentData, containerRect);
+  }
+
   private bindPredictionMarketLive(data: PopupData): void {
     if (data.type !== 'predictionMarket' || !this.popup) return;
     const market = data.data as GeoPredictionMarket;

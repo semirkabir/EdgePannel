@@ -605,23 +605,38 @@ function renderLocalMarketSnapshot(wrap: Element, data: CompanyEnriched): void {
   quoteCol.append(priceEl);
 
   const changeEl = document.createElement('div');
-  changeEl.className = 'edp-tv-fallback-change';
+  changeEl.className = 'edp-tv-fallback-change cp-trend-pill';
   quoteCol.append(changeEl);
 
   const updateRangeChange = (range: ChartRange): void => {
     const rangeChange = getRangeChangePercent(data, range);
-    changeEl.classList.remove('edp-positive', 'edp-negative');
+    changeEl.classList.remove('edp-positive', 'edp-negative', 'cp-change-up', 'cp-change-down');
+    
+    // Add interactive flash effect
+    changeEl.classList.add('cp-change-flash');
+    setTimeout(() => changeEl.classList.remove('cp-change-flash'), 400);
+
     if (rangeChange == null) {
       changeEl.textContent = '—';
       return;
     }
-    changeEl.classList.add(rangeChange >= 0 ? 'edp-positive' : 'edp-negative');
-    changeEl.textContent = fmtChange(rangeChange);
+    
+    const isPos = rangeChange >= 0;
+    changeEl.classList.add(isPos ? 'edp-positive' : 'edp-negative');
+    changeEl.classList.add(isPos ? 'cp-change-up' : 'cp-change-down');
+    changeEl.innerHTML = `${isPos ? '▲' : '▼'}&nbsp;${fmtChange(Math.abs(rangeChange))} <span class="cp-range-label-sub">${range}</span>`;
   };
 
   const metaEl = document.createElement('div');
   metaEl.className = 'edp-tv-fallback-meta';
-  metaEl.textContent = [priceSource, marketCap, exchange].filter(Boolean).join(' - ');
+  
+  // High-fidelity active dot indicator
+  const liveIndicator = document.createElement('span');
+  liveIndicator.className = 'cp-live-indicator-dot';
+  metaEl.append(liveIndicator);
+
+  const metaText = document.createTextNode(' ' + [priceSource, marketCap, exchange].filter(Boolean).join(' - '));
+  metaEl.append(metaText);
   quoteCol.append(metaEl);
 
   card.append(quoteCol);
@@ -636,21 +651,7 @@ function renderMarketSnapshot(container: HTMLElement, data: CompanyEnriched): vo
   renderLocalMarketSnapshot(wrap, data);
 }
 
-function renderCompanyLogoHero(container: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-  if (!data.profile?.logo || container.querySelector('.edp-auto-hero')) return;
 
-  const hero = ctx.el('section', 'edp-auto-hero cp-company-logo-hero');
-  const img = ctx.el('img', 'edp-auto-hero-img') as HTMLImageElement;
-  img.src = sanitizeUrl(data.profile.logo);
-  img.alt = `${data.profile.name || data.companyName || data.name} logo`;
-  img.loading = 'lazy';
-  img.onerror = () => hero.remove();
-  hero.append(img);
-
-  const header = container.querySelector('.edp-header');
-  if (header) header.insertAdjacentElement('beforebegin', hero);
-  else container.prepend(hero);
-}
 
 
 async function settleInBatches<T>(
@@ -818,32 +819,85 @@ export class CompanyRenderer implements EntityRenderer {
   renderEnriched(container: HTMLElement, enrichedData: unknown, ctx: EntityRenderContext): void {
     const data = enrichedData as CompanyEnriched;
 
-    renderCompanyLogoHero(container, data, ctx);
     renderMarketSnapshot(container, data);
 
-    // Update header with company name from profile
     const displayName = data.profile?.name || data.companyName || data.name;
-    const titleEl = container.querySelector('.edp-title');
-    if (titleEl) titleEl.textContent = displayName;
+    const header = container.querySelector('.edp-header') as HTMLElement;
+    
+    if (header) {
+      // Clear header and rebuild as a horizontal Brand Profile Card
+      header.replaceChildren();
 
-    const badgeRow = container.querySelector('.edp-badge-row');
-    if (badgeRow) {
-      badgeRow.replaceChildren();
-      badgeRow.append(ctx.badge('$' + data.ticker, 'edp-badge edp-badge-ticker'));
-      const sector = data.profile?.gicsSector || data.profile?.finnhubIndustry;
-      if (sector) badgeRow.append(ctx.badge(sector, 'edp-badge edp-badge-sector'));
-    }
+      // Subtle dynamic brand backing glow inside the card
+      if (data.profile?.logo) {
+        const blurLogo = ctx.el('img', 'cp-header-blur-logo') as HTMLImageElement;
+        blurLogo.src = sanitizeUrl(data.profile.logo);
+        blurLogo.alt = '';
+        blurLogo.onerror = () => blurLogo.remove();
+        header.append(blurLogo);
+      }
 
-    // Add logo if available
-    if (data.profile?.logo) {
-      const header = container.querySelector('.edp-header');
-      if (header && !header.querySelector('.cp-logo')) {
-        const logo = ctx.el('img', 'cp-logo') as HTMLImageElement;
+      // Grid wrapper
+      const brandGrid = ctx.el('div', 'cp-brand-header-grid');
+
+      // Left: Logo Badge Squircle
+      if (data.profile?.logo) {
+        const badge = ctx.el('div', 'cp-brand-badge');
+        const logo = ctx.el('img', 'cp-brand-badge-img') as HTMLImageElement;
         logo.src = sanitizeUrl(data.profile.logo);
         logo.alt = displayName;
-        logo.onerror = () => logo.remove();
-        header.prepend(logo);
+        logo.onerror = () => badge.remove();
+        badge.append(logo);
+        brandGrid.append(badge);
       }
+
+      // Right: Text info and badges
+      const brandInfo = ctx.el('div', 'cp-brand-info');
+      
+      const titleEl = ctx.el('h2', 'edp-title', displayName);
+      brandInfo.append(titleEl);
+
+      const badgeRow = ctx.el('div', 'edp-badge-row');
+      badgeRow.append(ctx.badge('$' + data.ticker, 'edp-badge edp-badge-ticker'));
+      const sector = data.profile?.gicsSector || data.profile?.finnhubIndustry;
+      if (sector) {
+        const sectorBadge = ctx.badge(sector, 'edp-badge edp-badge-sector cp-clickable-sector-badge');
+        
+        // Helper to map dynamic sector industry strings to registered ETF symbols
+        const getSectorSymbol = (name: string): string => {
+          const norm = name.toLowerCase();
+          if (norm.includes('semiconductor') || norm.includes('chip')) return 'SMH';
+          if (norm.includes('tech') || norm.includes('software') || norm.includes('hardware') || norm.includes('it ')) return 'XLK';
+          if (norm.includes('financial') || norm.includes('bank') || norm.includes('insurance') || norm.includes('finance')) return 'XLF';
+          if (norm.includes('energy') || norm.includes('oil') || norm.includes('gas') || norm.includes('coal')) return 'XLE';
+          if (norm.includes('health') || norm.includes('pharma') || norm.includes('medical') || norm.includes('clinical')) return 'XLV';
+          return 'XLK'; // Fallback to general technology
+        };
+        
+        const industry = data.profile?.finnhubIndustry;
+        const gics = data.profile?.gicsSector;
+        const symbol = (industry && getSectorSymbol(industry)) || (gics && getSectorSymbol(gics)) || 'XLK';
+        
+        sectorBadge.style.cursor = 'pointer';
+        sectorBadge.title = `Open ${sector} sector`;
+        sectorBadge.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+            detail: {
+              type: 'sector',
+              data: {
+                symbol,
+                name: sector,
+                change: null
+              }
+            }
+          }));
+        });
+        badgeRow.append(sectorBadge);
+      }
+      brandInfo.append(badgeRow);
+
+      brandGrid.append(brandInfo);
+      header.append(brandGrid);
     }
 
     // Render initial tab
@@ -869,22 +923,22 @@ export class CompanyRenderer implements EntityRenderer {
   }
 
   private renderTabContent(container: HTMLElement, data: CompanyEnriched, ctx: EntityRenderContext): void {
-    const content = container.querySelector('[data-slot="tab-content"]');
+    const content = container.querySelector('[data-slot="tab-content"]') as HTMLElement | null;
     if (!content) return;
     content.replaceChildren();
 
     switch (this.activeTab) {
-      case 'overview':   this.renderOverviewTab(content as HTMLElement, data, ctx); break;
-      case 'financials': this.renderFinancialsTab(content as HTMLElement, data, ctx); break;
-      case 'valuation':  this.renderValuationTab(content as HTMLElement, data, ctx); break;
-      case 'estimates':  this.renderEstimatesTab(content as HTMLElement, data, ctx); break;
-      case 'forecasts':  this.renderForecastsTab(content as HTMLElement, data, ctx); break;
-      case 'news':       this.renderNewsTab(content as HTMLElement, data, ctx); break;
-      case 'events':     this.renderEventsTab(content as HTMLElement, data, ctx); break;
-      case 'options':    this.renderOptionsTab(content as HTMLElement, data, ctx); break;
-      case 'insiders':   this.renderInsidersTab(content as HTMLElement, data, ctx); break;
-      case 'holders':    this.renderHoldersTab(content as HTMLElement, data, ctx); break;
-      case 'filings':    this.renderFilingsTab(content as HTMLElement, data, ctx); break;
+      case 'overview':   this.renderOverviewTab(content, data, ctx); break;
+      case 'financials': this.renderFinancialsTab(content, data, ctx); break;
+      case 'valuation':  this.renderValuationTab(content, data, ctx); break;
+      case 'estimates':  this.renderEstimatesTab(content, data, ctx); break;
+      case 'forecasts':  this.renderForecastsTab(content, data, ctx); break;
+      case 'news':       this.renderNewsTab(content, data, ctx); break;
+      case 'events':     this.renderEventsTab(content, data, ctx); break;
+      case 'options':    this.renderOptionsTab(content, data, ctx); break;
+      case 'insiders':   this.renderInsidersTab(content, data, ctx); break;
+      case 'holders':    this.renderHoldersTab(content, data, ctx); break;
+      case 'filings':    this.renderFilingsTab(content, data, ctx); break;
     }
   }
 
@@ -977,6 +1031,7 @@ export class CompanyRenderer implements EntityRenderer {
       const m = data.metrics;
       const grid = ctx.el('div', 'cp-metrics-grid');
 
+      // Omit 52W High and 52W Low from grid as they are visually rendered in the premium range progress slider
       const metrics: [string, string][] = [
         ['P/E',        fmtMetric(m.peBasicExclExtraTTM || m.peAnnual, 'x')],
         ['P/B',        fmtMetric(m.pbAnnual, 'x')],
@@ -986,8 +1041,6 @@ export class CompanyRenderer implements EntityRenderer {
         ['ROA',        fmtPercent(m.roaRfy)],
         ['Div Yield',  fmtPercent(m.dividendYieldIndicatedAnnual)],
         ['Beta',       fmtMetric(m.beta)],
-        ['52W High',   m['52WeekHigh'] ? fmtPrice(m['52WeekHigh']) : '—'],
-        ['52W Low',    m['52WeekLow'] ? fmtPrice(m['52WeekLow']) : '—'],
         ['D/E',        fmtMetric(m.totalDebtToEquityAnnual)],
         ['Current R.', fmtMetric(m.currentRatioAnnual)],
       ];
@@ -1001,6 +1054,42 @@ export class CompanyRenderer implements EntityRenderer {
 
       body.append(grid);
       content.append(card);
+    }
+
+    // 52-Week Range Premium Progress Slider Card
+    if (data.metrics?.['52WeekLow'] && data.metrics?.['52WeekHigh']) {
+      const low = data.metrics['52WeekLow'];
+      const high = data.metrics['52WeekHigh'];
+      const current = getSnapshotPrice(data).price;
+      
+      if (current != null && high > low) {
+        const pct = Math.max(0, Math.min(100, ((current - low) / (high - low)) * 100));
+        const [card, body] = ctx.sectionCard('52-Week Range');
+        card.classList.add('cp-52w-slider-card');
+        
+        const sliderTrack = ctx.el('div', 'cp-52w-slider-track-wrap');
+        const lowLabel = ctx.el('span', 'cp-52w-slider-low', fmtPrice(low));
+        
+        const track = ctx.el('div', 'cp-52w-slider-track');
+        const fill = ctx.el('div', 'cp-52w-slider-fill');
+        fill.style.setProperty('--target-width', `${pct}%`);
+        fill.classList.add('cp-margin-bar'); // Reuse grow transition trigger
+        
+        const pin = ctx.el('div', 'cp-52w-slider-pin');
+        pin.style.left = `${pct}%`;
+        pin.title = `Current: ${fmtPrice(current)}`;
+        track.append(fill, pin);
+        
+        const highLabel = ctx.el('span', 'cp-52w-slider-high', fmtPrice(high));
+        sliderTrack.append(lowLabel, track, highLabel);
+        body.append(sliderTrack);
+        
+        const sliderMeta = ctx.el('div', 'cp-52w-slider-meta');
+        sliderMeta.textContent = `Current price is ${pct.toFixed(0)}% from 52-Week Low`;
+        body.append(sliderMeta);
+        
+        content.append(card);
+      }
     }
 
     if (marketCap || latestDebt || latestCash) {
@@ -1058,7 +1147,10 @@ export class CompanyRenderer implements EntityRenderer {
           barRow.append(ctx.el('span', 'cp-margin-label', label));
           const barWrap = ctx.el('div', 'cp-margin-bar-wrap');
           const bar = ctx.el('div', val >= 0 ? 'cp-margin-bar cp-positive' : 'cp-margin-bar cp-negative');
-          bar.style.width = Math.min(Math.abs(val), 100) + '%';
+          
+          // Set target width using CSS variable to trigger grow transition on mount
+          bar.style.setProperty('--target-width', `${Math.min(Math.abs(val), 100)}%`);
+          
           barWrap.append(bar);
           barRow.append(barWrap);
           barRow.append(ctx.el('span', 'cp-margin-value', fmtPercent(val)));
@@ -1071,9 +1163,18 @@ export class CompanyRenderer implements EntityRenderer {
     if (data.peers.length > 0) {
       const [card, body] = ctx.sectionCard('Peers');
       const peersWrap = ctx.el('div', 'cp-peers');
-      for (const peer of data.peers.slice(0, 12)) {
+      const peerSymbols = data.peers.slice(0, 12);
+      
+      for (const peer of peerSymbols) {
         const chip = ctx.el('button', 'cp-peer-chip');
-        chip.textContent = peer;
+        
+        const peerLabel = ctx.el('span', 'cp-peer-name', peer);
+        chip.append(peerLabel);
+        
+        // Skeleton percentage tag until lazy quote loading resolves
+        const skeleton = ctx.el('span', 'cp-peer-change-skeleton', '...');
+        chip.append(skeleton);
+        
         chip.addEventListener('click', () => {
           document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
             detail: { type: 'company', data: { ticker: peer, name: peer } },
@@ -1083,6 +1184,33 @@ export class CompanyRenderer implements EntityRenderer {
       }
       body.append(peersWrap);
       content.append(card);
+
+      // Lazily resolve peer stock quotes asynchronously to overlay glowing green/red arrow change pills
+      if (peerSymbols.length > 0) {
+        client.listMarketQuotes({ symbols: peerSymbols })
+          .then((quotesResp) => {
+            const quoteMap = new Map(quotesResp.quotes.map(q => [q.symbol, q]));
+            peersWrap.querySelectorAll('.cp-peer-chip').forEach((chipEl) => {
+              const chip = chipEl as HTMLElement;
+              const nameEl = chip.querySelector('.cp-peer-name') as HTMLElement;
+              if (!nameEl) return;
+              const symbol = nameEl.textContent;
+              if (!symbol) return;
+              const q = quoteMap.get(symbol);
+              
+              const skel = chip.querySelector('.cp-peer-change-skeleton');
+              if (skel) skel.remove();
+              
+              if (q && q.change != null) {
+                const isPos = q.change >= 0;
+                const changePill = ctx.el('span', `cp-peer-change-pill ${isPos ? 'cp-change-up' : 'cp-change-down'}`);
+                changePill.innerHTML = `${isPos ? '▲' : '▼'}&nbsp;${fmtChange(Math.abs(q.change))}`;
+                chip.append(changePill);
+              }
+            });
+          })
+          .catch((err) => console.warn('Failed to resolve lazy peer quotes:', err));
+      }
     }
   }
 

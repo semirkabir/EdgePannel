@@ -820,7 +820,6 @@ export class DeckGLMap {
   private cableFlowAnimationId: number | null = null;
   private satelliteAnimationId: number | null = null;
   private satelliteCatalog: import('@/types').SatelliteData[] = [];
-  private satelliteHoverPopup: maplibregl.Popup | null = null;
   private pipelineHydrationStarted = false;
   private sanctionedAssetsHydrationStarted = false;
   private cachedNightPolygon: [number, number][] | null = null;
@@ -8736,17 +8735,47 @@ export class DeckGLMap {
     const map = this.maplibreMap;
     let hoveredName: string | null = null;
     let satelliteHovered = false;
-    const SAT_HIT_LAYER = 'wm-globe-satellites-circle';
+    let hoveredSatelliteId: string | null = null;
+    let hoveredInfrastructureId: string | null = null;
+
     const INFRA_LINE_LAYERS = ['wm-globe-cables-line', 'wm-globe-pipelines-line'];
-    const querySatellite = (point: maplibregl.Point): maplibregl.MapGeoJSONFeature | null => {
-      if (!map.getLayer(SAT_HIT_LAYER)) return null;
-      return map.queryRenderedFeatures(point, { layers: [SAT_HIT_LAYER] })[0] ?? null;
+
+    const getSatelliteScreenPos = (sat: import('@/types').SatelliteData & { position?: { lat: number; lon: number; alt: number } }): { x: number; y: number } | null => {
+      if (!map) return null;
+      const pos = sat.position;
+      if (!pos) return null;
+      const p0 = map.project([pos.lon, pos.lat]);
+      const cr = map.getContainer().getBoundingClientRect();
+      const cx = cr.width / 2;
+      const cy = cr.height / 2;
+      const dx = p0.x - cx;
+      const dy = p0.y - cy;
+      const altKm = pos.alt ?? 500;
+      const s = 1 + altKm / 6371;
+      return { x: cx + dx * s, y: cy + dy * s };
     };
+
+    const getHoveredSatellite = (point: maplibregl.Point): import('@/types').SatelliteData | null => {
+      const satellites = this.getVisibleSatellitePositions();
+      for (const sat of satellites) {
+        const screenPos = getSatelliteScreenPos(sat);
+        if (screenPos) {
+          const dx = point.x - screenPos.x;
+          const dy = point.y - screenPos.y;
+          if (Math.sqrt(dx * dx + dy * dy) <= 20) {
+            return sat;
+          }
+        }
+      }
+      return null;
+    };
+
     const queryInfrastructureLine = (point: maplibregl.Point): maplibregl.MapGeoJSONFeature | null => {
       const layers = INFRA_LINE_LAYERS.filter((layer) => map.getLayer(layer));
       if (layers.length === 0) return null;
       return map.queryRenderedFeatures(point, { layers })[0] ?? null;
     };
+
     const clearCountryHover = (): void => {
       if (!hoveredName) return;
       hoveredName = null;
@@ -8756,39 +8785,97 @@ export class DeckGLMap {
         }
       } catch { /* style not done loading during theme switch */ }
     };
-    const satelliteHtml = (id: string | undefined): string | null => {
-      if (!id) return null;
-      const sat = this.satelliteCatalog.find((s) => s.id === id);
-      if (!sat) return null;
-      const category = sat.category ? sat.category.charAt(0).toUpperCase() + sat.category.slice(1) : 'Satellite';
-      const operator = sat.operator ? `<br/>${escapeHtml(sat.operator)}` : '';
-      return `<strong>${escapeHtml(sat.name)}</strong>${operator}<br/>${escapeHtml(category)}`;
-    };
 
     map.on('mousemove', (e) => {
-      const satelliteFeature = querySatellite(e.point);
-      const satellitePopupHtml = satelliteHtml(satelliteFeature?.properties?.id as string | undefined);
-      if (satellitePopupHtml) {
+      // 1. Check LEO Satellites with Parallax Shift in 3D
+      const hoveredSat = getHoveredSatellite(e.point);
+      if (hoveredSat) {
         satelliteHovered = true;
         clearCountryHover();
         map.getCanvas().style.cursor = resolveInlineCursor('pointer');
-        if (!this.satelliteHoverPopup) {
-          this.satelliteHoverPopup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 14 });
+        if (hoveredSat.id !== hoveredSatelliteId) {
+          hoveredSatelliteId = hoveredSat.id;
+          const satelliteData = this.satellitePanelData(hoveredSat.id);
+          if (satelliteData) {
+            this.popup.show({
+              type: 'satellite',
+              data: satelliteData,
+              x: e.point.x,
+              y: e.point.y,
+            });
+          }
+        } else {
+          this.popup.updatePosition(e.point.x, e.point.y);
         }
-        this.satelliteHoverPopup.setLngLat(e.lngLat).setHTML(satellitePopupHtml).addTo(map);
         return;
       }
       if (satelliteHovered) {
         satelliteHovered = false;
+        hoveredSatelliteId = null;
         map.getCanvas().style.cursor = resolveInlineCursor('');
-        this.satelliteHoverPopup?.remove();
+        this.popup.hide();
       }
+
+      // 2. Check Undersea Cables and Pipelines
       const infrastructureFeature = queryInfrastructureLine(e.point);
       if (infrastructureFeature) {
         clearCountryHover();
         map.getCanvas().style.cursor = resolveInlineCursor('pointer');
+        const kind = infrastructureFeature.properties?.kind as 'cable' | 'pipeline';
+        const id = infrastructureFeature.properties?.id as string;
+        if (id !== hoveredInfrastructureId) {
+          hoveredInfrastructureId = id;
+          const rawData = kind === 'cable'
+            ? UNDERSEA_CABLES.find(c => c.id === id)
+            : PIPELINES.find(p => p.id === id);
+          if (rawData) {
+            const enrichedData: any = { ...rawData };
+            // Apply identical cross-layer enrichments
+            if (kind === 'pipeline' && this.sanctionsCountriesMap.size > 0) {
+              const pData = rawData as import('@/types').Pipeline;
+              const allCodes: string[] = [
+                ...(pData.transitCountries ?? []),
+                pData.origin?.country,
+                pData.destination?.country,
+              ].filter(Boolean) as string[];
+              const sanctioned = [...new Set(allCodes)]
+                .filter(code => this.sanctionsCountriesMap.has(code))
+                .map(code => ({ code, severity: this.sanctionsCountriesMap.get(code) as string }));
+              if (sanctioned.length > 0) enrichedData._enrichSanctionedCountries = sanctioned;
+            }
+            if (kind === 'cable' && (rawData as import('@/types').UnderseaCable).points?.length > 0) {
+              const cData = rawData as import('@/types').UnderseaCable;
+              const pts = cData.points as Array<[number, number]>;
+              const step = Math.max(1, Math.floor(pts.length / 5));
+              const samples = pts.filter((_: [number, number], i: number) => i % step === 0);
+              const nearbyOutages = this.outages.filter(outage =>
+                samples.some(([lon, lat]: [number, number]) => haversineKm(lat, lon, outage.lat, outage.lon) <= 1500)
+              ).length;
+              const nearbyJamming = this.gpsJammingHexes.some(hex =>
+                hex.level === 'high' && samples.some(([lon, lat]: [number, number]) => haversineKm(lat, lon, hex.lat, hex.lon) <= 500)
+              );
+              enrichedData._enrichNearbyOutages = nearbyOutages;
+              enrichedData._enrichNearbyJamming = nearbyJamming;
+            }
+            this.popup.show({
+              type: kind,
+              data: enrichedData,
+              x: e.point.x,
+              y: e.point.y,
+            });
+          }
+        } else {
+          this.popup.updatePosition(e.point.x, e.point.y);
+        }
         return;
       }
+      if (hoveredInfrastructureId) {
+        hoveredInfrastructureId = null;
+        map.getCanvas().style.cursor = resolveInlineCursor('');
+        this.popup.hide();
+      }
+
+      // 3. Fallback to Country Hover
       if (!this.onCountryClick || !map.getLayer('country-interactive')) {
         map.getCanvas().style.cursor = resolveInlineCursor('');
         return;
@@ -8810,28 +8897,27 @@ export class DeckGLMap {
 
     map.on('mouseout', () => {
       satelliteHovered = false;
-      this.satelliteHoverPopup?.remove();
+      hoveredSatelliteId = null;
+      hoveredInfrastructureId = null;
+      this.popup.hide();
       clearCountryHover();
       map.getCanvas().style.cursor = resolveInlineCursor('');
     });
 
     map.on('click', (e) => {
-      const satelliteId = querySatellite(e.point)?.properties?.id as string | undefined;
-      const satellite = this.satellitePanelData(satelliteId);
+      // 1. Check LEO Satellites click in 3D
+      const hoveredSat = getHoveredSatellite(e.point);
+      const satellite = hoveredSat ? this.satellitePanelData(hoveredSat.id) : null;
       if (satellite) {
         this.entityClickConsumedAt = Date.now();
-        this.satelliteHoverPopup?.remove();
+        this.popup.hide();
         if (this.onEntityClick) {
           this.onEntityClick('satellite', satellite);
-        } else {
-          const satellitePopupHtml = satelliteHtml(satelliteId);
-          if (satellitePopupHtml) {
-            new maplibregl.Popup({ closeButton: true, closeOnClick: true, offset: 14 })
-              .setLngLat(e.lngLat).setHTML(satellitePopupHtml).addTo(map);
-          }
         }
         return;
       }
+
+      // 2. Check Undersea Cables and Pipelines click
       const infrastructureFeature = queryInfrastructureLine(e.point);
       const infrastructureKind = infrastructureFeature?.properties?.kind as InfrastructureLineType | undefined;
       const infrastructureId = infrastructureFeature?.properties?.id as string | undefined;
@@ -8842,7 +8928,7 @@ export class DeckGLMap {
           : undefined;
       if (infrastructureData) {
         this.entityClickConsumedAt = Date.now();
-        this.satelliteHoverPopup?.remove();
+        this.popup.hide();
         this.selectInfrastructureLine(infrastructureKind as InfrastructureLineType, infrastructureData.id);
         this.fitLineBounds(infrastructureData.points);
         this.onEntityClick?.(infrastructureKind as InfrastructureLineType, infrastructureData);

@@ -17,6 +17,7 @@ export class EntityDetailPanel extends DetailPanelBase {
   private abortController: AbortController = new AbortController();
   private navStack: HTMLElement[][] = [];
   private readonly maximizeButton: HTMLButtonElement;
+  private tabObserver: MutationObserver | null = null;
 
   private readonly registry: EntityRendererRegistry;
   private readonly generic: GenericEntityRenderer = new GenericEntityRenderer();
@@ -37,6 +38,7 @@ export class EntityDetailPanel extends DetailPanelBase {
     });
     this.registry = registry;
     this.maximizeButton = this.createMaximizeButton();
+    this.setupTabTransitionObserver();
   }
 
   // ---- Public API ----
@@ -273,5 +275,56 @@ export class EntityDetailPanel extends DetailPanelBase {
 
   private makeEmpty(text: string): HTMLElement {
     return this.el('div', 'edp-empty', text);
+  }
+
+  private setupTabTransitionObserver(): void {
+    if (this.tabObserver) {
+      this.tabObserver.disconnect();
+    }
+
+    this.tabObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+          // A child node was added/removed inside a tab-content container
+          const target = mutation.target as HTMLElement;
+          if (target && target.nodeType === Node.ELEMENT_NODE) {
+            const isTabContent =
+              target.getAttribute('data-slot') === 'tab-content' ||
+              target.classList.contains('cp-tab-content') ||
+              target.classList.contains('edp-portfolio-tab-content') ||
+              target.classList.contains('crypto-tab-content') ||
+              target.className.includes('tab-content') ||
+              target.className.includes('tab-pane');
+
+            if (isTabContent) {
+              target.classList.remove('cp-tab-transition');
+              void target.offsetWidth; // Force visual reflow
+              target.classList.add('cp-tab-transition');
+            }
+          }
+        } else if (mutation.type === 'attributes' && mutation.attributeName === 'hidden') {
+          // Hidden attribute toggled (e.g. crypto-tab-pane)
+          const target = mutation.target as HTMLElement;
+          if (target && target.nodeType === Node.ELEMENT_NODE) {
+            const isTabPane =
+              target.className.includes('tab-pane') ||
+              target.className.includes('tab-content');
+
+            if (isTabPane && !target.hidden) {
+              target.classList.remove('cp-tab-transition');
+              void target.offsetWidth; // Force visual reflow
+              target.classList.add('cp-tab-transition');
+            }
+          }
+        }
+      }
+    });
+
+    this.tabObserver.observe(this.content, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['hidden'],
+    });
   }
 }
