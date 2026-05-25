@@ -228,6 +228,13 @@ export class ArticleRenderer implements EntityRenderer {
       image.loading = 'lazy';
       image.referrerPolicy = 'no-referrer';
       image.onerror = () => hero.remove();
+      image.addEventListener('load', () => {
+        image.classList.add('is-loaded');
+      });
+      // Fallback for cached images that might trigger load immediately
+      if (image.complete) {
+        image.classList.add('is-loaded');
+      }
       hero.append(image);
       articleWrap.append(hero);
     }

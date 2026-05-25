@@ -2426,6 +2426,18 @@ export class CompanyRenderer implements EntityRenderer {
         filingsBody.append(buildFilingRow(ctx, filing, data.ticker));
       }
     }
+
+    if (data.filings.length > 0) {
+      const bottomPagerWrap = ctx.el('div', 'cp-filings-bottom-pager-wrap');
+      bottomPagerWrap.style.marginTop = '16px';
+      bottomPagerWrap.style.paddingTop = '12px';
+      bottomPagerWrap.style.borderTop = '1px solid var(--border-subtle, rgba(255,255,255,0.06))';
+      bottomPagerWrap.append(this.buildFilingsPager(ctx, data, (offset) => {
+        void this.loadFilingsPage(content, data, ctx, offset);
+      }));
+      filingsBody.append(bottomPagerWrap);
+    }
+
     content.append(filingsCard);
   }
 
@@ -2578,7 +2590,20 @@ export class CompanyRenderer implements EntityRenderer {
     });
     wrap.append(clearButton);
 
+    wrap.append(this.buildFilingsPager(ctx, data, onPageRequest));
+
+    return wrap;
+  }
+
+  private buildFilingsPager(
+    ctx: EntityRenderContext,
+    data: CompanyEnriched,
+    onPageRequest: (offset: number) => void,
+  ): HTMLElement {
     const pager = ctx.el('div', 'cp-filings-pager');
+    const totalCount = data.filingsTotalCount || 0;
+    const offset = data.filingsOffset || 0;
+
     const pageSize = ctx.el('select', 'cp-filings-select cp-filings-page-size') as HTMLSelectElement;
     pageSize.title = 'Rows per page';
     for (const size of [50, 100, 200]) {
@@ -2606,9 +2631,8 @@ export class CompanyRenderer implements EntityRenderer {
     pager.append(ctx.el('span', 'cp-filings-page-status', `Page ${page} of ${pageCount}`));
     addPagerButton('Next', Math.min(lastOffset, offset + this.filingPageSize), offset + this.filingPageSize >= totalCount);
     addPagerButton('Last', lastOffset, offset >= lastOffset);
-    wrap.append(pager);
 
-    return wrap;
+    return pager;
   }
 }
 

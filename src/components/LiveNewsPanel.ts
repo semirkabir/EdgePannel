@@ -964,8 +964,7 @@ export class LiveNewsPanel extends Panel {
     btn.className = `live-channel-btn ${channel.id === this.activeChannel.id ? 'active' : ''}`;
     btn.dataset.channelId = channel.id;
 
-    btn.textContent = this.getChannelDisplayName(channel);
-
+    // Content will be populated in updateChannelButtonsBadge()
     btn.style.cursor = 'grab';
     btn.addEventListener('click', (e) => {
       if (this.suppressChannelClick) {
@@ -974,9 +973,48 @@ export class LiveNewsPanel extends Panel {
         return;
       }
       e.preventDefault();
-      this.switchChannel(channel);
+      void this.switchChannel(channel);
     });
     return btn;
+  }
+
+  private updateChannelButtonsBadge(): void {
+    if (!this.channelSwitcher) return;
+    this.channelSwitcher.querySelectorAll('.live-channel-btn').forEach(btn => {
+      const btnEl = btn as HTMLButtonElement;
+      const channelId = btnEl.dataset.channelId;
+      const channel = this.channels.find(c => c.id === channelId);
+      if (!channel) return;
+
+      // Clear current content
+      btnEl.innerHTML = '';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = this.getChannelDisplayName(channel);
+      btnEl.appendChild(nameSpan);
+
+      const isActive = channel.id === this.activeChannel.id;
+      if (isActive) {
+        const badge = document.createElement('span');
+        badge.className = 'live-telemetry-badge';
+
+        const dot = document.createElement('span');
+        dot.className = 'live-telemetry-dot';
+
+        const ping = document.createElement('span');
+        ping.className = 'live-telemetry-ping';
+
+        badge.appendChild(ping);
+        badge.appendChild(dot);
+
+        const text = document.createElement('span');
+        text.className = 'live-telemetry-text';
+        text.textContent = 'LIVE';
+        badge.appendChild(text);
+
+        btnEl.appendChild(badge);
+      }
+    });
   }
 
   private createChannelSwitcher(): void {
@@ -986,6 +1024,8 @@ export class LiveNewsPanel extends Panel {
     for (const channel of this.channels) {
       this.channelSwitcher.appendChild(this.createChannelButton(channel));
     }
+
+    this.updateChannelButtonsBadge();
 
     // Mouse-based drag reorder (works in WKWebView/Tauri)
     let dragging: HTMLElement | null = null;
@@ -1154,6 +1194,7 @@ export class LiveNewsPanel extends Panel {
     if (channel.id === this.activeChannel.id) return;
 
     this.activeChannel = channel;
+    this.updateChannelButtonsBadge();
 
     this.channelSwitcher?.querySelectorAll('.live-channel-btn').forEach(btn => {
       const btnEl = btn as HTMLElement;

@@ -5,13 +5,17 @@ import { sanitizeUrl } from '@/utils/sanitize';
 export class WhatsNewPanel extends DetailPanelBase {
   private readonly maximizeButton: HTMLButtonElement;
 
+  private static readonly ICON_BACK = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m15 18-6-6 6-6"/>
+  </svg>`;
+
   constructor() {
     super({
       id: 'whats-new-panel',
       ariaLabel: "What's New",
       contentId: 'whats-new-content',
       closeId: 'whats-new-close',
-      rootClassName: 'entity-detail-panel whats-new-panel',
+      rootClassName: 'entity-detail-panel whats-new-panel edp-has-history',
       shellClassName: 'edp-shell whats-new-shell',
       closeClassName: 'edp-close whats-new-close',
       contentClassName: 'edp-panel-content whats-new-content',
@@ -21,6 +25,7 @@ export class WhatsNewPanel extends DetailPanelBase {
       panelTypeLabel: 'RELEASES',
     });
     this.maximizeButton = this.createMaximizeButton();
+    this.createBackButton();
   }
 
   public show(): void {
@@ -135,6 +140,20 @@ export class WhatsNewPanel extends DetailPanelBase {
       if (this.isMaximizedState) this.minimize();
       else this.maximize();
       this.syncMaximizeButton();
+    });
+    this.panel.querySelector<HTMLElement>('.whats-new-shell')?.append(button);
+    return button;
+  }
+
+  private createBackButton(): HTMLButtonElement {
+    const button = this.el('button', 'edp-back whats-new-back') as HTMLButtonElement;
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Back to previous panel');
+    button.title = 'Back';
+    button.innerHTML = WhatsNewPanel.ICON_BACK;
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.hide();
     });
     this.panel.querySelector<HTMLElement>('.whats-new-shell')?.append(button);
     return button;

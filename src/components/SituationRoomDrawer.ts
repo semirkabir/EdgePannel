@@ -185,7 +185,7 @@ export class SituationRoomDrawer {
   private updateHeader(): void {
     const subtitle = this.drawer.querySelector<HTMLElement>('.situation-room-subtitle');
     if (!subtitle) return;
-    subtitle.textContent = `${getSituationRoomLabel(this.activeRoom)} · ${this.getViewerCount().toLocaleString()} watching now`;
+    subtitle.innerHTML = `${getSituationRoomLabel(this.activeRoom)} <span class="subtitle-viewer-divider">·</span> <span class="live-telemetry-dot-green"></span> ${this.getViewerCount().toLocaleString()} watching now`;
   }
 
   private updateComposerState(): void {
