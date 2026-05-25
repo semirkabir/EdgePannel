@@ -32,8 +32,6 @@ const NON_ARTICLE_PATH_PARTS = [
   '/videos/',
   '/video-clip/',
   '/watch/',
-  '/live/',
-  '/liveblog/',
   '/audio/',
   '/podcast/',
   '/podcasts/',

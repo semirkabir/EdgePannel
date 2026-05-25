@@ -3678,12 +3678,17 @@
 .edp-article-title {
   text-transform: none;
   letter-spacing: 0;
-  font-size: 28px;
-  line-height: 1.16;
+  font-size: 34px;
+  line-height: 1.15;
   margin: 0;
   white-space: normal !important;
   overflow: visible !important;
   text-overflow: unset !important;
+}
+
+.entity-detail-panel.edp-maximized .edp-article-title {
+  font-size: 42px;
+  line-height: 1.12;
 }
 
 .edp-article-header-meta {
@@ -4052,7 +4057,8 @@
   }
 
   .edp-article-title {
-    font-size: 24px;
+    font-size: 28px;
+    line-height: 1.15;
   }
 
   .edp-article-footer {
