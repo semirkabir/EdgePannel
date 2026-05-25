@@ -24,6 +24,8 @@ import { ENTITY_REGISTRY } from '@/config/entities';
 import { trackSearchResultSelected, trackCountrySelected } from '@/services/analytics';
 import { t } from '@/services/i18n';
 import { saveToStorage, setThemeWithLinkedMap } from '@/utils';
+import { buildLiveSearchTickerPhrases } from '@/utils/live-search-suggestions';
+import { buildLiveTrendingSearches } from '@/utils/live-search-trends';
 import { CountryIntelManager } from '@/app/country-intel';
 import { searchPredictions } from '@/services/prediction';
 import { getCachedSanctions } from '@/services/sanctions';
@@ -62,7 +64,11 @@ export class SearchManager implements AppModule {
         : SITE_VARIANT === 'finance'
           ? { placeholder: t('modals.search.placeholderFinance') }
           : { placeholder: t('modals.search.placeholder') };
-    this.ctx.searchModal = new SearchModal(this.ctx.container, searchOptions);
+    this.ctx.searchModal = new SearchModal(this.ctx.container, {
+      ...searchOptions,
+      getTickerPhrases: () => buildLiveSearchTickerPhrases(this.ctx),
+      getTrendingSearches: () => buildLiveTrendingSearches(this.ctx),
+    });
 
     if (SITE_VARIANT === 'happy') {
       // Happy variant: no geopolitical/military/infrastructure sources

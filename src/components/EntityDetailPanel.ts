@@ -30,6 +30,13 @@ export class EntityDetailPanel extends DetailPanelBase {
   private readonly maximizeButton: HTMLButtonElement;
   private tabObserver: MutationObserver | null = null;
 
+  /**
+   * Optional parent-context back callback — set when the panel is opened from
+   * another view (e.g. country brief) that doesn't live inside the entity
+   * history stack. When goBack() has no internal history, this fires instead.
+   */
+  private parentBackContext: { label: string; restore: () => void } | null = null;
+
   private readonly registry: EntityRendererRegistry;
   private readonly generic: GenericEntityRenderer = new GenericEntityRenderer();
 
@@ -56,9 +63,30 @@ export class EntityDetailPanel extends DetailPanelBase {
 
   // ---- Public API ----
 
+  /**
+   * Open an entity with a "back to parent" context — used when the panel is
+   * launched from an external view (country brief, deep-dive, etc.) that we
+   * can't push into the normal entity history stack. The back button will call
+   * `ctx.restore()` when there's no internal history to pop.
+   */
+  public showFromParent(
+    type: PopupType,
+    data: unknown,
+    ctx: { label: string; restore: () => void },
+  ): void {
+    this.parentBackContext = ctx;
+    this.show(type, data);
+  }
+
   public show(type: PopupType, data: unknown): void {
     if (this.isVisible() && this.currentType === type && this.currentData === data) {
       return;
+    }
+
+    // A direct show() (not via showFromParent) clears any parent context so
+    // the back button doesn't accidentally surface a stale panel.
+    if (!this.parentBackContext || this.isVisible()) {
+      this.parentBackContext = null;
     }
 
     const preservedCurrent = this.pushCurrentEntityState();
@@ -129,6 +157,7 @@ export class EntityDetailPanel extends DetailPanelBase {
     for (const entry of this.entityHistory) {
       entry.abortController.abort();
     }
+    this.parentBackContext = null;
     this.closePanel();
     this.currentType = null;
     this.currentData = null;
@@ -184,21 +213,30 @@ export class EntityDetailPanel extends DetailPanelBase {
     }
 
     const prev = this.entityHistory.pop();
-    if (!prev) {
+    if (prev) {
+      this.abortController.abort();
+      this.abortController = prev.abortController;
+      this.currentType = prev.type;
+      this.currentData = prev.data;
+      this.navStack = prev.contentStack;
+      this.content.replaceChildren(...prev.children);
+      this.openPanel();
+      requestAnimationFrame(() => {
+        this.content.scrollTop = prev.scrollTop;
+      });
       this.syncBackButton();
       return;
     }
 
-    this.abortController.abort();
-    this.abortController = prev.abortController;
-    this.currentType = prev.type;
-    this.currentData = prev.data;
-    this.navStack = prev.contentStack;
-    this.content.replaceChildren(...prev.children);
-    this.openPanel();
-    requestAnimationFrame(() => {
-      this.content.scrollTop = prev.scrollTop;
-    });
+    // No internal history — check for a parent context (e.g. country brief)
+    if (this.parentBackContext) {
+      const ctx = this.parentBackContext;
+      this.parentBackContext = null;
+      this.hide();
+      ctx.restore();
+      return;
+    }
+
     this.syncBackButton();
   }
 
@@ -265,10 +303,14 @@ export class EntityDetailPanel extends DetailPanelBase {
   }
 
   private syncBackButton(): void {
-    const canGoBack = this.navStack.length > 0 || this.entityHistory.length > 0;
+    const canGoBack = this.navStack.length > 0 || this.entityHistory.length > 0 || this.parentBackContext !== null;
     this.backButton.hidden = !canGoBack;
     this.backButton.disabled = !canGoBack;
     this.backButton.setAttribute('aria-hidden', String(!canGoBack));
+    this.backButton.title = this.parentBackContext
+      ? `Back to ${this.parentBackContext.label}`
+      : 'Back';
+    this.backButton.setAttribute('aria-label', this.backButton.title);
     this.panel.classList.toggle('edp-has-history', canGoBack);
   }
 

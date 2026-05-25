@@ -3089,7 +3089,7 @@ canvas,
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   grid-auto-flow: row dense;
-  grid-auto-rows: minmax(200px, 380px);
+  grid-auto-rows: 4px;
   gap: 6px;
   padding: 6px;
   align-content: start;
@@ -3109,6 +3109,7 @@ canvas,
 }
 
 .panel {
+  grid-row: span 34; /* default height: ~334px */
   background:
     linear-gradient(160deg, rgba(var(--status-live-rgb), 0.055) 0%, transparent 55%),
     var(--panel-bg);
@@ -3127,30 +3128,34 @@ canvas,
   transition: transform 0.15s, box-shadow 0.15s, border-top-color 0.3s;
   position: relative;
   contain: layout style;
+  container-type: inline-size;
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.45),
               inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* .panel.resized: Custom height set - use grid-row span for height */
+/* .panel.resized: Custom min-height set via resize handle; grid-row span controls allocation */
+.panel.resized {
+  height: 100% !important;
+}
 
 /* Row span classes for resizable panels */
 .panel.span-1 {
-  grid-row: span 1 !important;
+  grid-row: span 20 !important;
   min-height: 200px !important;
 }
 
 .panel.span-2 {
-  grid-row: span 2 !important;
+  grid-row: span 40 !important;
   min-height: 400px !important;
 }
 
 .panel.span-3 {
-  grid-row: span 3 !important;
+  grid-row: span 60 !important;
   min-height: 600px !important;
 }
 
 .panel.span-4 {
-  grid-row: span 4 !important;
+  grid-row: span 80 !important;
   min-height: 800px !important;
 }
 
@@ -3968,7 +3973,7 @@ body.panel-resize-active iframe {
 /* Wide panel (spans 2 columns and 2 rows for video content) */
 .panel-wide {
   grid-column: span 2;
-  grid-row: span 2;
+  grid-row: span 40; /* Corrected to allocate ~394px height under 4px auto-rows */
   min-height: 350px;
   max-height: none;
 }
@@ -4908,6 +4913,11 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   flex: 1;
   background: var(--bg);
   aspect-ratio: 16 / 9;
+}
+
+.panel.resized .live-news-player {
+  aspect-ratio: auto;
+  height: 100%;
 }
 
 .live-news-player iframe {
@@ -13161,6 +13171,10 @@ body.urgency-mode #header {
 }
 
 .search-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 16px;
   font-size: 10px;
   color: var(--text-dim);
@@ -13168,6 +13182,105 @@ body.urgency-mode #header {
   letter-spacing: 1px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+}
+
+.search-section-header-label {
+  min-width: 0;
+}
+
+.search-trending-window-badge {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+  opacity: 0.65;
+}
+
+.search-clear-recent-btn {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0;
+  cursor: var(--wm-cursor-pointer);
+}
+
+.search-clear-recent-btn:hover,
+.search-clear-recent-btn:focus-visible {
+  color: var(--text);
+  background: var(--border);
+  border-color: var(--frame-border);
+  outline: none;
+}
+
+/* Trending chips — auto-scrolling marquee -------------------------------- */
+
+.search-trending-chips {
+  overflow: hidden;
+  padding: 6px 0 10px;
+  border-bottom: 1px solid var(--border);
+  /* Edge fade so the strip looks naturally clipped */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+}
+
+/* Single flex track; both chip copies live here as direct children.
+   translateX(-50%) == exactly one copy-width, so the loop is seamless. */
+.search-trending-chips-track {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 7px;
+  padding: 0 14px;
+  width: max-content;
+  animation: scroll-trending 28s linear infinite;
+  will-change: transform;
+}
+
+.search-trending-chips:hover .search-trending-chips-track {
+  animation-play-state: paused;
+}
+
+@keyframes scroll-trending {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.search-trending-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--bg-secondary) 60%, transparent);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: var(--wm-cursor-pointer);
+}
+
+.search-trending-chip:hover,
+.search-trending-chip:focus-visible {
+  border-color: var(--green);
+  background: var(--border);
+  outline: none;
+}
+
+.search-trending-chip-icon {
+  font-size: 12px;
+  line-height: 1;
 }
 
 .search-result-item {
@@ -22648,6 +22761,34 @@ button.cluster-flight-item:focus-visible {
   transform: translateX(0);
 }
 
+.panel-sort-opt-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.panel-sort-arrow-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent-light, #8ab4ff);
+  border: none;
+  cursor: var(--wm-cursor-pointer);
+  opacity: 0.7;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.panel-sort-arrow-btn:hover {
+  opacity: 1;
+  background: rgba(138, 180, 255, 0.15);
+  color: #fff;
+  transform: translateX(2px);
+}
+
 .panel-sort-divider {
   height: 1px;
   background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 18%, rgba(255, 255, 255, 0.08) 82%, transparent 100%);
@@ -25918,7 +26059,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
     grid-row: 1;
     min-height: 0;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    grid-auto-rows: minmax(200px, 380px);
+    grid-auto-rows: 4px;
     align-content: start;
     overflow-y: auto;
   }
@@ -26008,7 +26149,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
   grid-row: 1;
   min-height: 0;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  grid-auto-rows: minmax(200px, 380px);
+  grid-auto-rows: 4px;
   align-content: start;
   overflow-y: auto;
   position: relative;
@@ -29446,7 +29587,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
  */
 @media (min-width: 2400px) {
   .panels-grid {
-    grid-auto-rows: minmax(220px, 420px);
+    grid-auto-rows: 4px;
   }
 }
 

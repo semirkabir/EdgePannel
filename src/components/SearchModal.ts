@@ -3,8 +3,10 @@ import { t } from '@/services/i18n';
 import { trackSearchUsed } from '@/services/analytics';
 import { getAllCommands, type Command } from '@/config/commands';
 import { isMobileDevice } from '@/utils';
-import { startSearchTicker } from '@/utils/search-ticker';
+import { startSearchTicker, type SearchTickerPhraseProvider } from '@/utils/search-ticker';
 import { describeCommandAction, getSearchResultActionLabel } from './search-ux';
+import type { TrendingSearchItem } from '@/utils/live-search-trends';
+import { getTrendingWindowLabel } from '@/services/trending-keywords';
 
 interface CommandResult {
   command: Command;
@@ -76,12 +78,16 @@ interface AsyncSearchSource {
 }
 
 const RECENT_SEARCHES_KEY = 'worldmonitor_recent_searches';
+const SEARCH_POPULARITY_KEY = 'worldmonitor_search_popularity';
 const MAX_RECENT = 8;
 const MAX_RESULTS = 24;
 const MAX_COMMANDS = 5;
+const MAX_POPULAR_SEARCHES = 40;
 
 interface SearchModalOptions {
   placeholder?: string;
+  getTickerPhrases?: SearchTickerPhraseProvider;
+  getTrendingSearches?: () => readonly TrendingSearchItem[];
 }
 
 export class SearchModal {
@@ -109,10 +115,14 @@ export class SearchModal {
   private modalTickerStop: (() => void) | null = null;
   private modalTickerEl: HTMLElement | null = null;
   private inputWrap: HTMLElement | null = null;
+  private readonly getTickerPhrases?: SearchTickerPhraseProvider;
+  private readonly getTrendingSearches?: () => readonly TrendingSearchItem[];
 
-  constructor(container: HTMLElement, _options?: SearchModalOptions) {
+  constructor(container: HTMLElement, options?: SearchModalOptions) {
     this.container = container;
     this.isMobile = isMobileDevice();
+    this.getTickerPhrases = options?.getTickerPhrases;
+    this.getTrendingSearches = options?.getTrendingSearches;
     this.loadRecentSearches();
   }
 
@@ -316,6 +326,7 @@ export class SearchModal {
     const headerPhrase = document.querySelector<HTMLElement>('.header-right .search-ticker-text')?.textContent?.trim();
     this.modalTickerStop = startSearchTicker(this.modalTickerEl, {
       initialPhrase: headerPhrase || undefined,
+      getPhrases: this.getTickerPhrases,
     });
   }
 
@@ -504,8 +515,8 @@ export class SearchModal {
     if (!this.resultsList) return;
 
     const frag = document.createDocumentFragment();
-    this.appendQuickActions(frag);
-    frag.appendChild(this.makeSectionHeader(t('modals.search.recent')));
+    this.appendTrendingSearches(frag);
+    frag.appendChild(this.makeSectionHeader(t('modals.search.recent'), this.makeClearRecentButton()));
 
     this.recentSearches.forEach((term, i) => {
       const item = document.createElement('div');
@@ -538,18 +549,24 @@ export class SearchModal {
     if (!this.resultsList) return;
 
     const tips: { icon: string; key: string; exampleKey: string }[] = [
-      { icon: '\u{1F30D}', key: 'commands.tips.map', exampleKey: 'commands.tips.mapExample' },
-      { icon: '\u{1F4CB}', key: 'commands.tips.panel', exampleKey: 'commands.tips.panelExample' },
-      { icon: '\u{1F4C4}', key: 'commands.tips.brief', exampleKey: 'commands.tips.briefExample' },
-      { icon: '\u{1F6E1}\uFE0F', key: 'commands.tips.layers', exampleKey: 'commands.tips.layersExample' },
-      { icon: '\u23F1\uFE0F', key: 'commands.tips.time', exampleKey: 'commands.tips.timeExample' },
-      { icon: '\u2699\uFE0F', key: 'commands.tips.settings', exampleKey: 'commands.tips.settingsExample' },
+      { icon: '\u{1F30D}', key: 'commands.tips.map',            exampleKey: 'commands.tips.mapExample' },
+      { icon: '\u{1F4CB}', key: 'commands.tips.panel',          exampleKey: 'commands.tips.panelExample' },
+      { icon: '\u{1F4C4}', key: 'commands.tips.brief',          exampleKey: 'commands.tips.briefExample' },
+      { icon: '\u{1F6E1}\uFE0F', key: 'commands.tips.layers',   exampleKey: 'commands.tips.layersExample' },
+      { icon: '\u23F1\uFE0F', key: 'commands.tips.time',        exampleKey: 'commands.tips.timeExample' },
+      { icon: '\u2699\uFE0F', key: 'commands.tips.settings',    exampleKey: 'commands.tips.settingsExample' },
+      { icon: '\u{1F3AF}',   key: 'commands.tips.prediction',   exampleKey: 'commands.tips.predictionExample' },
+      { icon: '\u{1F6F0}\uFE0F', key: 'commands.tips.satellites', exampleKey: 'commands.tips.satellitesExample' },
+      { icon: '\u26A1',      key: 'commands.tips.infrastructure', exampleKey: 'commands.tips.infrastructureExample' },
+      { icon: '\u{1F3E6}',   key: 'commands.tips.entities',     exampleKey: 'commands.tips.entitiesExample' },
+      { icon: '\u{1F4C8}',   key: 'commands.tips.company',      exampleKey: 'commands.tips.companyExample' },
+      { icon: '\u{1F6A8}',   key: 'commands.tips.cyber',        exampleKey: 'commands.tips.cyberExample' },
     ];
 
-    const shuffled = tips.sort(() => Math.random() - 0.5).slice(0, this.isMobile ? 2 : 4);
+    const shuffled = tips.sort(() => Math.random() - 0.5).slice(0, this.isMobile ? 3 : 6);
 
     const frag = document.createDocumentFragment();
-    this.appendQuickActions(frag);
+    this.appendTrendingSearches(frag);
     frag.appendChild(this.makeSectionHeader(t('modals.search.empty')));
 
     shuffled.forEach((tip, i) => {
@@ -632,11 +649,30 @@ export class SearchModal {
     });
   }
 
-  private makeSectionHeader(label: string): HTMLElement {
+  private makeSectionHeader(label: string, action?: HTMLElement): HTMLElement {
     const hdr = document.createElement('div');
     hdr.className = 'search-section-header';
-    hdr.textContent = label;
+    const text = document.createElement('span');
+    text.className = 'search-section-header-label';
+    text.textContent = label;
+    hdr.appendChild(text);
+    if (action) hdr.appendChild(action);
     return hdr;
+  }
+
+  private makeClearRecentButton(): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'search-clear-recent-btn';
+    button.textContent = 'X';
+    button.setAttribute('aria-label', 'Clear recent searches');
+    button.title = 'Clear recent searches';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.clearRecentSearches();
+    });
+    return button;
   }
 
   private makeResultItem(index: number): HTMLElement {
@@ -884,6 +920,7 @@ export class SearchModal {
 
   private saveRecentSearch(term: string): void {
     if (!term || term.length < 2) return;
+    this.recordPopularSearch(term);
 
     this.recentSearches = [
       term,
@@ -897,44 +934,123 @@ export class SearchModal {
     }
   }
 
-  private appendQuickActions(parent: DocumentFragment): void {
-    const actions = this.getQuickActionCommands();
-    if (actions.length === 0) return;
-
-    parent.appendChild(this.makeSectionHeader('Quick actions'));
-
-    const wrap = document.createElement('div');
-    wrap.className = 'search-quick-actions';
-
-    actions.forEach((command) => {
-      const btn = document.createElement('button');
-      btn.className = 'search-quick-action';
-      btn.type = 'button';
-
-      const icon = document.createElement('span');
-      icon.className = 'search-quick-action-icon';
-      icon.textContent = command.icon;
-
-      const label = document.createElement('span');
-      label.className = 'search-quick-action-label';
-      label.textContent = resolveCommandLabel(command);
-
-      btn.append(icon, label);
-      btn.addEventListener('click', () => {
-        this.close();
-        this.onCommand?.(command);
-      });
-      wrap.appendChild(btn);
-    });
-
-    parent.appendChild(wrap);
+  private clearRecentSearches(): void {
+    this.recentSearches = [];
+    this.selectedIndex = 0;
+    try {
+      localStorage.removeItem(RECENT_SEARCHES_KEY);
+    } catch {
+      // Storage unavailable, ignore
+    }
+    this.showRecentOrEmpty();
   }
 
-  private getQuickActionCommands(): Command[] {
-    if (this.quickActionIds.length === 0) return [];
-    const byId = new Map(getAllCommands().map((command) => [command.id, command]));
-    return this.quickActionIds
-      .map((id) => byId.get(id))
-      .filter((command): command is Command => Boolean(command));
+  private appendTrendingSearches(parent: DocumentFragment): void {
+    const trends = this.getTrendingSearchItems();
+    if (trends.length === 0) return;
+
+    const windowBadge = document.createElement('span');
+    windowBadge.className = 'search-trending-window-badge';
+    windowBadge.textContent = `last ${getTrendingWindowLabel()}`;
+    parent.appendChild(this.makeSectionHeader('Trending', windowBadge));
+
+    const viewport = document.createElement('div');
+    viewport.className = 'search-trending-chips';
+
+    // Single track — chips appear twice so translateX(-50%) loops seamlessly.
+    // Both copies live in the same flex container so the gap between the last
+    // chip of copy 1 and the first chip of copy 2 equals every other gap.
+    const track = document.createElement('div');
+    track.className = 'search-trending-chips-track';
+
+    const makeChip = (trend: (typeof trends)[number], hidden = false): HTMLButtonElement => {
+      const chip = document.createElement('button');
+      chip.className = 'search-trending-chip';
+      chip.type = 'button';
+      chip.dataset.value = trend.query;
+      if (trend.meta) chip.title = trend.meta;
+      if (hidden) chip.setAttribute('aria-hidden', 'true');
+      const icon = document.createElement('span');
+      icon.className = 'search-trending-chip-icon';
+      icon.textContent = trend.icon;
+      const label = document.createElement('span');
+      label.textContent = trend.label;
+      chip.append(icon, label);
+      chip.addEventListener('click', () => {
+        if (!this.input) return;
+        this.input.value = trend.query;
+        this.syncInputTickerVisibility();
+        this.handleSearch();
+      });
+      return chip;
+    };
+
+    // Both copies are direct flex children of the track — uniform gap end-to-end.
+    // Animation scrolls exactly -50% of track width (= one copy width), loops forever.
+    trends.forEach(t => track.appendChild(makeChip(t)));
+    trends.forEach(t => track.appendChild(makeChip(t, true /* aria-hidden duplicate */)));
+
+    viewport.appendChild(track);
+    parent.appendChild(viewport);
+  }
+
+  private getTrendingSearchItems(): TrendingSearchItem[] {
+    const items: TrendingSearchItem[] = [];
+    const add = (item: TrendingSearchItem) => {
+      if (!item.query || !item.label) return;
+      const key = item.query.toLowerCase();
+      if (items.some(existing => existing.query.toLowerCase() === key || existing.label.toLowerCase() === item.label.toLowerCase())) return;
+      items.push(item);
+    };
+
+    for (const item of this.getTrendingSearches?.() ?? []) add(item);
+    for (const item of this.getLocalPopularSearchItems()) add(item);
+
+    return items.slice(0, 8);
+  }
+
+  private getLocalPopularSearchItems(): TrendingSearchItem[] {
+    try {
+      const raw = localStorage.getItem(SEARCH_POPULARITY_KEY);
+      const parsed = raw ? JSON.parse(raw) as Array<{ term?: string; count?: number; lastUsed?: number }> : [];
+      return parsed
+        .filter(entry => typeof entry.term === 'string' && entry.term.trim().length > 1)
+        .sort((a, b) => (b.count ?? 0) - (a.count ?? 0) || (b.lastUsed ?? 0) - (a.lastUsed ?? 0))
+        .slice(0, 6)
+        .map(entry => ({
+          label: entry.term!.trim(),
+          query: entry.term!.trim(),
+          icon: '↗',
+          meta: `${Math.max(1, entry.count ?? 1)} searches`,
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  private recordPopularSearch(term: string): void {
+    const normalized = term.trim();
+    if (normalized.length < 2) return;
+
+    try {
+      const raw = localStorage.getItem(SEARCH_POPULARITY_KEY);
+      const parsed = raw ? JSON.parse(raw) as Array<{ term: string; count: number; lastUsed: number }> : [];
+      const now = Date.now();
+      const existing = parsed.find(entry => entry.term.toLowerCase() === normalized.toLowerCase());
+      if (existing) {
+        existing.term = normalized;
+        existing.count = Math.max(1, existing.count) + 1;
+        existing.lastUsed = now;
+      } else {
+        parsed.push({ term: normalized, count: 1, lastUsed: now });
+      }
+
+      const next = parsed
+        .sort((a, b) => b.count - a.count || b.lastUsed - a.lastUsed)
+        .slice(0, MAX_POPULAR_SEARCHES);
+      localStorage.setItem(SEARCH_POPULARITY_KEY, JSON.stringify(next));
+    } catch {
+      // Storage unavailable, ignore
+    }
   }
 }

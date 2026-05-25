@@ -21,6 +21,7 @@ import {
 } from '@/utils';
 import { applyStoredMapHeight, scheduleMapResize } from '@/utils/map-layout-height';
 import { startSearchTicker } from '@/utils/search-ticker';
+import { buildLiveSearchTickerPhrases } from '@/utils/live-search-suggestions';
 import {
   IDLE_PAUSE_MS,
   STORAGE_KEYS,
@@ -500,6 +501,7 @@ export class EventHandlerManager implements AppModule {
 
     this.searchTickerStop = startSearchTicker(
       document.querySelector<HTMLElement>('.header-right .search-ticker-text'),
+      { getPhrases: () => buildLiveSearchTickerPhrases(this.ctx) },
     );
 
     document.getElementById('saveLayoutBtn')?.addEventListener('click', async () => {

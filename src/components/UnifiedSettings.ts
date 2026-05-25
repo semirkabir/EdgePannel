@@ -56,6 +56,7 @@ export class UnifiedSettings {
   private authLoading = true;
   private currentTier: FeatureTier = 'free';
   private readonly openProfileHandler: () => void;
+  private readonly openSourcesHandler: (e: Event) => void;
 
   private readonly profilePlans: Array<{
     key: FeatureTier | 'enterprise';
@@ -94,6 +95,15 @@ export class UnifiedSettings {
   constructor(config: UnifiedSettingsConfig) {
     this.config = config;
     this.openProfileHandler = () => this.open('profile');
+    this.openSourcesHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const panelId = detail?.panelId;
+      if (panelId) {
+        this.activeSourceRegion = this.getSourceRegionForPanel(panelId);
+        this.sourceFilter = '';
+        this.open('sources');
+      }
+    };
 
     this.overlay = document.createElement('div');
     this.overlay.className = 'modal-overlay';
@@ -239,6 +249,7 @@ export class UnifiedSettings {
     this.render();
     document.body.appendChild(this.overlay);
     window.addEventListener('worldmonitor:open-profile', this.openProfileHandler);
+    window.addEventListener('worldmonitor:open-sources', this.openSourcesHandler);
 
     console.log('[Settings] Subscribing to auth state');
     this.authUnsubscribe = subscribeToAuth((state) => {
@@ -296,8 +307,46 @@ export class UnifiedSettings {
     this.authUnsubscribe?.();
     this.authUnsubscribe = null;
     window.removeEventListener('worldmonitor:open-profile', this.openProfileHandler);
+    window.removeEventListener('worldmonitor:open-sources', this.openSourcesHandler);
     document.removeEventListener('keydown', this.escapeHandler);
     this.overlay.remove();
+  }
+
+  private getSourceRegionForPanel(panelId: string): string {
+    // 1. Direct match
+    if (panelId in SOURCE_REGION_MAP) {
+      return panelId;
+    }
+
+    // 2. Case-insensitive / normalized match
+    const normalizedMap: Record<string, string> = {};
+    for (const key of Object.keys(SOURCE_REGION_MAP)) {
+      normalizedMap[key.toLowerCase()] = key;
+    }
+    const normId = panelId.toLowerCase();
+    if (normalizedMap[normId]) {
+      return normalizedMap[normId];
+    }
+
+    // 3. Search active regions where feedKeys include panelId
+    const feedKeys = new Set(Object.keys(FEEDS));
+    const activeRegions = Object.entries(SOURCE_REGION_MAP).filter(([regionKey, regionDef]) => {
+      if (regionKey === 'intel') return INTEL_SOURCES.length > 0;
+      return regionDef.feedKeys.some(fk => feedKeys.has(fk));
+    });
+
+    const match = activeRegions.find(([_, def]) => def.feedKeys.includes(panelId));
+    if (match) {
+      return match[0];
+    }
+
+    // 4. Fallback: Search all regions
+    const fallbackMatch = Object.entries(SOURCE_REGION_MAP).find(([_, def]) => def.feedKeys.includes(panelId));
+    if (fallbackMatch) {
+      return fallbackMatch[0];
+    }
+
+    return 'all';
   }
 
   private render(): void {

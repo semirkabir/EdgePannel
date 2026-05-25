@@ -92,11 +92,13 @@ export function createUIStore(bus: AppEventBus): UIStore {
     disableSource(source: string) {
       disabledSources.add(source);
       bus.emit('ui:source-disabled', source);
+      window.dispatchEvent(new CustomEvent('worldmonitor:sources-changed', { detail: { source, enabled: false } }));
     },
 
     enableSource(source: string) {
       disabledSources.delete(source);
       bus.emit('ui:source-enabled', source);
+      window.dispatchEvent(new CustomEvent('worldmonitor:sources-changed', { detail: { source, enabled: true } }));
     },
 
     isSourceEnabled(source: string): boolean {

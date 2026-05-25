@@ -315,7 +315,7 @@ export class PanelLayoutManager implements AppModule {
         </div>
         <div class="header-right" aria-label="Dashboard actions">
           <div class="header-live-actions" id="headerLiveActions" aria-label="Live dashboard actions"></div>
-          <button class="search-btn" id="searchBtn" aria-label="${t('header.search')}"><kbd class="search-kbd-hint">${/Mac|iPhone|iPad|iPod/.test(navigator.platform || '') ? '⌘K' : 'Ctrl K'}</kbd><span class="search-ticker"><span class="search-ticker-text">${t('header.search')}</span></span></button>
+          <button class="search-btn" id="searchBtn" aria-label="${t('header.search')}"><kbd class="search-kbd-hint">${/Mac|iPhone|iPad|iPod/.test(navigator.platform || '') ? '⌘K' : 'Ctrl+K'}</kbd><span class="search-ticker"><span class="search-ticker-text">${t('header.search')}</span></span></button>
           <details class="header-overflow-menu" id="headerOverflowMenu">
             <summary class="header-overflow-btn" aria-label="More actions" title="More actions">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -2168,13 +2168,25 @@ export class PanelLayoutManager implements AppModule {
 
   private insertByOrder(grid: HTMLElement, el: HTMLElement, key: string): void {
     const idx = this.resolvedPanelOrder.indexOf(key);
-    if (idx === -1) { grid.appendChild(el); return; }
+    if (idx === -1) { 
+      grid.appendChild(el); 
+      this.ensureAddWidgetLast(grid);
+      return; 
+    }
+    let inserted = false;
     for (let i = idx + 1; i < this.resolvedPanelOrder.length; i++) {
       const nextKey = this.resolvedPanelOrder[i]!;
       const nextEl = grid.querySelector(`[data-panel="${CSS.escape(nextKey)}"]`);
-      if (nextEl) { grid.insertBefore(el, nextEl); return; }
+      if (nextEl) { 
+        grid.insertBefore(el, nextEl); 
+        inserted = true;
+        break; 
+      }
     }
-    grid.appendChild(el);
+    if (!inserted) {
+      grid.appendChild(el);
+    }
+    this.ensureAddWidgetLast(grid);
   }
 
   private wasUltraWide = false;

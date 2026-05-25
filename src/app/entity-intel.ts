@@ -48,6 +48,10 @@ import { CongressTradeRenderer } from '@/components/entity-detail/renderers/cong
 import { SecFilingRenderer } from '@/components/entity-detail/renderers/sec-filing';
 import { SectorRenderer } from '@/components/entity-detail/renderers/sector';
 import { openArticleFromClick } from '@/services/article-open';
+import { TIER1_COUNTRIES } from '@/services/country-instability';
+import { resolveCountryName } from './country-intel/country-utils';
+import { getPreferredCountryScore } from '@/services/cached-risk-scores';
+import { getCountrySignals } from './country-intel/signal-aggregator';
 
 export class EntityIntelManager implements AppModule {
   private ctx: AppContext;
@@ -178,8 +182,33 @@ export class EntityIntelManager implements AppModule {
     } else {
       this.restoreConflictOverlay();
     }
+
+    // If a country brief is open, capture a restore callback so the back
+    // button in the entity detail panel can return the user to the brief.
+    const brief = this.ctx.countryBriefPage;
+    let parentCtx: { label: string; restore: () => void } | null = null;
+    if (brief?.isVisible()) {
+      const code = brief.getCode();
+      if (code) {
+        const country = (TIER1_COUNTRIES as Record<string, string>)[code] ?? resolveCountryName(code);
+        parentCtx = {
+          label: `${country} brief`,
+          restore: () => {
+            const score = getPreferredCountryScore(code);
+            const signals = getCountrySignals(this.ctx, code, country);
+            brief.show(country, code, score, signals);
+          },
+        };
+      }
+    }
+
     this.ctx.countryBriefPage?.hide();
-    this.panel?.show(type, data);
+
+    if (parentCtx) {
+      this.panel?.showFromParent(type, data, parentCtx);
+    } else {
+      this.panel?.show(type, data);
+    }
   }
 
   private applyConflictOverlay(conflict: ConflictZone): void {

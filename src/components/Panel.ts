@@ -32,16 +32,65 @@ function loadPanelSpans(): Record<string, number> {
   }
 }
 
-function savePanelSpan(panelId: string, span: number): void {
-  const spans = loadPanelSpans();
-  spans[panelId] = span;
-  localStorage.setItem(PANEL_SPANS_KEY, JSON.stringify(spans));
-}
-
 const PANEL_COL_SPANS_KEY = 'worldmonitor-panel-col-spans';
-const ROW_RESIZE_STEP_PX = 80;
+const PANEL_HEIGHTS_KEY = 'worldmonitor-panel-heights';
+const ROW_MIN_HEIGHT_PX = 120;
+const ROW_MAX_HEIGHT_PX = 3000;
 const COL_RESIZE_STEP_PX = 80;
 const PANELS_GRID_MIN_TRACK_PX = 280;
+const PANEL_GAP_PX = 6;
+
+function loadPanelHeights(): Record<string, number> {
+  try {
+    const stored = localStorage.getItem(PANEL_HEIGHTS_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePanelHeight(panelId: string, height: number): void {
+  const heights = loadPanelHeights();
+  heights[panelId] = Math.round(height);
+  localStorage.setItem(PANEL_HEIGHTS_KEY, JSON.stringify(heights));
+}
+
+function clearPanelHeight(panelId: string): void {
+  const heights = loadPanelHeights();
+  if (!(panelId in heights)) return;
+  delete heights[panelId];
+  if (Object.keys(heights).length === 0) {
+    localStorage.removeItem(PANEL_HEIGHTS_KEY);
+    return;
+  }
+  localStorage.setItem(PANEL_HEIGHTS_KEY, JSON.stringify(heights));
+}
+
+/** Grid row span for a desired visual height. Under 4px auto-rows and 6px gap, each grid row is 10px effective. */
+function neededGridSpan(heightPx: number): number {
+  const rowHeight = 4;
+  const gap = PANEL_GAP_PX;
+  const span = Math.round((heightPx + gap) / (rowHeight + gap));
+  const minSpan = Math.round((ROW_MIN_HEIGHT_PX + gap) / (rowHeight + gap));
+  return Math.max(minSpan, span);
+}
+
+
+/** Apply a pixel height to a panel element, reserving the right number of grid rows. */
+function applyPixelHeight(element: HTMLElement, heightPx: number): void {
+  const span = neededGridSpan(heightPx);
+  element.style.gridRow = `span ${span}`;
+  element.classList.add('resized');
+  element.classList.remove('span-1', 'span-2', 'span-3', 'span-4');
+}
+
+/** Remove all pixel-resize inline styles from a panel element. */
+function clearPixelHeight(element: HTMLElement): void {
+  element.style.minHeight = '';
+  element.style.height = '';
+  element.style.gridRow = '';
+  element.classList.remove('resized', 'span-1', 'span-2', 'span-3', 'span-4');
+}
 
 function loadPanelColSpans(): Record<string, number> {
   try {
@@ -146,19 +195,7 @@ function setColSpanClass(element: HTMLElement, span: number): void {
   element.classList.add(`col-span-${span}`);
 }
 
-function getRowSpan(element: HTMLElement): number {
-  if (element.classList.contains('span-4')) return 4;
-  if (element.classList.contains('span-3')) return 3;
-  if (element.classList.contains('span-2')) return 2;
-  return 1;
-}
 
-function deltaToRowSpan(startSpan: number, deltaY: number): number {
-  const spanDelta = deltaY > 0
-    ? Math.floor(deltaY / ROW_RESIZE_STEP_PX)
-    : Math.ceil(deltaY / ROW_RESIZE_STEP_PX);
-  return Math.max(1, Math.min(4, startSpan + spanDelta));
-}
 
 function setSpanClass(element: HTMLElement, span: number): void {
   element.classList.remove('span-1', 'span-2', 'span-3', 'span-4');
@@ -182,7 +219,11 @@ export class Panel {
   private resizeHandle: HTMLElement | null = null;
   private isResizing = false;
   private startY = 0;
-  private startRowSpan = 1;
+  private startHeight = 0;
+  private maxResizeHeight = ROW_MAX_HEIGHT_PX;
+  private belowPanelEl: HTMLElement | null = null;
+  private belowPanelId = '';
+  private startHeightBelow = 0;
   private onTouchMove: ((e: TouchEvent) => void) | null = null;
   private onTouchEnd: (() => void) | null = null;
   private onTouchCancel: (() => void) | null = null;
@@ -380,11 +421,28 @@ export class Panel {
     this.element.appendChild(this.colResizeHandle);
     this.setupColResizeHandlers();
 
-    // Restore saved span
-    const savedSpans = loadPanelSpans();
-    const savedSpan = savedSpans[this.panelId];
-    if (savedSpan && savedSpan > 1) {
-      setSpanClass(this.element, savedSpan);
+    // Restore saved height — prefer pixel heights (new system), fall back to old span data
+    const savedHeights = loadPanelHeights();
+    let savedH = savedHeights[this.panelId];
+    if (savedH && savedH > ROW_MIN_HEIGHT_PX) {
+      // Proactively clamp any giant corrupted height values from the previous bug to a safe limit
+      if (savedH > 1000) {
+        savedH = 400; // safe elegant default height
+        savePanelHeight(this.panelId, savedH);
+      }
+      const finalSavedH = savedH;
+      // Defer so the element is attached to the DOM and getBoundingClientRect works
+      requestAnimationFrame(() => {
+        applyPixelHeight(this.element, finalSavedH);
+      });
+    } else {
+      // Legacy: restore old grid-span data if present
+      const savedSpans = loadPanelSpans();
+      const savedSpan = savedSpans[this.panelId];
+      if (typeof savedSpan === 'number' && savedSpan > 1) {
+        const clampedSpan = Math.min(savedSpan, 80);
+        setSpanClass(this.element, clampedSpan);
+      }
     }
 
     // Restore saved col-span
@@ -459,60 +517,158 @@ export class Panel {
   private setupResizeHandlers(): void {
     if (!this.resizeHandle) return;
 
-    this.onRowMouseMove = (e: MouseEvent) => {
-      if (!this.isResizing) return;
-      const deltaY = e.clientY - this.startY;
-      setSpanClass(this.element, deltaToRowSpan(this.startRowSpan, deltaY));
-    };
-
-    this.onRowMouseUp = () => {
-      if (!this.isResizing) return;
+    const commitResize = () => {
       this.isResizing = false;
       this.element.classList.remove('resizing');
       delete this.element.dataset.resizing;
       document.body.classList.remove('panel-resize-active');
       this.resizeHandle?.classList.remove('active');
-      if (this.onRowMouseMove) {
-        document.removeEventListener('mousemove', this.onRowMouseMove);
-      }
-      if (this.onRowMouseUp) {
-        document.removeEventListener('mouseup', this.onRowMouseUp);
-      }
-      if (this.onRowWindowBlur) {
-        window.removeEventListener('blur', this.onRowWindowBlur);
-      }
 
-      const currentSpan = getRowSpan(this.element);
-      savePanelSpan(this.panelId, currentSpan);
-      trackPanelResized(this.panelId, currentSpan);
+      const finalH = Math.round(this.element.getBoundingClientRect().height);
+      savePanelHeight(this.panelId, finalH);
+      // Clear stale span-based data for this panel so it doesn't re-apply on reload
+      const spans = loadPanelSpans();
+      if (this.panelId in spans) {
+        delete spans[this.panelId];
+        localStorage.setItem(PANEL_SPANS_KEY, JSON.stringify(spans));
+      }
+      trackPanelResized(this.panelId, neededGridSpan(finalH));
+
+      // Also persist the shrunken below panel height if it was affected
+      if (this.belowPanelEl && this.belowPanelId) {
+        const finalHBelow = Math.round(this.belowPanelEl.getBoundingClientRect().height);
+        savePanelHeight(this.belowPanelId, finalHBelow);
+        
+        const belowSpans = loadPanelSpans();
+        if (this.belowPanelId in belowSpans) {
+          delete belowSpans[this.belowPanelId];
+          localStorage.setItem(PANEL_SPANS_KEY, JSON.stringify(belowSpans));
+        }
+        trackPanelResized(this.belowPanelId, neededGridSpan(finalHBelow));
+      }
+    };
+
+    const applyDrag = (clientY: number) => {
+      const deltaY = clientY - this.startY;
+
+      if (this.belowPanelEl && this.belowPanelId) {
+        const minBelowH = 80;
+        const maxDeltaY = Math.max(0, this.startHeightBelow - minBelowH);
+
+        const minDeltaY = ROW_MIN_HEIGHT_PX - this.startHeight;
+
+        const clampedDeltaY = Math.max(minDeltaY, Math.min(maxDeltaY, deltaY));
+
+        let newH_A = this.startHeight + clampedDeltaY;
+        let newH_B = this.startHeightBelow - clampedDeltaY;
+
+        const startSpanA = this.element.style.gridRow ? parseInt(this.element.style.gridRow.replace('span ', ''), 10) : neededGridSpan(this.startHeight);
+        const startSpanB = this.belowPanelEl.style.gridRow ? parseInt(this.belowPanelEl.style.gridRow.replace('span ', ''), 10) : neededGridSpan(this.startHeightBelow);
+        const totalSpan = startSpanA + startSpanB;
+
+        let spanA = neededGridSpan(newH_A);
+        let spanB = totalSpan - spanA;
+
+        const minSpanB = Math.round((minBelowH + PANEL_GAP_PX) / (4 + PANEL_GAP_PX)); // (80 + 6) / 10 = 8.6 -> rounds to 9 spans
+        if (spanB < minSpanB) {
+          spanB = minSpanB;
+          spanA = totalSpan - spanB;
+        }
+
+        newH_A = spanA * (4 + PANEL_GAP_PX) - PANEL_GAP_PX;
+        newH_B = spanB * (4 + PANEL_GAP_PX) - PANEL_GAP_PX;
+
+        applyPixelHeight(this.element, newH_A);
+        applyPixelHeight(this.belowPanelEl, newH_B);
+      } else {
+        let newH = Math.max(ROW_MIN_HEIGHT_PX, Math.min(this.maxResizeHeight, this.startHeight + deltaY));
+
+        applyPixelHeight(this.element, newH);
+      }
+    };
+
+    this.onRowMouseMove = (e: MouseEvent) => {
+      if (!this.isResizing) return;
+      applyDrag(e.clientY);
+    };
+
+    this.onRowMouseUp = () => {
+      if (!this.isResizing) return;
+      if (this.onRowMouseMove) document.removeEventListener('mousemove', this.onRowMouseMove);
+      if (this.onRowMouseUp) document.removeEventListener('mouseup', this.onRowMouseUp);
+      if (this.onRowWindowBlur) window.removeEventListener('blur', this.onRowWindowBlur);
+      commitResize();
     };
 
     this.onRowWindowBlur = () => this.onRowMouseUp?.();
 
-    const onMouseDown = (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
+    const beginResize = (clientY: number) => {
       this.isResizing = true;
-      this.startY = e.clientY;
-      this.startRowSpan = getRowSpan(this.element);
+      this.startY = clientY;
+      // Use the live rendered height so partial-span panels start from their real size
+      const myRect = this.element.getBoundingClientRect();
+      this.startHeight = myRect.height;
+
+      // Reset below panel tracking variables
+      this.belowPanelEl = null;
+      this.belowPanelId = '';
+      this.startHeightBelow = 0;
+
+      // Compute the height ceiling: stop at the top of the nearest panel below this one
+      // that shares horizontal space (same column stack). Panels in adjacent columns
+      // must not constrain this resize — they have their own independent vertical stacks.
+      // Positions are snapshotted here before any reflow so the cap stays stable.
+      const gridEl = this.element.closest('.panels-grid');
+      let nearestBelowTop = Infinity;
+      let nearestBelowPanel: HTMLElement | null = null;
+      if (gridEl) {
+        for (const other of Array.from(gridEl.querySelectorAll<HTMLElement>('.panel'))) {
+          if (other === this.element) continue;
+          const r = other.getBoundingClientRect();
+          if (r.top < myRect.bottom - 4) continue;
+          const sharesColumn = r.right > myRect.left + 4 && r.left < myRect.right - 4;
+          if (sharesColumn) {
+            if (r.top < nearestBelowTop) {
+              nearestBelowTop = r.top;
+              nearestBelowPanel = other;
+            }
+          }
+        }
+      }
+
+      if (nearestBelowPanel) {
+        this.belowPanelEl = nearestBelowPanel;
+        this.belowPanelId = nearestBelowPanel.dataset.panel || '';
+        this.startHeightBelow = nearestBelowPanel.getBoundingClientRect().height;
+        
+        const minBelowH = 80;
+        const maxDeltaY = Math.max(0, this.startHeightBelow - minBelowH);
+        this.maxResizeHeight = this.startHeight + maxDeltaY;
+      } else {
+        const maxAvailable = nearestBelowTop === Infinity
+          ? ROW_MAX_HEIGHT_PX
+          : Math.max(ROW_MIN_HEIGHT_PX, nearestBelowTop - myRect.top - PANEL_GAP_PX);
+        this.maxResizeHeight = maxAvailable;
+      }
+
       this.element.dataset.resizing = 'true';
       this.element.classList.add('resizing');
       document.body.classList.add('panel-resize-active');
       this.resizeHandle?.classList.add('active');
-      if (this.onRowMouseMove) {
-        document.addEventListener('mousemove', this.onRowMouseMove);
-      }
-      if (this.onRowMouseUp) {
-        document.addEventListener('mouseup', this.onRowMouseUp);
-      }
-      if (this.onRowWindowBlur) {
-        window.addEventListener('blur', this.onRowWindowBlur);
-      }
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      beginResize(e.clientY);
+      if (this.onRowMouseMove) document.addEventListener('mousemove', this.onRowMouseMove);
+      if (this.onRowMouseUp) document.addEventListener('mouseup', this.onRowMouseUp);
+      if (this.onRowWindowBlur) window.addEventListener('blur', this.onRowWindowBlur);
     };
 
     this.resizeHandle.addEventListener('mousedown', onMouseDown);
 
-    // Double-click to reset
+    // Double-click to reset to default height
     this.resizeHandle.addEventListener('dblclick', () => {
       this.resetHeight();
     });
@@ -523,24 +679,17 @@ export class Panel {
       e.stopPropagation();
       const touch = e.touches[0];
       if (!touch) return;
-      this.isResizing = true;
-      this.startY = touch.clientY;
-      this.startRowSpan = getRowSpan(this.element);
-      this.element.classList.add('resizing');
-      this.element.dataset.resizing = 'true';
-      document.body.classList.add('panel-resize-active');
-      this.resizeHandle?.classList.add('active');
+      beginResize(touch.clientY);
       this.removeRowTouchDocumentListeners();
       this.addRowTouchDocumentListeners();
     }, { passive: false });
 
-    // Use bound handlers so they can be removed in destroy()
+    // Bound handlers so they can be removed in destroy()
     this.onTouchMove = (e: TouchEvent) => {
       if (!this.isResizing) return;
       const touch = e.touches[0];
       if (!touch) return;
-      const deltaY = touch.clientY - this.startY;
-      setSpanClass(this.element, deltaToRowSpan(this.startRowSpan, deltaY));
+      applyDrag(touch.clientY);
     };
 
     this.onTouchEnd = () => {
@@ -548,15 +697,8 @@ export class Panel {
         this.removeRowTouchDocumentListeners();
         return;
       }
-      this.isResizing = false;
-      this.element.classList.remove('resizing');
-      delete this.element.dataset.resizing;
-      document.body.classList.remove('panel-resize-active');
-      this.resizeHandle?.classList.remove('active');
       this.removeRowTouchDocumentListeners();
-      const currentSpan = getRowSpan(this.element);
-      savePanelSpan(this.panelId, currentSpan);
-      trackPanelResized(this.panelId, currentSpan);
+      commitResize();
     };
     this.onTouchCancel = this.onTouchEnd;
 
@@ -1076,10 +1218,14 @@ export class Panel {
    * Reset panel height to default
    */
   public resetHeight(): void {
-    this.element.classList.remove('resized', 'span-1', 'span-2', 'span-3', 'span-4');
+    clearPixelHeight(this.element);
+    clearPanelHeight(this.panelId);
+    // Also clear legacy span data
     const spans = loadPanelSpans();
-    delete spans[this.panelId];
-    localStorage.setItem(PANEL_SPANS_KEY, JSON.stringify(spans));
+    if (this.panelId in spans) {
+      delete spans[this.panelId];
+      localStorage.setItem(PANEL_SPANS_KEY, JSON.stringify(spans));
+    }
   }
 
   public resetWidth(): void {

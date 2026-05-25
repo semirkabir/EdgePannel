@@ -55,6 +55,14 @@ export interface TrendingSpike {
   headlines: StoredHeadline[];
 }
 
+export interface TrendingTermSnapshot {
+  term: string;
+  count: number;
+  uniqueSources: number;
+  latestHeadline?: string;
+  score: number;
+}
+
 export interface TrendingConfig {
   blockedTerms: string[];
   minSpikeCount: number;
@@ -657,6 +665,45 @@ export function ingestHeadlines(headlines: TrendingHeadlineInput[]): void {
 export function drainTrendingSignals(): CorrelationSignal[] {
   if (pendingSignals.length === 0) return [];
   return pendingSignals.splice(0, pendingSignals.length);
+}
+
+export function getTrendingTermSnapshots(limit = 12): TrendingTermSnapshot[] {
+  const now = Date.now();
+  const config = readConfig();
+  const blockedTerms = getBlockedTermSet(config);
+
+  pruneOldState(now);
+  maybeRefreshBaselines(now);
+
+  return Array.from(termFrequency.entries())
+    .filter(([term]) => !blockedTerms.has(term))
+    .map(([, record]) => {
+      const recentHeadlines = dedupeHeadlines(
+        record.headlines.filter(headline => now - headline.ingestedAt <= ROLLING_WINDOW_MS)
+      );
+      const recentCount = record.timestamps.filter(ts => now - ts < ROLLING_WINDOW_MS).length;
+      const latestHeadline = [...record.headlines].sort((a, b) => b.ingestedAt - a.ingestedAt)[0]?.title;
+      const uniqueSources = new Set(recentHeadlines.map(headline => headline.source)).size;
+      const baseline = Math.max(record.baseline7d, 1);
+      return {
+        term: record.displayTerm,
+        count: recentCount,
+        uniqueSources,
+        latestHeadline,
+        score: recentCount + uniqueSources * 2 + Math.min(10, recentCount / baseline),
+      };
+    })
+    .filter(snapshot => snapshot.count > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+/** Human-readable label for the rolling trending window, e.g. "2h", "24h", "3d". */
+export function getTrendingWindowLabel(): string {
+  const hours = Math.round(ROLLING_WINDOW_MS / HOUR_MS);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.round(ROLLING_WINDOW_MS / DAY_MS);
+  return `${days}d`;
 }
 
 export function getTrendingConfig(): TrendingConfig {

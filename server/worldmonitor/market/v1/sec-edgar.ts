@@ -573,6 +573,16 @@ function buildEvents(category: string, filing: EdgarFilingRecord | null, form: s
   return events;
 }
 
+/** Returns true for form categories where XBRL issuer facts are shown inline. */
+function includesIssuerFacts(category: string): boolean {
+  return category === 'periodic' || category === 'current' || category === 'registration' || category === 'proxy';
+}
+
+/** Returns true for form categories where the time-series visualization is shown. */
+function includesSeries(category: string): boolean {
+  return category === 'periodic';
+}
+
 function buildBullets(
   category: string,
   form: string,
@@ -581,14 +591,19 @@ function buildBullets(
 ): string[] {
   const bullets = [categoryDescription(category, form)];
   if (filing?.title) bullets.push(`Primary document: ${filing.title}.`);
-  const revenue = metrics.find((metric) => metric.id === 'revenue');
-  const netIncome = metrics.find((metric) => metric.id === 'netIncome');
-  const cash = metrics.find((metric) => metric.id === 'cash');
-  const debt = metrics.find((metric) => metric.id === 'debt');
-  if (revenue) bullets.push(`Latest revenue fact is ${revenue.formattedValue}${revenue.fiscalPeriod ? ` for ${revenue.fiscalPeriod}` : ''}.`);
-  if (netIncome) bullets.push(`Latest net income fact is ${netIncome.formattedValue}.`);
-  if (cash && debt) bullets.push(`Balance sheet snapshot shows ${cash.formattedValue} cash versus ${debt.formattedValue} debt.`);
-  if (metrics.length === 0) bullets.push('Structured SEC company facts were not available for this filing, so the reader is showing source metadata.');
+
+  // Only surface financial fact bullets for forms where XBRL metrics are meaningful
+  if (includesIssuerFacts(category)) {
+    const revenue = metrics.find((metric) => metric.id === 'revenue');
+    const netIncome = metrics.find((metric) => metric.id === 'netIncome');
+    const cash = metrics.find((metric) => metric.id === 'cash');
+    const debt = metrics.find((metric) => metric.id === 'debt');
+    if (revenue) bullets.push(`Latest revenue fact is ${revenue.formattedValue}${revenue.fiscalPeriod ? ` for ${revenue.fiscalPeriod}` : ''}.`);
+    if (netIncome) bullets.push(`Latest net income fact is ${netIncome.formattedValue}.`);
+    if (cash && debt) bullets.push(`Balance sheet snapshot shows ${cash.formattedValue} cash versus ${debt.formattedValue} debt.`);
+    if (metrics.length === 0) bullets.push('Structured SEC company facts were not available for this filing, so the reader is showing source metadata.');
+  }
+
   return bullets;
 }
 
@@ -603,8 +618,15 @@ export async function buildSecFilingAnalysis(req: GetSecFilingAnalysisRequest): 
   const companyName = submissions?.name || resolved?.name || '';
   const ticker = resolved?.ticker || req.ticker || '';
   const facts = cik.replace(/^0+/, '') ? await fetchCompanyFacts(cik) : null;
-  const metrics = addRatioMetrics(buildMetricsFromFacts(facts, filing, form));
-  const series = buildSeriesFromFacts(facts);
+  // Only pull XBRL financials for forms where they're genuinely relevant.
+  // Insider (Form 4), institutional (13F), ownership (13G/D), fund, and
+  // prospectus filings should not surface company-wide P&L/balance sheet data.
+  const metrics = includesIssuerFacts(category)
+    ? addRatioMetrics(buildMetricsFromFacts(facts, filing, form))
+    : [];
+  const series = includesSeries(category)
+    ? buildSeriesFromFacts(facts)
+    : [];
   const structured = metrics.length > 0 || series.length > 0;
   const fallbackReason = structured ? '' : 'No SEC companyfacts metrics matched this filing.';
   const accession = filing?.accessionNumber || dashedAccession(req.accessionNumber || '');

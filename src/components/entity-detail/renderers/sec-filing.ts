@@ -59,8 +59,14 @@ export class SecFilingRenderer implements EntityRenderer {
     container.append(header);
 
     container.append(this.buildSummaryCard(ctx, analysis));
-    if (analysis.metrics.length > 0) container.append(this.buildMetricsCard(ctx, analysis));
-    if (analysis.series.length > 0) container.append(this.buildSeriesCard(ctx, analysis.series));
+    // Only show XBRL issuer facts for relevant form categories.
+    // insider (Form 4), institutional (13F), ownership (SC 13G/D), fund forms, etc.
+    // carry company-wide XBRL that is misleading in context of those specific filings.
+    const cat = analysis.formCategory;
+    const showIssuerFacts = cat === 'periodic' || cat === 'current' || cat === 'proxy' || cat === 'registration';
+    const showSeries = cat === 'periodic';
+    if (analysis.metrics.length > 0 && showIssuerFacts) container.append(this.buildMetricsCard(ctx, analysis));
+    if (analysis.series.length > 0 && showSeries) container.append(this.buildSeriesCard(ctx, analysis.series));
     container.append(this.buildEventsCard(ctx, analysis));
 
     if (analysis.url) {
@@ -90,16 +96,34 @@ export class SecFilingRenderer implements EntityRenderer {
     return card;
   }
 
+  private metricsCardTitle(category: string): string {
+    switch (category) {
+      case 'periodic':     return 'Financial Summary';
+      case 'current':      return 'Issuer Snapshot';
+      case 'proxy':        return 'Issuer Context';
+      case 'registration': return 'Issuer Context';
+      default:             return 'Structured Numbers';
+    }
+  }
+
   private buildMetricsCard(ctx: EntityRenderContext, analysis: GetSecFilingAnalysisResponse): HTMLElement {
-    const [card, body] = ctx.sectionCard('Structured Numbers');
+    const title = this.metricsCardTitle(analysis.formCategory);
+    const [card, body] = ctx.sectionCard(title);
     card.classList.add('edp-card--wide');
+
+    // For non-periodic forms (8-K, proxy, etc.) clarify these are issuer-level facts,
+    // not values extracted directly from this specific filing document.
+    if (analysis.formCategory !== 'periodic') {
+      body.append(ctx.el('p', 'edp-detail-label edp-filing-fact-note',
+        'These figures are the latest available XBRL facts for this issuer, not values extracted from this specific filing.'));
+    }
+
     const grid = ctx.el('div', 'cp-mini-kpi-grid');
     for (const metric of analysis.metrics.slice(0, 12)) {
       const item = ctx.el('div', 'cp-mini-kpi');
       item.append(ctx.el('span', 'cp-mini-kpi-label', metric.label));
-      const value = ctx.el('span', 'cp-mini-kpi-value', metric.formattedValue);
-      item.append(value);
-      const meta = [metric.fiscalPeriod, metric.hasYoy ? `${fmtPercent(metric.yoy)} YoY` : ''].filter(Boolean).join(' - ');
+      item.append(ctx.el('span', 'cp-mini-kpi-value', metric.formattedValue));
+      const meta = [metric.fiscalPeriod, metric.hasYoy ? `${fmtPercent(metric.yoy)} YoY` : ''].filter(Boolean).join(' — ');
       if (meta) item.append(ctx.el('span', 'edp-detail-label', meta));
       grid.append(item);
     }
@@ -108,7 +132,7 @@ export class SecFilingRenderer implements EntityRenderer {
   }
 
   private buildSeriesCard(ctx: EntityRenderContext, series: SecFilingSeries[]): HTMLElement {
-    const [card, body] = ctx.sectionCard('Visualization');
+    const [card, body] = ctx.sectionCard('Historical Trends');
     card.classList.add('edp-card--wide');
     for (const item of series.slice(0, 2)) {
       body.append(ctx.el('div', 'cp-trend-title', item.label));
@@ -127,12 +151,25 @@ export class SecFilingRenderer implements EntityRenderer {
     return card;
   }
 
+  private eventsCardTitle(category: string): string {
+    switch (category) {
+      case 'insider':       return 'Transaction Context';
+      case 'institutional': return 'Holdings Context';
+      case 'ownership':     return 'Ownership Context';
+      case 'proxy':         return 'Proxy Context';
+      case 'current':       return 'Event Context';
+      case 'registration':  return 'Registration Context';
+      default:              return 'Disclosure Context';
+    }
+  }
+
   private buildEventsCard(ctx: EntityRenderContext, analysis: GetSecFilingAnalysisResponse): HTMLElement {
-    const [card, body] = ctx.sectionCard('Disclosure Context');
+    const title = this.eventsCardTitle(analysis.formCategory);
+    const [card, body] = ctx.sectionCard(title);
     for (const event of analysis.events) {
       body.append(row(ctx, event.label, event.value));
     }
-    if (analysis.events.length === 0) body.append(ctx.makeEmpty('No filing events were extracted'));
+    if (analysis.events.length === 0) body.append(ctx.makeEmpty('No filing metadata was extracted'));
     return card;
   }
 }

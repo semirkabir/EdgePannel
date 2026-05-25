@@ -4328,14 +4328,27 @@
 
 .edp-sec-filing {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  padding: 8px 0;
+  padding: 7px 8px;
+  margin: 0 -8px;
+  border-radius: 6px;
   border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+  cursor: var(--wm-cursor-pointer);
+  transition: background 0.1s;
 }
 
 .edp-sec-filing:last-child {
   border-bottom: none;
+}
+
+.edp-sec-filing:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.edp-sec-filing:focus-visible {
+  outline: 2px solid var(--accent-blue, #60a5fa);
+  outline-offset: -2px;
 }
 
 .edp-sec-type-badge {
@@ -4391,17 +4404,26 @@
   margin-top: 2px;
 }
 
-.edp-sec-filing-link {
+/* EDGAR external-link icon — subtle until row is hovered */
+.edp-sec-edgar-link {
   flex-shrink: 0;
-  color: var(--accent-blue, #60a5fa);
-  font-size: 14px;
+  color: var(--text-dim);
+  font-size: 12px;
   text-decoration: none;
   line-height: 1;
-  padding: 2px 4px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.1s;
 }
 
-.edp-sec-filing-link:hover {
-  color: var(--text);
+.edp-sec-filing:hover .edp-sec-edgar-link {
+  opacity: 1;
+}
+
+.edp-sec-edgar-link:hover {
+  color: var(--accent-blue, #60a5fa);
+  background: rgba(96, 165, 250, 0.12);
 }
 
 .cp-filings-toolbar {
@@ -4473,9 +4495,7 @@
   text-transform: uppercase;
 }
 
-.edp-sec-filing-read {
-  flex-shrink: 0;
-}
+/* .edp-sec-filing-read removed — row itself is now the reader trigger */
 
 .cp-filings-pager {
   grid-column: 1 / -1;
@@ -6859,6 +6879,15 @@
   background: rgba(239, 68, 68, 0.14);
   color: #fca5a5;
   border-color: rgba(239, 68, 68, 0.18);
+}
+
+.edp-filing-fact-note {
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: 0.7;
+  font-style: italic;
+  margin-bottom: 10px;
+  white-space: normal;
 }
 
 .edp-disclosure-info {

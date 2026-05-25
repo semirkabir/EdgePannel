@@ -3510,7 +3510,10 @@ function formatExpiry(dateStr: string): string {
 }
 
 function buildFilingRow(ctx: EntityRenderContext, filing: SecFiling, ticker: string): HTMLElement {
-  const r = ctx.el('div', 'edp-sec-filing');
+  const r = ctx.el('div', 'edp-sec-filing') as HTMLDivElement;
+  r.setAttribute('role', 'button');
+  r.tabIndex = 0;
+  r.title = `Open ${filing.filingType || 'SEC'} filing`;
 
   const typeClass = FILING_TYPE_CLASS[filing.filingType ?? ''] ?? 'edp-sec-type-badge';
   r.append(ctx.el('span', typeClass, filing.filingType ?? ''));
@@ -3520,25 +3523,22 @@ function buildFilingRow(ctx: EntityRenderContext, filing: SecFiling, ticker: str
   info.append(ctx.el('div', 'edp-sec-filing-meta', fmtDate(filing.filedAt ?? '')));
   r.append(info);
 
+  // Small EDGAR external link — stops propagation so row click still opens the reader
   if (filing.url) {
-    const link = document.createElement('a');
-    link.className = 'edp-sec-filing-link';
-    link.href = sanitizeUrl(filing.url);
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.textContent = '↗';
-    link.title = 'View on EDGAR';
-    r.append(link);
+    const edgar = document.createElement('a');
+    edgar.className = 'edp-sec-edgar-link';
+    edgar.href = sanitizeUrl(filing.url);
+    edgar.target = '_blank';
+    edgar.rel = 'noopener noreferrer';
+    edgar.textContent = '↗';
+    edgar.title = 'View on EDGAR';
+    edgar.setAttribute('aria-label', 'View on EDGAR (opens new tab)');
+    edgar.addEventListener('click', e => e.stopPropagation());
+    r.append(edgar);
   }
 
-  const readButton = ctx.el('button', 'edp-btn-sm edp-sec-filing-read') as HTMLButtonElement;
-  readButton.type = 'button';
-  readButton.textContent = 'Read';
-  readButton.title = 'Open filing reader';
-  readButton.setAttribute('aria-label', `Read ${filing.filingType || 'SEC'} filing`);
-  readButton.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+  // Clicking (or pressing Enter/Space) anywhere on the row opens the reader panel
+  const openReader = () => {
     const detailData = {
       ticker,
       cik: filing.issuerCik || '',
@@ -3550,15 +3550,15 @@ function buildFilingRow(ctx: EntityRenderContext, filing: SecFiling, ticker: str
       filedAt: filing.filedAt || '',
     };
     document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
-      detail: {
-        type: 'secFiling',
-        data: detailData,
-      },
+      detail: { type: 'secFiling', data: detailData },
     }));
-    const fallback = (window as any).__entityDetailPanel;
-    fallback?.show?.('secFiling', detailData);
+    (window as any).__entityDetailPanel?.show?.('secFiling', detailData);
+  };
+
+  r.addEventListener('click', openReader);
+  r.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openReader(); }
   });
-  r.append(readButton);
 
   return r;
 }

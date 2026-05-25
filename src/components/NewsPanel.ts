@@ -55,6 +55,7 @@ export class NewsPanel extends Panel {
   private currentHeadlines: string[] = [];
   private lastHeadlineSignature = '';
   private isSummarizing = false;
+  private boundSourcesChangedHandler: (() => void) | null = null;
 
   constructor(id: string, title: string) {
     super({ id, title, showCount: true, trackActivity: true, showCopyButton: false });
@@ -64,6 +65,11 @@ export class NewsPanel extends Panel {
     this.createSortButton();
     this.setupActivityTracking();
     this.initWindowedList();
+
+    this.boundSourcesChangedHandler = () => {
+      this.reRender();
+    };
+    window.addEventListener('worldmonitor:sources-changed', this.boundSourcesChangedHandler);
   }
 
   private createSortButton(): void {
@@ -121,20 +127,20 @@ export class NewsPanel extends Panel {
       <div class="panel-sort-label">Sort by</div>
       ${this.sortOptions.map(opt => `
         <button class="panel-sort-option${this.sortOrder === opt.key ? ' active' : ''}" data-sort="${opt.key}">
-          <span>${opt.label}</span>
+          <span class="panel-sort-opt-left">
+            <span>${opt.label}</span>
+            ${opt.key === 'source' ? `
+              <span class="panel-sort-arrow-btn" title="View/Edit Sources for this category">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+              </span>
+            ` : ''}
+          </span>
           <span class="panel-sort-check" aria-hidden="true">✓</span>
         </button>
       `).join('')}
-      <div class="panel-sort-divider"></div>
-      <div class="panel-sort-label">Order</div>
-      <button class="panel-sort-option${this.sortDir === 'desc' ? ' active' : ''}" data-sort-dir="desc">
-        <span>Newest first</span>
-        <span class="panel-sort-check" aria-hidden="true">✓</span>
-      </button>
-      <button class="panel-sort-option${this.sortDir === 'asc' ? ' active' : ''}" data-sort-dir="asc">
-        <span>Oldest first</span>
-        <span class="panel-sort-check" aria-hidden="true">✓</span>
-      </button>
     `;
 
     // Position below the button
@@ -161,6 +167,21 @@ export class NewsPanel extends Panel {
     dropdown.addEventListener('click', (e) => e.stopPropagation());
 
     dropdown.querySelectorAll<HTMLElement>('.panel-sort-option[data-sort]').forEach(btn => {
+      // Handle the arrow button specifically if present
+      const arrowBtn = btn.querySelector('.panel-sort-arrow-btn');
+      if (arrowBtn) {
+        arrowBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('worldmonitor:open-sources', {
+            detail: { panelId: this.panelId }
+          }));
+          dropdown.remove();
+          this.sortDropdown = null;
+          this.sortBtn?.setAttribute('aria-expanded', 'false');
+        });
+      }
+
       btn.addEventListener('click', () => {
         const key = btn.dataset.sort as 'date' | 'title' | 'source' | 'relevance';
         if (key && key !== this.sortOrder) {
@@ -174,24 +195,20 @@ export class NewsPanel extends Panel {
         this.sortBtn?.setAttribute('aria-expanded', 'false');
       });
     });
-
-    dropdown.querySelectorAll<HTMLElement>('.panel-sort-option[data-sort-dir]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const dir = btn.dataset.sortDir as 'asc' | 'desc';
-        if (dir) {
-          this.sortDir = dir;
-          this.reRender();
-        }
-        dropdown.remove();
-        this.sortDropdown = null;
-        this.sortBtn?.setAttribute('aria-expanded', 'false');
-      });
-    });
   }
 
   private reRender(): void {
     const stored = this._lastItems;
     if (stored?.length) this.renderNews(stored);
+  }
+
+  private getDisabledSources(): Set<string> {
+    try {
+      const stored = localStorage.getItem('worldmonitor-disabled-feeds');
+      return new Set(stored ? JSON.parse(stored) : []);
+    } catch {
+      return new Set();
+    }
   }
 
   private _lastItems: NewsItem[] | null = null;
@@ -468,21 +485,25 @@ export class NewsPanel extends Panel {
   }
 
   public renderNews(items: NewsItem[]): void {
-    if (items.length === 0) {
+    this._lastItems = items;
+
+    const disabledSources = this.getDisabledSources();
+    const filteredItems = items.filter(item => !disabledSources.has(item.source));
+
+    if (filteredItems.length === 0) {
       this.renderRequestId += 1; // Cancel in-flight clustering from previous renders.
+      this.setCount(0);
       this.setDataBadge('unavailable');
       this.showError(t('common.noNewsAvailable'));
       return;
     }
 
-    this._lastItems = items;
-
     // Always show flat items immediately for instant visual feedback,
     // then upgrade to clustered view in the background when ready.
-    this.renderFlat(items);
+    this.renderFlat(filteredItems);
 
     if (this.clusteredMode) {
-      void this.renderClustersAsync(items);
+      void this.renderClustersAsync(filteredItems);
     }
   }
 
@@ -890,6 +911,11 @@ export class NewsPanel extends Panel {
    * Clean up resources
    */
   public destroy(): void {
+    if (this.boundSourcesChangedHandler) {
+      window.removeEventListener('worldmonitor:sources-changed', this.boundSourcesChangedHandler);
+      this.boundSourcesChangedHandler = null;
+    }
+
     // Clean up windowed list
     this.windowedList?.destroy();
     this.windowedList = null;
