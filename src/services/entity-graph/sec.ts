@@ -53,7 +53,17 @@ async function fetchCompanySecContext(data: unknown, signal: AbortSignal): Promi
   if (!ticker) return null;
 
   try {
-    const response = await client.listSecFilings({ ticker, filingTypes: [], limit: 6 }, { signal });
+    const response = await client.listSecFilings({
+      ticker,
+      filingTypes: [],
+      limit: 6,
+      offset: 0,
+      sort: 'newest',
+      search: '',
+      dateRange: 'all',
+      fromDate: '',
+      toDate: '',
+    }, { signal });
     const issuerCik = response.filings.find(filing => filing.issuerCik)?.issuerCik || '';
     const issuerName = response.companyName || response.filings.find(filing => filing.issuerName)?.issuerName || getString(data, 'name');
     return {

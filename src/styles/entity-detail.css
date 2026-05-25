@@ -260,6 +260,7 @@
     0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
+.edp-back,
 .edp-maximize {
   position: absolute;
   top: 16px;
@@ -281,6 +282,19 @@
     0 6px 14px rgba(0, 0, 0, 0.38),
     inset 0 1px 0 var(--frame-inset-highlight);
   transition: color 0.1s, background 0.1s, border-color 0.1s, transform 0.1s, box-shadow 0.1s;
+}
+
+.edp-back[hidden] {
+  display: none;
+}
+
+.entity-detail-panel.edp-has-history .edp-maximize {
+  left: 56px;
+}
+
+.edp-back svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Company financial expansion */
@@ -1108,11 +1122,13 @@
   }
 }
 
+.edp-back svg,
 .edp-maximize svg {
   width: 15px;
   height: 15px;
 }
 
+.edp-back:hover,
 .edp-maximize:hover,
 .edp-maximize[aria-pressed="true"] {
   background: color-mix(in srgb, var(--status-live) 22%, var(--surface));
@@ -1125,6 +1141,7 @@
     inset 0 1px 0 var(--frame-inset-highlight);
 }
 
+.edp-back:active,
 .edp-maximize:active {
   transform: translateY(2px);
   box-shadow:
@@ -4387,6 +4404,138 @@
   color: var(--text);
 }
 
+.cp-filings-toolbar {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(150px, 1fr) minmax(130px, 0.8fr) minmax(126px, 0.7fr) minmax(126px, 0.7fr) minmax(120px, 0.7fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+  max-width: 100%;
+}
+
+.cp-filings-summary {
+  grid-column: 1 / -1;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-filings-input,
+.cp-filings-select,
+.cp-filings-date {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  padding: 0 9px;
+  font-size: 11px;
+  font-family: var(--font-body);
+}
+
+.cp-filings-toolbar .wm-sel,
+.cp-filings-toolbar .wm-sel-btn {
+  width: 100%;
+  min-width: 0;
+}
+
+.cp-filings-toolbar .wm-sel-btn {
+  justify-content: space-between;
+}
+
+.cp-filings-toolbar .wm-sel-val {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-filings-select,
+.cp-filings-date,
+.cp-filings-clear {
+  cursor: var(--wm-cursor-pointer);
+}
+
+.cp-filings-input:focus,
+.cp-filings-select:focus,
+.cp-filings-date:focus {
+  border-color: var(--accent-blue, #60a5fa);
+  outline: none;
+}
+
+.cp-filings-year {
+  margin: 12px 0 4px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.edp-sec-filing-read {
+  flex-shrink: 0;
+}
+
+.cp-filings-pager {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.cp-filings-page-size {
+  max-width: 112px;
+}
+
+.cp-filings-page-status {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+}
+
+.cp-filings-page-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.entity-detail-panel:not(.edp-maximized) .cp-filings-toolbar {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.entity-detail-panel:not(.edp-maximized) .cp-filings-summary,
+.entity-detail-panel:not(.edp-maximized) .cp-filings-input,
+.entity-detail-panel:not(.edp-maximized) .cp-filings-pager {
+  grid-column: 1 / -1;
+}
+
+.entity-detail-panel:not(.edp-maximized) .cp-filings-clear {
+  min-height: 30px;
+}
+
+.entity-detail-panel:not(.edp-maximized) .cp-filings-pager {
+  justify-content: flex-start;
+}
+
+.entity-detail-panel:not(.edp-maximized) .cp-filings-page-status {
+  flex: 1 1 100%;
+  padding: 2px 0;
+}
+
+@media (max-width: 760px) {
+  .cp-filings-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .cp-filings-pager {
+    justify-content: flex-start;
+  }
+}
+
 /* ── Exchange movers heatmap ────────────────────────────────────────── */
 
 .edp-movers-group {
@@ -7384,6 +7533,7 @@
 /* ── Consistent close + maximize buttons ─────────────────────────── */
 
 .edp-close:focus-visible,
+.edp-back:focus-visible,
 .edp-maximize:focus-visible {
   outline: none;
   box-shadow: var(--ui-focus-ring, 0 0 0 2px var(--accent));

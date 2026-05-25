@@ -169,12 +169,21 @@ export interface ListSecFilingsRequest {
   ticker: string;
   filingTypes: string[];
   limit: number;
+  offset: number;
+  sort: string;
+  search: string;
+  dateRange: string;
+  fromDate: string;
+  toDate: string;
 }
 
 export interface ListSecFilingsResponse {
   filings: SecFiling[];
   ticker: string;
   companyName: string;
+  totalCount: number;
+  offset: number;
+  limit: number;
 }
 
 export interface SecFiling {
@@ -515,6 +524,12 @@ export class MarketServiceClient {
     if (req.ticker != null && String(req.ticker) !== "") params.set("ticker", String(req.ticker));
     if (req.filingTypes != null && String(req.filingTypes) !== "") params.set("filing_types", String(req.filingTypes));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
+    if (req.offset != null && req.offset !== 0) params.set("offset", String(req.offset));
+    if (req.sort != null && String(req.sort) !== "") params.set("sort", String(req.sort));
+    if (req.search != null && String(req.search) !== "") params.set("search", String(req.search));
+    if (req.dateRange != null && String(req.dateRange) !== "") params.set("date_range", String(req.dateRange));
+    if (req.fromDate != null && String(req.fromDate) !== "") params.set("from_date", String(req.fromDate));
+    if (req.toDate != null && String(req.toDate) !== "") params.set("to_date", String(req.toDate));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {

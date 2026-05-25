@@ -1,5 +1,5 @@
 import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
-import type { MarketQuote, PriceSeries, SecFiling } from '@/generated/client/worldmonitor/market/v1/service_client';
+import type { ListSecFilingsRequest, ListSecFilingsResponse, MarketQuote, PriceSeries, SecFiling } from '@/generated/client/worldmonitor/market/v1/service_client';
 import { ColorType, createChart, type AreaData, type CandlestickData, type Time, type UTCTimestamp } from 'lightweight-charts';
 import { row } from '../types';
 import type { EntityRenderer, EntityRenderContext } from '../types';
@@ -70,6 +70,12 @@ import {
   type SecCompanyFactMetric,
   type SecCompanyFactSignal,
 } from '@/services/market/sec-company-facts';
+import {
+  CATEGORY_LABELS,
+  FILING_TYPE_CATEGORIES,
+  FILING_TYPE_LABELS,
+  getFilingTypeLabel,
+} from '@/services/market/sec-filings';
 
 interface CompanyData {
   ticker: string;
@@ -82,6 +88,9 @@ interface CompanyEnriched {
   quote: MarketQuote | null;
   historicalPrices: PriceSeries | null;
   filings: SecFiling[];
+  filingsTotalCount: number;
+  filingsOffset: number;
+  filingsLimit: number;
   companyName: string;
   profile: CompanyProfile | null;
   metrics: CompanyMetrics | null;
@@ -166,6 +175,8 @@ const CHART_RANGES = [
 type ChartRange = typeof CHART_RANGES[number]['id'];
 type ChartKind = 'area' | 'candles';
 type HistoricalClose = { date: string; close: number };
+type CompanyFilingDateRange = 'all' | '7d' | '30d' | '90d' | '1y';
+type CompanyFilingSort = 'newest' | 'oldest' | 'type';
 
 function fmtChange(change: number): string {
   return (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
@@ -691,6 +702,14 @@ export class CompanyRenderer implements EntityRenderer {
   private collapsedFinancialParents = new Set<FinancialMetricKey>();
   private eventsFilter: 'all' | 'earnings' | 'dividends' | 'splits' = 'all';
   private forecastFreq: 'annual' | 'quarterly' = 'annual';
+  private filingSearch = '';
+  private filingTypeFilter = 'all';
+  private filingDateRange: CompanyFilingDateRange = 'all';
+  private filingFromDate = '';
+  private filingToDate = '';
+  private filingSort: CompanyFilingSort = 'newest';
+  private filingPageSize = 100;
+  private filingsRequestSeq = 0;
 
   renderSkeleton(data: unknown, ctx: EntityRenderContext): HTMLElement {
     const { ticker, name } = data as CompanyData;
@@ -732,7 +751,17 @@ export class CompanyRenderer implements EntityRenderer {
 
     const [quotesResp, filingsResp, historicalResp] = await Promise.allSettled([
       client.listMarketQuotes({ symbols: [ticker] }, { signal }),
-      client.listSecFilings({ ticker, filingTypes: [], limit: 30 }, { signal }),
+      client.listSecFilings({
+        ticker,
+        filingTypes: [],
+        limit: this.filingPageSize,
+        offset: 0,
+        sort: 'newest',
+        search: '',
+        dateRange: 'all',
+        fromDate: '',
+        toDate: '',
+      }, { signal }),
       client.listHistoricalPrices({ symbols: [ticker], months: 24 }, { signal }),
     ]);
 
@@ -786,6 +815,9 @@ export class CompanyRenderer implements EntityRenderer {
       quote,
       historicalPrices,
       filings,
+      filingsTotalCount: filingsResp.status === 'fulfilled' ? (filingsResp.value.totalCount || filings.length) : filings.length,
+      filingsOffset: filingsResp.status === 'fulfilled' ? (filingsResp.value.offset || 0) : 0,
+      filingsLimit: filingsResp.status === 'fulfilled' ? (filingsResp.value.limit || this.filingPageSize) : this.filingPageSize,
       companyName,
       profile: settledValue<CompanyProfile | null>(profile, null),
       metrics: settledValue<CompanyMetrics | null>(metrics, null),
@@ -908,6 +940,14 @@ export class CompanyRenderer implements EntityRenderer {
     this.activeFinancialStatement = 'income';
     this.financialSearch = '';
     this.eventsFilter = 'all';
+    this.filingSearch = '';
+    this.filingTypeFilter = 'all';
+    this.filingDateRange = 'all';
+    this.filingFromDate = '';
+    this.filingToDate = '';
+    this.filingSort = 'newest';
+    this.filingPageSize = 100;
+    this.filingsRequestSeq = 0;
     this.renderTabContent(container, data, ctx);
 
     // Tab click handlers
@@ -2358,14 +2398,18 @@ export class CompanyRenderer implements EntityRenderer {
       content.append(ownersCard);
     }
 
+    const [filingsCard, filingsBody] = ctx.sectionCard('Issuer SEC Filings');
+    filingsCard.classList.add('edp-card--wide');
+    filingsBody.append(this.buildFilingsControls(ctx, data, (offset) => {
+      void this.loadFilingsPage(content, data, ctx, offset);
+    }));
+
     if (data.filings.length === 0) {
-      if (data.ownership.length === 0) {
-        content.append(ctx.makeEmpty('No filings found'));
-      }
+      filingsBody.append(ctx.makeEmpty('No issuer filings match the current filters.'));
+      content.append(filingsCard);
       return;
     }
 
-    // Group filings by year
     const byYear = new Map<string, SecFiling[]>();
     for (const filing of data.filings) {
       const year = filing.filedAt ? filing.filedAt.slice(0, 4) : 'Unknown';
@@ -2374,21 +2418,231 @@ export class CompanyRenderer implements EntityRenderer {
       byYear.set(year, arr);
     }
 
-    // Sort years descending
     const years = Array.from(byYear.keys()).sort((a, b) => b.localeCompare(a));
 
     for (const year of years) {
-      const [card, body] = ctx.sectionCard(`Issuer SEC Filings · ${year}`);
-      card.classList.add('edp-card--wide');
+      filingsBody.append(ctx.el('div', 'cp-filings-year', year));
       for (const filing of byYear.get(year)!) {
-        body.append(buildFilingRow(ctx, filing));
+        filingsBody.append(buildFilingRow(ctx, filing, data.ticker));
       }
-      content.append(card);
     }
+    content.append(filingsCard);
+  }
+
+  private buildFilingRequest(ticker: string, offset: number): ListSecFilingsRequest {
+    return {
+      ticker,
+      filingTypes: selectedFilingTypes(this.filingTypeFilter),
+      limit: this.filingPageSize,
+      offset: Math.max(0, offset),
+      sort: this.filingSort,
+      search: this.filingSearch,
+      dateRange: this.filingDateRange,
+      fromDate: this.filingFromDate,
+      toDate: this.filingToDate,
+    };
+  }
+
+  private applyFilingsPage(data: CompanyEnriched, response: ListSecFilingsResponse): void {
+    data.filings = response.filings;
+    data.filingsTotalCount = response.totalCount || 0;
+    data.filingsOffset = response.offset || 0;
+    data.filingsLimit = response.limit || this.filingPageSize;
+    if (response.companyName) data.companyName = response.companyName;
+  }
+
+  private async loadFilingsPage(
+    content: HTMLElement,
+    data: CompanyEnriched,
+    ctx: EntityRenderContext,
+    offset: number,
+  ): Promise<void> {
+    const requestSeq = ++this.filingsRequestSeq;
+    content.replaceChildren(ctx.makeLoading('Loading issuer filings...'));
+    try {
+      const response = await client.listSecFilings(this.buildFilingRequest(data.ticker, offset), { signal: ctx.signal });
+      if (ctx.signal.aborted || requestSeq !== this.filingsRequestSeq) return;
+      this.applyFilingsPage(data, response);
+      content.replaceChildren();
+      this.renderFilingsTab(content, data, ctx);
+    } catch {
+      if (ctx.signal.aborted || requestSeq !== this.filingsRequestSeq) return;
+      content.replaceChildren(ctx.makeEmpty('Issuer filings are temporarily unavailable.'));
+    }
+  }
+
+  private buildFilingsControls(
+    ctx: EntityRenderContext,
+    data: CompanyEnriched,
+    onPageRequest: (offset: number) => void,
+  ): HTMLElement {
+    const wrap = ctx.el('div', 'cp-filings-toolbar');
+    const totalCount = data.filingsTotalCount || 0;
+    const offset = data.filingsOffset || 0;
+    const rangeStart = totalCount === 0 ? 0 : offset + 1;
+    const rangeEnd = Math.min(totalCount, offset + data.filings.length);
+    wrap.append(ctx.el('div', 'cp-filings-summary', `${rangeStart}-${rangeEnd} of ${totalCount} matching issuer filings`));
+
+    const search = ctx.el('input', 'cp-filings-input') as HTMLInputElement;
+    search.type = 'search';
+    search.placeholder = 'Search title, form, accession, or issuer';
+    search.value = this.filingSearch;
+    let searchDebounce: number | undefined;
+    search.addEventListener('input', () => {
+      window.clearTimeout(searchDebounce);
+      searchDebounce = window.setTimeout(() => {
+        this.filingSearch = search.value.trim();
+        onPageRequest(0);
+      }, 250);
+    });
+    wrap.append(search);
+
+    const typeSelect = ctx.el('select', 'cp-filings-select') as HTMLSelectElement;
+    typeSelect.title = 'Filter filing type';
+    appendOption(typeSelect, 'all', 'All filing types', this.filingTypeFilter);
+    for (const [category, label] of getAllFilingCategories()) {
+      appendOption(typeSelect, `category:${category}`, label, this.filingTypeFilter);
+    }
+    for (const form of getAllFilingTypes()) {
+      const label = getFilingTypeLabel(form);
+      appendOption(typeSelect, `type:${form}`, label === form ? form : `${form} - ${label}`, this.filingTypeFilter);
+    }
+    typeSelect.addEventListener('change', () => {
+      this.filingTypeFilter = typeSelect.value;
+      onPageRequest(0);
+    });
+    wrap.append(typeSelect);
+
+    const dateRange = ctx.el('select', 'cp-filings-select') as HTMLSelectElement;
+    dateRange.title = 'Filter time frame';
+    for (const [value, label] of [
+      ['all', 'All dates'],
+      ['7d', 'Last 7 days'],
+      ['30d', 'Last 30 days'],
+      ['90d', 'Last 90 days'],
+      ['1y', 'Last year'],
+    ] as Array<[CompanyFilingDateRange, string]>) {
+      appendOption(dateRange, value, label, this.filingDateRange);
+    }
+    dateRange.addEventListener('change', () => {
+      this.filingDateRange = dateRange.value as CompanyFilingDateRange;
+      onPageRequest(0);
+    });
+    wrap.append(dateRange);
+
+    const fromDate = ctx.el('input', 'cp-filings-date') as HTMLInputElement;
+    fromDate.type = 'date';
+    fromDate.value = this.filingFromDate;
+    fromDate.title = 'Filed on or after';
+    fromDate.addEventListener('change', () => {
+      this.filingFromDate = fromDate.value;
+      onPageRequest(0);
+    });
+    wrap.append(fromDate);
+
+    const toDate = ctx.el('input', 'cp-filings-date') as HTMLInputElement;
+    toDate.type = 'date';
+    toDate.value = this.filingToDate;
+    toDate.title = 'Filed on or before';
+    toDate.addEventListener('change', () => {
+      this.filingToDate = toDate.value;
+      onPageRequest(0);
+    });
+    wrap.append(toDate);
+
+    const sortSelect = ctx.el('select', 'cp-filings-select cp-filings-sort') as HTMLSelectElement;
+    sortSelect.title = 'Sort filings';
+    for (const [value, label] of [
+      ['newest', 'Newest first'],
+      ['oldest', 'Oldest first'],
+      ['type', 'Form type'],
+    ] as Array<[CompanyFilingSort, string]>) {
+      appendOption(sortSelect, value, label, this.filingSort);
+    }
+    sortSelect.addEventListener('change', () => {
+      this.filingSort = sortSelect.value as CompanyFilingSort;
+      onPageRequest(0);
+    });
+    wrap.append(sortSelect);
+
+    const clearButton = ctx.el('button', 'cp-control-btn cp-filings-clear', 'Clear') as HTMLButtonElement;
+    clearButton.type = 'button';
+    clearButton.addEventListener('click', () => {
+      this.filingSearch = '';
+      this.filingTypeFilter = 'all';
+      this.filingDateRange = 'all';
+      this.filingFromDate = '';
+      this.filingToDate = '';
+      this.filingSort = 'newest';
+      onPageRequest(0);
+    });
+    wrap.append(clearButton);
+
+    const pager = ctx.el('div', 'cp-filings-pager');
+    const pageSize = ctx.el('select', 'cp-filings-select cp-filings-page-size') as HTMLSelectElement;
+    pageSize.title = 'Rows per page';
+    for (const size of [50, 100, 200]) {
+      appendOption(pageSize, String(size), `${size} / page`, String(this.filingPageSize));
+    }
+    pageSize.addEventListener('change', () => {
+      this.filingPageSize = Number(pageSize.value) || 100;
+      onPageRequest(0);
+    });
+    pager.append(pageSize);
+
+    const lastOffset = totalCount > 0 ? Math.floor((totalCount - 1) / this.filingPageSize) * this.filingPageSize : 0;
+    const page = totalCount > 0 ? Math.floor(offset / this.filingPageSize) + 1 : 0;
+    const pageCount = totalCount > 0 ? Math.floor((totalCount - 1) / this.filingPageSize) + 1 : 0;
+
+    const addPagerButton = (label: string, targetOffset: number, disabled: boolean) => {
+      const button = ctx.el('button', 'cp-control-btn cp-filings-page-btn', label) as HTMLButtonElement;
+      button.type = 'button';
+      button.disabled = disabled;
+      button.addEventListener('click', () => onPageRequest(targetOffset));
+      pager.append(button);
+    };
+    addPagerButton('First', 0, offset <= 0);
+    addPagerButton('Prev', Math.max(0, offset - this.filingPageSize), offset <= 0);
+    pager.append(ctx.el('span', 'cp-filings-page-status', `Page ${page} of ${pageCount}`));
+    addPagerButton('Next', Math.min(lastOffset, offset + this.filingPageSize), offset + this.filingPageSize >= totalCount);
+    addPagerButton('Last', lastOffset, offset >= lastOffset);
+    wrap.append(pager);
+
+    return wrap;
   }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function appendOption(select: HTMLSelectElement, value: string, label: string, selectedValue: string): void {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = label;
+  option.selected = value === selectedValue;
+  select.append(option);
+}
+
+function getAllFilingCategories(): Array<[string, string]> {
+  return Object.keys(FILING_TYPE_CATEGORIES)
+    .sort((a, b) => (CATEGORY_LABELS[a] ?? a).localeCompare(CATEGORY_LABELS[b] ?? b))
+    .map((category): [string, string] => [category, CATEGORY_LABELS[category] ?? category]);
+}
+
+function getAllFilingTypes(): string[] {
+  const categoryTypes = Object.values(FILING_TYPE_CATEGORIES).flat();
+  return [...new Set([...categoryTypes, ...Object.keys(FILING_TYPE_LABELS)])]
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function selectedFilingTypes(filter: string): string[] {
+  if (filter.startsWith('category:')) {
+    return FILING_TYPE_CATEGORIES[filter.slice('category:'.length)] ?? [];
+  }
+  if (filter.startsWith('type:')) {
+    return [filter.slice('type:'.length)];
+  }
+  return [];
+}
 
 function buildCapitalStructure(
   ctx: EntityRenderContext,
@@ -3255,7 +3509,7 @@ function formatExpiry(dateStr: string): string {
   }
 }
 
-function buildFilingRow(ctx: EntityRenderContext, filing: SecFiling): HTMLElement {
+function buildFilingRow(ctx: EntityRenderContext, filing: SecFiling, ticker: string): HTMLElement {
   const r = ctx.el('div', 'edp-sec-filing');
 
   const typeClass = FILING_TYPE_CLASS[filing.filingType ?? ''] ?? 'edp-sec-type-badge';
@@ -3277,26 +3531,32 @@ function buildFilingRow(ctx: EntityRenderContext, filing: SecFiling): HTMLElemen
     r.append(link);
   }
 
-  const readButton = ctx.el('button', 'edp-btn-sm') as HTMLButtonElement;
+  const readButton = ctx.el('button', 'edp-btn-sm edp-sec-filing-read') as HTMLButtonElement;
   readButton.type = 'button';
   readButton.textContent = 'Read';
+  readButton.title = 'Open filing reader';
+  readButton.setAttribute('aria-label', `Read ${filing.filingType || 'SEC'} filing`);
   readButton.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
+    const detailData = {
+      ticker,
+      cik: filing.issuerCik || '',
+      companyName: filing.issuerName || '',
+      accessionNumber: filing.accessionNumber || '',
+      filingType: filing.filingType || '',
+      documentUrl: filing.url || '',
+      title: filing.title || '',
+      filedAt: filing.filedAt || '',
+    };
     document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
       detail: {
         type: 'secFiling',
-        data: {
-          cik: filing.issuerCik || '',
-          companyName: filing.issuerName || '',
-          accessionNumber: filing.accessionNumber || '',
-          filingType: filing.filingType || '',
-          documentUrl: filing.url || '',
-          title: filing.title || '',
-          filedAt: filing.filedAt || '',
-        },
+        data: detailData,
       },
     }));
+    const fallback = (window as any).__entityDetailPanel;
+    fallback?.show?.('secFiling', detailData);
   });
   r.append(readButton);
 

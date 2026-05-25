@@ -37,6 +37,13 @@ export interface EdgarSubmissionsRecent {
   size?: number[];
 }
 
+export interface EdgarSubmissionsFile {
+  name: string;
+  filingCount?: number;
+  filingFrom?: string;
+  filingTo?: string;
+}
+
 export interface EdgarSubmissions {
   cik?: string | number;
   entityType?: string;
@@ -44,6 +51,7 @@ export interface EdgarSubmissions {
   tickers?: string[];
   filings?: {
     recent?: EdgarSubmissionsRecent;
+    files?: EdgarSubmissionsFile[];
   };
   recent?: EdgarSubmissionsRecent;
 }
@@ -271,6 +279,35 @@ export async function fetchSecSubmissions(cik: string): Promise<EdgarSubmissions
     SEC_CACHE_TTL,
     () => secFetchJson<EdgarSubmissions>(`https://data.sec.gov/submissions/CIK${padded}.json`),
   );
+}
+
+export async function fetchSecSubmissionFile(fileName: string): Promise<EdgarSubmissionsRecent | null> {
+  const safeName = String(fileName || '').trim();
+  if (!/^CIK\d{10}-submissions-\d{3}\.json$/i.test(safeName)) return null;
+  return await cachedFetchJson<EdgarSubmissionsRecent>(
+    `market:sec-submission-file:v1:${safeName}`,
+    SEC_CACHE_TTL,
+    () => secFetchJson<EdgarSubmissionsRecent>(`https://data.sec.gov/submissions/${safeName}`),
+  );
+}
+
+export async function filingsToRecordsWithArchives(submissions: EdgarSubmissions, cik: string): Promise<EdgarFilingRecord[]> {
+  const records = recentToRecords(submissions, cik);
+  const files = submissions.filings?.files ?? [];
+
+  for (const file of files) {
+    try {
+      const archived = await fetchSecSubmissionFile(file.name);
+      if (archived) {
+        records.push(...recentToRecords({ recent: archived }, cik));
+      }
+    } catch (err) {
+      console.warn(`[SEC] Failed to load archived submissions file ${file.name}:`, err);
+    }
+  }
+
+  records.sort((a, b) => b.filedAt.localeCompare(a.filedAt) || b.accessionNumber.localeCompare(a.accessionNumber));
+  return records;
 }
 
 async function fetchCompanyFacts(cik: string): Promise<CompanyFacts | null> {
@@ -559,7 +596,7 @@ export async function buildSecFilingAnalysis(req: GetSecFilingAnalysisRequest): 
   const resolved = await resolveSecCompany(req.ticker || '', req.cik || '');
   const cik = resolved?.cik || padCik(req.cik || '');
   const submissions = cik.replace(/^0+/, '') ? await fetchSecSubmissions(cik) : null;
-  const records = submissions ? recentToRecords(submissions, cik) : [];
+  const records = submissions ? await filingsToRecordsWithArchives(submissions, cik) : [];
   const filing = findFilingRecord(records, req.accessionNumber || '', req.filingType || '');
   const form = (filing?.filingType || req.filingType || '').trim().toUpperCase();
   const category = classifyFilingType(form);

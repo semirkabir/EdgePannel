@@ -7,6 +7,15 @@ import { attachExternalDatasetEnrichment } from './entity-detail/external-enrich
 import { resolveEntityHeroImage, type EntityHeroImage } from '@/services/entity-hero-image';
 import { sanitizeUrl } from '@/utils/sanitize';
 
+interface EntityPanelHistoryEntry {
+  type: PopupType;
+  data: unknown;
+  children: HTMLElement[];
+  contentStack: HTMLElement[][];
+  scrollTop: number;
+  abortController: AbortController;
+}
+
 /**
  * Right-side detail panel that slides in when a user clicks a map entity.
  * Modeled on CountryDeepDivePanel — same slide-in animation, card system, maximize support.
@@ -16,6 +25,8 @@ export class EntityDetailPanel extends DetailPanelBase {
   private currentData: unknown = null;
   private abortController: AbortController = new AbortController();
   private navStack: HTMLElement[][] = [];
+  private entityHistory: EntityPanelHistoryEntry[] = [];
+  private readonly backButton: HTMLButtonElement;
   private readonly maximizeButton: HTMLButtonElement;
   private tabObserver: MutationObserver | null = null;
 
@@ -37,18 +48,28 @@ export class EntityDetailPanel extends DetailPanelBase {
       closeText: '\u00d7',
     });
     this.registry = registry;
+    this.backButton = this.createBackButton();
     this.maximizeButton = this.createMaximizeButton();
+    this.syncBackButton();
     this.setupTabTransitionObserver();
   }
 
   // ---- Public API ----
 
   public show(type: PopupType, data: unknown): void {
-    this.navStack = [];
-    this.abortController.abort();
+    if (this.isVisible() && this.currentType === type && this.currentData === data) {
+      return;
+    }
+
+    const preservedCurrent = this.pushCurrentEntityState();
+    if (!preservedCurrent) {
+      this.abortController.abort();
+    }
     this.abortController = new AbortController();
+    this.navStack = [];
     this.currentType = type;
     this.currentData = data;
+    this.syncBackButton();
 
     const renderer: EntityRenderer = this.registry[type] ?? this.generic;
     const ctx = this.buildContext();
@@ -105,9 +126,15 @@ export class EntityDetailPanel extends DetailPanelBase {
     }
     this.syncMaximizeButton();
     this.abortController.abort();
+    for (const entry of this.entityHistory) {
+      entry.abortController.abort();
+    }
     this.closePanel();
     this.currentType = null;
     this.currentData = null;
+    this.navStack = [];
+    this.entityHistory = [];
+    this.syncBackButton();
     this.onCloseCallback?.();
   }
 
@@ -117,17 +144,62 @@ export class EntityDetailPanel extends DetailPanelBase {
 
   // ---- Private ----
 
+  private pushCurrentEntityState(): boolean {
+    if (!this.isVisible() || !this.currentType) return false;
+    const children = Array.from(this.content.children) as HTMLElement[];
+    if (children.length === 0) return false;
+    this.entityHistory.push({
+      type: this.currentType,
+      data: this.currentData,
+      children,
+      contentStack: this.navStack.map((level) => [...level]),
+      scrollTop: this.content.scrollTop,
+      abortController: this.abortController,
+    });
+    if (this.entityHistory.length > 20) {
+      this.entityHistory.shift()?.abortController.abort();
+    }
+    return true;
+  }
+
   private navigateTo(el: HTMLElement): void {
     this.navStack.push(Array.from(this.content.children) as HTMLElement[]);
-    const backBtn = this.el('button', 'edp-back-btn', '← Back');
-    backBtn.addEventListener('click', () => this.navBack());
-    el.prepend(backBtn);
     this.content.replaceChildren(el);
+    this.content.scrollTop = 0;
+    this.syncBackButton();
   }
 
   private navBack(): void {
     const prev = this.navStack.pop();
-    if (prev) this.content.replaceChildren(...prev);
+    if (prev) {
+      this.content.replaceChildren(...prev);
+    }
+    this.syncBackButton();
+  }
+
+  private goBack(): void {
+    if (this.navStack.length > 0) {
+      this.navBack();
+      return;
+    }
+
+    const prev = this.entityHistory.pop();
+    if (!prev) {
+      this.syncBackButton();
+      return;
+    }
+
+    this.abortController.abort();
+    this.abortController = prev.abortController;
+    this.currentType = prev.type;
+    this.currentData = prev.data;
+    this.navStack = prev.contentStack;
+    this.content.replaceChildren(...prev.children);
+    this.openPanel();
+    requestAnimationFrame(() => {
+      this.content.scrollTop = prev.scrollTop;
+    });
+    this.syncBackButton();
   }
 
   private buildContext(): EntityRenderContext {
@@ -155,6 +227,25 @@ export class EntityDetailPanel extends DetailPanelBase {
     <rect x="15" y="3" width="7" height="18" fill="currentColor" opacity="0.25" stroke="none"/>
   </svg>`;
 
+  private static readonly ICON_BACK = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m15 18-6-6 6-6"/>
+  </svg>`;
+
+  private createBackButton(): HTMLButtonElement {
+    const button = this.el('button', 'edp-back') as HTMLButtonElement;
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Back to previous panel');
+    button.title = 'Back';
+    button.innerHTML = EntityDetailPanel.ICON_BACK;
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.goBack();
+    });
+    const shell = this.panel.querySelector<HTMLElement>('.edp-shell');
+    shell?.append(button);
+    return button;
+  }
+
   private createMaximizeButton(): HTMLButtonElement {
     const button = this.el('button', 'edp-maximize') as HTMLButtonElement;
     button.type = 'button';
@@ -171,6 +262,14 @@ export class EntityDetailPanel extends DetailPanelBase {
     const shell = this.panel.querySelector<HTMLElement>('.edp-shell');
     shell?.append(button);
     return button;
+  }
+
+  private syncBackButton(): void {
+    const canGoBack = this.navStack.length > 0 || this.entityHistory.length > 0;
+    this.backButton.hidden = !canGoBack;
+    this.backButton.disabled = !canGoBack;
+    this.backButton.setAttribute('aria-hidden', String(!canGoBack));
+    this.panel.classList.toggle('edp-has-history', canGoBack);
   }
 
   private syncMaximizeButton(): void {

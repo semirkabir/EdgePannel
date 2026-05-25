@@ -14,6 +14,24 @@ message ListSecFilingsRequest {
 
   // Maximum number of filings to return. Defaults to 20.
   int32 limit = 3 [(sebuf.http.query) = { name: "limit" }];
+
+  // Zero-based offset for paged results.
+  int32 offset = 4 [(sebuf.http.query) = { name: "offset" }];
+
+  // Sort order: newest, oldest, or type.
+  string sort = 5 [(sebuf.http.query) = { name: "sort" }];
+
+  // Optional search over title, form, accession, issuer, and CIK.
+  string search = 6 [(sebuf.http.query) = { name: "search" }];
+
+  // Date range: all, 7d, 30d, 90d, or 1y.
+  string date_range = 7 [(sebuf.http.query) = { name: "date_range" }];
+
+  // Optional inclusive start date, yyyy-mm-dd.
+  string from_date = 8 [(sebuf.http.query) = { name: "from_date" }];
+
+  // Optional inclusive end date, yyyy-mm-dd.
+  string to_date = 9 [(sebuf.http.query) = { name: "to_date" }];
 }
 
 // SecFiling represents a single SEC EDGAR filing.
@@ -32,4 +50,7 @@ message ListSecFilingsResponse {
   repeated SecFiling filings = 1;
   string ticker = 2;
   string company_name = 3;
+  int32 total_count = 4;
+  int32 offset = 5;
+  int32 limit = 6;
 }

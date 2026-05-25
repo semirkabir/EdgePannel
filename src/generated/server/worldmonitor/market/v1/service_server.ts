@@ -169,12 +169,21 @@ export interface ListSecFilingsRequest {
   ticker: string;
   filingTypes: string[];
   limit: number;
+  offset: number;
+  sort: string;
+  search: string;
+  dateRange: string;
+  fromDate: string;
+  toDate: string;
 }
 
 export interface ListSecFilingsResponse {
   filings: SecFiling[];
   ticker: string;
   companyName: string;
+  totalCount: number;
+  offset: number;
+  limit: number;
 }
 
 export interface SecFiling {
@@ -696,6 +705,12 @@ export function createMarketServiceRoutes(
             ticker: params.get("ticker") ?? "",
             filingTypes: (params.get("filing_types") ?? "").split(",").filter(Boolean),
             limit: Number(params.get("limit") ?? "0"),
+            offset: Number(params.get("offset") ?? "0"),
+            sort: params.get("sort") ?? "",
+            search: params.get("search") ?? "",
+            dateRange: params.get("date_range") ?? "",
+            fromDate: params.get("from_date") ?? "",
+            toDate: params.get("to_date") ?? "",
           };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("listSecFilings", body);
