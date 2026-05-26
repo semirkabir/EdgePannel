@@ -9,8 +9,8 @@ import { signalAggregator } from '@/services/signal-aggregator';
 import { supplementalBus } from '@/services/supplemental-signal-bus';
 import { consumeServerAnomalies, fetchLiveAnomalies } from '@/services/temporal-baseline';
 import { createSupplementalAlert } from '@/services/cross-module-integration';
-import { ingestTemporalAnomaliesForCII, hasIntelligenceSignalsLoaded, calculateCII } from '@/services/country-instability';
-import { fetchCachedRiskScores, getPersistedLiveCountryScores, savePersistedLiveCountryScores } from '@/services/cached-risk-scores';
+import { ingestTemporalAnomaliesForCII, hasIntelligenceSignalsLoaded } from '@/services/country-instability';
+import { fetchCachedRiskScores, getPersistedLiveCountryScores, savePersistedLiveCountryScores, getPreferredCountryScores } from '@/services/cached-risk-scores';
 import { dataFreshness, type DataSourceId } from '@/services/data-freshness';
 import { stopOrefPolling } from '@/services/oref-alerts';
 import { debounce } from '@/utils';
@@ -223,12 +223,14 @@ export class DataLoaderManager implements AppModule {
   private refreshCiiAndBriefInternal(forceLocal = false): void {
     (this.ctx.panels['cii'] as CIIPanel)?.refresh(forceLocal);
     this.callbacks.refreshOpenCountryBrief();
-    const scores = calculateCII();
-    if (hasIntelligenceSignalsLoaded() && scores.some((score) => score.score > 0)) {
-      savePersistedLiveCountryScores(scores);
+    const scores = getPreferredCountryScores();
+    if (scores.length > 0) {
+      if (hasIntelligenceSignalsLoaded() && scores.some((score) => score.score > 0)) {
+        savePersistedLiveCountryScores(scores);
+      }
+      this.ctx.map?.setCIIScores(scores.map(s => ({ code: s.code, score: s.score, level: s.level })));
+      this.ctx.map?.setLayerReady('ciiChoropleth', true);
     }
-    this.ctx.map?.setCIIScores(scores.map(s => ({ code: s.code, score: s.score, level: s.level })));
-    this.ctx.map?.setLayerReady('ciiChoropleth', scores.length > 0);
   }
 
   private refreshCiiAndBrief(forceLocal = false): void {

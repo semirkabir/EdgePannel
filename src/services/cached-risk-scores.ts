@@ -375,6 +375,7 @@ export function getPreferredCountryScores(): CountryScore[] {
       }
       return cached.cii.map(toCountryScore);
     }
+    return [];
   }
   if (lastPreferredScoreLog !== 'live') {
     lastPreferredScoreLog = 'live';

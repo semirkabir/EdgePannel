@@ -61,7 +61,6 @@ import {
   hasIntelligenceSignalsLoaded,
   isInLearningMode,
   markCoreIntelligenceSourceSettled,
-  calculateCII,
 } from '@/services/country-instability';
 import { ingestFlights, ingestVessels, ingestProtests } from '@/services/geo-convergence';
 import { analyzeFlightsForSurge, surgeAlertToSignal, detectForeignMilitaryPresence, foreignPresenceToSignal } from '@/services/military-surge';
@@ -69,7 +68,7 @@ import { updateAndCheck } from '@/services/temporal-baseline';
 import { addToSignalHistory } from '@/services/correlation';
 import { enrichEventsWithExposure } from '@/services/population-exposure';
 import { onOrefAlertsUpdate, startOrefPolling, stopOrefPolling } from '@/services/oref-alerts';
-import { savePersistedLiveCountryScores } from '@/services/cached-risk-scores';
+import { savePersistedLiveCountryScores, getPreferredCountryScores } from '@/services/cached-risk-scores';
 import { isDesktopRuntime } from '@/services/runtime';
 import { getMissingFeatureSecretMessage } from '@/services/runtime-config';
 import { debounce } from '@/utils';
@@ -161,12 +160,14 @@ export class SignalPublisher {
     const panel = this.ctx.panels['cii'] as CIIPanel | undefined;
     panel?.refresh(forceLocal);
     this.deps.refreshOpenCountryBrief?.();
-    const scores = calculateCII();
-    if (hasIntelligenceSignalsLoaded() && scores.some((score) => score.score > 0)) {
-      savePersistedLiveCountryScores(scores);
+    const scores = getPreferredCountryScores();
+    if (scores.length > 0) {
+      if (hasIntelligenceSignalsLoaded() && scores.some((score) => score.score > 0)) {
+        savePersistedLiveCountryScores(scores);
+      }
+      this.ctx.mapStore.map?.setCIIScores(scores.map(s => ({ code: s.code, score: s.score, level: s.level })));
+      this.ctx.mapStore.map?.setLayerReady('ciiChoropleth', true);
     }
-    this.ctx.mapStore.map?.setCIIScores(scores.map(s => ({ code: s.code, score: s.score, level: s.level })));
-    this.ctx.mapStore.map?.setLayerReady('ciiChoropleth', scores.length > 0);
   }
 
   refreshCiiAndBrief(forceLocal = false): void {

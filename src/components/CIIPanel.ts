@@ -1,5 +1,5 @@
 import { Panel } from './Panel';
-import type { CountryScore } from '@/services/country-instability';
+import { hasIntelligenceSignalsLoaded, type CountryScore } from '@/services/country-instability';
 import { t } from '../services/i18n';
 import { h, replaceChildren, rawHtml } from '@/utils/dom-utils';
 import type { CachedRiskScores } from '@/services/cached-risk-scores';
@@ -246,6 +246,11 @@ export class CIIPanel extends Panel {
       this.setCount(withData.length);
 
       if (withData.length === 0) {
+        if (!hasIntelligenceSignalsLoaded()) {
+          // Still loading core feeds and no cached scores are available yet, keep showing loading state
+          this.showLoading();
+          return;
+        }
         this.setErrorState(false);
         replaceChildren(this.content, h('div', { className: 'empty-state' }, t('components.cii.noSignals')));
         return;
