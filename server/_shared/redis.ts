@@ -87,6 +87,45 @@ function writeSeedMeta(cacheKey: string, recordCount: number): void {
     .catch((err: unknown) => console.warn(`[redis] seed-meta write failed for "${metaKey}":`, errMsg(err)));
 }
 
+export type RedisPipelineCommand = Array<string | number>;
+
+function normalizePipelineCommand(command: RedisPipelineCommand, raw: boolean): RedisPipelineCommand {
+  if (raw || command.length < 2) return [...command];
+  const [verb, key, ...rest] = command;
+  if (typeof verb !== 'string' || typeof key !== 'string') return [...command];
+  return [verb, prefixKey(key), ...rest];
+}
+
+/**
+ * Run an Upstash pipeline — multiple Redis commands in a single HTTP round-trip.
+ * Returns an array of { result } objects aligned to the command array.
+ */
+export async function runRedisPipeline(
+  commands: RedisPipelineCommand[],
+  raw = false,
+): Promise<Array<{ result?: unknown }>> {
+  if (process.env.LOCAL_API_MODE === 'tauri-sidecar') return [];
+  if (commands.length === 0) return [];
+
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return [];
+
+  try {
+    const response = await fetch(`${url}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(commands.map((command) => normalizePipelineCommand(command, raw))),
+      signal: AbortSignal.timeout(REDIS_PIPELINE_TIMEOUT_MS),
+    });
+    if (!response.ok) return [];
+    return await response.json() as Array<{ result?: unknown }>;
+  } catch (err) {
+    console.warn('[redis] runRedisPipeline failed:', errMsg(err));
+    return [];
+  }
+}
+
 /**
  * Batch GET using Upstash pipeline API — single HTTP round-trip for N keys.
  * Returns a Map of key → parsed JSON value (missing/failed/sentinel keys omitted).
