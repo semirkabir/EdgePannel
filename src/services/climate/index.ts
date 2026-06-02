@@ -56,7 +56,7 @@ export interface ClimateFetchResult {
 }
 
 const client = new ClimateServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
-const breaker = createCircuitBreaker<ListClimateAnomaliesResponse>({ name: 'Climate Anomalies', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
+const breaker = createCircuitBreaker<ListClimateAnomaliesResponse>({ name: 'Climate Anomalies', cacheTtlMs: 20 * 60 * 1000, persistCache: true });
 const physicalSignalBreaker = createCircuitBreaker<ClimatePhysicalSignal[]>({ name: 'Climate Physical Signals', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
 
 const emptyClimateFallback: ListClimateAnomaliesResponse = { anomalies: [] };

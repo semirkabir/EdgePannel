@@ -60,7 +60,7 @@ const SEED_META = {
   outages:          { key: 'seed-meta:infra:outages',           maxStaleMin: 30 },
   climateAnomalies: { key: 'seed-meta:climate:anomalies',       maxStaleMin: 120 },
   unrestEvents:     { key: 'seed-meta:unrest:events',           maxStaleMin: 30 },
-  cyberThreats:     { key: 'seed-meta:cyber:threats',           maxStaleMin: 480 },
+  cyberThreats:     { key: 'seed-meta:cyber:threats',           maxStaleMin: 240 }, // 2h interval; 240min = 2x interval
   cryptoQuotes:     { key: 'seed-meta:market:crypto',           maxStaleMin: 30 },
   etfFlows:         { key: 'seed-meta:market:etf-flows',        maxStaleMin: 60 },
   gulfQuotes:       { key: 'seed-meta:market:gulf-quotes',      maxStaleMin: 30 },
@@ -139,7 +139,8 @@ export default async function handler(req) {
   const corsHeaders = getCorsHeaders(req);
   const headers = {
     'Content-Type': 'application/json',
-    'Cache-Control': 'no-cache, no-store',
+    'Cache-Control': 'private, no-store, max-age=0',
+    'CDN-Cache-Control': 'no-store',
     ...corsHeaders,
   };
 
