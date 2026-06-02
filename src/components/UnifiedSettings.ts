@@ -12,7 +12,7 @@ import { SITE_VARIANT } from '@/config/variant';
 import { MISSION_PACKS } from '@/config';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
-import type { MapLayers, PanelConfig } from '@/types';
+import type { MapLayers, PanelConfig, CustomFeed } from '@/types';
 import type { MarketplaceVariant, MarketplaceViewItem } from '@/types/marketplace';
 import { FEATURES } from '@/services/feature-flags';
 import { getUserTier, type FeatureTier } from '@/services/feature-flags';
@@ -37,6 +37,9 @@ export interface UnifiedSettingsConfig {
   getMapLayers: () => MapLayers;
   openMarketplace: () => void;
   getMarketplaceItems: () => MarketplaceViewItem[];
+  getCustomFeeds: () => CustomFeed[];
+  addCustomFeed: (feed: CustomFeed) => void;
+  removeCustomFeed: (id: string) => void;
 }
 
 type TabId = 'settings' | 'data' | 'panels' | 'sources' | 'profile';
@@ -399,6 +402,7 @@ export class UnifiedSettings {
         </div>
         <div class="unified-settings-tab-panel${this.activeTab === 'sources' ? ' active' : ''}" data-panel-id="sources" id="us-tab-panel-sources" role="tabpanel" aria-labelledby="us-tab-sources">
           <p class="unified-settings-panel-note">Control feed noise by source. Disabled sources stop contributing to news panels and summaries.</p>
+          <div id="usCustomFeedsContainer"></div>
           <div class="unified-settings-region-wrapper">
             <div class="unified-settings-region-bar" id="usRegionBar"></div>
           </div>
@@ -428,7 +432,9 @@ export class UnifiedSettings {
     this.renderPanelsTab();
     this.renderRegionPills();
     this.renderSourcesGrid();
+    this.renderCustomFeedsEditor();
     this.updateSourcesCounter();
+    this.injectCustomFeedsStyles();
     if (this.activeTab === 'profile') {
       void this.renderProfileTab();
     }
@@ -1160,5 +1166,269 @@ export class UnifiedSettings {
     // TODO: Integrate Stripe checkout session.
     const uid = this.currentUser?.uid;
     window.location.href = `/api/checkout?tier=${tier}&uid=${uid || ''}`;
+  }
+
+  private injectCustomFeedsStyles(): void {
+    if (this.overlay.querySelector('#custom-feeds-styles')) return;
+    const styleEl = document.createElement('style');
+    styleEl.id = 'custom-feeds-styles';
+    styleEl.textContent = `
+      .custom-feeds-editor-container {
+        margin: 15px 0 25px 0;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15);
+      }
+      .custom-feeds-form-header {
+        font-family: var(--font-body);
+        font-size: 11px;
+        font-weight: bold;
+        color: #ffaa00;
+        letter-spacing: 2px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid rgba(255, 170, 0, 0.15);
+        padding-bottom: 8px;
+        text-transform: uppercase;
+      }
+      .custom-feeds-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .custom-feeds-form .form-row {
+        display: flex;
+        gap: 16px;
+      }
+      .custom-feeds-form .form-group {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .custom-feeds-form .form-group.flex-2 {
+        flex: 2;
+      }
+      .custom-feeds-form label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #888;
+      }
+      .custom-feeds-form input, .custom-feeds-form select {
+        background: #0a0c10;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        padding: 8px 12px;
+        color: #fff;
+        font-size: 12px;
+        font-family: var(--font-body);
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .custom-feeds-form input:focus, .custom-feeds-form select:focus {
+        border-color: #ffaa00;
+      }
+      .custom-feeds-submit-btn {
+        align-self: flex-end;
+        background: #ffaa00;
+        color: #000;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.1s;
+      }
+      .custom-feeds-submit-btn:hover {
+        background: #ffbb33;
+      }
+      .custom-feeds-submit-btn:active {
+        transform: scale(0.98);
+      }
+      .custom-feeds-list-container {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 180px;
+        overflow-y: auto;
+      }
+      .custom-feed-list-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.01);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        padding: 8px 12px;
+        border-radius: 4px;
+      }
+      .custom-feed-list-item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        text-align: left;
+      }
+      .custom-feed-list-item-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: #fff;
+      }
+      .custom-feed-list-item-meta {
+        font-size: 10px;
+        color: #666;
+      }
+      .custom-feed-list-item-delete {
+        background: none;
+        border: none;
+        color: #ff4444;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s, color 0.2s;
+      }
+      .custom-feed-list-item-delete:hover {
+        background: rgba(255, 68, 68, 0.1);
+        color: #ff6666;
+      }
+    `;
+    this.overlay.appendChild(styleEl);
+  }
+
+  private renderCustomFeedsEditor(): void {
+    const container = this.overlay.querySelector('#usCustomFeedsContainer');
+    if (!container) return;
+
+    const feeds = this.config.getCustomFeeds ? this.config.getCustomFeeds() : [];
+
+    container.innerHTML = `
+      <div class="custom-feeds-editor-container">
+        <div class="custom-feeds-form-header">CUSTOM INTELLIGENCE SOURCES</div>
+        <form class="custom-feeds-form" id="customFeedsForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cfName">Source Name</label>
+              <input type="text" id="cfName" placeholder="e.g. Spectator Index" required />
+            </div>
+            <div class="form-group">
+              <label for="cfType">Feed Type</label>
+              <select id="cfType">
+                <option value="rss">RSS Feed URL</option>
+                <option value="telegram">Telegram Channel Handle</option>
+                <option value="x">X (Twitter) Username</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label for="cfUrl" id="cfUrlLabel">Feed URL</label>
+              <input type="text" id="cfUrl" placeholder="https://example.com/rss.xml" required />
+            </div>
+            <div class="form-group" id="cfCategoryGroup">
+              <label for="cfCategory">Category</label>
+              <select id="cfCategory">
+                <option value="politics">Politics</option>
+                <option value="us">United States</option>
+                <option value="europe">Europe</option>
+                <option value="middleeast">Middle East</option>
+                <option value="africa">Africa</option>
+                <option value="latam">Latin America</option>
+                <option value="asia">Asia-Pacific</option>
+                <option value="tech">Technology</option>
+                <option value="ai">AI / ML</option>
+                <option value="finance">Finance / Markets</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="custom-feeds-submit-btn">+ Add Custom Source</button>
+        </form>
+        <div class="custom-feeds-list-container" id="customFeedsList"></div>
+      </div>
+    `;
+
+    const typeSelect = container.querySelector('#cfType') as HTMLSelectElement;
+    const urlLabel = container.querySelector('#cfUrlLabel') as HTMLLabelElement;
+    const urlInput = container.querySelector('#cfUrl') as HTMLInputElement;
+
+    typeSelect?.addEventListener('change', () => {
+      const type = typeSelect.value;
+      if (type === 'rss') {
+        urlLabel.textContent = 'Feed URL';
+        urlInput.placeholder = 'https://example.com/rss.xml';
+      } else if (type === 'telegram') {
+        urlLabel.textContent = 'Telegram Handle';
+        urlInput.placeholder = 'e.g. MiddleEastSpectator';
+      } else if (type === 'x') {
+        urlLabel.textContent = 'X (Twitter) Username';
+        urlInput.placeholder = 'e.g. elonmusk';
+      }
+    });
+
+    const listContainer = container.querySelector('#customFeedsList') as HTMLElement;
+    if (listContainer) {
+      if (feeds.length === 0) {
+        listContainer.innerHTML = '<div style="font-size: 11px; color: #555; text-align: center; padding: 10px;">No custom sources added yet.</div>';
+      } else {
+        listContainer.innerHTML = feeds.map(f => `
+          <div class="custom-feed-list-item">
+            <div class="custom-feed-list-item-info">
+              <span class="custom-feed-list-item-name">${escapeHtml(f.name)}</span>
+              <span class="custom-feed-list-item-meta">${escapeHtml(f.type.toUpperCase())} • ${escapeHtml(f.category)} • ${escapeHtml(f.url)}</span>
+            </div>
+            <button class="custom-feed-list-item-delete" data-feed-id="${f.id}" title="Remove feed">&times;</button>
+          </div>
+        `).join('');
+
+        listContainer.querySelectorAll('.custom-feed-list-item-delete').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = (btn as HTMLElement).dataset.feedId;
+            if (id) {
+              this.config.removeCustomFeed(id);
+              this.renderCustomFeedsEditor();
+              this.renderSourcesGrid();
+              this.updateSourcesCounter();
+              window.dispatchEvent(new CustomEvent('worldmonitor:refresh-pipeline'));
+            }
+          });
+        });
+      }
+    }
+
+    const form = container.querySelector('#customFeedsForm') as HTMLFormElement;
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = (container.querySelector('#cfName') as HTMLInputElement).value.trim();
+      const type = typeSelect.value as 'rss' | 'telegram' | 'x';
+      const rawUrl = urlInput.value.trim();
+      const category = (container.querySelector('#cfCategory') as HTMLSelectElement).value;
+
+      if (!name || !rawUrl) return;
+
+      let finalUrl = rawUrl;
+      if (type === 'telegram') {
+        finalUrl = rawUrl.replace(/^@/, '').replace(/^(https?:\/\/)?(www\.)?t\.me\//, '');
+      } else if (type === 'x') {
+        const cleanHandle = rawUrl.replace(/^@/, '').replace(/^(https?:\/\/)?(www\.)?(twitter|x)\.com\//, '');
+        finalUrl = `https://news.google.com/rss/search?q=site:twitter.com/${cleanHandle}`;
+      }
+
+      const newFeed: CustomFeed = {
+        id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        name,
+        url: finalUrl,
+        category,
+        type,
+      };
+
+      this.config.addCustomFeed(newFeed);
+      this.renderCustomFeedsEditor();
+      this.renderSourcesGrid();
+      this.updateSourcesCounter();
+      window.dispatchEvent(new CustomEvent('worldmonitor:refresh-pipeline'));
+    });
   }
 }

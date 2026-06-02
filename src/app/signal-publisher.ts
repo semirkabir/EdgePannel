@@ -1051,8 +1051,53 @@ export class SignalPublisher {
 
   async loadTelegramIntel(): Promise<void> {
     try {
-      const result = await fetchTelegramFeed();
-      this.deps.callPanel('telegram-intel', 'setData', result);
+      const customTgs = (this.ctx.uiStore.customFeeds || []).filter(f => f.type === 'telegram');
+      const globalFeed = await fetchTelegramFeed();
+
+      if (customTgs.length === 0) {
+        this.deps.callPanel('telegram-intel', 'setData', globalFeed);
+        return;
+      }
+
+      // Fetch all custom Telegram channels concurrently
+      const customResults = await Promise.allSettled(
+        customTgs.map(tg => fetchTelegramFeed(50, tg.url))
+      );
+
+      let mergedItems = [...(globalFeed.items || [])];
+      customResults.forEach((res, idx) => {
+        if (res.status === 'fulfilled' && res.value?.items) {
+          const channelName = customTgs[idx]!.name;
+          const itemsWithCustomSource = res.value.items.map(item => ({
+            ...item,
+            channelTitle: channelName || item.channelTitle,
+          }));
+          mergedItems.push(...itemsWithCustomSource);
+        }
+      });
+
+      // Deduplicate by item URL/id
+      const seen = new Set<string>();
+      mergedItems = mergedItems.filter(item => {
+        const key = item.id || item.url;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // Sort by timestamp, newest first
+      mergedItems.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+
+      const mergedResponse = {
+        source: 'merged',
+        earlySignal: globalFeed.earlySignal,
+        enabled: globalFeed.enabled,
+        count: mergedItems.length,
+        updatedAt: new Date().toISOString(),
+        items: mergedItems,
+      };
+
+      this.deps.callPanel('telegram-intel', 'setData', mergedResponse);
     } catch (error) {
       console.error('[App] Telegram intel fetch failed:', error);
       this.deps.callPanel('telegram-intel', 'showError', 'Telegram intel unavailable');

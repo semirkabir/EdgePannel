@@ -1,6 +1,6 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import type { AirlineIntelPanel } from '@/components/AirlineIntelPanel';
-import type { PanelConfig } from '@/types';
+import type { PanelConfig, CustomFeed } from '@/types';
 import type { MarketplaceVariant } from '@/types/marketplace';
 import type { MapView } from '@/components';
 import type { ClusteredEvent } from '@/types';
@@ -1031,6 +1031,9 @@ export class EventHandlerManager implements AppModule {
 
   setupUnifiedSettings(): void {
     this.ctx.unifiedSettings = new UnifiedSettings({
+      getCustomFeeds: () => this.ctx.uiStore.customFeeds,
+      addCustomFeed: (feed: CustomFeed) => this.ctx.uiStore.addCustomFeed(feed),
+      removeCustomFeed: (id: string) => this.ctx.uiStore.removeCustomFeed(id),
       getPanelSettings: () => this.ctx.panelSettings,
       togglePanel: (key: string) => {
         const config = this.ctx.panelSettings[key];
@@ -1941,6 +1944,10 @@ export class EventHandlerManager implements AppModule {
       if (feeds) feeds.forEach(f => sources.add(f.name));
     });
     INTEL_SOURCES.forEach(f => sources.add(f.name));
+    try {
+      const custom = this.ctx.uiStore.customFeeds || [];
+      custom.forEach(f => sources.add(f.name));
+    } catch {}
     return Array.from(sources).sort((a, b) => a.localeCompare(b));
   }
 

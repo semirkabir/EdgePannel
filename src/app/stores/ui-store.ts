@@ -1,4 +1,4 @@
-import type { PanelConfig, MapLayers } from '@/types';
+import type { PanelConfig, MapLayers, CustomFeed } from '@/types';
 import type { TimeRange } from '@/components';
 import type { AppEventBus } from '../event-bus';
 
@@ -16,6 +16,7 @@ export interface UIStore {
   inFlight: Set<string>;
   seenGeoAlerts: Set<string>;
   resolvedLocation: AppRegion;
+  customFeeds: CustomFeed[];
   setPanelSettings(settings: Record<string, PanelConfig>): void;
   setMapLayers(layers: MapLayers): void;
   setTimeRange(range: TimeRange): void;
@@ -30,6 +31,8 @@ export interface UIStore {
   markGeoAlert(key: string): void;
   hasSeenGeoAlert(key: string): boolean;
   setResolvedLocation(loc: AppRegion): void;
+  addCustomFeed(feed: CustomFeed): void;
+  removeCustomFeed(id: string): void;
   destroy(): void;
 }
 
@@ -45,6 +48,14 @@ export function createUIStore(bus: AppEventBus): UIStore {
   let inFlight = new Set<string>();
   let seenGeoAlerts = new Set<string>();
   let resolvedLocation: AppRegion = 'global';
+  let customFeeds: CustomFeed[] = [];
+
+  try {
+    const stored = localStorage.getItem('worldmonitor-custom-feeds');
+    if (stored) customFeeds = JSON.parse(stored);
+  } catch (e) {
+    console.warn('[UIStore] Failed to load custom feeds:', e);
+  }
 
   return {
     get panelSettings() { return panelSettings; },
@@ -58,6 +69,7 @@ export function createUIStore(bus: AppEventBus): UIStore {
     get inFlight() { return inFlight; },
     get seenGeoAlerts() { return seenGeoAlerts; },
     get resolvedLocation() { return resolvedLocation; },
+    get customFeeds() { return customFeeds; },
 
     setPanelSettings(settings: Record<string, PanelConfig>) {
       panelSettings = settings;
@@ -126,12 +138,35 @@ export function createUIStore(bus: AppEventBus): UIStore {
       bus.emit('ui:resolved-location-changed', loc);
     },
 
+    addCustomFeed(feed: CustomFeed) {
+      customFeeds = [...customFeeds, feed];
+      try {
+        localStorage.setItem('worldmonitor-custom-feeds', JSON.stringify(customFeeds));
+      } catch (e) {
+        console.warn('[UIStore] Failed to save custom feeds:', e);
+      }
+      bus.emit('ui:custom-feeds-updated', customFeeds);
+      window.dispatchEvent(new CustomEvent('worldmonitor:custom-feeds-changed', { detail: { feeds: customFeeds } }));
+    },
+
+    removeCustomFeed(id: string) {
+      customFeeds = customFeeds.filter(f => f.id !== id);
+      try {
+        localStorage.setItem('worldmonitor-custom-feeds', JSON.stringify(customFeeds));
+      } catch (e) {
+        console.warn('[UIStore] Failed to save custom feeds:', e);
+      }
+      bus.emit('ui:custom-feeds-updated', customFeeds);
+      window.dispatchEvent(new CustomEvent('worldmonitor:custom-feeds-changed', { detail: { feeds: customFeeds } }));
+    },
+
     destroy() {
       isDestroyed = true;
       panelSettings = {};
       disabledSources.clear();
       inFlight.clear();
       seenGeoAlerts.clear();
+      customFeeds = [];
     },
   };
 }

@@ -2426,6 +2426,10 @@ export class PanelLayoutManager implements AppModule {
       if (feeds) feeds.forEach(f => sources.add(f.name));
     });
     INTEL_SOURCES.forEach(f => sources.add(f.name));
+    try {
+      const custom = this.ctx.uiStore.customFeeds || [];
+      custom.forEach(f => sources.add(f.name));
+    } catch {}
     return Array.from(sources).sort((a, b) => a.localeCompare(b));
   }
 

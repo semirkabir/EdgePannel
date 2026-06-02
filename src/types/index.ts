@@ -18,6 +18,14 @@ export interface Feed {
   lang?: string;             // ISO 2-letter code for filtering
 }
 
+export interface CustomFeed {
+  id: string;
+  name: string;
+  url: string;
+  category: string; // e.g. 'politics', 'tech', 'asia', 'middleeast'
+  type: 'rss' | 'telegram' | 'x';
+}
+
 export type { ThreatClassification, ThreatLevel, EventCategory } from '@/services/threat-classifier';
 
 export interface NewsItem {
