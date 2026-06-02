@@ -62,6 +62,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   latam:                 p1('Latin America'),
   asia:                  p1('Asia-Pacific'),
   energy:                p1('Energy & Resources'),
+  'oil-inventories':     { name: 'Oil Inventories', enabled: true, priority: 60 },
   gov:                   p1('Government'),
   thinktanks:            p1('Think Tanks'),
   polymarket:            p1('Predictions'),

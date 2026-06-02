@@ -34,6 +34,7 @@ export const REFRESH_INTERVALS = {
   economic: 15 * 60 * 1000,
   webcams: 10 * 60 * 1000,
   hormuzTracker: 60 * 60 * 1000, // 1h — data updates daily
+  oilInventories: 5 * 60 * 1000, // EIA weekly + EU gas daily; 5min refresh
 };
 
 // Refresh intervals for anonymous users — throttled to incentivise sign-in

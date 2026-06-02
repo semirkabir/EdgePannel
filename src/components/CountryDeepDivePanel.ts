@@ -781,7 +781,11 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     riskProfileBody.append(this.makeLoading('Loading risk profile…'));
     briefBody.append(this.makeLoading(t('countryBrief.generatingBrief')));
 
-    bodyGrid.append(briefCard, signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, governanceCard, riskProfileCard);
+    const [energyCard, energyBody] = this.sectionCard('Energy Profile');
+    energyCard.dataset.panel = 'cdp-energy';
+    energyBody.append(this.makeLoading('Loading energy profile…'));
+
+    bodyGrid.append(briefCard, signalsCard, timelineCard, newsCard, militaryCard, infraCard, economicCard, marketsCard, governanceCard, riskProfileCard, energyCard);
 
     const tabBar = this.renderTabBar();
     const overviewPane = this.el('div', 'cdp-pane cdp-pane-overview');
