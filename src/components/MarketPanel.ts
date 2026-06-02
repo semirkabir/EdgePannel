@@ -456,8 +456,8 @@ export class HeatmapPanel extends Panel {
       validData.map((sector) => `
         <button type="button" class="heatmap-cell ${getHeatmapClass(sector.change!)}"
           aria-label="${escapeHtml(sector.name)}: ${escapeHtml(formatChange(sector.change!))}">
-          <div class="sector-name">${escapeHtml(sector.name)}</div>
           <div class="sector-change ${getChangeClass(sector.change!)}">${escapeHtml(formatChange(sector.change!))}</div>
+          <div class="sector-name">${escapeHtml(sector.name)}</div>
         </button>
       `).join('') +
       '</div>';

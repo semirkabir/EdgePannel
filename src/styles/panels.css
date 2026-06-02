@@ -1652,10 +1652,16 @@
   flex-shrink: 0;
   width: 12px;
   text-align: center;
+  padding: 10px 8px;
+  margin: -10px -4px;
 }
 
 .wc-drag-handle:hover {
   color: var(--text-dim);
+}
+
+.wc-content-dragging .wc-row {
+  user-select: none;
 }
 
 .wc-row.wc-dragging {
