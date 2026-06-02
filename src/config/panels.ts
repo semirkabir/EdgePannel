@@ -66,6 +66,8 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   gov:                   p1('Government'),
   thinktanks:            p1('Think Tanks'),
   polymarket:            p1('Predictions'),
+  forecast:              { name: 'AI Forecasts', enabled: true, priority: 1 },
+  'consumer-prices':     { name: 'Consumer Prices', enabled: false, priority: 2 },
   commodities:           p1('Commodities'),
   markets:               p1('Markets'),
   watchlist:             p1('Watchlist'),

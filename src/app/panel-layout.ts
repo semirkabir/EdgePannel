@@ -63,6 +63,8 @@ import { OilInventoriesPanel } from '@/components/OilInventoriesPanel';
 import { FearGreedPanel } from '@/components/FearGreedPanel';
 import { MarketBreadthPanel } from '@/components/MarketBreadthPanel';
 import { GoldIntelligencePanel } from '@/components/GoldIntelligencePanel';
+import { ForecastPanel } from '@/components/ForecastPanel';
+import { ConsumerPricesPanel } from '@/components/ConsumerPricesPanel';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
 import { debounce, saveToStorage, loadFromStorage } from '@/utils';
@@ -891,6 +893,8 @@ export class PanelLayoutManager implements AppModule {
       }
     });
     this.ctx.panels['polymarket'] = predictionPanel;
+    this.ctx.panels['forecast'] = new ForecastPanel();
+    this.ctx.panels['consumer-prices'] = new ConsumerPricesPanel();
 
     const govPanel = new NewsPanel('gov', t('panels.gov'));
     this.attachRelatedAssetHandlers(govPanel);

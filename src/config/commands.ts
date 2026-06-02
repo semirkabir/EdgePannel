@@ -95,6 +95,8 @@ export const COMMANDS: Command[] = [
   { id: 'panel:ai', keywords: ['ai', 'ml', 'artificial intelligence'], label: 'Panel: AI/ML', icon: '\u{1F916}', category: 'panels' },
   { id: 'panel:macro-signals', keywords: ['macro', 'macro signals', 'liquidity'], label: 'Panel: Market Radar', icon: '\u{1F4C9}', category: 'panels' },
   { id: 'panel:fear-greed', keywords: ['fear', 'greed', 'fear and greed', 'sentiment', 'fear greed index'], label: 'Panel: Fear & Greed', icon: '\u{1F4CA}', category: 'panels' },
+  { id: 'panel:forecast', keywords: ['forecast', 'ai forecast', 'prediction', 'geopolitical forecast', 'scenario'], label: 'Panel: AI Forecasts', icon: '\u{1F52E}', category: 'panels' },
+  { id: 'panel:consumer-prices', keywords: ['consumer prices', 'cpi', 'inflation', 'cost of living', 'grocery'], label: 'Panel: Consumer Prices', icon: '\u{1F6D2}', category: 'panels' },
   { id: 'panel:market-breadth', keywords: ['market breadth', 'breadth', 'advance decline', 'percent above moving average'], label: 'Panel: Market Breadth', icon: '\u{1F4C8}', category: 'panels' },
   { id: 'panel:gold-intelligence', keywords: ['gold', 'gold intelligence', 'gold price', 'gold silver ratio', 'precious metals', 'cot gold'], label: 'Panel: Gold Intelligence', icon: '\u{1F947}', category: 'panels' },
   { id: 'panel:hormuz-tracker', keywords: ['hormuz', 'strait of hormuz', 'shipping', 'crude oil', 'lng', 'fertilizer', 'tanker', 'wto'], label: 'Panel: Hormuz Trade Tracker', icon: '\u{1F6A2}', category: 'panels' },
