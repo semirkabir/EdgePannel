@@ -407,7 +407,7 @@ export const INTEL_SOURCES: ServerFeed[] = [
   { name: 'Defense News', url: 'https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml' },
   { name: 'Military Times', url: 'https://www.militarytimes.com/arc/outboundfeeds/rss/?outputType=xml' },
   { name: 'Task & Purpose', url: 'https://taskandpurpose.com/feed/' },
-  { name: 'USNI News', url: 'https://news.usni.org/feed' },
+  { name: 'USNI News', url: gn('site:news.usni.org when:3d') },
   { name: 'gCaptain', url: 'https://gcaptain.com/feed/' },
   { name: 'Oryx OSINT', url: 'https://www.oryxspioenkop.com/feeds/posts/default?alt=rss' },
   { name: 'Foreign Policy', url: 'https://foreignpolicy.com/feed/' },
