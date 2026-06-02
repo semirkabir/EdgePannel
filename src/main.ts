@@ -1,6 +1,5 @@
 import './styles/base-layer.css';
 import './styles/happy-theme.css';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import './styles/cursors.css';
 import * as Sentry from '@sentry/browser';
 import { inject } from '@vercel/analytics';

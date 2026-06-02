@@ -9,6 +9,7 @@ import { cachedFetchJson } from '../../../_shared/redis';
 
 export const SEC_USER_AGENT = 'EdgePannel/1.0 (contact@worldmonitor.io)';
 export const SEC_UPSTREAM_TIMEOUT_MS = 10_000;
+const SEC_DOCUMENT_MAX_CHARS = 2_000_000;
 
 const SEC_CACHE_TTL = 60 * 60;
 const TICKER_CACHE_TTL = 24 * 60 * 60;
@@ -90,6 +91,13 @@ interface MetricSpec {
   unit: 'USD' | 'shares';
   kind: string;
   concepts: string[];
+}
+
+export interface FormSpecificAnalysis {
+  bullets: string[];
+  metrics: SecFilingMetric[];
+  events: SecFilingEvent[];
+  fallbackReason: string;
 }
 
 const METRIC_SPECS: Record<string, MetricSpec> = {
@@ -182,8 +190,8 @@ export function classifyFilingType(filingType: string): string {
   if (['10-K', '10-K/A', '10-Q', '10-Q/A', '20-F', '20-F/A', '40-F', '40-F/A'].includes(form)) return 'periodic';
   if (form === '8-K' || form === '8-K/A' || form === '6-K' || form === '6-K/A') return 'current';
   if (/^(S|F)-[1348](\/A)?$/.test(form)) return 'registration';
-  if (form.includes('DEF 14A') || form.includes('PRE 14A') || form.includes('DEFM 14A') || form.includes('PREM 14A')) return 'proxy';
-  if (form.startsWith('SC 13') || form === '13D' || form === '13G') return 'ownership';
+  if (form.includes('DEF 14A') || form.includes('PRE 14A') || form.includes('DEFM 14A') || form.includes('PREM 14A') || form.includes('DEFA 14A')) return 'proxy';
+  if (form.startsWith('SC 13') || ['13D', '13G', '13D/A', '13G/A'].includes(form)) return 'ownership';
   if (['3', '3/A', '4', '4/A', '5', '5/A'].includes(form)) return 'insider';
   if (form.startsWith('13F')) return 'institutional';
   if (form.startsWith('424') || form.startsWith('497') || form === 'FWP') return 'prospectus';
@@ -233,6 +241,97 @@ async function secFetchJson<T>(url: string): Promise<T> {
   });
   if (!resp.ok) throw new Error(`SEC returned HTTP ${resp.status}`);
   return await resp.json() as T;
+}
+
+async function secFetchText(url: string): Promise<string> {
+  const trimmed = String(url || '').trim();
+  if (!/^https:\/\/(?:www\.)?sec\.gov\//i.test(trimmed)) return '';
+  const resp = await fetch(trimmed, {
+    headers: {
+      'User-Agent': SEC_USER_AGENT,
+      Accept: 'text/html,application/xml,text/xml,text/plain;q=0.9,*/*;q=0.8',
+    },
+    signal: AbortSignal.timeout(SEC_UPSTREAM_TIMEOUT_MS),
+  });
+  if (!resp.ok) return '';
+  const text = await resp.text();
+  return text.slice(0, SEC_DOCUMENT_MAX_CHARS);
+}
+
+function decodeEntities(value: string): string {
+  return value
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCharCode(Number.parseInt(code, 16)))
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>');
+}
+
+function normalizeFilingText(raw: string): string {
+  return decodeEntities(String(raw || '')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<ix:[^>]+>/gi, ' ')
+    .replace(/<\/?[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim());
+}
+
+function metric(
+  id: string,
+  label: string,
+  value: number,
+  formattedValue: string,
+  unit: string,
+  kind: string,
+  filedAt = '',
+): SecFilingMetric {
+  return {
+    id,
+    label,
+    value,
+    formattedValue,
+    unit,
+    kind,
+    yoy: 0,
+    hasYoy: false,
+    fiscalPeriod: '',
+    filedAt,
+  };
+}
+
+function formatCount(value: number): string {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function formatNumber(value: number): string {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function formatPercentMetric(value: number): string {
+  return `${value.toFixed(value >= 10 ? 1 : 2)}%`;
+}
+
+function parseNumber(value: string): number | null {
+  const cleaned = value.replace(/[$,%]/g, '').replace(/,/g, '').trim();
+  if (!cleaned) return null;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function firstMatch(text: string, patterns: RegExp[]): string {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+  return '';
+}
+
+function unique<T>(values: T[]): T[] {
+  return [...new Set(values)];
 }
 
 export async function fetchTickerDirectory(): Promise<Record<string, SecTickerDirectoryEntry>> {
@@ -548,11 +647,11 @@ function addRatioMetrics(metrics: SecFilingMetric[]): SecFilingMetric[] {
 function categoryDescription(category: string, form: string): string {
   switch (category) {
     case 'periodic': return `${form} is a periodic issuer report. Structured values come from SEC XBRL company facts.`;
-    case 'current': return `${form} is a current-event report. V1 surfaces event metadata and available issuer facts.`;
+    case 'current': return `${form} is a current-event report. The reader highlights the 8-K item codes, likely disclosure theme, timing, and available issuer facts.`;
     case 'registration': return `${form} is a securities registration statement. V1 surfaces offering context and available issuer facts.`;
-    case 'proxy': return `${form} is a proxy disclosure. V1 surfaces meeting/proxy metadata and issuer facts when available.`;
-    case 'ownership': return `${form} is a beneficial-ownership disclosure. V1 surfaces ownership context and source metadata.`;
-    case 'insider': return `${form} is an insider ownership or transaction form. V1 classifies the filing and links the source.`;
+    case 'proxy': return `${form} is a proxy disclosure. The reader extracts meeting, voting, governance, proposal, and compensation signals when available.`;
+    case 'ownership': return `${form} is a beneficial-ownership disclosure. The reader extracts ownership size, voting/dispositive power, amendment intent, and activist/passive context.`;
+    case 'insider': return `${form} is an insider ownership or transaction form. The reader extracts reporting-owner, transaction, price, value, and post-transaction ownership context.`;
     case 'institutional': return `${form} is an institutional holdings filing. Detailed 13F portfolio interpretation remains in the institution flow.`;
     case 'fund': return `${form} is a fund disclosure. V1 provides categorized source metadata.`;
     case 'prospectus': return `${form} is prospectus material. V1 provides categorized source metadata.`;
@@ -560,16 +659,320 @@ function categoryDescription(category: string, form: string): string {
   }
 }
 
-function buildEvents(category: string, filing: EdgarFilingRecord | null, form: string): SecFilingEvent[] {
+const FORM_8K_ITEM_LABELS: Record<string, string> = {
+  '1.01': 'Entry into a Material Definitive Agreement',
+  '1.02': 'Termination of a Material Definitive Agreement',
+  '1.03': 'Bankruptcy or Receivership',
+  '1.04': 'Mine Safety - Reporting of Shutdowns and Patterns of Violations',
+  '2.01': 'Completion of Acquisition or Disposition of Assets',
+  '2.02': 'Results of Operations and Financial Condition',
+  '2.03': 'Creation of a Direct Financial Obligation',
+  '2.04': 'Triggering Events That Accelerate a Direct Financial Obligation',
+  '2.05': 'Costs Associated with Exit or Disposal Activities',
+  '2.06': 'Material Impairments',
+  '3.01': 'Notice of Delisting or Failure to Satisfy Listing Rule',
+  '3.02': 'Unregistered Sales of Equity Securities',
+  '3.03': 'Material Modification to Rights of Security Holders',
+  '4.01': 'Changes in Registrant Certifying Accountant',
+  '4.02': 'Non-Reliance on Previously Issued Financial Statements',
+  '5.01': 'Changes in Control',
+  '5.02': 'Departure or Appointment of Directors or Officers',
+  '5.03': 'Amendments to Articles or Bylaws',
+  '5.07': 'Submission of Matters to a Vote of Security Holders',
+  '7.01': 'Regulation FD Disclosure',
+  '8.01': 'Other Events',
+  '9.01': 'Financial Statements and Exhibits',
+};
+
+function extract8KItems(filing: EdgarFilingRecord | null, text: string): string[] {
+  const fromMetadata = (filing?.items || '').match(/\d\.\d{2}/g) ?? [];
+  const fromText = [...text.matchAll(/\bItem\s+(\d\.\d{2})\b/gi)].map((match) => match[1] ?? '');
+  return unique([...fromMetadata, ...fromText].filter(Boolean));
+}
+
+function daysBetween(start: string, end: string): number | null {
+  const startMs = Date.parse(start);
+  const endMs = Date.parse(end);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  return Math.max(0, Math.round((endMs - startMs) / 86_400_000));
+}
+
+export function analyzeCurrentReport(form: string, filing: EdgarFilingRecord | null, text: string): FormSpecificAnalysis {
+  const items = extract8KItems(filing, text);
+  const events: SecFilingEvent[] = items.map((item) => ({
+    label: `Item ${item}`,
+    value: FORM_8K_ITEM_LABELS[item] ?? 'Unmapped current-report item',
+    kind: 'disclosure',
+  }));
+  const metrics: SecFilingMetric[] = [];
+  if (items.length > 0) {
+    metrics.push(metric('currentReportItemCount', '8-K items', items.length, formatCount(items.length), 'count', 'disclosure', filing?.filedAt ?? ''));
+  }
+
+  const filingLag = filing?.reportDate && filing.filedAt ? daysBetween(filing.reportDate, filing.filedAt) : null;
+  if (filingLag !== null) {
+    metrics.push(metric('filingLagDays', 'Report-to-file lag', filingLag, `${filingLag} day${filingLag === 1 ? '' : 's'}`, 'days', 'timing', filing?.filedAt ?? ''));
+    events.push({ label: 'Timing', value: `${filingLag} day${filingLag === 1 ? '' : 's'} from report date to filing date`, kind: 'timing' });
+  }
+
+  const interpretation = items.some((item) => item === '2.02')
+    ? 'Earnings or operating results update'
+    : items.some((item) => item === '5.02')
+      ? 'Leadership or board change disclosure'
+      : items.some((item) => item === '1.01' || item === '2.01')
+        ? 'Transaction or material agreement disclosure'
+        : items.some((item) => item === '5.07')
+          ? 'Shareholder vote result disclosure'
+          : items.some((item) => item === '7.01' || item === '8.01')
+            ? 'Market update or other event disclosure'
+            : 'Current-report event disclosure';
+  events.push({ label: 'Interpretation', value: interpretation, kind: 'interpretation' });
+
+  return {
+    bullets: [
+      `${form} reports a current event rather than a full periodic financial statement.`,
+      items.length > 0
+        ? `Detected ${items.length} 8-K item${items.length === 1 ? '' : 's'}: ${items.map((item) => `${item} (${FORM_8K_ITEM_LABELS[item] ?? 'unmapped'})`).join('; ')}.`
+        : 'No 8-K item code was found in SEC metadata or the primary document.',
+      `Reader focus: ${interpretation.toLowerCase()}.`,
+    ],
+    metrics,
+    events,
+    fallbackReason: items.length > 0 ? '' : 'No 8-K item codes were extracted from the filing document.',
+  };
+}
+
+function countUniqueProposalMarkers(text: string): number {
+  const proposalNumbers = [...text.matchAll(/\bProposal\s+(?:No\.?\s*)?(\d+)\b/gi)].map((match) => match[1] ?? '');
+  if (proposalNumbers.length > 0) return unique(proposalNumbers).length;
+  const titled = text.match(/\b(?:Election of Directors|Ratification of|Advisory Vote|Approval of|Shareholder Proposal)\b/gi) ?? [];
+  return unique(titled.map((item) => item.toLowerCase())).length;
+}
+
+export function analyzeProxyFiling(form: string, text: string, filing: EdgarFilingRecord | null): FormSpecificAnalysis {
+  const meetingDate = firstMatch(text, [
+    /\b(?:annual|special)\s+meeting[^.]{0,180}?\b(?:on|held on|to be held on|will be held on)\s+([A-Z][a-z]+\.?\s+\d{1,2},\s+\d{4})/i,
+    /\b(?:date of meeting|meeting date)\s*[:\-]?\s*([A-Z][a-z]+\.?\s+\d{1,2},\s+\d{4})/i,
+  ]);
+  const recordDate = firstMatch(text, [
+    /\brecord date\s*(?:for[^.]{0,80})?\s*(?:is|was|:)?\s*([A-Z][a-z]+\.?\s+\d{1,2},\s+\d{4})/i,
+  ]);
+  const proposalCount = countUniqueProposalMarkers(text);
+  const shareholderProposalCount = (text.match(/\bshareholder proposal\b/gi) ?? []).length;
+  const hasSayOnPay = /\bsay[-\s]?on[-\s]?pay\b|advisory vote (?:to approve|on) (?:executive )?compensation/i.test(text);
+  const hasDirectorElection = /\belection of directors\b|\belect(?:ion)?\s+\d+\s+director/i.test(text);
+  const payRatio = firstMatch(text, [
+    /\bpay ratio\b[^.]{0,240}?(\d+(?:\.\d+)?\s*(?:to|:)\s*1)/i,
+    /\bratio of annual total compensation[^.]{0,240}?(\d+(?:\.\d+)?\s*(?:to|:)\s*1)/i,
+  ]);
+
+  const events: SecFilingEvent[] = [];
+  if (meetingDate) events.push({ label: 'Meeting date', value: meetingDate, kind: 'date' });
+  if (recordDate) events.push({ label: 'Record date', value: recordDate, kind: 'date' });
+  if (hasDirectorElection) events.push({ label: 'Director vote', value: 'Director-election matter detected', kind: 'governance' });
+  if (hasSayOnPay) events.push({ label: 'Compensation vote', value: 'Say-on-pay or executive-compensation advisory vote detected', kind: 'governance' });
+  if (shareholderProposalCount > 0) events.push({ label: 'Shareholder proposals', value: `${shareholderProposalCount} textual mention${shareholderProposalCount === 1 ? '' : 's'} detected`, kind: 'governance' });
+  if (payRatio) events.push({ label: 'Pay ratio', value: payRatio, kind: 'compensation' });
+
+  const metrics: SecFilingMetric[] = [];
+  if (proposalCount > 0) metrics.push(metric('proxyProposalCount', 'Detected proposals', proposalCount, formatCount(proposalCount), 'count', 'governance', filing?.filedAt ?? ''));
+  if (shareholderProposalCount > 0) metrics.push(metric('shareholderProposalMentions', 'Shareholder proposal mentions', shareholderProposalCount, formatCount(shareholderProposalCount), 'count', 'governance', filing?.filedAt ?? ''));
+  metrics.push(metric('sayOnPayDetected', 'Say-on-pay detected', hasSayOnPay ? 1 : 0, hasSayOnPay ? 'Yes' : 'No', 'boolean', 'governance', filing?.filedAt ?? ''));
+  metrics.push(metric('directorElectionDetected', 'Director election detected', hasDirectorElection ? 1 : 0, hasDirectorElection ? 'Yes' : 'No', 'boolean', 'governance', filing?.filedAt ?? ''));
+
+  return {
+    bullets: [
+      `${form} is proxy material for shareholder voting and governance decisions.`,
+      meetingDate ? `Meeting date extracted as ${meetingDate}.` : 'Meeting date was not confidently extracted from the proxy text.',
+      proposalCount > 0 ? `Detected ${proposalCount} proposal marker${proposalCount === 1 ? '' : 's'} in the proxy material.` : 'No numbered proposal markers were confidently detected.',
+      [hasDirectorElection ? 'director elections' : '', hasSayOnPay ? 'say-on-pay' : '', shareholderProposalCount > 0 ? 'shareholder proposal language' : ''].filter(Boolean).join(', ')
+        ? `Governance signals include ${[hasDirectorElection ? 'director elections' : '', hasSayOnPay ? 'say-on-pay' : '', shareholderProposalCount > 0 ? 'shareholder proposal language' : ''].filter(Boolean).join(', ')}.`
+        : 'No major governance signal was confidently extracted from the proxy text.',
+    ],
+    metrics,
+    events,
+    fallbackReason: events.length > 0 || proposalCount > 0 ? '' : 'No proxy meeting, proposal, or governance signals were extracted.',
+  };
+}
+
+function extractOwnershipNumber(text: string, label: string): number | null {
+  const pattern = new RegExp(`${label}[^\\d]{0,160}([\\d,]+(?:\\.\\d+)?)`, 'i');
+  const match = text.match(pattern);
+  return match?.[1] ? parseNumber(match[1]) : null;
+}
+
+export function analyzeOwnershipFiling(form: string, text: string, filing: EdgarFilingRecord | null): FormSpecificAnalysis {
+  const percent = firstMatch(text, [
+    /\bpercent of class(?: represented by amount in row \(11\))?[^0-9]{0,120}(\d{1,3}(?:\.\d+)?)\s*%/i,
+    /\b(\d{1,3}(?:\.\d+)?)\s*%\s*(?:of\s+)?(?:the\s+)?(?:class|common stock|ordinary shares)/i,
+  ]);
+  const percentValue = percent ? parseNumber(percent) : null;
+  const beneficialShares = extractOwnershipNumber(text, 'amount beneficially owned') ?? extractOwnershipNumber(text, 'aggregate amount beneficially owned');
+  const soleVoting = extractOwnershipNumber(text, 'sole voting power');
+  const sharedVoting = extractOwnershipNumber(text, 'shared voting power');
+  const soleDispositive = extractOwnershipNumber(text, 'sole dispositive power');
+  const sharedDispositive = extractOwnershipNumber(text, 'shared dispositive power');
+  const purposeSnippet = firstMatch(text, [
+    /\bItem\s+4\.?\s+Purpose of Transaction\s+(.{40,420}?)(?:\bItem\s+5\b|\bItem\s+6\b|$)/i,
+  ]).replace(/\s+/g, ' ');
+  const activistKeywords = /\b(change in control|board representation|strategic alternatives|undervalued|engage with management|nominate|proxy contest|extraordinary transaction)\b/i.test(text);
+  const passive = form.includes('13G') && !activistKeywords;
+  const amendment = form.includes('/A') || /\bamendment\b/i.test(filing?.title ?? '');
+
+  const events: SecFilingEvent[] = [];
+  events.push({ label: 'Schedule type', value: form.includes('13D') ? 'Schedule 13D activist/control-oriented ownership' : form.includes('13G') ? 'Schedule 13G passive/institutional ownership' : 'Beneficial ownership disclosure', kind: 'interpretation' });
+  if (amendment) events.push({ label: 'Amendment', value: 'This appears to amend a prior beneficial-ownership filing', kind: 'disclosure' });
+  if (percentValue !== null) events.push({ label: 'Percent of class', value: formatPercentMetric(percentValue), kind: 'ownership' });
+  if (beneficialShares !== null) events.push({ label: 'Beneficially owned shares', value: formatCount(beneficialShares), kind: 'ownership' });
+  if (purposeSnippet) events.push({ label: 'Purpose excerpt', value: purposeSnippet.slice(0, 280), kind: 'interpretation' });
+  events.push({ label: 'Interpretation', value: passive ? 'Passive or institutional beneficial ownership signal' : activistKeywords || form.includes('13D') ? 'Potentially activist or control-oriented ownership signal' : 'Beneficial ownership position signal', kind: 'interpretation' });
+
+  const metrics: SecFilingMetric[] = [];
+  if (percentValue !== null) metrics.push(metric('beneficialOwnershipPercent', 'Beneficial ownership', percentValue, formatPercentMetric(percentValue), 'percent', 'ownership', filing?.filedAt ?? ''));
+  if (beneficialShares !== null) metrics.push(metric('beneficialShares', 'Beneficial shares', beneficialShares, formatCount(beneficialShares), 'shares', 'ownership', filing?.filedAt ?? ''));
+  if (soleVoting !== null) metrics.push(metric('soleVotingPower', 'Sole voting power', soleVoting, formatCount(soleVoting), 'shares', 'ownership', filing?.filedAt ?? ''));
+  if (sharedVoting !== null) metrics.push(metric('sharedVotingPower', 'Shared voting power', sharedVoting, formatCount(sharedVoting), 'shares', 'ownership', filing?.filedAt ?? ''));
+  if (soleDispositive !== null) metrics.push(metric('soleDispositivePower', 'Sole dispositive power', soleDispositive, formatCount(soleDispositive), 'shares', 'ownership', filing?.filedAt ?? ''));
+  if (sharedDispositive !== null) metrics.push(metric('sharedDispositivePower', 'Shared dispositive power', sharedDispositive, formatCount(sharedDispositive), 'shares', 'ownership', filing?.filedAt ?? ''));
+
+  return {
+    bullets: [
+      `${form} reports a beneficial ownership position, not issuer operating results.`,
+      percentValue !== null ? `Extracted beneficial ownership of ${formatPercentMetric(percentValue)} of the class.` : 'Percent of class was not confidently extracted.',
+      beneficialShares !== null ? `Extracted ${formatCount(beneficialShares)} beneficially owned shares.` : 'Beneficial share count was not confidently extracted.',
+      passive ? 'Interpretation leans passive/institutional based on Schedule 13G context.' : 'Interpretation leans activist/control-sensitive when Schedule 13D or activism language is present.',
+    ],
+    metrics,
+    events,
+    fallbackReason: metrics.length > 0 ? '' : 'No beneficial ownership percentages, shares, or power rows were extracted.',
+  };
+}
+
+function firstXmlTag(block: string, tag: string): string {
+  const match = block.match(new RegExp(`<${tag}>\\s*([\\s\\S]*?)\\s*<\\/${tag}>`, 'i'));
+  return match?.[1] ? decodeEntities(match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()) : '';
+}
+
+function xmlBlocks(raw: string, tag: string): string[] {
+  return [...String(raw || '').matchAll(new RegExp(`<${tag}>[\\s\\S]*?<\\/${tag}>`, 'gi'))].map((match) => match[0]);
+}
+
+function transactionDirection(code: string): 'acquired' | 'disposed' | 'other' {
+  const upper = code.toUpperCase();
+  if (['P', 'A', 'M', 'F'].includes(upper)) return upper === 'F' ? 'disposed' : 'acquired';
+  if (['S', 'D'].includes(upper)) return 'disposed';
+  return 'other';
+}
+
+export function analyzeInsiderFiling(form: string, raw: string, filing: EdgarFilingRecord | null): FormSpecificAnalysis {
+  const ownerName = firstXmlTag(raw, 'rptOwnerName');
+  const ownerTitle = firstXmlTag(raw, 'officerTitle');
+  const issuerSymbol = firstXmlTag(raw, 'issuerTradingSymbol');
+  const txBlocks = xmlBlocks(raw, 'nonDerivativeTransaction');
+  const ownershipBlocks = xmlBlocks(raw, 'nonDerivativeHolding');
+
+  let acquiredShares = 0;
+  let disposedShares = 0;
+  let totalValue = 0;
+  let pricedShares = 0;
+  const codes: string[] = [];
+  const txDates: string[] = [];
+  let postTransactionShares: number | null = null;
+
+  for (const block of txBlocks) {
+    const code = firstXmlTag(block, 'transactionCode');
+    const shares = parseNumber(firstXmlTag(block, 'transactionShares')) ?? 0;
+    const price = parseNumber(firstXmlTag(block, 'transactionPricePerShare')) ?? 0;
+    const date = firstXmlTag(block, 'transactionDate');
+    const ownedAfter = parseNumber(firstXmlTag(block, 'sharesOwnedFollowingTransaction'));
+    const direction = transactionDirection(code);
+    if (code) codes.push(code.toUpperCase());
+    if (date) txDates.push(date);
+    if (ownedAfter !== null) postTransactionShares = ownedAfter;
+    if (direction === 'acquired') acquiredShares += shares;
+    if (direction === 'disposed') disposedShares += shares;
+    if (shares > 0 && price > 0) {
+      totalValue += shares * price;
+      pricedShares += shares;
+    }
+  }
+
+  if (postTransactionShares === null && ownershipBlocks.length > 0) {
+    postTransactionShares = parseNumber(firstXmlTag(ownershipBlocks[0]!, 'sharesOwnedFollowingTransaction'));
+  }
+
+  const netShares = acquiredShares - disposedShares;
+  const averagePrice = pricedShares > 0 ? totalValue / pricedShares : null;
+  const events: SecFilingEvent[] = [];
+  if (ownerName) events.push({ label: 'Reporting owner', value: ownerName, kind: 'person' });
+  if (ownerTitle) events.push({ label: 'Relationship', value: ownerTitle, kind: 'role' });
+  if (issuerSymbol) events.push({ label: 'Issuer symbol', value: issuerSymbol, kind: 'ticker' });
+  if (txDates.length > 0) events.push({ label: 'Transaction date', value: unique(txDates).join(', '), kind: 'date' });
+  if (codes.length > 0) events.push({ label: 'Transaction code', value: unique(codes).join(', '), kind: 'transaction' });
+  events.push({
+    label: 'Interpretation',
+    value: txBlocks.length === 0
+      ? form.startsWith('3') ? 'Initial insider ownership statement' : 'Insider ownership statement without parsed transaction rows'
+      : netShares > 0 ? 'Net insider acquisition' : netShares < 0 ? 'Net insider disposition' : 'Offsetting or non-open-market insider activity',
+    kind: 'interpretation',
+  });
+
+  const metrics: SecFilingMetric[] = [];
+  metrics.push(metric('insiderTransactionCount', 'Transaction rows', txBlocks.length, formatCount(txBlocks.length), 'count', 'transaction', filing?.filedAt ?? ''));
+  if (acquiredShares > 0) metrics.push(metric('insiderSharesAcquired', 'Shares acquired', acquiredShares, formatCount(acquiredShares), 'shares', 'transaction', filing?.filedAt ?? ''));
+  if (disposedShares > 0) metrics.push(metric('insiderSharesDisposed', 'Shares disposed', disposedShares, formatCount(disposedShares), 'shares', 'transaction', filing?.filedAt ?? ''));
+  if (netShares !== 0) metrics.push(metric('insiderNetShares', 'Net shares', netShares, formatCount(netShares), 'shares', 'transaction', filing?.filedAt ?? ''));
+  if (averagePrice !== null) metrics.push(metric('insiderAveragePrice', 'Average price', averagePrice, `$${formatNumber(averagePrice)}`, 'USD/share', 'transaction', filing?.filedAt ?? ''));
+  if (totalValue > 0) metrics.push(metric('insiderTransactionValue', 'Estimated value', totalValue, formatValue(totalValue, 'USD'), 'USD', 'transaction', filing?.filedAt ?? ''));
+  if (postTransactionShares !== null) metrics.push(metric('postTransactionShares', 'Shares after transaction', postTransactionShares, formatCount(postTransactionShares), 'shares', 'ownership', filing?.filedAt ?? ''));
+
+  return {
+    bullets: [
+      `${form} reports insider ownership or transactions for the issuer.`,
+      ownerName ? `Reporting owner: ${ownerName}${ownerTitle ? ` (${ownerTitle})` : ''}.` : 'Reporting owner was not confidently extracted.',
+      txBlocks.length > 0
+        ? `Parsed ${txBlocks.length} transaction row${txBlocks.length === 1 ? '' : 's'} with net share change of ${formatCount(netShares)}.`
+        : 'No non-derivative transaction rows were parsed; this may be an initial/annual ownership statement or a document-format limitation.',
+      totalValue > 0 ? `Estimated reported transaction value is ${formatValue(totalValue, 'USD')}.` : 'Transaction value was not available because shares or price were missing.',
+    ],
+    metrics,
+    events,
+    fallbackReason: ownerName || txBlocks.length > 0 ? '' : 'No Form 3/4/5 owner or transaction rows were extracted.',
+  };
+}
+
+function emptyFormAnalysis(): FormSpecificAnalysis {
+  return { bullets: [], metrics: [], events: [], fallbackReason: '' };
+}
+
+function analyzeFormSpecific(
+  category: string,
+  form: string,
+  filing: EdgarFilingRecord | null,
+  rawText: string,
+): FormSpecificAnalysis {
+  const normalized = normalizeFilingText(rawText);
+  switch (category) {
+    case 'current':
+      return analyzeCurrentReport(form, filing, normalized);
+    case 'proxy':
+      return analyzeProxyFiling(form, normalized, filing);
+    case 'ownership':
+      return analyzeOwnershipFiling(form, normalized, filing);
+    case 'insider':
+      return analyzeInsiderFiling(form, rawText, filing);
+    default:
+      return emptyFormAnalysis();
+  }
+}
+
+function buildEvents(category: string, filing: EdgarFilingRecord | null, formEvents: SecFilingEvent[]): SecFilingEvent[] {
   const events: SecFilingEvent[] = [];
   events.push({ label: 'Form category', value: category, kind: 'category' });
   if (filing?.filedAt) events.push({ label: 'Filed', value: filing.filedAt, kind: 'date' });
   if (filing?.reportDate) events.push({ label: 'Report date', value: filing.reportDate, kind: 'date' });
-  if (filing?.items) events.push({ label: '8-K items', value: filing.items, kind: 'disclosure' });
+  events.push(...formEvents);
   if (category === 'registration') events.push({ label: 'Reader focus', value: 'Offering, shelf, merger, or resale registration context', kind: 'interpretation' });
-  if (category === 'proxy') events.push({ label: 'Reader focus', value: 'Shareholder meeting, voting, compensation, or transaction proxy context', kind: 'interpretation' });
-  if (category === 'ownership') events.push({ label: 'Reader focus', value: 'Beneficial ownership position or amendment metadata', kind: 'interpretation' });
-  if (category === 'insider') events.push({ label: 'Reader focus', value: form === '4' || form === '4/A' ? 'Insider transaction disclosure' : 'Insider ownership disclosure', kind: 'interpretation' });
   return events;
 }
 
@@ -588,8 +991,9 @@ function buildBullets(
   form: string,
   filing: EdgarFilingRecord | null,
   metrics: SecFilingMetric[],
+  formBullets: string[],
 ): string[] {
-  const bullets = [categoryDescription(category, form)];
+  const bullets = [categoryDescription(category, form), ...formBullets];
   if (filing?.title) bullets.push(`Primary document: ${filing.title}.`);
 
   // Only surface financial fact bullets for forms where XBRL metrics are meaningful
@@ -618,17 +1022,30 @@ export async function buildSecFilingAnalysis(req: GetSecFilingAnalysisRequest): 
   const companyName = submissions?.name || resolved?.name || '';
   const ticker = resolved?.ticker || req.ticker || '';
   const facts = cik.replace(/^0+/, '') ? await fetchCompanyFacts(cik) : null;
+  const shouldAnalyzeDocument = category === 'current' || category === 'proxy' || category === 'ownership' || category === 'insider';
+  let documentText = '';
+  if (shouldAnalyzeDocument) {
+    try {
+      documentText = await secFetchText(filing?.url || req.documentUrl || '');
+    } catch (err) {
+      console.warn('[SEC] Failed to load filing document for reader:', err);
+    }
+  }
+  const formAnalysis = shouldAnalyzeDocument
+    ? analyzeFormSpecific(category, form, filing, documentText)
+    : emptyFormAnalysis();
   // Only pull XBRL financials for forms where they're genuinely relevant.
   // Insider (Form 4), institutional (13F), ownership (13G/D), fund, and
   // prospectus filings should not surface company-wide P&L/balance sheet data.
-  const metrics = includesIssuerFacts(category)
+  const issuerMetrics = includesIssuerFacts(category)
     ? addRatioMetrics(buildMetricsFromFacts(facts, filing, form))
     : [];
+  const metrics = [...formAnalysis.metrics, ...issuerMetrics];
   const series = includesSeries(category)
     ? buildSeriesFromFacts(facts)
     : [];
-  const structured = metrics.length > 0 || series.length > 0;
-  const fallbackReason = structured ? '' : 'No SEC companyfacts metrics matched this filing.';
+  const structured = metrics.length > 0 || series.length > 0 || formAnalysis.events.length > 0 || formAnalysis.bullets.length > 0;
+  const fallbackReason = structured ? '' : formAnalysis.fallbackReason || 'No structured SEC filing details were extracted.';
   const accession = filing?.accessionNumber || dashedAccession(req.accessionNumber || '');
   const url = filing?.url || req.documentUrl || (cik ? `https://www.sec.gov/edgar/browse/?CIK=${encodeURIComponent(cik)}` : '');
 
@@ -642,9 +1059,9 @@ export async function buildSecFilingAnalysis(req: GetSecFilingAnalysisRequest): 
     filedAt: filing?.filedAt || '',
     title: filing?.title || form || 'SEC filing',
     url,
-    summaryBullets: buildBullets(category, form, filing, metrics),
+    summaryBullets: buildBullets(category, form, filing, metrics, formAnalysis.bullets),
     metrics,
-    events: buildEvents(category, filing, form),
+    events: buildEvents(category, filing, formAnalysis.events),
     series,
     structured,
     fallbackReason,

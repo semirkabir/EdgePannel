@@ -1041,7 +1041,10 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['gdelt-intel'] = gdeltIntelPanel;
 
       if (this.ctx.isDesktopApp) {
+        // Two-arg .then(onFulfilled, onRejected) only suppresses dynamic-import
+        // failures; synchronous construction bugs still surface normally.
         import('@/components/DeductionPanel').then(({ DeductionPanel }) => {
+          if (typeof DeductionPanel !== 'function') return;
           const deductionPanel = new DeductionPanel(() => this.ctx.allNews);
           this.ctx.panels['deduction'] = deductionPanel;
           const el = deductionPanel.getElement();
@@ -1055,7 +1058,7 @@ export class PanelLayoutManager implements AppModule {
               grid.appendChild(el);
             }
           }
-        });
+        }, () => undefined);
       }
 
       const ciiPanel = new CIIPanel();

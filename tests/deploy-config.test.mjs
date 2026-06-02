@@ -15,9 +15,21 @@ const getCacheHeaderValue = (sourcePath) => {
 };
 
 describe('deploy/cache configuration guardrails', () => {
-  it('disables caching for HTML entry routes on Vercel', () => {
-    assert.equal(getCacheHeaderValue('/'), 'no-cache, no-store, must-revalidate');
-    assert.equal(getCacheHeaderValue('/index.html'), 'no-cache, no-store, must-revalidate');
+  it('requires revalidation for HTML entry routes on Vercel without disabling bfcache', () => {
+    const htmlCacheControl = 'private, no-cache, must-revalidate';
+    const htmlRoutes = [
+      '/',
+      '/index.html',
+      '/((?!api|assets|favico|map-styles|data|textures|pro|sw\\.js|manifest\\.webmanifest|offline\\.html|robots\\.txt|sitemap\\.xml|llms\\.txt|llms-full\\.txt|\\.well-known).*)',
+      '/pro/:path*',
+      '/pro',
+    ];
+
+    for (const source of htmlRoutes) {
+      const value = getCacheHeaderValue(source);
+      assert.equal(value, htmlCacheControl);
+      assert.ok(!value.includes('no-store'), `${source} must not disable bfcache`);
+    }
   });
 
   it('keeps immutable caching for hashed static assets', () => {

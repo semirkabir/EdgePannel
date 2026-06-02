@@ -59,13 +59,9 @@ export class SecFilingRenderer implements EntityRenderer {
     container.append(header);
 
     container.append(this.buildSummaryCard(ctx, analysis));
-    // Only show XBRL issuer facts for relevant form categories.
-    // insider (Form 4), institutional (13F), ownership (SC 13G/D), fund forms, etc.
-    // carry company-wide XBRL that is misleading in context of those specific filings.
     const cat = analysis.formCategory;
-    const showIssuerFacts = cat === 'periodic' || cat === 'current' || cat === 'proxy' || cat === 'registration';
     const showSeries = cat === 'periodic';
-    if (analysis.metrics.length > 0 && showIssuerFacts) container.append(this.buildMetricsCard(ctx, analysis));
+    if (analysis.metrics.length > 0) container.append(this.buildMetricsCard(ctx, analysis));
     if (analysis.series.length > 0 && showSeries) container.append(this.buildSeriesCard(ctx, analysis.series));
     container.append(this.buildEventsCard(ctx, analysis));
 
@@ -99,8 +95,10 @@ export class SecFilingRenderer implements EntityRenderer {
   private metricsCardTitle(category: string): string {
     switch (category) {
       case 'periodic':     return 'Financial Summary';
-      case 'current':      return 'Issuer Snapshot';
-      case 'proxy':        return 'Issuer Context';
+      case 'current':      return 'Event Metrics';
+      case 'insider':      return 'Transaction Metrics';
+      case 'ownership':    return 'Ownership Metrics';
+      case 'proxy':        return 'Proxy Metrics';
       case 'registration': return 'Issuer Context';
       default:             return 'Structured Numbers';
     }
@@ -111,11 +109,11 @@ export class SecFilingRenderer implements EntityRenderer {
     const [card, body] = ctx.sectionCard(title);
     card.classList.add('edp-card--wide');
 
-    // For non-periodic forms (8-K, proxy, etc.) clarify these are issuer-level facts,
-    // not values extracted directly from this specific filing document.
-    if (analysis.formCategory !== 'periodic') {
+    // Current/proxy/registration filings can include both extracted filing metrics
+    // and latest issuer-level XBRL facts, so clarify the mixed provenance.
+    if (analysis.formCategory === 'current' || analysis.formCategory === 'proxy' || analysis.formCategory === 'registration') {
       body.append(ctx.el('p', 'edp-detail-label edp-filing-fact-note',
-        'These figures are the latest available XBRL facts for this issuer, not values extracted from this specific filing.'));
+        'Filing-specific metrics are extracted from this disclosure; any issuer financial facts shown here are the latest available SEC XBRL facts for context.'));
     }
 
     const grid = ctx.el('div', 'cp-mini-kpi-grid');
