@@ -60,6 +60,9 @@ import {
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { HormuzPanel } from '@/components/HormuzPanel';
 import { OilInventoriesPanel } from '@/components/OilInventoriesPanel';
+import { FearGreedPanel } from '@/components/FearGreedPanel';
+import { MarketBreadthPanel } from '@/components/MarketBreadthPanel';
+import { GoldIntelligencePanel } from '@/components/GoldIntelligencePanel';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
 import { debounce, saveToStorage, loadFromStorage } from '@/utils';
@@ -1202,6 +1205,9 @@ export class PanelLayoutManager implements AppModule {
       );
 
       this.ctx.panels['macro-signals'] = new MacroSignalsPanel();
+      this.ctx.panels['fear-greed'] = new FearGreedPanel();
+      this.ctx.panels['market-breadth'] = new MarketBreadthPanel();
+      this.ctx.panels['gold-intelligence'] = new GoldIntelligencePanel();
       this.ctx.panels['hormuz-tracker'] = new HormuzPanel();
       this.ctx.panels['oil-inventories'] = new OilInventoriesPanel();
       this.ctx.panels['stablecoins'] = new StablecoinPanel();
