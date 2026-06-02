@@ -242,6 +242,8 @@ export class Panel {
   private onColTouchEnd: (() => void) | null = null;
   private onColTouchCancel: (() => void) | null = null;
   private colSpanReconcileRaf: number | null = null;
+  private viewportObserver: IntersectionObserver | null = null;
+  private viewportObserverRegistered = false;
   private readonly contentDebounceMs = 150;
   private pendingContentHtml: string | null = null;
   private contentDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1241,9 +1243,48 @@ export class Panel {
     return error instanceof DOMException && error.name === 'AbortError';
   }
 
+  /**
+   * Fire `callback` once when this panel scrolls within `marginPx` of the viewport.
+   * Uses IntersectionObserver where available; falls back to an idle-callback tick.
+   * Idempotent — repeat calls are ignored once observation is registered.
+   * Disconnected automatically on destroy() and on first firing.
+   */
+  public observeNearViewport(callback: () => void, marginPx = 200): void {
+    if (this.viewportObserverRegistered) return;
+    if (typeof IntersectionObserver === 'undefined' || typeof window === 'undefined') {
+      this.viewportObserverRegistered = true;
+      const tick = (): void => { if (this.element.isConnected) callback(); };
+      const ric = typeof window !== 'undefined'
+        ? (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+        : undefined;
+      if (typeof ric === 'function') ric(tick);
+      else setTimeout(tick, 0);
+      return;
+    }
+    this.viewportObserverRegistered = true;
+    this.viewportObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          this.unobserveViewport();
+          callback();
+          return;
+        }
+      }
+    }, { rootMargin: `${marginPx}px` });
+    this.viewportObserver.observe(this.element);
+  }
+
+  private unobserveViewport(): void {
+    if (this.viewportObserver) {
+      this.viewportObserver.disconnect();
+      this.viewportObserver = null;
+    }
+  }
+
   public destroy(): void {
     this.abortController.abort();
     this.clearRetryCountdown();
+    this.unobserveViewport();
     this.clearNextUpdateCountdown();
     if (this.freshnessUnsubscribe) {
       this.freshnessUnsubscribe();

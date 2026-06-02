@@ -160,6 +160,7 @@ export class PanelLayoutManager implements AppModule {
   private customCategories: CustomCategory[] = [];
   private hoverTimers: Map<string, number> = new Map();
   private newsRefreshSweepCleanup: (() => void) | null = null;
+  private scheduledLoadAllRaf: number | null = null;
 
   constructor(ctx: AppContext, callbacks: PanelLayoutCallbacks) {
     this.ctx = ctx;
@@ -181,6 +182,10 @@ export class PanelLayoutManager implements AppModule {
     this.applyTimeRangeFilterDebounced.cancel();
     this.newsRefreshSweepCleanup?.();
     this.newsRefreshSweepCleanup = null;
+    if (this.scheduledLoadAllRaf !== null) {
+      cancelAnimationFrame(this.scheduledLoadAllRaf);
+      this.scheduledLoadAllRaf = null;
+    }
     this.panelDragCleanupHandlers.forEach((cleanup) => cleanup());
     this.panelDragCleanupHandlers = [];
     if (this.criticalBannerEl) {
@@ -1047,6 +1052,7 @@ export class PanelLayoutManager implements AppModule {
           if (typeof DeductionPanel !== 'function') return;
           const deductionPanel = new DeductionPanel(() => this.ctx.allNews);
           this.ctx.panels['deduction'] = deductionPanel;
+          deductionPanel.observeNearViewport(() => this.scheduleLoadAllData(), 200);
           const el = deductionPanel.getElement();
           this.makeDraggable(el, 'deduction');
           const grid = document.getElementById('panelsGrid');
@@ -1407,6 +1413,11 @@ export class PanelLayoutManager implements AppModule {
 
     this.applyPanelSettings();
     this.applyInitialUrlState();
+
+    // Observe each panel for viewport entry so below-fold panels get their
+    // data when they scroll near the viewport (debounced via rAF to coalesce
+    // multiple panels intersecting on the first tick).
+    this.observePanelsForViewport();
 
     // Remove button delegation
     panelsGrid.addEventListener('click', (e) => {
@@ -1991,6 +2002,25 @@ export class PanelLayoutManager implements AppModule {
 
   private getTimeRangeLabel(): string {
     return formatTimeRangeLabel(this.ctx.currentTimeRange);
+  }
+
+  private scheduleLoadAllData(): void {
+    if (this.scheduledLoadAllRaf !== null) return;
+    if (typeof window === 'undefined') {
+      void this.callbacks.loadAllData();
+      return;
+    }
+    this.scheduledLoadAllRaf = window.requestAnimationFrame(() => {
+      this.scheduledLoadAllRaf = null;
+      void this.callbacks.loadAllData();
+    });
+  }
+
+  private observePanelsForViewport(): void {
+    for (const panel of Object.values(this.ctx.panels)) {
+      const observable = panel as { observeNearViewport?: (cb: () => void, marginPx?: number) => void };
+      observable.observeNearViewport?.(() => this.scheduleLoadAllData(), 200);
+    }
   }
 
   private applyInitialUrlState(): void {
