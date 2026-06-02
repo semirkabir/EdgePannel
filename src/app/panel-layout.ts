@@ -58,6 +58,7 @@ import {
   MaritimeGeospatialPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
+import { HormuzPanel } from '@/components/HormuzPanel';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
 import { debounce, saveToStorage, loadFromStorage } from '@/utils';
@@ -1200,6 +1201,7 @@ export class PanelLayoutManager implements AppModule {
       );
 
       this.ctx.panels['macro-signals'] = new MacroSignalsPanel();
+      this.ctx.panels['hormuz-tracker'] = new HormuzPanel();
       this.ctx.panels['stablecoins'] = new StablecoinPanel();
       this.ctx.panels['economic-calendar'] = new EconomicCalendarPanel();
       this.ctx.panels['sanctions-tracker'] = new SanctionsTrackerPanel();

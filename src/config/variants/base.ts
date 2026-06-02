@@ -33,6 +33,7 @@ export const REFRESH_INTERVALS = {
   opensky: 5 * 60 * 1000,
   economic: 15 * 60 * 1000,
   webcams: 10 * 60 * 1000,
+  hormuzTracker: 60 * 60 * 1000, // 1h — data updates daily
 };
 
 // Refresh intervals for anonymous users — throttled to incentivise sign-in

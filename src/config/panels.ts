@@ -80,6 +80,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   monitors:              p2('My Monitors'),
   'satellite-fires':     p2('Fires'),
   'macro-signals':       p2('Market Radar'),
+  'hormuz-tracker':      { name: 'Hormuz Trade Tracker', enabled: true, priority: 2 },
   'gulf-economies':      { name: 'Gulf Economies', enabled: false, priority: 2 },
   'ucdp-events':         p2('UCDP Conflict Events'),
   giving:                { name: 'Global Giving', enabled: false, priority: 2 },
