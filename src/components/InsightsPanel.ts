@@ -56,6 +56,32 @@ export class InsightsPanel extends Panel {
     this.insightSeverityUnsubscribe = subscribeInsightSeverityPreferenceChange(() => {
       void this.onAiFlowChanged();
     });
+
+    // Delegated click listener for stories in Insights Panel to unconditionally open Entity Detail Panel
+    this.content.addEventListener('click', (e) => {
+      const el = (e.target as HTMLElement).closest('.insight-story');
+      if (!el) return;
+
+      const url = el.getAttribute('data-url');
+      const title = el.getAttribute('data-title');
+      const source = el.getAttribute('data-source');
+      const publishedAt = el.getAttribute('data-published-at');
+      if (url && title) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+          detail: {
+            type: 'article',
+            data: {
+              url,
+              title,
+              source: source || undefined,
+              publishedAt: publishedAt || undefined,
+            }
+          }
+        }));
+      }
+    });
   }
 
   public setMilitaryFlights(flights: MilitaryFlight[]): void {
@@ -662,7 +688,7 @@ export class InsightsPanel extends Panel {
       }
 
       return `
-        <div class="${storyClasses.join(' ')}">
+        <div class="${storyClasses.join(' ')}" data-url="${escapeHtml(story.primaryLink)}" data-title="${escapeHtml(story.primaryTitle)}" data-source="${escapeHtml(story.primarySource)}" style="cursor: var(--wm-cursor-pointer);">
           <div class="insight-story-header">
             <span class="insight-sentiment-dot ${sentimentClass}"></span>
             <span class="insight-story-title">${escapeHtml(story.primaryTitle.slice(0, 100))}${story.primaryTitle.length > 100 ? '...' : ''}</span>
@@ -746,8 +772,10 @@ export class InsightsPanel extends Panel {
         badges.push('<span class="insight-badge alert">⚠ ALERT</span>');
       }
 
+      const pubDateIso = cluster.firstSeen instanceof Date ? cluster.firstSeen.toISOString() : cluster.firstSeen;
+
       return `
-        <div class="${storyClasses.join(' ')}">
+        <div class="${storyClasses.join(' ')}" data-url="${escapeHtml(cluster.primaryLink)}" data-title="${escapeHtml(cluster.primaryTitle)}" data-source="${escapeHtml(cluster.primarySource)}" data-published-at="${escapeHtml(pubDateIso)}" style="cursor: var(--wm-cursor-pointer);">
           <div class="insight-story-header">
             <span class="insight-sentiment-dot ${sentimentClass}"></span>
             <span class="insight-story-title">${escapeHtml(cluster.primaryTitle.slice(0, 100))}${cluster.primaryTitle.length > 100 ? '...' : ''}</span>
@@ -846,8 +874,14 @@ export class InsightsPanel extends Panel {
       const perspectiveName = topPerspective?.name ?? 'ml';
       const perspectiveScore = topPerspective?.score ?? 0;
 
+      const originalCluster = this.lastClusters.find(c => c.id === story.id);
+      const url = originalCluster?.primaryLink || '';
+      const source = originalCluster?.primarySource || 'ML Detected';
+      const publishedAt = originalCluster?.firstSeen;
+      const pubDateIso = publishedAt instanceof Date ? publishedAt.toISOString() : (publishedAt || '');
+
       return `
-        <div class="insight-story missed">
+        <div class="insight-story missed" data-url="${escapeHtml(url)}" data-title="${escapeHtml(story.title)}" data-source="${escapeHtml(source)}" data-published-at="${escapeHtml(pubDateIso)}" style="cursor: var(--wm-cursor-pointer);">
           <div class="insight-story-header">
             <span class="insight-sentiment-dot ml-flagged"></span>
             <span class="insight-story-title">${escapeHtml(story.title.slice(0, 80))}${story.title.length > 80 ? '...' : ''}</span>

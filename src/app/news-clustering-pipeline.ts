@@ -170,7 +170,13 @@ export class NewsClusteringPipeline {
     try {
       const panel = this.ctx.newsPanels[category];
 
-      const enabledFeeds = (feeds ?? []).filter(f => !this.ctx.uiStore.disabledSources.has(f.name));
+      // Merge custom feeds for this category (type 'rss' or 'x')
+      const customFeedsForCategory = (this.ctx.uiStore.customFeeds || [])
+        .filter(f => f.category === category && (f.type === 'rss' || f.type === 'x'))
+        .map(f => ({ name: f.name, url: f.url }));
+
+      const allFeeds = [...(feeds ?? []), ...customFeedsForCategory];
+      const enabledFeeds = allFeeds.filter(f => !this.ctx.uiStore.disabledSources.has(f.name));
       if (enabledFeeds.length === 0) {
         delete this.ctx.newsStore.newsByCategory[category];
         if (panel) panel.showError(t('common.allSourcesDisabled'));

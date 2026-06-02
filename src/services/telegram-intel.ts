@@ -36,21 +36,23 @@ export const TELEGRAM_TOPICS = [
 let cachedResponse: TelegramFeedResponse | null = null;
 let cachedAt = 0;
 const CACHE_TTL = 30_000;
+export async function fetchTelegramFeed(limit = 50, channel?: string): Promise<TelegramFeedResponse> {
+  if (!channel && cachedResponse && Date.now() - cachedAt < CACHE_TTL) return cachedResponse;
 
-function telegramFeedUrl(limit: number): string {
-  const path = `/api/telegram-feed?limit=${limit}`;
-  return isDesktopRuntime() ? proxyUrl(path) : path;
-}
+  let path = `/api/telegram-feed?limit=${limit}`;
+  if (channel) {
+    path += `&channel=${encodeURIComponent(channel)}`;
+  }
+  const url = isDesktopRuntime() ? proxyUrl(path) : path;
 
-export async function fetchTelegramFeed(limit = 50): Promise<TelegramFeedResponse> {
-  if (cachedResponse && Date.now() - cachedAt < CACHE_TTL) return cachedResponse;
-
-  const res = await fetch(telegramFeedUrl(limit));
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Telegram feed ${res.status}`);
 
   const json: TelegramFeedResponse = await res.json();
-  cachedResponse = json;
-  cachedAt = Date.now();
+  if (!channel) {
+    cachedResponse = json;
+    cachedAt = Date.now();
+  }
   return json;
 }
 
