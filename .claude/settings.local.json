@@ -31,7 +31,9 @@
       "Bash(node scripts/parse-satellite.mjs)",
       "Bash(node -e \"console.log\\(JSON.parse\\(require\\('fs'\\).readFileSync\\('./public/data/satellite.generated.json','utf8'\\)\\).length, 'satellites'\\)\")",
       "Bash(npm install *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(git remote *)",
+      "Bash(git rev-list *)"
     ]
   }
 }
