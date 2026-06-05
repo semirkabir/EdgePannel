@@ -5,6 +5,7 @@ import { h, replaceChildren } from '@/utils/dom-utils';
 import { isDesktopRuntime } from '@/services/runtime';
 import { ResearchServiceClient } from '@/generated/client/worldmonitor/research/v1/service_client';
 import type { TechEvent } from '@/generated/client/worldmonitor/research/v1/service_client';
+import { fetchEarningsCalendar, getFinnhubConfigErrorMessage, type EarningsEvent } from '@/services/market/finnhub-extra';
 import type { NewsItem, DeductContextDetail } from '@/types';
 import { buildNewsContext } from '@/utils/news-context';
 import { isLocalDevTaskEnabled } from '@/services/local-dev-stability';
@@ -41,20 +42,23 @@ export class TechEventsPanel extends Panel {
     let shouldRetry = false;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const data = await researchClient.listTechEvents({
-          type: '',
-          mappable: false,
-          days: 180,
-          limit: 100,
-        });
+        const [data, earningsEvents] = await Promise.all([
+          researchClient.listTechEvents({
+            type: '',
+            mappable: false,
+            days: 180,
+            limit: 100,
+          }),
+          this.fetchUpcomingEarningsEvents(180),
+        ]);
         if (!this.element?.isConnected) return;
         if (!data.success) throw new Error(data.error || 'Unknown error');
 
-        this.events = data.events;
+        this.events = this.mergeEvents(data.events, earningsEvents);
         this.setCount(data.conferenceCount);
         this.error = null;
 
-        shouldRetry = this.events.length === 0;
+        shouldRetry = data.events.length === 0;
         if (shouldRetry && attempt < 2) {
           this.showRetrying(undefined, 15);
           await new Promise(r => setTimeout(r, 15_000));
@@ -79,6 +83,70 @@ export class TechEventsPanel extends Panel {
     }
     this.loading = false;
     this.render();
+  }
+
+  private async fetchUpcomingEarningsEvents(days: number): Promise<TechEvent[]> {
+    const from = new Date().toISOString().split('T')[0]!;
+    const to = new Date(Date.now() + days * 86400000).toISOString().split('T')[0]!;
+
+    try {
+      const earnings = await fetchEarningsCalendar(from, to);
+      return earnings
+        .filter((event) => event.symbol && event.date)
+        .map((event) => this.buildEarningsEvent(event));
+    } catch (err) {
+      const configMessage = getFinnhubConfigErrorMessage(err);
+      if (!configMessage) console.warn('[TechEvents] Earnings fetch skipped:', err);
+      return [];
+    }
+  }
+
+  private buildEarningsEvent(event: EarningsEvent): TechEvent {
+    const period = event.quarter && event.year ? `Q${event.quarter} ${event.year}` : 'upcoming';
+    const timeLabel = event.hour === 'bmo'
+      ? 'Before market open'
+      : event.hour === 'amc'
+        ? 'After market close'
+        : 'Time TBA';
+
+    const details = [
+      `${event.symbol} ${period} earnings`,
+      timeLabel,
+      Number.isFinite(event.epsEstimate) ? `EPS estimate ${event.epsEstimate.toFixed(2)}` : '',
+      Number.isFinite(event.revenueEstimate) && event.revenueEstimate > 0 ? `Revenue estimate ${this.formatRevenue(event.revenueEstimate)}` : '',
+    ].filter(Boolean).join(' • ');
+
+    return {
+      id: `finnhub-earnings-${event.symbol}-${event.date}`,
+      title: `${event.name || event.symbol} (${event.symbol}) Earnings`,
+      type: 'earnings',
+      location: timeLabel,
+      startDate: event.date,
+      endDate: event.date,
+      url: '',
+      source: 'finnhub',
+      description: details,
+    };
+  }
+
+  private mergeEvents(events: TechEvent[], earningsEvents: TechEvent[]): TechEvent[] {
+    const merged = [...events];
+    const seen = new Set(events.map((event) => event.id || `${event.type}:${event.title}:${event.startDate}`));
+
+    for (const event of earningsEvents) {
+      const key = event.id || `${event.type}:${event.title}:${event.startDate}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(event);
+    }
+
+    return merged.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  }
+
+  private formatRevenue(revenue: number): string {
+    if (revenue >= 1e9) return `$${(revenue / 1e9).toFixed(1)}B`;
+    if (revenue >= 1e6) return `$${(revenue / 1e6).toFixed(1)}M`;
+    return `$${revenue.toFixed(0)}`;
   }
 
   protected render(): void {
