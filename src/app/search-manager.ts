@@ -1,7 +1,7 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import type { SearchResult } from '@/components/SearchModal';
 import type { PopupType } from '@/components/MapPopup';
-import type { NewsItem, MapLayers } from '@/types';
+import type { NewsItem, MapLayers, SatelliteData } from '@/types';
 import type { MapView } from '@/components';
 import type { Command } from '@/config/commands';
 import { SearchModal } from '@/components';
@@ -11,7 +11,7 @@ import { LAYER_PRESETS, LAYER_KEY_MAP } from '@/config/commands';
 import { calculateCII, TIER1_COUNTRIES } from '@/services/country-instability';
 import { CURATED_COUNTRIES } from '@/config/countries';
 import { getCountryBbox } from '@/services/country-geometry';
-import { INTEL_HOTSPOTS, CONFLICT_ZONES, MILITARY_BASES, UNDERSEA_CABLES, NUCLEAR_FACILITIES } from '@/config/geo';
+import { INTEL_HOTSPOTS, CONFLICT_ZONES, MILITARY_BASES, UNDERSEA_CABLES, NUCLEAR_FACILITIES, SPACEPORTS } from '@/config/geo';
 import { PIPELINES, hydrateGeneratedPipelines } from '@/config/pipelines';
 import { AI_DATA_CENTERS } from '@/config/ai-datacenters';
 import { GAMMA_IRRADIATORS } from '@/config/irradiators';
@@ -30,6 +30,15 @@ import { CountryIntelManager } from '@/app/country-intel';
 import { searchPredictions } from '@/services/prediction';
 import { getCachedSanctions } from '@/services/sanctions';
 import { getQuickActionCommandIds } from '@/components/search-ux';
+import { fetchCuratedSatellites, fetchCelesTrakSatellites } from '@/services/celestrak-satellites';
+import { NOTABLE_INVESTORS } from '@/services/market/portfolio';
+import { searchInstitutions13F, type InstitutionSearchResult } from '@/services/market/normalized-13f';
+import {
+  fetchSecAllFilings,
+  getSecFilingAccessionNumber,
+  getSecFilingViewerUrl,
+  type SecFilingEntry,
+} from '@/services/market/sec-filings';
 
 export interface SearchManagerCallbacks {
   openCountryBriefByCode: (code: string, country: string) => void;
@@ -39,6 +48,10 @@ export class SearchManager implements AppModule {
   private ctx: AppContext;
   private callbacks: SearchManagerCallbacks;
   private boundKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private satelliteSearchItems: SatelliteData[] = [];
+  private secFilingSearchItems: SecFilingEntry[] = [];
+  private satelliteIndexPromise: Promise<void> | null = null;
+  private secFilingIndexPromise: Promise<void> | null = null;
 
   constructor(ctx: AppContext, callbacks: SearchManagerCallbacks) {
     this.ctx = ctx;
@@ -175,6 +188,13 @@ export class SearchManager implements AppModule {
         subtitle: g.organization || '',
         data: g,
       })));
+
+      this.ctx.searchModal.registerSource('spaceport', SPACEPORTS.map(s => ({
+        id: s.id,
+        title: s.name,
+        subtitle: `${s.operator} ${s.country} ${s.status} ${s.launches} launch cadence`.trim(),
+        data: s,
+      })));
     }
 
     if (SITE_VARIANT === 'finance') {
@@ -211,6 +231,16 @@ export class SearchManager implements AppModule {
 
     this.ctx.searchModal.registerSource('company', this.buildCompanySearchItems());
     this.ctx.searchModal.registerAsyncSource('company', async (query) => this.buildTickerFallbackSearchItems(query), { limit: 1 });
+
+    this.ctx.searchModal.registerSource('satellite', this.buildSatelliteSearchItems(this.satelliteSearchItems));
+    this.refreshSatelliteSearchIndex();
+    this.ctx.searchModal.registerAsyncSource('satellite', async (query) => this.buildLiveSatelliteSearchItems(query), { limit: 8 });
+
+    this.ctx.searchModal.registerSource('institution', this.buildFeaturedInstitutionSearchItems());
+    this.ctx.searchModal.registerAsyncSource('institution', async (query) => this.buildInstitutionSearchItems(query), { limit: 8 });
+
+    this.ctx.searchModal.registerSource('secfiling', this.buildSecFilingSearchItems(this.secFilingSearchItems));
+    this.ctx.searchModal.registerAsyncSource('secfiling', async (query) => this.buildLiveSecFilingSearchItems(query), { limit: 8 });
 
     if (this.ctx.marketplace) {
       this.ctx.searchModal.registerSource('marketplace', this.ctx.marketplace.getSearchItems());
@@ -319,6 +349,22 @@ export class SearchManager implements AppModule {
         setTimeout(() => { this.ctx.map?.triggerIrradiatorClick(irr.id); }, 300);
         break;
       }
+      case 'spaceport': {
+        const spaceport = result.data as typeof SPACEPORTS[0];
+        this.ctx.map?.setView('global');
+        this.ctx.map?.enableLayer('spaceports');
+        this.ctx.mapLayers.spaceports = true;
+        setTimeout(() => { this.ctx.map?.triggerSpaceportClick(spaceport.id); }, 300);
+        break;
+      }
+      case 'satellite': {
+        const satellite = result.data as SatelliteData;
+        this.ctx.map?.setView('global');
+        this.ctx.map?.enableLayer('satellite');
+        this.ctx.mapLayers.satellite = true;
+        setTimeout(() => { this.ctx.map?.triggerSatelliteClick(satellite.id); }, 300);
+        break;
+      }
       case 'earthquake':
       case 'outage':
         this.ctx.map?.setView('global');
@@ -408,6 +454,19 @@ export class SearchManager implements AppModule {
       case 'company': {
         const { ticker, name } = result.data as { ticker: string; name: string };
         this.ctx.entityDetailPanel?.show('company' as PopupType, { ticker, name });
+        break;
+      }
+      case 'secfiling': {
+        const filing = result.data as SecFilingEntry;
+        this.ctx.entityDetailPanel?.show('secFiling' as PopupType, this.toSecFilingDetailData(filing));
+        break;
+      }
+      case 'institution': {
+        const institution = result.data as InstitutionSearchResult | { name: string; cik: string };
+        this.ctx.entityDetailPanel?.show('institution' as PopupType, {
+          name: institution.name,
+          cik: institution.cik,
+        });
         break;
       }
       case 'marketplace': {
@@ -552,6 +611,11 @@ export class SearchManager implements AppModule {
 
     this.ctx.searchModal.registerSource('country', this.buildCountrySearchItems());
     this.ctx.searchModal.registerSource('company', this.buildCompanySearchItems());
+    this.ctx.searchModal.registerSource('satellite', this.buildSatelliteSearchItems(this.satelliteSearchItems));
+    this.ctx.searchModal.registerSource('institution', this.buildFeaturedInstitutionSearchItems());
+    this.ctx.searchModal.registerSource('secfiling', this.buildSecFilingSearchItems(this.secFilingSearchItems));
+    this.refreshSatelliteSearchIndex();
+    this.refreshSecFilingSearchIndex();
 
     const newsItems = this.ctx.allNews.slice(0, 500).map(n => ({
       id: n.link,
@@ -709,6 +773,148 @@ export class SearchManager implements AppModule {
   }
 
   private companySearchText(item: { title: string; subtitle?: string; searchText?: string }): string {
+    return [item.title, item.subtitle, item.searchText].filter(Boolean).join(' ').toLowerCase();
+  }
+
+  private refreshSatelliteSearchIndex(): void {
+    if (this.satelliteIndexPromise) return;
+    this.satelliteIndexPromise = fetchCuratedSatellites()
+      .then((satellites) => {
+        this.satelliteSearchItems = satellites;
+        this.ctx.searchModal?.registerSource('satellite', this.buildSatelliteSearchItems(satellites));
+      })
+      .catch((err) => {
+        console.warn('[Search] Satellite index unavailable.', err);
+      })
+      .finally(() => {
+        this.satelliteIndexPromise = null;
+      });
+  }
+
+  private buildSatelliteSearchItems(satellites: SatelliteData[]): { id: string; title: string; subtitle: string; searchText: string; data: SatelliteData }[] {
+    return satellites.map((satellite) => ({
+      id: satellite.id,
+      title: satellite.name,
+      subtitle: [
+        satellite.operator,
+        satellite.category,
+        satellite.sourceGroup ? `CelesTrak ${satellite.sourceGroup}` : '',
+        satellite.noradId ? `NORAD ${satellite.noradId}` : '',
+      ].filter(Boolean).join(' - '),
+      searchText: [
+        satellite.name,
+        satellite.operator,
+        satellite.category,
+        satellite.source,
+        satellite.sourceGroup,
+        satellite.objectId,
+        String(satellite.noradId || ''),
+      ].filter(Boolean).join(' '),
+      data: satellite,
+    }));
+  }
+
+  private async buildLiveSatelliteSearchItems(query: string): Promise<{ id: string; title: string; subtitle: string; searchText: string; data: SatelliteData }[]> {
+    if (query.trim().length < 2) return [];
+    const normalized = query.trim().toLowerCase();
+    const satellites = await fetchCelesTrakSatellites();
+    return this.buildSatelliteSearchItems(satellites)
+      .filter((item) => this.searchItemText(item).includes(normalized))
+      .slice(0, 24);
+  }
+
+  private buildFeaturedInstitutionSearchItems(): { id: string; title: string; subtitle: string; searchText: string; data: { name: string; cik: string } }[] {
+    return NOTABLE_INVESTORS.map((investor) => ({
+      id: investor.cik || investor.name,
+      title: investor.name,
+      subtitle: `${investor.description} - 13F institutional filer`,
+      searchText: [investor.name, investor.description, investor.cik, '13F institutional filer hedge fund asset manager'].join(' '),
+      data: { name: investor.name, cik: investor.cik },
+    }));
+  }
+
+  private async buildInstitutionSearchItems(query: string): Promise<{ id: string; title: string; subtitle: string; searchText: string; data: InstitutionSearchResult }[]> {
+    if (query.trim().length < 2) return [];
+    const results = await searchInstitutions13F(query, { limit: 24 });
+    return results.map((institution) => ({
+      id: institution.cik || institution.name,
+      title: institution.name,
+      subtitle: [
+        institution.subtitle,
+        institution.latestFilingType,
+        institution.latestFilingDate ? this.formatSearchDate(institution.latestFilingDate) : '',
+        institution.relatedTicker ? `${institution.relatedTicker} holder` : '',
+      ].filter(Boolean).join(' - '),
+      searchText: [institution.name, institution.cik, institution.subtitle, institution.latestFilingType, institution.relatedTicker].filter(Boolean).join(' '),
+      data: institution,
+    }));
+  }
+
+  private refreshSecFilingSearchIndex(): void {
+    if (this.secFilingIndexPromise) return;
+    this.secFilingIndexPromise = fetchSecAllFilings()
+      .then((filings) => {
+        this.secFilingSearchItems = filings.slice(0, 120);
+        this.ctx.searchModal?.registerSource('secfiling', this.buildSecFilingSearchItems(this.secFilingSearchItems));
+      })
+      .catch((err) => {
+        console.warn('[Search] SEC filing index unavailable.', err);
+      })
+      .finally(() => {
+        this.secFilingIndexPromise = null;
+      });
+  }
+
+  private buildSecFilingSearchItems(filings: SecFilingEntry[]): { id: string; title: string; subtitle: string; searchText: string; data: SecFilingEntry }[] {
+    return filings.map((filing) => ({
+      id: filing.id || `${filing.cik}:${filing.filingType}:${filing.filedAt.toISOString()}`,
+      title: `${filing.filingType} - ${filing.filerName}`,
+      subtitle: [
+        filing.cik ? `CIK ${filing.cik}` : '',
+        this.formatSearchDate(filing.filedAt.toISOString()),
+        filing.description,
+      ].filter(Boolean).join(' - '),
+      searchText: [filing.title, filing.filerName, filing.cik, filing.filingType, filing.description].filter(Boolean).join(' '),
+      data: filing,
+    }));
+  }
+
+  private async buildLiveSecFilingSearchItems(query: string): Promise<{ id: string; title: string; subtitle: string; searchText: string; data: SecFilingEntry }[]> {
+    if (query.trim().length < 2) return [];
+    const normalized = query.trim().toLowerCase();
+    const filings = await fetchSecAllFilings();
+    return this.buildSecFilingSearchItems(filings)
+      .filter((item) => this.searchItemText(item).includes(normalized))
+      .slice(0, 24);
+  }
+
+  private toSecFilingDetailData(filing: SecFilingEntry): {
+    cik: string;
+    companyName: string;
+    filingType: string;
+    accessionNumber: string;
+    documentUrl: string;
+    title: string;
+    filedAt: string;
+  } {
+    return {
+      cik: filing.cik,
+      companyName: filing.filerName,
+      filingType: filing.filingType,
+      accessionNumber: getSecFilingAccessionNumber(filing),
+      documentUrl: getSecFilingViewerUrl(filing) || filing.url,
+      title: filing.title,
+      filedAt: filing.filedAt.toISOString(),
+    };
+  }
+
+  private formatSearchDate(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  private searchItemText(item: { title: string; subtitle?: string; searchText?: string }): string {
     return [item.title, item.subtitle, item.searchText].filter(Boolean).join(' ').toLowerCase();
   }
 }

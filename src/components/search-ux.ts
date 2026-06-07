@@ -30,6 +30,8 @@ export function getSearchResultActionLabel(type: SearchResultType): string {
     outage: 'Inspect on the map',
     nuclear: 'Focus this facility',
     irradiator: 'Focus this site',
+    spaceport: 'Open spaceport on the map',
+    satellite: 'Track satellite on the map',
     techcompany: 'Focus company location',
     ailab: 'Focus lab location',
     startup: 'Focus startup ecosystem',
@@ -42,6 +44,8 @@ export function getSearchResultActionLabel(type: SearchResultType): string {
     commodityhub: 'Inspect commodity hub',
     sanction: 'Open sanctions tracker',
     company: 'Open company detail panel',
+    secfiling: 'Read filing',
+    institution: 'Open 13F filer profile',
     marketplace: 'Open in Marketplace',
   };
   return labels[type];

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   analyzeCurrentReport,
+  analyzeHoldingsFiling,
   analyzeInsiderFiling,
   analyzeOwnershipFiling,
   analyzeProxyFiling,
@@ -22,6 +23,8 @@ test('classifies common SEC form families', () => {
   assert.equal(classifyFilingType('SC 13D'), 'ownership');
   assert.equal(classifyFilingType('13D/A'), 'ownership');
   assert.equal(classifyFilingType('4'), 'insider');
+  assert.equal(classifyFilingType('13F-HR'), 'institutional');
+  assert.equal(classifyFilingType('NPORT-P'), 'fund');
   assert.equal(classifyFilingType('X-UNKNOWN'), 'other');
 });
 
@@ -197,4 +200,67 @@ test('extracts insider Form 4 transaction rows from XML', () => {
   assert.equal(analysis.metrics.find(metric => metric.id === 'insiderNetShares')?.value, 60);
   assert.equal(analysis.metrics.find(metric => metric.id === 'insiderTransactionValue')?.value, 1850);
   assert.equal(analysis.metrics.find(metric => metric.id === 'postTransactionShares')?.value, 1100);
+});
+
+test('extracts holdings context from 13F information tables', () => {
+  const xml = `
+    <informationTable>
+      <infoTable>
+        <nameOfIssuer>Alpha Corp</nameOfIssuer>
+        <titleOfClass>COM</titleOfClass>
+        <cusip>000000001</cusip>
+        <value>1500</value>
+        <shrsOrPrnAmt><sshPrnamt>10000</sshPrnamt></shrsOrPrnAmt>
+      </infoTable>
+      <infoTable>
+        <nameOfIssuer>Beta Inc</nameOfIssuer>
+        <titleOfClass>COM</titleOfClass>
+        <cusip>000000002</cusip>
+        <value>250</value>
+        <shrsOrPrnAmt><sshPrnamt>5000</sshPrnamt></shrsOrPrnAmt>
+      </infoTable>
+    </informationTable>`;
+
+  const analysis = analyzeHoldingsFiling('13F-HR', xml, {
+    accessionNumber: '0000000000-25-000003',
+    filingType: '13F-HR',
+    filedAt: '2025-05-15',
+    reportDate: '2025-03-31',
+    acceptanceDateTime: '',
+    title: '13F holdings report',
+    primaryDocument: 'primary.xml',
+    url: 'https://www.sec.gov/Archives/edgar/data/0/000000000025000003/primary.xml',
+    items: '',
+  });
+
+  assert.equal(analysis.metrics.find(metric => metric.id === 'reportedHoldingCount')?.value, 2);
+  assert.equal(analysis.metrics.find(metric => metric.id === 'reportedHoldingsValue')?.value, 1750000);
+  assert.equal(analysis.metrics.find(metric => metric.id === 'reportedShareUnits')?.value, 15000);
+  assert.ok(analysis.events.some(event => event.kind === 'holding' && event.label === 'Alpha Corp'));
+  assert.equal(analysis.fallbackReason, '');
+});
+
+test('extracts holdings context from fund portfolio XML', () => {
+  const xml = `
+    <edgarSubmission>
+      <formData>
+        <invstOrSecs>
+          <invstOrSec>
+            <name>Gamma Fund Holding</name>
+            <title>Common Stock</title>
+            <cusip>000000003</cusip>
+            <balance>1200</balance>
+            <valUSD>45000</valUSD>
+            <pctVal>4.5</pctVal>
+          </invstOrSec>
+        </invstOrSecs>
+      </formData>
+    </edgarSubmission>`;
+
+  const analysis = analyzeHoldingsFiling('NPORT-P', xml, null);
+
+  assert.equal(analysis.metrics.find(metric => metric.id === 'reportedHoldingCount')?.value, 1);
+  assert.equal(analysis.metrics.find(metric => metric.id === 'reportedHoldingsValue')?.value, 45000);
+  assert.ok(analysis.events.some(event => event.kind === 'holding' && event.value.includes('4.50% of net assets')));
+  assert.equal(analysis.fallbackReason, '');
 });

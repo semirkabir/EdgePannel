@@ -3835,6 +3835,24 @@ export class MapComponent {
     });
   }
 
+  public triggerSpaceportClick(id: string): void {
+    const spaceport = SPACEPORTS.find(item => item.id === id);
+    if (!spaceport) return;
+
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    const projection = this.getProjection(width, height);
+    const pos = projection([spaceport.lon, spaceport.lat]);
+    if (!pos) return;
+
+    this.popup.show({
+      type: 'spaceport',
+      data: spaceport,
+      x: pos[0],
+      y: pos[1],
+    });
+  }
+
   public triggerRelatedAssetClick(asset: RelatedAsset): void {
     switch (asset.type) {
       case 'pipeline':
@@ -3854,6 +3872,9 @@ export class MapComponent {
         break;
       case 'irradiator':
         this.triggerIrradiatorClick(asset.id);
+        break;
+      case 'spaceport':
+        this.triggerSpaceportClick(asset.id);
         break;
       default:
         break;

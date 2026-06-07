@@ -8574,6 +8574,35 @@ export class DeckGLMap {
     }
   }
 
+  public triggerSpaceportClick(id: string): void {
+    this.showRelatedPointPopup('spaceport', SPACEPORTS.find(item => item.id === id));
+  }
+
+  public triggerSatelliteClick(id: string): void {
+    const satellite = this.satellitePanelData(id)
+      ?? this.satelliteCatalog.find(item => item.id === id || String(item.noradId) === id);
+    if (!satellite) return;
+
+    const positionedSatellite = satellite as import('@/types').SatelliteData & { position?: { lat: number; lon: number; alt: number } };
+    const position = positionedSatellite.position
+      ? positionedSatellite.position
+      : getSatellitePosition(satellite, Date.now());
+    const screenPos = this.projectToScreen(position.lat, position.lon);
+    const { x, y } = screenPos || this.getContainerCenter();
+    this.popup.show({
+      type: 'satellite',
+      data: {
+        ...positionedSatellite,
+        position,
+        lat: position.lat,
+        lon: position.lon,
+        alt: position.alt,
+      } as never,
+      x,
+      y,
+    });
+  }
+
   public triggerRelatedAssetClick(asset: RelatedAsset): void {
     switch (asset.type) {
       case 'pipeline':

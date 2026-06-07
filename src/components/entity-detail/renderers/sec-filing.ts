@@ -1,4 +1,4 @@
-import type { GetSecFilingAnalysisResponse, SecFilingSeries } from '@/generated/client/worldmonitor/market/v1/service_client';
+import type { GetSecFilingAnalysisResponse, SecFilingEvent, SecFilingMetric, SecFilingSeries } from '@/generated/client/worldmonitor/market/v1/service_client';
 import { fetchSecFilingAnalysis, type SecFilingAnalysisInput } from '@/services/market/sec-filing-analysis';
 import { sanitizeUrl } from '@/utils/sanitize';
 import { row, type EntityRenderer, type EntityRenderContext } from '../types';
@@ -18,6 +18,18 @@ function fmtDate(value: string): string {
 
 function fmtPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+}
+
+function metricById(analysis: GetSecFilingAnalysisResponse, id: string): SecFilingMetric | undefined {
+  return analysis.metrics.find((metric) => metric.id === id);
+}
+
+function eventsByKind(analysis: GetSecFilingAnalysisResponse, kind: string): SecFilingEvent[] {
+  return analysis.events.filter((event) => event.kind === kind);
+}
+
+function eventValue(analysis: GetSecFilingAnalysisResponse, label: string): string {
+  return analysis.events.find((event) => event.label === label)?.value ?? '';
 }
 
 function titleFor(data: SecFilingData): string {
@@ -60,10 +72,19 @@ export class SecFilingRenderer implements EntityRenderer {
 
     container.append(this.buildSummaryCard(ctx, analysis));
     const cat = analysis.formCategory;
-    const showSeries = cat === 'periodic';
-    if (analysis.metrics.length > 0) container.append(this.buildMetricsCard(ctx, analysis));
-    if (analysis.series.length > 0 && showSeries) container.append(this.buildSeriesCard(ctx, analysis.series));
-    container.append(this.buildEventsCard(ctx, analysis));
+    if (cat === 'insider') {
+      container.append(this.buildInsiderTransactionCard(ctx, analysis));
+      container.append(this.buildInsiderOwnershipCard(ctx, analysis));
+    } else if (cat === 'ownership') {
+      container.append(this.buildBeneficialOwnershipCard(ctx, analysis));
+    } else if (cat === 'institutional' || cat === 'fund') {
+      container.append(this.buildHoldingsContextCard(ctx, analysis));
+    } else {
+      const showSeries = cat === 'periodic';
+      if (analysis.metrics.length > 0) container.append(this.buildMetricsCard(ctx, analysis));
+      if (analysis.series.length > 0 && showSeries) container.append(this.buildSeriesCard(ctx, analysis.series));
+      container.append(this.buildEventsCard(ctx, analysis));
+    }
 
     if (analysis.url) {
       const [card, body] = ctx.sectionCard('Source');
@@ -126,6 +147,122 @@ export class SecFilingRenderer implements EntityRenderer {
       grid.append(item);
     }
     body.append(grid);
+    return card;
+  }
+
+  private buildMetricGrid(ctx: EntityRenderContext, metrics: SecFilingMetric[]): HTMLElement {
+    const grid = ctx.el('div', 'cp-mini-kpi-grid');
+    for (const metric of metrics) {
+      const item = ctx.el('div', 'cp-mini-kpi');
+      item.append(ctx.el('span', 'cp-mini-kpi-label', metric.label));
+      item.append(ctx.el('span', 'cp-mini-kpi-value', metric.formattedValue));
+      const meta = [metric.fiscalPeriod, metric.hasYoy ? `${fmtPercent(metric.yoy)} YoY` : ''].filter(Boolean).join(' - ');
+      if (meta) item.append(ctx.el('span', 'edp-detail-label', meta));
+      grid.append(item);
+    }
+    return grid;
+  }
+
+  private buildDisclosureRows(ctx: EntityRenderContext, events: SecFilingEvent[], emptyText: string): HTMLElement {
+    const wrap = ctx.el('div', 'edp-disclosure-info');
+    for (const event of events) {
+      const rowEl = ctx.el('div', 'edp-disclosure-row');
+      const badgeClass = event.kind === 'transaction'
+        ? 'edp-disclosure-badge edp-disclosure-badge-buy'
+        : event.kind === 'holding'
+          ? 'edp-disclosure-badge'
+          : 'edp-disclosure-badge';
+      rowEl.append(ctx.el('span', badgeClass, event.kind || 'SEC'));
+      const info = ctx.el('div', 'edp-disclosure-info');
+      info.append(ctx.el('span', 'edp-disclosure-name', event.label));
+      info.append(ctx.el('span', 'edp-disclosure-detail', event.value));
+      rowEl.append(info);
+      rowEl.append(ctx.el('span', 'edp-disclosure-date', ''));
+      wrap.append(rowEl);
+    }
+    if (events.length === 0) wrap.append(ctx.makeEmpty(emptyText));
+    return wrap;
+  }
+
+  private buildInsiderTransactionCard(ctx: EntityRenderContext, analysis: GetSecFilingAnalysisResponse): HTMLElement {
+    const [card, body] = ctx.sectionCard('Structured Transactions');
+    card.classList.add('edp-card--wide');
+
+    const transactionMetrics = [
+      metricById(analysis, 'insiderTransactionCount'),
+      metricById(analysis, 'insiderSharesAcquired'),
+      metricById(analysis, 'insiderSharesDisposed'),
+      metricById(analysis, 'insiderNetShares'),
+      metricById(analysis, 'insiderAveragePrice'),
+      metricById(analysis, 'insiderTransactionValue'),
+    ].filter((metric): metric is SecFilingMetric => Boolean(metric));
+    if (transactionMetrics.length > 0) body.append(this.buildMetricGrid(ctx, transactionMetrics));
+
+    const rows = analysis.events.filter((event) =>
+      event.kind === 'transaction' || event.label === 'Transaction date' || event.label === 'Interpretation'
+    );
+    body.append(this.buildDisclosureRows(ctx, rows, 'No Form 4 transaction rows were extracted.'));
+    return card;
+  }
+
+  private buildInsiderOwnershipCard(ctx: EntityRenderContext, analysis: GetSecFilingAnalysisResponse): HTMLElement {
+    const [card, body] = ctx.sectionCard('Owner And Post-Trade Position');
+    const ownerRows = [
+      ['Reporting owner', eventValue(analysis, 'Reporting owner')],
+      ['Relationship', eventValue(analysis, 'Relationship')],
+      ['Issuer symbol', eventValue(analysis, 'Issuer symbol') || analysis.ticker],
+      ['Shares after transaction', metricById(analysis, 'postTransactionShares')?.formattedValue ?? ''],
+    ].filter((row): row is [string, string] => Boolean(row[1]));
+
+    for (const [label, value] of ownerRows) body.append(row(ctx, label, value));
+    if (ownerRows.length === 0) body.append(ctx.makeEmpty('No reporting-owner or post-transaction ownership context was extracted.'));
+    return card;
+  }
+
+  private buildBeneficialOwnershipCard(ctx: EntityRenderContext, analysis: GetSecFilingAnalysisResponse): HTMLElement {
+    const [card, body] = ctx.sectionCard('Ownership Change');
+    card.classList.add('edp-card--wide');
+
+    const ownershipMetrics = [
+      metricById(analysis, 'beneficialOwnershipPercent'),
+      metricById(analysis, 'beneficialShares'),
+      metricById(analysis, 'soleVotingPower'),
+      metricById(analysis, 'sharedVotingPower'),
+      metricById(analysis, 'soleDispositivePower'),
+      metricById(analysis, 'sharedDispositivePower'),
+    ].filter((metric): metric is SecFilingMetric => Boolean(metric));
+    if (ownershipMetrics.length > 0) body.append(this.buildMetricGrid(ctx, ownershipMetrics));
+
+    const contextRows = analysis.events.filter((event) =>
+      event.kind === 'ownership' ||
+      event.kind === 'interpretation' ||
+      event.kind === 'disclosure'
+    );
+    body.append(this.buildDisclosureRows(ctx, contextRows, 'No Schedule 13D/G ownership rows were extracted.'));
+    return card;
+  }
+
+  private buildHoldingsContextCard(ctx: EntityRenderContext, analysis: GetSecFilingAnalysisResponse): HTMLElement {
+    const [card, body] = ctx.sectionCard('Holdings Context');
+    card.classList.add('edp-card--wide');
+
+    const holdingsMetrics = [
+      metricById(analysis, 'reportedHoldingCount'),
+      metricById(analysis, 'reportedHoldingsValue'),
+      metricById(analysis, 'reportedShareUnits'),
+      metricById(analysis, 'largestReportedHoldingValue'),
+      metricById(analysis, 'holdingsStructuredRows'),
+    ].filter((metric): metric is SecFilingMetric => Boolean(metric));
+    if (holdingsMetrics.length > 0) body.append(this.buildMetricGrid(ctx, holdingsMetrics));
+
+    const reportPeriod = eventValue(analysis, 'Report period');
+    if (reportPeriod) body.append(row(ctx, 'Report period', fmtDate(reportPeriod)));
+
+    const holdingRows = [
+      ...eventsByKind(analysis, 'holding'),
+      ...analysis.events.filter((event) => event.kind === 'interpretation' || event.kind === 'disclosure'),
+    ];
+    body.append(this.buildDisclosureRows(ctx, holdingRows, 'No holdings table rows were extracted from this filing.'));
     return card;
   }
 

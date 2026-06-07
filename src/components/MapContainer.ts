@@ -893,6 +893,23 @@ export class MapContainer {
     }
   }
 
+  public triggerSpaceportClick(id: string): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.triggerSpaceportClick(id);
+    } else {
+      this.svgMap?.triggerSpaceportClick(id);
+    }
+  }
+
+  public triggerSatelliteClick(id: string): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.triggerSatelliteClick(id);
+    } else {
+      const satellite = this.cachedSatellites?.find(item => item.id === id || String(item.noradId) === id);
+      if (satellite) this.cachedOnEntityClicked?.('satellite', satellite);
+    }
+  }
+
   public triggerRelatedAssetClick(asset: RelatedAsset): void {
     if (this.useDeckGL) {
       this.deckGLMap?.triggerRelatedAssetClick(asset);

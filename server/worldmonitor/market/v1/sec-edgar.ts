@@ -334,6 +334,10 @@ function unique<T>(values: T[]): T[] {
   return [...new Set(values)];
 }
 
+function sum(values: number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}
+
 export async function fetchTickerDirectory(): Promise<Record<string, SecTickerDirectoryEntry>> {
   if (tickerDirectoryMemory) return tickerDirectoryMemory;
 
@@ -652,8 +656,8 @@ function categoryDescription(category: string, form: string): string {
     case 'proxy': return `${form} is a proxy disclosure. The reader extracts meeting, voting, governance, proposal, and compensation signals when available.`;
     case 'ownership': return `${form} is a beneficial-ownership disclosure. The reader extracts ownership size, voting/dispositive power, amendment intent, and activist/passive context.`;
     case 'insider': return `${form} is an insider ownership or transaction form. The reader extracts reporting-owner, transaction, price, value, and post-transaction ownership context.`;
-    case 'institutional': return `${form} is an institutional holdings filing. Detailed 13F portfolio interpretation remains in the institution flow.`;
-    case 'fund': return `${form} is a fund disclosure. V1 provides categorized source metadata.`;
+    case 'institutional': return `${form} is an institutional holdings filing. The reader extracts holdings count, reported value, share totals, and top position context when available.`;
+    case 'fund': return `${form} is a fund disclosure. The reader extracts portfolio holdings context when the filing includes structured holdings tables.`;
     case 'prospectus': return `${form} is prospectus material. V1 provides categorized source metadata.`;
     default: return `${form || 'This filing'} is categorized from SEC metadata.`;
   }
@@ -941,6 +945,135 @@ export function analyzeInsiderFiling(form: string, raw: string, filing: EdgarFil
   };
 }
 
+interface HoldingSnapshot {
+  name: string;
+  title: string;
+  cusip: string;
+  valueUsd: number | null;
+  shares: number | null;
+  pctValue: number | null;
+}
+
+function extractHoldingSnapshots(raw: string): HoldingSnapshot[] {
+  const blocks = [
+    ...xmlBlocks(raw, 'infoTable'),
+    ...xmlBlocks(raw, 'invstOrSec'),
+  ];
+  const seen = new Set<string>();
+  const holdings: HoldingSnapshot[] = [];
+
+  for (const block of blocks) {
+    const name = firstXmlTag(block, 'nameOfIssuer') || firstXmlTag(block, 'name');
+    const title = firstXmlTag(block, 'titleOfClass') || firstXmlTag(block, 'title');
+    const cusip = firstXmlTag(block, 'cusip');
+    const rawValue = parseNumber(firstXmlTag(block, 'value'));
+    const rawValUsd = parseNumber(firstXmlTag(block, 'valUSD'));
+    const shares = parseNumber(firstXmlTag(block, 'sshPrnamt')) ?? parseNumber(firstXmlTag(block, 'balance'));
+    const pctValue = parseNumber(firstXmlTag(block, 'pctVal'));
+
+    if (!name && !title && !cusip) continue;
+
+    const key = [name, title, cusip, rawValue, rawValUsd, shares].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    holdings.push({
+      name,
+      title,
+      cusip,
+      valueUsd: rawValUsd ?? (rawValue !== null ? rawValue * 1000 : null),
+      shares,
+      pctValue,
+    });
+  }
+
+  return holdings;
+}
+
+function countTextMatches(text: string, patterns: RegExp[]): number {
+  for (const pattern of patterns) {
+    const matches = text.match(pattern);
+    if (matches && matches.length > 0) return matches.length;
+  }
+  return 0;
+}
+
+export function analyzeHoldingsFiling(form: string, raw: string, filing: EdgarFilingRecord | null): FormSpecificAnalysis {
+  const normalized = normalizeFilingText(raw);
+  const holdings = extractHoldingSnapshots(raw);
+  const inferredHoldingCount = holdings.length > 0
+    ? holdings.length
+    : countTextMatches(normalized, [
+      /\b\d{9}\b\s+[\d,]+(?:\.\d+)?\s+(?:SH|PRN|shares?)\b/gi,
+      /\b(?:name of issuer|issuer name|investment name)\b/gi,
+    ]);
+  const values = holdings.flatMap((holding) => holding.valueUsd !== null ? [holding.valueUsd] : []);
+  const shareCounts = holdings.flatMap((holding) => holding.shares !== null ? [holding.shares] : []);
+  const totalValue = values.length > 0 ? sum(values) : null;
+  const totalShares = shareCounts.length > 0 ? sum(shareCounts) : null;
+  const topHoldings = holdings
+    .filter((holding) => holding.name || holding.title || holding.cusip)
+    .sort((a, b) => (b.valueUsd ?? 0) - (a.valueUsd ?? 0))
+    .slice(0, 5);
+  const reportPeriod = firstMatch(normalized, [
+    /\b(?:report(?:ing)? period|period ended|period ending|quarter ended)\s*[:\-]?\s*([A-Z][a-z]+\.?\s+\d{1,2},\s+\d{4})/i,
+    /\b(?:report(?:ing)? period|period ended|period ending|quarter ended)\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})/i,
+  ]) || filing?.reportDate || '';
+  const hasConfidentialTreatment = /\bconfidential treatment\b|\b13F-CTR\b/i.test(normalized);
+  const isNotice = form.includes('-NT');
+
+  const metrics: SecFilingMetric[] = [];
+  if (inferredHoldingCount > 0) metrics.push(metric('reportedHoldingCount', 'Reported holdings', inferredHoldingCount, formatCount(inferredHoldingCount), 'count', 'holding', filing?.filedAt ?? ''));
+  if (totalValue !== null) metrics.push(metric('reportedHoldingsValue', 'Reported holdings value', totalValue, formatValue(totalValue, 'USD'), 'USD', 'holding', filing?.filedAt ?? ''));
+  if (totalShares !== null) metrics.push(metric('reportedShareUnits', 'Reported share units', totalShares, formatCount(totalShares), 'shares', 'holding', filing?.filedAt ?? ''));
+  if (topHoldings[0]?.valueUsd !== null && topHoldings[0]?.valueUsd !== undefined) {
+    metrics.push(metric('largestReportedHoldingValue', 'Largest reported holding', topHoldings[0].valueUsd, formatValue(topHoldings[0].valueUsd, 'USD'), 'USD', 'holding', filing?.filedAt ?? ''));
+  }
+  metrics.push(metric('holdingsStructuredRows', 'Parsed holdings rows', holdings.length, formatCount(holdings.length), 'count', 'extraction', filing?.filedAt ?? ''));
+
+  const events: SecFilingEvent[] = [];
+  events.push({
+    label: 'Filing focus',
+    value: form.startsWith('13F')
+      ? isNotice ? '13F notice filing; holdings may be reported by another manager or omitted from this document' : 'Institutional investment manager holdings disclosure'
+      : 'Registered fund portfolio, shareholder-report, or fund registration disclosure',
+    kind: 'interpretation',
+  });
+  if (reportPeriod) events.push({ label: 'Report period', value: reportPeriod, kind: 'date' });
+  if (hasConfidentialTreatment) events.push({ label: 'Confidential treatment', value: 'The filing references confidential treatment for one or more holdings.', kind: 'disclosure' });
+  for (const holding of topHoldings) {
+    const detail = [
+      holding.title,
+      holding.valueUsd !== null ? formatValue(holding.valueUsd, 'USD') : '',
+      holding.shares !== null ? `${formatCount(holding.shares)} shares/units` : '',
+      holding.pctValue !== null ? `${formatPercentMetric(holding.pctValue)} of net assets` : '',
+      holding.cusip ? `CUSIP ${holding.cusip}` : '',
+    ].filter(Boolean).join(' · ');
+    events.push({ label: holding.name || holding.cusip || 'Holding', value: detail || 'Reported holding', kind: 'holding' });
+  }
+  events.push({
+    label: 'Interpretation',
+    value: inferredHoldingCount > 0
+      ? `Parsed or inferred ${formatCount(inferredHoldingCount)} reported holding${inferredHoldingCount === 1 ? '' : 's'} from the filing document.`
+      : 'No holdings table rows were confidently parsed from the filing document.',
+    kind: 'interpretation',
+  });
+
+  return {
+    bullets: [
+      form.startsWith('13F')
+        ? `${form} reports institutional portfolio holdings or a holdings notice.`
+        : `${form} reports fund disclosure context, often including portfolio holdings or shareholder-report data.`,
+      inferredHoldingCount > 0 ? `Detected ${formatCount(inferredHoldingCount)} reported holding${inferredHoldingCount === 1 ? '' : 's'}.` : 'No holdings rows were confidently detected in the primary document.',
+      totalValue !== null ? `Summed reported market value is ${formatValue(totalValue, 'USD')}.` : 'Reported market value was not available in parsed holdings rows.',
+      topHoldings.length > 0 ? `Largest parsed position: ${topHoldings[0]!.name || topHoldings[0]!.cusip}.` : 'Top holding context was not available from this filing format.',
+    ],
+    metrics,
+    events,
+    fallbackReason: inferredHoldingCount > 0 || totalValue !== null ? '' : 'No holdings rows, values, or fund portfolio context were extracted.',
+  };
+}
+
 function emptyFormAnalysis(): FormSpecificAnalysis {
   return { bullets: [], metrics: [], events: [], fallbackReason: '' };
 }
@@ -961,6 +1094,9 @@ function analyzeFormSpecific(
       return analyzeOwnershipFiling(form, normalized, filing);
     case 'insider':
       return analyzeInsiderFiling(form, rawText, filing);
+    case 'institutional':
+    case 'fund':
+      return analyzeHoldingsFiling(form, rawText, filing);
     default:
       return emptyFormAnalysis();
   }
@@ -1022,7 +1158,7 @@ export async function buildSecFilingAnalysis(req: GetSecFilingAnalysisRequest): 
   const companyName = submissions?.name || resolved?.name || '';
   const ticker = resolved?.ticker || req.ticker || '';
   const facts = cik.replace(/^0+/, '') ? await fetchCompanyFacts(cik) : null;
-  const shouldAnalyzeDocument = category === 'current' || category === 'proxy' || category === 'ownership' || category === 'insider';
+  const shouldAnalyzeDocument = category === 'current' || category === 'proxy' || category === 'ownership' || category === 'insider' || category === 'institutional' || category === 'fund';
   let documentText = '';
   if (shouldAnalyzeDocument) {
     try {

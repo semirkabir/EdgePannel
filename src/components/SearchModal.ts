@@ -56,7 +56,7 @@ function resolveCategoryLabel(cmd: Command): string {
   return key ? t(key, { defaultValue: cmd.category }) : cmd.category;
 }
 
-export type SearchResultType = 'country' | 'news' | 'hotspot' | 'market' | 'prediction' | 'conflict' | 'base' | 'pipeline' | 'cable' | 'datacenter' | 'earthquake' | 'outage' | 'nuclear' | 'irradiator' | 'techcompany' | 'ailab' | 'startup' | 'techevent' | 'techhq' | 'accelerator' | 'exchange' | 'financialcenter' | 'centralbank' | 'commodityhub' | 'company' | 'marketplace' | 'sanction';
+export type SearchResultType = 'country' | 'news' | 'hotspot' | 'market' | 'prediction' | 'conflict' | 'base' | 'pipeline' | 'cable' | 'datacenter' | 'earthquake' | 'outage' | 'nuclear' | 'irradiator' | 'spaceport' | 'satellite' | 'techcompany' | 'ailab' | 'startup' | 'techevent' | 'techhq' | 'accelerator' | 'exchange' | 'financialcenter' | 'centralbank' | 'commodityhub' | 'company' | 'secfiling' | 'institution' | 'marketplace' | 'sanction';
 
 export interface SearchResult {
   type: SearchResultType;
@@ -433,10 +433,10 @@ export class SearchModal {
     }
 
     const priority: SearchResultType[] = [
-      'news', 'prediction', 'company', 'market', 'earthquake', 'outage',
+      'news', 'prediction', 'company', 'market', 'secfiling', 'institution', 'earthquake', 'outage',
       'conflict', 'hotspot', 'country',
       'sanction',
-      'base', 'pipeline', 'cable', 'datacenter', 'nuclear', 'irradiator',
+      'base', 'pipeline', 'cable', 'datacenter', 'nuclear', 'irradiator', 'spaceport', 'satellite',
       'techcompany', 'ailab', 'startup', 'techevent', 'techhq', 'accelerator',
       'exchange', 'financialcenter', 'centralbank', 'commodityhub',
       'marketplace',
@@ -618,13 +618,16 @@ export class SearchModal {
       hotspot: 'Hotspots', conflict: 'Conflicts', market: 'Markets',
       base: 'Military Bases', pipeline: 'Pipelines', cable: 'Cables',
       datacenter: 'Data Centers', earthquake: 'Earthquakes', outage: 'Outages',
-      nuclear: 'Nuclear', irradiator: 'Nuclear Sites', techcompany: 'Tech Companies',
+      nuclear: 'Nuclear', irradiator: 'Nuclear Sites', spaceport: 'Spaceports',
+      satellite: 'Satellites', techcompany: 'Tech Companies',
       ailab: 'AI Labs', startup: 'Startups', techevent: 'Tech Events',
       techhq: 'Tech HQs', accelerator: 'Accelerators', exchange: 'Exchanges',
       financialcenter: 'Financial Centers', centralbank: 'Central Banks',
       commodityhub: 'Commodity Hubs',
       sanction: 'Sanctions',
       company: 'Companies & Indices',
+      secfiling: 'SEC Filings',
+      institution: 'Institutional Filers',
       marketplace: 'Marketplace Data',
     };
     return labels[type] || type;
@@ -704,11 +707,14 @@ export class SearchModal {
       market: '\u{1F4C8}', prediction: '\u{1F3AF}', conflict: '\u2694\uFE0F',
       base: '\u{1F3DB}\uFE0F', pipeline: '\u{1F6E2}', cable: '\u{1F310}',
       datacenter: '\u{1F5A5}\uFE0F', earthquake: '\u{1F30D}', outage: '\u{1F4E1}',
-      nuclear: '\u2622\uFE0F', irradiator: '\u269B\uFE0F', techcompany: '\u{1F3E2}',
+      nuclear: '\u2622\uFE0F', irradiator: '\u269B\uFE0F', spaceport: '\u{1F680}',
+      satellite: '\u{1F6F0}\uFE0F', techcompany: '\u{1F3E2}',
       ailab: '\u{1F9E0}', startup: '\u{1F680}', techevent: '\u{1F4C5}',
       techhq: '\u{1F984}', accelerator: '\u{1F680}', exchange: '\u{1F3DB}\uFE0F',
       financialcenter: '\u{1F4B0}', centralbank: '\u{1F3E6}', commodityhub: '\u{1F4E6}',
       company: '\u{1F4C8}',
+      secfiling: '\u{1F4C4}',
+      institution: '\u{1F3E6}',
       marketplace: '\u{1F6D2}',
       sanction: '\u{1F6AB}',
     };
