@@ -45,8 +45,16 @@ import { supplementalBus } from '@/services/supplemental-signal-bus';
 import { ingestSatelliteFiresForCII } from '@/services/country-instability';
 import { matchCountryNamesInText } from '@/services/country-geometry';
 import { dataTaskScheduler } from './data-task-scheduler';
-import type { MarketPanel, WatchlistPanel, HeatmapPanel, CommoditiesPanel, CryptoPanel, PredictionPanel, EconomicPanel, TradePolicyPanel, SupplyChainPanel, SanctionsTrackerPanel } from '@/components';
+import type { MarketPanel, PredictionPanel, EconomicPanel, TradePolicyPanel, SupplyChainPanel, SanctionsTrackerPanel } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
+import {
+  createPanelRegistry,
+  type CommoditiesRenderable,
+  type CryptoRenderable,
+  type HeatmapRenderable,
+  type MarketRenderable,
+  type PanelRegistry,
+} from './panel-interfaces';
 
 export interface DataRendererDeps {
   callPanel: (key: string, method: string, ...args: unknown[]) => void;
@@ -66,11 +74,13 @@ export interface DataRendererDeps {
 export class DataRenderer {
   private ctx: AppContext;
   private deps: DataRendererDeps;
+  private panels: PanelRegistry;
   private scheduledDelayedTasks = new Set<string>();
 
   constructor(ctx: AppContext, deps: DataRendererDeps) {
     this.ctx = ctx;
     this.deps = deps;
+    this.panels = createPanelRegistry(ctx.panels);
   }
 
   destroy(): void {
@@ -117,17 +127,17 @@ export class DataRenderer {
           sparkline: q.sparkline?.length > 0 ? q.sparkline : undefined,
         }));
         this.ctx.intelligenceStore.setMarkets(data);
-        (this.ctx.panels['watchlist'] as WatchlistPanel).renderMarkets(data);
+        this.panels.getPanel<MarketRenderable>('watchlist')?.renderMarkets(data);
         stocksResult = { data, skipped: hydratedMarkets.finnhubSkipped || undefined, rateLimited: hydratedMarkets.rateLimited || undefined };
       } else {
         stocksResult = await fetchMultipleStocks(effectiveSymbols, {
           onBatch: (partialStocks) => {
             this.ctx.intelligenceStore.setMarkets(partialStocks);
-            (this.ctx.panels['watchlist'] as WatchlistPanel).renderMarkets(partialStocks);
+            this.panels.getPanel<MarketRenderable>('watchlist')?.renderMarkets(partialStocks);
           },
         });
         this.ctx.intelligenceStore.setMarkets(stocksResult.data);
-        (this.ctx.panels['watchlist'] as WatchlistPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
+        this.panels.getPanel<MarketRenderable>('watchlist')?.renderMarkets(stocksResult.data, stocksResult.rateLimited);
       }
 
       const finnhubConfigMsg = getMissingSecretMessage('FINNHUB_API_KEY');
@@ -154,7 +164,7 @@ export class DataRenderer {
       const hydratedSectors = getHydratedData('sectors') as import('@/generated/client/worldmonitor/market/v1/service_client').GetSectorSummaryResponse | undefined;
       if (hydratedSectors?.sectors?.length) {
         const mapped = hydratedSectors.sectors.map((s) => ({ symbol: s.symbol, name: s.name, change: s.change }));
-        (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(mapped);
+        this.panels.getPanel<HeatmapRenderable>('heatmap')?.renderHeatmap(mapped);
         return;
       }
 
@@ -164,26 +174,27 @@ export class DataRenderer {
           onBatch: (partialSectors) => {
             const mapped = partialSectors.map((s) => ({ symbol: s.symbol, name: s.name, change: s.change }));
             if (mapped.some((s) => s.change !== null)) {
-              (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(mapped);
+              this.panels.getPanel<HeatmapRenderable>('heatmap')?.renderHeatmap(mapped);
             }
           },
         }
       );
       const mapped = sectorsResult.data.map((s) => ({ symbol: s.symbol, name: s.name, change: s.change }));
       if (mapped.some(s => s.change !== null)) {
-        (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(mapped);
+        this.panels.getPanel<HeatmapRenderable>('heatmap')?.renderHeatmap(mapped);
       } else if (sectorsResult.skipped) {
         this.ctx.panels['heatmap']?.showConfigError(finnhubConfigMsg);
       } else {
-        (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap([]);
+        this.panels.getPanel<HeatmapRenderable>('heatmap')?.renderHeatmap([]);
       }
     } catch {
-      (this.ctx.panels['heatmap'] as HeatmapPanel)?.renderHeatmap([]);
+      this.panels.getPanel<HeatmapRenderable>('heatmap')?.renderHeatmap([]);
     }
   }
 
   private async loadCommoditiesPanel(): Promise<void> {
-    const commoditiesPanel = this.ctx.panels['commodities'] as CommoditiesPanel;
+    const commoditiesPanel = this.panels.getPanel<CommoditiesRenderable>('commodities');
+    if (!commoditiesPanel) return;
     const mapCommodity = (c: MarketData) => ({ display: c.display, price: c.price, change: c.change, sparkline: c.sparkline });
 
     const loadOnce = async (): Promise<Array<{ display: string; price: number | null; change: number | null; sparkline?: number[] }>> => {
@@ -251,16 +262,16 @@ export class DataRenderer {
     try {
       let crypto = await fetchCrypto();
       if (crypto.length === 0) {
-        (this.ctx.panels['crypto'] as CryptoPanel).showRetrying();
+        this.panels.getPanel<CryptoRenderable>('crypto')?.showRetrying();
         this.scheduleDelayedTask('market:crypto:retry', 20_000, 'coingecko', async () => {
           crypto = await fetchCrypto();
-          (this.ctx.panels['crypto'] as CryptoPanel).renderCrypto(crypto);
+          this.panels.getPanel<CryptoRenderable>('crypto')?.renderCrypto(crypto);
           this.ctx.statusPanel?.updateApi('CoinGecko', { status: crypto.length > 0 ? 'ok' : 'error' });
         });
         this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'error' });
         return;
       }
-      (this.ctx.panels['crypto'] as CryptoPanel).renderCrypto(crypto);
+      this.panels.getPanel<CryptoRenderable>('crypto')?.renderCrypto(crypto);
       this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'ok' });
     } catch {
       this.ctx.statusPanel?.updateApi('CoinGecko', { status: 'error' });

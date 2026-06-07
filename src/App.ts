@@ -47,6 +47,7 @@ import { NewsClusteringPipeline } from '@/app/news-clustering-pipeline';
 import { SignalPublisher } from '@/app/signal-publisher';
 import { DataRenderer } from '@/app/data-renderer';
 import { createEventBus, createNewsStore, createIntelligenceStore, createUIStore, createMapStore } from '@/app/index';
+import { callPanelMethod } from '@/app/panel-interfaces';
 import { resolveUserRegion, resolvePreciseUserCoordinates, type PreciseCoordinates } from '@/utils/user-location';
 import { MarketplaceManager } from '@/app/marketplace-manager';
 
@@ -439,10 +440,7 @@ export class App {
     // Create the new modular pipeline
     this.newsPipeline = new NewsClusteringPipeline(this.state, {
       callPanel: (key, method, ...args) => {
-        const panel = this.state.panels[key];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const obj = panel as any;
-        if (obj && typeof obj[method] === 'function') obj[method](...args);
+        callPanelMethod(this.state.panels, key, method, ...args);
       },
       flashMapForNews: (items) => this.dataLoader.flashMapForNews(items),
       updateSearchIndex: () => this.searchManager.updateSearchIndex(),
@@ -452,9 +450,7 @@ export class App {
 
     this.signalPublisher = new SignalPublisher(this.state, {
       callPanel: (key, method, ...args) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const obj = this.state.panels[key] as any;
-        if (obj && typeof obj[method] === 'function') obj[method](...args);
+        callPanelMethod(this.state.panels, key, method, ...args);
       },
       refreshOpenCountryBrief: () => this.countryIntel.refreshOpenBrief(),
       renderCriticalBanner: (postures) => this.panelLayout.renderCriticalBanner(postures as import('@/services/military-surge').TheaterPostureSummary[]),
@@ -466,9 +462,7 @@ export class App {
 
     this.dataRenderer = new DataRenderer(this.state, {
       callPanel: (key, method, ...args) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const obj = this.state.panels[key] as any;
-        if (obj && typeof obj[method] === 'function') obj[method](...args);
+        callPanelMethod(this.state.panels, key, method, ...args);
       },
       publishSupplementalSignals: (opts) => this.signalPublisher.publishSupplementalSignals(opts),
       clearSupplementalSignals: (sourceId, dataSourceId, error) => this.signalPublisher.clearSupplementalSignals(sourceId, dataSourceId, error),

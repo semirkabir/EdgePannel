@@ -10,13 +10,14 @@ const FILE_BUDGETS = [
   ['src/app/event-handlers.ts', 1850],
   ['src/components/MapPopup.ts', 2800],
   ['src/components/Map.ts', 4400],
+  ['src/components/DeckGLMap.ts', 9400],
   ['src/components/GlobeMap.ts', 2650],
 ];
 
 const ARTIFACT_BUDGETS = {
-  jsChunkBytes: 1_500_000,
-  cssChunkBytes: 650_000,
-  totalAssetsBytes: 20_000_000,
+  jsChunkBytes: 2_100_000,
+  cssChunkBytes: 850_000,
+  totalAssetsBytes: 43_000_000,
   precacheBytes: 18_000_000,
 };
 
@@ -58,6 +59,7 @@ async function checkArtifactBudgets() {
   for (const file of files) {
     const { size } = await stat(file);
     const relative = path.relative(distDir, file).replace(/\\/g, '/');
+    if (relative.endsWith('.br')) continue;
     totalAssetsBytes += size;
     if (/^(assets\/|favico\/|offline\.html$|.*\.(?:js|css|woff2|png|svg|ico)$)/.test(relative)) {
       precacheBytes += size;

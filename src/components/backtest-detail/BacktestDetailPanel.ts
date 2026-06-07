@@ -3,6 +3,7 @@ import { backtestingService } from '@/services/backtesting-service';
 import { FINCEPT_STRATEGIES, normalizeStrategyParams } from '@/services/backtest-providers/fincept-provider';
 import type {
   BacktestCommand,
+  BacktestProviderInfo,
   BacktestProviderId,
   BacktestResultEnvelope,
   BacktestRunRequest,
@@ -10,19 +11,6 @@ import type {
   BacktestStrategy,
 } from '@/services/backtesting-types';
 import { escapeHtml } from '@/utils/sanitize';
-
-const PROVIDERS: BacktestProviderId[] = ['vectorbt', 'backtesting.py', 'fasttrade', 'zipline', 'bt', 'fincept'];
-const COMMANDS: Array<{ id: BacktestCommand; label: string }> = [
-  { id: 'run', label: 'Run' },
-  { id: 'optimize', label: 'Optimize' },
-  { id: 'walk_forward', label: 'Walk-Forward' },
-  { id: 'indicators', label: 'Indicators' },
-  { id: 'indicator_signals', label: 'Indicator Signals' },
-  { id: 'ml_labels', label: 'ML Labels' },
-  { id: 'cv_splits', label: 'CV Splits' },
-  { id: 'returns_analysis', label: 'Returns Analysis' },
-  { id: 'signal_generators', label: 'Signal Generators' },
-];
 
 type ResultTab = 'summary' | 'metrics' | 'trades' | 'raw';
 
@@ -87,13 +75,15 @@ export class BacktestDetailPanel extends DetailPanelBase {
     this.onCloseCallback?.();
   }
 
-  private get selectedStrategy(): BacktestStrategy {
+  private get selectedStrategy(): BacktestStrategy | null {
+    const providerInfo = backtestingService.get_provider_info(this.provider);
+    if (!providerInfo.available) return null;
     if (this.provider !== 'fincept') {
       return {
         id: `${this.provider}_sidecar_placeholder`,
-        name: `${this.provider} Sidecar Strategy`,
+        name: `${providerInfo.label} Sidecar Strategy`,
         category: 'Sidecar Required',
-        description: `${this.provider} strategies load when the Tauri sidecar provider is connected.`,
+        description: `${providerInfo.label} strategies load when the Tauri sidecar provider is connected.`,
         params: [],
       };
     }
@@ -101,6 +91,12 @@ export class BacktestDetailPanel extends DetailPanelBase {
   }
 
   private async render(): Promise<void> {
+    const providers = backtestingService.list_providers();
+    const providerInfo = providers.find((item) => item.id === this.provider) ?? backtestingService.get_provider_info('fincept');
+    const commands = await backtestingService.load_command_options(this.provider);
+    if (commands.length > 0 && !commands.some((item) => item.id === this.command)) {
+      this.command = commands[0]!.id;
+    }
     const strategies = await backtestingService.load_strategies(this.provider);
     const strategy = strategies.find((item) => item.id === this.strategyId) ?? strategies[0] ?? this.selectedStrategy;
 
@@ -109,18 +105,18 @@ export class BacktestDetailPanel extends DetailPanelBase {
         <div>
           <div class="bd-kicker">Backtesting</div>
           <h2>Strategy Console</h2>
-          <span>${this.provider === 'fincept' ? 'READY' : 'SIDECAR REQUIRED'}</span>
+          <span>${escapeHtml(providerInfo.status_label)}</span>
         </div>
         <div class="bd-header-actions">
           <button class="bd-icon-btn" data-bd-refresh title="Refresh">&#8635;</button>
           <button class="bd-icon-btn" data-bd-max title="Maximize">${this.isMaximizedState ? '&minus;' : '&#9633;'}</button>
         </div>
       </header>
-      ${this.providerStripHtml()}
+      ${this.providerStripHtml(providers, providerInfo)}
       <div class="bd-console">
         <aside class="bd-left">
-          ${this.commandListHtml()}
-          ${this.strategyFormHtml(strategies, strategy)}
+          ${this.commandListHtml(commands, providerInfo)}
+          ${this.strategyFormHtml(strategies, strategy, providerInfo)}
         </aside>
         <main class="bd-main">
           ${this.resultTabsHtml()}
@@ -129,32 +125,33 @@ export class BacktestDetailPanel extends DetailPanelBase {
           ${this.settingsHtml()}
         </aside>
       </div>
-      <footer class="bd-status">Providers ${PROVIDERS.length} | Strategies ${strategies.length} | v1 browser engine | ${this.provider === 'fincept' ? 'READY' : 'WAITING FOR SIDECAR'}</footer>
+      <footer class="bd-status">Providers ${providers.length} | Available ${providers.filter((item) => item.available).length} | Strategies ${strategies.length} | ${escapeHtml(providerInfo.status_label)}</footer>
     `;
 
     this.bind();
   }
 
-  private providerStripHtml(): string {
+  private providerStripHtml(providers: BacktestProviderInfo[], providerInfo: BacktestProviderInfo): string {
     return `
       <section class="bd-provider-strip">
-        ${PROVIDERS.map((provider) => `
-          <button class="bd-provider${provider === this.provider ? ' bd-provider-active' : ''}${provider === 'fincept' ? '' : ' bd-provider-muted'}" data-provider="${provider}">
-            ${escapeHtml(provider)}
+        ${providers.map((provider) => `
+          <button class="bd-provider${provider.id === this.provider ? ' bd-provider-active' : ''}${provider.available ? '' : ' bd-provider-disabled'}${provider.runtime === 'desktop_sidecar' ? ' bd-provider-muted' : ''}" ${provider.available ? `data-provider="${escapeHtml(provider.id)}"` : 'disabled aria-disabled="true"'} title="${escapeHtml(provider.description)}">
+            ${escapeHtml(provider.label)}
+            ${!provider.available ? '<em>Desktop</em>' : ''}
           </button>
         `).join('')}
-        <span class="bd-ready-dot">${this.provider === 'fincept' ? 'READY' : 'SIDECAR'}</span>
-        <button class="bd-run-btn" data-run>RUN</button>
+        <span class="bd-ready-dot">${escapeHtml(providerInfo.status_label)}</span>
+        <button class="bd-run-btn" data-run${providerInfo.available ? '' : ' disabled'}>RUN</button>
       </section>
     `;
   }
 
-  private commandListHtml(): string {
+  private commandListHtml(commands: Array<{ id: BacktestCommand; label: string }>, providerInfo: BacktestProviderInfo): string {
     return `
       <section class="bd-card">
         <h3>Commands</h3>
         <div class="bd-command-list">
-          ${COMMANDS.map((command) => `
+          ${commands.length === 0 ? `<div class="bd-empty">${escapeHtml(providerInfo.status_label)}</div>` : commands.map((command) => `
             <button class="${command.id === this.command ? 'bd-command-active' : ''}" data-command="${command.id}">${escapeHtml(command.label)}</button>
           `).join('')}
         </div>
@@ -162,7 +159,15 @@ export class BacktestDetailPanel extends DetailPanelBase {
     `;
   }
 
-  private strategyFormHtml(strategies: BacktestStrategy[], strategy: BacktestStrategy): string {
+  private strategyFormHtml(strategies: BacktestStrategy[], strategy: BacktestStrategy | null, providerInfo: BacktestProviderInfo): string {
+    if (!strategy) {
+      return `
+        <section class="bd-card">
+          <h3>Strategy</h3>
+          <div class="bd-empty">${escapeHtml(providerInfo.label)} is available in the desktop app when its Tauri sidecar provider is connected.</div>
+        </section>
+      `;
+    }
     const categories = Array.from(new Set(strategies.map((item) => item.category)));
     return `
       <section class="bd-card">
@@ -337,6 +342,10 @@ export class BacktestDetailPanel extends DetailPanelBase {
 
   private async run(): Promise<void> {
     const strategy = this.selectedStrategy;
+    if (!strategy) {
+      this.content.querySelector<HTMLElement>('.bd-result-card')?.replaceChildren(this.el('div', 'bd-empty', `${backtestingService.get_provider_info(this.provider).label} requires the desktop app and Tauri sidecar provider.`));
+      return;
+    }
     const values: Record<string, FormDataEntryValue | string | number | boolean | undefined> = {};
     this.content.querySelectorAll<HTMLInputElement>('.bd-param-grid input').forEach((input) => {
       values[input.name] = input.value;

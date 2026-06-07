@@ -2,6 +2,7 @@ import { Panel } from './Panel';
 import { escapeHtml } from '@/services/forecast';
 import type { Forecast } from '@/services/forecast';
 import { t } from '@/services/i18n';
+import { assessMacroForecastConfidence, type DataConfidenceAssessment } from '@/services/macro-data-confidence';
 import { getForecastMacroRegion } from '../../shared/forecast-macro-regions.js';
 
 const DOMAINS = ['all', 'conflict', 'market', 'supply_chain', 'political', 'military', 'cyber', 'infrastructure'] as const;
@@ -180,11 +181,11 @@ function injectStyles(): void {
 
     /* ── Forecast probability table ──────────────────────────────────────── */
     .fc-prob-table { border: 1px solid var(--border-color, #30363d); border-radius: 4px; overflow: hidden; margin: 0 8px 8px; }
-    .fc-prob-hdr { display: grid; grid-template-columns: 1fr 80px 100px 60px; padding: 8px 14px; border-bottom: 1px solid var(--border-color, #30363d); }
+    .fc-prob-hdr { display: grid; grid-template-columns: minmax(0,1fr) 72px 58px 56px 70px; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border-color, #30363d); }
     .fc-prob-hdr span { font-size: 9px; color: var(--text-secondary, #7d8590); text-transform: uppercase; letter-spacing: 0.08em; }
     .fc-prob-item { border-bottom: 1px solid var(--border-color, #30363d); }
     .fc-prob-item:last-child { border-bottom: none; }
-    .fc-prob-row { display: grid; grid-template-columns: 1fr 80px 100px 60px; align-items: center; padding: 9px 14px; cursor: pointer; transition: background 0.1s; }
+    .fc-prob-row { display: grid; grid-template-columns: minmax(0,1fr) 72px 58px 56px 70px; gap: 8px; align-items: center; padding: 9px 14px; cursor: pointer; transition: background 0.1s; }
     .fc-prob-item:hover .fc-prob-row { background: rgba(255,255,255,0.02); }
     .fc-prob-label { font-size: 10px; color: var(--text-secondary, #7d8590); line-height: 1.4; }
     .fc-bar-wrap { display: flex; align-items: center; gap: 8px; }
@@ -512,7 +513,7 @@ export class ForecastPanel extends Panel {
       return '<div class="fc-empty">No forecasts for this filter</div>';
     }
     const header = `<div class="fc-prob-hdr">
-      <span>Forecast</span><span>Probability</span><span>Trend</span><span>Domain</span>
+      <span>Forecast</span><span>Probability</span><span>Trend</span><span>Domain</span><span>Data</span>
     </div>`;
     const rows = forecasts.map(f => this.renderProbRow(f)).join('');
     return `<div class="fc-prob-table">${header}${rows}</div>`;
@@ -536,6 +537,8 @@ export class ForecastPanel extends Panel {
 
     const simBarHtml = this.renderSimBar(f);
     const simChipHtml = this.renderSimChip(f);
+    const dataConfidence = assessMacroForecastConfidence(f);
+    const dataChipHtml = dataConfidence ? this.renderDataConfidenceChip(dataConfidence) : '<span class="fc-data-chip fc-data-chip--empty">—</span>';
     const demoted = f.demotedBySimulation ?? false;
 
     return `
@@ -560,14 +563,32 @@ export class ForecastPanel extends Panel {
                 style="background:${catColor}1f;color:${catColor};border:1px solid ${catColor}33">
             ${escapeHtml(catLabel)}
           </span>
+          ${dataChipHtml}
         </div>
         <div class="fc-toggle-row">
           <span class="fc-toggle" data-fc-toggle="detail-${escapeHtml(f.id)}">Analysis</span>
           ${sigs.length > 0 ? `<span class="fc-toggle" data-fc-toggle="signals-${escapeHtml(f.id)}">Signals (${sigs.length})</span>` : ''}
+          ${dataConfidence ? `<span class="fc-toggle" data-fc-toggle="data-${escapeHtml(f.id)}">Data caveats</span>` : ''}
         </div>
         <div class="fc-detail fc-hidden" data-fc-panel="detail-${escapeHtml(f.id)}">${this.renderDetailBody(f)}</div>
         ${signalsHtml ? `<div class="fc-signals fc-hidden" data-fc-panel="signals-${escapeHtml(f.id)}">${signalsHtml}</div>` : ''}
+        ${dataConfidence ? `<div class="fc-data-note fc-hidden" data-fc-panel="data-${escapeHtml(f.id)}">${this.renderDataConfidenceNote(dataConfidence)}</div>` : ''}
       </div>
+    `;
+  }
+
+  private renderDataConfidenceChip(assessment: DataConfidenceAssessment): string {
+    return `<span class="fc-data-chip fc-data-chip--${assessment.tier}" title="${escapeHtml(assessment.summary)}">${escapeHtml(assessment.label)}</span>`;
+  }
+
+  private renderDataConfidenceNote(assessment: DataConfidenceAssessment): string {
+    return `
+      <div class="fc-data-note-top">
+        <span class="fc-data-note-title">${escapeHtml(assessment.label)}</span>
+        <span class="fc-data-note-source">${escapeHtml(assessment.sourceLabel)}</span>
+      </div>
+      <div class="fc-data-note-summary">${escapeHtml(assessment.summary)}</div>
+      ${this.renderList(assessment.caveats)}
     `;
   }
 

@@ -1,5 +1,6 @@
 import { Panel } from './Panel';
 import { t } from '@/services/i18n';
+import { assessConsumerPriceConfidence, type DataConfidenceAssessment } from '@/services/macro-data-confidence';
 import { escapeHtml } from '@/utils/sanitize';
 import { sparkline } from '@/utils/sparkline';
 import {
@@ -10,6 +11,10 @@ import {
   fetchConsumerPriceFreshness,
   DEFAULT_MARKET,
   DEFAULT_BASKET,
+  CONSUMER_PRICE_MARKETS,
+  getConsumerPriceBasketOptions,
+  normalizeConsumerPriceMarket,
+  normalizeConsumerPriceBasket,
   type GetConsumerPriceOverviewResponse,
   type ListConsumerPriceCategoriesResponse,
   type ListConsumerPriceMoversResponse,
@@ -21,6 +26,7 @@ import {
 } from '@/services/consumer-prices';
 
 type TabId = 'overview' | 'categories' | 'movers' | 'spread' | 'health';
+type RangeId = '7d' | '30d' | '90d';
 
 const SETTINGS_KEY = 'wm-consumer-prices-v1';
 const CHANGE_EVENT = 'wm-consumer-prices-settings-changed';
@@ -28,7 +34,7 @@ const CHANGE_EVENT = 'wm-consumer-prices-settings-changed';
 interface PanelSettings {
   market: string;
   basket: string;
-  range: '7d' | '30d' | '90d';
+  range: RangeId;
   tab: TabId;
   categoryFilter: string | null;
 }
@@ -41,12 +47,82 @@ const DEFAULT_SETTINGS: PanelSettings = {
   categoryFilter: null,
 };
 
+const VALID_RANGES = new Set<RangeId>(['7d', '30d', '90d']);
+const VALID_TABS = new Set<TabId>(['overview', 'categories', 'movers', 'spread', 'health']);
+
+function normalizeSettings(input: Partial<PanelSettings> | null | undefined): PanelSettings {
+  const market = normalizeConsumerPriceMarket(input?.market);
+  const basket = normalizeConsumerPriceBasket(input?.basket, market);
+  const range = VALID_RANGES.has(input?.range as RangeId) ? input?.range as RangeId : DEFAULT_SETTINGS.range;
+  const tab = VALID_TABS.has(input?.tab as TabId) ? input?.tab as TabId : DEFAULT_SETTINGS.tab;
+  const rawCategory = typeof input?.categoryFilter === 'string' ? input.categoryFilter.trim() : '';
+  return {
+    market,
+    basket,
+    range,
+    tab,
+    categoryFilter: rawCategory ? rawCategory : null,
+  };
+}
+
+let _styleInjected = false;
+function injectStyles(): void {
+  if (_styleInjected) return;
+  _styleInjected = true;
+  const style = document.createElement('style');
+  style.textContent = `
+    .cp-selector-bar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+      padding: 8px;
+      border-bottom: 1px solid var(--border-color, #30363d);
+      background: rgba(255,255,255,0.018);
+    }
+    .cp-selector-field {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .cp-selector-label {
+      color: var(--text-secondary, #8b949e);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+    .cp-select {
+      width: 100%;
+      min-width: 0;
+      height: 28px;
+      padding: 0 7px;
+      border: 1px solid var(--border-color, #30363d);
+      border-radius: 4px;
+      color: var(--text-primary, var(--text, #f0f6fc));
+      background: var(--input-bg, rgba(0,0,0,0.18));
+      font: inherit;
+      font-size: 11px;
+    }
+    .cp-select:focus {
+      outline: 1px solid var(--accent, #58a6ff);
+      outline-offset: 1px;
+    }
+    @media (max-width: 420px) {
+      .cp-selector-bar {
+        grid-template-columns: 1fr;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function loadSettings(): PanelSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    if (raw) return normalizeSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
   } catch {}
-  return { ...DEFAULT_SETTINGS };
+  return normalizeSettings(DEFAULT_SETTINGS);
 }
 
 function saveSettings(s: PanelSettings): void {
@@ -93,7 +169,7 @@ export class ConsumerPricesPanel extends Panel {
   private spread: ListRetailerPriceSpreadsResponse | null = null;
   private freshness: GetConsumerPriceFreshnessResponse | null = null;
   private settings: PanelSettings = loadSettings();
-  private loading = false; // tracks in-flight fetch to avoid duplicates
+  private loadSeq = 0;
 
   constructor() {
     super({
@@ -102,7 +178,37 @@ export class ConsumerPricesPanel extends Panel {
       infoTooltip: t('components.consumerPrices.infoTooltip'),
     });
 
+    injectStyles();
     this.content.addEventListener('click', (e) => this.handleClick(e));
+    this.content.addEventListener('change', (e) => this.handleChange(e));
+  }
+
+  private handleChange(e: Event): void {
+    const target = e.target as HTMLElement;
+    const marketSelect = target.closest('[data-market-select]') as HTMLSelectElement | null;
+    if (marketSelect) {
+      const market = normalizeConsumerPriceMarket(marketSelect.value);
+      this.settings = normalizeSettings({
+        ...this.settings,
+        market,
+        basket: normalizeConsumerPriceBasket('', market),
+        categoryFilter: null,
+      });
+      saveSettings(this.settings);
+      void this.loadData();
+      return;
+    }
+
+    const basketSelect = target.closest('[data-basket-select]') as HTMLSelectElement | null;
+    if (basketSelect) {
+      this.settings = normalizeSettings({
+        ...this.settings,
+        basket: basketSelect.value,
+        categoryFilter: null,
+      });
+      saveSettings(this.settings);
+      void this.loadData();
+    }
   }
 
   private handleClick(e: Event): void {
@@ -127,9 +233,9 @@ export class ConsumerPricesPanel extends Panel {
 
     const rangeBtn = target.closest('[data-range]') as HTMLElement | null;
     if (rangeBtn?.dataset.range) {
-      this.settings.range = rangeBtn.dataset.range as PanelSettings['range'];
+      this.settings.range = rangeBtn.dataset.range as RangeId;
       saveSettings(this.settings);
-      this.loadData();
+      void this.loadData();
       return;
     }
 
@@ -142,30 +248,31 @@ export class ConsumerPricesPanel extends Panel {
   }
 
   public async loadData(): Promise<void> {
-    if (this.loading) return;
-    this.loading = true;
+    const seq = ++this.loadSeq;
     this.showLoading();
 
-    const { market, basket, range } = this.settings;
+    this.settings = normalizeSettings(this.settings);
+    const { market, basket, range, categoryFilter } = this.settings;
 
     const [overview, categories, movers, spread, freshness] = await Promise.all([
       fetchConsumerPriceOverview(market, basket),
       fetchConsumerPriceCategories(market, basket, range),
-      fetchConsumerPriceMovers(market, range),
+      fetchConsumerPriceMovers(market, range, categoryFilter ?? undefined),
       fetchRetailerPriceSpreads(market, basket),
       fetchConsumerPriceFreshness(market),
     ]);
 
+    if (seq !== this.loadSeq) return;
     this.overview = overview;
     this.categories = categories;
     this.movers = movers;
     this.spread = spread;
     this.freshness = freshness;
-    this.loading = false;
     this.render();
   }
 
   private render(): void {
+    this.settings = normalizeSettings(this.settings);
     const { tab, range, categoryFilter } = this.settings;
 
     const tabs: Array<{ id: TabId; label: string }> = [
@@ -219,11 +326,73 @@ export class ConsumerPricesPanel extends Panel {
 
     this.setContent(`
       <div class="consumer-prices-panel">
+        ${this.renderSelectorBar()}
         ${tabsHtml}
         ${noData && tab === 'overview' ? '<div class="cp-upstream-warn">Data collection starting — check back soon</div>' : ''}
+        ${this.renderConfidenceStrip()}
         <div class="cp-body">${bodyHtml}</div>
       </div>
     `);
+  }
+
+  private renderSelectorBar(): string {
+    const { market, basket } = this.settings;
+    const marketOptions = CONSUMER_PRICE_MARKETS.map((option) => `
+      <option value="${escapeHtml(option.code)}"${option.code === market ? ' selected' : ''}>
+        ${escapeHtml(option.label)} (${escapeHtml(option.currencyCode)})
+      </option>
+    `).join('');
+    const basketOptions = getConsumerPriceBasketOptions(market).map((option) => `
+      <option value="${escapeHtml(option.slug)}"${option.slug === basket ? ' selected' : ''}>
+        ${escapeHtml(option.label)}
+      </option>
+    `).join('');
+
+    return `
+      <div class="cp-selector-bar">
+        <label class="cp-selector-field">
+          <span class="cp-selector-label">Market</span>
+          <select class="cp-select" data-market-select aria-label="Consumer price market">
+            ${marketOptions}
+          </select>
+        </label>
+        <label class="cp-selector-field">
+          <span class="cp-selector-label">Basket</span>
+          <select class="cp-select" data-basket-select aria-label="Consumer price basket">
+            ${basketOptions}
+          </select>
+        </label>
+      </div>
+    `;
+  }
+
+  private getDataConfidence(): DataConfidenceAssessment | null {
+    const d = this.overview;
+    if (!d) return null;
+    return assessConsumerPriceConfidence({
+      coveragePct: d.coveragePct,
+      freshnessLagMin: d.freshnessLagMin,
+      upstreamUnavailable: d.upstreamUnavailable,
+      stalledCount: this.freshness?.stalledCount,
+      parseSuccessRates: this.freshness?.retailers?.map(retailer => retailer.parseSuccessRate),
+    });
+  }
+
+  private renderConfidenceStrip(): string {
+    const assessment = this.getDataConfidence();
+    if (!assessment) return '';
+    return `
+      <div class="cp-confidence-strip">
+        <div class="cp-confidence-top">
+          <span class="cp-confidence-chip cp-confidence-chip--${assessment.tier}">${escapeHtml(assessment.label)}</span>
+          <span class="cp-confidence-source">${escapeHtml(assessment.sourceLabel)}</span>
+        </div>
+        <div class="cp-confidence-summary">${escapeHtml(assessment.summary)}</div>
+        <div class="cp-confidence-caveats">
+          ${assessment.caveats.map(caveat => `<span class="cp-confidence-caveat">${escapeHtml(caveat)}</span>`).join('')}
+        </div>
+      </div>
+    `;
   }
 
   private renderOverview(): string {

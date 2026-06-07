@@ -21,6 +21,7 @@ export interface HeatmapRenderable {
 
 export interface CommoditiesRenderable {
   renderCommodities(data: unknown[]): void;
+  showRetrying(): void;
 }
 
 export interface CryptoRenderable {
@@ -97,4 +98,12 @@ export function createPanelRegistry(panels: Record<string, unknown>): PanelRegis
       return key in panels;
     },
   };
+}
+
+export function callPanelMethod(panels: Record<string, unknown>, key: string, method: string, ...args: unknown[]): void {
+  const panel = panels[key] as Record<string, unknown> | undefined;
+  const candidate = panel?.[method];
+  if (typeof candidate === 'function') {
+    (candidate as (...methodArgs: unknown[]) => unknown)(...args);
+  }
 }

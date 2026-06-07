@@ -2,7 +2,7 @@ import type { BacktestProviderId, BacktestResultEnvelope, BacktestRunRequest } f
 
 export const VENDOR_PROVIDERS: BacktestProviderId[] = ['vectorbt', 'backtesting.py', 'fasttrade', 'zipline', 'bt'];
 
-export function vendorProviderUnavailable(request: BacktestRunRequest): BacktestResultEnvelope {
+export function vendorProviderUnavailable(request: BacktestRunRequest, isDesktopRuntime = false): BacktestResultEnvelope {
   return {
     format_version: '1.0',
     provider: request.provider,
@@ -10,7 +10,9 @@ export function vendorProviderUnavailable(request: BacktestRunRequest): Backtest
     strategy_name: request.strategy_name,
     symbols: request.market_data.symbols,
     status: 'provider_unavailable',
-    message: `${request.provider} requires a Tauri sidecar provider and is not available in the browser.`,
+    message: isDesktopRuntime
+      ? `${request.provider} requires a connected Tauri sidecar provider.`
+      : `${request.provider} is desktop-only and requires the Tauri sidecar provider.`,
     metrics: {
       total_return: 0,
       annual_return: 0,
@@ -23,6 +25,6 @@ export function vendorProviderUnavailable(request: BacktestRunRequest): Backtest
     },
     equity_curve: [],
     trades: [],
-    raw: { provider_available: false, requires_sidecar: true },
+    raw: { provider_available: false, requires_sidecar: true, desktop_runtime: isDesktopRuntime },
   };
 }

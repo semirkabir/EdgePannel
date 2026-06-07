@@ -230,6 +230,9 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   ipo:                p1('IPOs, Earnings & M&A'),
   heatmap:            p1('Sector Heatmap'),
   'macro-signals':    p1('Market Radar'),
+  'fear-greed':        p1('Fear & Greed'),
+  'market-breadth':    p1('Market Breadth'),
+  'gold-intelligence': p1('Gold Intelligence'),
   derivatives:        p2('Derivatives & Options'),
   fintech:            p2('Fintech & Trading Tech'),
   regulation:         p2('Financial Regulation'),
@@ -512,7 +515,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Finance variant
   finMarkets: {
     labelKey: 'header.panelCatMarkets',
-    panelKeys: ['analyst-workbench', 'markets', 'watchlist', 'markets-news', 'heatmap', 'macro-signals', 'analysis', 'polymarket', 'my-portfolio', 'public-filings', 'portfolio-tools'],
+    panelKeys: ['analyst-workbench', 'markets', 'watchlist', 'markets-news', 'heatmap', 'macro-signals', 'fear-greed', 'market-breadth', 'gold-intelligence', 'analysis', 'polymarket', 'my-portfolio', 'public-filings', 'portfolio-tools'],
     variants: ['finance'],
   },
   fixedIncomeFx: {

@@ -2,6 +2,17 @@ import type { OhlcvBar } from './market/ohlcv';
 
 export type BacktestProviderId = 'vectorbt' | 'backtesting.py' | 'fasttrade' | 'zipline' | 'bt' | 'fincept';
 
+export type BacktestProviderRuntime = 'browser' | 'desktop_sidecar';
+
+export interface BacktestProviderInfo {
+  id: BacktestProviderId;
+  label: string;
+  runtime: BacktestProviderRuntime;
+  available: boolean;
+  status_label: string;
+  description: string;
+}
+
 export type BacktestCommand =
   | 'run'
   | 'optimize'

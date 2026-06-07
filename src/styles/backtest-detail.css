@@ -138,6 +138,28 @@
   opacity: 0.62;
 }
 
+.bd-provider-disabled,
+.bd-run-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.bd-provider-disabled:hover,
+.bd-run-btn:disabled:hover {
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-dim);
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.bd-provider em,
+.bt-provider-chip em {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--text-dim);
+  font-size: 9px;
+  font-style: normal;
+}
+
 .bd-ready-dot,
 .bt-status {
   padding: 6px 9px;
@@ -357,6 +379,11 @@
 .bt-provider-live {
   border-color: color-mix(in srgb, var(--green, #22c55e) 45%, transparent);
   color: var(--green, #22c55e);
+}
+
+.bt-provider-desktop {
+  border-color: color-mix(in srgb, var(--border) 80%, transparent);
+  color: var(--text-dim);
 }
 
 .bt-last-card,

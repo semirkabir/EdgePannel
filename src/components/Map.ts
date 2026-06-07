@@ -70,7 +70,6 @@ import { getCountryAtCoordinates, getCountryBbox } from '@/services/country-geom
 import type { CountryClickPayload } from './DeckGLMap';
 import { t } from '@/services/i18n';
 import { LAYER_REGISTRY, resolveLayerAccentColor, resolveLayerIcon, resolveLayerLabel, type MapVariant } from '@/config/map-layer-definitions';
-import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferences';
 
 import {
   TIME_RANGE_OPTIONS,
@@ -82,6 +81,13 @@ import {
   type CustomLookbackUnit,
   type TimeRange,
 } from '@/utils/time-range';
+import {
+  DEFAULT_MAP_CONTROL_SETTINGS,
+  loadMapControlSettings,
+  saveMapControlSettings,
+  type MapControlSettings,
+} from './map-control-settings';
+import { createSvgLayerToggles } from './map-layer-tray';
 export type { TimeRange };
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 type InfrastructureLineType = 'cable' | 'pipeline';
@@ -129,53 +135,6 @@ function formatPredictionMarketVolume(volume?: number): string {
   if (volume >= 1_000_000) return `$${(volume / 1_000_000).toFixed(1)}M volume`;
   if (volume >= 1_000) return `$${(volume / 1_000).toFixed(0)}K volume`;
   return `$${volume.toFixed(0)} volume`;
-}
-
-const MAP_CONTROL_SETTINGS_KEY = 'wm-deck-control-settings';
-
-interface MapControlSettings {
-  visibleTimeRanges: TimeRange[];
-  showLayerCount: boolean;
-  showLayerActions: boolean;
-}
-
-const DEFAULT_MAP_CONTROL_SETTINGS: MapControlSettings = {
-  visibleTimeRanges: TIME_RANGE_OPTIONS,
-  showLayerCount: true,
-  showLayerActions: true,
-};
-
-function loadMapControlSettings(): MapControlSettings {
-  try {
-    const raw = localStorage.getItem(MAP_CONTROL_SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_MAP_CONTROL_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<MapControlSettings>;
-    const visibleTimeRanges = Array.isArray(parsed.visibleTimeRanges)
-      ? parsed.visibleTimeRanges.filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range as TimeRange))
-      : DEFAULT_MAP_CONTROL_SETTINGS.visibleTimeRanges;
-    if (
-      Array.isArray(parsed.visibleTimeRanges) &&
-      !visibleTimeRanges.includes('custom') &&
-      TIME_RANGE_OPTIONS.filter((range) => range !== 'custom').every((range) => visibleTimeRanges.includes(range))
-    ) {
-      visibleTimeRanges.push('custom');
-    }
-    return {
-      visibleTimeRanges: visibleTimeRanges.length > 0 ? visibleTimeRanges : DEFAULT_MAP_CONTROL_SETTINGS.visibleTimeRanges,
-      showLayerCount: parsed.showLayerCount !== false,
-      showLayerActions: parsed.showLayerActions !== false,
-    };
-  } catch {
-    return { ...DEFAULT_MAP_CONTROL_SETTINGS };
-  }
-}
-
-function saveMapControlSettings(settings: MapControlSettings): void {
-  try {
-    localStorage.setItem(MAP_CONTROL_SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // localStorage can be unavailable in restricted browser contexts.
-  }
 }
 
 const AIRPORT_MARKER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M3 19h18v2H3z"/><path d="M6 17V9l6-4 6 4v8h-3v-4h-6v4z"/><rect x="10" y="10" width="4" height="3" rx="0.6"/></svg>';
@@ -764,281 +723,14 @@ export class MapComponent {
 
 
   private createLayerToggles(): HTMLElement {
-    const toggles = document.createElement('div');
-    toggles.className = 'layer-toggles map-tray';
-    toggles.id = 'layerToggles';
-    toggles.setAttribute('role', 'region');
-    toggles.setAttribute('aria-label', 'Map layers');
-    const header = document.createElement('div');
-    header.className = 'map-tray-header';
-    const title = document.createElement('span');
-    title.className = 'map-tray-title';
-    title.textContent = 'Layers';
-    const status = document.createElement('span');
-    status.className = 'map-tray-status';
-    const collapseBtn = document.createElement('button');
-    collapseBtn.className = 'map-tray-collapse';
-    collapseBtn.type = 'button';
-    collapseBtn.setAttribute('aria-label', 'Collapse layers');
-    collapseBtn.setAttribute('aria-expanded', 'true');
-    const body = document.createElement('div');
-    body.className = 'map-tray-body';
-    const applyCollapsedState = (collapsed: boolean) => {
-      body.classList.toggle('collapsed', collapsed);
-      collapseBtn.textContent = collapsed ? '+' : '−';
-      collapseBtn.setAttribute('aria-label', collapsed ? 'Expand layers' : 'Collapse layers');
-      collapseBtn.setAttribute('aria-expanded', String(!collapsed));
-      toggles.classList.toggle('collapsed', collapsed);
-      setTrayOpenPreference('svgLayersCollapsed', collapsed);
-    };
-
-    collapseBtn.addEventListener('click', () => {
-      applyCollapsedState(!body.classList.contains('collapsed'));
+    return createSvgLayerToggles({
+      container: this.container,
+      layersState: this.state.layers,
+      getVariantLayerKeys: () => this.getVariantLayerKeys(),
+      getLayerLabel: (layer) => this.getLayerLabel(layer),
+      createSharedIcon: (layer, className) => this.createSharedIcon(layer, className),
+      toggleLayer: (layer) => this.toggleLayer(layer),
     });
-    header.append(title, status, collapseBtn);
-    toggles.append(header, body);
-    const layers = this.getVariantLayerKeys();
-
-    const MAX_SVG_LAYERS = 9;
-    const enforceLayerLimit = () => {
-      const allBtns = Array.from(body.querySelectorAll<HTMLButtonElement>('.layer-toggle'));
-      const activeBtns = allBtns.filter(b => b.classList.contains('active'));
-      if (activeBtns.length > MAX_SVG_LAYERS) {
-        const excess = activeBtns.slice(MAX_SVG_LAYERS);
-        for (const btn of excess) {
-          btn.classList.remove('active');
-          const layer = btn.dataset.layer as keyof MapLayers | undefined;
-          if (layer) this.toggleLayer(layer);
-        }
-      }
-      const activeCount = allBtns.filter(b => b.classList.contains('active')).length;
-      allBtns.forEach(b => {
-        if (!b.classList.contains('active')) {
-          b.disabled = activeCount >= MAX_SVG_LAYERS;
-          b.classList.toggle('limit-reached', activeCount >= MAX_SVG_LAYERS);
-        } else {
-          b.disabled = false;
-          b.classList.remove('limit-reached');
-        }
-      });
-      status.textContent = activeCount === 0 ? 'No active layers' : `${activeCount} active`;
-    };
-
-    layers.forEach((layer) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `layer-toggle ${this.state.layers[layer] ? 'active' : ''}`;
-      btn.dataset.layer = layer;
-      btn.setAttribute('aria-pressed', String(Boolean(this.state.layers[layer])));
-      btn.setAttribute('aria-label', `${this.getLayerLabel(layer)} layer`);
-      const icon = this.createSharedIcon(layer, 'layer-toggle-icon');
-      const label = document.createElement('span');
-      label.className = 'layer-toggle-label';
-      label.textContent = this.getLayerLabel(layer);
-      btn.append(icon, label);
-      btn.addEventListener('click', () => {
-        this.toggleLayer(layer);
-        btn.setAttribute('aria-pressed', String(btn.classList.contains('active')));
-        enforceLayerLimit();
-      });
-      body.appendChild(btn);
-    });
-
-    // Add help button
-    const helpBtn = document.createElement('button');
-    helpBtn.type = 'button';
-    helpBtn.className = 'layer-help-btn';
-    helpBtn.textContent = '?';
-    helpBtn.title = t('components.deckgl.layerGuide');
-    helpBtn.setAttribute('aria-label', t('components.deckgl.layerGuide'));
-    helpBtn.addEventListener('click', () => this.showLayerHelp());
-    let helpCloseTimeout: number | null = null;
-    const cancelHelpClose = () => {
-      if (helpCloseTimeout !== null) {
-        window.clearTimeout(helpCloseTimeout);
-        helpCloseTimeout = null;
-      }
-    };
-    const queueHelpClose = () => {
-      cancelHelpClose();
-      helpCloseTimeout = window.setTimeout(() => this.hideLayerHelp(), 120);
-    };
-    helpBtn.addEventListener('mouseenter', () => {
-      cancelHelpClose();
-      this.showLayerHelp();
-      const popup = this.container.querySelector('.layer-help-popup');
-      if (popup && !popup.hasAttribute('data-hover-bound')) {
-        popup.setAttribute('data-hover-bound', 'true');
-        popup.addEventListener('mouseenter', cancelHelpClose);
-        popup.addEventListener('mouseleave', queueHelpClose);
-      }
-    });
-    helpBtn.addEventListener('mouseleave', queueHelpClose);
-    helpBtn.addEventListener('focus', () => this.showLayerHelp());
-    helpBtn.addEventListener('blur', queueHelpClose);
-    body.appendChild(helpBtn);
-    enforceLayerLimit();
-    applyCollapsedState(getTrayOpenPreference('svgLayersCollapsed', false));
-
-    return toggles;
-  }
-
-  private showLayerHelp(): void {
-    const existing = this.container.querySelector('.layer-help-popup');
-    if (existing) {
-      existing.remove();
-      return;
-    }
-
-    const popup = document.createElement('div');
-    popup.className = 'layer-help-popup';
-
-    const label = (layerKey: string): string => t(`components.deckgl.layers.${layerKey}`).toUpperCase();
-    const staticLabel = (labelKey: string): string => t(`components.deckgl.layerHelp.labels.${labelKey}`).toUpperCase();
-    const helpItem = (layerLabel: string, descriptionKey: string): string =>
-      `<div class="layer-help-item"><span>${layerLabel}</span> ${t(`components.deckgl.layerHelp.descriptions.${descriptionKey}`)}</div>`;
-    const helpSection = (titleKey: string, items: string[], noteKey?: string): string => `
-      <div class="layer-help-section">
-        <div class="layer-help-title">${t(`components.deckgl.layerHelp.sections.${titleKey}`)}</div>
-        ${items.join('')}
-        ${noteKey ? `<div class="layer-help-note">${t(`components.deckgl.layerHelp.notes.${noteKey}`)}</div>` : ''}
-      </div>
-    `;
-    const helpHeader = `
-      <div class="layer-help-header">
-        <span>${t('components.deckgl.layerHelp.title')}</span>
-        <button class="layer-help-close" aria-label="Close">×</button>
-      </div>
-    `;
-
-    const techHelpContent = `
-      ${helpHeader}
-      <div class="layer-help-content">
-        ${helpSection('techEcosystem', [
-      helpItem(label('startupHubs'), 'techStartupHubs'),
-      helpItem(label('cloudRegions'), 'techCloudRegions'),
-      helpItem(label('techHQs'), 'techHQs'),
-      helpItem(label('accelerators'), 'techAccelerators'),
-      helpItem(label('techEvents'), 'techEvents'),
-    ])}
-        ${helpSection('infrastructure', [
-      helpItem(label('underseaCables'), 'infraCables'),
-      helpItem(label('aiDataCenters'), 'infraDatacenters'),
-      helpItem(label('internetOutages'), 'infraOutages'),
-      helpItem(label('cyberThreats'), 'techCyberThreats'),
-    ])}
-        ${helpSection('naturalEconomic', [
-      helpItem(label('naturalEvents'), 'naturalEventsTech'),
-      helpItem(label('fires'), 'techFires'),
-      helpItem(staticLabel('countries'), 'countriesOverlay'),
-    ])}
-      </div>
-    `;
-
-    const financeHelpContent = `
-      ${helpHeader}
-      <div class="layer-help-content">
-        ${helpSection('financeCore', [
-      helpItem(label('stockExchanges'), 'financeExchanges'),
-      helpItem(label('financialCenters'), 'financeCenters'),
-      helpItem(label('centralBanks'), 'financeCentralBanks'),
-      helpItem(label('commodityHubs'), 'financeCommodityHubs'),
-      helpItem(label('gulfInvestments'), 'financeGulfInvestments'),
-    ])}
-        ${helpSection('infrastructureRisk', [
-      helpItem(label('underseaCables'), 'financeCables'),
-      helpItem(label('pipelines'), 'financePipelines'),
-      helpItem(label('internetOutages'), 'financeOutages'),
-      helpItem(label('cyberThreats'), 'financeCyberThreats'),
-    ])}
-        ${helpSection('macroContext', [
-      helpItem(label('economicCenters'), 'economicCenters'),
-      helpItem(label('strategicWaterways'), 'macroWaterways'),
-      helpItem(label('weatherAlerts'), 'weatherAlertsMarket'),
-      helpItem(label('naturalEvents'), 'naturalEventsMacro'),
-    ])}
-      </div>
-    `;
-
-    const fullHelpContent = `
-      ${helpHeader}
-      <div class="layer-help-content">
-        ${helpSection('timeFilter', [
-      helpItem(staticLabel('timeRecent'), 'timeRecent'),
-      helpItem(staticLabel('timeExtended'), 'timeExtended'),
-    ], 'timeAffects')}
-        ${helpSection('geopolitical', [
-      helpItem(label('conflictZones'), 'geoConflicts'),
-      helpItem(label('intelHotspots'), 'geoHotspots'),
-      helpItem(staticLabel('sanctions'), 'geoSanctions'),
-      helpItem(label('protests'), 'geoProtests'),
-      helpItem(label('ucdpEvents'), 'geoUcdpEvents'),
-      helpItem(label('displacementFlows'), 'geoDisplacement'),
-    ])}
-        ${helpSection('militaryStrategic', [
-      helpItem(label('militaryBases'), 'militaryBases'),
-      helpItem(label('nuclearSites'), 'militaryNuclear'),
-      helpItem(label('gammaIrradiators'), 'militaryIrradiators'),
-      helpItem(label('militaryActivity'), 'militaryActivity'),
-      helpItem(label('spaceports'), 'militarySpaceports'),
-    ])}
-        ${helpSection('infrastructure', [
-      helpItem(label('underseaCables'), 'infraCablesFull'),
-      helpItem(label('pipelines'), 'infraPipelinesFull'),
-      helpItem(label('internetOutages'), 'infraOutages'),
-      helpItem(label('aiDataCenters'), 'infraDatacentersFull'),
-      helpItem(label('cyberThreats'), 'infraCyberThreats'),
-    ])}
-        ${helpSection('transport', [
-      helpItem(label('shipTraffic'), 'transportShipping'),
-      helpItem(label('flightDelays'), 'transportDelays'),
-    ])}
-        ${helpSection('naturalEconomic', [
-      helpItem(label('naturalEvents'), 'naturalEventsFull'),
-      helpItem(label('fires'), 'firesFull'),
-      helpItem(label('weatherAlerts'), 'weatherAlerts'),
-      helpItem(label('climateAnomalies'), 'climateAnomalies'),
-      helpItem(label('economicCenters'), 'economicCenters'),
-      helpItem(label('criticalMinerals'), 'mineralsFull'),
-    ])}
-        ${helpSection('labels', [
-      helpItem(staticLabel('countries'), 'countriesOverlay'),
-      helpItem(label('strategicWaterways'), 'waterwaysLabels'),
-    ])}
-      </div>
-    `;
-
-    popup.innerHTML = SITE_VARIANT === 'tech'
-      ? techHelpContent
-      : SITE_VARIANT === 'finance'
-        ? financeHelpContent
-        : fullHelpContent;
-
-    popup.querySelector('.layer-help-close')?.addEventListener('click', () => popup.remove());
-
-    // Prevent scroll events from propagating to map
-    const content = popup.querySelector('.layer-help-content');
-    if (content) {
-      content.addEventListener('wheel', (e) => e.stopPropagation(), { passive: false });
-      content.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: false });
-    }
-
-    // Close on click outside
-    setTimeout(() => {
-      const closeHandler = (e: MouseEvent) => {
-        if (!popup.contains(e.target as Node)) {
-          popup.remove();
-          document.removeEventListener('click', closeHandler);
-        }
-      };
-      document.addEventListener('click', closeHandler);
-    }, 100);
-
-    this.container.appendChild(popup);
-  }
-
-  private hideLayerHelp(): void {
-    this.container.querySelector('.layer-help-popup')?.remove();
   }
 
   private syncLayerButtons(): void {

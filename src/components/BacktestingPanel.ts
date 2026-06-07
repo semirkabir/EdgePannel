@@ -1,10 +1,8 @@
 import { Panel } from './Panel';
 import { backtestingService } from '@/services/backtesting-service';
-import type { BacktestRunRecord } from '@/services/backtesting-types';
+import type { BacktestProviderInfo, BacktestRunRecord } from '@/services/backtesting-types';
 import { getBacktestDetailPanel } from './backtest-detail/BacktestDetailPanel';
 import { escapeHtml } from '@/utils/sanitize';
-
-const PROVIDERS = ['VectorBT', 'Backtesting.py', 'FastTrade', 'Zipline', 'BT', 'Fincept'];
 
 function pct(value: number): string {
   const sign = value > 0 ? '+' : '';
@@ -22,10 +20,11 @@ export class BacktestingPanel extends Panel {
   public async render(): Promise<void> {
     this.runs = await backtestingService.recent_runs(6);
     const last = this.runs[0] ?? null;
+    const providers = backtestingService.list_providers();
     this.setContentNow(`
       <div class="bt-panel-shell">
         <div class="bt-provider-row">
-          ${PROVIDERS.map((provider) => `<span class="bt-provider-chip${provider === 'Fincept' ? ' bt-provider-live' : ''}">${escapeHtml(provider)}</span>`).join('')}
+          ${providers.map((provider) => this.providerChipHtml(provider)).join('')}
         </div>
         ${last ? this.lastResultHtml(last) : '<div class="bt-empty">No backtests yet. Run the Fincept browser provider to create the first result.</div>'}
         <div class="bt-recent">
@@ -44,6 +43,19 @@ export class BacktestingPanel extends Panel {
       </div>
     `);
     this.bind();
+  }
+
+  private providerChipHtml(provider: BacktestProviderInfo): string {
+    const classes = [
+      'bt-provider-chip',
+      provider.runtime === 'browser' ? 'bt-provider-live' : 'bt-provider-desktop',
+    ].join(' ');
+    return `
+      <span class="${classes}" title="${escapeHtml(provider.description)}">
+        ${escapeHtml(provider.label)}
+        ${provider.runtime === 'desktop_sidecar' ? `<em>${provider.available ? 'Sidecar' : 'Desktop'}</em>` : ''}
+      </span>
+    `;
   }
 
   private lastResultHtml(run: BacktestRunRecord): string {

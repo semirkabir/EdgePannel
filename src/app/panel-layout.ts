@@ -1,7 +1,7 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import { replayPendingCalls, clearAllPendingCalls } from '@/app/pending-panel-data';
 import { getTimeRangeLabel as formatTimeRangeLabel, getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
-import type { RelatedAsset, MapLayers } from '@/types';
+import type { RelatedAsset } from '@/types';
 import type { TheaterPostureSummary } from '@/services/military-surge';
 import {
   MapContainer,
@@ -86,6 +86,18 @@ import { checkFeatureAccess } from '@/services/auth-modal';
 import { isLoggedIn } from '@/services/user-auth';
 import { LIMITED_LOCAL_RPC_DEV_MODE } from '@/services/local-dev-stability';
 import { isLocalDevApiNoticeDismissed } from '@/app/ui-preferences';
+import { saveMapLayoutSnapshot, savePanelLayoutSnapshot } from './layout-snapshot';
+import { createPanelScrollButtons } from './panel-scroll-buttons';
+import {
+  APP_TIME_RANGE_EVENT,
+  APP_TIME_RANGE_STORAGE_KEY,
+  NEWS_REFRESH_SWEEP_EVENT,
+  generateCategoryId,
+  getRelatedAssetLayer,
+  loadCustomCategories,
+  saveCustomCategories,
+  type CustomCategory,
+} from './panel-layout-helpers';
 import permanentLogoUrl from '@/assets/edgepannel-logo.png';
 
 export interface PanelLayoutCallbacks {
@@ -94,65 +106,6 @@ export interface PanelLayoutCallbacks {
   loadAllData: () => Promise<void>;
   updateMonitorResults: () => void;
   loadSecurityAdvisories?: () => Promise<void>;
-}
-
-export interface CustomCategory {
-  id: string;
-  name: string;
-  icon: string;
-  createdAt: number;
-}
-
-const CUSTOM_CATEGORIES_KEY = 'wm-custom-categories-v1';
-const NEWS_REFRESH_SWEEP_EVENT = 'wm:news-refresh-sweep';
-const APP_TIME_RANGE_STORAGE_KEY = 'wm:time-range';
-const APP_TIME_RANGE_EVENT = 'wm:time-range-changed';
-const RELATED_ASSET_LAYER_MAP: Record<RelatedAsset['type'], keyof MapLayers> = {
-  pipeline: 'pipelines',
-  cable: 'cables',
-  datacenter: 'datacenters',
-  base: 'bases',
-  nuclear: 'nuclear',
-  irradiator: 'irradiators',
-  spaceport: 'spaceports',
-  waterway: 'waterways',
-  economicCenter: 'economic',
-  aptGroup: 'aptGroups',
-  mineral: 'minerals',
-  startupHub: 'startupHubs',
-  accelerator: 'accelerators',
-  cloudRegion: 'cloudRegions',
-  techHQ: 'techHQs',
-  stockExchange: 'stockExchanges',
-  financialCenter: 'financialCenters',
-  centralBank: 'centralBanks',
-  commodityHub: 'commodityHubs',
-  miningSite: 'miningSites',
-  processingPlant: 'processingPlants',
-  commodityPort: 'commodityPorts',
-};
-
-function loadCustomCategories(): CustomCategory[] {
-  try {
-    const raw = localStorage.getItem(CUSTOM_CATEGORIES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as CustomCategory[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCustomCategories(categories: CustomCategory[]): void {
-  try {
-    localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
-  } catch {
-    // ignore
-  }
-}
-
-function generateCategoryId(): string {
-  return 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
 }
 
 export class PanelLayoutManager implements AppModule {
@@ -168,6 +121,7 @@ export class PanelLayoutManager implements AppModule {
   private hoverTimers: Map<string, number> = new Map();
   private newsRefreshSweepCleanup: (() => void) | null = null;
   private scheduledLoadAllRaf: number | null = null;
+  private scrollBtnCleanup: (() => void) | null = null;
 
   constructor(ctx: AppContext, callbacks: PanelLayoutCallbacks) {
     this.ctx = ctx;
@@ -195,6 +149,8 @@ export class PanelLayoutManager implements AppModule {
     }
     this.panelDragCleanupHandlers.forEach((cleanup) => cleanup());
     this.panelDragCleanupHandlers = [];
+    this.scrollBtnCleanup?.();
+    this.scrollBtnCleanup = null;
     if (this.criticalBannerEl) {
       this.criticalBannerEl.remove();
       this.criticalBannerEl = null;
@@ -1492,148 +1448,12 @@ export class PanelLayoutManager implements AppModule {
   }
 
   private setupScrollToTopButtons(): void {
-    const NS = 'http://www.w3.org/2000/svg';
-
-    const makeChevronSvg = (direction: 'up' | 'down'): SVGElement => {
-      const svg = document.createElementNS(NS, 'svg');
-      svg.setAttribute('width', '16'); svg.setAttribute('height', '16');
-      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
-      svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2.5');
-      svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
-      const poly = document.createElementNS(NS, 'polyline');
-      poly.setAttribute('points', direction === 'up' ? '18 15 12 9 6 15' : '6 9 12 15 18 9');
-      svg.appendChild(poly);
-      return svg;
-    };
-
-    const createScrollBtns = (
-      container: HTMLElement,
-      getTarget: () => HTMLElement,
-      getScrollBounds?: (target: HTMLElement) => { start: number; end: number },
-    ): void => {
-      const topBtn = document.createElement('button');
-      topBtn.className = 'panel-scroll-btn panel-scroll-btn--top';
-      topBtn.setAttribute('aria-label', 'Scroll to top');
-      topBtn.appendChild(makeChevronSvg('up'));
-
-      const bottomBtn = document.createElement('button');
-      bottomBtn.className = 'panel-scroll-btn panel-scroll-btn--bottom';
-      bottomBtn.setAttribute('aria-label', 'Scroll to bottom');
-      bottomBtn.appendChild(makeChevronSvg('down'));
-
-      document.body.appendChild(topBtn);
-      document.body.appendChild(bottomBtn);
-
-      let currentTarget = getTarget();
-      let btnLeft = 0;
-
-      const getBounds = (): { start: number; end: number } => {
-        if (getScrollBounds) return getScrollBounds(currentTarget);
-        return {
-          start: 0,
-          end: Math.max(0, currentTarget.scrollHeight - currentTarget.clientHeight),
-        };
-      };
-
-      const hideBtns = (): void => {
-        topBtn.classList.remove('visible');
-        bottomBtn.classList.remove('visible');
-      };
-
-      const positionBtns = (): void => {
-        const rect = container.getBoundingClientRect();
-        const targetRect = currentTarget.getBoundingClientRect();
-        const visibleTop = Math.max(rect.top, targetRect.top, 0);
-        const visibleBottom = Math.min(rect.bottom, targetRect.bottom, window.innerHeight);
-        btnLeft = rect.left + rect.width / 2;
-        const topY = visibleTop + 12;
-        const bottomY = visibleBottom - 44;
-        topBtn.style.left = `${btnLeft}px`;
-        topBtn.style.top = `${topY}px`;
-        bottomBtn.style.left = `${btnLeft}px`;
-        bottomBtn.style.top = `${bottomY}px`;
-      };
-
-      const updateVisibility = (): void => {
-        if (!container.isConnected || container.offsetParent === null) {
-          hideBtns();
-          return;
-        }
-        const { scrollTop, scrollHeight, clientHeight } = currentTarget;
-        const { start, end } = getBounds();
-        const scrollable = scrollHeight > clientHeight + 10 && end > start + 10;
-        const scrolled = scrollTop > start + 60;
-        const atBottom = scrollTop >= end - 2;
-        positionBtns();
-        topBtn.classList.toggle('visible', scrollable && scrolled);
-        bottomBtn.classList.toggle('visible', scrollable && !atBottom);
-      };
-
-      let observedTarget = currentTarget;
-      let ro: ResizeObserver;
-
-      const attachToTarget = (): void => {
-        const next = getTarget();
-        if (next !== currentTarget) {
-          currentTarget.removeEventListener('scroll', updateVisibility);
-          currentTarget = next;
-          ro.unobserve(observedTarget);
-          observedTarget = currentTarget;
-          ro.observe(observedTarget);
-          currentTarget.addEventListener('scroll', updateVisibility, { passive: true });
-        }
-        updateVisibility();
-      };
-
-      currentTarget.addEventListener('scroll', updateVisibility, { passive: true });
-      ro = new ResizeObserver(() => {
-        attachToTarget();
-        positionBtns();
-      });
-      ro.observe(container);
-      ro.observe(observedTarget);
-
-      const mo = new MutationObserver(() => {
-        attachToTarget();
-        updateVisibility();
-      });
-      mo.observe(container, { childList: true, subtree: true });
-      const mainContent = document.querySelector('.main-content');
-      if (mainContent) mo.observe(mainContent, { attributes: true, attributeFilter: ['class'] });
-
-      const onWinResize = () => {
-        attachToTarget();
-        updateVisibility();
-      };
-      window.addEventListener('resize', onWinResize, { passive: true });
-
-      updateVisibility();
-
-      topBtn.addEventListener('click', () => {
-        attachToTarget();
-        currentTarget.scrollTo({ top: getBounds().start, behavior: 'smooth' });
-      });
-      bottomBtn.addEventListener('click', () => {
-        attachToTarget();
-        currentTarget.scrollTo({ top: getBounds().end, behavior: 'smooth' });
-      });
-
-      const origDestroy = (this as any)._scrollBtnCleanup;
-      (this as any)._scrollBtnCleanup = () => {
-        origDestroy?.();
-        currentTarget.removeEventListener('scroll', updateVisibility);
-        ro.disconnect();
-        mo.disconnect();
-        window.removeEventListener('resize', onWinResize);
-        topBtn.remove();
-        bottomBtn.remove();
-      };
-    };
-
+    this.scrollBtnCleanup?.();
+    const cleanups: Array<() => void> = [];
     const panelsGrid = document.getElementById('panelsGrid');
     const mainContent = document.querySelector('.main-content') as HTMLElement | null;
     if (panelsGrid && mainContent) {
-      createScrollBtns(
+      cleanups.push(createPanelScrollButtons(
         panelsGrid,
         () => mainContent.classList.contains('layout-side') ? panelsGrid : mainContent,
         (target) => {
@@ -1649,11 +1469,12 @@ export class PanelLayoutManager implements AppModule {
             end: Math.max(start, target.scrollHeight - target.clientHeight),
           };
         },
-      );
+      ));
     }
 
     const bottomGrid = document.getElementById('mapBottomGrid');
-    if (bottomGrid) createScrollBtns(bottomGrid, () => bottomGrid);
+    if (bottomGrid) cleanups.push(createPanelScrollButtons(bottomGrid, () => bottomGrid));
+    this.scrollBtnCleanup = () => cleanups.forEach((cleanup) => cleanup());
   }
 
   private setupLayoutToggle(): void {
@@ -1891,13 +1712,8 @@ export class PanelLayoutManager implements AppModule {
       'worldmonitor-panels-collapsed',
       'worldmonitor-bottom-grid-collapsed',
     ];
-    const snapshot: Record<string, string | null> = {};
-    for (const key of keys) {
-      snapshot[key] = localStorage.getItem(key);
-    }
-    snapshot[STORAGE_KEYS.panels] = localStorage.getItem(variantPanelsKey);
-    localStorage.setItem('worldmonitor-saved-panel-layout', JSON.stringify(snapshot));
-    localStorage.setItem('worldmonitor-saved-map-layout', window.location.search);
+    savePanelLayoutSnapshot(keys, STORAGE_KEYS.panels, localStorage.getItem(variantPanelsKey));
+    saveMapLayoutSnapshot();
   }
 
   private mountAddWidgetBtn(panelsGrid: HTMLElement): void {
@@ -2276,7 +2092,7 @@ export class PanelLayoutManager implements AppModule {
   private handleRelatedAssetClick(asset: RelatedAsset): void {
     if (!this.ctx.map) return;
 
-    const layer = RELATED_ASSET_LAYER_MAP[asset.type];
+    const layer = getRelatedAssetLayer(asset.type);
     this.ctx.map.enableLayer(layer);
     this.ctx.mapLayers[layer] = true;
     saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);

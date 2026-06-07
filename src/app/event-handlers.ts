@@ -63,80 +63,21 @@ import { MAP_MODE_CHANGE_EVENT } from '@/components/MapContainer';
 import { t } from '@/services/i18n';
 import { TvModeController } from '@/services/tv-mode';
 import { buildShareUrl } from './event-handler-view';
-import { confirmShellAction, showShellNotification } from './shell-notifications';
+import { showShellNotification } from './shell-notifications';
 import { checkFeatureAccess } from '@/services/auth-modal';
 import { forceSaveToCloud } from '@/services/preferences-sync';
-import {
-  getPanelDensityPreference,
-  isDesktopOnboardingDismissed,
-  isMobileHelpDismissed,
-  setDesktopOnboardingDismissed,
-  setLocalDevApiNoticeDismissed,
-  setMobileHelpDismissed,
-  setPanelDensityPreference,
-} from './ui-preferences';
-import { getHeaderTimezone, getClockFormat, getHeaderDateFormat, type HeaderDateFormat } from '@/services/preferences-content';
+import { getHeaderTimezone } from '@/services/preferences-content';
 import { loadAlertRules, normalizeAlertRule, saveAlertRules } from '@/services/alert-rules';
-
-function getDatePart(parts: Intl.DateTimeFormatPart[], type: string): string {
-  return parts.find((part) => part.type === type)?.value ?? '';
-}
-
-function formatHeaderDate(dateParts: Intl.DateTimeFormatPart[], monthNameParts: Intl.DateTimeFormatPart[], format: HeaderDateFormat): string {
-  const day = getDatePart(dateParts, 'day');
-  const month = getDatePart(dateParts, 'month');
-  const year = getDatePart(dateParts, 'year');
-  const yearShort = year.slice(-2);
-  const monthShort = getDatePart(monthNameParts, 'month');
-
-  switch (format) {
-    case 'mm/dd/yy':
-      return `${month}/${day}/${yearShort}`;
-    case 'mm/dd/yyyy':
-      return `${month}/${day}/${year}`;
-    case 'dd/mm/yy':
-      return `${day}/${month}/${yearShort}`;
-    case 'dd/mm/yyyy':
-      return `${day}/${month}/${year}`;
-    case 'yyyy-mm-dd':
-      return `${year}-${month}-${day}`;
-    case 'dd-mon-yyyy':
-    default:
-      return `${day} ${monthShort} ${year}`;
-  }
-}
-
-function formatClockTime(tz: string): string {
-  const now = new Date();
-  const resolvedTz = tz === 'local'
-    ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
-    : tz;
-  const use12h = getClockFormat() === '12h';
-  const dateFormat = getHeaderDateFormat();
-  try {
-    const dateParts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: resolvedTz,
-      weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
-    }).formatToParts(now);
-    const monthNameParts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: resolvedTz,
-      month: 'short',
-    }).formatToParts(now);
-    const timeParts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: resolvedTz,
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hour12: use12h, timeZoneName: 'short',
-    }).formatToParts(now);
-    const dateText = formatHeaderDate(dateParts, monthNameParts, dateFormat);
-    const weekday = getDatePart(dateParts, 'weekday');
-    const time = use12h
-      ? `${getDatePart(timeParts, 'hour')}:${getDatePart(timeParts, 'minute')}:${getDatePart(timeParts, 'second')} ${getDatePart(timeParts, 'dayPeriod')}`
-      : `${getDatePart(timeParts, 'hour')}:${getDatePart(timeParts, 'minute')}:${getDatePart(timeParts, 'second')}`;
-    return `${weekday}, ${dateText} ${time} ${getDatePart(timeParts, 'timeZoneName')}`;
-  } catch {
-    return now.toUTCString().replace('GMT', 'UTC');
-  }
-}
+import { formatClockTime } from './header-clock';
+import { savePanelLayoutSnapshot } from './layout-snapshot';
+import {
+  applyPanelDensity,
+  confirmAndResetLayout,
+  openMobileHelpSheet,
+  setupMobileHelpSheet,
+  setupShellGuidance,
+  togglePanelDensity,
+} from './event-handler-shell-ui';
 
 const WORKSPACE_SETUP_DISMISSED_KEY = 'wm-workspace-setup-dismissed-v1';
 
@@ -218,10 +159,10 @@ export class EventHandlerManager implements AppModule {
 
   init(): void {
     this.setupEventListeners();
-    this.applyPanelDensity();
-    this.setupShellGuidance();
+    applyPanelDensity();
+    setupShellGuidance(this.ctx.isMobile);
     this.setupWorkspaceSetup();
-    this.setupMobileHelpSheet();
+    setupMobileHelpSheet(this.ctx.isMobile);
     new OnboardingHints().init();
     this.setupIdleDetection();
     this.setupTvMode();
@@ -526,15 +467,15 @@ export class EventHandlerManager implements AppModule {
     });
 
     document.getElementById('resetLayoutBtn')?.addEventListener('click', () => {
-      void this.confirmAndResetLayout();
+      void confirmAndResetLayout(this.ctx.PANEL_SPANS_KEY, this.ctx.PANEL_ORDER_KEY);
     });
 
     document.getElementById('densityToggleBtn')?.addEventListener('click', () => {
-      this.togglePanelDensity();
+      togglePanelDensity();
     });
 
     document.getElementById('shellHelpBtn')?.addEventListener('click', () => {
-      if (this.ctx.isMobile) this.openMobileHelpSheet();
+      if (this.ctx.isMobile) openMobileHelpSheet();
       else showShellNotification('Use Cmd/Ctrl+K for search, ? for shortcuts, and Shift+S to copy the current view.', 'info', 3600);
     });
 
@@ -866,100 +807,9 @@ export class EventHandlerManager implements AppModule {
       'worldmonitor-panels-collapsed',
       'worldmonitor-bottom-grid-collapsed',
     ];
-    const snapshot: Record<string, string | null> = {};
-    for (const key of keys) {
-      snapshot[key] = localStorage.getItem(key);
-    }
-    // Also save panel enabled/disabled state
-    snapshot[STORAGE_KEYS.panels] = localStorage.getItem(STORAGE_KEYS.panels);
     try {
-      localStorage.setItem('worldmonitor-saved-panel-layout', JSON.stringify(snapshot));
+      savePanelLayoutSnapshot(keys, STORAGE_KEYS.panels, localStorage.getItem(STORAGE_KEYS.panels));
     } catch { /* ignore */ }
-  }
-
-  private applyPanelDensity(): void {
-    document.body.dataset.panelDensity = getPanelDensityPreference();
-    const button = document.getElementById('densityToggleBtn');
-    if (button) {
-      button.textContent = getPanelDensityPreference() === 'comfortable' ? 'Comfort' : 'Compact';
-    }
-  }
-
-  private togglePanelDensity(): void {
-    const next = getPanelDensityPreference() === 'comfortable' ? 'compact' : 'comfortable';
-    setPanelDensityPreference(next);
-    this.applyPanelDensity();
-    showShellNotification(
-      next === 'comfortable' ? 'Comfortable panel spacing enabled' : 'Compact panel spacing enabled',
-      'success',
-    );
-  }
-
-  private setupShellGuidance(): void {
-    const strip = document.getElementById('shellGuidanceStrip');
-    if (!strip) return;
-    const shouldHide = this.ctx.isMobile || isDesktopOnboardingDismissed() || document.body.classList.contains('playback-mode');
-    strip.classList.toggle('hidden', shouldHide);
-    document.getElementById('shellGuidanceDismiss')?.addEventListener('click', () => {
-      setDesktopOnboardingDismissed(true);
-      strip.classList.add('hidden');
-    });
-
-    document.getElementById('localDevApiDismiss')?.addEventListener('click', () => {
-      setLocalDevApiNoticeDismissed(true);
-      document.getElementById('localDevApiNotice')?.remove();
-    });
-  }
-
-  private setupMobileHelpSheet(): void {
-    const overlay = document.getElementById('mobileHelpOverlay');
-    if (!overlay) return;
-
-    document.getElementById('mobileMenuHelp')?.addEventListener('click', () => this.openMobileHelpSheet());
-    document.getElementById('mobileHelpClose')?.addEventListener('click', () => this.closeMobileHelpSheet());
-    document.getElementById('mobileHelpDone')?.addEventListener('click', () => this.closeMobileHelpSheet());
-    document.getElementById('mobileHelpDismiss')?.addEventListener('click', () => {
-      setMobileHelpDismissed(true);
-      this.closeMobileHelpSheet();
-    });
-    overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) this.closeMobileHelpSheet();
-    });
-
-    if (this.ctx.isMobile && !isMobileHelpDismissed()) {
-      window.setTimeout(() => this.openMobileHelpSheet(), 200);
-    }
-  }
-
-  private openMobileHelpSheet(): void {
-    document.getElementById('mobileHelpOverlay')?.classList.add('open');
-  }
-
-  private closeMobileHelpSheet(): void {
-    document.getElementById('mobileHelpOverlay')?.classList.remove('open');
-  }
-
-  private async confirmAndResetLayout(): Promise<void> {
-    const confirmed = await confirmShellAction({
-      title: 'Reset saved layout?',
-      message: 'This clears saved panel positions, map sizing, and shell layout preferences for this device.',
-      confirmLabel: 'Reset layout',
-      danger: true,
-    });
-    if (!confirmed) return;
-
-    localStorage.removeItem(this.ctx.PANEL_SPANS_KEY);
-    localStorage.removeItem('worldmonitor-panel-col-spans');
-    localStorage.removeItem(this.ctx.PANEL_ORDER_KEY);
-    localStorage.removeItem(this.ctx.PANEL_ORDER_KEY + '-bottom');
-    localStorage.removeItem(this.ctx.PANEL_ORDER_KEY + '-bottom-set');
-    localStorage.removeItem('map-height');
-    localStorage.removeItem('worldmonitor-sidebar-split');
-    localStorage.removeItem('worldmonitor-panels-collapsed');
-    localStorage.removeItem('worldmonitor-bottom-grid-collapsed');
-    localStorage.removeItem('worldmonitor-saved-panel-layout');
-    showShellNotification('Resetting layout…', 'warning', 900);
-    window.setTimeout(() => window.location.reload(), 120);
   }
 
   toggleFullscreen(): void {
@@ -1064,7 +914,7 @@ export class EventHandlerManager implements AppModule {
       getAllSourceNames: () => this.getAllSourceNames(),
       getLocalizedPanelName: (key: string, fallback: string) => this.getLocalizedPanelName(key, fallback),
       resetLayout: () => {
-        void this.confirmAndResetLayout();
+        void confirmAndResetLayout(this.ctx.PANEL_SPANS_KEY, this.ctx.PANEL_ORDER_KEY);
       },
       saveLayout: () => {
         const shareUrl = this.getShareUrl();
