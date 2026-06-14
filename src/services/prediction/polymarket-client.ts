@@ -212,6 +212,7 @@ async function fetchTopMarkets(): Promise<PredictionMarket[]> {
         url: buildMarketUrl(undefined, m.slug),
         endDate: parseEndDate(m.endDate),
         slug: m.slug,
+        tags: (m.tags || []).map(tag => tag.slug || tag.label || '').filter(Boolean),
       };
     });
 }
@@ -224,10 +225,64 @@ const GEOPOLITICAL_TAGS = [
 
 const TECH_TAGS = [
   'ai', 'tech', 'crypto', 'science',
-  'elon-musk', 'business', 'economy',
+  'business', 'economy',
 ];
 
 const POOL_SIZE = 150;
+const MIN_RANKED_POOL_SIZE = 25;
+
+const RELEVANCE_RULES: Array<{ variants: string[]; pattern: RegExp; weight: number }> = [
+  { variants: ['full', 'conflicts'], pattern: /iran|israel|gaza|hamas|syria|ukraine|russia|china|taiwan|venezuela|nato/i, weight: 1.0 },
+  { variants: ['full', 'conflicts'], pattern: /ceasefire|peace deal|sanction|military|war|invasion|strike|nuclear|missile/i, weight: 0.95 },
+  { variants: ['full', 'conflicts', 'finance'], pattern: /election|president|prime minister|parliament|congress|senate|fed decision|rate cuts?|inflation|tariff/i, weight: 0.8 },
+  { variants: ['finance', 'commodity'], pattern: /fed|rate cuts?|inflation|cpi|recession|tariff|treasury|oil|opec|gold|bitcoin|crypto|company|acquired|earnings/i, weight: 1.0 },
+  { variants: ['tech'], pattern: /ai|openai|gpt|model|chip|semiconductor|nvidia|apple|microsoft|google|tesla|crypto|bitcoin|ethereum|tech|acquired/i, weight: 1.0 },
+  { variants: ['happy'], pattern: /climate|science|health|space|energy|peace|disease|charity/i, weight: 0.8 },
+];
+
+function marketTags(market: Pick<PredictionMarket, 'tags'>): string[] {
+  return (market.tags || []).map(tag => tag.toLowerCase()).filter(Boolean);
+}
+
+function relevanceScore(market: PredictionMarket): number {
+  const variant = SITE_VARIANT || 'full';
+  const tags = marketTags(market);
+  const haystack = `${market.title} ${tags.join(' ')}`;
+  let score = 0;
+  for (const rule of RELEVANCE_RULES) {
+    if (rule.variants.includes(variant) && rule.pattern.test(haystack)) {
+      score = Math.max(score, rule.weight);
+    }
+  }
+  if (tags.some(tag => (variant === 'tech' ? TECH_TAGS : GEOPOLITICAL_TAGS).includes(tag))) score = Math.max(score, 0.65);
+  if (variant === 'finance' && tags.some(tag => ['economy', 'finance', 'business', 'fed', 'inflation', 'crypto'].includes(tag))) score = Math.max(score, 0.8);
+  return score;
+}
+
+function rankPredictionPool(markets: PredictionMarket[], limit = POOL_SIZE): PredictionMarket[] {
+  const deduped = new Map<string, PredictionMarket>();
+  for (const market of markets) {
+    if (!market.title || isExpired(market.endDate) || isMarketExcluded(market.title)) continue;
+    const key = market.slug || market.url || market.title;
+    const existing = deduped.get(key);
+    if (!existing || (market.volume ?? 0) > (existing.volume ?? 0)) deduped.set(key, market);
+  }
+
+  const pool = [...deduped.values()].map(market => ({ market, relevance: relevanceScore(market) }));
+  const maxVolume = Math.max(1, ...pool.map(item => item.market.volume ?? 0));
+  return pool
+    .filter(item => item.relevance > 0 || (item.market.volume ?? 0) >= 5_000_000)
+    .sort((a, b) => {
+      const score = (item: typeof a) => {
+        const volumeScore = Math.log1p(item.market.volume ?? 0) / Math.log1p(maxVolume);
+        const priceConviction = Math.abs((item.market.yesPrice ?? 50) - 50) / 50;
+        return item.relevance * 0.58 + volumeScore * 0.34 + priceConviction * 0.08;
+      };
+      return score(b) - score(a) || (b.market.volume ?? 0) - (a.market.volume ?? 0);
+    })
+    .slice(0, limit)
+    .map(item => item.market);
+}
 
 export async function fetchPredictions(): Promise<PredictionMarket[]> {
   return breaker.execute(async () => {
@@ -235,7 +290,8 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
     if (hydrated && hydrated.fetchedAt && Date.now() - hydrated.fetchedAt < 2 * 60 * 60 * 1000) {
       const variant = SITE_VARIANT === 'tech' ? hydrated.tech : hydrated.geopolitical;
       if (variant && variant.length > 0) {
-        return variant.map(normalizePredictionMarket);
+        const ranked = rankPredictionPool(variant.map(normalizePredictionMarket));
+        if (ranked.length >= MIN_RANKED_POOL_SIZE) return ranked;
       }
     }
 
@@ -248,7 +304,7 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
         cursor: '',
       });
       if (rpcResults.markets && rpcResults.markets.length > 0) {
-        return rpcResults.markets
+        const markets = rpcResults.markets
           .filter(m => !isExpired(m.closesAt ? new Date(m.closesAt).toISOString() : undefined))
           .map(m => ({
             title: m.title,
@@ -258,8 +314,9 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
             endDate: m.closesAt ? new Date(m.closesAt).toISOString() : undefined,
             slug: extractMarketSlug(m.url) || m.id,
           }))
-          .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
-          .slice(0, POOL_SIZE);
+          .map(normalizePredictionMarket);
+        const ranked = rankPredictionPool(markets);
+        if (ranked.length >= MIN_RANKED_POOL_SIZE) return ranked;
       }
     } catch { /* RPC failed, fall through to direct fetch */ }
 
@@ -297,6 +354,7 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
             url: buildMarketUrl(event.slug, topMarket.slug),
             endDate: parseEndDate(topMarket.endDate ?? event.endDate),
             slug: topMarket.slug,
+            tags: (event.tags || []).map(tag => tag.slug).filter(Boolean),
           });
         } else {
           markets.push({
@@ -306,6 +364,7 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
             url: buildMarketUrl(event.slug),
             endDate: parseEndDate(event.endDate),
             slug: event.slug,
+            tags: (event.tags || []).map(tag => tag.slug).filter(Boolean),
           });
         }
       }
@@ -321,10 +380,7 @@ export async function fetchPredictions(): Promise<PredictionMarket[]> {
       }
     }
 
-    const result = markets
-      .filter(m => !isExpired(m.endDate))
-      .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
-      .slice(0, POOL_SIZE);
+    const result = rankPredictionPool(markets);
 
     if (result.length === 0) {
       throw new Error('No markets returned — upstream may be down');

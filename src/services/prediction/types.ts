@@ -14,6 +14,7 @@ export interface PredictionMarket {
   eventSlug?: string;
   marketCount?: number;
   markets?: PredictionMarket[];
+  tags?: string[];
   confidence?: 'high' | 'medium' | 'low';
   extractedFrom?: 'sports' | 'country' | 'city' | 'state' | 'pattern' | 'context' | 'event-inherited';
   region?: string;

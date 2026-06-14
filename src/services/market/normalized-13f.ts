@@ -1,6 +1,7 @@
 import {
   NOTABLE_INVESTORS,
   fetchInstitutionalHoldings,
+  type AdviserProfile,
   type InstitutionalHolding,
   type InstitutionalHoldingsResponse,
   type NotableInvestor,
@@ -33,7 +34,7 @@ export interface InstitutionHoldingMapped extends InstitutionalHolding {
   ticker: string;
   weightPct: number;
   valuePct: number;
-  mappingSource: 'issuer_alias' | 'unmapped';
+  mappingSource: 'holding_ticker' | 'sec_company_tickers' | 'sec_13f_list' | 'issuer_alias' | 'unmapped';
 }
 
 export interface CompanyInstitutionHolder {
@@ -59,6 +60,7 @@ export interface NormalizedInstitutionProfile {
   totalHoldings: number;
   totalValue: number;
   mappedValueCoverage: number;
+  adviser: AdviserProfile | null;
 }
 
 interface InstitutionDirectoryEntry {
@@ -417,18 +419,23 @@ export async function fetchInstitution13FProfile(
       holdings: [],
       totalHoldings: 0,
       totalValue: 0,
+      adviser: null,
     };
   }
 
   const mappedHoldings = holdingsResp.holdings.map((holding) => {
-    const ticker = mapHoldingIssuerToTicker(holding.issuer);
+    const apiTicker = (holding.ticker || '').trim().toUpperCase();
+    const ticker = apiTicker || mapHoldingIssuerToTicker(holding.issuer);
     const valuePct = holdingsResp.totalValue > 0 ? (holding.value / holdingsResp.totalValue) * 100 : 0;
+    const apiSource = holding.tickerMappingSource === 'sec_13f_list' || holding.tickerMappingSource === 'sec_company_tickers'
+      ? holding.tickerMappingSource
+      : 'holding_ticker';
     return {
       ...holding,
       ticker,
       weightPct: valuePct,
       valuePct,
-      mappingSource: ticker ? 'issuer_alias' : 'unmapped',
+      mappingSource: ticker ? (apiTicker ? apiSource : 'issuer_alias') : 'unmapped',
     } satisfies InstitutionHoldingMapped;
   });
 
@@ -459,6 +466,7 @@ export async function fetchInstitution13FProfile(
     totalHoldings: holdingsResp.totalHoldings,
     totalValue: holdingsResp.totalValue,
     mappedValueCoverage: holdingsResp.totalValue > 0 ? (mappedValue / holdingsResp.totalValue) * 100 : 0,
+    adviser: holdingsResp.adviser ?? null,
   };
 }
 

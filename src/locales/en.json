@@ -229,6 +229,7 @@
     "polymarket": "Predictions",
     "commodities": "Commodities",
     "economic": "Economic Indicators",
+    "consumerPrices": "Consumer Prices",
     "tradePolicy": "Trade Policy",
     "supplyChain": "Supply Chain",
     "finance": "Financial",
@@ -830,6 +831,16 @@
       "cut": "cut",
       "hike": "hike",
       "hold": "hold"
+    },
+    "consumerPrices": {
+      "infoTooltip": "<strong>Consumer Prices</strong><br>High-frequency retailer basket signals for GCC markets.<br><br><em>Use as directional intelligence:</em><br><ul><li>Tracks grocery and essentials baskets before official CPI releases</li><li>Compares category movers and retailer spreads</li><li>Includes coverage and freshness caveats for thin data</li></ul>",
+      "tabs": {
+        "overview": "Overview",
+        "categories": "Categories",
+        "movers": "Movers",
+        "spread": "Spread",
+        "health": "Health"
+      }
     },
     "supplyChain": {
       "chokepoints": "Chokepoints",

@@ -1849,7 +1849,11 @@ export class PanelLayoutManager implements AppModule {
   private observePanelsForViewport(): void {
     for (const panel of Object.values(this.ctx.panels)) {
       const observable = panel as { observeNearViewport?: (cb: () => void, marginPx?: number) => void };
-      observable.observeNearViewport?.(() => this.scheduleLoadAllData(), 200);
+      observable.observeNearViewport?.(() => {
+        this.scheduleLoadAllData();
+        const selfLoadingPanel = panel as { loadData?: () => Promise<void> | void };
+        void selfLoadingPanel.loadData?.();
+      }, 200);
     }
   }
 

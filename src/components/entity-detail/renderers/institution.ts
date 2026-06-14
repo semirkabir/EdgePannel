@@ -3,6 +3,7 @@ import {
   buildPortfolioInsights,
   computeInstitutionStructure,
   computeLargestTradeDeltas,
+  type AdviserProfile,
   type SectorAllocation,
 } from '@/services/market/portfolio';
 import {
@@ -27,6 +28,7 @@ interface InstitutionEnriched {
   totalHoldings: number;
   totalValue: number;
   mappedValueCoverage: number;
+  adviser: AdviserProfile | null;
   sectorBreakdown: SectorAllocation[];
   deltas: ReturnType<typeof computeLargestTradeDeltas>;
   insights: string[];
@@ -51,6 +53,10 @@ function fmtLargeNumber(value: number): string {
   if (value >= 1e6) return '$' + (value / 1e6).toFixed(1) + 'M';
   if (value >= 1e3) return '$' + (value / 1e3).toFixed(1) + 'K';
   return '$' + value.toFixed(0);
+}
+
+function fmtMaybeLargeNumber(value: number | null | undefined): string {
+  return Number.isFinite(value) ? fmtLargeNumber(value as number) : '-';
 }
 
 function fmtDate(value: string): string {
@@ -105,6 +111,7 @@ export class InstitutionRenderer implements EntityRenderer {
 
     const summary = ctx.el('div', 'edp-trade-stats');
     summary.append(makeStatCard(ctx, '13F Value', '-'));
+    summary.append(makeStatCard(ctx, 'Adviser RAUM', '-'));
     summary.append(makeStatCard(ctx, 'Holdings', '-'));
     summary.append(makeStatCard(ctx, 'Filing Date', '-'));
     header.append(summary);
@@ -141,6 +148,7 @@ export class InstitutionRenderer implements EntityRenderer {
         totalHoldings: 0,
         totalValue: 0,
         mappedValueCoverage: 0,
+        adviser: null,
         sectorBreakdown: [],
         deltas: [],
         insights: ['CIK identifier is required to fetch normalized 13F history for this institution.'],
@@ -170,6 +178,7 @@ export class InstitutionRenderer implements EntityRenderer {
       totalHoldings: profile.totalHoldings,
       totalValue: profile.totalValue,
       mappedValueCoverage: profile.mappedValueCoverage,
+      adviser: profile.adviser,
       sectorBreakdown,
       deltas,
       insights,
@@ -192,12 +201,18 @@ export class InstitutionRenderer implements EntityRenderer {
       if (data.mappedValueCoverage > 0) {
         badgeRow.append(ctx.badge(`${data.mappedValueCoverage.toFixed(0)}% ticker mapped`, 'edp-badge edp-badge-status'));
       }
+      if (data.adviser?.regulatoryAum) {
+        badgeRow.append(ctx.badge('Form ADV AUM', 'edp-badge edp-badge-status'));
+      } else if (data.adviser) {
+        badgeRow.append(ctx.badge('Form ADV profile', 'edp-badge edp-badge-dim'));
+      }
     }
 
     const summary = container.querySelector('.edp-trade-stats');
     if (summary) {
       summary.replaceChildren();
       summary.append(makeStatCard(ctx, '13F Value', fmtLargeNumber(data.totalValue)));
+      summary.append(makeStatCard(ctx, 'Adviser RAUM', fmtMaybeLargeNumber(data.adviser?.regulatoryAum)));
       summary.append(makeStatCard(ctx, 'Holdings', `${data.totalHoldings}`));
       summary.append(makeStatCard(ctx, 'Filing Date', data.filingDate ? fmtDate(data.filingDate) : '-'));
     }
@@ -256,8 +271,8 @@ export class InstitutionRenderer implements EntityRenderer {
     const [card, body] = ctx.sectionCard('Reported 13F Positions');
     const subnote = ctx.el('p', 'edp-description');
     subnote.textContent = data.mappedValueCoverage > 0
-      ? `${data.mappedValueCoverage.toFixed(1)}% of disclosed value is currently normalized to tickers for profile enrichment.`
-      : 'Holdings loaded from SEC 13F data. Ticker mapping coverage is still limited for this manager.';
+      ? `${data.mappedValueCoverage.toFixed(1)}% of disclosed value is normalized to tickers using SEC company references, SEC 13F security-list metadata, and local issuer aliases.`
+      : 'Holdings loaded from SEC 13F data. This snapshot does not have enough issuer metadata for confident ticker links yet.';
     body.append(subnote);
 
     const grid = ctx.el('div', 'edp-holdings-table');
@@ -269,6 +284,7 @@ export class InstitutionRenderer implements EntityRenderer {
         holding.ticker || '',
         holding.title,
         holding.cusip ? `CUSIP ${holding.cusip}` : '',
+        holding.mappingSource !== 'unmapped' ? mappingLabel(holding.mappingSource) : '',
       ].filter(Boolean);
       rowEl.append(ctx.el('span', 'edp-holdings-detail', detailParts.join(' · ')));
       const barWrap = ctx.el('div', 'edp-holdings-bar-wrap');
@@ -374,22 +390,49 @@ export class InstitutionRenderer implements EntityRenderer {
 
   private renderAum(content: HTMLElement, data: InstitutionEnriched, ctx: EntityRenderContext): void {
     const [card, body] = ctx.sectionCard('Assets Under Management');
+    const adviser = data.adviser;
 
-    const aumNote = ctx.el('div', 'edp-callout edp-callout-attention edp-callout-text');
-    aumNote.textContent = 'Only 13F portfolio value is available here. True adviser AUM still requires Form ADV data or another adviser-level source.';
+    const aumNote = ctx.el('div', `edp-callout ${adviser?.regulatoryAum ? 'edp-callout-success' : 'edp-callout-attention'} edp-callout-text`);
+    aumNote.textContent = adviser?.regulatoryAum
+      ? 'Regulatory AUM is loaded from the SEC/IAPD Form ADV compilation feed. 13F value remains the public long-position snapshot, so it will usually differ from adviser RAUM.'
+      : adviser
+        ? 'Form ADV profile metadata is loaded from IAPD, but the current public compilation lookup did not expose a RAUM value for this matched adviser.'
+        : '13F portfolio value is available, but no matching IAPD adviser profile was found for this filer name.';
     body.append(aumNote);
 
     const grid = ctx.el('div', 'edp-aum-grid');
+    grid.append(makeAumCard(ctx, 'Adviser RAUM', fmtMaybeLargeNumber(adviser?.regulatoryAum), adviser?.sourceFile ? 'Form ADV Item 5.F(2)(c).' : 'From SEC/IAPD when available.'));
     grid.append(makeAumCard(ctx, '13F Portfolio Value', fmtLargeNumber(data.totalValue), 'Based on latest disclosed long positions.'));
-    grid.append(makeAumCard(ctx, 'Reported Positions', String(data.totalHoldings), 'Number of holdings in latest 13F-HR filing.'));
-    grid.append(makeAumCard(ctx, 'Filing Cadence', data.filingCadence || '-', 'Derived from recent filing history.'));
+    grid.append(makeAumCard(ctx, 'Discretionary RAUM', fmtMaybeLargeNumber(adviser?.discretionaryAum), 'Form ADV Item 5.F(2)(a).'));
+    grid.append(makeAumCard(ctx, 'Accounts', adviser?.totalAccounts ? adviser.totalAccounts.toLocaleString('en-US') : '-', 'Form ADV reported account count.'));
     body.append(grid);
 
-    const placeholder = ctx.el('div', 'edp-aum-chart-row');
-    placeholder.append(makeAumCard(ctx, 'Latest Filing Date', data.filingDate ? fmtDate(data.filingDate) : '-', 'Most recent reported 13F filing date.'));
-    placeholder.append(makeAumCard(ctx, 'Ticker Mapping', `${data.mappedValueCoverage.toFixed(1)}%`, 'Share of disclosed value normalized to tickers.'));
-    placeholder.append(makeAumCard(ctx, 'Adviser AUM', 'Not available', 'Requires SEC Form ADV data source.'));
-    body.append(placeholder);
+    const detail = ctx.el('div', 'edp-aum-chart-row');
+    detail.append(makeAumCard(ctx, 'ADV Filing Date', adviser?.advFilingDate ? fmtDate(adviser.advFilingDate) : '-', adviser?.secNumber || 'IAPD adviser match.'));
+    detail.append(makeAumCard(ctx, 'Registration', adviser?.registrationStatus || adviser?.status || '-', adviser?.registrationType || 'SEC/IAPD registration status.'));
+    detail.append(makeAumCard(ctx, 'Employees', adviser?.employees ? adviser.employees.toLocaleString('en-US') : '-', 'Form ADV Item 5.A.'));
+    body.append(detail);
+
+    if (adviser) {
+      const links = ctx.el('div', 'edp-link-row');
+      if (adviser.iapdUrl) {
+        const iapd = ctx.el('a', 'edp-wiki-link') as HTMLAnchorElement;
+        iapd.href = adviser.iapdUrl;
+        iapd.target = '_blank';
+        iapd.rel = 'noopener noreferrer';
+        iapd.textContent = 'Open IAPD profile';
+        links.append(iapd);
+      }
+      if (adviser.formAdvUrl) {
+        const adv = ctx.el('a', 'edp-wiki-link') as HTMLAnchorElement;
+        adv.href = adviser.formAdvUrl;
+        adv.target = '_blank';
+        adv.rel = 'noopener noreferrer';
+        adv.textContent = 'Open Form ADV';
+        links.append(adv);
+      }
+      body.append(links);
+    }
 
     content.append(card);
   }
@@ -454,4 +497,14 @@ function makeAumCard(ctx: EntityRenderContext, label: string, value: string, not
   card.append(ctx.el('span', 'edp-aum-card-value', value));
   card.append(ctx.el('span', 'edp-aum-card-note', note));
   return card;
+}
+
+function mappingLabel(source: InstitutionHoldingMapped['mappingSource']): string {
+  switch (source) {
+    case 'sec_company_tickers': return 'SEC ticker ref';
+    case 'sec_13f_list': return 'SEC 13F list';
+    case 'holding_ticker': return 'Filing ticker';
+    case 'issuer_alias': return 'Alias';
+    default: return '';
+  }
 }

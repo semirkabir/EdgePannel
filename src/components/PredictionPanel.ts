@@ -1,7 +1,8 @@
 import { Panel } from './Panel';
-import { searchPredictions, type PredictionMarket } from '@/services/prediction';
+import { isMarketExcluded, searchPredictions, type PredictionMarket } from '@/services/prediction';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
+import { SITE_VARIANT } from '@/config/variant';
 
 type PredictionTimeframe = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 
@@ -15,6 +16,8 @@ const TIMEFRAME_MS: Record<Exclude<PredictionTimeframe, 'all'>, number> = {
 
 const TIMEFRAME_STORAGE_KEY = 'wm:time-range';
 const TIMEFRAME_EVENT = 'wm:time-range-changed';
+const MAX_VISIBLE_MARKETS = 15;
+const MIN_VISIBLE_MARKETS = 8;
 
 function loadStoredTimeframe(): PredictionTimeframe {
   try {
@@ -48,6 +51,32 @@ export class PredictionPanel extends Panel {
     if (/election|senate|president|congress|trump|biden/.test(lower)) return 'Elections';
     if (/oil|opec|inflation|fed|recession|tariff/.test(lower)) return 'Macro';
     return 'Other';
+  }
+
+  private marketRelevance(market: PredictionMarket): number {
+    const lower = `${market.title} ${(market.tags || []).join(' ')}`.toLowerCase();
+    if (SITE_VARIANT === 'finance') {
+      if (/fed|rate|inflation|cpi|recession|tariff|treasury|oil|opec|gold|bitcoin|crypto|company|acquired|earnings/.test(lower)) return 1;
+      if (/election|president|congress|senate/.test(lower)) return 0.55;
+    }
+    if (SITE_VARIANT === 'tech') {
+      if (/ai|openai|gpt|model|chip|semiconductor|nvidia|apple|microsoft|google|tesla|crypto|bitcoin|ethereum|tech|acquired/.test(lower)) return 1;
+    }
+    if (/iran|israel|gaza|ukraine|russia|china|taiwan|venezuela|nato|ceasefire|sanction|military|war|election|fed|inflation|tariff/.test(lower)) return 0.9;
+    if (this.getTheme(market.title) !== 'Other') return 0.65;
+    return 0.15;
+  }
+
+  private rankMarkets(markets: PredictionMarket[]): PredictionMarket[] {
+    const eligible = markets.filter(m => m.title && !isMarketExcluded(m.title));
+    const maxVolume = Math.max(1, ...eligible.map(m => m.volume ?? 0));
+    return eligible.sort((a, b) => {
+      const score = (market: PredictionMarket) => {
+        const volumeScore = Math.log1p(market.volume ?? 0) / Math.log1p(maxVolume);
+        return this.marketRelevance(market) * 0.6 + volumeScore * 0.4;
+      };
+      return score(b) - score(a) || (b.volume ?? 0) - (a.volume ?? 0);
+    });
   }
 
   constructor() {
@@ -205,13 +234,18 @@ export class PredictionPanel extends Panel {
   }
 
   private renderFilteredMarkets(): void {
-    const filtered = this.filterByTimeframe(this.allPredictions);
-    const top15 = [...filtered]
-      .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
-      .slice(0, 15);
+    const filtered = this.rankMarkets(this.filterByTimeframe(this.allPredictions));
+    const visible = filtered.slice(0, MAX_VISIBLE_MARKETS);
+    if (this.timeframe !== 'all' && visible.length < MIN_VISIBLE_MARKETS) {
+      const visibleKeys = new Set(visible.map(m => m.slug || m.url || m.title));
+      const backfill = this.rankMarkets(this.allPredictions)
+        .filter(m => !visibleKeys.has(m.slug || m.url || m.title))
+        .slice(0, MAX_VISIBLE_MARKETS - visible.length);
+      visible.push(...backfill);
+    }
 
     let emptyMsg: string | undefined;
-    if (top15.length === 0 && this.allPredictions.length > 0) {
+    if (visible.length === 0 && this.allPredictions.length > 0) {
       const windowLabel = this.timeframe === '1h' ? '1 hour'
         : this.timeframe === '6h' ? '6 hours'
         : this.timeframe === '24h' ? '24 hours'
@@ -219,7 +253,7 @@ export class PredictionPanel extends Panel {
         : this.timeframe === '7d' ? '7 days' : 'all time';
       emptyMsg = `No markets closing within ${windowLabel} — try a wider timeframe`;
     }
-    this.renderMarketList(top15, emptyMsg);
+    this.renderMarketList(visible, emptyMsg);
   }
 
   private renderMarketList(data: PredictionMarket[], emptyMessage?: string): void {
@@ -228,7 +262,7 @@ export class PredictionPanel extends Panel {
       return;
     }
 
-    const orderedMarkets = [...data].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
+    const orderedMarkets = [...data];
     const marketLookup = new Map<string, PredictionMarket>();
     const grouped = new Map<string, PredictionMarket[]>();
     for (const market of orderedMarkets) {
@@ -348,7 +382,7 @@ export class PredictionPanel extends Panel {
           merged.set(key, market);
         }
       }
-      const top15 = [...merged.values()].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0)).slice(0, 15);
+      const top15 = this.rankMarkets([...merged.values()]).slice(0, MAX_VISIBLE_MARKETS);
       this.renderMarketList(top15, `No Polymarket markets found for "${normalized}"`);
     } catch {
       if (version !== this.searchVersion) return;

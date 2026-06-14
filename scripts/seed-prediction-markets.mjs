@@ -19,7 +19,7 @@ const GEOPOLITICAL_TAGS = [
 
 const TECH_TAGS = [
   'ai', 'tech', 'crypto', 'science',
-  'elon-musk', 'business', 'economy',
+  'business', 'economy',
 ];
 
 const EXCLUDE_KEYWORDS = [
@@ -29,6 +29,7 @@ const EXCLUDE_KEYWORDS = [
   'bachelor', 'reality tv', 'mvp', 'touchdown', 'home run', 'goal scorer',
   'academy award', 'bafta', 'golden globe', 'cannes', 'sundance',
   'documentary', 'feature film', 'tv series', 'season finale',
+  'tweet', 'tweets', 'what will', 'will elon musk post', 'gta vi',
 ];
 
 function isExcluded(title) {
@@ -51,6 +52,39 @@ function isExpired(endDate) {
   if (!endDate) return false;
   const ms = Date.parse(endDate);
   return Number.isFinite(ms) && ms < Date.now();
+}
+
+function relevanceScore(market, variant) {
+  const tags = market.tags ?? [];
+  const haystack = `${market.title} ${tags.join(' ')}`;
+  let score = 0;
+  if (variant === 'tech') {
+    if (/ai|openai|gpt|model|chip|semiconductor|nvidia|apple|microsoft|google|tesla|crypto|bitcoin|ethereum|tech|acquired/i.test(haystack)) score = 1;
+    if (tags.some(t => TECH_TAGS.includes(t))) score = Math.max(score, 0.7);
+  } else {
+    if (/iran|israel|gaza|hamas|syria|ukraine|russia|china|taiwan|venezuela|nato|ceasefire|peace|sanction|military|war|invasion|strike|nuclear|missile/i.test(haystack)) score = 1;
+    if (/election|president|prime minister|parliament|congress|senate|fed decision|rate cuts?|inflation|tariff|cpi|recession|oil|opec/i.test(haystack)) score = Math.max(score, 0.82);
+    if (tags.some(t => GEOPOLITICAL_TAGS.includes(t))) score = Math.max(score, 0.68);
+  }
+  return score;
+}
+
+function rankMarkets(markets, variant, limit) {
+  const maxVolume = Math.max(1, ...markets.map(m => m.volume ?? 0));
+  return markets
+    .filter(m => !isExpired(m.endDate) && !isExcluded(m.title))
+    .map(m => ({ market: m, relevance: relevanceScore(m, variant) }))
+    .filter(item => item.relevance > 0 || (item.market.volume ?? 0) >= 5_000_000)
+    .sort((a, b) => {
+      const score = (item) => {
+        const volumeScore = Math.log1p(item.market.volume ?? 0) / Math.log1p(maxVolume);
+        const conviction = Math.abs((item.market.yesPrice ?? 50) - 50) / 50;
+        return item.relevance * 0.58 + volumeScore * 0.34 + conviction * 0.08;
+      };
+      return score(b) - score(a) || (b.market.volume ?? 0) - (a.market.volume ?? 0);
+    })
+    .slice(0, limit)
+    .map(item => item.market);
 }
 
 async function fetchEventsByTag(tag, limit = 20) {
@@ -130,24 +164,12 @@ async function fetchAllPredictions() {
     await sleep(TAG_DELAY_MS);
   }
 
-  const geopolitical = markets
-    .filter(m => !isExpired(m.endDate))
-    .filter(m => {
-      const discrepancy = Math.abs(m.yesPrice - 50);
-      return discrepancy > 5 || (m.volume > 50000);
-    })
-    .sort((a, b) => b.volume - a.volume)
-    .slice(0, 25);
-
-  const tech = markets
-    .filter(m => !isExpired(m.endDate))
-    .filter(m => m.tags?.some(t => TECH_TAGS.includes(t)))
-    .filter(m => {
-      const discrepancy = Math.abs(m.yesPrice - 50);
-      return discrepancy > 5 || (m.volume > 50000);
-    })
-    .sort((a, b) => b.volume - a.volume)
-    .slice(0, 25);
+  const geopolitical = rankMarkets(markets, 'geopolitical', 75);
+  const tech = rankMarkets(
+    markets.filter(m => m.tags?.some(t => TECH_TAGS.includes(t)) || relevanceScore(m, 'tech') > 0),
+    'tech',
+    75,
+  );
 
   return {
     geopolitical,

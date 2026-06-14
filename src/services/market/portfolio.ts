@@ -31,6 +31,36 @@ export interface InstitutionalHolding {
   value: number;
   shares: number;
   ticker?: string;
+  tickerMappingSource?: string;
+}
+
+export interface AdviserProfile {
+  firmId: string;
+  name: string;
+  secNumber: string;
+  status: string;
+  advFilingDate: string;
+  registrationStatus: string;
+  registrationType: string;
+  address: {
+    street1?: string;
+    street2?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+  };
+  regulatoryAum: number | null;
+  discretionaryAum: number | null;
+  nonDiscretionaryAum: number | null;
+  totalAccounts: number | null;
+  employees: number | null;
+  relyingAdvisers: number;
+  brochureCount: number;
+  formAdvUrl: string;
+  iapdUrl: string;
+  source: string;
+  sourceFile: string;
 }
 
 export interface InstitutionalHoldingsResponse {
@@ -49,6 +79,7 @@ export interface InstitutionalHoldingsResponse {
   holdings: InstitutionalHolding[];
   totalHoldings: number;
   totalValue: number;
+  adviser?: AdviserProfile | null;
 }
 
 export interface UserPosition {

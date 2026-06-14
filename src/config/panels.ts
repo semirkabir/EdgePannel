@@ -67,7 +67,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   thinktanks:            p1('Think Tanks'),
   polymarket:            p1('Predictions'),
   forecast:              { name: 'AI Forecasts', enabled: true, priority: 1 },
-  'consumer-prices':     { name: 'Consumer Prices', enabled: false, priority: 2 },
+  'consumer-prices':     p1('Consumer Prices'),
   commodities:           p1('Commodities'),
   markets:               p1('Markets'),
   watchlist:             p1('Watchlist'),
@@ -224,6 +224,7 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   'crypto-news':      p2('Crypto News'),
   centralbanks:       p1('Central Bank Watch'),
   economic:           p1('Economic Data'),
+  'consumer-prices':  p1('Consumer Prices'),
   'trade-policy':     p1('Trade Policy'),
   'supply-chain':     p1('Supply Chain'),
   'economic-news':    p2('Economic News'),
@@ -476,7 +477,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'watchlist', 'economic', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'gulf-economies', 'crypto', 'heatmap', 'my-portfolio', 'public-filings', 'portfolio-tools'],
+    panelKeys: ['commodities', 'markets', 'watchlist', 'economic', 'consumer-prices', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'gulf-economies', 'crypto', 'heatmap', 'my-portfolio', 'public-filings', 'portfolio-tools'],
     variants: ['full'],
   },
   topical: {
@@ -535,7 +536,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   centralBanksEcon: {
     labelKey: 'header.panelCatCentralBanks',
-    panelKeys: ['centralbanks', 'economic', 'trade-policy', 'supply-chain', 'economic-news'],
+    panelKeys: ['centralbanks', 'economic', 'consumer-prices', 'trade-policy', 'supply-chain', 'economic-news'],
     variants: ['finance'],
   },
   dealsInstitutional: {

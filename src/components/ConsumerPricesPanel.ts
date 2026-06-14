@@ -65,58 +65,6 @@ function normalizeSettings(input: Partial<PanelSettings> | null | undefined): Pa
   };
 }
 
-let _styleInjected = false;
-function injectStyles(): void {
-  if (_styleInjected) return;
-  _styleInjected = true;
-  const style = document.createElement('style');
-  style.textContent = `
-    .cp-selector-bar {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 8px;
-      padding: 8px;
-      border-bottom: 1px solid var(--border-color, #30363d);
-      background: rgba(255,255,255,0.018);
-    }
-    .cp-selector-field {
-      display: grid;
-      gap: 4px;
-      min-width: 0;
-    }
-    .cp-selector-label {
-      color: var(--text-secondary, #8b949e);
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      line-height: 1.2;
-      text-transform: uppercase;
-    }
-    .cp-select {
-      width: 100%;
-      min-width: 0;
-      height: 28px;
-      padding: 0 7px;
-      border: 1px solid var(--border-color, #30363d);
-      border-radius: 4px;
-      color: var(--text-primary, var(--text, #f0f6fc));
-      background: var(--input-bg, rgba(0,0,0,0.18));
-      font: inherit;
-      font-size: 11px;
-    }
-    .cp-select:focus {
-      outline: 1px solid var(--accent, #58a6ff);
-      outline-offset: 1px;
-    }
-    @media (max-width: 420px) {
-      .cp-selector-bar {
-        grid-template-columns: 1fr;
-      }
-    }
-  `;
-  document.head.appendChild(style);
-}
-
 function loadSettings(): PanelSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -178,7 +126,6 @@ export class ConsumerPricesPanel extends Panel {
       infoTooltip: t('components.consumerPrices.infoTooltip'),
     });
 
-    injectStyles();
     this.content.addEventListener('click', (e) => this.handleClick(e));
     this.content.addEventListener('change', (e) => this.handleChange(e));
   }
@@ -262,12 +209,13 @@ export class ConsumerPricesPanel extends Panel {
       fetchConsumerPriceFreshness(market),
     ]);
 
-    if (seq !== this.loadSeq) return;
+    if (seq !== this.loadSeq || !this.element.isConnected) return;
     this.overview = overview;
     this.categories = categories;
     this.movers = movers;
     this.spread = spread;
     this.freshness = freshness;
+    this.setDataBadge(overview.upstreamUnavailable ? 'unavailable' : 'live');
     this.render();
   }
 

@@ -7,6 +7,7 @@ const EXCLUDE_KEYWORDS = [
   'bachelor', 'reality tv', 'mvp', 'touchdown', 'home run', 'goal scorer',
   'academy award', 'bafta', 'golden globe', 'cannes', 'sundance',
   'documentary', 'feature film', 'tv series', 'season finale',
+  'tweet', 'tweets', 'what will', 'will elon musk post', 'gta vi',
 ];
 
 export function isMarketExcluded(title: string): boolean {
