@@ -53,7 +53,19 @@ export type DataSourceId =
   | 'security_advisories'  // Government travel/security advisories
   | 'gpsjam'               // GPS/GNSS interference
   | 'webcams'              // Windy live webcams
-  | 'ecb_fx';             // ECB daily FX reference rates
+  | 'ecb_fx'             // ECB daily FX reference rates
+  | 'reliefweb'          // ReliefWeb humanitarian RSS
+  | 'who_gho'            // WHO GHO outbreak indicators
+  | 'airsigmet'          // Aviation SIGMET hazards
+  | 'defillama'          // DefiLlama protocol TVL
+  | 'global_indicators'  // Eurostat + Treasury macro cards
+  | 'ioda'               // IODA internet outage enrichment
+  | 'open_meteo_aqi'     // Open-Meteo air quality signals
+  | 'open_meteo_flood'   // Open-Meteo GloFAS flood events
+  | 'manifold'           // Manifold prediction markets
+  | 'opensanctions'      // OpenSanctions dataset merge
+  | 'threatfox'          // ThreatFox cyber IOC merge
+  | 'place_search';      // Nominatim + Wikidata search
 
 export type FreshnessStatus = 'fresh' | 'stale' | 'very_stale' | 'no_data' | 'disabled' | 'error';
 
@@ -89,7 +101,7 @@ const VERY_STALE_THRESHOLD = 6 * 60 * 60 * 1000; // 6 hours
 // Note: ACLED is optional since GDELT provides protest data as fallback
 const CORE_SOURCES: DataSourceId[] = ['gdelt', 'rss'];
 
-const SOURCE_METADATA: Record<DataSourceId, { name: string; requiredForRisk: boolean; panelId?: string }> = {
+export const DATA_SOURCE_METADATA: Record<DataSourceId, { name: string; requiredForRisk: boolean; panelId?: string }> = {
   acled: { name: 'Protests & Conflicts', requiredForRisk: false, panelId: 'protests' },
   opensky: { name: 'Military Flights', requiredForRisk: false, panelId: 'military' },
   wingbits: { name: 'Aircraft Enrichment', requiredForRisk: false, panelId: 'military' },
@@ -126,6 +138,18 @@ const SOURCE_METADATA: Record<DataSourceId, { name: string; requiredForRisk: boo
   gpsjam: { name: 'GPS/GNSS Interference', requiredForRisk: false, panelId: 'map' },
   webcams: { name: 'Live Webcams (Windy)', requiredForRisk: false, panelId: 'live-webcams' },
   ecb_fx: { name: 'ECB FX Rates', requiredForRisk: false, panelId: 'economic' },
+  reliefweb: { name: 'ReliefWeb', requiredForRisk: false, panelId: 'displacement' },
+  who_gho: { name: 'WHO GHO', requiredForRisk: false, panelId: 'displacement' },
+  airsigmet: { name: 'Aviation SIGMET', requiredForRisk: false, panelId: 'airline-intel' },
+  defillama: { name: 'DefiLlama', requiredForRisk: false, panelId: 'crypto' },
+  global_indicators: { name: 'Global Indicators', requiredForRisk: false, panelId: 'economic' },
+  ioda: { name: 'IODA Outages', requiredForRisk: false, panelId: 'outages' },
+  open_meteo_aqi: { name: 'Open-Meteo AQI', requiredForRisk: false, panelId: 'climate' },
+  open_meteo_flood: { name: 'Open-Meteo Flood', requiredForRisk: false, panelId: 'natural' },
+  manifold: { name: 'Manifold', requiredForRisk: false, panelId: 'polymarket' },
+  opensanctions: { name: 'OpenSanctions', requiredForRisk: false, panelId: 'sanctions-tracker' },
+  threatfox: { name: 'ThreatFox', requiredForRisk: false, panelId: 'map' },
+  place_search: { name: 'Place Search', requiredForRisk: false, panelId: 'search' },
 };
 
 import type { ManagedService } from './managed-service';
@@ -136,7 +160,7 @@ class DataFreshnessTracker implements ManagedService {
 
   init(): void {
     this.listeners.clear();
-    for (const [id, meta] of Object.entries(SOURCE_METADATA)) {
+    for (const [id, meta] of Object.entries(DATA_SOURCE_METADATA)) {
       this.sources.set(id as DataSourceId, {
         id: id as DataSourceId,
         name: meta.name,
@@ -157,7 +181,7 @@ class DataFreshnessTracker implements ManagedService {
 
   constructor() {
     // Initialize all sources
-    for (const [id, meta] of Object.entries(SOURCE_METADATA)) {
+    for (const [id, meta] of Object.entries(DATA_SOURCE_METADATA)) {
       this.sources.set(id as DataSourceId, {
         id: id as DataSourceId,
         name: meta.name,
@@ -301,7 +325,7 @@ class DataFreshnessTracker implements ManagedService {
    * Get panel ID for a source (to enable it)
    */
   getPanelIdForSource(sourceId: DataSourceId): string | undefined {
-    return SOURCE_METADATA[sourceId]?.panelId;
+    return DATA_SOURCE_METADATA[sourceId]?.panelId;
   }
 
   /**
@@ -316,7 +340,7 @@ class DataFreshnessTracker implements ManagedService {
     let best: FreshnessStatus = 'no_data';
     let found = false;
 
-    for (const [id, meta] of Object.entries(SOURCE_METADATA)) {
+    for (const [id, meta] of Object.entries(DATA_SOURCE_METADATA)) {
       if (meta.panelId !== panelId) continue;
       found = true;
       const source = this.sources.get(id as DataSourceId);
@@ -337,7 +361,7 @@ class DataFreshnessTracker implements ManagedService {
   getFreshnessTooltipForPanel(panelId: string): string {
     const sources: { name: string; timeSince: string; status: FreshnessStatus }[] = [];
 
-    for (const [id, meta] of Object.entries(SOURCE_METADATA)) {
+    for (const [id, meta] of Object.entries(DATA_SOURCE_METADATA)) {
       if (meta.panelId !== panelId) continue;
       const sourceState = this.sources.get(id as DataSourceId);
       if (!sourceState || !sourceState.enabled) continue;
@@ -355,7 +379,7 @@ class DataFreshnessTracker implements ManagedService {
    * Get time since last update for a specific panel
    */
   getTimeSinceForPanel(panelId: string): string {
-    for (const [id, meta] of Object.entries(SOURCE_METADATA)) {
+    for (const [id, meta] of Object.entries(DATA_SOURCE_METADATA)) {
       if (meta.panelId !== panelId) continue;
       const sourceState = this.sources.get(id as DataSourceId);
       if (!sourceState?.lastUpdate) continue;
@@ -480,6 +504,18 @@ const INTELLIGENCE_GAP_MESSAGES: Record<DataSourceId, string> = {
   gpsjam: 'GPS/GNSS interference data unavailable—jamming zones undetected',
   webcams: 'Live webcam feeds unavailable—Windy API not responding',
   ecb_fx: 'ECB FX reference rates unavailable—currency data may be stale',
+  reliefweb: 'ReliefWeb humanitarian updates unavailable—situation reports may be missed',
+  who_gho: 'WHO GHO health indicators unavailable—outbreak context degraded',
+  airsigmet: 'Aviation SIGMET data unavailable—active weather hazards may be missed',
+  defillama: 'DefiLlama protocol TVL unavailable—DeFi liquidity signals degraded',
+  global_indicators: 'Global macro indicators unavailable—Eurostat/Treasury context missing',
+  ioda: 'IODA outage enrichment unavailable—internet disruption detection reduced',
+  open_meteo_aqi: 'Open-Meteo air quality signals unavailable—physical AQI context missing',
+  open_meteo_flood: 'Open-Meteo flood discharges unavailable—hydrological hazard context missing',
+  manifold: 'Manifold prediction markets unavailable—forecast diversity reduced',
+  opensanctions: 'OpenSanctions datasets unavailable—sanctions coverage limited to OFAC',
+  threatfox: 'ThreatFox IOC enrichment unavailable—cyber threat map coverage reduced',
+  place_search: 'Place search unavailable—Nominatim/Wikidata geocoding disabled',
 };
 
 /**

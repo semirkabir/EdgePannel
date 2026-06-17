@@ -1,0 +1,37 @@
+<!-- @dsCard group="Controls" name="FilterBtn" description="Pill-shaped filter toggle for category selection bars. Supports active highlight." -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../styles.css">
+<style>
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); padding: 20px; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+  .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+  .section-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+</style>
+</head>
+<body>
+  <div>
+    <div class="section-label">Category filter bar</div>
+    <div class="filter-bar">
+      <button class="filter-btn active">All</button>
+      <button class="filter-btn">Politics</button>
+      <button class="filter-btn">Markets</button>
+      <button class="filter-btn">Energy</button>
+      <button class="filter-btn">Security</button>
+      <button class="filter-btn">Tech</button>
+      <button class="filter-btn">Climate</button>
+    </div>
+  </div>
+  <div>
+    <div class="section-label">Impact filter bar</div>
+    <div class="filter-bar">
+      <button class="filter-btn">All</button>
+      <button class="filter-btn active">High Impact</button>
+      <button class="filter-btn">This Week</button>
+      <button class="filter-btn">GDP</button>
+      <button class="filter-btn">Inflation</button>
+    </div>
+  </div>
+</body>
+</html>

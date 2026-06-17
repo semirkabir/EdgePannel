@@ -34,7 +34,7 @@ import type {
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import type { DisplacementFlow } from '@/services/displacement';
 import type { Earthquake } from '@/services/earthquakes';
-import type { ClimateAnomaly } from '@/services/climate';
+import type { ClimateAnomaly, ClimatePhysicalSignal } from '@/services/climate';
 import type { WeatherAlert } from '@/services/weather';
 import type { PositiveGeoEvent } from '@/services/positive-events-geo';
 import type { KindnessPoint } from '@/services/kindness-data';
@@ -124,6 +124,7 @@ export class MapContainer {
   private cachedUcdpEvents: UcdpGeoEvent[] | null = null;
   private cachedDisplacementFlows: DisplacementFlow[] | null = null;
   private cachedClimateAnomalies: ClimateAnomaly[] | null = null;
+  private cachedClimatePhysicalSignals: ClimatePhysicalSignal[] = [];
   private cachedGpsJamming: GpsJamHex[] | null = null;
   private cachedCyberThreats: CyberThreat[] | null = null;
   private cachedIranEvents: IranEvent[] | null = null;
@@ -314,7 +315,9 @@ export class MapContainer {
     if (this.cachedTechEvents) this.setTechEvents(this.cachedTechEvents);
     if (this.cachedUcdpEvents) this.setUcdpEvents(this.cachedUcdpEvents);
     if (this.cachedDisplacementFlows) this.setDisplacementFlows(this.cachedDisplacementFlows);
-    if (this.cachedClimateAnomalies) this.setClimateAnomalies(this.cachedClimateAnomalies);
+    if (this.cachedClimateAnomalies) {
+      this.setClimateAnomalies(this.cachedClimateAnomalies, this.cachedClimatePhysicalSignals);
+    }
     if (this.cachedGpsJamming) this.setGpsJamming(this.cachedGpsJamming);
     if (this.cachedCyberThreats) this.setCyberThreats(this.cachedCyberThreats);
     if (this.cachedIranEvents) this.setIranEvents(this.cachedIranEvents);
@@ -566,10 +569,11 @@ export class MapContainer {
     }
   }
 
-  public setClimateAnomalies(anomalies: ClimateAnomaly[]): void {
+  public setClimateAnomalies(anomalies: ClimateAnomaly[], physicalSignals: ClimatePhysicalSignal[] = []): void {
     this.cachedClimateAnomalies = anomalies;
+    this.cachedClimatePhysicalSignals = physicalSignals;
     if (this.useDeckGL) {
-      this.deckGLMap?.setClimateAnomalies(anomalies);
+      this.deckGLMap?.setClimateAnomalies(anomalies, physicalSignals);
     }
   }
 
@@ -1014,6 +1018,7 @@ export class MapContainer {
     this.cachedUcdpEvents = null;
     this.cachedDisplacementFlows = null;
     this.cachedClimateAnomalies = null;
+    this.cachedClimatePhysicalSignals = [];
     this.cachedGpsJamming = null;
     this.cachedCyberThreats = null;
     this.cachedIranEvents = null;

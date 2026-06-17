@@ -1,6 +1,7 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
-import type { UnhcrSummary, CountryDisplacement } from '@/services/displacement';
+import type { UnhcrSummary, CountryDisplacement, ReliefWebUpdate } from '@/services/displacement';
+import type { WhoGhoIndicator } from '@/services/health/who-gho';
 import { formatPopulation } from '@/services/displacement';
 import { t } from '@/services/i18n';
 
@@ -8,6 +9,8 @@ type DisplacementTab = 'origins' | 'hosts';
 
 export class DisplacementPanel extends Panel {
   private data: UnhcrSummary | null = null;
+  private humanitarianUpdates: ReliefWebUpdate[] = [];
+  private healthIndicators: WhoGhoIndicator[] = [];
   private activeTab: DisplacementTab = 'origins';
   private onCountryClick?: (lat: number, lon: number) => void;
 
@@ -29,6 +32,16 @@ export class DisplacementPanel extends Panel {
   public setData(data: UnhcrSummary): void {
     this.data = data;
     this.setCount(data.countries?.length ?? 0);
+    this.renderContent();
+  }
+
+  public setHumanitarianUpdates(updates: ReliefWebUpdate[]): void {
+    this.humanitarianUpdates = updates;
+    this.renderContent();
+  }
+
+  public setHealthIndicators(indicators: WhoGhoIndicator[]): void {
+    this.healthIndicators = indicators;
     this.renderContent();
   }
 
@@ -112,8 +125,44 @@ export class DisplacementPanel extends Panel {
         </table>`;
     }
 
+    const whoHtml = this.healthIndicators.length > 0
+      ? `<div class="disp-who-strip">
+          <div class="disp-who-header">
+            <span class="disp-who-label">WHO GHO</span>
+            <span class="disp-who-source">Outbreak indicators</span>
+          </div>
+          <div class="disp-who-list">
+            ${this.healthIndicators.slice(0, 5).map((item) => `
+              <div class="disp-who-item">
+                <span class="disp-who-title">${escapeHtml(item.countryName)} · ${escapeHtml(item.indicatorName)}</span>
+                <span class="disp-who-meta">${item.value.toLocaleString()} ${escapeHtml(item.unit)} · ${item.year}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>`
+      : '';
+
+    const reliefWebHtml = this.humanitarianUpdates.length > 0
+      ? `<div class="disp-reliefweb-strip">
+          <div class="disp-reliefweb-header">
+            <span class="disp-reliefweb-label">ReliefWeb</span>
+            <span class="disp-reliefweb-source">Humanitarian updates</span>
+          </div>
+          <div class="disp-reliefweb-list">
+            ${this.humanitarianUpdates.slice(0, 5).map((item) => `
+              <a class="disp-reliefweb-item" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">
+                <span class="disp-reliefweb-title">${escapeHtml(item.title)}</span>
+                <span class="disp-reliefweb-meta">${escapeHtml(item.country || 'Global')}${item.categories[0] ? ` · ${escapeHtml(item.categories[0])}` : ''}</span>
+              </a>
+            `).join('')}
+          </div>
+        </div>`
+      : '';
+
     this.setContent(`
       <div class="disp-panel-content">
+        ${whoHtml}
+        ${reliefWebHtml}
         <div class="disp-stats-grid">${statsHtml}</div>
         ${tabsHtml}
         <div id="disp-tab-panel" role="tabpanel" aria-labelledby="disp-tab-${this.activeTab}">

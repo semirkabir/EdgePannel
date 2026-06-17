@@ -23,7 +23,18 @@ const REDIS_CACHE_TTL = 600; // 10 min
 const BOOTSTRAP_KEY = 'prediction:markets-bootstrap:v1';
 
 const GAMMA_BASE = 'https://gamma-api.polymarket.com';
+const MANIFOLD_SEARCH_URL = 'https://api.manifold.markets/v0/search-markets';
 const FETCH_TIMEOUT = 8000;
+
+const MANIFOLD_SEARCH_TERMS = [
+  'ukraine',
+  'iran',
+  'israel',
+  'china taiwan',
+  'ceasefire',
+  'election',
+  'nato',
+];
 
 // ---------- Internal Gamma API types ----------
 
@@ -85,6 +96,73 @@ function mapEvent(event: GammaEvent, category: string): PredictionMarket {
 }
 
 /** Map a GammaMarket to a proto PredictionMarket. */
+interface ManifoldMarket {
+  id: string;
+  question: string;
+  probability: number;
+  volume: number;
+  url: string;
+  closeTime?: number;
+  isResolved?: boolean;
+}
+
+function normalizeTitleKey(title: string): string {
+  return title.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+async function fetchManifoldMarkets(limit = 25): Promise<PredictionMarket[]> {
+  const seen = new Set<string>();
+  const markets: PredictionMarket[] = [];
+
+  for (const term of MANIFOLD_SEARCH_TERMS) {
+    if (markets.length >= limit) break;
+
+    const response = await fetch(
+      `${MANIFOLD_SEARCH_URL}?term=${encodeURIComponent(term)}&limit=8`,
+      {
+        headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT),
+      },
+    );
+    if (!response.ok) continue;
+
+    const data: ManifoldMarket[] = await response.json();
+    for (const raw of data) {
+      if (!raw?.question || raw.isResolved) continue;
+      const key = normalizeTitleKey(raw.question);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+
+      markets.push({
+        id: `manifold-${raw.id}`,
+        title: raw.question,
+        yesPrice: Math.max(0, Math.min(1, raw.probability ?? 0.5)),
+        volume: raw.volume ?? 0,
+        url: raw.url || `https://manifold.markets/${raw.id}`,
+        closesAt: raw.closeTime ?? 0,
+        category: 'manifold',
+      });
+      if (markets.length >= limit) break;
+    }
+  }
+
+  return markets.sort((a, b) => b.volume - a.volume);
+}
+
+function mergePredictionMarkets(primary: PredictionMarket[], secondary: PredictionMarket[]): PredictionMarket[] {
+  const merged = [...primary];
+  const seen = new Set(primary.map((m) => normalizeTitleKey(m.title)));
+
+  for (const market of secondary) {
+    const key = normalizeTitleKey(market.title);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(market);
+  }
+
+  return merged.sort((a, b) => b.volume - a.volume);
+}
+
 function mapMarket(market: GammaMarket): PredictionMarket {
   const closesAtMs = market.endDate ? Date.parse(market.endDate) : 0;
   return {
@@ -171,6 +249,9 @@ export const listPredictionMarkets: PredictionServiceHandler['listPredictionMark
         if (req.query) {
           const q = req.query.toLowerCase();
           markets = markets.filter((m) => m.title.toLowerCase().includes(q));
+        } else {
+          const manifoldMarkets = await fetchManifoldMarkets(20);
+          markets = mergePredictionMarkets(markets, manifoldMarkets);
         }
 
         return markets.length > 0 ? { markets, pagination: undefined } : null;

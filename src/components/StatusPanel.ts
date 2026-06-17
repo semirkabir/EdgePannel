@@ -27,7 +27,7 @@ const TECH_FEEDS = new Set([
 ]);
 const TECH_APIS = new Set([
   'RSS Proxy', 'Finnhub', 'CoinGecko', 'Tech Events API', 'Service Status', 'Polymarket',
-  'Cyber Threats API'
+  'Cyber Threats API', 'DefiLlama', 'Global Indicators', 'Manifold', 'ThreatFox', 'Place Search',
 ]);
 
 const WORLD_FEEDS = new Set([
@@ -39,7 +39,10 @@ const WORLD_FEEDS = new Set([
 const WORLD_APIS = new Set([
   'RSS2JSON', 'Finnhub', 'CoinGecko', 'Polymarket', 'USGS', 'FRED',
   'AISStream', 'GDELT Doc', 'EIA', 'USASpending', 'PizzINT', 'FIRMS',
-  'Cyber Threats API', 'BIS', 'WTO', 'SupplyChain'
+  'Cyber Threats API', 'BIS', 'WTO', 'SupplyChain',
+  'ReliefWeb', 'WHO GHO', 'Aviation SIGMET', 'DefiLlama', 'Global Indicators',
+  'IODA', 'Open-Meteo AQI', 'Open-Meteo Flood', 'Manifold', 'OpenSanctions',
+  'ThreatFox', 'Place Search',
 ]);
 
 import { t } from '../services/i18n';

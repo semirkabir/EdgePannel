@@ -31,9 +31,7 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
-      - run: npm run test:data:ci
-      - run: npm run test:sidecar:ci
-      - run: node --test tests/deploy-config.test.mjs api/download.test.mjs api/fetch-article.test.mjs api/checkout.test.mjs
+      - run: npm run test:ci
 
   e2e-smoke:
     if: github.event.pull_request.head.repo.full_name == github.repository

@@ -37,6 +37,12 @@ export interface MarketplaceCommercialMetadata {
   priceLabel?: string;
 }
 
+export interface MarketplaceBuiltInSourceMetadata {
+  kind: 'feed' | 'runtime' | 'service';
+  sourceName?: string;
+  dataSourceId?: string;
+}
+
 export interface MarketplaceCompatibility {
   variants: MarketplaceVariant[];
   minAppVersion?: string;
@@ -123,6 +129,7 @@ export interface MarketplaceManifest {
   valueProposition?: string;
   trust?: MarketplaceTrustMetadata;
   commercial?: MarketplaceCommercialMetadata;
+  builtIn?: MarketplaceBuiltInSourceMetadata;
 }
 
 export interface MarketplaceCatalogItem {

@@ -512,6 +512,7 @@ export class CommoditiesPanel extends Panel {
 
 export class CryptoPanel extends Panel {
   private cryptoData: CryptoData[] = [];
+  private defiProtocols: import('@/services/market/defillama').DefiLlamaProtocol[] = [];
   private onCoinClick?: (coin: CryptoData) => void;
 
   constructor() {
@@ -534,6 +535,11 @@ export class CryptoPanel extends Panel {
     });
   }
 
+  public updateDefiProtocols(protocols: import('@/services/market/defillama').DefiLlamaProtocol[]): void {
+    this.defiProtocols = protocols;
+    if (this.cryptoData.length > 0) this.renderCrypto(this.cryptoData);
+  }
+
   public renderCrypto(data: CryptoData[]): void {
     if (data.length === 0) {
       this.showRetrying(t('common.failedCryptoData'));
@@ -541,6 +547,24 @@ export class CryptoPanel extends Panel {
     }
 
     this.cryptoData = data;
+
+    const defiHtml = this.defiProtocols.length > 0
+      ? `<div class="crypto-defi-strip">
+          <div class="crypto-defi-header">
+            <span class="crypto-defi-label">DeFi TVL leaders</span>
+            <span class="crypto-defi-source">DefiLlama</span>
+          </div>
+          <div class="crypto-defi-grid">
+            ${this.defiProtocols.slice(0, 6).map((protocol) => `
+              <a class="crypto-defi-card" href="${escapeHtml(protocol.url)}" target="_blank" rel="noopener noreferrer">
+                <span class="crypto-defi-name">${escapeHtml(protocol.name)}</span>
+                <span class="crypto-defi-tvl">${escapeHtml(protocol.tvlDisplay)}</span>
+                <span class="crypto-defi-meta">${escapeHtml(protocol.category)}${protocol.change1d ? ` · ${protocol.change1d > 0 ? '+' : ''}${protocol.change1d.toFixed(1)}% 1d` : ''}</span>
+              </a>
+            `).join('')}
+          </div>
+        </div>`
+      : '';
 
     const rows = data.map((coin) => `
       <button
@@ -560,7 +584,7 @@ export class CryptoPanel extends Panel {
       </button>
     `).join('');
 
-    this.setContentNow(`<div class="crypto-market-list">${rows}</div>`);
+    this.setContentNow(`${defiHtml}<div class="crypto-market-list">${rows}</div>`);
     this.bindCryptoInteractions();
   }
 }

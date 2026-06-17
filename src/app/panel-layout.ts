@@ -6,6 +6,7 @@ import type { TheaterPostureSummary } from '@/services/military-surge';
 import {
   MapContainer,
   NewsPanel,
+  SecurityNewsPanel,
   MarketPanel,
   WatchlistPanel,
   HeatmapPanel,
@@ -917,7 +918,7 @@ export class PanelLayoutManager implements AppModule {
     this.ctx.newsPanels['producthunt'] = producthuntPanel;
     this.ctx.panels['producthunt'] = producthuntPanel;
 
-    const securityPanel = new NewsPanel('security', t('panels.security'));
+    const securityPanel = new SecurityNewsPanel('security', t('panels.security'));
     this.attachRelatedAssetHandlers(securityPanel);
     this.ctx.newsPanels['security'] = securityPanel;
     this.ctx.panels['security'] = securityPanel;

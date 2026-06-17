@@ -54,6 +54,7 @@ export function renderCyberThreatPopup(threat: CyberThreat): string {
     c2intel: 'C2 Intel Feeds',
     otx: 'AlienVault OTX',
     abuseipdb: 'AbuseIPDB',
+    threatfox: 'ThreatFox',
   };
   const sourceLabel = sourceLabels[threat.source] || threat.source;
   const typeLabel = threat.type.replace(/_/g, ' ').toUpperCase();

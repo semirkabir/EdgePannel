@@ -1,12 +1,13 @@
 /**
  * Shared helpers, constants, types, and enum mappings for the Cyber domain.
  *
- * Five upstream threat intelligence sources:
+ * Six upstream threat intelligence sources:
  *   - Feodo Tracker (abuse.ch C2 botnet IPs)
  *   - URLhaus (abuse.ch malicious URLs)
  *   - C2IntelFeeds (GitHub CSV of C2 IPs)
  *   - AlienVault OTX (threat indicators)
  *   - AbuseIPDB (IP blacklist)
+ *   - ThreatFox (abuse.ch malware IOCs)
  *
  * All source fetchers have graceful degradation: return empty on upstream failure.
  * No error logging on upstream failures (following established 2F-01 pattern).
@@ -37,6 +38,7 @@ const URLHAUS_RECENT_URL = (limit: number) => `https://urlhaus-api.abuse.ch/v1/u
 const C2INTEL_URL = 'https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/IPC2s-30day.csv';
 const OTX_INDICATORS_URL = 'https://otx.alienvault.com/api/v1/indicators/export?type=IPv4&modified_since=';
 const ABUSEIPDB_BLACKLIST_URL = 'https://api.abuseipdb.com/api/v2/blacklist';
+const THREATFOX_API_URL = 'https://threatfox-api.abuse.ch/api/v1/';
 
 const UPSTREAM_TIMEOUT_MS = 7000;
 const GEO_MAX_UNRESOLVED = 200;
@@ -138,6 +140,7 @@ export const SOURCE_MAP: Record<string, CyberThreatSource> = {
   c2intel: 'CYBER_THREAT_SOURCE_C2INTEL',
   otx: 'CYBER_THREAT_SOURCE_OTX',
   abuseipdb: 'CYBER_THREAT_SOURCE_ABUSEIPDB',
+  threatfox: 'CYBER_THREAT_SOURCE_THREATFOX',
 };
 
 const INDICATOR_TYPE_MAP: Record<string, CyberThreatIndicatorType> = {
@@ -715,6 +718,113 @@ export async function fetchAbuseIpDbSource(limit: number): Promise<SourceResult>
       if (threat) parsed.push(threat);
       if (parsed.length >= limit) break;
     }
+
+    return { ok: true, threats: parsed };
+  } catch {
+    return { ok: false, threats: [] };
+  }
+}
+
+// ========================================================================
+// Source 6: ThreatFox (abuse.ch)
+// ========================================================================
+
+function extractThreatFoxIndicator(ioc: string, iocType: string): { indicator: string; indicatorType: 'ip' | 'domain' | 'url' } | null {
+  const rawIoc = cleanString(ioc, 1024).toLowerCase();
+  const rawType = cleanString(iocType, 40).toLowerCase();
+  if (!rawIoc) return null;
+
+  if (rawType.startsWith('ip')) {
+    const ip = rawIoc.split(':')[0] ?? '';
+    if (!isIpAddress(ip)) return null;
+    return { indicator: ip, indicatorType: 'ip' };
+  }
+  if (rawType === 'domain') {
+    const domain = rawIoc.replace(/^https?:\/\//, '').split('/')[0] ?? '';
+    if (!domain) return null;
+    return { indicator: domain, indicatorType: 'domain' };
+  }
+  if (rawType === 'url') {
+    return { indicator: rawIoc, indicatorType: 'url' };
+  }
+  return null;
+}
+
+function inferThreatFoxType(threatType: string, tags: string[]): string {
+  const normalized = cleanString(threatType, 40).toLowerCase();
+  const tagText = tags.join(' ');
+  if (normalized.includes('botnet') || normalized.includes('cc') || tagText.includes('c2')) return 'c2_server';
+  if (normalized.includes('phish')) return 'phishing';
+  if (normalized.includes('payload') || normalized.includes('malware')) return 'malware_host';
+  return 'malicious_url';
+}
+
+function inferThreatFoxSeverity(threatType: string, tags: string[], confidence: number | null): string {
+  const tagText = tags.join(' ').toLowerCase();
+  if (tagText.includes('ransomware') || tagText.includes('apt')) return 'critical';
+  if ((confidence ?? 0) >= 90) return 'high';
+  if (inferThreatFoxType(threatType, tags) === 'c2_server') return 'high';
+  return 'medium';
+}
+
+function parseThreatFoxRecord(record: any, cutoffMs: number): RawThreat | null {
+  const extracted = extractThreatFoxIndicator(
+    String(record?.ioc ?? ''),
+    String(record?.ioc_type ?? record?.iocType ?? ''),
+  );
+  if (!extracted) return null;
+
+  const firstSeen = toEpochMs(record?.first_seen || record?.first_seen_utc);
+  const lastSeen = toEpochMs(record?.last_seen || record?.last_seen_utc || record?.first_seen);
+  const activityMs = lastSeen || firstSeen;
+  if (activityMs && activityMs < cutoffMs) return null;
+
+  const tags = normalizeTags(record?.tags || record?.tag);
+  const malwareFamily = cleanString(record?.malware_printable || record?.malware || '', 80);
+  const threatType = cleanString(record?.threat_type || record?.threatType || '', 40);
+  const confidence = toFiniteNumber(record?.confidence_level);
+
+  return sanitizeRawThreat({
+    id: `threatfox:${extracted.indicatorType}:${extracted.indicator}`,
+    type: inferThreatFoxType(threatType, tags),
+    source: 'threatfox',
+    indicator: extracted.indicator,
+    indicatorType: extracted.indicatorType,
+    lat: null,
+    lon: null,
+    country: '',
+    severity: inferThreatFoxSeverity(threatType, tags, confidence),
+    malwareFamily,
+    tags: normalizeTags(['threatfox', ...tags]),
+    firstSeen,
+    lastSeen,
+  });
+}
+
+export async function fetchThreatFoxSource(limit: number, cutoffMs: number): Promise<SourceResult> {
+  try {
+    const days = Math.max(1, Math.min(MAX_DAYS, Math.ceil((Date.now() - cutoffMs) / (24 * 60 * 60 * 1000))));
+    const response = await fetch(THREATFOX_API_URL, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': CHROME_UA,
+      },
+      body: JSON.stringify({ query: 'get_iocs', days }),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+    if (!response.ok) return { ok: false, threats: [] };
+
+    const payload = await response.json();
+    if (cleanString(payload?.query_status, 20).toLowerCase() !== 'ok') return { ok: false, threats: [] };
+
+    const rows: any[] = Array.isArray(payload?.data) ? payload.data : [];
+    const parsed = rows
+      .map((row) => parseThreatFoxRecord(row, cutoffMs))
+      .filter((t): t is RawThreat => t !== null)
+      .sort((a, b) => (b.lastSeen || b.firstSeen) - (a.lastSeen || a.firstSeen))
+      .slice(0, limit);
 
     return { ok: true, threats: parsed };
   } catch {

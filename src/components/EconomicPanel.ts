@@ -1,5 +1,5 @@
 import { Panel } from './Panel';
-import type { FredSeries, OilAnalytics, BisData } from '@/services/economic';
+import type { FredSeries, OilAnalytics, BisData, GlobalIndicator } from '@/services/economic';
 import { t } from '@/services/i18n';
 import type { SpendingSummary } from '@/services/usa-spending';
 import { getChangeClass, formatChange, formatOilValue, getTrendIndicator, getTrendColor } from '@/services/economic';
@@ -15,6 +15,7 @@ export class EconomicPanel extends Panel {
   private oilData: OilAnalytics | null = null;
   private spendingData: SpendingSummary | null = null;
   private bisData: BisData | null = null;
+  private globalIndicators: GlobalIndicator[] = [];
   private lastUpdate: Date | null = null;
   private activeTab: TabId = 'indicators';
 
@@ -47,6 +48,11 @@ export class EconomicPanel extends Panel {
 
   public updateBis(data: BisData): void {
     this.bisData = data;
+    this.render();
+  }
+
+  public updateGlobalIndicators(indicators: GlobalIndicator[]): void {
+    this.globalIndicators = indicators;
     this.render();
   }
 
@@ -128,15 +134,32 @@ export class EconomicPanel extends Panel {
   }
 
   private renderIndicators(): string {
+    const globalHtml = this.globalIndicators.length > 0
+      ? `<div class="economic-global-strip">
+          <div class="economic-global-header">Global indicators</div>
+          <div class="economic-global-grid">
+            ${this.globalIndicators.map((indicator) => `
+              <div class="economic-global-card">
+                <span class="economic-global-name">${escapeHtml(indicator.name)}</span>
+                <span class="economic-global-value">${escapeHtml(String(indicator.value))}${escapeHtml(indicator.unit)}</span>
+                <span class="economic-global-meta">${escapeHtml(indicator.source)} · ${escapeHtml(indicator.period)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>`
+      : '';
+
     if (this.fredData.length === 0) {
       const configMessage = getMissingFeatureSecretMessage('economicFred');
       if (configMessage) {
-        return `<div class="economic-empty">${escapeHtml(configMessage)}</div>`;
+        return `${globalHtml}<div class="economic-empty">${escapeHtml(configMessage)}</div>`;
       }
+      if (globalHtml) return globalHtml;
       return `<div class="economic-empty">${t('components.economic.noIndicatorData')}</div>`;
     }
 
     return `
+      ${globalHtml}
       <div class="economic-indicators">
         ${this.fredData.map(series => {
       const changeClass = getChangeClass(series.change);

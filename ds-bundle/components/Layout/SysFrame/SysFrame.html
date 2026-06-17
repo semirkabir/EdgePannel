@@ -1,0 +1,63 @@
+<!-- @dsCard group="Layout" name="SysFrame" description="Inset framed surface for terminal-style blocks, code output areas, and nested data containers." -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../styles.css">
+<style>
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); padding: 20px; margin: 0; display: flex; flex-direction: column; gap: 20px; }
+  .section-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  pre { margin: 0; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); white-space: pre-wrap; line-height: 1.6; }
+  .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .metric { display: flex; flex-direction: column; gap: 3px; }
+  .metric-value { font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--text); }
+  .metric-label { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+</style>
+</head>
+<body>
+  <div>
+    <div class="section-label">Terminal / output block</div>
+    <div class="sys-frame" style="padding:12px;">
+      <pre>[2024-03-15 14:32:07] ▶ Fetching OSINT feed cluster…
+[2024-03-15 14:32:08] ✓ 247 signals ingested
+[2024-03-15 14:32:08] ⚡ 3 high-priority events detected
+[2024-03-15 14:32:09] ▶ Running CII scoring model…
+[2024-03-15 14:32:09] ✓ 195 countries updated</pre>
+    </div>
+  </div>
+  <div>
+    <div class="section-label">Metric summary block</div>
+    <div class="sys-frame" style="padding:14px;">
+      <div class="metric-grid">
+        <div class="metric">
+          <span class="metric-value">247</span>
+          <span class="metric-label">Signals / hr</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value" style="color:var(--semantic-critical)">3</span>
+          <span class="metric-label">High Priority</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">195</span>
+          <span class="metric-label">Countries Live</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value" style="color:var(--status-live)">12ms</span>
+          <span class="metric-label">Latency</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="section-label">With glow state</div>
+    <div class="sys-frame sys-glow--live" style="padding:10px 14px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:18px;">📡</span>
+      <div>
+        <div style="font-size:13px;font-weight:600;">Satellite Uplink Active</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Last packet: 340ms ago</div>
+      </div>
+      <span class="status-chip status-chip--live" style="margin-left:auto">● Live</span>
+    </div>
+  </div>
+</body>
+</html>

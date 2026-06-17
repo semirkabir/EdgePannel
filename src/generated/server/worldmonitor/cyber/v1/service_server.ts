@@ -45,7 +45,33 @@ export type CriticalityLevel = "CRITICALITY_LEVEL_UNSPECIFIED" | "CRITICALITY_LE
 
 export type CyberThreatIndicatorType = "CYBER_THREAT_INDICATOR_TYPE_UNSPECIFIED" | "CYBER_THREAT_INDICATOR_TYPE_IP" | "CYBER_THREAT_INDICATOR_TYPE_DOMAIN" | "CYBER_THREAT_INDICATOR_TYPE_URL";
 
-export type CyberThreatSource = "CYBER_THREAT_SOURCE_UNSPECIFIED" | "CYBER_THREAT_SOURCE_FEODO" | "CYBER_THREAT_SOURCE_URLHAUS" | "CYBER_THREAT_SOURCE_C2INTEL" | "CYBER_THREAT_SOURCE_OTX" | "CYBER_THREAT_SOURCE_ABUSEIPDB";
+export type CyberThreatSource = "CYBER_THREAT_SOURCE_UNSPECIFIED" | "CYBER_THREAT_SOURCE_FEODO" | "CYBER_THREAT_SOURCE_URLHAUS" | "CYBER_THREAT_SOURCE_C2INTEL" | "CYBER_THREAT_SOURCE_OTX" | "CYBER_THREAT_SOURCE_ABUSEIPDB" | "CYBER_THREAT_SOURCE_THREATFOX";
+
+export interface ListKnownExploitedVulnsRequest {
+  pageSize: number;
+  cursor: string;
+  search: string;
+}
+
+export interface ListKnownExploitedVulnsResponse {
+  vulnerabilities: KnownExploitedVulnerability[];
+  pagination?: PaginationResponse;
+}
+
+export interface KnownExploitedVulnerability {
+  cveId: string;
+  vendorProject: string;
+  product: string;
+  vulnerabilityName: string;
+  dateAdded: string;
+  shortDescription: string;
+  requiredAction: string;
+  dueDate: string;
+  knownRansomwareCampaignUse: string;
+  notes: string;
+  cwe: string;
+  source: string;
+}
 
 export type CyberThreatType = "CYBER_THREAT_TYPE_UNSPECIFIED" | "CYBER_THREAT_TYPE_C2_SERVER" | "CYBER_THREAT_TYPE_MALWARE_HOST" | "CYBER_THREAT_TYPE_PHISHING" | "CYBER_THREAT_TYPE_MALICIOUS_URL";
 
@@ -95,6 +121,7 @@ export interface RouteDescriptor {
 
 export interface CyberServiceHandler {
   listCyberThreats(ctx: ServerContext, req: ListCyberThreatsRequest): Promise<ListCyberThreatsResponse>;
+  listKnownExploitedVulns(ctx: ServerContext, req: ListKnownExploitedVulnsRequest): Promise<ListKnownExploitedVulnsResponse>;
 }
 
 export function createCyberServiceRoutes(
@@ -134,6 +161,55 @@ export function createCyberServiceRoutes(
 
           const result = await handler.listCyberThreats(ctx, body);
           return new Response(JSON.stringify(result as ListCyberThreatsResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/cyber/v1/list-known-exploited-vulns",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const url = new URL(req.url, "http://localhost");
+          const params = url.searchParams;
+          const body: ListKnownExploitedVulnsRequest = {
+            pageSize: Number(params.get("page_size") ?? "0"),
+            cursor: params.get("cursor") ?? "",
+            search: params.get("search") ?? "",
+          };
+          if (options?.validateRequest) {
+            const bodyViolations = options.validateRequest("listKnownExploitedVulns", body);
+            if (bodyViolations) {
+              throw new ValidationError(bodyViolations);
+            }
+          }
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.listKnownExploitedVulns(ctx, body);
+          return new Response(JSON.stringify(result as ListKnownExploitedVulnsResponse), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });

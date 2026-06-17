@@ -1,0 +1,47 @@
+<!-- @dsCard group="Status" name="SysLabel" description="Mono uppercase micro-label. Used as section headers, field labels, and kicker text in the operator console." -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../styles.css">
+<style>
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); padding: 20px; margin: 0; display: flex; flex-direction: column; gap: 20px; }
+  .section-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field-value { font-size: 14px; color: var(--text); }
+  .metric-row { display: flex; align-items: baseline; gap: 6px; }
+  .metric-value { font-size: 22px; font-weight: 700; font-family: var(--font-mono); color: var(--text); }
+  .separator { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+</style>
+</head>
+<body>
+  <div>
+    <div class="section-label">As section headers</div>
+    <span class="sys-label">Current Threat Assessment</span>
+    <div class="separator"></div>
+    <span class="sys-label">Feed Status</span>
+    <div class="separator"></div>
+    <span class="sys-label">Market Indices</span>
+  </div>
+  <div>
+    <div class="section-label">As field labels</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="field">
+        <span class="sys-label">Country</span>
+        <span class="field-value">Russian Federation</span>
+      </div>
+      <div class="field">
+        <span class="sys-label">CII Score</span>
+        <div class="metric-row">
+          <span class="metric-value">7.4</span>
+          <span class="sys-label">/ 10</span>
+        </div>
+      </div>
+      <div class="field">
+        <span class="sys-label">Last Updated</span>
+        <span class="field-value" style="color:var(--text-dim)">2 min ago</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

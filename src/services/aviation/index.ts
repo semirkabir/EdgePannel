@@ -403,3 +403,10 @@ export async function fetchAviationNews(entities: string[], windowHours = 24, ma
     return r.items.map(toDisplayNewsItem);
   }, []);
 }
+
+export {
+  fetchAirSigmets,
+  getCachedAirSigmets,
+  buildSigmetSignals,
+} from './sigmet';
+export type { AirSigmet } from './sigmet';

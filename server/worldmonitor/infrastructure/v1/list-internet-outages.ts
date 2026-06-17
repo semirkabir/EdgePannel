@@ -20,6 +20,9 @@ const SEED_MAX_AGE_MS = 45 * 60 * 1000; // 45 min
 // ========================================================================
 
 const CLOUDFLARE_RADAR_URL = 'https://api.cloudflare.com/client/v4/radar/annotations/outages';
+const IODA_OUTAGES_URL = 'https://api.ioda.inetintel.cc.gatech.edu/v2/outages/events';
+const IODA_LOOKBACK_SEC = 7 * 24 * 3600;
+const OUTAGE_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // ========================================================================
 // Cloudflare Radar types
@@ -109,6 +112,186 @@ function toEpochMs(value: string | null | undefined): number {
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
+function outageDedupeKey(countryCode: string, detectedAtMs: number): string {
+  const dayBucket = Math.floor(detectedAtMs / OUTAGE_DEDUPE_WINDOW_MS);
+  return `${countryCode.toUpperCase()}-${dayBucket}`;
+}
+
+function mapIodaSeverity(durationSec: number): OutageSeverity {
+  if (durationSec >= 24 * 3600) return 'OUTAGE_SEVERITY_TOTAL';
+  if (durationSec >= 2 * 3600) return 'OUTAGE_SEVERITY_MAJOR';
+  return 'OUTAGE_SEVERITY_PARTIAL';
+}
+
+// ========================================================================
+// IODA types
+// ========================================================================
+
+interface IodaOutageEvent {
+  location: string;
+  start: number;
+  duration: number;
+  datasource: string;
+  location_name: string;
+  score: number;
+  overlaps_window?: boolean;
+}
+
+interface IodaOutagesResponse {
+  data?: IodaOutageEvent[];
+}
+
+async function fetchCloudflareOutages(): Promise<InternetOutage[]> {
+  const token = process.env.CLOUDFLARE_API_TOKEN;
+  if (!token) return [];
+
+  const response = await fetch(
+    `${CLOUDFLARE_RADAR_URL}?dateRange=7d&limit=50`,
+    {
+      headers: { Authorization: `Bearer ${token}`, 'User-Agent': CHROME_UA },
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    },
+  );
+  if (!response.ok) return [];
+
+  const data: CloudflareResponse = await response.json();
+  if (data.configured === false || !data.success || data.errors?.length) return [];
+
+  const outages: InternetOutage[] = [];
+
+  for (const raw of data.result?.annotations || []) {
+    if (!raw.locations?.length) continue;
+    const countryCode = raw.locations[0];
+    if (!countryCode) continue;
+
+    const coords = COUNTRY_COORDS[countryCode];
+    if (!coords) continue;
+
+    const countryName = raw.locationsDetails?.[0]?.name ?? countryCode;
+
+    const categories: string[] = ['Cloudflare Radar'];
+    if (raw.outage?.outageCause) categories.push(raw.outage.outageCause.replace(/_/g, ' '));
+    if (raw.outage?.outageType) categories.push(raw.outage.outageType);
+    for (const asn of raw.asnsDetails?.slice(0, 2) || []) {
+      if (asn.name) categories.push(asn.name);
+    }
+
+    outages.push({
+      id: `cf-${countryCode}-${raw.id}`,
+      title: raw.scope ? `${raw.scope} outage in ${countryName}` : `Internet disruption in ${countryName}`,
+      link: raw.linkedUrl || 'https://radar.cloudflare.com/outage-center',
+      description: raw.description,
+      detectedAt: toEpochMs(raw.startDate),
+      country: countryName,
+      region: '',
+      location: { latitude: coords[0], longitude: coords[1] },
+      severity: mapOutageSeverity(raw.outage?.outageType),
+      categories,
+      cause: raw.outage?.outageCause || '',
+      outageType: raw.outage?.outageType || '',
+      endedAt: toEpochMs(raw.endDate),
+    });
+  }
+
+  return outages;
+}
+
+async function fetchIodaOutages(): Promise<InternetOutage[]> {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const fromSec = nowSec - IODA_LOOKBACK_SEC;
+  const url = `${IODA_OUTAGES_URL}?entityType=country&from=${fromSec}&until=${nowSec}&limit=80`;
+
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  });
+  if (!response.ok) return [];
+
+  const data: IodaOutagesResponse = await response.json();
+  const seen = new Map<string, IodaOutageEvent>();
+
+  for (const event of data.data || []) {
+    const match = event.location?.match(/^country\/([A-Z]{2})$/i);
+    if (!match) continue;
+
+    const countryCode = match[1].toUpperCase();
+    const coords = COUNTRY_COORDS[countryCode];
+    if (!coords) continue;
+
+    if (event.duration < 900) continue;
+    const endSec = event.start + event.duration;
+    if (endSec < fromSec && event.start < fromSec) continue;
+
+    const dedupeKey = `${countryCode}-${event.datasource}`;
+    const existing = seen.get(dedupeKey);
+    if (!existing || event.score > existing.score) {
+      seen.set(dedupeKey, event);
+    }
+  }
+
+  const outages: InternetOutage[] = [];
+
+  for (const event of seen.values()) {
+    const countryCode = event.location.split('/')[1].toUpperCase();
+    const coords = COUNTRY_COORDS[countryCode];
+    if (!coords) continue;
+
+    const detectedAtMs = event.start * 1000;
+    const endedAtMs = (event.start + event.duration) * 1000;
+    const durationHours = Math.round(event.duration / 3600);
+    const datasourceLabel = event.datasource.replace(/-/g, ' ');
+
+    outages.push({
+      id: `ioda-${countryCode}-${event.start}-${event.datasource}`,
+      title: `Internet outage in ${event.location_name}`,
+      link: `https://ioda.inetintel.cc.gatech.edu/ioda/dashboard#explore/outages?entityType=country&entityCode=${countryCode}`,
+      description: `IODA detected ${durationHours}h connectivity disruption via ${datasourceLabel} (score ${Math.round(event.score)}).`,
+      detectedAt: detectedAtMs,
+      country: event.location_name,
+      region: '',
+      location: { latitude: coords[0], longitude: coords[1] },
+      severity: mapIodaSeverity(event.duration),
+      categories: ['IODA', datasourceLabel],
+      cause: datasourceLabel,
+      outageType: event.duration >= 24 * 3600 ? 'NATIONWIDE' : event.duration >= 2 * 3600 ? 'REGIONAL' : 'PARTIAL',
+      endedAt: endedAtMs > detectedAtMs ? endedAtMs : 0,
+    });
+  }
+
+  return outages;
+}
+
+function extractCountryCode(outage: InternetOutage): string {
+  const parts = outage.id.split('-');
+  if ((outage.id.startsWith('cf-') || outage.id.startsWith('ioda-')) && parts[1]) {
+    return parts[1].toUpperCase();
+  }
+  return outage.country.slice(0, 2).toUpperCase();
+}
+
+function mergeOutages(cloudflare: InternetOutage[], ioda: InternetOutage[]): InternetOutage[] {
+  const merged: InternetOutage[] = [];
+  const seen = new Set<string>();
+
+  for (const outage of cloudflare) {
+    const key = outageDedupeKey(extractCountryCode(outage), outage.detectedAt);
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(outage);
+    }
+  }
+
+  for (const outage of ioda) {
+    const key = outageDedupeKey(extractCountryCode(outage), outage.detectedAt);
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(outage);
+    }
+  }
+
+  return merged.sort((a, b) => b.detectedAt - a.detectedAt);
+}
+
 // ========================================================================
 // Filtering
 // ========================================================================
@@ -153,57 +336,22 @@ export async function listInternetOutages(
 
   try {
     const result = await cachedFetchJson<ListInternetOutagesResponse>(REDIS_CACHE_KEY, REDIS_CACHE_TTL, async () => {
-      const token = process.env.CLOUDFLARE_API_TOKEN;
-      if (!token) return null;
+      const [cloudflareResult, iodaResult] = await Promise.allSettled([
+        fetchCloudflareOutages(),
+        fetchIodaOutages(),
+      ]);
 
-      const response = await fetch(
-        `${CLOUDFLARE_RADAR_URL}?dateRange=7d&limit=50`,
-        {
-          headers: { Authorization: `Bearer ${token}`, 'User-Agent': CHROME_UA },
-          signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-        },
-      );
-      if (!response.ok) return null;
+      const cloudflareOutages = cloudflareResult.status === 'fulfilled' ? cloudflareResult.value : [];
+      const iodaOutages = iodaResult.status === 'fulfilled' ? iodaResult.value : [];
 
-      const data: CloudflareResponse = await response.json();
-      if (data.configured === false || !data.success || data.errors?.length) return null;
-
-      const outages: InternetOutage[] = [];
-
-      for (const raw of data.result?.annotations || []) {
-        if (!raw.locations?.length) continue;
-        const countryCode = raw.locations[0];
-        if (!countryCode) continue;
-
-        const coords = COUNTRY_COORDS[countryCode];
-        if (!coords) continue;
-
-        const countryName = raw.locationsDetails?.[0]?.name ?? countryCode;
-
-        const categories: string[] = ['Cloudflare Radar'];
-        if (raw.outage?.outageCause) categories.push(raw.outage.outageCause.replace(/_/g, ' '));
-        if (raw.outage?.outageType) categories.push(raw.outage.outageType);
-        for (const asn of raw.asnsDetails?.slice(0, 2) || []) {
-          if (asn.name) categories.push(asn.name);
-        }
-
-        outages.push({
-          id: `cf-${raw.id}`,
-          title: raw.scope ? `${raw.scope} outage in ${countryName}` : `Internet disruption in ${countryName}`,
-          link: raw.linkedUrl || 'https://radar.cloudflare.com/outage-center',
-          description: raw.description,
-          detectedAt: toEpochMs(raw.startDate),
-          country: countryName,
-          region: '',
-          location: { latitude: coords[0], longitude: coords[1] },
-          severity: mapOutageSeverity(raw.outage?.outageType),
-          categories,
-          cause: raw.outage?.outageCause || '',
-          outageType: raw.outage?.outageType || '',
-          endedAt: toEpochMs(raw.endDate),
-        });
+      if (cloudflareResult.status === 'rejected') {
+        console.error('[Cloudflare Outages]', cloudflareResult.reason?.message);
+      }
+      if (iodaResult.status === 'rejected') {
+        console.error('[IODA Outages]', iodaResult.reason?.message);
       }
 
+      const outages = mergeOutages(cloudflareOutages, iodaOutages);
       return outages.length > 0 ? { outages, pagination: undefined } : null;
     });
 

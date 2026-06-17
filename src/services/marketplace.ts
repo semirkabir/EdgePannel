@@ -1,5 +1,10 @@
 import { loadFromStorage, saveToStorage } from '@/utils';
 import { getInstalledMarketplaceItems, putInstalledMarketplaceItem, deleteInstalledMarketplaceItem, getMarketplaceSubmissions, putMarketplaceSubmission } from './marketplace-storage';
+import {
+  BUILT_IN_MARKETPLACE_CATALOG,
+  BUILT_IN_MARKETPLACE_MANIFESTS_BY_ID,
+  isBuiltInMarketplaceItem,
+} from './marketplace-builtins';
 import type {
   InstalledMarketplaceItem,
   MarketplaceCatalogItem,
@@ -23,8 +28,20 @@ import type {
 const CATALOG_INDEX_URL = '/marketplace/catalog.json';
 const ENABLED_PREFS_KEY = 'wm-marketplace-enabled-v1';
 const MAP_ENABLED_PREFS_KEY = 'wm-marketplace-map-enabled-v1';
+const REMOVED_BUILT_INS_KEY = 'wm-marketplace-removed-built-ins-v1';
 
 type ChangeListener = () => void;
+
+interface MarketplaceSourceControl {
+  isSourceEnabled?: (sourceName: string) => boolean;
+  setSourceEnabled?: (sourceName: string, enabled: boolean) => void;
+  isDataSourceEnabled?: (dataSourceId: string) => boolean;
+  setDataSourceEnabled?: (dataSourceId: string, enabled: boolean) => void;
+}
+
+interface MarketplaceServiceOptions {
+  sourceControl?: MarketplaceSourceControl;
+}
 
 function uniqueId(prefix: string): string {
   const rand = Math.random().toString(36).slice(2, 10);
@@ -262,19 +279,30 @@ export class MarketplaceService {
   private submissions: MarketplaceSubmission[] = [];
   private enabledPrefs: Record<string, boolean> = {};
   private mapEnabledPrefs: Record<string, boolean> = {};
+  private removedBuiltIns = new Set<string>();
   private listeners = new Set<ChangeListener>();
   private pollTimers = new Map<string, number>();
+
+  constructor(private options: MarketplaceServiceOptions = {}) {}
 
   public async init(): Promise<void> {
     this.enabledPrefs = loadFromStorage<Record<string, boolean>>(ENABLED_PREFS_KEY, {});
     this.mapEnabledPrefs = loadFromStorage<Record<string, boolean>>(MAP_ENABLED_PREFS_KEY, {});
+    this.removedBuiltIns = new Set(loadFromStorage<string[]>(REMOVED_BUILT_INS_KEY, []));
     const [installed, submissions] = await Promise.all([
       getInstalledMarketplaceItems(),
       getMarketplaceSubmissions(),
     ]);
-    this.installed = new Map(installed.map((item) => [item.manifest.id, item]));
+    this.installed = new Map(installed.map((item) => {
+      const normalized = item.sourceType === 'catalog'
+        ? { ...item, manifest: { ...item.manifest, author: 'worldmonitor' } }
+        : item;
+      return [normalized.manifest.id, normalized];
+    }));
     this.submissions = submissions.sort((a, b) => b.submittedAt - a.submittedAt);
     await this.refreshCatalog();
+    await this.seedBuiltInInstalledItems();
+    this.applyRemovedBuiltInSourceState();
     this.schedulePolling();
     this.emitChange();
   }
@@ -313,6 +341,9 @@ export class MarketplaceService {
   }
 
   public isItemEnabled(itemId: string): boolean {
+    const manifest = this.installed.get(itemId)?.manifest ?? BUILT_IN_MARKETPLACE_MANIFESTS_BY_ID.get(itemId);
+    const builtInEnabled = manifest ? this.getBuiltInSourceEnabled(manifest) : undefined;
+    if (builtInEnabled !== undefined) return builtInEnabled;
     return this.enabledPrefs[itemId] ?? true;
   }
 
@@ -323,6 +354,8 @@ export class MarketplaceService {
 
   public setItemEnabled(itemId: string, enabled: boolean): void {
     this.enabledPrefs[itemId] = enabled;
+    const manifest = this.installed.get(itemId)?.manifest ?? BUILT_IN_MARKETPLACE_MANIFESTS_BY_ID.get(itemId);
+    if (manifest) this.setBuiltInSourceEnabled(manifest, enabled);
     saveToStorage(ENABLED_PREFS_KEY, this.enabledPrefs);
     this.schedulePolling();
     this.emitChange();
@@ -335,26 +368,42 @@ export class MarketplaceService {
   }
 
   public async refreshCatalog(): Promise<void> {
+    let catalogItems: MarketplaceCatalogItem[] = [];
     try {
       const response = await fetch(CATALOG_INDEX_URL, { credentials: 'same-origin' });
       if (!response.ok) throw new Error(`Catalog request failed: ${response.status}`);
       const items = await response.json() as MarketplaceCatalogItem[];
-      this.catalogItems = Array.isArray(items) ? items : [];
-      this.catalogById = new Map(this.catalogItems.map((item) => [item.id, item]));
-      this.checkForUpdates();
-      this.emitChange();
+      catalogItems = Array.isArray(items) ? items.map((item) => ({ ...item, author: 'worldmonitor' })) : [];
     } catch (error) {
       console.warn('[marketplace] Failed to refresh catalog', error);
     }
+
+    const merged = new Map<string, MarketplaceCatalogItem>();
+    for (const item of BUILT_IN_MARKETPLACE_CATALOG) merged.set(item.id, item);
+    for (const item of catalogItems) {
+      if (!merged.has(item.id)) merged.set(item.id, item);
+    }
+    this.catalogItems = Array.from(merged.values());
+    this.catalogById = new Map(this.catalogItems.map((item) => [item.id, item]));
+    this.checkForUpdates();
+    this.emitChange();
   }
 
   public async fetchItemDetail(itemId: string): Promise<MarketplaceManifest> {
+    const builtInManifest = BUILT_IN_MARKETPLACE_MANIFESTS_BY_ID.get(itemId);
+    if (builtInManifest) {
+      const manifest = JSON.parse(JSON.stringify(builtInManifest)) as MarketplaceManifest;
+      manifest.sourceType = 'catalog';
+      validateManifest(manifest);
+      return manifest;
+    }
     const catalogItem = this.catalogById.get(itemId);
     if (!catalogItem) throw new Error('Catalog item not found');
     const response = await fetch(catalogItem.manifestUrl, { credentials: 'same-origin' });
     if (!response.ok) throw new Error(`Failed to fetch manifest (${response.status})`);
     const manifest = await response.json() as MarketplaceManifest;
     manifest.sourceType = 'catalog';
+    manifest.author = 'worldmonitor';
     validateManifest(manifest);
     return manifest;
   }
@@ -363,7 +412,7 @@ export class MarketplaceService {
     const catalogItem = this.catalogById.get(itemId);
     if (!catalogItem) throw new Error('Catalog item not found');
     const manifest = await this.fetchItemDetail(itemId);
-    await this.installManifest(manifest, 'catalog', catalogItem.manifestUrl);
+    await this.installManifest(manifest, 'catalog', catalogItem.manifestUrl, undefined, true);
   }
 
   public async updateInstalledItem(itemId: string): Promise<void> {
@@ -396,8 +445,14 @@ export class MarketplaceService {
   }
 
   public async removeInstalledItem(itemId: string): Promise<void> {
+    const existing = this.installed.get(itemId);
     await deleteInstalledMarketplaceItem(itemId);
     this.installed.delete(itemId);
+    if (existing?.manifest.builtIn || isBuiltInMarketplaceItem(itemId)) {
+      this.removedBuiltIns.add(itemId);
+      this.saveRemovedBuiltIns();
+      this.setBuiltInSourceEnabled(existing?.manifest ?? BUILT_IN_MARKETPLACE_MANIFESTS_BY_ID.get(itemId), false);
+    }
     delete this.enabledPrefs[itemId];
     delete this.mapEnabledPrefs[itemId];
     saveToStorage(ENABLED_PREFS_KEY, this.enabledPrefs);
@@ -587,6 +642,48 @@ export class MarketplaceService {
     this.listeners.forEach((listener) => listener());
   }
 
+  private saveRemovedBuiltIns(): void {
+    saveToStorage(REMOVED_BUILT_INS_KEY, Array.from(this.removedBuiltIns));
+  }
+
+  private getBuiltInSourceEnabled(manifest: MarketplaceManifest): boolean | undefined {
+    const sourceControl = this.options.sourceControl;
+    const builtIn = manifest.builtIn;
+    if (!builtIn) return undefined;
+    if (builtIn.sourceName && sourceControl?.isSourceEnabled) {
+      return sourceControl.isSourceEnabled(builtIn.sourceName);
+    }
+    if (builtIn.dataSourceId && sourceControl?.isDataSourceEnabled) {
+      return sourceControl.isDataSourceEnabled(builtIn.dataSourceId);
+    }
+    return undefined;
+  }
+
+  private setBuiltInSourceEnabled(manifest: MarketplaceManifest | undefined, enabled: boolean): void {
+    if (!manifest?.builtIn) return;
+    const sourceControl = this.options.sourceControl;
+    if (manifest.builtIn.sourceName) {
+      sourceControl?.setSourceEnabled?.(manifest.builtIn.sourceName, enabled);
+    }
+    if (manifest.builtIn.dataSourceId) {
+      sourceControl?.setDataSourceEnabled?.(manifest.builtIn.dataSourceId, enabled);
+    }
+  }
+
+  private async seedBuiltInInstalledItems(): Promise<void> {
+    for (const manifest of BUILT_IN_MARKETPLACE_MANIFESTS_BY_ID.values()) {
+      if (this.installed.has(manifest.id) || this.removedBuiltIns.has(manifest.id)) continue;
+      const catalogItem = this.catalogById.get(manifest.id);
+      await this.installManifest(manifest, 'catalog', catalogItem?.manifestUrl, undefined, false);
+    }
+  }
+
+  private applyRemovedBuiltInSourceState(): void {
+    for (const itemId of this.removedBuiltIns) {
+      this.setBuiltInSourceEnabled(BUILT_IN_MARKETPLACE_MANIFESTS_BY_ID.get(itemId), false);
+    }
+  }
+
   private checkForUpdates(): void {
     for (const installed of this.installed.values()) {
       const catalogItem = this.catalogById.get(installed.manifest.id);
@@ -613,7 +710,9 @@ export class MarketplaceService {
     sourceType: InstalledMarketplaceItem['sourceType'],
     sourceUrl?: string,
     installedAtOverride?: number,
+    activateBuiltIn = false,
   ): Promise<void> {
+    manifest.author = manifest.sourceType === 'catalog' ? 'worldmonitor' : manifest.author;
     validateManifest(manifest);
     const datasetSnapshots = await this.hydrateManifest(manifest, sourceUrl);
     const existing = this.installed.get(manifest.id);
@@ -629,7 +728,12 @@ export class MarketplaceService {
     };
     await putInstalledMarketplaceItem(next);
     this.installed.set(manifest.id, next);
-    if (!(manifest.id in this.enabledPrefs)) this.enabledPrefs[manifest.id] = true;
+    if (manifest.builtIn) {
+      this.removedBuiltIns.delete(manifest.id);
+      this.saveRemovedBuiltIns();
+      if (activateBuiltIn) this.setBuiltInSourceEnabled(manifest, true);
+    }
+    if (!(manifest.id in this.enabledPrefs)) this.enabledPrefs[manifest.id] = this.getBuiltInSourceEnabled(manifest) ?? true;
     if (!(manifest.id in this.mapEnabledPrefs) && manifest.surfaces.map) {
       this.mapEnabledPrefs[manifest.id] = manifest.surfaces.map.style?.visibleByDefault ?? true;
     }

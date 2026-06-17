@@ -3422,6 +3422,302 @@ body.panel-resize-active iframe {
   flex-shrink: 0;
 }
 
+.security-kev-strip {
+  border-bottom: 1px solid var(--panel-border, rgba(255, 255, 255, 0.08));
+  padding: 10px 12px 8px;
+  background: color-mix(in srgb, var(--panel-bg, #111) 92%, #ef4444 8%);
+}
+
+.security-kev-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.security-kev-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #a3a3a3);
+}
+
+.security-kev-source {
+  font-size: 10px;
+  color: var(--text-tertiary, #737373);
+}
+
+.security-kev-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.security-kev-card {
+  border: 1px solid var(--panel-border, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--panel-bg, #111) 88%, transparent);
+}
+
+.security-kev-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.security-kev-cve {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f87171;
+  text-decoration: none;
+}
+
+.security-kev-cve:hover {
+  text-decoration: underline;
+}
+
+.security-kev-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
+.security-kev-title {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text, #e5e5e5);
+}
+
+.security-kev-subtitle {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-secondary, #a3a3a3);
+}
+
+.security-kev-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.security-kev-meta {
+  font-size: 10px;
+  color: var(--text-tertiary, #737373);
+}
+
+.security-kev-loading {
+  font-size: 11px;
+  color: var(--text-secondary, #a3a3a3);
+}
+
+.disp-reliefweb-strip {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.disp-reliefweb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.disp-reliefweb-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--semantic-elevated, #fbbf24);
+}
+
+.disp-reliefweb-source {
+  font-size: 10px;
+  color: var(--text-tertiary, #737373);
+}
+
+.disp-reliefweb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.disp-reliefweb-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.disp-reliefweb-item:hover .disp-reliefweb-title {
+  color: var(--accent, #60a5fa);
+}
+
+.disp-reliefweb-title {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.disp-reliefweb-meta {
+  font-size: 10px;
+  color: var(--text-tertiary, #737373);
+}
+
+.economic-global-strip {
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+}
+
+.economic-global-header {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-secondary, #a3a3a3);
+}
+
+.economic-global-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.economic-global-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.economic-global-name {
+  font-size: 11px;
+  color: var(--text-secondary, #a3a3a3);
+}
+
+.economic-global-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.economic-global-meta {
+  font-size: 10px;
+  color: var(--text-tertiary, #737373);
+}
+
+.aviation-sigmet-strip,
+.disp-who-strip,
+.crypto-defi-strip {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.aviation-sigmet-header,
+.disp-who-header,
+.crypto-defi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.aviation-sigmet-label,
+.disp-who-label,
+.crypto-defi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--semantic-elevated, #fbbf24);
+}
+
+.aviation-sigmet-source,
+.disp-who-source,
+.crypto-defi-source {
+  font-size: 10px;
+  color: var(--text-tertiary, #737373);
+}
+
+.aviation-sigmet-list,
+.disp-who-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aviation-sigmet-item,
+.disp-who-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.aviation-sigmet-hazard,
+.disp-who-title {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.aviation-sigmet-meta,
+.disp-who-meta {
+  font-size: 10px;
+  color: var(--text-tertiary, #737373);
+}
+
+.crypto-defi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.crypto-defi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  text-decoration: none;
+  color: inherit;
+}
+
+.crypto-defi-card:hover .crypto-defi-name {
+  color: var(--accent, #60a5fa);
+}
+
+.crypto-defi-name {
+  font-size: 11px;
+}
+
+.crypto-defi-tvl {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.crypto-defi-meta {
+  font-size: 10px;
+  color: var(--text-tertiary, #737373);
+}
+
+.prediction-source {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary, #737373);
+  margin-left: 6px;
+}
+
 /* Keep Live News header controls right-aligned even when the remove button is hidden. */
 .panel[data-panel="live-news"] {
   background: transparent;
@@ -27788,11 +28084,20 @@ body[data-panel-density="comfortable"] .panel-tabs {
 }
 
 .marketplace-modal-card-list,
-.marketplace-modal-installed,
 .marketplace-modal-submissions {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-height: 560px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.marketplace-modal-installed {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   max-height: 560px;
   overflow-y: auto;
   scrollbar-width: none;
@@ -28400,7 +28705,50 @@ body[data-panel-density="comfortable"] .panel-tabs {
   text-align: center;
 }
 
-/* --- Installed card layout --- */
+/* --- Installed groups & card layout --- */
+.marketplace-modal-installed-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.marketplace-modal-installed-group-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px 0;
+}
+
+.marketplace-modal-installed-group-head strong {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.marketplace-modal-installed-group-head span {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.marketplace-modal-installed-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.marketplace-modal-installed-surface-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .marketplace-modal-installed-card {
   display: flex;
   align-items: flex-start;
@@ -28419,6 +28767,8 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .marketplace-modal-installed-actions {
   flex-shrink: 0;
   margin-top: 0;
+  max-width: 280px;
+  justify-content: flex-end;
 }
 
 .marketplace-modal,

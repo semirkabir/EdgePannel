@@ -56,7 +56,8 @@ import { CONFIDENCE_TIERS, type ConfidenceTier } from '@/services/confidence-tie
 import type { GpsJamHex } from '@/services/gps-interference';
 import type { DisplacementFlow } from '@/services/displacement';
 import type { Earthquake } from '@/services/earthquakes';
-import type { ClimateAnomaly } from '@/services/climate';
+import type { ClimateAnomaly, ClimatePhysicalSignal } from '@/services/climate';
+import { physicalSignalMapColor } from '@/services/climate';
 import { ArcLayer } from '@deck.gl/layers';
 import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 import { H3HexagonLayer, TripsLayer } from '@deck.gl/geo-layers';
@@ -108,9 +109,51 @@ import spaceportIconUrl from '@/assets/spaceport.png';
 import satelliteIconUrl from '@/assets/sattelite.png';
 import type { GulfInvestment } from '@/types';
 import { resolveTradeRouteSegments, TRADE_ROUTES as TRADE_ROUTES_LIST, type TradeRouteSegment } from '@/config/trade-routes';
-import { getLayersForVariant, resolveLayerLabel, resolveLayerAccentColor, resolveLayerIcon, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
+import { getLayersForVariant, resolveLayerLabel, resolveLayerAccentColor, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
 import { getSecretState } from '@/services/runtime-config';
 import { MapPopup, type PopupType } from './MapPopup';
+import {
+  DEFAULT_DECK_CONTROL_SETTINGS,
+  loadDeckControlSettings,
+  normalizeTimeRange,
+  saveDeckControlSettings,
+  type DeckControlSettings,
+} from './deck-gl/control-settings';
+import {
+  SATELLITE_ANIMATION_FRAME_MS,
+  SATELLITE_ICON_LIMIT,
+  SATELLITE_POSITION_SAMPLE_MS,
+} from './deck-gl/constants';
+import {
+  COLORS,
+  refreshColorsIfThemeChanged,
+  rgbaCss,
+} from './deck-gl/overlay-colors';
+import {
+  AIS_PORT_ICON_ATLAS,
+  AIS_PORT_ICON_MAPPING,
+  AIS_VESSEL_ICON_ATLAS,
+  AIS_VESSEL_ICON_MAPPING,
+  AVIATION_AIRPORT_ICON_ATLAS,
+  AVIATION_AIRPORT_ICON_MAPPING,
+  AVIATION_PLANE_ICON_ATLAS,
+  AVIATION_PLANE_ICON_MAPPING,
+  SHARED_LAYER_ICON_MAPPING,
+  WEATHER_DEFAULT_ICON_ATLAS,
+  WEATHER_FLOOD_ICON_ATLAS,
+  WEATHER_PNG_ICON_MAPPING,
+  WEATHER_THUNDERSTORM_ICON_ATLAS,
+  getSharedLayerIconAtlas,
+  getWeatherCategoryAtlas,
+} from './deck-gl/icon-atlases';
+import {
+  formatPolymarketVolume,
+  getPolymarketColor,
+  getPolymarketColorWithAlpha,
+  getPolymarketRadiusMeters,
+  getPolymarketVolumeScale,
+  marketplaceHexColor,
+} from './deck-gl/prediction-market-style';
 import {
   updateHotspotEscalation,
   getHotspotEscalation,
@@ -170,64 +213,6 @@ type SatellitePositionSampleCache = {
   endById: Map<string, SatellitePositionRecord>;
 };
 
-const DECK_CONTROL_SETTINGS_KEY = 'wm-deck-control-settings';
-const SATELLITE_ICON_LIMIT = 400;
-const SATELLITE_ANIMATION_FRAME_MS = 250;
-const SATELLITE_POSITION_SAMPLE_MS = 30_000;
-
-interface DeckControlSettings {
-  visibleTimeRanges: TimeRange[];
-  layersOpenDefault: boolean;
-  showLayerCount: boolean;
-  showLayerActions: boolean;
-}
-
-const DEFAULT_DECK_CONTROL_SETTINGS: DeckControlSettings = {
-  visibleTimeRanges: TIME_RANGE_OPTIONS,
-  layersOpenDefault: false,
-  showLayerCount: true,
-  showLayerActions: true,
-};
-
-function loadDeckControlSettings(): DeckControlSettings {
-  try {
-    const raw = localStorage.getItem(DECK_CONTROL_SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_DECK_CONTROL_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<DeckControlSettings>;
-    const visibleTimeRanges = Array.isArray(parsed.visibleTimeRanges)
-      ? parsed.visibleTimeRanges.filter((range): range is TimeRange => TIME_RANGE_OPTIONS.includes(range as TimeRange))
-      : DEFAULT_DECK_CONTROL_SETTINGS.visibleTimeRanges;
-    if (
-      Array.isArray(parsed.visibleTimeRanges) &&
-      !visibleTimeRanges.includes('custom') &&
-      TIME_RANGE_OPTIONS.filter((range) => range !== 'custom').every((range) => visibleTimeRanges.includes(range))
-    ) {
-      visibleTimeRanges.push('custom');
-    }
-
-    return {
-      visibleTimeRanges: visibleTimeRanges.length > 0 ? visibleTimeRanges : DEFAULT_DECK_CONTROL_SETTINGS.visibleTimeRanges,
-      layersOpenDefault: parsed.layersOpenDefault === true,
-      showLayerCount: parsed.showLayerCount !== false,
-      showLayerActions: parsed.showLayerActions !== false,
-    };
-  } catch {
-    return { ...DEFAULT_DECK_CONTROL_SETTINGS };
-  }
-}
-
-function saveDeckControlSettings(settings: DeckControlSettings): void {
-  try {
-    localStorage.setItem(DECK_CONTROL_SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // localStorage can be unavailable in restricted browser contexts.
-  }
-}
-
-function normalizeTimeRange(range: TimeRange): TimeRange {
-  return range;
-}
-
 interface CableFlowTrip {
   id: string;
   path: [number, number][];
@@ -235,26 +220,6 @@ interface CableFlowTrip {
   color: [number, number, number, number];
 }
 
-function marketplaceHexColor(hex: string | undefined, alpha: number, fallback: [number, number, number, number]): [number, number, number, number] {
-  if (!hex) return fallback;
-  const normalized = hex.trim().replace('#', '');
-  const short = normalized.length === 3;
-  const long = normalized.length === 6;
-  if (!short && !long) return fallback;
-  const expanded = short
-    ? normalized.split('').map((char) => `${char}${char}`).join('')
-    : normalized;
-  const int = Number.parseInt(expanded, 16);
-  if (!Number.isFinite(int)) return fallback;
-  return [
-    (int >> 16) & 255,
-    (int >> 8) & 255,
-    int & 255,
-    Math.round(Math.max(0, Math.min(1, alpha)) * 255),
-  ];
-}
-
-// ─── Custom categories ────────────────────────────────────────────────────────
 interface CustomCategory {
   id: string;
   name: string;
@@ -373,80 +338,6 @@ const LAYER_ZOOM_THRESHOLDS: Partial<Record<keyof MapLayers, { minZoom: number; 
 // Export for external use
 export { LAYER_ZOOM_THRESHOLDS };
 
-// Theme-aware overlay color function — refreshed each buildLayers() call
-function getOverlayColors() {
-  const isLight = getCurrentTheme() === 'light';
-  return {
-    // Threat dots: IDENTICAL in both modes (user locked decision)
-    hotspotHigh: [255, 68, 68, 200] as [number, number, number, number],
-    hotspotElevated: [255, 165, 0, 200] as [number, number, number, number],
-    hotspotLow: [255, 255, 0, 180] as [number, number, number, number],
-
-    // Conflict zone fills: more transparent in light mode
-    conflict: isLight
-      ? [255, 0, 0, 60] as [number, number, number, number]
-      : [255, 0, 0, 100] as [number, number, number, number],
-
-    // Infrastructure/category markers: darker variants in light mode for map readability
-    base: [0, 150, 255, 200] as [number, number, number, number],
-    nuclear: isLight
-      ? [180, 120, 0, 220] as [number, number, number, number]
-      : [255, 215, 0, 200] as [number, number, number, number],
-    datacenter: isLight
-      ? [13, 148, 136, 200] as [number, number, number, number]
-      : [0, 255, 200, 180] as [number, number, number, number],
-    cable: [0, 200, 255, 150] as [number, number, number, number],
-    cableHighlight: [255, 100, 100, 200] as [number, number, number, number],
-    cableFault: [255, 50, 50, 220] as [number, number, number, number],
-    cableDegraded: [255, 165, 0, 200] as [number, number, number, number],
-    earthquake: [255, 100, 50, 200] as [number, number, number, number],
-    vesselMilitary: [255, 100, 100, 220] as [number, number, number, number],
-    flightMilitary: [255, 50, 50, 220] as [number, number, number, number],
-    protest: [255, 150, 0, 200] as [number, number, number, number],
-    outage: [255, 50, 50, 180] as [number, number, number, number],
-    weather: [100, 150, 255, 180] as [number, number, number, number],
-    startupHub: isLight
-      ? [22, 163, 74, 220] as [number, number, number, number]
-      : [0, 255, 150, 200] as [number, number, number, number],
-    techHQ: [100, 200, 255, 200] as [number, number, number, number],
-    accelerator: isLight
-      ? [180, 120, 0, 220] as [number, number, number, number]
-      : [255, 200, 0, 200] as [number, number, number, number],
-    cloudRegion: [150, 100, 255, 180] as [number, number, number, number],
-    stockExchange: isLight
-      ? [20, 120, 200, 220] as [number, number, number, number]
-      : [80, 200, 255, 210] as [number, number, number, number],
-    financialCenter: isLight
-      ? [0, 150, 110, 215] as [number, number, number, number]
-      : [0, 220, 150, 200] as [number, number, number, number],
-    centralBank: isLight
-      ? [180, 120, 0, 220] as [number, number, number, number]
-      : [255, 210, 80, 210] as [number, number, number, number],
-    commodityHub: isLight
-      ? [190, 95, 40, 220] as [number, number, number, number]
-      : [255, 150, 80, 200] as [number, number, number, number],
-    gulfInvestmentSA: [0, 168, 107, 220] as [number, number, number, number],
-    gulfInvestmentUAE: [255, 0, 100, 220] as [number, number, number, number],
-    ucdpStateBased: [255, 50, 50, 200] as [number, number, number, number],
-    ucdpNonState: [255, 165, 0, 200] as [number, number, number, number],
-    ucdpOneSided: [255, 255, 0, 200] as [number, number, number, number],
-  };
-}
-// Cached overlay colors — only recomputed when the theme actually changes
-let COLORS = getOverlayColors();
-let _colorsTheme = getCurrentTheme();
-function refreshColorsIfThemeChanged(): void {
-  const theme = getCurrentTheme();
-  if (theme !== _colorsTheme) {
-    _colorsTheme = theme;
-    COLORS = getOverlayColors();
-  }
-}
-
-function rgbaCss([r, g, b, a = 255]: [number, number, number, number]): string {
-  return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
-}
-
 const METERS_PER_MILE = 1609.344;
 const GLOBE_AIRCRAFT_MIN_ALTITUDE_M = 6 * METERS_PER_MILE;
 const GLOBE_AIRCRAFT_MAX_ALTITUDE_M = 8 * METERS_PER_MILE;
@@ -474,23 +365,6 @@ function lngLatToMercatorUnit(lon: number, lat: number): [number, number] {
   const y = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
   return [x, y];
 }
-
-const SHARED_LAYER_ICON_MAPPING = { marker: { x: 0, y: 0, width: 32, height: 32, mask: false } };
-const WEATHER_PNG_ICON_MAPPING = { marker: { x: 0, y: 0, width: 512, height: 512, mask: false } };
-const WEATHER_THUNDERSTORM_ICON_ATLAS = 'https://cdn-icons-png.flaticon.com/512/3104/3104612.png';
-const WEATHER_FLOOD_ICON_ATLAS = '/icons/Flood.png';
-const WEATHER_DEFAULT_ICON_ATLAS = 'https://cdn-icons-png.flaticon.com/512/6257/6257646.png';
-const SHARED_LAYER_ICON_ATLAS_CACHE = new Map<string, string>();
-
-// AIS vessel icon — ship silhouette (white, for mask-mode tinting by ship type)
-const AIS_VESSEL_ICON_MAPPING = { ship: { x: 0, y: 0, width: 64, height: 64, mask: true } };
-const AIS_VESSEL_ICON_ATLAS = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-  '<svg viewBox="0 0 24 24" width="64" height="64" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h16"/><path d="M7 14V9h10v5"/><path d="M3 17c1.2 1 2.4 1.5 3.5 1.5S8.8 18 10 17c1.2 1 2.4 1.5 3.5 1.5S15.8 18 17 17c1.2 1 2.4 1.5 3.5 1.5"/><path d="M12 5v4"/></svg>'
-)}`;
-
-// Port icon — anchor (white, for mask-mode tinting by port type)
-const AIS_PORT_ICON_MAPPING = { port: { x: 0, y: 0, width: 64, height: 64, mask: false } };
-const AIS_PORT_ICON_ATLAS = '/icons/port.png';
 
 const GLOBE_NATIVE_SOURCES = [
   'wm-globe-cables',
@@ -520,113 +394,6 @@ const GLOBE_NATIVE_LAYERS = [
 
 const EMPTY_GLOBE_LINE_COLLECTION: GlobeLineCollection = { type: 'FeatureCollection', features: [] };
 const EMPTY_GLOBE_POINT_COLLECTION: GlobePointCollection = { type: 'FeatureCollection', features: [] };
-
-const AVIATION_AIRPORT_ICON_MAPPING = { airport: { x: 0, y: 0, width: 512, height: 512, mask: false } };
-const AVIATION_AIRPORT_ICON_ATLAS = '/icons/airport.png';
-
-const AVIATION_PLANE_ICON_MAPPING = { plane: { x: 0, y: 0, width: 512, height: 512, mask: false } };
-const AVIATION_PLANE_ICON_ATLAS = '/icons/plane.png';
-
-function getThemeMode(): 'light' | 'dark' {
-  return getCurrentTheme() === 'light' ? 'light' : 'dark';
-}
-
-const WEATHER_CATEGORY_ATLAS_CACHE = new Map<string, string>();
-
-function getWeatherCategoryAtlas(category: WeatherCategory, theme: 'light' | 'dark' = getThemeMode()): string {
-  const cacheKey = `weather:${category}:${theme}`;
-  const cached = WEATHER_CATEGORY_ATLAS_CACHE.get(cacheKey);
-  if (cached) return cached;
-  const colors = WEATHER_CATEGORY_COLORS[category];
-  const color = theme === 'light' ? colors.light : colors.dark;
-  const markup = WEATHER_CATEGORY_ICONS[category];
-  const svg = markup.replace(
-    '<svg ',
-    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" style="color:${color}" `,
-  );
-  const atlas = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  WEATHER_CATEGORY_ATLAS_CACHE.set(cacheKey, atlas);
-  return atlas;
-}
-
-function getSharedLayerIconAtlas(layer: keyof MapLayers, theme: 'light' | 'dark' = getThemeMode()): string {
-  const cacheKey = `${layer}:${theme}`;
-  const cached = SHARED_LAYER_ICON_ATLAS_CACHE.get(cacheKey);
-  if (cached) return cached;
-
-  const color = resolveLayerAccentColor(layer, theme);
-  const markup = resolveLayerIcon(layer);
-
-  // If the icon is an <img> tag (PNG/external), return the src URL directly
-  const imgMatch = markup.match(/<img[^>]+src=["']([^"']+)["']/i);
-  if (imgMatch && imgMatch[1]) {
-    SHARED_LAYER_ICON_ATLAS_CACHE.set(cacheKey, imgMatch[1]);
-    return imgMatch[1];
-  }
-
-  // Otherwise treat as inline SVG
-  const svg = markup.replace(
-    '<svg ',
-    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" style="color:${color}" `,
-  );
-  const atlas = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  SHARED_LAYER_ICON_ATLAS_CACHE.set(cacheKey, atlas);
-  return atlas;
-}
-
-function getPolymarketColor(yesPrice: number, volumeHeat = 0): [number, number, number, number] {
-  const pct = Math.max(0, Math.min(100, Number.isFinite(yesPrice) ? yesPrice : 50));
-  const conviction = Math.abs(pct - 50) / 50;
-  // Base cool blue
-  const br = 125 + conviction * 40;
-  const bg = 190 + conviction * 28;
-  const bb = 255;
-  // Warm shift for high-volume: blue → teal → soft amber
-  const wr = 200;
-  const wg = 210;
-  const wb = 140;
-  const r = br + (wr - br) * volumeHeat;
-  const g = bg + (wg - bg) * volumeHeat;
-  const b = bb + (wb - bb) * volumeHeat;
-  return [
-    Math.round(r),
-    Math.round(g),
-    Math.round(b),
-    230,
-  ];
-}
-
-function getPolymarketColorWithAlpha(yesPrice: number, alpha: number, volumeHeat = 0): [number, number, number, number] {
-  const [r, g, b] = getPolymarketColor(yesPrice, volumeHeat);
-  return [r, g, b, alpha];
-}
-
-type PolymarketVolumeScale = { minLog: number; maxLog: number };
-
-function getPolymarketVolumeScale(markets: Array<{ volume?: number }>): PolymarketVolumeScale {
-  const logs = markets
-    .map((market) => Math.log10(Math.max(1, market.volume ?? 0)))
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
-  if (logs.length === 0) return { minLog: 0, maxLog: 1 };
-
-  const minLog = logs[Math.floor((logs.length - 1) * 0.10)] ?? logs[0] ?? 0;
-  const maxLog = logs[Math.floor((logs.length - 1) * 0.95)] ?? logs[logs.length - 1] ?? 1;
-  return maxLog > minLog ? { minLog, maxLog } : { minLog, maxLog: minLog + 1 };
-}
-
-function getPolymarketRadiusMeters(volume: number | undefined, scale: PolymarketVolumeScale): number {
-  const logVolume = Math.log10(Math.max(1, volume ?? 0));
-  const normalized = Math.max(0, Math.min(1, (logVolume - scale.minLog) / (scale.maxLog - scale.minLog)));
-  return 12_000 + normalized * 60_000;
-}
-
-function formatPolymarketVolume(volume?: number): string {
-  if (!volume) return 'Volume unavailable';
-  if (volume >= 1_000_000) return `$${(volume / 1_000_000).toFixed(1)}M volume`;
-  if (volume >= 1_000) return `$${(volume / 1_000).toFixed(0)}K volume`;
-  return `$${volume.toFixed(0)} volume`;
-}
 
 const CONFLICT_ZONES_GEOJSON: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
@@ -695,6 +462,7 @@ export class DeckGLMap {
   private displacementFlows: DisplacementFlow[] = [];
   private gpsJammingHexes: GpsJamHex[] = [];
   private climateAnomalies: ClimateAnomaly[] = [];
+  private climatePhysicalSignals: ClimatePhysicalSignal[] = [];
   private tradeRouteSegments: TradeRouteSegment[] = resolveTradeRouteSegments();
   private positiveEvents: PositiveGeoEvent[] = [];
   private kindnessPoints: KindnessPoint[] = [];
@@ -1960,9 +1728,14 @@ export class DeckGLMap {
       layers.push(this.createDisplacementArcsLayer());
     }
 
-    // Climate anomalies heatmap layer
-    if (mapLayers.climate && this.climateAnomalies.length > 0) {
-      layers.push(this.createClimateHeatmapLayer());
+    // Climate anomalies heatmap + air-quality point layer
+    if (mapLayers.climate) {
+      if (this.climateAnomalies.length > 0) {
+        layers.push(this.createClimateHeatmapLayer());
+      }
+      if (this.climatePhysicalSignals.length > 0) {
+        layers.push(this.createClimateAqiLayer());
+      }
     }
 
     // Trade routes layer
@@ -5087,6 +4860,12 @@ export class DeckGLMap {
 
       case 'natural-events-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.title)}</strong><br/>${text(obj.category || t('components.deckgl.tooltip.naturalEvent'))}</div>` };
+      case 'climate-aqi-layer': {
+        const aqi = obj.europeanAqi != null ? `EAQI ${obj.europeanAqi}` : 'AQI n/a';
+        const pm = obj.pm25 != null ? `PM2.5 ${Number(obj.pm25).toFixed(1)}` : '';
+        const details = [aqi, pm].filter(Boolean).join(' · ');
+        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.location)}</strong><br/>${details}<br/><span style="opacity:0.8">${text(obj.source)}</span></div>` };
+      }
       case 'nav-warnings-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.title)}</strong><br/>${text(obj.area)}</div>` };
       case 'market-perf-choropleth-layer': {
@@ -7694,6 +7473,23 @@ export class DeckGLMap {
     });
   }
 
+  private createClimateAqiLayer(): ScatterplotLayer<ClimatePhysicalSignal> {
+    const theme = getCurrentTheme();
+    return new ScatterplotLayer<ClimatePhysicalSignal>({
+      id: 'climate-aqi-layer',
+      data: this.climatePhysicalSignals,
+      getPosition: (d) => [d.lon, d.lat],
+      getFillColor: (d) => physicalSignalMapColor(d.severity, theme),
+      getRadius: 28000,
+      radiusMinPixels: 5,
+      radiusMaxPixels: 11,
+      stroked: true,
+      getLineColor: theme === 'light' ? [15, 23, 42, 200] : [248, 250, 252, 180],
+      lineWidthMinPixels: 1,
+      pickable: true,
+    });
+  }
+
   private createTradeRoutesLayer(): ArcLayer<TradeRouteSegment> {
     const active: [number, number, number, number] = getCurrentTheme() === 'light' ? [30, 100, 180, 200] : [100, 200, 255, 160];
     const disrupted: [number, number, number, number] = getCurrentTheme() === 'light' ? [200, 40, 40, 220] : [255, 80, 80, 200];
@@ -8125,8 +7921,9 @@ export class DeckGLMap {
     this.render('displacement');
   }
 
-  public setClimateAnomalies(anomalies: ClimateAnomaly[]): void {
+  public setClimateAnomalies(anomalies: ClimateAnomaly[], physicalSignals: ClimatePhysicalSignal[] = []): void {
     this.climateAnomalies = anomalies;
+    this.climatePhysicalSignals = physicalSignals;
     this.render('climate');
   }
 

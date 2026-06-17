@@ -172,3 +172,10 @@ export function getHostCountries(data: UnhcrSummary): CountryDisplacement[] {
     .filter(c => (c.hostTotal || 0) > 0)
     .sort((a, b) => (b.hostTotal || 0) - (a.hostTotal || 0));
 }
+
+export {
+  fetchReliefWebUpdates,
+  getCachedReliefWebUpdates,
+  buildReliefWebSignals,
+} from './reliefweb';
+export type { ReliefWebUpdate } from './reliefweb';

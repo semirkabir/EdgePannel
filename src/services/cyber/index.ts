@@ -35,6 +35,7 @@ const SOURCE_REVERSE: Record<string, CyberThreatSource> = {
   CYBER_THREAT_SOURCE_C2INTEL: 'c2intel',
   CYBER_THREAT_SOURCE_OTX: 'otx',
   CYBER_THREAT_SOURCE_ABUSEIPDB: 'abuseipdb',
+  CYBER_THREAT_SOURCE_THREATFOX: 'threatfox',
 };
 
 const INDICATOR_TYPE_REVERSE: Record<string, CyberThreatIndicatorType> = {

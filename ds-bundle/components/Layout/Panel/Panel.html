@@ -1,0 +1,77 @@
+<!-- @dsCard group="Layout" name="Panel" description="World Monitor info-panel shell with glassmorphic header, accent top-border, and scrollable content area." -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../styles.css">
+<style>
+  body { background: var(--bg); font-family: var(--font-body); padding: 16px; margin: 0; display: flex; gap: 16px; flex-wrap: wrap; }
+  .demo-panel { width: 280px; min-height: 220px; flex-shrink: 0; }
+  .news-item { padding: 8px 0; border-bottom: 1px solid var(--border-subtle); font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+  .news-item:last-child { border-bottom: none; }
+  .news-source { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin-bottom: 3px; }
+  .header-actions { display: flex; gap: 4px; }
+</style>
+</head>
+<body>
+  <div class="wm-panel demo-panel">
+    <div class="wm-panel-header">
+      <div class="wm-panel-header-left">
+        <span class="wm-panel-title">Breaking News</span>
+        <span class="status-chip status-chip--live" style="font-size:8px;padding:1px 5px">● Live</span>
+      </div>
+      <div class="header-actions">
+        <button class="sys-btn sys-btn--icon">⤢</button>
+        <button class="sys-btn sys-btn--icon">✕</button>
+      </div>
+    </div>
+    <div class="wm-panel-content">
+      <div class="news-item">
+        <div class="news-source">Reuters · 2m ago</div>
+        Ukraine drone strike hits oil depot in Kursk region, fires still burning
+      </div>
+      <div class="news-item">
+        <div class="news-source">AP · 8m ago</div>
+        Fed signals no rate cuts until inflation target met; markets fall
+      </div>
+      <div class="news-item">
+        <div class="news-source">Bloomberg · 15m ago</div>
+        Saudi Arabia confirms output increase of 500k bpd starting July
+      </div>
+    </div>
+  </div>
+
+  <div class="wm-panel demo-panel">
+    <div class="wm-panel-header">
+      <div class="wm-panel-header-left">
+        <span class="wm-panel-title">Risk Index</span>
+      </div>
+      <div class="header-actions">
+        <button class="sys-btn">Export</button>
+      </div>
+    </div>
+    <div class="wm-panel-content" style="display:flex;flex-direction:column;gap:10px;padding-top:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="flex:1;font-size:12px;color:var(--text-secondary)">Russia</span>
+        <div class="data-bar-track" style="flex:1"><div class="data-bar-fill data-bar-fill--critical" style="width:91%"></div></div>
+        <span class="risk-badge risk-badge--critical">91</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="flex:1;font-size:12px;color:var(--text-secondary)">Iran</span>
+        <div class="data-bar-track" style="flex:1"><div class="data-bar-fill data-bar-fill--high" style="width:74%"></div></div>
+        <span class="risk-badge risk-badge--high">74</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="flex:1;font-size:12px;color:var(--text-secondary)">Brazil</span>
+        <div class="data-bar-track" style="flex:1"><div class="data-bar-fill data-bar-fill--med" style="width:38%"></div></div>
+        <span class="risk-badge risk-badge--med">38</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="flex:1;font-size:12px;color:var(--text-secondary)">Norway</span>
+        <div class="data-bar-track" style="flex:1"><div class="data-bar-fill data-bar-fill--low" style="width:9%"></div></div>
+        <span class="risk-badge risk-badge--low">9</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!-- @dsCard group="Controls" name="StatusChip" description="Bordered semantic pill showing connection state, alert level, or data freshness." -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../styles.css">
+<style>
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); padding: 20px; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .section-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; display: inline-block; }
+</style>
+</head>
+<body>
+  <div>
+    <div class="section-label">All variants</div>
+    <div class="row">
+      <span class="status-chip status-chip--live"><span class="dot"></span>Live</span>
+      <span class="status-chip status-chip--info">Info</span>
+      <span class="status-chip status-chip--elevated">Elevated</span>
+      <span class="status-chip status-chip--critical">Critical</span>
+      <span class="status-chip status-chip--neutral">Offline</span>
+    </div>
+  </div>
+  <div>
+    <div class="section-label">In context — feed status row</div>
+    <div class="row" style="background:var(--surface);padding:10px 12px;border-radius:6px;border:1px solid var(--border);">
+      <span style="font-size:12px;color:var(--text-secondary);flex:1">Reuters — Breaking News</span>
+      <span class="status-chip status-chip--live"><span class="dot"></span>Live</span>
+    </div>
+    <div class="row" style="background:var(--surface);padding:10px 12px;border-radius:6px;border:1px solid var(--border);margin-top:4px;">
+      <span style="font-size:12px;color:var(--text-secondary);flex:1">FRED Economic Data</span>
+      <span class="status-chip status-chip--elevated">Delayed</span>
+    </div>
+    <div class="row" style="background:var(--surface);padding:10px 12px;border-radius:6px;border:1px solid var(--border);margin-top:4px;">
+      <span style="font-size:12px;color:var(--text-secondary);flex:1">Satellite Imagery</span>
+      <span class="status-chip status-chip--neutral">Offline</span>
+    </div>
+  </div>
+</body>
+</html>

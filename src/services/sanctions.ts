@@ -9,6 +9,7 @@ export interface SanctionEntity {
   dateAdded: string;
   source: string;
   aliases?: string[];
+  opensanctionsId?: string;
 }
 
 const FALLBACK_SANCTIONS: SanctionEntity[] = [
@@ -55,4 +56,20 @@ export async function fetchSanctions(): Promise<SanctionEntity[]> {
 
 export function getCachedSanctions(): SanctionEntity[] {
   return cachedSanctions;
+}
+
+export function searchSanctions(query: string, limit = 25): SanctionEntity[] {
+  const q = query.trim().toLowerCase();
+  if (!q || cachedSanctions.length === 0) return [];
+
+  return cachedSanctions
+    .filter((entity) => {
+      if (entity.name.toLowerCase().includes(q)) return true;
+      if (entity.source.toLowerCase().includes(q)) return true;
+      if (entity.countries.some((c) => c.toLowerCase().includes(q))) return true;
+      if (entity.programs.some((p) => p.toLowerCase().includes(q))) return true;
+      if (entity.aliases?.some((a) => a.toLowerCase().includes(q))) return true;
+      return false;
+    })
+    .slice(0, limit);
 }

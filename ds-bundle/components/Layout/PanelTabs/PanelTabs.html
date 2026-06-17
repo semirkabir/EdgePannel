@@ -1,0 +1,45 @@
+<!-- @dsCard group="Layout" name="PanelTabs" description="Horizontal tab navigation for panel sections. Flush to panel edges, underline-style active indicator." -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../styles.css">
+<style>
+  body { background: var(--bg); font-family: var(--font-body); padding: 16px; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+  .panel-shell { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: var(--panel-radius); overflow: hidden; }
+  .tab-content { padding: 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+  .section-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+  <div>
+    <div class="section-label">Inside a panel</div>
+    <div class="panel-shell">
+      <div class="panel-tabs">
+        <button class="panel-tab active"><span class="tab-icon">📰</span><span class="tab-label">News</span></button>
+        <button class="panel-tab"><span class="tab-icon">📊</span><span class="tab-label">Markets</span></button>
+        <button class="panel-tab"><span class="tab-icon">⚡</span><span class="tab-label">Signals</span></button>
+        <button class="panel-tab"><span class="tab-icon">🔒</span><span class="tab-label">Cyber</span></button>
+      </div>
+      <div class="tab-content">
+        Lorem ipsum — news feed content would appear here, scrollable within the panel.
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="section-label">Country deep-dive tabs</div>
+    <div class="panel-shell">
+      <div class="panel-tabs">
+        <button class="panel-tab active"><span class="tab-label">Overview</span></button>
+        <button class="panel-tab"><span class="tab-label">Economy</span></button>
+        <button class="panel-tab"><span class="tab-label">Military</span></button>
+        <button class="panel-tab"><span class="tab-label">Sanctions</span></button>
+        <button class="panel-tab"><span class="tab-label">Timeline</span></button>
+      </div>
+      <div class="tab-content">
+        Country detail content area.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

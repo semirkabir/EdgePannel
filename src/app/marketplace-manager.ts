@@ -6,6 +6,7 @@ import type { MarketplacePanelSelection, MarketplaceSearchResultData, Marketplac
 import { SITE_VARIANT, STORAGE_KEYS, getVariantStorageKey } from '@/config';
 import { saveToStorage } from '@/utils';
 import { checkFeatureAccess } from '@/services/auth-modal';
+import { dataFreshness, type DataSourceId } from '@/services/data-freshness';
 
 interface MarketplaceManagerCallbacks {
   updateSearchIndex: () => void;
@@ -23,7 +24,20 @@ export class MarketplaceManager implements AppModule {
   constructor(ctx: AppContext, callbacks: MarketplaceManagerCallbacks) {
     this.ctx = ctx;
     this.callbacks = callbacks;
-    this.service = new MarketplaceService();
+    this.service = new MarketplaceService({
+      sourceControl: {
+        isSourceEnabled: (sourceName) => this.ctx.uiStore.isSourceEnabled(sourceName),
+        setSourceEnabled: (sourceName, enabled) => {
+          if (enabled) this.ctx.uiStore.enableSource(sourceName);
+          else this.ctx.uiStore.disableSource(sourceName);
+          saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.uiStore.disabledSources));
+        },
+        isDataSourceEnabled: (dataSourceId) => dataFreshness.getSource(dataSourceId as DataSourceId)?.enabled ?? true,
+        setDataSourceEnabled: (dataSourceId, enabled) => {
+          dataFreshness.setEnabled(dataSourceId as DataSourceId, enabled);
+        },
+      },
+    });
     this.modal = new MarketplaceModal(this.service);
     this.ctx.marketplace = this;
   }
@@ -31,6 +45,11 @@ export class MarketplaceManager implements AppModule {
   public async init(): Promise<void> {
     this.modal.setHandlers({
       onOpenPanel: (itemId) => this.openPanelForItem(itemId),
+      onOpenAppPanel: (panelId) => this.openAppPanel(panelId),
+      onOpenSearch: () => {
+        this.modal.close();
+        this.ctx.searchModal?.open();
+      },
       requireInstallAccess: () => checkFeatureAccess('marketplace'),
       requireSubmitAccess: () => checkFeatureAccess('marketplace'),
     });
@@ -156,5 +175,21 @@ export class MarketplaceManager implements AppModule {
     this.ctx.panels['marketplace']?.show();
     const el = this.ctx.panels['marketplace']?.getElement();
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  private openAppPanel(panelId: string): void {
+    const panelConfig = this.ctx.panelSettings[panelId];
+    if (panelConfig && !panelConfig.enabled) {
+      panelConfig.enabled = true;
+      saveToStorage(getVariantStorageKey(STORAGE_KEYS.panels, SITE_VARIANT), this.ctx.panelSettings);
+    }
+    this.ctx.panels[panelId]?.show();
+    this.modal.close();
+    const el = document.querySelector(`[data-panel="${panelId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('flash-highlight');
+      window.setTimeout(() => el.classList.remove('flash-highlight'), 1500);
+    }
   }
 }

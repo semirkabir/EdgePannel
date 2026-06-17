@@ -45,7 +45,33 @@ export type CriticalityLevel = "CRITICALITY_LEVEL_UNSPECIFIED" | "CRITICALITY_LE
 
 export type CyberThreatIndicatorType = "CYBER_THREAT_INDICATOR_TYPE_UNSPECIFIED" | "CYBER_THREAT_INDICATOR_TYPE_IP" | "CYBER_THREAT_INDICATOR_TYPE_DOMAIN" | "CYBER_THREAT_INDICATOR_TYPE_URL";
 
-export type CyberThreatSource = "CYBER_THREAT_SOURCE_UNSPECIFIED" | "CYBER_THREAT_SOURCE_FEODO" | "CYBER_THREAT_SOURCE_URLHAUS" | "CYBER_THREAT_SOURCE_C2INTEL" | "CYBER_THREAT_SOURCE_OTX" | "CYBER_THREAT_SOURCE_ABUSEIPDB";
+export type CyberThreatSource = "CYBER_THREAT_SOURCE_UNSPECIFIED" | "CYBER_THREAT_SOURCE_FEODO" | "CYBER_THREAT_SOURCE_URLHAUS" | "CYBER_THREAT_SOURCE_C2INTEL" | "CYBER_THREAT_SOURCE_OTX" | "CYBER_THREAT_SOURCE_ABUSEIPDB" | "CYBER_THREAT_SOURCE_THREATFOX";
+
+export interface ListKnownExploitedVulnsRequest {
+  pageSize: number;
+  cursor: string;
+  search: string;
+}
+
+export interface ListKnownExploitedVulnsResponse {
+  vulnerabilities: KnownExploitedVulnerability[];
+  pagination?: PaginationResponse;
+}
+
+export interface KnownExploitedVulnerability {
+  cveId: string;
+  vendorProject: string;
+  product: string;
+  vulnerabilityName: string;
+  dateAdded: string;
+  shortDescription: string;
+  requiredAction: string;
+  dueDate: string;
+  knownRansomwareCampaignUse: string;
+  notes: string;
+  cwe: string;
+  source: string;
+}
 
 export type CyberThreatType = "CYBER_THREAT_TYPE_UNSPECIFIED" | "CYBER_THREAT_TYPE_C2_SERVER" | "CYBER_THREAT_TYPE_MALWARE_HOST" | "CYBER_THREAT_TYPE_PHISHING" | "CYBER_THREAT_TYPE_MALICIOUS_URL";
 
@@ -126,6 +152,33 @@ export class CyberServiceClient {
     }
 
     return await resp.json() as ListCyberThreatsResponse;
+  }
+
+  async listKnownExploitedVulns(req: ListKnownExploitedVulnsRequest, options?: CyberServiceCallOptions): Promise<ListKnownExploitedVulnsResponse> {
+    let path = "/api/cyber/v1/list-known-exploited-vulns";
+    const params = new URLSearchParams();
+    if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
+    if (req.cursor != null && String(req.cursor) !== "") params.set("cursor", String(req.cursor));
+    if (req.search != null && String(req.search) !== "") params.set("search", String(req.search));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as ListKnownExploitedVulnsResponse;
   }
 
   private async handleError(resp: Response): Promise<never> {

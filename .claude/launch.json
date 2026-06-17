@@ -48,6 +48,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["src-tauri/sidecar/local-api-server.mjs"],
       "port": 46123
+    },
+    {
+      "name": "DS Bundle Preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "ds-bundle", "--listen", "3010", "--no-clipboard"],
+      "port": 3010
     }
   ]
 }

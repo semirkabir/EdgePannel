@@ -43,6 +43,7 @@ export function getSearchResultActionLabel(type: SearchResultType): string {
     centralbank: 'Inspect central bank',
     commodityhub: 'Inspect commodity hub',
     sanction: 'Open sanctions tracker',
+    place: 'Focus this location on the map',
     company: 'Open company detail panel',
     secfiling: 'Read filing',
     institution: 'Open 13F filer profile',

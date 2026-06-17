@@ -1,7 +1,8 @@
 import { escapeHtml } from '@/utils/sanitize';
-import { MISSION_PACKS, SITE_VARIANT } from '@/config';
+import { DEFAULT_PANELS, MISSION_PACKS, SITE_VARIANT } from '@/config';
 import type { MarketplaceCatalogItem, MarketplaceManifest, MarketplacePreviewAsset, MarketplaceVariant, MarketplaceViewItem } from '@/types/marketplace';
 import { MarketplaceService } from '@/services/marketplace';
+import { renderGroupedInstalledItems, renderInstalledItemActions } from '@/utils/marketplace-installed-ui';
 
 type MarketplaceTab = 'browse' | 'installed' | 'import' | 'submit';
 
@@ -15,6 +16,8 @@ interface MarketplaceModalFilters {
 
 interface MarketplaceModalHandlers {
   onOpenPanel?: (itemId: string) => void;
+  onOpenAppPanel?: (panelId: string) => void;
+  onOpenSearch?: () => void;
   requireInstallAccess?: () => boolean;
   requireSubmitAccess?: () => boolean;
 }
@@ -323,6 +326,19 @@ export class MarketplaceModal {
       if (openPanelButton) {
         const itemId = openPanelButton.dataset.marketplaceOpenPanel;
         if (itemId) this.handlers.onOpenPanel?.(itemId);
+        return;
+      }
+
+      const openAppPanelButton = target.closest<HTMLElement>('[data-marketplace-open-app-panel]');
+      if (openAppPanelButton) {
+        const panelId = openAppPanelButton.dataset.marketplaceOpenAppPanel;
+        if (panelId) this.handlers.onOpenAppPanel?.(panelId);
+        return;
+      }
+
+      const openSearchButton = target.closest<HTMLElement>('[data-marketplace-open-search]');
+      if (openSearchButton) {
+        this.handlers.onOpenSearch?.();
         return;
       }
 
@@ -734,11 +750,7 @@ export class MarketplaceModal {
 
               <div class="marketplace-modal-actions">
                 ${selectedInstalled
-                  ? `
-                    <button class="marketplace-modal-primary" type="button" data-marketplace-open-panel="${escapeHtml(selectedInstalled.manifest.id)}">Open panel</button>
-                    <button class="marketplace-modal-secondary" type="button" data-marketplace-enable="${escapeHtml(selectedInstalled.manifest.id)}" data-enabled="${selectedInstalled.enabled ? 'true' : 'false'}">${selectedInstalled.enabled ? 'Disable item' : 'Enable item'}</button>
-                    ${selectedInstalled.hasUpdate ? `<button class="marketplace-modal-secondary" type="button" data-marketplace-update="${escapeHtml(selectedInstalled.manifest.id)}">Update</button>` : ''}
-                  `
+                  ? renderInstalledItemActions(selectedInstalled, DEFAULT_PANELS)
                   : `
                     <button class="marketplace-modal-primary" type="button" data-marketplace-install="${escapeHtml(selectedCatalog.id)}"${selectedCatalog.compatibility.variants.includes(SITE_VARIANT as MarketplaceVariant) ? '' : ' disabled'}>Install</button>
                   `
@@ -752,34 +764,7 @@ export class MarketplaceModal {
   }
 
   private renderInstalled(installedItems: MarketplaceViewItem[]): string {
-    return `
-      <div class="marketplace-modal-installed">
-        ${installedItems.map((item) => `
-          <div class="marketplace-modal-installed-card">
-            <div class="marketplace-modal-installed-copy">
-              <div class="marketplace-modal-installed-head">
-                <strong>${escapeHtml(item.manifest.name)}</strong>
-                <span class="marketplace-modal-pill">${item.hasUpdate ? 'Update available' : item.enabled ? 'Enabled' : 'Disabled'}</span>
-              </div>
-              <p>${escapeHtml(item.manifest.description)}</p>
-              <div class="marketplace-modal-installed-meta">
-                <span style="display:inline-flex;align-items:center;gap:4px">${authorAvatar(item.manifest.author, 'sm')}<span>${escapeHtml(item.manifest.author)}</span></span>
-                <span>${escapeHtml(item.manifest.version)}</span>
-                <span>${escapeHtml(item.manifest.category)}</span>
-                <span>${item.variantCompatible ? 'Active in this variant' : 'Unavailable in this variant'}</span>
-              </div>
-            </div>
-            <div class="marketplace-modal-installed-actions">
-              <button class="marketplace-modal-secondary" type="button" data-marketplace-open-panel="${escapeHtml(item.manifest.id)}">Open panel</button>
-              <button class="marketplace-modal-secondary" type="button" data-marketplace-enable="${escapeHtml(item.manifest.id)}" data-enabled="${item.enabled ? 'true' : 'false'}">${item.enabled ? 'Disable item' : 'Enable item'}</button>
-              ${item.manifest.surfaces.map ? `<button class="marketplace-modal-secondary" type="button" data-marketplace-map-enable="${escapeHtml(item.manifest.id)}" data-enabled="${item.mapEnabled ? 'true' : 'false'}">${item.mapEnabled ? 'Hide layer' : 'Show layer'}</button>` : ''}
-              ${item.hasUpdate ? `<button class="marketplace-modal-primary" type="button" data-marketplace-update="${escapeHtml(item.manifest.id)}">Update</button>` : ''}
-              <button class="marketplace-modal-danger" type="button" data-marketplace-remove="${escapeHtml(item.manifest.id)}">Remove</button>
-            </div>
-          </div>
-        `).join('') || '<div class="marketplace-modal-empty">No installed marketplace items yet.</div>'}
-      </div>
-    `;
+    return renderGroupedInstalledItems(installedItems, DEFAULT_PANELS);
   }
 
   private renderImport(): string {

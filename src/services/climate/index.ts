@@ -7,6 +7,7 @@ import {
 } from '@/generated/client/worldmonitor/climate/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { getHydratedData } from '@/services/bootstrap';
+import { ENRICHMENT_SOURCES, isEnrichmentEnabled } from '@/services/enrichment-gates';
 
 // Re-export consumer-friendly type matching legacy shape exactly.
 // Consumers import this type from '@/services/climate' and see the same
@@ -150,6 +151,9 @@ function mapType(t: ProtoAnomalyType): ClimateAnomaly['type'] {
 }
 
 async function fetchClimatePhysicalSignals(): Promise<ClimatePhysicalSignal[]> {
+  if (!isEnrichmentEnabled(ENRICHMENT_SOURCES.OPEN_METEO_AQI)) {
+    return [];
+  }
   return physicalSignalBreaker.execute(async () => {
     const results = await Promise.allSettled(AIR_QUALITY_SITES.map(fetchAirQualitySignal));
     const signals = results
@@ -215,6 +219,25 @@ function classifyAqi(aqi: number | null): ClimatePhysicalSignalSeverity {
   if (aqi >= 100) return 'unhealthy';
   if (aqi >= 50) return 'moderate';
   return 'good';
+}
+
+export function physicalSignalMapColor(
+  severity: ClimatePhysicalSignalSeverity,
+  theme: 'light' | 'dark' = 'dark',
+): [number, number, number, number] {
+  const light = theme === 'light';
+  switch (severity) {
+    case 'hazardous':
+      return light ? [185, 28, 28, 230] : [248, 113, 113, 220];
+    case 'unhealthy':
+      return light ? [234, 88, 12, 230] : [251, 146, 60, 220];
+    case 'moderate':
+      return light ? [202, 138, 4, 220] : [250, 204, 21, 210];
+    case 'good':
+      return light ? [22, 163, 74, 210] : [74, 222, 128, 200];
+    default:
+      return light ? [100, 116, 139, 180] : [148, 163, 184, 180];
+  }
 }
 
 function severityRank(severity: ClimatePhysicalSignalSeverity): number {

@@ -14,6 +14,8 @@ import {
     type PriceQuote,
     type AviationNewsItem,
     type FlightDelaySeverity,
+    type AirSigmet,
+    fetchAirSigmets,
 } from '@/services/aviation';
 import { aviationWatchlist } from '@/services/aviation/watchlist';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
@@ -70,6 +72,7 @@ export class AirlineIntelPanel extends Panel {
     private activeTab: Tab = 'ops';
     private airports: string[];
     private opsData: AirportOpsSummary[] = [];
+    private sigmets: AirSigmet[] = [];
     private flightsData: FlightInstance[] = [];
     private carriersData: CarrierOps[] = [];
     private trackingData: PositionSample[] = [];
@@ -205,8 +208,18 @@ export class AirlineIntelPanel extends Panel {
         void this.loadTab(this.activeTab);
     }
 
+    public setSigmets(sigmets: AirSigmet[]): void {
+        this.sigmets = sigmets;
+        if (this.activeTab === 'ops') this.renderTab();
+    }
+
     private async loadOps(): Promise<void> {
-        this.opsData = await fetchAirportOpsSummary(this.airports);
+        const [ops, sigmets] = await Promise.all([
+            fetchAirportOpsSummary(this.airports),
+            fetchAirSigmets().catch(() => [] as AirSigmet[]),
+        ]);
+        this.opsData = ops;
+        this.sigmets = sigmets;
         if (this.activeTab === 'ops') this.renderTab();
     }
 
@@ -345,6 +358,23 @@ export class AirlineIntelPanel extends Panel {
             this.content.innerHTML = '<div class="no-data">No ops data — loading…</div>';
             return;
         }
+        const sigmetHtml = this.sigmets.length > 0
+            ? `<div class="aviation-sigmet-strip">
+          <div class="aviation-sigmet-header">
+            <span class="aviation-sigmet-label">Active SIGMETs</span>
+            <span class="aviation-sigmet-source">aviationweather.gov</span>
+          </div>
+          <div class="aviation-sigmet-list">
+            ${this.sigmets.slice(0, 4).map((sigmet) => `
+              <div class="aviation-sigmet-item">
+                <span class="aviation-sigmet-hazard">${escapeHtml(sigmet.hazardLabel)}</span>
+                <span class="aviation-sigmet-meta">${escapeHtml(sigmet.seriesId || sigmet.type)}${sigmet.altitudeHigh ? ` · FL${Math.round(sigmet.altitudeHigh / 100)}` : ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>`
+            : '';
+
         const rows = this.opsData.map(s => `
       <div class="ops-row">
         <div class="ops-iata">${escapeHtml(s.iata)}</div>
@@ -355,7 +385,7 @@ export class AirlineIntelPanel extends Panel {
         ${s.closureStatus ? '<div class="ops-closed">CLOSED</div>' : ''}
         ${s.notamFlags.length ? `<div class="ops-notam">⚠️ NOTAM</div>` : ''}
       </div>`).join('');
-        this.content.innerHTML = `<div class="ops-grid">${rows}</div>`;
+        this.content.innerHTML = `${sigmetHtml}<div class="ops-grid">${rows}</div>`;
     }
 
     // ---- Flights tab ----

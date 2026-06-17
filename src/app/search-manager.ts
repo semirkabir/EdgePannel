@@ -28,11 +28,13 @@ import { buildLiveSearchTickerPhrases } from '@/utils/live-search-suggestions';
 import { buildLiveTrendingSearches } from '@/utils/live-search-trends';
 import { CountryIntelManager } from '@/app/country-intel';
 import { searchPredictions } from '@/services/prediction';
-import { getCachedSanctions } from '@/services/sanctions';
+import { getCachedSanctions, searchSanctions } from '@/services/sanctions';
 import { getQuickActionCommandIds } from '@/components/search-ux';
 import { fetchCuratedSatellites, fetchCelesTrakSatellites } from '@/services/celestrak-satellites';
 import { NOTABLE_INVESTORS } from '@/services/market/portfolio';
 import { searchInstitutions13F, type InstitutionSearchResult } from '@/services/market/normalized-13f';
+import { ENRICHMENT_SOURCES, isEnrichmentEnabled } from '@/services/enrichment-gates';
+import { dataFreshness } from '@/services/data-freshness';
 import {
   fetchSecAllFilings,
   getSecFilingAccessionNumber,
@@ -473,6 +475,16 @@ export class SearchManager implements AppModule {
         this.ctx.marketplace?.openSearchResult(result.data as import('@/types/marketplace').MarketplaceSearchResultData);
         break;
       }
+      case 'place': {
+        const place = result.data as import('@/services/place-search').PlaceSearchResult;
+        this.ctx.map?.setView('global');
+        if (place.lat != null && place.lon != null) {
+          setTimeout(() => { this.ctx.map?.setCenter(place.lat!, place.lon!, 5); }, 300);
+        } else if (place.url) {
+          window.open(place.url, '_blank', 'noopener,noreferrer');
+        }
+        break;
+      }
     }
   }
 
@@ -637,13 +649,22 @@ export class SearchManager implements AppModule {
 
     const sanctions = getCachedSanctions();
     if (sanctions.length > 0) {
-      this.ctx.searchModal.registerSource('sanction', sanctions.map(entity => ({
+      this.ctx.searchModal.registerSource('sanction', sanctions.slice(0, 200).map(entity => ({
         id: entity.id,
         title: entity.name,
         subtitle: `${entity.source} · ${entity.programs.slice(0, 2).join(', ')}`,
-        data: { name: entity.name, id: entity.id },
+        data: { name: entity.name, id: entity.id, entity },
       })));
     }
+
+    this.ctx.searchModal.registerAsyncSource('sanction', async (query) => {
+      return searchSanctions(query, 30).map(entity => ({
+        id: entity.id,
+        title: entity.name,
+        subtitle: `${entity.source} · ${entity.type}${entity.countries.length ? ` · ${entity.countries.slice(0, 2).join(', ')}` : ''}`,
+        data: { name: entity.name, id: entity.id, entity },
+      }));
+    }, { limit: 250 });
 
     // Live prediction search — fetches matching markets from the API on demand
     this.ctx.searchModal.registerAsyncSource('prediction', async (query) => {
@@ -655,6 +676,32 @@ export class SearchManager implements AppModule {
         data: p,
       }));
     }, { limit: 250 });
+
+    this.ctx.searchModal.registerAsyncSource('place', async (query) => {
+      if (!isEnrichmentEnabled(ENRICHMENT_SOURCES.PLACE_SEARCH)) {
+        this.ctx.statusPanel?.updateApi('Place Search', { status: 'disabled' });
+        return [];
+      }
+      try {
+        const { searchPlaces } = await import('@/services/place-search');
+        const results = await searchPlaces(query);
+        this.ctx.statusPanel?.updateApi('Place Search', {
+          status: results.length > 0 ? 'ok' : 'warning',
+        });
+        if (results.length > 0) dataFreshness.recordUpdate('place_search', results.length);
+        return results.map((place) => ({
+          id: place.id,
+          title: place.title,
+          subtitle: `${place.source}${place.subtitle ? ` · ${place.subtitle}` : ''}`,
+          data: place,
+        }));
+      } catch (error) {
+        console.warn('[Search] Place search failed:', error);
+        this.ctx.statusPanel?.updateApi('Place Search', { status: 'error' });
+        dataFreshness.recordError('place_search', String(error));
+        return [];
+      }
+    }, { limit: 8 });
 
     if (this.ctx.latestMarkets.length > 0) {
       this.ctx.searchModal.registerSource('market', this.ctx.latestMarkets.map(m => ({

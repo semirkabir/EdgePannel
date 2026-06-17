@@ -192,3 +192,8 @@ export async function fetchCrypto(): Promise<CryptoData[]> {
 }
 
 export * from './risk-overlays';
+export {
+  fetchDefiLlamaProtocols,
+  getCachedDefiLlamaProtocols,
+} from './defillama';
+export type { DefiLlamaProtocol } from './defillama';

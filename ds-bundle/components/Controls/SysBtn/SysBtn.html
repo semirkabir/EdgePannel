@@ -1,0 +1,47 @@
+<!-- @dsCard group="Controls" name="SysBtn" description="Compact mono-font bordered control button. Use for toolbar actions, filter toggles, and panel controls." -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../../styles.css">
+<style>
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); padding: 20px; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .section-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <div>
+    <div class="section-label">Default</div>
+    <div class="row">
+      <button class="sys-btn">Export</button>
+      <button class="sys-btn">Share</button>
+      <button class="sys-btn">⚙ Settings</button>
+      <button class="sys-btn">↻ Refresh</button>
+    </div>
+  </div>
+  <div>
+    <div class="section-label">Active state</div>
+    <div class="row">
+      <button class="sys-btn sys-btn--active">Live Feed</button>
+      <button class="sys-btn sys-btn--active">● Recording</button>
+    </div>
+  </div>
+  <div>
+    <div class="section-label">Icon-only</div>
+    <div class="row">
+      <button class="sys-btn sys-btn--icon">↑</button>
+      <button class="sys-btn sys-btn--icon">✕</button>
+      <button class="sys-btn sys-btn--icon">⋯</button>
+      <button class="sys-btn sys-btn--icon">⤢</button>
+    </div>
+  </div>
+  <div>
+    <div class="section-label">Disabled</div>
+    <div class="row">
+      <button class="sys-btn" disabled>Offline</button>
+      <button class="sys-btn" disabled>No data</button>
+    </div>
+  </div>
+</body>
+</html>

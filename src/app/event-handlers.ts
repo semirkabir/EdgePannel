@@ -51,6 +51,7 @@ import {
 } from '@/services/analytics';
 import { invokeTauri } from '@/services/tauri-bridge';
 import { dataFreshness } from '@/services/data-freshness';
+import { getEnrichmentDataSourceId } from '@/services/enrichment-gates';
 import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
 import { AgentChatPanel } from '@/components/AgentChatPanel';
@@ -393,6 +394,10 @@ export class EventHandlerManager implements AppModule {
       if (!this.ctx.uiStore.isSourceEnabled(source)) {
         this.ctx.uiStore.enableSource(source);
         enabledSources += 1;
+      }
+      const enrichmentDataSourceId = getEnrichmentDataSourceId(source);
+      if (enrichmentDataSourceId) {
+        dataFreshness.setEnabled(enrichmentDataSourceId, true);
       }
     }
     saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.uiStore.disabledSources));

@@ -43,6 +43,12 @@ export class PredictionPanel extends Panel {
   private cacheTimestampEl: HTMLElement | null = null;
   private lastFetchedAt = 0;
 
+  private getMarketSource(market: PredictionMarket): string {
+    const url = market.url || '';
+    if (url.includes('manifold.markets')) return 'Manifold';
+    return 'Polymarket';
+  }
+
   private getTheme(title: string): string {
     const lower = title.toLowerCase();
     if (/taiwan|china|beijing/.test(lower)) return 'China / Taiwan';
@@ -281,7 +287,8 @@ export class PredictionPanel extends Panel {
         const noPercent = 100 - yesPercent;
         const volumeStr = this.formatVolume(p.volume);
 
-        const titleHtml = `<div class="prediction-question">${escapeHtml(p.title)}</div>`;
+        const source = this.getMarketSource(p);
+        const titleHtml = `<div class="prediction-question">${escapeHtml(p.title)} <span class="prediction-source">${escapeHtml(source)}</span></div>`;
 
         let expiryHtml = '';
         if (p.endDate) {

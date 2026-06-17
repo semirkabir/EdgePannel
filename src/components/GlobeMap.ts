@@ -43,7 +43,8 @@ import type { CountryClickPayload } from './DeckGLMap';
 import type { WeatherAlert } from '@/services/weather';
 import { type IranEvent, getIranEventHexColor } from '@/services/conflict';
 import type { DisplacementFlow } from '@/services/displacement';
-import type { ClimateAnomaly } from '@/services/climate';
+import type { ClimateAnomaly, ClimatePhysicalSignal } from '@/services/climate';
+import { physicalSignalMapColor } from '@/services/climate';
 import type { GpsJamHex } from '@/services/gps-interference';
 import { getCurrentTheme } from '@/utils';
 import { resolveInlineCursor } from '@/utils/forced-cursor';
@@ -151,6 +152,10 @@ interface ClimateMarker extends BaseMarker {
   type: string;
   severity: string;
   tempDelta: number;
+  signalKind?: 'anomaly' | 'air-quality';
+  location?: string;
+  europeanAqi?: number | null;
+  pm25?: number | null;
 }
 interface GpsJamMarker extends BaseMarker {
   _kind: 'gpsjam';
@@ -911,9 +916,18 @@ export class GlobeMap {
     } else if (d._kind === 'displacement') {
       el.innerHTML = this.buildLayerIconGlyph('displacement', _ac('displacement'), 11);
     } else if (d._kind === 'climate') {
-      const typeColors: Record<string, string> = { warm: '#ff4400', cold: '#44aaff', wet: '#00ccff', dry: '#ff8800', mixed: '#88ff88' };
-      const c = typeColors[d.type] ?? '#88ff88';
-      el.innerHTML = this.buildLayerIconGlyph('climate', c, 10);
+      if (d.signalKind === 'air-quality') {
+        const [r, g, b] = physicalSignalMapColor(
+          (d.severity as ClimatePhysicalSignal['severity']) || 'unknown',
+          document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
+        );
+        const color = `rgb(${r}, ${g}, ${b})`;
+        el.innerHTML = this.buildLayerIconGlyph('climate', color, 9);
+      } else {
+        const typeColors: Record<string, string> = { warm: '#ff4400', cold: '#44aaff', wet: '#00ccff', dry: '#ff8800', mixed: '#88ff88' };
+        const c = typeColors[d.type] ?? '#88ff88';
+        el.innerHTML = this.buildLayerIconGlyph('climate', c, 10);
+      }
     } else if (d._kind === 'gpsjam') {
       const c = d.level === 'high' ? '#ff2020' : '#ff8800';
       el.innerHTML = this.buildLayerIconGlyph('gpsJamming', c, 10);
@@ -2254,8 +2268,8 @@ export class GlobeMap {
       }));
     this.flushMarkers();
   }
-  public setClimateAnomalies(anomalies: ClimateAnomaly[]): void {
-    this.climateMarkers = (anomalies ?? []).filter(a => a.lat != null && a.lon != null).map(a => ({
+  public setClimateAnomalies(anomalies: ClimateAnomaly[], physicalSignals: ClimatePhysicalSignal[] = []): void {
+    const anomalyMarkers = (anomalies ?? []).filter(a => a.lat != null && a.lon != null).map(a => ({
       _kind: 'climate' as const,
       _lat: a.lat,
       _lng: a.lon,
@@ -2264,8 +2278,25 @@ export class GlobeMap {
       type: a.type ?? 'mixed',
       severity: a.severity ?? 'normal',
       tempDelta: a.tempDelta ?? 0,
+      signalKind: 'anomaly' as const,
       _data: a,
     }));
+    const aqiMarkers = (physicalSignals ?? []).filter(s => s.lat != null && s.lon != null).map(s => ({
+      _kind: 'climate' as const,
+      _lat: s.lat,
+      _lng: s.lon,
+      id: s.id,
+      zone: s.location,
+      type: 'air-quality',
+      severity: s.severity,
+      tempDelta: 0,
+      signalKind: 'air-quality' as const,
+      location: s.location,
+      europeanAqi: s.europeanAqi,
+      pm25: s.pm25,
+      _data: s,
+    }));
+    this.climateMarkers = [...anomalyMarkers, ...aqiMarkers];
     this.flushMarkers();
   }
   public setGpsJamming(hexes: GpsJamHex[]): void {

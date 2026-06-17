@@ -71,3 +71,10 @@ export {
   CURRENCY_NAME,
 } from './ecb-fx';
 export type { EcbFxRate } from './ecb-fx';
+
+// Global indicators (Eurostat, Treasury)
+export {
+  fetchGlobalIndicators,
+  getCachedGlobalIndicators,
+} from './global-indicators';
+export type { GlobalIndicator } from './global-indicators';

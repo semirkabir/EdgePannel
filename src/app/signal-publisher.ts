@@ -73,6 +73,12 @@ import { isDesktopRuntime } from '@/services/runtime';
 import { getMissingFeatureSecretMessage } from '@/services/runtime-config';
 import { debounce } from '@/utils';
 import { getHydratedData } from '@/services/bootstrap';
+import {
+  ENRICHMENT_SOURCES,
+  filterIodaOutages,
+  filterOpenMeteoFloodEvents,
+  isEnrichmentEnabled,
+} from '@/services/enrichment-gates';
 import type { UcdpEventsPanel, StrategicPosturePanel, CIIPanel } from '@/components';
 
 const CYBER_LAYER_ENABLED = import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true';
@@ -378,6 +384,60 @@ export class SignalPublisher {
           this.ctx.mapStore.map?.setDisplacementFlows(data.topFlows);
         }
         if (data.countries.length > 0) dataFreshness.recordUpdate('unhcr', data.countries.length);
+
+        if (isEnrichmentEnabled(ENRICHMENT_SOURCES.RELIEFWEB)) {
+          try {
+            const { fetchReliefWebUpdates, buildReliefWebSignals } = await import('@/services/displacement');
+            const reliefWebUpdates = await fetchReliefWebUpdates();
+            this.deps.callPanel('displacement', 'setHumanitarianUpdates', reliefWebUpdates);
+            const reliefSignals = buildReliefWebSignals(reliefWebUpdates);
+            if (reliefSignals.length > 0) {
+              this.publishSupplementalSignals({
+                sourceId: 'reliefweb',
+                sourceName: 'ReliefWeb',
+                signals: reliefSignals,
+                dataSourceId: 'reliefweb',
+                baseline: { mean: 3, stdDev: 1.5 },
+                itemCount: reliefWebUpdates.length,
+              });
+            }
+            this.ctx.statusPanel?.updateApi('ReliefWeb', { status: 'ok' });
+          } catch (reliefError) {
+            console.warn('[Intelligence] ReliefWeb updates unavailable:', reliefError);
+            this.ctx.statusPanel?.updateApi('ReliefWeb', { status: 'error' });
+            dataFreshness.recordError('reliefweb', String(reliefError));
+          }
+        } else {
+          this.deps.callPanel('displacement', 'setHumanitarianUpdates', []);
+          this.ctx.statusPanel?.updateApi('ReliefWeb', { status: 'disabled' });
+        }
+
+        if (isEnrichmentEnabled(ENRICHMENT_SOURCES.WHO_GHO)) {
+          try {
+            const { fetchWhoGhoIndicators, buildWhoGhoSignals } = await import('@/services/health/who-gho');
+            const whoIndicators = await fetchWhoGhoIndicators();
+            this.deps.callPanel('displacement', 'setHealthIndicators', whoIndicators);
+            const whoSignals = buildWhoGhoSignals(whoIndicators);
+            if (whoSignals.length > 0) {
+              this.publishSupplementalSignals({
+                sourceId: 'who-gho',
+                sourceName: 'WHO GHO',
+                signals: whoSignals,
+                dataSourceId: 'who_gho',
+                baseline: { mean: 2, stdDev: 1 },
+                itemCount: whoIndicators.length,
+              });
+            }
+            this.ctx.statusPanel?.updateApi('WHO GHO', { status: 'ok' });
+          } catch (whoError) {
+            console.warn('[Intelligence] WHO GHO indicators unavailable:', whoError);
+            this.ctx.statusPanel?.updateApi('WHO GHO', { status: 'error' });
+            dataFreshness.recordError('who_gho', String(whoError));
+          }
+        } else {
+          this.deps.callPanel('displacement', 'setHealthIndicators', []);
+          this.ctx.statusPanel?.updateApi('WHO GHO', { status: 'disabled' });
+        }
       } catch (error) {
         console.error('[Intelligence] UNHCR displacement fetch failed:', error);
         dataFreshness.recordError('unhcr', String(error));
@@ -398,9 +458,15 @@ export class SignalPublisher {
         this.deps.callPanel('climate', 'setSourceStatus', climateResult.sourceStatus);
         ingestClimateForCII(anomalies);
         if (this.ctx.mapLayers.climate) {
-          this.ctx.mapStore.map?.setClimateAnomalies(anomalies);
+          this.ctx.mapStore.map?.setClimateAnomalies(anomalies, climateResult.physicalSignals);
         }
         if (anomalies.length > 0) dataFreshness.recordUpdate('climate', anomalies.length);
+        if (climateResult.physicalSignals.length > 0) {
+          dataFreshness.recordUpdate('open_meteo_aqi', climateResult.physicalSignals.length);
+          this.ctx.statusPanel?.updateApi('Open-Meteo AQI', { status: 'ok' });
+        } else if (!isEnrichmentEnabled(ENRICHMENT_SOURCES.OPEN_METEO_AQI)) {
+          this.ctx.statusPanel?.updateApi('Open-Meteo AQI', { status: 'disabled' });
+        }
       } catch (error) {
         console.error('[Intelligence] Climate anomalies fetch failed:', error);
         dataFreshness.recordError('climate', String(error));
@@ -635,25 +701,38 @@ export class SignalPublisher {
   }
 
   async loadOutages(): Promise<void> {
-    if (this.ctx.intelligenceStore.cache.outages) {
-      const outages = this.ctx.intelligenceStore.cache.outages;
-      this.ctx.mapStore.map?.setOutages(outages);
-      this.ctx.mapStore.map?.setLayerReady('outages', outages.length > 0);
-      this.ctx.statusPanel?.updateFeed('NetBlocks', { status: 'ok', itemCount: outages.length });
-      return;
-    }
-    try {
-      const outages = await fetchInternetOutages();
-      this.ctx.intelligenceStore.updateCache({ outages });
+    const applyOutages = (rawOutages: Awaited<ReturnType<typeof fetchInternetOutages>>) => {
+      const outages = filterIodaOutages(rawOutages);
       this.ctx.mapStore.map?.setOutages(outages);
       this.ctx.mapStore.map?.setLayerReady('outages', outages.length > 0);
       ingestOutagesForCII(outages);
       signalAggregator.ingestOutages(outages);
       this.ctx.statusPanel?.updateFeed('NetBlocks', { status: 'ok', itemCount: outages.length });
       dataFreshness.recordUpdate('outages', outages.length);
+      const iodaCount = rawOutages.length - outages.length;
+      if (isEnrichmentEnabled(ENRICHMENT_SOURCES.IODA)) {
+        const iodaItems = rawOutages.filter((outage) => outage.categories?.some((category) => /ioda/i.test(category))).length;
+        if (iodaItems > 0) {
+          dataFreshness.recordUpdate('ioda', iodaItems);
+          this.ctx.statusPanel?.updateApi('IODA', { status: 'ok' });
+        }
+      } else if (iodaCount > 0) {
+        this.ctx.statusPanel?.updateApi('IODA', { status: 'disabled' });
+      }
+    };
+
+    if (this.ctx.intelligenceStore.cache.outages) {
+      applyOutages(this.ctx.intelligenceStore.cache.outages);
+      return;
+    }
+    try {
+      const outages = await fetchInternetOutages();
+      this.ctx.intelligenceStore.updateCache({ outages });
+      applyOutages(outages);
     } catch (error) {
       this.ctx.mapStore.map?.setLayerReady('outages', false);
       this.ctx.statusPanel?.updateFeed('NetBlocks', { status: 'error' });
+      this.ctx.statusPanel?.updateApi('IODA', { status: 'error' });
       dataFreshness.recordError('outages', String(error));
     }
   }
@@ -665,12 +744,22 @@ export class SignalPublisher {
       return;
     }
 
+    if (!isEnrichmentEnabled(ENRICHMENT_SOURCES.THREATFOX)) {
+      this.ctx.intelligenceStore.cyberThreatsCache = [];
+      this.ctx.mapStore.map?.setCyberThreats([]);
+      this.ctx.mapStore.map?.setLayerReady('cyberThreats', false);
+      this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'disabled', itemCount: 0 });
+      this.ctx.statusPanel?.updateApi('ThreatFox', { status: 'disabled' });
+      return;
+    }
+
     if (this.ctx.intelligenceStore.cyberThreatsCache) {
       this.ctx.mapStore.map?.setCyberThreats(this.ctx.intelligenceStore.cyberThreatsCache);
       this.ctx.mapStore.map?.setLayerReady('cyberThreats', this.ctx.intelligenceStore.cyberThreatsCache.length > 0);
       ingestCyberThreatsForCII(this.ctx.intelligenceStore.cyberThreatsCache);
       this.deps.refreshCiiAndBrief();
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'ok', itemCount: this.ctx.intelligenceStore.cyberThreatsCache.length });
+      this.ctx.statusPanel?.updateApi('ThreatFox', { status: 'ok' });
       return;
     }
 
@@ -683,7 +772,9 @@ export class SignalPublisher {
       this.deps.refreshCiiAndBrief();
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'ok', itemCount: threats.length });
       this.ctx.statusPanel?.updateApi('Cyber Threats API', { status: 'ok' });
+      this.ctx.statusPanel?.updateApi('ThreatFox', { status: 'ok' });
       dataFreshness.recordUpdate('cyber_threats', threats.length);
+      dataFreshness.recordUpdate('threatfox', threats.filter((threat) => threat.source === 'threatfox').length);
     } catch (error) {
       this.ctx.mapStore.map?.setLayerReady('cyberThreats', false);
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'error', errorMessage: String(error) });
@@ -824,6 +915,34 @@ export class SignalPublisher {
       this.ctx.intelligenceStore.updateCache({ flightDelays: delays });
       const severe = delays.filter(d => d.severity === 'major' || d.severity === 'severe' || d.delayType === 'closure');
       if (severe.length > 0) ingestAviationForCII(severe);
+
+      if (isEnrichmentEnabled(ENRICHMENT_SOURCES.AIRSIGMET)) {
+        try {
+          const { fetchAirSigmets, buildSigmetSignals } = await import('@/services/aviation/sigmet');
+          const sigmets = await fetchAirSigmets();
+          this.deps.callPanel('airline-intel', 'setSigmets', sigmets);
+          const sigmetSignals = buildSigmetSignals(sigmets);
+          if (sigmetSignals.length > 0) {
+            this.publishSupplementalSignals({
+              sourceId: 'airsigmet',
+              sourceName: 'Aviation SIGMET',
+              signals: sigmetSignals,
+              dataSourceId: 'airsigmet',
+              baseline: { mean: 4, stdDev: 2 },
+              itemCount: sigmets.length,
+            });
+          }
+          this.ctx.statusPanel?.updateApi('Aviation SIGMET', { status: 'ok' });
+        } catch (sigmetError) {
+          console.warn('[Intelligence] SIGMET enrichment unavailable:', sigmetError);
+          this.ctx.statusPanel?.updateApi('Aviation SIGMET', { status: 'error' });
+          dataFreshness.recordError('airsigmet', String(sigmetError));
+        }
+      } else {
+        this.deps.callPanel('airline-intel', 'setSigmets', []);
+        this.ctx.statusPanel?.updateApi('Aviation SIGMET', { status: 'disabled' });
+      }
+
       this.ctx.statusPanel?.updateFeed('Flights', {
         status: 'ok',
         itemCount: delays.length,
@@ -1151,17 +1270,33 @@ export class SignalPublisher {
       }
 
       if (eonetResult.status === 'fulfilled') {
-        this.ctx.mapStore.map?.setNaturalEvents(eonetResult.value);
-        this.ctx.statusPanel?.updateFeed('EONET', { status: 'ok', itemCount: eonetResult.value.length });
+        const naturalEvents = filterOpenMeteoFloodEvents(eonetResult.value);
+        this.ctx.mapStore.map?.setNaturalEvents(naturalEvents);
+        this.ctx.statusPanel?.updateFeed('EONET', { status: 'ok', itemCount: naturalEvents.length });
         this.ctx.statusPanel?.updateApi('NASA EONET', { status: 'ok' });
+        const floodCount = eonetResult.value.length - naturalEvents.length;
+        if (isEnrichmentEnabled(ENRICHMENT_SOURCES.OPEN_METEO_FLOOD)) {
+          const openMeteoFloods = eonetResult.value.filter((event) => {
+            const source = String(event.sourceName || '');
+            const id = String(event.id || '');
+            return /open-meteo|glofas/i.test(source) || id.startsWith('openmeteo-flood-');
+          }).length;
+          if (openMeteoFloods > 0) {
+            dataFreshness.recordUpdate('open_meteo_flood', openMeteoFloods);
+            this.ctx.statusPanel?.updateApi('Open-Meteo Flood', { status: 'ok' });
+          }
+        } else if (floodCount > 0) {
+          this.ctx.statusPanel?.updateApi('Open-Meteo Flood', { status: 'disabled' });
+        }
       } else {
         this.ctx.mapStore.map?.setNaturalEvents([]);
         this.ctx.statusPanel?.updateFeed('EONET', { status: 'error', errorMessage: String(eonetResult.reason) });
         this.ctx.statusPanel?.updateApi('NASA EONET', { status: 'error' });
+        this.ctx.statusPanel?.updateApi('Open-Meteo Flood', { status: 'error' });
       }
 
       const hasEarthquakes = earthquakeResult.status === 'fulfilled' && earthquakeResult.value.length > 0;
-      const hasEonet = eonetResult.status === 'fulfilled' && eonetResult.value.length > 0;
+      const hasEonet = eonetResult.status === 'fulfilled' && filterOpenMeteoFloodEvents(eonetResult.value).length > 0;
       this.ctx.mapStore.map?.setLayerReady('natural', hasEarthquakes || hasEonet);
     } catch (error) {
       console.error('[SignalPublisher] loadNatural failed:', error);

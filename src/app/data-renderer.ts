@@ -8,12 +8,14 @@ import type { DataSourceId } from '@/services/data-freshness';
 import {
   fetchMultipleStocks,
   fetchCrypto,
+  fetchDefiLlamaProtocols,
   fetchMarketRiskOverlay,
   fetchPredictions,
   fetchPredictionMoverSignals,
   fetchGeoTaggedMarketsInitial,
   refreshGeoTaggedMarkets,
   fetchFredData,
+  fetchGlobalIndicators,
   fetchOilAnalytics,
   fetchRecentAwards,
   fetchBisData,
@@ -36,6 +38,12 @@ import {
 import { getMarketWatchlistEntries } from '@/services/market-watchlist';
 import { getHydratedData } from '@/services/bootstrap';
 import { dataFreshness } from '@/services/data-freshness';
+import {
+  ENRICHMENT_SOURCES,
+  filterManifoldPredictions,
+  filterOpenSanctionsEntities,
+  isEnrichmentEnabled,
+} from '@/services/enrichment-gates';
 import { getCircuitBreakerCooldownInfo } from '@/utils';
 import { getMissingFeatureSecretMessage, getMissingSecretMessage, isFeatureAvailable } from '@/services/runtime-config';
 import { t } from '@/services/i18n';
@@ -260,7 +268,23 @@ export class DataRenderer {
 
   private async loadCryptoPanel(): Promise<void> {
     try {
-      let crypto = await fetchCrypto();
+      const shouldLoadDefiLlama = isEnrichmentEnabled(ENRICHMENT_SOURCES.DEFILLAMA);
+      const [cryptoResult, defiResult] = await Promise.allSettled([
+        fetchCrypto(),
+        shouldLoadDefiLlama ? fetchDefiLlamaProtocols() : Promise.resolve([]),
+      ]);
+
+      let crypto = cryptoResult.status === 'fulfilled' ? cryptoResult.value : [];
+      const cryptoPanel = this.ctx.panels['crypto'] as import('@/components/MarketPanel').CryptoPanel | undefined;
+      if (shouldLoadDefiLlama && defiResult.status === 'fulfilled' && defiResult.value.length > 0) {
+        cryptoPanel?.updateDefiProtocols(defiResult.value);
+        dataFreshness.recordUpdate('defillama', defiResult.value.length);
+        this.ctx.statusPanel?.updateApi('DefiLlama', { status: 'ok' });
+      } else {
+        cryptoPanel?.updateDefiProtocols([]);
+        this.ctx.statusPanel?.updateApi('DefiLlama', { status: shouldLoadDefiLlama ? 'error' : 'disabled' });
+      }
+
       if (crypto.length === 0) {
         this.panels.getPanel<CryptoRenderable>('crypto')?.showRetrying();
         this.scheduleDelayedTask('market:crypto:retry', 20_000, 'coingecko', async () => {
@@ -292,7 +316,8 @@ export class DataRenderer {
 
   async loadPredictions(): Promise<void> {
     try {
-      const predictions = await fetchPredictions();
+      const rawPredictions = await fetchPredictions();
+      const predictions = filterManifoldPredictions(rawPredictions);
       this.ctx.intelligenceStore.setPredictions(predictions);
       (this.ctx.panels['polymarket'] as PredictionPanel).renderPredictions(predictions);
       this.deps.publishSupplementalSignals({
@@ -303,8 +328,17 @@ export class DataRenderer {
         baseline: { mean: 2, stdDev: 1 },
       });
 
-      this.ctx.statusPanel?.updateFeed('Polymarket', { status: 'ok', itemCount: predictions.length });
+      const manifoldCount = rawPredictions.length - predictions.length;
+      const visibleManifoldCount = predictions.filter((p) => (p.url || '').includes('manifold.markets')).length;
+      const feedLabel = visibleManifoldCount > 0 ? `Polymarket + Manifold (${visibleManifoldCount})` : 'Polymarket';
+      this.ctx.statusPanel?.updateFeed(feedLabel, { status: 'ok', itemCount: predictions.length });
       this.ctx.statusPanel?.updateApi('Polymarket', { status: 'ok' });
+      if (isEnrichmentEnabled(ENRICHMENT_SOURCES.MANIFOLD)) {
+        this.ctx.statusPanel?.updateApi('Manifold', { status: visibleManifoldCount > 0 ? 'ok' : 'warning' });
+        if (visibleManifoldCount > 0) dataFreshness.recordUpdate('manifold', visibleManifoldCount);
+      } else {
+        this.ctx.statusPanel?.updateApi('Manifold', { status: manifoldCount > 0 ? 'disabled' : 'disabled' });
+      }
       dataFreshness.recordUpdate('polymarket', predictions.length);
       dataFreshness.recordUpdate('predictions', predictions.length);
 
@@ -375,6 +409,7 @@ export class DataRenderer {
 
     try {
       economicPanel?.setLoading(true);
+      void this.loadGlobalIndicators();
       const data = await fetchFredData();
 
       const postInfo = getCircuitBreakerCooldownInfo('FRED Economic');
@@ -468,6 +503,25 @@ export class DataRenderer {
       console.error('[App] Government spending failed:', e);
       this.ctx.statusPanel?.updateApi('USASpending', { status: 'error' });
       dataFreshness.recordError('spending', String(e));
+    }
+  }
+
+  async loadGlobalIndicators(): Promise<void> {
+    const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
+    if (!isEnrichmentEnabled(ENRICHMENT_SOURCES.GLOBAL_INDICATORS)) {
+      economicPanel?.updateGlobalIndicators([]);
+      this.ctx.statusPanel?.updateApi('Global Indicators', { status: 'disabled' });
+      return;
+    }
+    try {
+      const indicators = await fetchGlobalIndicators();
+      economicPanel?.updateGlobalIndicators(indicators);
+      dataFreshness.recordUpdate('global_indicators', indicators.length);
+      this.ctx.statusPanel?.updateApi('Global Indicators', { status: indicators.length > 0 ? 'ok' : 'warning' });
+    } catch (e) {
+      console.warn('[App] Global indicators failed:', e);
+      this.ctx.statusPanel?.updateApi('Global Indicators', { status: 'error' });
+      dataFreshness.recordError('global_indicators', String(e));
     }
   }
 
@@ -582,10 +636,18 @@ export class DataRenderer {
     if (!panel) return;
 
     try {
-      const entities = await fetchSanctions();
+      const entities = filterOpenSanctionsEntities(await fetchSanctions());
       panel.setEntities(entities);
       this.deps.updateSearchIndex();
       this.ctx.statusPanel?.updateApi('Sanctions', { status: entities.length > 0 ? 'ok' : 'warning' });
+      this.ctx.statusPanel?.updateApi(
+        'OpenSanctions',
+        { status: isEnrichmentEnabled(ENRICHMENT_SOURCES.OPENSANCTIONS) ? 'ok' : 'disabled' },
+      );
+      if (isEnrichmentEnabled(ENRICHMENT_SOURCES.OPENSANCTIONS)) {
+        const openSanctionsCount = entities.filter((entity) => Boolean(entity.opensanctionsId)).length;
+        if (openSanctionsCount > 0) dataFreshness.recordUpdate('opensanctions', openSanctionsCount);
+      }
       this.deps.publishSupplementalSignals({
         sourceId: 'sanctions',
         sourceName: 'Sanctions Radar',

@@ -56,7 +56,7 @@ export class SanctionsTrackerPanel extends Panel {
         <div class="sanctions-header">
           <input type="text" class="sanctions-search-input" placeholder="Search entities, countries, programs..." value="${escapeHtml(this.searchQuery)}">
           <div class="sanctions-stats">
-            Monitoring ${this.entities.length} recent designations across OFAC, EU, UN, and UK.
+            Monitoring ${this.entities.length} designations across OFAC and OpenSanctions (EU, UN, UK).
           </div>
         </div>
         <div class="sanctions-list-container">

@@ -21,6 +21,7 @@ import {
   fetchC2IntelSource,
   fetchOtxSource,
   fetchAbuseIpDbSource,
+  fetchThreatFoxSource,
   dedupeThreats,
   hydrateThreatCoordinates,
   toProtoCyberThreat,
@@ -123,12 +124,13 @@ export async function listCyberThreats(
       }
       const cutoffMs = now - days * 24 * 60 * 60 * 1000;
 
-      const [feodoResult, urlhausResult, c2intelResult, otxResult, abuseipdbResult] = await Promise.allSettled([
+      const [feodoResult, urlhausResult, c2intelResult, otxResult, abuseipdbResult, threatfoxResult] = await Promise.allSettled([
         fetchFeodoSource(MAX_LIMIT, cutoffMs),
         fetchUrlhausSource(MAX_LIMIT, cutoffMs),
         fetchC2IntelSource(MAX_LIMIT),
         fetchOtxSource(MAX_LIMIT, days),
         fetchAbuseIpDbSource(MAX_LIMIT),
+        fetchThreatFoxSource(MAX_LIMIT, cutoffMs),
       ]);
       const fallback = { ok: false, threats: [] as any[] };
       if (feodoResult.status === 'rejected') console.warn('[cyber] feodo fetch failed, using partial results:', feodoResult.reason);
@@ -136,13 +138,15 @@ export async function listCyberThreats(
       if (c2intelResult.status === 'rejected') console.warn('[cyber] c2intel fetch failed, using partial results:', c2intelResult.reason);
       if (otxResult.status === 'rejected') console.warn('[cyber] otx fetch failed, using partial results:', otxResult.reason);
       if (abuseipdbResult.status === 'rejected') console.warn('[cyber] abuseipdb fetch failed, using partial results:', abuseipdbResult.reason);
+      if (threatfoxResult.status === 'rejected') console.warn('[cyber] threatfox fetch failed, using partial results:', threatfoxResult.reason);
       const feodo = feodoResult.status === 'fulfilled' ? feodoResult.value : fallback;
       const urlhaus = urlhausResult.status === 'fulfilled' ? urlhausResult.value : fallback;
       const c2intel = c2intelResult.status === 'fulfilled' ? c2intelResult.value : fallback;
       const otx = otxResult.status === 'fulfilled' ? otxResult.value : fallback;
       const abuseipdb = abuseipdbResult.status === 'fulfilled' ? abuseipdbResult.value : fallback;
+      const threatfox = threatfoxResult.status === 'fulfilled' ? threatfoxResult.value : fallback;
 
-      const anySucceeded = feodo.ok || urlhaus.ok || c2intel.ok || otx.ok || abuseipdb.ok;
+      const anySucceeded = feodo.ok || urlhaus.ok || c2intel.ok || otx.ok || abuseipdb.ok || threatfox.ok;
       if (!anySucceeded) return null;
 
       const combined = dedupeThreats([
@@ -151,6 +155,7 @@ export async function listCyberThreats(
         ...c2intel.threats,
         ...otx.threats,
         ...abuseipdb.threats,
+        ...threatfox.threats,
       ]);
 
       const hydrated = await hydrateThreatCoordinates(combined);

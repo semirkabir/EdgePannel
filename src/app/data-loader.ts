@@ -748,6 +748,10 @@ export class DataLoaderManager implements AppModule {
     if (this.callbacks.dataRenderer) { await this.callbacks.dataRenderer.loadFredData(); return; }
   }
 
+  async loadGlobalIndicators(): Promise<void> {
+    if (this.callbacks.dataRenderer) { await this.callbacks.dataRenderer.loadGlobalIndicators(); return; }
+  }
+
   async loadOilAnalytics(): Promise<void> {
     if (this.callbacks.dataRenderer) { await this.callbacks.dataRenderer.loadOilAnalytics(); return; }
   }

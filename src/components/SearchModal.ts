@@ -56,7 +56,7 @@ function resolveCategoryLabel(cmd: Command): string {
   return key ? t(key, { defaultValue: cmd.category }) : cmd.category;
 }
 
-export type SearchResultType = 'country' | 'news' | 'hotspot' | 'market' | 'prediction' | 'conflict' | 'base' | 'pipeline' | 'cable' | 'datacenter' | 'earthquake' | 'outage' | 'nuclear' | 'irradiator' | 'spaceport' | 'satellite' | 'techcompany' | 'ailab' | 'startup' | 'techevent' | 'techhq' | 'accelerator' | 'exchange' | 'financialcenter' | 'centralbank' | 'commodityhub' | 'company' | 'secfiling' | 'institution' | 'marketplace' | 'sanction';
+export type SearchResultType = 'country' | 'news' | 'hotspot' | 'market' | 'prediction' | 'conflict' | 'base' | 'pipeline' | 'cable' | 'datacenter' | 'earthquake' | 'outage' | 'nuclear' | 'irradiator' | 'spaceport' | 'satellite' | 'techcompany' | 'ailab' | 'startup' | 'techevent' | 'techhq' | 'accelerator' | 'exchange' | 'financialcenter' | 'centralbank' | 'commodityhub' | 'company' | 'secfiling' | 'institution' | 'marketplace' | 'sanction' | 'place';
 
 export interface SearchResult {
   type: SearchResultType;
@@ -434,7 +434,7 @@ export class SearchModal {
 
     const priority: SearchResultType[] = [
       'news', 'prediction', 'company', 'market', 'secfiling', 'institution', 'earthquake', 'outage',
-      'conflict', 'hotspot', 'country',
+      'conflict', 'hotspot', 'country', 'place',
       'sanction',
       'base', 'pipeline', 'cable', 'datacenter', 'nuclear', 'irradiator', 'spaceport', 'satellite',
       'techcompany', 'ailab', 'startup', 'techevent', 'techhq', 'accelerator',
@@ -625,6 +625,7 @@ export class SearchModal {
       financialcenter: 'Financial Centers', centralbank: 'Central Banks',
       commodityhub: 'Commodity Hubs',
       sanction: 'Sanctions',
+      place: 'Places & Entities',
       company: 'Companies & Indices',
       secfiling: 'SEC Filings',
       institution: 'Institutional Filers',
@@ -717,6 +718,7 @@ export class SearchModal {
       institution: '\u{1F3E6}',
       marketplace: '\u{1F6D2}',
       sanction: '\u{1F6AB}',
+      place: '\u{1F4CD}',
     };
 
     const frag = document.createDocumentFragment();

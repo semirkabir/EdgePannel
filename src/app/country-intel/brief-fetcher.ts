@@ -6,6 +6,9 @@ import { isHeadlineMemoryEnabled } from '@/services/ai-flow-settings';
 import { t } from '@/services/i18n';
 import { BETA_MODE } from '@/config/beta';
 import { supplementalBus } from '@/services/supplemental-signal-bus';
+import { getCachedReliefWebUpdates } from '@/services/displacement';
+import { getCachedWhoGhoIndicators } from '@/services/health/who-gho';
+import { getCountryNameByCode } from '@/services/country-geometry';
 
 export function buildBriefContextSnapshot(
   country: string,
@@ -52,6 +55,25 @@ export function buildBriefContextSnapshot(
   const supplementalCtx = supplementalBus.getAIContext(code);
   if (supplementalCtx) {
     lines.push(`Supplemental: ${supplementalCtx}`);
+  }
+
+  const countryName = getCountryNameByCode(code)?.toLowerCase();
+  if (countryName) {
+    const reliefHeadlines = getCachedReliefWebUpdates()
+      .filter((update) => update.country.toLowerCase().includes(countryName) || update.title.toLowerCase().includes(countryName))
+      .slice(0, 3)
+      .map((update) => update.title);
+    if (reliefHeadlines.length > 0) {
+      lines.push(`ReliefWeb: ${reliefHeadlines.join(' | ')}`);
+    }
+
+    const whoRows = getCachedWhoGhoIndicators()
+      .filter((row) => row.countryName.toLowerCase().includes(countryName))
+      .slice(0, 2)
+      .map((row) => `${row.indicatorName}: ${row.value.toLocaleString()} ${row.unit} (${row.year})`);
+    if (whoRows.length > 0) {
+      lines.push(`WHO GHO: ${whoRows.join(' | ')}`);
+    }
   }
 
   return lines.join('\n');

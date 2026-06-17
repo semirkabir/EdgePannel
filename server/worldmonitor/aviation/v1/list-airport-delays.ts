@@ -22,6 +22,7 @@ import {
 } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 import { cachedFetchJson, getCachedJson, setCachedJson } from '../../../_shared/redis';
+import { enrichAlertsWithSigmets, fetchActiveSigmets } from './sigmet';
 
 const FAA_CACHE_KEY = 'aviation:delays:faa:v1';
 const INTL_CACHE_KEY = 'aviation:delays:intl:v3';
@@ -200,6 +201,17 @@ export async function listAirportDelays(
         updatedAt: Date.now(),
       });
     }
+  }
+
+  // 5. Enrich with active SIGMET hazards (aviationweather.gov)
+  try {
+    const sigmets = await fetchActiveSigmets();
+    if (sigmets.length > 0) {
+      allAlerts = enrichAlertsWithSigmets(allAlerts, sigmets);
+      console.warn(`[Aviation] SIGMET: ${sigmets.length} active hazards merged`);
+    }
+  } catch (err) {
+    console.warn(`[Aviation] SIGMET enrichment failed: ${err instanceof Error ? err.message : 'unknown'}`);
   }
 
   // Write bootstrap key for initial page load hydration

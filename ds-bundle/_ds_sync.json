@@ -1,0 +1,15 @@
+{
+  "shape": "package",
+  "bundleSha12": "76b6ed18efb1",
+  "styleSha": "3fcc1159927d",
+  "renderHashes": {
+    "FilterBtn": "ae239a8a2efb",
+    "StatusChip": "740f242d472b",
+    "SysBtn": "448417a2404750",
+    "Panel": "a33e4644bf7a",
+    "PanelTabs": "e37f94d2ac3d",
+    "SysFrame": "1c41091303fe",
+    "RiskBadge": "ffe269339d63",
+    "SysLabel": "c2c16e5de36a"
+  }
+}
