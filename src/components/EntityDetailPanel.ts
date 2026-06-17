@@ -106,7 +106,7 @@ export class EntityDetailPanel extends DetailPanelBase {
     this.content.replaceChildren(skeleton);
     this.openPanel();
 
-    const imagePromise = type === 'company'
+    const imagePromise = (type === 'company' || type === 'crypto')
       ? Promise.resolve(null)
       : resolveEntityHeroImage(type, data, this.abortController.signal).catch(() => null);
 

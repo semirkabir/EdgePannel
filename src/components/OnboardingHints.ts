@@ -1,34 +1,28 @@
 /**
  * OnboardingHints — lightweight first-run hints for power features.
  *
- * Each hint is a small anchored chip pointing at a UI element. Hints appear
- * after a short delay on first visit, are individually dismissible, and all
- * disappear permanently when the user clicks "Got it, dismiss all".
- *
- * State is stored in localStorage under `wm-ui-power-hints-dismissed-v1`.
+ * Shows one hint at a time. After "Got it" the next hint appears; "Dismiss all"
+ * clears every remaining hint permanently. State stored in localStorage.
  */
 
 import { UI_PREFERENCE_KEYS } from '@/app/ui-preferences';
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
 interface HintDef {
   id: string;
-  /** CSS selector for the anchor element */
   anchor: string;
   title: string;
   body: string;
-  /** Preferred position relative to anchor. Default 'below'. */
   placement?: 'below' | 'above' | 'left' | 'right';
 }
 
-/* ------------------------------------------------------------------ */
-/*  Hint definitions                                                   */
-/* ------------------------------------------------------------------ */
-
 const HINTS: HintDef[] = [
+  {
+    id: 'panel-drag',
+    anchor: '.panels-grid .panel-header',
+    title: 'Drag to reorder',
+    body: 'Drag any panel header to reorder panels. Your layout is saved automatically.',
+    placement: 'above',
+  },
   {
     id: 'search',
     anchor: '#searchBtn',
@@ -42,13 +36,6 @@ const HINTS: HintDef[] = [
     title: 'Layer controls',
     body: 'Toggle 45+ data layers: cables, satellites, shipping, conflicts, and more.',
     placement: 'below',
-  },
-  {
-    id: 'panel-drag',
-    anchor: '.panels-grid .panel-header',
-    title: 'Drag to reorder',
-    body: 'Drag any panel header to reorder panels. Your layout is saved automatically.',
-    placement: 'above',
   },
   {
     id: 'right-panel',
@@ -65,10 +52,6 @@ const HINTS: HintDef[] = [
     placement: 'below',
   },
 ];
-
-/* ------------------------------------------------------------------ */
-/*  Storage helpers                                                    */
-/* ------------------------------------------------------------------ */
 
 const STORAGE_KEY = UI_PREFERENCE_KEYS.powerHintsDismissed;
 
@@ -93,68 +76,60 @@ function areAllDismissed(): boolean {
   return HINTS.every(h => dismissed.has(h.id));
 }
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
+type ChipEl = HTMLElement & { _anchor?: HTMLElement };
 
 export class OnboardingHints {
   private container: HTMLElement | null = null;
-  private chips = new Map<string, HTMLElement>();
+  private currentChip: ChipEl | null = null;
+  private queue: HintDef[] = [];
+  private queueIndex = 0;
   private resizeObserver: ResizeObserver | null = null;
-  private mutationObserver: MutationObserver | null = null;
 
   init(): void {
-    // Don't show on mobile or if all already dismissed
     if (window.innerWidth < 900 || areAllDismissed()) return;
-
-    // Wait until after initial render
     setTimeout(() => this.mount(), 1800);
   }
 
   private mount(): void {
     if (areAllDismissed()) return;
 
+    const dismissed = getDismissedSet();
+    this.queue = HINTS.filter(h => !dismissed.has(h.id));
+    if (this.queue.length === 0) return;
+
     this.container = document.createElement('div');
     this.container.className = 'ohint-layer';
     this.container.setAttribute('aria-live', 'polite');
     document.body.appendChild(this.container);
 
-    const dismissed = getDismissedSet();
-    for (const hint of HINTS) {
-      if (dismissed.has(hint.id)) continue;
-      const anchor = this.resolveAnchor(hint.anchor);
-      if (!anchor) continue;
-      this.createChip(hint, anchor);
-    }
-
-    if (this.chips.size === 0) {
-      this.destroy();
-      return;
-    }
-
-    // Re-position on resize
-    this.resizeObserver = new ResizeObserver(() => this.repositionAll());
+    this.resizeObserver = new ResizeObserver(() => this.repositionCurrent());
     this.resizeObserver.observe(document.documentElement);
 
-    // Watch for anchor elements appearing later (e.g. detail panels)
-    this.mutationObserver = new MutationObserver(() => this.checkForNewAnchors());
-    this.mutationObserver.observe(document.body, { childList: true, subtree: true });
+    this.advance();
   }
 
-  private resolveAnchor(selector: string): HTMLElement | null {
-    const parts = selector.split(',').map(s => s.trim());
-    for (const sel of parts) {
-      const el = document.querySelector<HTMLElement>(sel);
-      if (el) return el;
+  private advance(): void {
+    while (this.queueIndex < this.queue.length) {
+      const hint = this.queue[this.queueIndex];
+      if (!hint) { this.queueIndex++; continue; }
+      const anchor = this.resolveAnchor(hint.anchor);
+      if (anchor) {
+        this.showHint(hint, anchor);
+        return;
+      }
+      // anchor not in DOM — skip this hint silently
+      this.queueIndex++;
     }
-    return null;
+    this.destroy();
   }
 
-  private createChip(hint: HintDef, anchor: HTMLElement): void {
-    const chip = document.createElement('div');
+  private showHint(hint: HintDef, anchor: HTMLElement): void {
+    const remaining = this.queue.length - this.queueIndex;
+    const chip: ChipEl = document.createElement('div');
     chip.className = 'ohint-chip';
     chip.dataset.hintId = hint.id;
     chip.dataset.placement = hint.placement ?? 'below';
+    chip._anchor = anchor;
 
     const titleEl = document.createElement('div');
     titleEl.className = 'ohint-title';
@@ -169,8 +144,8 @@ export class OnboardingHints {
 
     const dismissOne = document.createElement('button');
     dismissOne.className = 'ohint-dismiss-one';
-    dismissOne.textContent = 'Got it';
-    dismissOne.addEventListener('click', () => this.dismissHint(hint.id));
+    dismissOne.textContent = remaining > 1 ? 'Got it  →' : 'Got it';
+    dismissOne.addEventListener('click', () => this.dismissCurrent(hint.id));
 
     const dismissAll = document.createElement('button');
     dismissAll.className = 'ohint-dismiss-all';
@@ -180,119 +155,105 @@ export class OnboardingHints {
     actions.append(dismissOne, dismissAll);
     chip.append(titleEl, bodyEl, actions);
 
-    // Animate in with stagger
     chip.style.opacity = '0';
     chip.style.transform = 'translateY(6px)';
     this.container!.appendChild(chip);
-    this.chips.set(hint.id, chip);
+    this.currentChip = chip;
 
-    this.positionChip(chip, anchor, hint.placement ?? 'below');
-
-    // Stagger entry animation
-    const delay = this.chips.size * 120;
-    setTimeout(() => {
-      chip.style.transition = 'opacity 0.3s var(--ease-reveal, ease), transform 0.3s var(--ease-reveal, ease)';
-      chip.style.opacity = '1';
-      chip.style.transform = '';
-    }, delay);
-
-    // Store anchor reference for repositioning
-    (chip as HTMLElement & { _anchor?: HTMLElement })._anchor = anchor;
+    const placement = hint.placement ?? 'below';
+    // Two rAFs: first lets the browser measure chip height, second triggers the transition
+    requestAnimationFrame(() => {
+      this.positionChip(chip, anchor, placement);
+      requestAnimationFrame(() => {
+        chip.style.transition = 'opacity 0.3s var(--ease-reveal, ease), transform 0.3s var(--ease-reveal, ease)';
+        chip.style.opacity = '1';
+        chip.style.transform = '';
+      });
+    });
   }
 
-  private positionChip(
-    chip: HTMLElement,
-    anchor: HTMLElement,
-    placement: HintDef['placement'],
-  ): void {
-    const rect = anchor.getBoundingClientRect();
-    if (!rect.width && !rect.height) return; // anchor not visible yet
-
-    const gap = 10;
-    const chipW = 240;
-
-    chip.style.position = 'fixed';
-    chip.style.width = `${chipW}px`;
-    chip.style.zIndex = '10020';
-
-    switch (placement) {
-      case 'above':
-        chip.style.left = `${Math.min(Math.max(rect.left, 8), window.innerWidth - chipW - 8)}px`;
-        chip.style.top = ''; // set after measuring chip height
-        // We'll set top after the element is in DOM
-        requestAnimationFrame(() => {
-          chip.style.top = `${rect.top - chip.offsetHeight - gap}px`;
-        });
-        break;
-      case 'left':
-        chip.style.left = `${Math.max(rect.left - chipW - gap, 8)}px`;
-        chip.style.top = `${rect.top + rect.height / 2 - 40}px`;
-        break;
-      case 'right':
-        chip.style.left = `${Math.min(rect.right + gap, window.innerWidth - chipW - 8)}px`;
-        chip.style.top = `${rect.top + rect.height / 2 - 40}px`;
-        break;
-      default: // below
-        chip.style.left = `${Math.min(Math.max(rect.left, 8), window.innerWidth - chipW - 8)}px`;
-        chip.style.top = `${rect.bottom + gap}px`;
-        break;
-    }
-  }
-
-  private repositionAll(): void {
-    for (const [id, chip] of this.chips) {
-      const hint = HINTS.find(h => h.id === id);
-      const anchor = (chip as HTMLElement & { _anchor?: HTMLElement })._anchor;
-      if (hint && anchor) {
-        this.positionChip(chip, anchor, hint.placement ?? 'below');
-      }
-    }
-  }
-
-  private checkForNewAnchors(): void {
-    const dismissed = getDismissedSet();
-    for (const hint of HINTS) {
-      if (dismissed.has(hint.id) || this.chips.has(hint.id)) continue;
-      const anchor = this.resolveAnchor(hint.anchor);
-      if (anchor && this.container) {
-        this.createChip(hint, anchor);
-      }
-    }
-  }
-
-  private dismissHint(id: string): void {
-    const chip = this.chips.get(id);
-    if (chip) {
-      chip.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-      chip.style.opacity = '0';
-      chip.style.transform = 'translateY(-4px)';
-      setTimeout(() => chip.remove(), 220);
-      this.chips.delete(id);
-    }
+  private dismissCurrent(id: string): void {
     const dismissed = getDismissedSet();
     dismissed.add(id);
     saveDismissedSet(dismissed);
-
-    if (this.chips.size === 0) this.destroy();
+    this.animateOutCurrentChip(() => {
+      this.queueIndex++;
+      this.advance();
+    });
   }
 
   private dismissAll(): void {
     const allIds = new Set(HINTS.map(h => h.id));
     saveDismissedSet(allIds);
-    // Animate all chips out
-    for (const chip of this.chips.values()) {
-      chip.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-      chip.style.opacity = '0';
-      chip.style.transform = 'translateY(-4px)';
+    this.animateOutCurrentChip(() => this.destroy());
+  }
+
+  private animateOutCurrentChip(onDone: () => void): void {
+    const chip = this.currentChip;
+    if (!chip) { onDone(); return; }
+    chip.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+    chip.style.opacity = '0';
+    chip.style.transform = 'translateY(-4px)';
+    this.currentChip = null;
+    setTimeout(() => {
+      chip.remove();
+      onDone();
+    }, 220);
+  }
+
+  private resolveAnchor(selector: string): HTMLElement | null {
+    for (const sel of selector.split(',').map(s => s.trim())) {
+      const el = document.querySelector<HTMLElement>(sel);
+      if (el) return el;
     }
-    setTimeout(() => this.destroy(), 250);
+    return null;
+  }
+
+  private positionChip(chip: HTMLElement, anchor: HTMLElement, placement: HintDef['placement']): void {
+    const rect = anchor.getBoundingClientRect();
+    if (!rect.width && !rect.height) return;
+
+    const gap = 10;
+    const chipW = 260;
+
+    chip.style.position = 'fixed';
+    chip.style.width = `${chipW}px`;
+    chip.style.zIndex = '10020';
+
+    const clampLeft = (x: number) => Math.min(Math.max(x, 8), window.innerWidth - chipW - 8);
+
+    switch (placement) {
+      case 'above':
+        chip.style.left = `${clampLeft(rect.left)}px`;
+        chip.style.top = `${Math.max(rect.top - chip.offsetHeight - gap, 8)}px`;
+        break;
+      case 'left':
+        chip.style.left = `${Math.max(rect.left - chipW - gap, 8)}px`;
+        chip.style.top = `${Math.max(rect.top + rect.height / 2 - 40, 8)}px`;
+        break;
+      case 'right':
+        chip.style.left = `${clampLeft(rect.right + gap)}px`;
+        chip.style.top = `${Math.max(rect.top + rect.height / 2 - 40, 8)}px`;
+        break;
+      default: // below
+        chip.style.left = `${clampLeft(rect.left)}px`;
+        chip.style.top = `${rect.bottom + gap}px`;
+    }
+  }
+
+  private repositionCurrent(): void {
+    const chip = this.currentChip;
+    if (!chip || !chip._anchor) return;
+    const hint = this.queue[this.queueIndex];
+    const placement = hint?.placement ?? 'below';
+    this.positionChip(chip, chip._anchor, placement);
   }
 
   private destroy(): void {
     this.resizeObserver?.disconnect();
-    this.mutationObserver?.disconnect();
+    this.currentChip?.remove();
     this.container?.remove();
     this.container = null;
-    this.chips.clear();
+    this.currentChip = null;
   }
 }

@@ -29201,8 +29201,14 @@ body[data-panel-density="comfortable"] .panel-tabs {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px;
-  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  background: var(--surface-2);
+  color: var(--text);
   cursor: var(--wm-cursor-pointer);
+  transition: background 0.15s, border-color 0.15s;
+}
+.workspace-setup-card:hover {
+  background: var(--surface-3, color-mix(in srgb, var(--surface-2) 80%, var(--accent, #fff)));
+  border-color: var(--border-hover, var(--accent, rgba(255,255,255,0.3)));
 }
 .workspace-setup-card span {
   color: var(--text-dim);

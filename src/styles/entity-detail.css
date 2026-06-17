@@ -6089,19 +6089,26 @@
   border-radius: 14px;
   background: var(--ui-surface-elevated, #17181c);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 
+  box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 16px rgba(255, 255, 255, 0.14),
+    0 0 36px rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 5px;
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.15), border-color 0.2s;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.15), border-color 0.2s, box-shadow 0.2s;
 }
 
 .cp-brand-badge:hover {
   transform: scale(1.05);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 24px rgba(255, 255, 255, 0.22),
+    0 0 52px rgba(255, 255, 255, 0.10);
 }
 
 .cp-brand-badge-img {
@@ -6121,12 +6128,12 @@
 
 .cp-header-blur-logo {
   position: absolute;
-  right: -20px;
-  top: -20px;
-  width: 120px;
-  height: 120px;
+  right: -16px;
+  top: -16px;
+  width: 130px;
+  height: 130px;
   object-fit: contain;
-  filter: blur(36px) opacity(0.18);
+  filter: blur(28px) opacity(0.32);
   z-index: 1;
   pointer-events: none;
   animation: cp-ambient-pulse 8s infinite alternate ease-in-out;
@@ -6135,11 +6142,11 @@
 @keyframes cp-ambient-pulse {
   0% {
     transform: scale(1.4) rotate(0deg);
-    filter: blur(36px) opacity(0.15);
+    filter: blur(28px) opacity(0.28);
   }
   100% {
     transform: scale(1.65) rotate(4deg);
-    filter: blur(42px) opacity(0.22);
+    filter: blur(36px) opacity(0.38);
   }
 }
 

@@ -270,6 +270,16 @@ export class CryptoRenderer implements EntityRenderer {
     const coin = data as CryptoData;
     const container = ctx.el('div', 'edp-generic edp-crypto-detail');
 
+    // Coin logo (top-right absolute, per .edp-crypto-detail .edp-auto-hero CSS)
+    const sym = coin.symbol.toLowerCase();
+    const hero = ctx.el('section', 'edp-auto-hero');
+    const logoImg = ctx.el('img', 'edp-auto-hero-img') as HTMLImageElement;
+    logoImg.src = `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/${sym}.svg`;
+    logoImg.alt = coin.name + ' logo';
+    logoImg.onerror = () => { hero.style.display = 'none'; };
+    hero.append(logoImg);
+    container.append(hero);
+
     // Header
     const header = ctx.el('div', 'edp-header');
     header.append(ctx.el('div', 'crypto-edp-badge', coin.symbol.slice(0, 5).toUpperCase()));
