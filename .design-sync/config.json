@@ -2,5 +2,6 @@
   "projectId": "b7046e43-1e2a-4bf4-9f47-f766abf48c14",
   "shape": "package",
   "pkg": "ds-bundle",
-  "readmeHeader": ".design-sync/conventions.md"
+  "readmeHeader": ".design-sync/conventions.md",
+  "runtimeFontPrefixes": ["SF Mono", "Monaco", "Cascadia Code", "Fira Code", "Inter", "DejaVu Sans Mono"]
 }
