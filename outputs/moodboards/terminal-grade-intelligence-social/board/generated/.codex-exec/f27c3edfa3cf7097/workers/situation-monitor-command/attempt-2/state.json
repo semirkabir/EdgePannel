@@ -1,0 +1,8 @@
+{
+  "id": "situation-monitor-command",
+  "status": "running",
+  "attempt": 2,
+  "pid": 39820,
+  "startedAt": "2026-06-18T16:13:47.296758+00:00",
+  "lastHeartbeatAt": "2026-06-18T16:14:25.117689+00:00"
+}

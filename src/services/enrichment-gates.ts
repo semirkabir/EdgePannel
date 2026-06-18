@@ -28,6 +28,7 @@ const ENRICHMENT_DATA_SOURCE_IDS: Partial<Record<EnrichmentSourceName, DataSourc
   [ENRICHMENT_SOURCES.AIRSIGMET]: 'airsigmet',
   [ENRICHMENT_SOURCES.DEFILLAMA]: 'defillama',
   [ENRICHMENT_SOURCES.GLOBAL_INDICATORS]: 'global_indicators',
+  [ENRICHMENT_SOURCES.CISA_KEV]: 'cisa_kev',
   [ENRICHMENT_SOURCES.THREATFOX]: 'threatfox',
   [ENRICHMENT_SOURCES.OPENSANCTIONS]: 'opensanctions',
   [ENRICHMENT_SOURCES.MANIFOLD]: 'manifold',

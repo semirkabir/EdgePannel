@@ -1,0 +1,8 @@
+{
+  "id": "news-cluster-constellation",
+  "status": "running",
+  "attempt": 2,
+  "pid": 38588,
+  "startedAt": "2026-06-18T16:13:35.454853+00:00",
+  "lastHeartbeatAt": "2026-06-18T16:14:25.114681+00:00"
+}

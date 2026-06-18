@@ -32,6 +32,7 @@ type HarnessWindow = Window & {
     forcePulseStartupElapsed: () => void;
     resetPulseStartupTime: () => void;
     isPulseAnimationRunning: () => boolean;
+    setGlobeProjection: (enabled: boolean) => boolean;
     setZoom: (zoom: number) => void;
     setLayersForSnapshot: (enabledLayers: string[]) => void;
     setCamera: (camera: { lon: number; lat: number; zoom: number }) => void;
@@ -42,6 +43,7 @@ type HarnessWindow = Window & {
     getDeckLayerSnapshot: () => LayerSnapshot[];
     getLayerDataCount: (layerId: string) => number;
     getLayerFirstScreenTransform: (layerId: string) => string | null;
+    showFirstLayerPopup: (layerId: string) => string | null;
     getFirstProtestTitle: () => string | null;
     getProtestClusterCount: () => number;
     getOverlaySnapshot: () => OverlaySnapshot;
@@ -326,6 +328,81 @@ test.describe('DeckGL map harness', () => {
         });
       }, { timeout: 30000 })
       .toBeGreaterThan(0);
+  });
+
+  test('clusters AI datacenters at low zoom and opens popups in flat and globe projection', async ({ page }) => {
+    await waitForHarnessReady(page);
+
+    await page.evaluate(() => {
+      const w = window as HarnessWindow;
+      w.__mapHarness?.setLayersForSnapshot(['datacenters']);
+      w.__mapHarness?.setCamera({ lon: -121.9, lat: 37.3, zoom: 3 });
+    });
+
+    await expect
+      .poll(async () => page.evaluate(() => {
+        const w = window as HarnessWindow;
+        return w.__mapHarness?.getLayerDataCount('datacenter-clusters-layer') ?? 0;
+      }), { timeout: 30000 })
+      .toBeGreaterThan(0);
+
+    expect(await page.evaluate(() => {
+      const w = window as HarnessWindow;
+      return w.__mapHarness?.getLayerDataCount('datacenters-layer') ?? -1;
+    })).toBe(0);
+
+    const flatClusterPopup = await page.evaluate(() => {
+      const w = window as HarnessWindow;
+      return w.__mapHarness?.showFirstLayerPopup('datacenter-clusters-layer') ?? '';
+    });
+    expect(flatClusterPopup).toMatch(/United States|chips|OpenAI|Microsoft|Meta|Amazon/i);
+
+    await page.evaluate(() => {
+      const w = window as HarnessWindow;
+      w.__mapHarness?.setCamera({ lon: -121.9, lat: 37.3, zoom: 6 });
+    });
+
+    await expect
+      .poll(async () => page.evaluate(() => {
+        const w = window as HarnessWindow;
+        return w.__mapHarness?.getLayerDataCount('datacenters-layer') ?? 0;
+      }), { timeout: 30000 })
+      .toBeGreaterThan(0);
+
+    expect(await page.evaluate(() => {
+      const w = window as HarnessWindow;
+      return w.__mapHarness?.getLayerDataCount('datacenter-clusters-layer') ?? -1;
+    })).toBe(0);
+
+    const flatSitePopup = await page.evaluate(() => {
+      const w = window as HarnessWindow;
+      return w.__mapHarness?.showFirstLayerPopup('datacenters-layer') ?? '';
+    });
+    expect(flatSitePopup).toMatch(/OpenAI\/Microsoft Mt Pleasant|GPU|NVIDIA|United States/i);
+
+    const globeEnabled = await page.evaluate(() => {
+      const w = window as HarnessWindow;
+      return w.__mapHarness?.setGlobeProjection(true) ?? false;
+    });
+    expect(globeEnabled).toBe(true);
+
+    await page.evaluate(() => {
+      const w = window as HarnessWindow;
+      w.__mapHarness?.setCamera({ lon: -121.9, lat: 37.3, zoom: 3 });
+    });
+
+    await expect
+      .poll(async () => page.evaluate(() => {
+        const w = window as HarnessWindow;
+        return w.__mapHarness?.getLayerDataCount('datacenter-clusters-layer') ?? 0;
+      }), { timeout: 30000 })
+      .toBeGreaterThan(0);
+
+    const globeClusterPopup = await page.evaluate(() => {
+      const w = window as HarnessWindow;
+      return w.__mapHarness?.showFirstLayerPopup('datacenter-clusters-layer') ?? '';
+    });
+    expect(globeClusterPopup).toMatch(/United States|chips|OpenAI|Microsoft|Meta|Amazon/i);
   });
 
   test('sanitizes cyber threat tooltip content', async ({ page }) => {

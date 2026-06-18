@@ -340,19 +340,38 @@ export function renderMilitaryVesselClusterPopup(cluster: MilitaryVesselCluster)
 
 export function renderAircraftPopup(pos: import('@/services/aviation').PositionSample): string {
   const callsign = escapeHtml(pos.callsign || pos.icao24);
-  const onGroundBadge = pos.onGround ? 'low' : 'elevated';
+  const onGroundBadge = pos.stale ? 'low' : pos.onGround ? 'low' : 'elevated';
   const statusLabel = pos.onGround ? t('popups.aircraft.ground') : t('popups.aircraft.airborne');
   const altDisplay = pos.altitudeFt > 0 ? `FL${Math.round(pos.altitudeFt / 100)} (${pos.altitudeFt.toLocaleString()} ft)` : t('popups.aircraft.ground');
+  const observedAt = pos.observedAt instanceof Date ? pos.observedAt : new Date(pos.observedAt);
+  const lastContactAt = pos.lastContactAt instanceof Date ? pos.lastContactAt : new Date(pos.lastContactAt || observedAt);
+  const ageSec = Math.max(0, Math.round((Date.now() - observedAt.getTime()) / 1000));
+  const ageLabel = Number.isFinite(ageSec)
+    ? ageSec < 60 ? `${ageSec}s ago` : `${Math.round(ageSec / 60)}m ago`
+    : 'unknown';
+  const providerLabel = escapeHtml(pos.provider || pos.source || 'unknown');
+  const sourceTech = pos.positionSource && pos.positionSource !== 'unknown'
+    ? ` (${escapeHtml(pos.positionSource.toUpperCase())})`
+    : '';
+  const freshnessBadge = pos.freshness === 'live'
+    ? `<span class="popup-badge elevated">LIVE</span>`
+    : pos.freshness === 'recent'
+      ? `<span class="popup-badge low">RECENT</span>`
+      : `<span class="popup-badge low">STALE</span>`;
+  const verticalRate = Number.isFinite(pos.verticalRateMps)
+    ? `${pos.verticalRateMps > 0 ? '+' : ''}${Math.round(pos.verticalRateMps * 196.85)} fpm`
+    : 'n/a';
 
   return `
     <div class="popup-header aircraft">
       <span class="popup-icon">&#9992;</span>
       <span class="popup-title">${callsign}</span>
       <span class="popup-badge ${onGroundBadge}">${statusLabel}</span>
+      ${freshnessBadge}
       <button class="popup-close" aria-label="Close">×</button>
     </div>
     <div class="popup-body">
-      <div class="popup-subtitle">ICAO24: ${escapeHtml(pos.icao24)}</div>
+      <div class="popup-subtitle">ICAO24: ${escapeHtml(pos.icao24)}${pos.originCountry ? ` · ${escapeHtml(pos.originCountry)}` : ''}</div>
       <div class="popup-stats">
         <div class="popup-stat">
           <span class="stat-label">${t('popups.aircraft.altitude')}</span>
@@ -367,18 +386,31 @@ export function renderAircraftPopup(pos: import('@/services/aviation').PositionS
           <span class="stat-value">${Math.round(pos.trackDeg)}&deg;</span>
         </div>
         <div class="popup-stat">
+          <span class="stat-label">Vertical</span>
+          <span class="stat-value">${verticalRate}</span>
+        </div>
+        <div class="popup-stat">
           <span class="stat-label">${t('popups.aircraft.position')}</span>
           <span class="stat-value">${pos.lat.toFixed(4)}&deg;, ${pos.lon.toFixed(4)}&deg;</span>
         </div>
         <div class="popup-stat">
           <span class="stat-label">${t('popups.source')}</span>
-          <span class="stat-value">${escapeHtml(pos.source)}</span>
+          <span class="stat-value">${providerLabel}${sourceTech}</span>
+        </div>
+        <div class="popup-stat">
+          <span class="stat-label">Category</span>
+          <span class="stat-value">${pos.aircraftCategory || 'n/a'}</span>
         </div>
         <div class="popup-stat">
           <span class="stat-label">${t('popups.updated')}</span>
-          <span class="stat-value">${pos.observedAt.toLocaleTimeString()}</span>
+          <span class="stat-value">${observedAt.toLocaleTimeString()} (${ageLabel})</span>
+        </div>
+        <div class="popup-stat">
+          <span class="stat-label">Last contact</span>
+          <span class="stat-value">${lastContactAt.toLocaleTimeString()}</span>
         </div>
       </div>
+      ${pos.stale ? `<p class="popup-description alert">Position is stale. Treat heading and altitude as last reported, not current.</p>` : ''}
     </div>
   `;
 }

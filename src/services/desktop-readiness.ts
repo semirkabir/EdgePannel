@@ -78,6 +78,16 @@ export const DESKTOP_PARITY_FEATURES: DesktopParityFeature[] = [
     priority: 1,
   },
   {
+    id: 'cisa-kev',
+    panel: 'SecurityNewsPanel',
+    serviceFiles: ['src/services/cyber/kev.ts'],
+    apiRoutes: ['/api/cyber/v1/list-known-exploited-vulns'],
+    apiHandlers: ['server/worldmonitor/cyber/v1/handler.ts'],
+    locality: 'api-key',
+    fallback: 'Security news remains available when the KEV catalog cannot be refreshed.',
+    priority: 2,
+  },
+  {
     id: 'summaries',
     panel: 'Summaries',
     serviceFiles: ['src/services/summarization.ts'],

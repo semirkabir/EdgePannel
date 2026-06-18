@@ -1,0 +1,1 @@
+Generated exactly one PNG image with the native `image_gen.imagegen` tool.

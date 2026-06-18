@@ -902,10 +902,15 @@ export class EventHandlerManager implements AppModule {
       },
       getDisabledSources: () => this.ctx.disabledSources,
       toggleSource: (name: string) => {
-        if (this.ctx.uiStore.isSourceEnabled(name)) {
-          this.ctx.uiStore.disableSource(name);
-        } else {
+        const enabled = !this.ctx.uiStore.isSourceEnabled(name);
+        if (enabled) {
           this.ctx.uiStore.enableSource(name);
+        } else {
+          this.ctx.uiStore.disableSource(name);
+        }
+        const enrichmentDataSourceId = getEnrichmentDataSourceId(name);
+        if (enrichmentDataSourceId) {
+          dataFreshness.setEnabled(enrichmentDataSourceId, enabled);
         }
         saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.uiStore.disabledSources));
       },
@@ -913,6 +918,10 @@ export class EventHandlerManager implements AppModule {
         for (const name of names) {
           if (enabled) this.ctx.uiStore.enableSource(name);
           else this.ctx.uiStore.disableSource(name);
+          const enrichmentDataSourceId = getEnrichmentDataSourceId(name);
+          if (enrichmentDataSourceId) {
+            dataFreshness.setEnabled(enrichmentDataSourceId, enabled);
+          }
         }
         saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.uiStore.disabledSources));
       },

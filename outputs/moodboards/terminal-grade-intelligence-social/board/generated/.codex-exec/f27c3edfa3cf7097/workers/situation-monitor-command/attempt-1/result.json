@@ -1,0 +1,6 @@
+{
+  "id": "situation-monitor-command",
+  "status": "failed",
+  "image_path": null,
+  "error": "Worker exited with code 0."
+}

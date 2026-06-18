@@ -102,6 +102,7 @@ type MapHarness = {
   forcePulseStartupElapsed: () => void;
   resetPulseStartupTime: () => void;
   isPulseAnimationRunning: () => boolean;
+  setGlobeProjection: (enabled: boolean) => boolean;
   setZoom: (zoom: number) => void;
   setLayersForSnapshot: (enabledLayers: HarnessLayerKey[]) => void;
   setCamera: (camera: CameraState) => void;
@@ -112,6 +113,7 @@ type MapHarness = {
   getDeckLayerSnapshot: () => LayerSnapshot[];
   getLayerDataCount: (layerId: string) => number;
   getLayerFirstScreenTransform: (layerId: string) => string | null;
+  showFirstLayerPopup: (layerId: string) => string | null;
   getFirstProtestTitle: () => string | null;
   getProtestClusterCount: () => number;
   getOverlaySnapshot: () => OverlaySnapshot;
@@ -286,10 +288,12 @@ const internals = map as unknown as {
   buildLayers?: () => Array<{ id: string; props?: { data?: unknown } }>;
   maplibreMap?: MapLibreMap;
   getTooltip?: (info: { object?: unknown; layer?: { id?: string } }) => { html?: string } | null;
+  handleClick?: (info: { object?: unknown; layer?: { id?: string }; x: number; y: number }) => void;
   newsLocationFirstSeen?: Map<string, number>;
   newsPulseIntervalId?: ReturnType<typeof setInterval> | null;
   startupTime?: number;
   stopPulseAnimation?: () => void;
+  setGlobeProjection?: (enabled: boolean) => boolean;
 };
 
 const buildLayerState = (enabledLayers: HarnessLayerKey[]): MapLayers => {
@@ -372,6 +376,16 @@ const getLayerFirstScreenTransform = (layerId: string): string | null => {
 
   const point = maplibreMap.project([lon as number, lat as number]);
   return `translate(${point.x.toFixed(2)}px, ${point.y.toFixed(2)}px)`;
+};
+
+const showFirstLayerPopup = (layerId: string): string | null => {
+  const layers = internals.buildLayers?.() ?? [];
+  const target = layers.find((layer) => layer.id === layerId);
+  const data = target?.props?.data;
+  const first = Array.isArray(data) ? data[0] : null;
+  if (!first || !internals.handleClick) return null;
+  internals.handleClick({ object: first, layer: { id: layerId }, x: 320, y: 240 });
+  return document.querySelector('.map-popup')?.textContent ?? null;
 };
 
 const getFirstProtestTitle = (): string | null => {
@@ -1294,6 +1308,11 @@ window.__mapHarness = {
   isPulseAnimationRunning: (): boolean => {
     return internals.newsPulseIntervalId != null;
   },
+  setGlobeProjection: (enabled: boolean): boolean => {
+    const result = internals.setGlobeProjection?.(enabled) ?? false;
+    map.render();
+    return result;
+  },
   setZoom: (zoom: number): void => {
     map.setZoom(zoom);
     map.render();
@@ -1312,6 +1331,7 @@ window.__mapHarness = {
   getDeckLayerSnapshot,
   getLayerDataCount,
   getLayerFirstScreenTransform,
+  showFirstLayerPopup,
   getFirstProtestTitle,
   getProtestClusterCount,
   getOverlaySnapshot,

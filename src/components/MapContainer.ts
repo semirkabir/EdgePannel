@@ -507,6 +507,18 @@ export class MapContainer {
     if (this.useDeckGL) { this.deckGLMap?.setMilitaryFlights(flights, clusters); } else { this.svgMap?.setMilitaryFlights(flights, clusters); }
   }
 
+  public followAircraft(icao24: string): void {
+    this.deckGLMap?.followAircraft(icao24);
+  }
+
+  public unfollowAircraft(): void {
+    this.deckGLMap?.unfollowAircraft();
+  }
+
+  public getFollowedAircraft(): string | null {
+    return this.deckGLMap?.getFollowedAircraft() ?? null;
+  }
+
   public setMilitaryVessels(vessels: MilitaryVessel[], clusters: MilitaryVesselCluster[] = []): void {
     this.cachedMilitaryVessels = vessels;
     this.cachedMilitaryVesselClusters = clusters;

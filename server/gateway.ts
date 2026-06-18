@@ -66,6 +66,7 @@ const RPC_CACHE_TIER: Record<string, CacheTier> = {
 
   '/api/unrest/v1/list-unrest-events': 'slow',
   '/api/cyber/v1/list-cyber-threats': 'slow',
+  '/api/cyber/v1/list-known-exploited-vulns': 'static',
   '/api/conflict/v1/list-acled-events': 'slow',
   '/api/military/v1/get-theater-posture': 'slow',
   '/api/infrastructure/v1/get-temporal-baseline': 'slow',

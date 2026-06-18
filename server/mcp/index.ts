@@ -133,6 +133,15 @@ endpointTool(
   {},
   `${BASE}/cyber/v1/list-cyber-threats`,
 );
+endpointTool(
+  'list_known_exploited_vulns', 'List CISA Known Exploited Vulnerabilities catalog entries.',
+  {
+    page_size: { type: 'number', description: 'Number of CVEs to return (default 25, max 100).' },
+    cursor: { type: 'string', description: 'Pagination cursor from a previous response.' },
+    search: { type: 'string', description: 'Optional search across CVE, vendor, product, and vulnerability title.' },
+  },
+  `${BASE}/cyber/v1/list-known-exploited-vulns`,
+);
 
 // Conflict
 endpointTool(

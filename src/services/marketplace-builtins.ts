@@ -351,6 +351,7 @@ const EXTRA_BUILT_IN_PROVIDERS: ExtraBuiltInProvider[] = [
     sourceName: 'CISA KEV',
     category: 'cyber',
     panelId: 'security',
+    dataSourceId: 'cisa_kev',
     description: 'CISA Known Exploited Vulnerabilities data highlights actively exploited CVEs in the security news panel.',
     tags: ['built-in', 'service', 'cyber', 'cisa', 'kev', 'vulnerabilities'],
     upstreams: ['https://www.cisa.gov/known-exploited-vulnerabilities-catalog'],

@@ -12,6 +12,7 @@ import { CHROME_UA } from '../../../_shared/constants';
 const CACHE_TTL = 120;
 const NEGATIVE_CACHE_TTL = 15;
 const MAX_POSITION_AGE_MS = 20 * 60 * 1000;
+const STALE_POSITION_AGE_MS = 2 * 60 * 1000;
 
 interface OpenSkyResponse {
     states?: unknown[][];
@@ -27,7 +28,8 @@ function parseOpenSkyStates(states: unknown[][]): PositionSample[] {
         const icao24 = String(state[0] ?? '').trim().toLowerCase();
         const lon = Number(state[5]);
         const lat = Number(state[6]);
-        const observedAt = Number(state[4] ?? (now / 1000)) * 1000;
+        const observedAt = Number(state[3] ?? state[4] ?? (now / 1000)) * 1000;
+        const lastContactAt = Number(state[4] ?? state[3] ?? (now / 1000)) * 1000;
         if (!icao24 || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
         if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
         if (Number.isFinite(observedAt) && now - observedAt > MAX_POSITION_AGE_MS) continue;
@@ -44,6 +46,11 @@ function parseOpenSkyStates(states: unknown[][]): PositionSample[] {
             onGround: Boolean(state[8]),
             source: 'POSITION_SOURCE_OPENSKY',
             observedAt,
+            originCountry: String(state[2] ?? '').trim(),
+            lastContactAt,
+            positionSourceCode: Number(state[16] ?? 0),
+            aircraftCategory: Number(state[17] ?? 0),
+            stale: Number.isFinite(observedAt) ? now - observedAt > STALE_POSITION_AGE_MS : true,
         };
 
         const prev = latestByHex.get(icao24);

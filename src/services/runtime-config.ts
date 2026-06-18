@@ -26,6 +26,7 @@ export type RuntimeSecretKey =
   | 'WTO_API_KEY'
   | 'AVIATIONSTACK_API'
   | 'ICAO_API_KEY'
+  | 'CESIUM_ION_TOKEN'
   | 'WM_AGENT_CONNECTORS';
 
 export type RuntimeFeatureId =
@@ -49,7 +50,8 @@ export type RuntimeFeatureId =
   | 'newsPerFeedFallback'
   | 'aviationStack'
   | 'ucdpConflicts'
-  | 'icaoNotams';
+  | 'icaoNotams'
+  | 'cesiumIon3DBuildings';
 
 export interface RuntimeFeatureDefinition {
   id: RuntimeFeatureId;
@@ -103,6 +105,7 @@ const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   newsPerFeedFallback: true,
   aviationStack: true,
   icaoNotams: true,
+  cesiumIon3DBuildings: true,
 };
 
 export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
@@ -254,6 +257,13 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     description: 'Airport closure detection for MENA airports from ICAO NOTAM data service.',
     requiredSecrets: ['ICAO_API_KEY'],
     fallback: 'Closures detected only via AviationStack flight cancellation data.',
+  },
+  {
+    id: 'cesiumIon3DBuildings',
+    name: 'Cesium ion 3D buildings',
+    description: 'Cesium ion access token for 3D OSM building tiles in globe mode (forward-looking, AeroRadar parity).',
+    requiredSecrets: ['CESIUM_ION_TOKEN'],
+    fallback: 'Globe mode uses built-in globe.gl textures without 3D building extrusions.',
   },
 ];
 

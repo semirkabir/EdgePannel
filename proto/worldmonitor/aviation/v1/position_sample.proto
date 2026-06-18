@@ -14,6 +14,10 @@ enum PositionSource {
   POSITION_SOURCE_WINGBITS = 2;
   // Simulated position data for demo mode.
   POSITION_SOURCE_SIMULATED = 3;
+  // ADSB.lol community ADS-B data.
+  POSITION_SOURCE_ADSB_LOL = 4;
+  // airplanes.live community ADS-B data.
+  POSITION_SOURCE_AIRPLANES_LIVE = 5;
 }
 
 // PositionSample represents a single aircraft position observation.
@@ -40,4 +44,14 @@ message PositionSample {
   PositionSource source = 10;
   // Observation time as Unix epoch milliseconds.
   int64 observed_at = 11 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  // Country inferred from the ICAO 24-bit address when available.
+  string origin_country = 12;
+  // Last transponder contact time as Unix epoch milliseconds.
+  int64 last_contact_at = 13 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  // Raw upstream position source code, for example OpenSky's ADS-B/ASTERIX/MLAT/FLARM code.
+  int32 position_source_code = 14;
+  // Raw upstream aircraft category code.
+  int32 aircraft_category = 15;
+  // True when the latest usable position is old enough to require stale UI treatment.
+  bool stale = 16;
 }

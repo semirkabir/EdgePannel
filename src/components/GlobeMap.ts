@@ -227,12 +227,22 @@ interface DatacenterMarker extends BaseMarker {
   owner: string;
   country: string;
   chipType: string;
+  status: AIDataCenter['status'];
+  chipCount: number;
+  powerMW?: number;
 }
 interface DatacenterClusterMarker extends BaseMarker {
   _kind: 'datacenterCluster';
   id: string;
   count: number;
   items: DatacenterMarker[];
+  region: string;
+  country: string;
+  totalChips: number;
+  totalPowerMW: number;
+  existingCount: number;
+  plannedCount: number;
+  sampled: false;
 }
 interface WaterwayMarker extends BaseMarker {
   _kind: 'waterway';
@@ -1106,7 +1116,8 @@ export class GlobeMap {
       if (popupType) {
         this.hideTooltip();
         this.zoomToMarker(d);
-        this.onEntityClickCb(popupType, d);
+        const payload = (d._kind === 'datacenter' || d._kind === 'datacenterCluster') && d._data ? d._data : d;
+        this.onEntityClickCb(popupType, payload);
       }
     } else {
       this.showMarkerTooltip(d, x, y);
@@ -1331,29 +1342,77 @@ export class GlobeMap {
 
   // ─── Datacenter clustering ────────────────────────────────────────────────
 
-  private computeDatacenterClusters(): (DatacenterMarker | { _kind: 'datacenterCluster'; _lat: number; _lng: number; count: number; items: DatacenterMarker[] })[] {
-    return this.datacenterMarkers;
+  private computeDatacenterClusters(): (DatacenterMarker | DatacenterClusterMarker)[] {
+    const altitude = this.globe?.pointOfView().altitude ?? 1.5;
+    if (altitude <= 0.55) return this.datacenterMarkers;
+
+    const cellSize = altitude > 1.1 ? 18 : 10;
+    const buckets = new Map<string, DatacenterMarker[]>();
+    for (const marker of this.datacenterMarkers) {
+      const key = `${Math.round(marker._lat / cellSize)}:${Math.round(marker._lng / cellSize)}`;
+      const bucket = buckets.get(key);
+      if (bucket) {
+        bucket.push(marker);
+      } else {
+        buckets.set(key, [marker]);
+      }
+    }
+
+    const result: (DatacenterMarker | DatacenterClusterMarker)[] = [];
+    for (const items of buckets.values()) {
+      if (items.length === 1) {
+        result.push(items[0]!);
+        continue;
+      }
+
+      const count = items.length;
+      const lat = items.reduce((sum, marker) => sum + marker._lat, 0) / count;
+      const lng = items.reduce((sum, marker) => sum + marker._lng, 0) / count;
+      const countries = [...new Set(items.map(marker => marker.country).filter(Boolean))];
+      const country = countries.length === 1 ? countries[0]! : `${countries.length} countries`;
+      const totalChips = items.reduce((sum, marker) => sum + marker.chipCount, 0);
+      const totalPowerMW = items.reduce((sum, marker) => sum + (marker.powerMW ?? 0), 0);
+      const existingCount = items.filter(marker => marker.status === 'existing').length;
+      const plannedCount = items.filter(marker => marker.status === 'planned').length;
+      const dataItems = items
+        .map(marker => marker._data)
+        .filter((item): item is AIDataCenter => !!item);
+
+      result.push({
+        _kind: 'datacenterCluster',
+        _lat: lat,
+        _lng: lng,
+        id: `datacenter-cluster-${lat.toFixed(2)}-${lng.toFixed(2)}`,
+        count,
+        items,
+        region: country,
+        country,
+        totalChips,
+        totalPowerMW,
+        existingCount,
+        plannedCount,
+        sampled: false,
+        _data: {
+          items: dataItems,
+          region: country,
+          country,
+          count,
+          totalChips,
+          totalPowerMW,
+          existingCount,
+          plannedCount,
+          sampled: false,
+        },
+      });
+    }
+
+    return result;
   }
 
   private getDatacenterClusterItems(): GlobeMarker[] {
     const clusters = this.computeDatacenterClusters();
     const markers: GlobeMarker[] = [];
-    
-    for (const item of clusters) {
-      if (item._kind === 'datacenterCluster') {
-        markers.push({
-          _kind: 'datacenterCluster' as const,
-          _lat: item._lat,
-          _lng: item._lng,
-          count: item.count,
-          items: item.items,
-          id: `cluster-${item._lat.toFixed(2)}-${item._lng.toFixed(2)}`,
-        });
-      } else {
-        markers.push(item);
-      }
-    }
-    
+    for (const item of clusters) markers.push(item);
     return markers;
   }
 
@@ -1644,6 +1703,9 @@ export class GlobeMap {
         owner: d.owner,
         country: d.country,
         chipType: d.chipType,
+        status: d.status,
+        chipCount: d.chipCount,
+        powerMW: d.powerMW,
         _data: d,
       }));
     this.waterwayMarkers = (STRATEGIC_WATERWAYS as StrategicWaterway[]).map(w => ({

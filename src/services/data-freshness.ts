@@ -31,6 +31,7 @@ export type DataSourceId =
   | 'pizzint'    // PizzINT monitoring
   | 'outages'    // Internet outages
   | 'cyber_threats' // Cyber threat IOC layer
+  | 'cisa_kev'  // CISA Known Exploited Vulnerabilities catalog
   | 'weather'    // Weather alerts
   | 'economic'   // Economic indicators (FRED)
   | 'oil'        // EIA oil analytics
@@ -57,6 +58,7 @@ export type DataSourceId =
   | 'reliefweb'          // ReliefWeb humanitarian RSS
   | 'who_gho'            // WHO GHO outbreak indicators
   | 'airsigmet'          // Aviation SIGMET hazards
+  | 'aircraft_live'      // Live ADS-B aircraft positions
   | 'defillama'          // DefiLlama protocol TVL
   | 'global_indicators'  // Eurostat + Treasury macro cards
   | 'ioda'               // IODA internet outage enrichment
@@ -115,6 +117,7 @@ export const DATA_SOURCE_METADATA: Record<DataSourceId, { name: string; required
   pizzint: { name: 'PizzINT Monitoring', requiredForRisk: false, panelId: 'intel' },
   outages: { name: 'Internet Outages', requiredForRisk: false, panelId: 'outages' },
   cyber_threats: { name: 'Cyber Threat IOCs', requiredForRisk: false, panelId: 'map' },
+  cisa_kev: { name: 'CISA KEV', requiredForRisk: false, panelId: 'security' },
   weather: { name: 'Weather Alerts', requiredForRisk: false, panelId: 'weather' },
   economic: { name: 'Economic Data (FRED)', requiredForRisk: false, panelId: 'economic' },
   oil: { name: 'Oil Analytics (EIA)', requiredForRisk: false, panelId: 'economic' },
@@ -141,6 +144,7 @@ export const DATA_SOURCE_METADATA: Record<DataSourceId, { name: string; required
   reliefweb: { name: 'ReliefWeb', requiredForRisk: false, panelId: 'displacement' },
   who_gho: { name: 'WHO GHO', requiredForRisk: false, panelId: 'displacement' },
   airsigmet: { name: 'Aviation SIGMET', requiredForRisk: false, panelId: 'airline-intel' },
+  aircraft_live: { name: 'Live Aircraft', requiredForRisk: false, panelId: 'airline-intel' },
   defillama: { name: 'DefiLlama', requiredForRisk: false, panelId: 'crypto' },
   global_indicators: { name: 'Global Indicators', requiredForRisk: false, panelId: 'economic' },
   ioda: { name: 'IODA Outages', requiredForRisk: false, panelId: 'outages' },
@@ -481,6 +485,7 @@ const INTELLIGENCE_GAP_MESSAGES: Record<DataSourceId, string> = {
   pizzint: 'PizzINT monitor unavailable—location/tension tracking degraded',
   outages: 'Internet disruptions may be unreported—outage monitoring offline',
   cyber_threats: 'Cyber IOC map points unavailable—malicious infrastructure visibility reduced',
+  cisa_kev: 'Known exploited vulnerability catalog unavailable - CISA KEV enrichment may be stale',
   weather: 'Severe weather warnings may be missed—weather alerts unavailable',
   economic: 'Economic indicators stale—Fed/Treasury data not updating',
   oil: 'Oil market analytics unavailable—EIA data not updating',
@@ -507,6 +512,7 @@ const INTELLIGENCE_GAP_MESSAGES: Record<DataSourceId, string> = {
   reliefweb: 'ReliefWeb humanitarian updates unavailable—situation reports may be missed',
   who_gho: 'WHO GHO health indicators unavailable—outbreak context degraded',
   airsigmet: 'Aviation SIGMET data unavailable—active weather hazards may be missed',
+  aircraft_live: 'Live aircraft positions unavailable—ADS-B stream offline',
   defillama: 'DefiLlama protocol TVL unavailable—DeFi liquidity signals degraded',
   global_indicators: 'Global macro indicators unavailable—Eurostat/Treasury context missing',
   ioda: 'IODA outage enrichment unavailable—internet disruption detection reduced',

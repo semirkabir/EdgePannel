@@ -41,7 +41,7 @@ import type {
 import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } from '@/services/military-bases';
 import type { MilitaryBaseType } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
-import { fetchAircraftPositions } from '@/services/aviation';
+import { fetchAircraftPositions, AirspaceControls, registerAircraftCallback, unregisterAircraftCallback } from '@/services/aviation';
 import {
   registerAisCallback,
   unregisterAisCallback,
@@ -344,6 +344,22 @@ const GLOBE_AIRCRAFT_MAX_ALTITUDE_M = 8 * METERS_PER_MILE;
 const GLOBE_LEO_MIN_ALTITUDE_M = 160_000;
 const GLOBE_LEO_MAX_ALTITUDE_M = 2_000_000;
 const GLOBE_LEO_FALLBACK_ALTITUDE_M = 550_000;
+const AIRCRAFT_LABEL_MIN_ZOOM = 4;
+
+function formatAircraftAge(observedAt: Date): string {
+  const ageSec = Math.max(0, Math.round((Date.now() - observedAt.getTime()) / 1000));
+  if (!Number.isFinite(ageSec)) return 'age unknown';
+  if (ageSec < 60) return `${ageSec}s old`;
+  return `${Math.round(ageSec / 60)}m old`;
+}
+
+function formatAircraftSourceLabel(position: PositionSample): string {
+  const provider = position.provider || position.source || 'unknown';
+  const tech = position.positionSource && position.positionSource !== 'unknown'
+    ? `/${position.positionSource.toUpperCase()}`
+    : '';
+  return `${provider}${tech}`;
+}
 
 function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -394,6 +410,7 @@ const GLOBE_NATIVE_LAYERS = [
 
 const EMPTY_GLOBE_LINE_COLLECTION: GlobeLineCollection = { type: 'FeatureCollection', features: [] };
 const EMPTY_GLOBE_POINT_COLLECTION: GlobePointCollection = { type: 'FeatureCollection', features: [] };
+const DATACENTER_CLUSTER_MAX_ZOOM = 4;
 
 const CONFLICT_ZONES_GEOJSON: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
@@ -450,10 +467,13 @@ export class DeckGLMap {
   private flightDelays: AirportDelayAlert[] = [];
   private aircraftPositions: PositionSample[] = [];
   private aircraftHistory = new Map<string, [number, number][]>();
-  private readonly AIRCRAFT_HISTORY_MAX = 20;
+  private readonly AIRCRAFT_HISTORY_MAX = 40;
   private aircraftDensity = 100;
   private selectedAircraftIcao: string | null = null;
   private selectedAircraftType: 'commercial' | 'military' | null = null;
+  private followedAircraftIcao: string | null = null;
+  private aircraftFollowCallback: ((positions: PositionSample[]) => void) | null = null;
+  private airspaceControls: AirspaceControls | null = null;
   private aircraftFetchTimer: ReturnType<typeof setInterval> | null = null;
   private news: NewsItem[] = [];
   private newsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }> = [];
@@ -615,6 +635,12 @@ export class DeckGLMap {
     this.container = container;
     this.state = { ...initialState, timeRange: normalizeTimeRange(initialState.timeRange) };
     this.hotspots = [...INTEL_HOTSPOTS];
+    try {
+      const storedDensity = Number(localStorage.getItem('wm-aircraft-density') || '');
+      if (Number.isFinite(storedDensity) && storedDensity >= 5 && storedDensity <= 100) {
+        this.aircraftDensity = Math.round(storedDensity / 5) * 5;
+      }
+    } catch { /* localStorage unavailable */ }
 
     this.debouncedRebuildLayers = debounce(() => {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
@@ -1252,6 +1278,11 @@ export class DeckGLMap {
     this.lastSCZoom = -1;
   }
 
+  private shouldShowDatacenterClusters(): boolean {
+    const zoom = this.maplibreMap?.getZoom() ?? this.state.zoom ?? 2;
+    return zoom <= DATACENTER_CLUSTER_MAX_ZOOM;
+  }
+
   private updateClusterData(): void {
     const zoom = Math.floor(this.maplibreMap?.getZoom() ?? 2);
     const bounds = this.maplibreMap?.getBounds();
@@ -1264,7 +1295,7 @@ export class DeckGLMap {
     const useProtests = layers.protests && this.protestSuperclusterSource.length > 0;
     const useTechHQ = SITE_VARIANT === 'tech' && layers.techHQs;
     const useTechEvents = SITE_VARIANT === 'tech' && layers.techEvents && this.techEvents.length > 0;
-    const useDatacenterClusters = false;
+    const useDatacenterClusters = layers.datacenters && this.shouldShowDatacenterClusters();
     const layerMask = `${Number(useProtests)}${Number(useTechHQ)}${Number(useTechEvents)}${Number(useDatacenterClusters)}`;
     if (zoom === this.lastSCZoom && boundsKey === this.lastSCBoundsKey && layerMask === this.lastSCMask) return;
     this.lastSCZoom = zoom;
@@ -1531,9 +1562,13 @@ export class DeckGLMap {
       layers.push(...this.createHotspotsLayers());
     }
 
-    // Datacenters layer - render individual sites at every zoom.
+    // Datacenters cluster at low zoom, then expand to individual sites.
     if (mapLayers.datacenters) {
-      layers.push(this.createDatacentersLayer());
+      if (this.shouldShowDatacenterClusters()) {
+        layers.push(...this.createDatacenterClusterLayers());
+      } else {
+        layers.push(this.createDatacentersLayer());
+      }
     }
 
     // Earthquakes layer
@@ -1635,6 +1670,7 @@ export class DeckGLMap {
     // Aircraft positions layer (live tracking, under flights toggle)
     if (mapLayers.flights && !useGlobeNative && this.aircraftPositions.length > 0) {
       layers.push(this.createAircraftPositionsLayer());
+      layers.push(this.createAircraftLabelsLayer());
     }
 
     // Satellite orbit tracker
@@ -2967,11 +3003,25 @@ export class DeckGLMap {
     });
   }
 
-  private createAircraftPositionsLayer(): IconLayer<PositionSample> {
+  private getDisplayedAircraftPositions(): PositionSample[] {
     const density = this.aircraftDensity / 100;
-    const data = density >= 1
+    return density >= 1
       ? this.aircraftPositions
-      : this.aircraftPositions.filter((_, i) => (i / this.aircraftPositions.length) < density);
+      : this.aircraftPositions.filter((_, i) => (i / Math.max(1, this.aircraftPositions.length)) < density);
+  }
+
+  private getAircraftColor(position: PositionSample, alpha = 235): [number, number, number, number] {
+    if (this.selectedAircraftIcao === position.icao24 && this.selectedAircraftType === 'commercial') {
+      return [251, 191, 36, alpha];
+    }
+    if (position.onGround) return [156, 163, 175, Math.min(alpha, 210)];
+    if (position.freshness === 'stale') return [148, 163, 184, Math.min(alpha, 150)];
+    if (position.freshness === 'recent') return [251, 191, 36, Math.min(alpha, 220)];
+    return [96, 165, 250, alpha];
+  }
+
+  private createAircraftPositionsLayer(): IconLayer<PositionSample> {
+    const data = this.getDisplayedAircraftPositions();
     return new IconLayer<PositionSample>({
       id: 'aircraft-positions-layer',
       data,
@@ -2980,15 +3030,40 @@ export class DeckGLMap {
       iconAtlas: AVIATION_PLANE_ICON_ATLAS,
       iconMapping: AVIATION_PLANE_ICON_MAPPING,
       getSize: (d) => d.onGround ? 18 : 24,
-      getColor: (d) => d.onGround
-        ? [156, 163, 175, 210] as [number, number, number, number]
-        : [96, 165, 250, 235] as [number, number, number, number],
+      getColor: (d) => this.getAircraftColor(d),
       getAngle: (d) => -d.trackDeg,
       sizeMinPixels: 10,
       sizeMaxPixels: 36,
       sizeScale: 1,
       pickable: true,
       billboard: true,
+    });
+  }
+
+  private createAircraftLabelsLayer(): TextLayer<PositionSample> {
+    const zoom = this.maplibreMap?.getZoom() ?? this.state.zoom ?? 0;
+    const data = this.getDisplayedAircraftPositions().filter((aircraft) => (
+      aircraft.icao24 === this.selectedAircraftIcao
+      || (zoom >= AIRCRAFT_LABEL_MIN_ZOOM && !aircraft.stale && (aircraft.callsign || aircraft.icao24))
+    ));
+    return new TextLayer<PositionSample>({
+      id: 'aircraft-labels-layer',
+      data,
+      getPosition: (d) => [d.lon, d.lat, (d.altitudeFt ?? 0) * 0.3048],
+      getText: (d) => d.callsign || d.icao24.toUpperCase(),
+      getSize: (d) => d.icao24 === this.selectedAircraftIcao ? 12 : 10,
+      getColor: (d) => this.getAircraftColor(d, d.icao24 === this.selectedAircraftIcao ? 245 : 205),
+      getAngle: 0,
+      getTextAnchor: 'middle',
+      getAlignmentBaseline: 'bottom',
+      getPixelOffset: [0, -16],
+      fontFamily: 'Inter, system-ui, sans-serif',
+      fontWeight: 700,
+      background: true,
+      getBackgroundColor: [5, 12, 22, 178],
+      backgroundPadding: [3, 2],
+      billboard: true,
+      pickable: false,
     });
   }
 
@@ -4065,7 +4140,6 @@ export class DeckGLMap {
     return layers;
   }
 
-  // @ts-ignore -- datacenter clustering is intentionally disabled; keep factory for quick rollback if density becomes unmanageable.
   private createDatacenterClusterLayers(): Layer[] {
     this.updateClusterData();
     const layers: Layer[] = [];
@@ -4106,6 +4180,32 @@ export class DeckGLMap {
 
     layers.push(this.createEmptyGhost('datacenter-clusters-layer'));
     return layers;
+  }
+
+  private hydrateDatacenterCluster(cluster: MapDatacenterCluster): boolean {
+    if (cluster.items.length > 0 || cluster._clusterId == null || !this.datacenterSC) return true;
+    try {
+      const leaves = this.datacenterSC.getLeaves(cluster._clusterId, DeckGLMap.MAX_CLUSTER_LEAVES);
+      cluster.items = leaves
+        .map(l => this.datacenterSCSource[l.properties.index])
+        .filter((x): x is AIDataCenter => !!x);
+      cluster.sampled = cluster.items.length < cluster.count;
+      return true;
+    } catch (e) {
+      console.warn('[DeckGLMap] stale datacenter cluster', cluster._clusterId, e);
+      return false;
+    }
+  }
+
+  private getDatacenterClusterPayload(cluster: MapDatacenterCluster): MapDatacenterCluster {
+    return {
+      ...cluster,
+      region: cluster.region || cluster.country,
+      items: cluster.items,
+      existingCount: cluster.existingCount,
+      plannedCount: cluster.plannedCount,
+      sampled: cluster.sampled,
+    };
   }
 
   private createHotspotsLayers(): Layer[] {
@@ -4982,7 +5082,9 @@ export class DeckGLMap {
       case 'flight-delays-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)} (${text(obj.iata)})</strong><br/>${text(obj.severity)}: ${text(obj.reason)}</div>` };
       case 'aircraft-positions-layer':
-        return { html: `<div class="deckgl-tooltip"><strong>${text(obj.callsign || obj.icao24)}</strong><br/>${obj.altitudeFt?.toLocaleString() ?? 0} ft · ${obj.groundSpeedKts ?? 0} kts · ${Math.round(obj.trackDeg ?? 0)}°</div>` };
+        return {
+          html: `<div class="deckgl-tooltip"><strong>${text(obj.callsign || obj.icao24)}</strong><br/>${obj.altitudeFt?.toLocaleString() ?? 0} ft · ${Math.round(obj.groundSpeedKts ?? 0)} kts · ${Math.round(obj.trackDeg ?? 0)}°<br/><span style="opacity:.72">${text(formatAircraftSourceLabel(obj))} · ${text(formatAircraftAge(obj.observedAt))}</span></div>`,
+        };
       case 'satellites-layer':
       case 'satellites-dot-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.operator || '')}<br/>${text(obj.category || 'satellite')}</div>` };
@@ -5328,32 +5430,13 @@ export class DeckGLMap {
     }
     if (layerId === 'datacenter-clusters-layer') {
       const cluster = info.object as MapDatacenterCluster;
-      if (cluster.items.length === 0 && cluster._clusterId != null && this.datacenterSC) {
-        try {
-          const leaves = this.datacenterSC.getLeaves(cluster._clusterId, DeckGLMap.MAX_CLUSTER_LEAVES);
-          cluster.items = leaves.map(l => this.datacenterSCSource[l.properties.index]).filter((x): x is AIDataCenter => !!x);
-          cluster.sampled = cluster.items.length < cluster.count;
-        } catch (e) {
-          console.warn('[DeckGLMap] stale datacenter cluster', cluster._clusterId, e);
-          return;
-        }
-      }
+      if (!this.hydrateDatacenterCluster(cluster)) return;
       if (cluster.count === 1 && cluster.items[0]) {
         this.popup.show({ type: 'datacenter', data: cluster.items[0], x: info.x, y: info.y });
       } else {
         this.popup.show({
           type: 'datacenterCluster',
-          data: {
-            items: cluster.items,
-            region: cluster.region || cluster.country,
-            country: cluster.country,
-            count: cluster.count,
-            totalChips: cluster.totalChips,
-            totalPowerMW: cluster.totalPowerMW,
-            existingCount: cluster.existingCount,
-            plannedCount: cluster.plannedCount,
-            sampled: cluster.sampled,
-          },
+          data: this.getDatacenterClusterPayload(cluster),
           x: info.x,
           y: info.y,
         });
@@ -5679,6 +5762,23 @@ export class DeckGLMap {
         arm: cluster.baseArm || cluster.dominantType,
         _clusterCount: cluster.count,
       } as any);
+      return;
+    }
+
+    if (layerId === 'datacenter-clusters-layer') {
+      const cluster = info.object as MapDatacenterCluster;
+      if (!this.hydrateDatacenterCluster(cluster)) return;
+      this.popup.hide();
+      this.entityClickConsumedAt = Date.now();
+      this.clearInfrastructureLineSelection();
+      this.selectedAircraftIcao = null;
+      this.selectedAircraftType = null;
+      this.zoomToEntity(info, layerId);
+      if (cluster.count === 1 && cluster.items[0]) {
+        this.onEntityClick('datacenter', cluster.items[0]);
+      } else {
+        this.onEntityClick('datacenterCluster', this.getDatacenterClusterPayload(cluster));
+      }
       return;
     }
 
@@ -6486,6 +6586,7 @@ export class DeckGLMap {
           <span class="aircraft-density-value">${this.aircraftDensity}%</span>
         </div>
         <input type="range" class="aircraft-density-slider" min="5" max="100" value="${this.aircraftDensity}" step="5" aria-label="Aircraft density">
+        <div class="aircraft-density-substatus">${escapeHtml(this.getAircraftStatusText())}</div>
       `;
       (flightsToggle.parentNode as HTMLElement).insertBefore(densityContainer, flightsToggle.nextSibling);
 
@@ -6496,6 +6597,7 @@ export class DeckGLMap {
         this.aircraftDensity = parseInt(slider.value, 10);
         valueDisplay.textContent = `${this.aircraftDensity}%`;
         try { localStorage.setItem('wm-aircraft-density', String(this.aircraftDensity)); } catch {}
+        this.updateAircraftStatusControl();
         this.render();
       });
 
@@ -6503,6 +6605,7 @@ export class DeckGLMap {
       if (flightsCheckbox) {
         flightsCheckbox.addEventListener('change', () => {
           densityContainer.style.display = flightsCheckbox.checked ? 'block' : 'none';
+          this.updateAircraftStatusControl();
         });
       }
     }
@@ -6569,6 +6672,11 @@ export class DeckGLMap {
       }, { passive: false });
       toggles.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: false });
     }
+
+    // Airspace controls (live aircraft viewport bbox + provider attribution)
+    this.airspaceControls?.destroy();
+    this.airspaceControls = new AirspaceControls();
+    this.airspaceControls.mount(layersPanel);
   }
 
   private updateLayerTrayStatus(layersPanel: HTMLElement): void {
@@ -7716,6 +7824,27 @@ export class DeckGLMap {
     this.flightDelays = delays;
     this.render('flights');
   }
+
+  private getAircraftStatusText(): string {
+    if (!this.state.layers.flights) return 'Aircraft tracking off';
+    if (this.aircraftPositions.length === 0) return 'No live aircraft in current view';
+
+    const live = this.aircraftPositions.filter((pos) => pos.freshness === 'live').length;
+    const recent = this.aircraftPositions.filter((pos) => pos.freshness === 'recent').length;
+    const stale = this.aircraftPositions.filter((pos) => pos.freshness === 'stale').length;
+    const provider = this.aircraftPositions.find((pos) => pos.provider)?.provider || this.aircraftPositions[0]?.source || 'unknown';
+    const parts = [`${this.aircraftPositions.length} aircraft`, `${provider}`];
+    if (live > 0) parts.push(`${live} live`);
+    if (recent > 0) parts.push(`${recent} recent`);
+    if (stale > 0) parts.push(`${stale} stale`);
+    return parts.join(' · ');
+  }
+
+  private updateAircraftStatusControl(): void {
+    const status = this.container.querySelector<HTMLElement>('.aircraft-density-substatus');
+    if (status) status.textContent = this.getAircraftStatusText();
+  }
+
   public setAircraftPositions(positions: PositionSample[]): void {
     for (const pos of positions) {
       const hist = this.aircraftHistory.get(pos.icao24) ?? [];
@@ -7727,13 +7856,67 @@ export class DeckGLMap {
       }
     }
     this.aircraftPositions = positions;
+    this.updateAircraftStatusControl();
     this.render('flights');
+
+    if (this.followedAircraftIcao) {
+      const followed = positions.find(p => p.icao24 === this.followedAircraftIcao);
+      if (followed && this.maplibreMap) {
+        this.maplibreMap.easeTo({ center: [followed.lon, followed.lat], duration: 800 });
+      }
+    }
   }
 
   public setMilitaryFlights(flights: MilitaryFlight[], clusters: MilitaryFlightCluster[] = []): void {
     this.militaryFlights = flights;
     this.militaryFlightClusters = clusters;
     this.render('military_flights');
+  }
+
+  /**
+   * Follow an aircraft by icao24 — the camera will easeTo the aircraft's
+   * position on every `setAircraftPositions` update until `unfollowAircraft()`
+   * is called. Subscribes to the live aircraft callback for real-time tracking.
+   */
+  public followAircraft(icao24: string): void {
+    if (this.followedAircraftIcao === icao24) return;
+    this.followedAircraftIcao = icao24;
+
+    if (!this.aircraftFollowCallback) {
+      this.aircraftFollowCallback = (positions: PositionSample[]) => {
+        if (!this.followedAircraftIcao || !this.maplibreMap) return;
+        const followed = positions.find(p => p.icao24 === this.followedAircraftIcao);
+        if (followed) {
+          this.maplibreMap.easeTo({ center: [followed.lon, followed.lat], duration: 800 });
+        }
+      };
+      registerAircraftCallback(this.aircraftFollowCallback);
+    }
+
+    // Fly to the aircraft immediately if we already have its position
+    const existing = this.aircraftPositions.find(p => p.icao24 === icao24);
+    if (existing && this.maplibreMap) {
+      this.maplibreMap.flyTo({ center: [existing.lon, existing.lat], zoom: 8, duration: 1000 });
+    }
+  }
+
+  /**
+   * Stop following an aircraft. Removes the live callback subscription.
+   */
+  public unfollowAircraft(): void {
+    if (!this.followedAircraftIcao && !this.aircraftFollowCallback) return;
+    this.followedAircraftIcao = null;
+    if (this.aircraftFollowCallback) {
+      unregisterAircraftCallback(this.aircraftFollowCallback);
+      this.aircraftFollowCallback = null;
+    }
+  }
+
+  /**
+   * Returns the icao24 of the aircraft currently being followed, or null.
+   */
+  public getFollowedAircraft(): string | null {
+    return this.followedAircraftIcao;
   }
 
   public setMilitaryVessels(vessels: MilitaryVessel[], clusters: MilitaryVesselCluster[] = []): void {
@@ -7777,6 +7960,7 @@ export class DeckGLMap {
         this.aircraftFetchTimer = null;
       }
       this.aircraftPositions = [];
+      this.updateAircraftStatusControl();
     }
   }
 
@@ -7844,6 +8028,7 @@ export class DeckGLMap {
     if (zoom < 2) {
       if (this.aircraftPositions.length > 0) {
         this.aircraftPositions = [];
+        this.updateAircraftStatusControl();
         this.render('flights');
       }
       return;
@@ -7859,6 +8044,7 @@ export class DeckGLMap {
     }).then((positions) => {
       if (seq !== this.aircraftFetchSeq) return; // discard stale response
       this.aircraftPositions = positions;
+      this.updateAircraftStatusControl();
       this.onAircraftPositionsUpdate?.(positions);
       const center = this.maplibreMap?.getCenter();
       if (center) {
@@ -9161,6 +9347,9 @@ export class DeckGLMap {
       this.aircraftFetchTimer = null;
     }
 
+    this.unfollowAircraft();
+    this.airspaceControls?.destroy();
+    this.airspaceControls = null;
 
     this.layerCache.clear();
 

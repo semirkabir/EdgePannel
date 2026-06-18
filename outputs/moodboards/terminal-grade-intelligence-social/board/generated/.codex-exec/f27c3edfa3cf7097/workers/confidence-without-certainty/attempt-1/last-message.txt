@@ -1,0 +1,1 @@
+Generated exactly one PNG image using `image_gen.imagegen`.

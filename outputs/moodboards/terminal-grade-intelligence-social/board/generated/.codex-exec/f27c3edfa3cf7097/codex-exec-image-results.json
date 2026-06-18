@@ -1,0 +1,57 @@
+{
+  "status": "partial",
+  "total": 12,
+  "complete": 0,
+  "failed": 0,
+  "pending": 12,
+  "results": [
+    {
+      "id": "after-hours-terminal-desk",
+      "status": "pending"
+    },
+    {
+      "id": "global-risk-map-wall",
+      "status": "pending"
+    },
+    {
+      "id": "market-signal-ribbon",
+      "status": "pending"
+    },
+    {
+      "id": "briefing-card-stack",
+      "status": "pending"
+    },
+    {
+      "id": "news-cluster-constellation",
+      "status": "pending"
+    },
+    {
+      "id": "situation-monitor-command",
+      "status": "pending"
+    },
+    {
+      "id": "researcher-decision-moment",
+      "status": "pending"
+    },
+    {
+      "id": "data-layer-switches",
+      "status": "pending"
+    },
+    {
+      "id": "watchlist-glass-slab",
+      "status": "pending"
+    },
+    {
+      "id": "infrastructure-signal-field",
+      "status": "pending"
+    },
+    {
+      "id": "confidence-without-certainty",
+      "status": "pending"
+    },
+    {
+      "id": "terminal-grade-brand-hero",
+      "status": "pending"
+    }
+  ]
+}

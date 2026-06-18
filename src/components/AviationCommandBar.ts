@@ -1,4 +1,4 @@
-import { fetchFlightStatus, fetchAirportOpsSummary, fetchFlightPrices, fetchAviationNews } from '@/services/aviation';
+import { fetchFlightStatus, fetchAirportOpsSummary, fetchFlightPrices, fetchAviationNews, getAviationCredentialsStatus, setAircraftViewportBounds, radiusToBounds, getAircraftLiveStatus } from '@/services/aviation';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { buildArticleLinkAttributes } from '@/services/article-open';
 
@@ -10,6 +10,7 @@ type Intent =
     | { type: 'PRICE_WATCH'; origin: string; destination: string; date?: string }
     | { type: 'NEWS_BRIEF'; entities: string[] }
     | { type: 'TRACK'; callsign?: string; icao24?: string }
+    | { type: 'AREA'; lat: number; lon: number; radiusKm: number }
     | { type: 'UNKNOWN'; raw: string };
 
 // ---- Intent parser ----
@@ -53,6 +54,19 @@ function parseIntent(raw: string): Intent {
         const token = words[1] ?? '';
         if (/^[0-9A-F]{6}$/i.test(token)) return { type: 'TRACK', icao24: token.toLowerCase() };
         if (token) return { type: 'TRACK', callsign: token };
+    }
+
+    // AREA <lat> <lon> <radiusKm>
+    if (/^AREA\s/.test(q)) {
+        if (words.length >= 4) {
+            const lat = parseFloat(words[1]!);
+            const lon = parseFloat(words[2]!);
+            const radiusKm = parseFloat(words[3]!);
+            if (Number.isFinite(lat) && Number.isFinite(lon) && Number.isFinite(radiusKm)
+                && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 && radiusKm > 0 && radiusKm <= 2000) {
+                return { type: 'AREA', lat, lon, radiusKm };
+            }
+        }
     }
 
     return { type: 'UNKNOWN', raw };
@@ -115,8 +129,26 @@ async function executeIntent(intent: Intent): Promise<CommandResult> {
         return { html: `<div class="cmd-section">🛰️ Tracking <strong>${escapeHtml(intent.callsign ?? intent.icao24 ?? '?')}</strong> — open Tracking tab in Airline Intel panel for live positions.</div>` };
     }
 
+    if (intent.type === 'AREA') {
+        const creds = getAviationCredentialsStatus();
+        if (!creds.liveStreamAvailable) {
+            return { html: '<div class="cmd-empty">Live aircraft stream unavailable — configure OpenSky credentials in Settings.</div>' };
+        }
+        const bounds = radiusToBounds(intent.lat, intent.lon, intent.radiusKm);
+        setAircraftViewportBounds(bounds);
+        const status = getAircraftLiveStatus();
+        return {
+            html: `<div class="cmd-section">
+      <strong>📡 Airspace Set</strong>
+      <div>Centre: ${intent.lat.toFixed(2)}°, ${intent.lon.toFixed(2)}° · Radius: ${intent.radiusKm}km</div>
+      <div>BBox: ${bounds.swLat.toFixed(1)},${bounds.swLon.toFixed(1)} → ${bounds.neLat.toFixed(1)},${bounds.neLon.toFixed(1)}</div>
+      <div>${status.connected ? `Connected · ${status.aircraft} aircraft tracked` : 'Fetching live positions…'}</div>
+    </div>`,
+        };
+    }
+
     return {
-        html: `<div class="cmd-empty">Unrecognized command. Try: <code>ops IST</code>, <code>flight TK1</code>, <code>price IST LHR</code>, <code>brief</code></div>`,
+        html: `<div class="cmd-empty">Unrecognized command. Try: <code>ops IST</code>, <code>flight TK1</code>, <code>price IST LHR</code>, <code>area 40.0 30.0 200</code>, <code>brief</code></div>`,
         error: true,
     };
 }
@@ -159,7 +191,7 @@ export class AviationCommandBar {
           <span>✈️ Aviation Command</span>
           <button id="aviation-cmd-close">×</button>
         </div>
-        <input id="aviation-cmd-input" type="text" placeholder="ops IST  /  flight TK1  /  price IST LHR  /  brief" autocomplete="off" spellcheck="false">
+        <input id="aviation-cmd-input" type="text" placeholder="ops IST  /  flight TK1  /  price IST LHR  /  area 40.0 30.0 200  /  brief" autocomplete="off" spellcheck="false">
         <div id="aviation-cmd-suggestions"></div>
         <div id="aviation-cmd-result"></div>
         <div id="aviation-cmd-history-list"></div>
@@ -245,7 +277,7 @@ export class AviationCommandBar {
         const el = this.overlay?.querySelector('#aviation-cmd-suggestions');
         if (!el) return;
         const suggestions = [
-            'ops IST', 'ops LHR FRA', 'flight TK1', 'price IST LHR', 'brief', 'brief TK',
+            'ops IST', 'ops LHR FRA', 'flight TK1', 'price IST LHR', 'area 40.0 30.0 200', 'area 51.5 -0.1 150', 'brief', 'brief TK',
         ].filter(s => s.toLowerCase().startsWith(val.toLowerCase()) && s.toLowerCase() !== val.toLowerCase());
         if (!val || !suggestions.length) { el.innerHTML = ''; return; }
         el.innerHTML = suggestions.slice(0, 4).map(s =>

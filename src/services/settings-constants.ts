@@ -22,6 +22,7 @@ export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   WTO_API_KEY: 'https://apiportal.wto.org/',
   AVIATIONSTACK_API: 'https://aviationstack.com/signup/free',
   ICAO_API_KEY: 'https://dataservices.icao.int/',
+  CESIUM_ION_TOKEN: 'https://cesium.com/ion/signup',
 };
 
 export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
@@ -58,6 +59,7 @@ export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   WTO_API_KEY: 'WTO API Key',
   AVIATIONSTACK_API: 'AviationStack API Key',
   ICAO_API_KEY: 'ICAO NOTAM API Key',
+  CESIUM_ION_TOKEN: 'Cesium ion Access Token',
   WM_AGENT_CONNECTORS: 'Agent Connectors',
 };
 
@@ -91,6 +93,6 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'tracking',
     label: 'Tracking & Sensing',
-    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams', 'newsPerFeedFallback'],
+    features: ['aisRelay', 'openskyRelay', 'wingbitsEnrichment', 'nasaFirms', 'aviationStack', 'icaoNotams', 'cesiumIon3DBuildings', 'newsPerFeedFallback'],
   },
 ];

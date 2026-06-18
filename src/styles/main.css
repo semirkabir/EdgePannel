@@ -3513,9 +3513,31 @@ body.panel-resize-active iframe {
   color: var(--text-tertiary, #737373);
 }
 
-.security-kev-loading {
+.security-kev-state {
   font-size: 11px;
   color: var(--text-secondary, #a3a3a3);
+}
+
+.security-kev-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #fca5a5;
+}
+
+.security-kev-retry {
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 6px;
+  padding: 3px 8px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.security-kev-retry:hover {
+  background: rgba(239, 68, 68, 0.2);
 }
 
 .disp-reliefweb-strip {
@@ -30037,6 +30059,13 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .aircraft-density-value {
   color: var(--accent);
   font-weight: 700;
+}
+
+.aircraft-density-substatus {
+  margin-top: 5px;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .map-tray {

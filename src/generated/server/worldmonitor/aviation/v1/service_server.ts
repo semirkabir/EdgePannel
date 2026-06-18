@@ -182,6 +182,11 @@ export interface PositionSample {
   onGround: boolean;
   source: PositionSource;
   observedAt: number;
+  originCountry: string;
+  lastContactAt: number;
+  positionSourceCode: number;
+  aircraftCategory: number;
+  stale: boolean;
 }
 
 export interface SearchFlightPricesRequest {
@@ -262,7 +267,7 @@ export type FlightDirection = "FLIGHT_DIRECTION_UNSPECIFIED" | "FLIGHT_DIRECTION
 
 export type FlightInstanceStatus = "FLIGHT_INSTANCE_STATUS_UNSPECIFIED" | "FLIGHT_INSTANCE_STATUS_SCHEDULED" | "FLIGHT_INSTANCE_STATUS_BOARDING" | "FLIGHT_INSTANCE_STATUS_DEPARTED" | "FLIGHT_INSTANCE_STATUS_AIRBORNE" | "FLIGHT_INSTANCE_STATUS_LANDED" | "FLIGHT_INSTANCE_STATUS_ARRIVED" | "FLIGHT_INSTANCE_STATUS_CANCELLED" | "FLIGHT_INSTANCE_STATUS_DIVERTED" | "FLIGHT_INSTANCE_STATUS_UNKNOWN";
 
-export type PositionSource = "POSITION_SOURCE_UNSPECIFIED" | "POSITION_SOURCE_OPENSKY" | "POSITION_SOURCE_WINGBITS" | "POSITION_SOURCE_SIMULATED";
+export type PositionSource = "POSITION_SOURCE_UNSPECIFIED" | "POSITION_SOURCE_OPENSKY" | "POSITION_SOURCE_WINGBITS" | "POSITION_SOURCE_SIMULATED" | "POSITION_SOURCE_ADSB_LOL" | "POSITION_SOURCE_AIRPLANES_LIVE";
 
 export interface FieldViolation {
   field: string;

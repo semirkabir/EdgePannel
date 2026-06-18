@@ -98,8 +98,16 @@ export interface PositionSample {
   altitudeFt: number;
   groundSpeedKts: number;
   trackDeg: number;
+  verticalRateMps: number;
   onGround: boolean;
   source: string;
+  provider: string;
+  originCountry: string;
+  lastContactAt: Date;
+  positionSource: 'adsb' | 'asterix' | 'mlat' | 'flarm' | 'unknown';
+  aircraftCategory: number;
+  freshness: 'live' | 'recent' | 'stale';
+  stale: boolean;
   observedAt: Date;
 }
 
@@ -107,7 +115,23 @@ const POSITION_SOURCE_MAP: Record<string, string> = {
   POSITION_SOURCE_OPENSKY: 'opensky',
   POSITION_SOURCE_WINGBITS: 'wingbits',
   POSITION_SOURCE_SIMULATED: 'simulated',
+  POSITION_SOURCE_ADSB_LOL: 'adsb.lol',
+  POSITION_SOURCE_AIRPLANES_LIVE: 'airplanes.live',
 };
+
+const POSITION_TECHNOLOGY_MAP: Record<number, PositionSample['positionSource']> = {
+  0: 'adsb',
+  1: 'asterix',
+  2: 'mlat',
+  3: 'flarm',
+};
+
+function classifyPositionFreshness(observedAt: Date, staleFlag?: boolean): PositionSample['freshness'] {
+  const ageMs = Date.now() - observedAt.getTime();
+  if (staleFlag || !Number.isFinite(ageMs) || ageMs > 2 * 60 * 1000) return 'stale';
+  if (ageMs > 45 * 1000) return 'recent';
+  return 'live';
+}
 
 function stableAircraftHash(pos: PositionSample): number {
   const key = `${pos.icao24}|${pos.callsign}`;
@@ -287,12 +311,25 @@ function toDisplayCarrierOps(p: ProtoCarrierOps): CarrierOps {
   };
 }
 
-function toDisplayPosition(p: ProtoPosition): PositionSample {
+function toDisplayPosition(p: ProtoPosition, provider = ''): PositionSample {
+  const observedAt = new Date(p.observedAt);
+  const lastContactAt = new Date(p.lastContactAt || p.observedAt);
+  const source = POSITION_SOURCE_MAP[p.source] ?? p.source?.toLowerCase() ?? 'unknown';
+  const freshness = classifyPositionFreshness(observedAt, p.stale);
   return {
     icao24: p.icao24, callsign: p.callsign, lat: p.lat, lon: p.lon,
     altitudeFt: Math.round(p.altitudeM * 3.281),
-    groundSpeedKts: p.groundSpeedKts, trackDeg: p.trackDeg, onGround: p.onGround,
-    source: POSITION_SOURCE_MAP[p.source] ?? p.source?.toLowerCase() ?? 'unknown', observedAt: new Date(p.observedAt),
+    groundSpeedKts: p.groundSpeedKts, trackDeg: p.trackDeg, verticalRateMps: p.verticalRate,
+    onGround: p.onGround,
+    source,
+    provider: provider || source,
+    originCountry: p.originCountry || '',
+    lastContactAt,
+    positionSource: POSITION_TECHNOLOGY_MAP[p.positionSourceCode] ?? 'unknown',
+    aircraftCategory: p.aircraftCategory ?? 0,
+    freshness,
+    stale: freshness === 'stale',
+    observedAt,
   };
 }
 
@@ -375,7 +412,7 @@ export async function fetchFlightStatus(flightNumber: string, date?: string, ori
 export async function fetchAircraftPositions(opts: { icao24?: string; callsign?: string; swLat?: number; swLon?: number; neLat?: number; neLon?: number }): Promise<PositionSample[]> {
   return breakerTrack.execute(async () => {
     const r = await client.trackAircraft({ icao24: opts.icao24 ?? '', callsign: opts.callsign ?? '', swLat: opts.swLat ?? 0, swLon: opts.swLon ?? 0, neLat: opts.neLat ?? 0, neLon: opts.neLon ?? 0 });
-    return r.positions.map(toDisplayPosition);
+    return r.positions.map((position) => toDisplayPosition(position, r.source));
   }, []);
 }
 
@@ -410,3 +447,58 @@ export {
   buildSigmetSignals,
 } from './sigmet';
 export type { AirSigmet } from './sigmet';
+
+export {
+  isAircraftLiveConfigured,
+  registerAircraftCallback,
+  unregisterAircraftCallback,
+  setAircraftViewportBounds,
+  getAircraftViewportBounds,
+  getAircraftFreshness,
+  getAircraftLiveStatus,
+  getAircraftLiveCount,
+  initAircraftLiveStream,
+  disconnectAircraftLiveStream,
+  radiusToBounds,
+  type AircraftViewportBounds,
+  type AircraftFreshness,
+  type AircraftFreshnessStatus,
+} from './live';
+
+export {
+  PROVIDER_REGISTRY,
+  getProviderMetadata,
+  getProviderAttribution,
+  getCommunityProviders,
+  type ProviderMetadata,
+} from './providers';
+
+export { AirspaceControls } from './airspace-controls';
+
+export {
+  getNearbyHazards,
+  getNearbyHazardsSync,
+  type NearbyHazardsResult,
+  type NearbySigmetHazard,
+  type NearbyAirportHazard,
+  type NearbyInfrastructureHazard,
+} from './nearby-hazards';
+
+import { getSecretState, isFeatureAvailable } from '../runtime-config';
+
+export interface AviationCredentialsStatus {
+  openSkyConfigured: boolean;
+  openSkySource: 'env' | 'vault' | 'missing';
+  liveStreamAvailable: boolean;
+}
+
+export function getAviationCredentialsStatus(): AviationCredentialsStatus {
+  const clientId = getSecretState('OPENSKY_CLIENT_ID');
+  const clientSecret = getSecretState('OPENSKY_CLIENT_SECRET');
+  const openSkyConfigured = clientId.present && clientId.valid && clientSecret.present && clientSecret.valid;
+  return {
+    openSkyConfigured,
+    openSkySource: clientId.source,
+    liveStreamAvailable: isFeatureAvailable('openskyRelay'),
+  };
+}
