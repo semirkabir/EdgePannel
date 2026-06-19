@@ -825,10 +825,20 @@ export class DataRenderer {
         const { addToSignalHistory } = await import('@/services/correlation');
         addToSignalHistory(allSignals);
       }
-      const { showShellNotification } = await import('@/app/shell-notifications');
+      const { notificationBus } = await import('@/services/notifications');
       for (const spike of keywordSpikeSignals) {
-        showShellNotification(spike.title, 'info', 7000, 'top');
-        this.ctx.notificationCenter?.addTrendingSpike(spike);
+        notificationBus.emit({
+          id: `trend-${spike.id}`,
+          kind: 'trending',
+          family: 'finding',
+          title: spike.title,
+          detail: spike.description?.slice(0, 120) || '',
+          severity: 'medium',
+          timestamp: spike.timestamp.getTime(),
+          display: 'both',
+          action: { type: 'signal', signal: spike },
+          payload: spike,
+        });
       }
       if (coreSignals.length > 0) {
         this.ctx.signalModal?.show(coreSignals);

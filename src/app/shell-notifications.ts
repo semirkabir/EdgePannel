@@ -19,6 +19,7 @@ export function showShellNotification(
   tone: ShellNotificationTone = 'info',
   timeoutMs = 2600,
   placement: 'bottom' | 'top' = 'bottom',
+  onDismiss?: () => void,
 ): void {
   document.querySelector(`.${SHELL_TOAST_CLASS}`)?.remove();
 
@@ -32,14 +33,31 @@ export function showShellNotification(
   const badge = h('span', { className: 'wm-shell-toast-badge' }, tone.toUpperCase());
   const text = h('span', { className: 'wm-shell-toast-text' }, message);
   toast.append(badge, text);
-  document.body.appendChild(toast);
 
+  if (onDismiss) {
+    const closeBtn = h('button', {
+      className: 'wm-shell-toast-close',
+      type: 'button',
+      'aria-label': 'Dismiss',
+    }, '×');
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeToast();
+      onDismiss();
+    });
+    toast.append(closeBtn);
+  }
+
+  document.body.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add(SHELL_TOAST_VISIBLE_CLASS));
 
-  window.setTimeout(() => {
+  let timer: ReturnType<typeof setTimeout> | null = setTimeout(removeToast, timeoutMs);
+
+  function removeToast(): void {
+    if (timer) { clearTimeout(timer); timer = null; }
     toast.classList.remove(SHELL_TOAST_VISIBLE_CLASS);
     window.setTimeout(() => toast.remove(), 220);
-  }, timeoutMs);
+  }
 }
 
 export function confirmShellAction(options: ShellConfirmOptions): Promise<boolean> {

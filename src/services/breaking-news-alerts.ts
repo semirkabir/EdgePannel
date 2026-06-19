@@ -1,6 +1,7 @@
 import type { NewsItem } from '@/types';
 import type { OrefAlert } from '@/services/oref-alerts';
 import { getSourceTier } from '@/config/feeds';
+import { notificationBus } from '@/services/notifications';
 
 export interface BreakingAlert {
   id: string;
@@ -188,7 +189,18 @@ function dispatchAlert(alert: BreakingAlert): void {
   lastGlobalAlertMs = Date.now();
   lastGlobalAlertLevel = alert.threatLevel;
   saveDedupeMap();
-  sendDesktopNotification(alert);
+  // Bus owns the inbox entry + desktop push (per-type prefs).
+  notificationBus.emit({
+    id: `brk-${alert.id}`,
+    kind: 'breaking',
+    family: 'alert',
+    title: alert.headline,
+    detail: alert.source,
+    severity: alert.threatLevel,
+    timestamp: alert.timestamp.getTime(),
+    display: 'inbox',
+    action: { type: 'link', link: alert.link },
+  });
   document.dispatchEvent(new CustomEvent('wm:breaking-news', { detail: alert }));
 }
 

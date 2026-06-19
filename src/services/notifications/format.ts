@@ -1,4 +1,4 @@
-import type { NotificationFamily, NotificationSeverity } from './types';
+import type { NotificationFamily, NotificationKind, NotificationSeverity } from './types';
 
 export function notificationSeverityFromConfidence(confidence: number): NotificationSeverity {
   if (confidence >= 0.7) return 'high';
@@ -26,4 +26,38 @@ export function notificationFamilyLabel(family: NotificationFamily): string {
 export function notificationSeverityLabel(severity: NotificationSeverity): string {
   return severity === 'info' ? 'INFO' : severity.toUpperCase();
 }
+
+export function notificationKindLabel(kind: NotificationKind): string {
+  switch (kind) {
+    case 'breaking': return 'Breaking';
+    case 'trending': return 'Trending';
+    case 'intel': return 'Intel';
+    case 'signal': return 'Signal';
+    case 'system': return 'System';
+    case 'finding': return 'Finding';
+  }
+}
+
+export function notificationKindIcon(kind: NotificationKind, signalType?: string): string {
+  switch (kind) {
+    case 'breaking': return '🚨';
+    case 'trending': return '📈';
+    case 'intel': return '🧠';
+    case 'system': return '⚙️';
+    case 'finding': return '🎯';
+    case 'signal': return SIGNAL_ICON_MAP[signalType as keyof typeof SIGNAL_ICON_MAP] ?? '📡';
+  }
+}
+
+const SIGNAL_ICON_MAP = {
+  internet_outage: '🌐',
+  military_flight: '✈️',
+  military_vessel: '🚢',
+  protest: '📢',
+  ais_disruption: '📡',
+  satellite_fire: '🔥',
+  temporal_anomaly: '📊',
+  active_strike: '💥',
+  supplemental: '🧩',
+} as const;
 

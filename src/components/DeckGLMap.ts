@@ -41,7 +41,7 @@ import type {
 import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } from '@/services/military-bases';
 import type { MilitaryBaseType } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
-import { fetchAircraftPositions, AirspaceControls, registerAircraftCallback, unregisterAircraftCallback } from '@/services/aviation';
+import { fetchAircraftPositions, AirspaceControls, registerAircraftCallback, unregisterAircraftCallback, filterRenderableAircraftPositions } from '@/services/aviation';
 import {
   registerAisCallback,
   unregisterAisCallback,
@@ -212,6 +212,12 @@ type SatellitePositionSampleCache = {
   start: SatellitePositionRecord[];
   endById: Map<string, SatellitePositionRecord>;
 };
+type AircraftMotionState = {
+  from: PositionSample;
+  to: PositionSample;
+  startedAtMs: number;
+  durationMs: number;
+};
 
 interface CableFlowTrip {
   id: string;
@@ -345,6 +351,18 @@ const GLOBE_LEO_MIN_ALTITUDE_M = 160_000;
 const GLOBE_LEO_MAX_ALTITUDE_M = 2_000_000;
 const GLOBE_LEO_FALLBACK_ALTITUDE_M = 550_000;
 const AIRCRAFT_LABEL_MIN_ZOOM = 4;
+const AIRCRAFT_MIN_RENDER_ZOOM = 2;
+const AIRCRAFT_FULL_RENDER_ZOOM = 6.5;
+const AIRCRAFT_MIN_ZOOM_DENSITY = 0.12;
+const AIRCRAFT_ZOOM_FADE_BAND = 0.08;
+const AIRCRAFT_LABEL_FADE_ZOOM_RANGE = 0.65;
+const AIRCRAFT_MOTION_FRAME_MS = 66;
+const AIRCRAFT_TRANSITION_MIN_MS = 1200;
+const AIRCRAFT_TRANSITION_MAX_MS = 9000;
+const AIRCRAFT_EXTRAPOLATION_MAX_MS = 25_000;
+const AIRCRAFT_GLIDE_MAX_DISTANCE_M = 300_000;
+const KNOTS_TO_METERS_PER_SECOND = 0.514444;
+const METERS_PER_DEGREE_LAT = 111_320;
 
 function formatAircraftAge(observedAt: Date): string {
   const ageSec = Math.max(0, Math.round((Date.now() - observedAt.getTime()) / 1000));
@@ -372,6 +390,69 @@ function stableUnitInterval(key: string): number {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0) / 0xffffffff;
+}
+
+function smoothstep(edge0: number, edge1: number, value: number): number {
+  if (edge0 === edge1) return value >= edge1 ? 1 : 0;
+  const t = clampNumber((value - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function shortestLongitudeDelta(from: number, to: number): number {
+  let delta = to - from;
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+  return delta;
+}
+
+function normalizeLongitude(lon: number): number {
+  if (lon > 180) return lon - 360;
+  if (lon < -180) return lon + 360;
+  return lon;
+}
+
+function interpolateLongitude(from: number, to: number, t: number): number {
+  const delta = shortestLongitudeDelta(from, to);
+  return normalizeLongitude(from + delta * t);
+}
+
+function interpolateDegrees(from: number, to: number, t: number): number {
+  if (!Number.isFinite(from)) return to;
+  if (!Number.isFinite(to)) return from;
+  const delta = shortestLongitudeDelta(from, to);
+  return (from + delta * t + 360) % 360;
+}
+
+function roughDistanceMeters(a: PositionSample, b: PositionSample): number {
+  const latDeltaM = (b.lat - a.lat) * METERS_PER_DEGREE_LAT;
+  const lonDelta = shortestLongitudeDelta(a.lon, b.lon);
+  const lonDeltaM = lonDelta * METERS_PER_DEGREE_LAT * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180);
+  return Math.hypot(latDeltaM, lonDeltaM);
+}
+
+function projectAircraftPosition(position: PositionSample, elapsedMs: number): PositionSample {
+  if (position.onGround || position.freshness === 'stale') return position;
+  if (!Number.isFinite(position.groundSpeedKts) || position.groundSpeedKts < 25 || position.groundSpeedKts > 750) return position;
+  if (!Number.isFinite(position.trackDeg)) return position;
+
+  const seconds = clampNumber(elapsedMs, 0, AIRCRAFT_EXTRAPOLATION_MAX_MS) / 1000;
+  if (seconds <= 0) return position;
+
+  const meters = position.groundSpeedKts * KNOTS_TO_METERS_PER_SECOND * seconds;
+  const headingRad = (position.trackDeg * Math.PI) / 180;
+  const northMeters = Math.cos(headingRad) * meters;
+  const eastMeters = Math.sin(headingRad) * meters;
+  const lat = clampNumber(position.lat + northMeters / METERS_PER_DEGREE_LAT, -90, 90);
+  const cosLat = Math.max(0.08, Math.cos((position.lat * Math.PI) / 180));
+  const lon = normalizeLongitude(position.lon + eastMeters / (METERS_PER_DEGREE_LAT * cosLat));
+  const climbFt = Number.isFinite(position.verticalRateMps) ? position.verticalRateMps * seconds * 3.28084 : 0;
+
+  return {
+    ...position,
+    lat,
+    lon,
+    altitudeFt: Math.max(0, position.altitudeFt + climbFt),
+  };
 }
 
 function lngLatToMercatorUnit(lon: number, lat: number): [number, number] {
@@ -466,6 +547,7 @@ export class DeckGLMap {
   private techEvents: TechEventMarker[] = [];
   private flightDelays: AirportDelayAlert[] = [];
   private aircraftPositions: PositionSample[] = [];
+  private aircraftMotion = new Map<string, AircraftMotionState>();
   private aircraftHistory = new Map<string, [number, number][]>();
   private readonly AIRCRAFT_HISTORY_MAX = 40;
   private aircraftDensity = 100;
@@ -609,6 +691,7 @@ export class DeckGLMap {
   private dayNightIntervalId: ReturnType<typeof setInterval> | null = null;
   private cableFlowAnimationId: number | null = null;
   private satelliteAnimationId: number | null = null;
+  private aircraftAnimationId: number | null = null;
   private satelliteCatalog: import('@/types').SatelliteData[] = [];
   private pipelineHydrationStarted = false;
   private sanctionedAssetsHydrationStarted = false;
@@ -630,6 +713,7 @@ export class DeckGLMap {
   private satelliteVisiblePositionCache: { bucket: number; signature: string; positions: SatellitePositionRecord[] } | null = null;
   private satellitePositionSampleCache: SatellitePositionSampleCache | null = null;
   private lastSatelliteAnimationFrameMs = 0;
+  private lastAircraftAnimationFrameMs = 0;
 
   constructor(container: HTMLElement, initialState: DeckMapState) {
     this.container = container;
@@ -646,13 +730,17 @@ export class DeckGLMap {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
       this.maplibreMap.resize();
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
-    this.maplibreMap?.triggerRepaint();
+      this.syncGlobeNativeLayers();
+      this.updateAircraftStatusControl();
+      this.maplibreMap?.triggerRepaint();
     }, 150);
     this.debouncedFetchBases = debounce(() => this.fetchServerBases(), 300);
     this.debouncedFetchAircraft = debounce(() => this.fetchViewportAircraft(), 500);
     this.rafUpdateLayers = rafSchedule(() => {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
+      this.syncGlobeNativeLayers();
+      this.updateAircraftStatusControl();
       this.maplibreMap?.triggerRepaint();
     });
 
@@ -2053,10 +2141,7 @@ export class DeckGLMap {
   }
 
   private getGlobeAircraftPositions(): PositionSample[] {
-    const density = this.aircraftDensity / 100;
-    return density >= 1
-      ? this.aircraftPositions
-      : this.aircraftPositions.filter((_, index) => (index / Math.max(1, this.aircraftPositions.length)) < density);
+    return this.getDisplayedAircraftPositions();
   }
 
   private getGlobeAircraftAltitudeMeters(position: PositionSample): number {
@@ -2540,17 +2625,20 @@ export class DeckGLMap {
     return {
       type: 'FeatureCollection',
       features: this.getGlobeAircraftPositions()
-        .map((position) => this.pointFeature(
-          position.icao24,
-          position.callsign || position.icao24,
-          position.lon,
-          position.lat,
-          position.onGround ? 'rgba(156,163,175,0.84)' : 'rgba(96,165,250,0.94)',
-          position.onGround ? 4 : 5,
-          'aircraft',
-          position.trackDeg,
-          this.getGlobeAircraftAltitudeMeters(position),
-        ))
+        .map((position) => {
+          const visual = this.getAircraftRenderPosition(position);
+          return this.pointFeature(
+            position.icao24,
+            position.callsign || position.icao24,
+            visual.lon,
+            visual.lat,
+            this.getGlobeAircraftColor(position),
+            position.onGround ? 4 : 5,
+            'aircraft',
+            visual.trackDeg,
+            this.getGlobeAircraftAltitudeMeters(visual),
+          );
+        })
         .filter((feature): feature is GlobePointFeature => feature != null),
     };
   }
@@ -3004,13 +3092,95 @@ export class DeckGLMap {
   }
 
   private getDisplayedAircraftPositions(): PositionSample[] {
-    const density = this.aircraftDensity / 100;
-    return density >= 1
-      ? this.aircraftPositions
-      : this.aircraftPositions.filter((_, i) => (i / Math.max(1, this.aircraftPositions.length)) < density);
+    if (this.aircraftPositions.length <= 1) return this.aircraftPositions;
+
+    const density = this.getEffectiveAircraftDensity();
+    const fadeLimit = clampNumber(density + AIRCRAFT_ZOOM_FADE_BAND, 0, 1);
+    if (fadeLimit >= 0.999) return this.aircraftPositions;
+
+    let fallback: PositionSample | null = null;
+    let fallbackScore = Number.POSITIVE_INFINITY;
+    const visible: PositionSample[] = [];
+
+    for (const position of this.aircraftPositions) {
+      if (this.selectedAircraftType === 'commercial' && position.icao24 === this.selectedAircraftIcao) {
+        visible.push(position);
+        continue;
+      }
+
+      const score = this.getAircraftVisibilityScore(position);
+      if (score < fallbackScore) {
+        fallbackScore = score;
+        fallback = position;
+      }
+      if (score <= fadeLimit) visible.push(position);
+    }
+
+    if (visible.length === 0 && fallback) visible.push(fallback);
+    return visible;
   }
 
-  private getAircraftColor(position: PositionSample, alpha = 235): [number, number, number, number] {
+  private getAircraftRenderPosition(position: PositionSample): PositionSample {
+    const motion = this.aircraftMotion.get(position.icao24);
+    if (!motion) return position;
+
+    const now = performance.now();
+    if (motion.durationMs <= 0) {
+      return projectAircraftPosition(motion.to, now - motion.startedAtMs);
+    }
+
+    const elapsed = now - motion.startedAtMs;
+    if (elapsed >= motion.durationMs) {
+      return projectAircraftPosition(motion.to, elapsed - motion.durationMs);
+    }
+
+    const t = smoothstep(0, 1, elapsed / motion.durationMs);
+    return {
+      ...motion.to,
+      lat: motion.from.lat + (motion.to.lat - motion.from.lat) * t,
+      lon: interpolateLongitude(motion.from.lon, motion.to.lon, t),
+      altitudeFt: motion.from.altitudeFt + (motion.to.altitudeFt - motion.from.altitudeFt) * t,
+      trackDeg: interpolateDegrees(motion.from.trackDeg, motion.to.trackDeg, t),
+    };
+  }
+
+  private getAircraftTransitionDurationMs(from: PositionSample, to: PositionSample): number {
+    if (roughDistanceMeters(from, to) > AIRCRAFT_GLIDE_MAX_DISTANCE_M) return 0;
+
+    const observedDeltaMs = to.observedAt.getTime() - from.observedAt.getTime();
+    if (Number.isFinite(observedDeltaMs) && observedDeltaMs > 0) {
+      return clampNumber(observedDeltaMs * 0.35, AIRCRAFT_TRANSITION_MIN_MS, AIRCRAFT_TRANSITION_MAX_MS);
+    }
+    return 2500;
+  }
+
+  private getEffectiveAircraftDensity(): number {
+    const userDensity = clampNumber(this.aircraftDensity, 5, 100) / 100;
+    const zoom = this.maplibreMap?.getZoom() ?? this.state.zoom ?? AIRCRAFT_MIN_RENDER_ZOOM;
+    const zoomDensity = AIRCRAFT_MIN_ZOOM_DENSITY
+      + (1 - AIRCRAFT_MIN_ZOOM_DENSITY) * smoothstep(AIRCRAFT_MIN_RENDER_ZOOM, AIRCRAFT_FULL_RENDER_ZOOM, zoom);
+    return clampNumber(userDensity * zoomDensity, 0.01, 1);
+  }
+
+  private getAircraftVisibilityScore(position: PositionSample): number {
+    const key = position.icao24 || position.callsign || `${position.lat.toFixed(4)},${position.lon.toFixed(4)}`;
+    return stableUnitInterval(key);
+  }
+
+  private getAircraftZoomAlpha(position: PositionSample): number {
+    if (this.aircraftPositions.length <= 1) return 1;
+    if (this.selectedAircraftType === 'commercial' && position.icao24 === this.selectedAircraftIcao) return 1;
+
+    const density = this.getEffectiveAircraftDensity();
+    const score = this.getAircraftVisibilityScore(position);
+    if (score <= density) return 1;
+
+    const fadeLimit = clampNumber(density + AIRCRAFT_ZOOM_FADE_BAND, 0, 1);
+    if (score >= fadeLimit) return 0;
+    return 1 - smoothstep(density, fadeLimit, score);
+  }
+
+  private getAircraftColorAtAlpha(position: PositionSample, alpha: number): [number, number, number, number] {
     if (this.selectedAircraftIcao === position.icao24 && this.selectedAircraftType === 'commercial') {
       return [251, 191, 36, alpha];
     }
@@ -3020,39 +3190,75 @@ export class DeckGLMap {
     return [96, 165, 250, alpha];
   }
 
+  private getAircraftColor(position: PositionSample, alpha = 235): [number, number, number, number] {
+    return this.getAircraftColorAtAlpha(position, Math.round(alpha * this.getAircraftZoomAlpha(position)));
+  }
+
+  private getAircraftLabelAlpha(position: PositionSample): number {
+    if (this.selectedAircraftIcao === position.icao24 && this.selectedAircraftType === 'commercial') return 1;
+    if (position.stale || !(position.callsign || position.icao24)) return 0;
+
+    const zoom = this.maplibreMap?.getZoom() ?? this.state.zoom ?? 0;
+    const zoomAlpha = smoothstep(
+      AIRCRAFT_LABEL_MIN_ZOOM - AIRCRAFT_LABEL_FADE_ZOOM_RANGE,
+      AIRCRAFT_LABEL_MIN_ZOOM + AIRCRAFT_LABEL_FADE_ZOOM_RANGE,
+      zoom,
+    );
+    return zoomAlpha * this.getAircraftZoomAlpha(position);
+  }
+
+  private getAircraftLabelColor(position: PositionSample): [number, number, number, number] {
+    const alpha = position.icao24 === this.selectedAircraftIcao ? 245 : 205;
+    return this.getAircraftColorAtAlpha(position, Math.round(alpha * this.getAircraftLabelAlpha(position)));
+  }
+
+  private getAircraftLabelBackgroundColor(position: PositionSample): [number, number, number, number] {
+    return [5, 12, 22, Math.round(178 * this.getAircraftLabelAlpha(position))];
+  }
+
+  private getGlobeAircraftColor(position: PositionSample): string {
+    const [r, g, b, a] = this.getAircraftColor(position, position.onGround ? 214 : 240);
+    return `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`;
+  }
+
   private createAircraftPositionsLayer(): IconLayer<PositionSample> {
     const data = this.getDisplayedAircraftPositions();
     return new IconLayer<PositionSample>({
       id: 'aircraft-positions-layer',
       data,
-      getPosition: (d) => [d.lon, d.lat, (d.altitudeFt ?? 0) * 0.3048],
+      getPosition: (d) => {
+        const visual = this.getAircraftRenderPosition(d);
+        return [visual.lon, visual.lat, (visual.altitudeFt ?? 0) * 0.3048];
+      },
       getIcon: () => 'plane',
       iconAtlas: AVIATION_PLANE_ICON_ATLAS,
       iconMapping: AVIATION_PLANE_ICON_MAPPING,
       getSize: (d) => d.onGround ? 18 : 24,
       getColor: (d) => this.getAircraftColor(d),
-      getAngle: (d) => -d.trackDeg,
       sizeMinPixels: 10,
       sizeMaxPixels: 36,
       sizeScale: 1,
       pickable: true,
+      getAngle: (d) => -this.getAircraftRenderPosition(d).trackDeg,
       billboard: true,
     });
   }
 
   private createAircraftLabelsLayer(): TextLayer<PositionSample> {
-    const zoom = this.maplibreMap?.getZoom() ?? this.state.zoom ?? 0;
     const data = this.getDisplayedAircraftPositions().filter((aircraft) => (
       aircraft.icao24 === this.selectedAircraftIcao
-      || (zoom >= AIRCRAFT_LABEL_MIN_ZOOM && !aircraft.stale && (aircraft.callsign || aircraft.icao24))
+      || this.getAircraftLabelAlpha(aircraft) > 0.04
     ));
     return new TextLayer<PositionSample>({
       id: 'aircraft-labels-layer',
       data,
-      getPosition: (d) => [d.lon, d.lat, (d.altitudeFt ?? 0) * 0.3048],
+      getPosition: (d) => {
+        const visual = this.getAircraftRenderPosition(d);
+        return [visual.lon, visual.lat, (visual.altitudeFt ?? 0) * 0.3048];
+      },
       getText: (d) => d.callsign || d.icao24.toUpperCase(),
       getSize: (d) => d.icao24 === this.selectedAircraftIcao ? 12 : 10,
-      getColor: (d) => this.getAircraftColor(d, d.icao24 === this.selectedAircraftIcao ? 245 : 205),
+      getColor: (d) => this.getAircraftLabelColor(d),
       getAngle: 0,
       getTextAnchor: 'middle',
       getAlignmentBaseline: 'bottom',
@@ -3060,10 +3266,14 @@ export class DeckGLMap {
       fontFamily: 'Inter, system-ui, sans-serif',
       fontWeight: 700,
       background: true,
-      getBackgroundColor: [5, 12, 22, 178],
+      getBackgroundColor: (d) => this.getAircraftLabelBackgroundColor(d),
       backgroundPadding: [3, 2],
       billboard: true,
       pickable: false,
+      transitions: {
+        getColor: 180,
+        getBackgroundColor: 180,
+      },
     });
   }
 
@@ -3118,6 +3328,7 @@ export class DeckGLMap {
     if (this.selectedAircraftType === 'commercial') {
       const aircraft = this.aircraftPositions.find(a => a.icao24 === this.selectedAircraftIcao);
       if (!aircraft) return layers;
+      const visualAircraft = this.getAircraftRenderPosition(aircraft);
 
       // History trail
       const hist = this.aircraftHistory.get(this.selectedAircraftIcao) ?? [];
@@ -3135,14 +3346,14 @@ export class DeckGLMap {
       }
 
       // Heading projection rendered as a subtle arc instead of a hard straight line.
-      const headingRad = (aircraft.trackDeg * Math.PI) / 180;
+      const headingRad = (visualAircraft.trackDeg * Math.PI) / 180;
       const distDeg = aircraft.onGround ? 0.9 : Math.max(1.4, Math.min(3.2, aircraft.groundSpeedKts / 180));
-      const fwdLon = aircraft.lon + Math.sin(headingRad) * distDeg / Math.cos((aircraft.lat * Math.PI) / 180);
-      const fwdLat = aircraft.lat + Math.cos(headingRad) * distDeg;
+      const fwdLon = visualAircraft.lon + Math.sin(headingRad) * distDeg / Math.cos((visualAircraft.lat * Math.PI) / 180);
+      const fwdLat = visualAircraft.lat + Math.cos(headingRad) * distDeg;
       layers.push(new ArcLayer<{ source: [number, number, number]; target: [number, number, number] }>({
         id: 'aircraft-heading-layer',
         data: [{
-          source: [aircraft.lon, aircraft.lat, (aircraft.altitudeFt ?? 0) * 0.3048],
+          source: [visualAircraft.lon, visualAircraft.lat, (visualAircraft.altitudeFt ?? 0) * 0.3048],
           target: [fwdLon, fwdLat, 0],
         }],
         getSourcePosition: (d) => d.source,
@@ -7369,6 +7580,7 @@ export class DeckGLMap {
     if (paused) {
       this.stopPulseAnimation();
       this.stopDayNightTimer();
+      this.manageAircraftMotionAnimation(false);
       this.manageCableFlowAnimation(false);
       this.manageSatelliteAnimation(false);
       return;
@@ -7376,6 +7588,7 @@ export class DeckGLMap {
 
     this.syncPulseAnimation();
     if (this.state.layers.dayNight) this.startDayNightTimer();
+    this.manageAircraftMotionAnimation(this.state.layers.flights && this.aircraftPositions.length > 0);
     this.manageCableFlowAnimation(this.state.layers.cables);
     this.manageSatelliteAnimation(!!this.state.layers.satellite);
     if (!paused && this.renderPending) {
@@ -7395,6 +7608,7 @@ export class DeckGLMap {
       this.deckOverlay?.setProps({ layers: this.buildLayers(dirty) });
     } catch { /* map may be mid-teardown (null.getProjection) */ }
     this.syncGlobeNativeLayers();
+    this.updateAircraftStatusControl();
     this.maplibreMap?.triggerRepaint();
     const elapsed = performance.now() - startTime;
     if (import.meta.env.DEV && elapsed > 16) {
@@ -7829,11 +8043,17 @@ export class DeckGLMap {
     if (!this.state.layers.flights) return 'Aircraft tracking off';
     if (this.aircraftPositions.length === 0) return 'No live aircraft in current view';
 
+    const visibleCount = this.getDisplayedAircraftPositions().length;
     const live = this.aircraftPositions.filter((pos) => pos.freshness === 'live').length;
     const recent = this.aircraftPositions.filter((pos) => pos.freshness === 'recent').length;
     const stale = this.aircraftPositions.filter((pos) => pos.freshness === 'stale').length;
     const provider = this.aircraftPositions.find((pos) => pos.provider)?.provider || this.aircraftPositions[0]?.source || 'unknown';
-    const parts = [`${this.aircraftPositions.length} aircraft`, `${provider}`];
+    const parts = [
+      visibleCount === this.aircraftPositions.length
+        ? `${this.aircraftPositions.length} aircraft`
+        : `${visibleCount}/${this.aircraftPositions.length} aircraft shown`,
+      `${provider}`,
+    ];
     if (live > 0) parts.push(`${live} live`);
     if (recent > 0) parts.push(`${recent} recent`);
     if (stale > 0) parts.push(`${stale} stale`);
@@ -7845,8 +8065,33 @@ export class DeckGLMap {
     if (status) status.textContent = this.getAircraftStatusText();
   }
 
-  public setAircraftPositions(positions: PositionSample[]): void {
-    for (const pos of positions) {
+  private applyAircraftPositions(positions: PositionSample[], notify = true): PositionSample[] {
+    const filtered = filterRenderableAircraftPositions(positions);
+    const now = performance.now();
+    const nextIds = new Set<string>();
+
+    for (const pos of filtered) {
+      nextIds.add(pos.icao24);
+      const previous = this.aircraftPositions.find((item) => item.icao24 === pos.icao24);
+      if (!previous) {
+        this.aircraftMotion.set(pos.icao24, { from: pos, to: pos, startedAtMs: now, durationMs: 0 });
+        continue;
+      }
+
+      const from = this.getAircraftRenderPosition(previous);
+      this.aircraftMotion.set(pos.icao24, {
+        from,
+        to: pos,
+        startedAtMs: now,
+        durationMs: this.getAircraftTransitionDurationMs(from, pos),
+      });
+    }
+
+    for (const icao24 of Array.from(this.aircraftMotion.keys())) {
+      if (!nextIds.has(icao24)) this.aircraftMotion.delete(icao24);
+    }
+
+    for (const pos of filtered) {
       const hist = this.aircraftHistory.get(pos.icao24) ?? [];
       const last = hist[hist.length - 1];
       if (!last || last[0] !== pos.lon || last[1] !== pos.lat) {
@@ -7855,12 +8100,19 @@ export class DeckGLMap {
         this.aircraftHistory.set(pos.icao24, hist);
       }
     }
-    this.aircraftPositions = positions;
+    this.aircraftPositions = filtered;
     this.updateAircraftStatusControl();
+    this.manageAircraftMotionAnimation(this.state.layers.flights && filtered.length > 0);
+    if (notify) this.onAircraftPositionsUpdate?.(filtered);
+    return filtered;
+  }
+
+  public setAircraftPositions(positions: PositionSample[]): void {
+    const filtered = this.applyAircraftPositions(positions);
     this.render('flights');
 
     if (this.followedAircraftIcao) {
-      const followed = positions.find(p => p.icao24 === this.followedAircraftIcao);
+      const followed = filtered.find(p => p.icao24 === this.followedAircraftIcao);
       if (followed && this.maplibreMap) {
         this.maplibreMap.easeTo({ center: [followed.lon, followed.lat], duration: 800 });
       }
@@ -7954,13 +8206,45 @@ export class DeckGLMap {
         }, 120_000); // Match server cache TTL (120s anonymous OpenSky tier)
         this.debouncedFetchAircraft();
       }
+      this.manageAircraftMotionAnimation(this.aircraftPositions.length > 0);
     } else {
       if (this.aircraftFetchTimer) {
         clearInterval(this.aircraftFetchTimer);
         this.aircraftFetchTimer = null;
       }
       this.aircraftPositions = [];
+      this.aircraftMotion.clear();
       this.updateAircraftStatusControl();
+      this.manageAircraftMotionAnimation(false);
+    }
+  }
+
+  private manageAircraftMotionAnimation(enabled: boolean): void {
+    if (enabled) {
+      if (!this.aircraftAnimationId) {
+        const tick = () => {
+          if (!this.aircraftAnimationId) return;
+          const now = performance.now();
+          if (
+            !this.renderPaused &&
+            !this.webglLost &&
+            this.maplibreMap &&
+            this.state.layers.flights &&
+            this.aircraftPositions.length > 0 &&
+            now - this.lastAircraftAnimationFrameMs >= AIRCRAFT_MOTION_FRAME_MS
+          ) {
+            this.lastAircraftAnimationFrameMs = now;
+            this.render('flights');
+          }
+          this.aircraftAnimationId = requestAnimationFrame(tick);
+        };
+        this.lastAircraftAnimationFrameMs = 0;
+        this.aircraftAnimationId = requestAnimationFrame(tick);
+      }
+    } else if (this.aircraftAnimationId) {
+      cancelAnimationFrame(this.aircraftAnimationId);
+      this.aircraftAnimationId = null;
+      this.lastAircraftAnimationFrameMs = 0;
     }
   }
 
@@ -8028,7 +8312,9 @@ export class DeckGLMap {
     if (zoom < 2) {
       if (this.aircraftPositions.length > 0) {
         this.aircraftPositions = [];
+        this.aircraftMotion.clear();
         this.updateAircraftStatusControl();
+        this.manageAircraftMotionAnimation(false);
         this.render('flights');
       }
       return;
@@ -8043,9 +8329,7 @@ export class DeckGLMap {
       neLat: ne.lat, neLon: ne.lng,
     }).then((positions) => {
       if (seq !== this.aircraftFetchSeq) return; // discard stale response
-      this.aircraftPositions = positions;
-      this.updateAircraftStatusControl();
-      this.onAircraftPositionsUpdate?.(positions);
+      this.applyAircraftPositions(positions);
       const center = this.maplibreMap?.getCenter();
       if (center) {
         this.lastAircraftFetchCenter = [center.lng, center.lat];
@@ -9339,6 +9623,7 @@ export class DeckGLMap {
     this.container.classList.remove('globe-projection');
     this.stopPulseAnimation();
     this.stopDayNightTimer();
+    this.manageAircraftMotionAnimation(false);
     this.manageCableFlowAnimation(false);
     this.manageSatelliteAnimation(false);
     this.removeGlobeNativeLayers();
