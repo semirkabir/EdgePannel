@@ -41,6 +41,7 @@ import {
   getSecFilingViewerUrl,
   type SecFilingEntry,
 } from '@/services/market/sec-filings';
+import { searchGdeltEvents, type GdeltEvent } from '@/services/gdelt-events';
 
 export interface SearchManagerCallbacks {
   openCountryBriefByCode: (code: string, country: string) => void;
@@ -243,6 +244,26 @@ export class SearchManager implements AppModule {
 
     this.ctx.searchModal.registerSource('secfiling', this.buildSecFilingSearchItems(this.secFilingSearchItems));
     this.ctx.searchModal.registerAsyncSource('secfiling', async (query) => this.buildLiveSecFilingSearchItems(query), { limit: 8 });
+
+    // GDELT 2.0 Event Database — structured CAMEO events
+    this.ctx.searchModal.registerAsyncSource('gdeltEvent', async (query) => {
+      if (!query || query.length < 3) return [];
+      try {
+        const events = await searchGdeltEvents(query, 10, '7d');
+        return events.map(ev => ({
+          id: `gdelt-${ev.globalEventId}`,
+          title: ev.eventDescription || `Event ${ev.eventCode}`,
+          subtitle: [
+            ev.actor1Name && ev.actor2Name ? `${ev.actor1Name} → ${ev.actor2Name}` : ev.actor1Name || '',
+            ev.actionGeoFullName || '',
+            `Goldstein: ${ev.goldsteinScale.toFixed(1)}`,
+          ].filter(Boolean).join(' • '),
+          data: ev,
+        }));
+      } catch {
+        return [];
+      }
+    }, { limit: 8 });
 
     if (this.ctx.marketplace) {
       this.ctx.searchModal.registerSource('marketplace', this.ctx.marketplace.getSearchItems());
@@ -468,6 +489,7 @@ export class SearchManager implements AppModule {
         this.ctx.entityDetailPanel?.show('institution' as PopupType, {
           name: institution.name,
           cik: institution.cik,
+          relatedTicker: 'relatedTicker' in institution ? institution.relatedTicker : '',
         });
         break;
       }
@@ -482,6 +504,18 @@ export class SearchManager implements AppModule {
           setTimeout(() => { this.ctx.map?.setCenter(place.lat!, place.lon!, 5); }, 300);
         } else if (place.url) {
           window.open(place.url, '_blank', 'noopener,noreferrer');
+        }
+        break;
+      }
+      case 'gdeltEvent': {
+        const ev = result.data as GdeltEvent;
+        // Scroll to GDELT intel panel and focus on map if geolocated
+        this.scrollToPanel('gdelt-intel');
+        if (ev.actionGeoLat != null && ev.actionGeoLong != null) {
+          this.ctx.map?.setView('global');
+          this.ctx.map?.enableLayer('gdeltEvents');
+          this.ctx.mapLayers.gdeltEvents = true;
+          setTimeout(() => { this.ctx.map?.setCenter(ev.actionGeoLat!, ev.actionGeoLong!, 5); }, 300);
         }
         break;
       }
@@ -943,15 +977,41 @@ export class SearchManager implements AppModule {
     documentUrl: string;
     title: string;
     filedAt: string;
+    institutionName: string;
+    institutionCik: string;
+    relatedTicker: string;
+    sourceFiling: {
+      filingType: string;
+      filedAt: string;
+      accessionNumber: string;
+      url: string;
+      title: string;
+    };
   } {
+    const relatedTicker = (filing as SecFilingEntry & { relatedTicker?: string; ticker?: string }).relatedTicker
+      || (filing as SecFilingEntry & { relatedTicker?: string; ticker?: string }).ticker
+      || '';
+    const filedAt = filing.filedAt.toISOString();
+    const accessionNumber = getSecFilingAccessionNumber(filing);
+    const documentUrl = getSecFilingViewerUrl(filing) || filing.url;
     return {
       cik: filing.cik,
       companyName: filing.filerName,
       filingType: filing.filingType,
-      accessionNumber: getSecFilingAccessionNumber(filing),
-      documentUrl: getSecFilingViewerUrl(filing) || filing.url,
+      accessionNumber,
+      documentUrl,
       title: filing.title,
-      filedAt: filing.filedAt.toISOString(),
+      filedAt,
+      institutionName: filing.filerName,
+      institutionCik: filing.cik,
+      relatedTicker,
+      sourceFiling: {
+        filingType: filing.filingType,
+        filedAt,
+        accessionNumber,
+        url: documentUrl,
+        title: filing.title,
+      },
     };
   }
 

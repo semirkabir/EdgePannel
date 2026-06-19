@@ -7,6 +7,16 @@ interface SecFilingData extends SecFilingAnalysisInput {
   title?: string;
   companyName?: string;
   filedAt?: string;
+  institutionName?: string;
+  institutionCik?: string;
+  relatedTicker?: string;
+  sourceFiling?: {
+    filingType?: string;
+    filedAt?: string;
+    accessionNumber?: string;
+    url?: string;
+    title?: string;
+  };
 }
 
 function fmtDate(value: string): string {
@@ -36,6 +46,24 @@ function titleFor(data: SecFilingData): string {
   return [data.filingType, data.companyName || data.ticker || data.cik].filter(Boolean).join(' - ') || 'SEC filing';
 }
 
+function is13FFiling(filingType?: string, category?: string): boolean {
+  const type = (filingType || '').toUpperCase();
+  return category === 'institutional' || type === '13F' || type.startsWith('13F-');
+}
+
+function openInstitutionDetail(data: { name: string; cik: string; relatedTicker?: string; sourceFiling?: SecFilingData['sourceFiling'] }): void {
+  const detailData = {
+    name: data.name || 'Institution',
+    cik: data.cik,
+    relatedTicker: data.relatedTicker || '',
+    sourceFiling: data.sourceFiling,
+  };
+  document.dispatchEvent(new CustomEvent('wm:open-entity-detail', {
+    detail: { type: 'institution', data: detailData },
+  }));
+  (window as any).__entityDetailPanel?.show?.('institution', detailData);
+}
+
 export class SecFilingRenderer implements EntityRenderer {
   renderSkeleton(data: unknown, ctx: EntityRenderContext): HTMLElement {
     const filing = data as SecFilingData;
@@ -56,8 +84,9 @@ export class SecFilingRenderer implements EntityRenderer {
     return fetchSecFilingAnalysis(data as SecFilingData, signal);
   }
 
-  renderEnriched(container: HTMLElement, enrichedData: unknown, ctx: EntityRenderContext): void {
+  renderEnriched(container: HTMLElement, enrichedData: unknown, ctx: EntityRenderContext, sourceData?: unknown): void {
     const analysis = enrichedData as GetSecFilingAnalysisResponse;
+    const filing = sourceData as SecFilingData | undefined;
     container.replaceChildren();
 
     const header = ctx.el('div', 'edp-header');
@@ -71,6 +100,10 @@ export class SecFilingRenderer implements EntityRenderer {
     container.append(header);
 
     container.append(this.buildSummaryCard(ctx, analysis));
+    if (is13FFiling(analysis.filingType, analysis.formCategory) || is13FFiling(filing?.filingType)) {
+      const institutionCard = this.buildInstitutionDrillThroughCard(ctx, analysis, filing);
+      if (institutionCard) container.append(institutionCard);
+    }
     const cat = analysis.formCategory;
     if (cat === 'insider') {
       container.append(this.buildInsiderTransactionCard(ctx, analysis));
@@ -110,6 +143,42 @@ export class SecFilingRenderer implements EntityRenderer {
     if (!analysis.structured && analysis.fallbackReason) {
       body.append(ctx.makeEmpty(analysis.fallbackReason));
     }
+    return card;
+  }
+
+  private buildInstitutionDrillThroughCard(
+    ctx: EntityRenderContext,
+    analysis: GetSecFilingAnalysisResponse,
+    filing?: SecFilingData,
+  ): HTMLElement | null {
+    const cik = filing?.institutionCik || analysis.cik || filing?.cik || '';
+    if (!cik) return null;
+
+    const name = filing?.institutionName || analysis.companyName || filing?.companyName || 'Institution';
+    const relatedTicker = filing?.relatedTicker || filing?.ticker || '';
+    const sourceFiling = filing?.sourceFiling ?? {
+      filingType: analysis.filingType || filing?.filingType || '',
+      filedAt: analysis.filedAt || filing?.filedAt || '',
+      accessionNumber: analysis.accessionNumber || filing?.accessionNumber || '',
+      url: analysis.url || filing?.documentUrl || '',
+      title: analysis.title || filing?.title || '',
+    };
+
+    const [card, body] = ctx.sectionCard('Institution Profile');
+    body.append(ctx.el('p', 'edp-description',
+      'This 13F filing is tied to an institutional filer profile with normalized holdings, trades, portfolio structure, and filing history.'));
+    body.append(row(ctx, 'Filer', name));
+    body.append(row(ctx, 'CIK', cik.replace(/^0+/, '') || cik));
+    if (relatedTicker) body.append(row(ctx, 'Ticker Context', relatedTicker));
+
+    const button = ctx.el('button', 'cp-control-btn edp-sec-institution-link', 'Open 13F filer profile') as HTMLButtonElement;
+    button.type = 'button';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openInstitutionDetail({ name, cik, relatedTicker, sourceFiling });
+    });
+    body.append(button);
     return card;
   }
 

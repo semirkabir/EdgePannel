@@ -11,15 +11,28 @@ import {
   type InstitutionFilingHistoryEntry,
   type InstitutionHoldingMapped,
 } from '@/services/market/normalized-13f';
+import { sanitizeUrl } from '@/utils/sanitize';
 
 interface InstitutionData {
   name: string;
   cik: string;
+  relatedTicker?: string;
+  sourceFiling?: InstitutionSourceFiling;
+}
+
+interface InstitutionSourceFiling {
+  filingType?: string;
+  filedAt?: string;
+  accessionNumber?: string;
+  url?: string;
+  title?: string;
 }
 
 interface InstitutionEnriched {
   name: string;
   cik: string;
+  relatedTicker: string;
+  sourceFiling?: InstitutionSourceFiling;
   filingDate: string;
   filingCadence: string;
   holdings: InstitutionHoldingMapped[];
@@ -67,6 +80,24 @@ function fmtDate(value: string): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+  });
+}
+
+function normalizeTicker(value: string | undefined): string {
+  return (value || '').trim().toUpperCase();
+}
+
+function prioritizeContextTicker(
+  holdings: InstitutionHoldingMapped[],
+  relatedTicker: string,
+): InstitutionHoldingMapped[] {
+  const ticker = normalizeTicker(relatedTicker);
+  if (!ticker) return holdings;
+  return [...holdings].sort((a, b) => {
+    const aMatch = normalizeTicker(a.ticker) === ticker;
+    const bMatch = normalizeTicker(b.ticker) === ticker;
+    if (aMatch !== bMatch) return aMatch ? -1 : 1;
+    return (b.value || 0) - (a.value || 0);
   });
 }
 
@@ -140,6 +171,8 @@ export class InstitutionRenderer implements EntityRenderer {
       return {
         name: d.name || 'Unknown Institution',
         cik: '',
+        relatedTicker: normalizeTicker(d.relatedTicker),
+        sourceFiling: d.sourceFiling,
         filingDate: '',
         filingCadence: 'No recent 13F history',
         holdings: [],
@@ -170,6 +203,8 @@ export class InstitutionRenderer implements EntityRenderer {
     return {
       name: profile.name || d.name,
       cik: d.cik,
+      relatedTicker: normalizeTicker(d.relatedTicker),
+      sourceFiling: d.sourceFiling,
       filingDate: profile.filingDate,
       filingCadence: profile.filingCadence,
       holdings: profile.mappedHoldings,
@@ -205,6 +240,9 @@ export class InstitutionRenderer implements EntityRenderer {
         badgeRow.append(ctx.badge('Form ADV AUM', 'edp-badge edp-badge-status'));
       } else if (data.adviser) {
         badgeRow.append(ctx.badge('Form ADV profile', 'edp-badge edp-badge-dim'));
+      }
+      if (data.relatedTicker) {
+        badgeRow.append(ctx.badge(`${data.relatedTicker} context`, 'edp-badge edp-badge-ticker'));
       }
     }
 
@@ -274,9 +312,15 @@ export class InstitutionRenderer implements EntityRenderer {
       ? `${data.mappedValueCoverage.toFixed(1)}% of disclosed value is normalized to tickers using SEC company references, SEC 13F security-list metadata, and local issuer aliases.`
       : 'Holdings loaded from SEC 13F data. This snapshot does not have enough issuer metadata for confident ticker links yet.';
     body.append(subnote);
+    if (data.relatedTicker) {
+      const contextNote = ctx.el('div', 'edp-callout edp-callout-attention edp-callout-text');
+      contextNote.textContent = `Opened with ${data.relatedTicker} context; matching mapped holdings are shown first when available.`;
+      body.append(contextNote);
+    }
 
     const grid = ctx.el('div', 'edp-holdings-table');
-    for (const holding of data.topHoldings) {
+    const displayHoldings = prioritizeContextTicker(data.holdings, data.relatedTicker).slice(0, 10);
+    for (const holding of displayHoldings) {
       const rowEl = ctx.el('div', 'edp-holdings-row');
       makeCompanyRowClickable(rowEl, holding.ticker || '', holding.issuer);
       rowEl.append(ctx.el('span', 'edp-holdings-name', holding.issuer));
@@ -445,6 +489,30 @@ export class InstitutionRenderer implements EntityRenderer {
       ? `${data.filingHistory.length} recent 13F entries are available for this filer. Latest cadence: ${data.filingCadence}.`
       : 'No normalized filing history is available for this filer yet.';
     body.append(summary);
+
+    if (data.sourceFiling) {
+      const rowEl = ctx.el('div', 'edp-disclosure-row');
+      rowEl.append(ctx.el('span', 'edp-disclosure-badge', data.sourceFiling.filingType || '13F'));
+      const info = ctx.el('div', 'edp-disclosure-info');
+      info.append(ctx.el('span', 'edp-disclosure-name', data.sourceFiling.title || data.name));
+      const detailParts = [
+        data.sourceFiling.filedAt ? `Filed ${fmtDate(data.sourceFiling.filedAt)}` : '',
+        data.sourceFiling.accessionNumber ? `Accession ${data.sourceFiling.accessionNumber}` : '',
+      ].filter(Boolean);
+      info.append(ctx.el('span', 'edp-disclosure-detail', detailParts.join(' · ') || 'Source filing from search'));
+      rowEl.append(info);
+      if (data.sourceFiling.url) {
+        const link = ctx.el('a', 'edp-wiki-link') as HTMLAnchorElement;
+        link.href = sanitizeUrl(data.sourceFiling.url);
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'EDGAR';
+        rowEl.append(link);
+      } else {
+        rowEl.append(ctx.el('span', 'edp-disclosure-date', data.sourceFiling.filedAt ? fmtDate(data.sourceFiling.filedAt) : 'Source'));
+      }
+      body.append(rowEl);
+    }
 
     if (data.filingHistory.length === 0) {
       body.append(ctx.makeEmpty('No filing metadata available.'));

@@ -19,7 +19,7 @@ export interface EntityRenderer {
   /** Optional: fetch live data and return enriched result */
   enrich?(data: unknown, signal: AbortSignal): Promise<unknown>;
   /** Optional: update the skeleton with enriched data */
-  renderEnriched?(container: HTMLElement, enrichedData: unknown, ctx: EntityRenderContext): void;
+  renderEnriched?(container: HTMLElement, enrichedData: unknown, ctx: EntityRenderContext, sourceData?: unknown): void;
 }
 
 export type EntityRendererRegistry = Partial<Record<PopupType, EntityRenderer>>;

@@ -683,6 +683,8 @@ export interface MapLayers {
   marketPerf: boolean;
   // Tariff Barriers choropleth
   tariffBarriers: boolean;
+  // GDELT 2.0 Event Database — structured CAMEO events
+  gdeltEvents: boolean;
 }
 
 export interface AIDataCenter {

@@ -35,6 +35,7 @@ const BASE_LAYERS: MapLayers = {
   aptGroups: false,
   gemRisk: false, democracy: false, elections: false,
   earthquakes: false, navWarnings: false, marketPerf: false, tariffBarriers: false,
+  gdeltEvents: false,
 };
 
 // ============================================
@@ -444,6 +445,7 @@ export const LAYER_TO_SOURCE: Partial<Record<keyof MapLayers, DataSourceId[]>> =
   outages:      ['outages'],
   cyberThreats: ['cyber_threats'],
   protests:     ['acled', 'gdelt_doc'],
+  gdeltEvents:  ['gdelt_events'],
   sanctions:    ['sanctions'],
   ucdpEvents:   ['ucdp_events'],
   displacement: ['unhcr'],

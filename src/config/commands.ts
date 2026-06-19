@@ -14,7 +14,7 @@ export const LAYER_PRESETS: Record<string, (keyof MapLayers)[]> = {
   military: ['bases', 'nuclear', 'flights', 'military', 'waterways'],
   finance: ['stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'economic', 'tradeRoutes'],
   infra: ['cables', 'pipelines', 'datacenters', 'spaceports', 'minerals'],
-  intel: ['conflicts', 'hotspots', 'protests', 'ucdpEvents', 'displacement'],
+  intel: ['conflicts', 'hotspots', 'protests', 'ucdpEvents', 'displacement', 'gdeltEvents'],
   minimal: ['conflicts', 'hotspots'],
 };
 
@@ -22,6 +22,7 @@ export const LAYER_PRESETS: Record<string, (keyof MapLayers)[]> = {
 export const LAYER_KEY_MAP: Record<string, keyof MapLayers> = {
   cyber: 'cyberThreats',
   ucdp: 'ucdpEvents',
+  'gdelt-events': 'gdeltEvents',
 };
 
 export const COMMANDS: Command[] = [
@@ -58,6 +59,7 @@ export const COMMANDS: Command[] = [
   { id: 'layer:weather', keywords: ['weather'], label: 'Toggle weather overlay', icon: '\u{1F324}\uFE0F', category: 'layers' },
   { id: 'layer:cyber', keywords: ['cyber', 'cyber threats'], label: 'Toggle cyber threats', icon: '\u{1F6E1}\uFE0F', category: 'layers' },
   { id: 'layer:displacement', keywords: ['displacement', 'refugees', 'idp'], label: 'Toggle displacement flows', icon: '\u{1F3C3}', category: 'layers' },
+  { id: 'layer:gdelt-events', keywords: ['gdelt events', 'cameo events', 'event database', 'structured events'], label: 'Toggle GDELT event markers', icon: '\u{1F4CD}', category: 'layers' },
   { id: 'layer:climate', keywords: ['climate', 'anomalies'], label: 'Toggle climate anomalies', icon: '\u{1F321}\uFE0F', category: 'layers' },
   { id: 'layer:outages', keywords: ['outages', 'internet outages'], label: 'Toggle internet outages', icon: '\u{1F4E1}', category: 'layers' },
   { id: 'layer:tradeRoutes', keywords: ['trade routes', 'shipping lanes', 'trade'], label: 'Toggle trade routes', icon: '\u{1F6A2}', category: 'layers' },

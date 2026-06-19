@@ -239,6 +239,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   democracy: false, elections: false,
   marketPerf: true,
   tariffBarriers: true,
+  gdeltEvents: false,
 };
 
 // Mobile defaults for finance variant
@@ -305,6 +306,7 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   democracy: false, elections: false,
   marketPerf: false,
   tariffBarriers: false,
+  gdeltEvents: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

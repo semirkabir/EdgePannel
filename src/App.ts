@@ -651,7 +651,11 @@ export class App {
     this.eventHandlers.setupExportPanel();
     this.eventHandlers.setupUnifiedSettings();
     if (!this.state.isMobile) {
-      this.eventHandlers.setupNotificationCenter();
+      try {
+        this.eventHandlers.setupNotificationCenter();
+      } catch (e) {
+        console.error('[App] NotificationCenter setup failed:', e);
+      }
     }
 
     // Phase 4: SearchManager, MapLayerHandlers, CountryIntel

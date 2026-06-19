@@ -140,6 +140,7 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   elections:                def('elections',                ICONS.ballot,    'elections',              'Elections',           ['flat', 'globe']),
   marketPerf:               def('marketPerf',               ICONS.chart,     'marketPerf',             'Market Performance',  ['flat', 'globe']),
   tariffBarriers:           def('tariffBarriers',           ICONS.ban,       'tariffBarriers',         'Tariff Barriers',     ['flat', 'globe']),
+  gdeltEvents:              def('gdeltEvents',              ICONS.target,    'gdeltEvents',            'GDELT Events',        ['flat', 'globe']),
 };
 
 // ── Weather category icon/color/label maps ───────────────────────────────────

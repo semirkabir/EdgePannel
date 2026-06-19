@@ -16285,6 +16285,156 @@ button.cluster-flight-item:focus-visible {
   overflow: hidden;
 }
 
+/* ── GDELT 2.0 Event Database cards ─────────────────────────────────── */
+
+.gdelt-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.gdelt-events-list::-webkit-scrollbar {
+  display: none;
+}
+
+.gdelt-event-card {
+  padding: 10px 12px;
+  background: var(--surface);
+  border-left: 3px solid transparent;
+  transition: background 0.15s ease;
+}
+
+.gdelt-event-card:hover {
+  background: var(--overlay-light);
+}
+
+.gdelt-event-card.gdelt-intensity-severe {
+  border-left-color: #dc2626;
+}
+.gdelt-event-card.gdelt-intensity-conflict {
+  border-left-color: #ef4444;
+}
+.gdelt-event-card.gdelt-intensity-tension {
+  border-left-color: #f59e0b;
+}
+.gdelt-event-card.gdelt-intensity-neutral {
+  border-left-color: #6b7280;
+}
+.gdelt-event-card.gdelt-intensity-cooperation {
+  border-left-color: #10b981;
+}
+.gdelt-event-card.gdelt-intensity-strong {
+  border-left-color: #059669;
+}
+
+.gdelt-event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.gdelt-event-type {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.gdelt-event-time {
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.gdelt-event-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gdelt-event-actors {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gdelt-event-location {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.gdelt-event-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.gdelt-intensity-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gdelt-intensity-badge.gdelt-intensity-severe {
+  background: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+}
+.gdelt-intensity-badge.gdelt-intensity-conflict {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+.gdelt-intensity-badge.gdelt-intensity-tension {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.gdelt-intensity-badge.gdelt-intensity-neutral {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9ca3af;
+}
+.gdelt-intensity-badge.gdelt-intensity-cooperation {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+.gdelt-intensity-badge.gdelt-intensity-strong {
+  background: rgba(5, 150, 105, 0.2);
+  color: #6ee7b7;
+}
+
+.gdelt-metric {
+  font-size: 9px;
+  color: var(--text-dim);
+  padding: 1px 4px;
+}
+
+.gdelt-metric.tone-negative {
+  color: #f87171;
+}
+.gdelt-metric.tone-positive {
+  color: #34d399;
+}
+
+.gdelt-mentions {
+  font-weight: 500;
+}
+
 /* Hotspot GDELT Context */
 .hotspot-gdelt-context {
   margin-top: 12px;

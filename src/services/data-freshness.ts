@@ -25,6 +25,7 @@ export type DataSourceId =
   | 'usgs'       // Earthquakes
   | 'gdelt'      // News velocity
   | 'gdelt_doc'  // GDELT Doc protest intelligence
+  | 'gdelt_events' // GDELT 2.0 Event Database (CAMEO events)
   | 'rss'        // RSS feeds
   | 'polymarket' // Prediction markets
   | 'predictions' // Predictions feed
@@ -111,6 +112,7 @@ export const DATA_SOURCE_METADATA: Record<DataSourceId, { name: string; required
   usgs: { name: 'Earthquakes', requiredForRisk: false, panelId: 'natural' },
   gdelt: { name: 'News Intelligence', requiredForRisk: true, panelId: 'intel' },
   gdelt_doc: { name: 'GDELT Doc Intelligence', requiredForRisk: false, panelId: 'protests' },
+  gdelt_events: { name: 'GDELT Event Database', requiredForRisk: false, panelId: 'gdelt-intel' },
   rss: { name: 'Live News Feeds', requiredForRisk: true, panelId: 'live-news' },
   polymarket: { name: 'Prediction Markets', requiredForRisk: false, panelId: 'polymarket' },
   predictions: { name: 'Predictions Feed', requiredForRisk: false, panelId: 'polymarket' },
@@ -479,6 +481,7 @@ const INTELLIGENCE_GAP_MESSAGES: Record<DataSourceId, string> = {
   usgs: 'Recent earthquakes may not be shown—seismic data unavailable',
   gdelt: 'News event velocity unknown—GDELT intelligence feed offline',
   gdelt_doc: 'Protest intelligence degraded—GDELT Doc feed offline',
+  gdelt_events: 'Structured event tracking degraded—GDELT Event Database offline',
   rss: 'Breaking news may be missed—RSS feeds not updating',
   polymarket: 'Prediction market signals unavailable—early warning capability degraded',
   predictions: 'Prediction feed unavailable—scenario signals may be stale',

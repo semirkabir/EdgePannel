@@ -56,7 +56,7 @@ function resolveCategoryLabel(cmd: Command): string {
   return key ? t(key, { defaultValue: cmd.category }) : cmd.category;
 }
 
-export type SearchResultType = 'country' | 'news' | 'hotspot' | 'market' | 'prediction' | 'conflict' | 'base' | 'pipeline' | 'cable' | 'datacenter' | 'earthquake' | 'outage' | 'nuclear' | 'irradiator' | 'spaceport' | 'satellite' | 'techcompany' | 'ailab' | 'startup' | 'techevent' | 'techhq' | 'accelerator' | 'exchange' | 'financialcenter' | 'centralbank' | 'commodityhub' | 'company' | 'secfiling' | 'institution' | 'marketplace' | 'sanction' | 'place';
+export type SearchResultType = 'country' | 'news' | 'hotspot' | 'market' | 'prediction' | 'conflict' | 'base' | 'pipeline' | 'cable' | 'datacenter' | 'earthquake' | 'outage' | 'nuclear' | 'irradiator' | 'spaceport' | 'satellite' | 'techcompany' | 'ailab' | 'startup' | 'techevent' | 'techhq' | 'accelerator' | 'exchange' | 'financialcenter' | 'centralbank' | 'commodityhub' | 'company' | 'secfiling' | 'institution' | 'marketplace' | 'sanction' | 'place' | 'gdeltEvent';
 
 export interface SearchResult {
   type: SearchResultType;
@@ -719,6 +719,7 @@ export class SearchModal {
       marketplace: '\u{1F6D2}',
       sanction: '\u{1F6AB}',
       place: '\u{1F4CD}',
+      gdeltEvent: '\u{1F4CD}',
     };
 
     const frag = document.createDocumentFragment();

@@ -122,7 +122,7 @@ export class EntityDetailPanel extends DetailPanelBase {
       renderer.enrich(data, signal)
         .then((enriched) => {
           if (!signal.aborted && this.currentData === data) {
-            renderer.renderEnriched?.(this.content, enriched, ctx);
+            renderer.renderEnriched?.(this.content, enriched, ctx, data);
             void imagePromise.then((image) => {
               if (!signal.aborted && this.currentData === data) {
                 this.injectHeroImage(image);

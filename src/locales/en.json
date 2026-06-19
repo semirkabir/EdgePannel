@@ -1672,6 +1672,25 @@
     "gdeltIntel": {
       "infoTooltip": "<strong>GDELT Intelligence</strong> Real-time global news monitoring:<ul><li>Curated topic categories (conflicts, cyber, etc.)</li><li>Articles from 100+ languages translated</li><li>Updates every 15 minutes</li></ul>Source: GDELT Project (gdeltproject.org)"
     },
+    "gdeltEvents": {
+      "title": "GDELT Events",
+      "tabLabel": "Events",
+      "infoTooltip": "<strong>GDELT 2.0 Event Database</strong> Structured CAMEO-coded events:<ul><li>Actor1/Actor2 with country codes</li><li>Event type (cooperation/conflict)</li><li>GoldsteinScale intensity (-10 to +10)</li><li>Geolocated action events</li><li>Updated every 15 minutes</li></ul>",
+      "empty": "No structured events found for this category",
+      "loading": "Fetching events from GDELT Event Database...",
+      "actor": "Actor",
+      "target": "Target",
+      "location": "Location",
+      "intensity": "Intensity",
+      "mentions": "Mentions",
+      "tone": "Tone",
+      "conflict": "Conflict",
+      "cooperation": "Cooperation",
+      "verbalCooperation": "Verbal Cooperation",
+      "materialCooperation": "Material Cooperation",
+      "verbalConflict": "Verbal Conflict",
+      "materialConflict": "Material Conflict"
+    },
     "telegramIntel": {
       "infoTooltip": "Real-time signals from monitored Telegram OSINT channels",
       "loading": "Connecting to Telegram relay...",

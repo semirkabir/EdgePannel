@@ -122,6 +122,7 @@ export const DEFAULT_MAP_LAYERS: MapLayers = {
   democracy: false, elections: false,
   marketPerf: false,
   tariffBarriers: true,
+  gdeltEvents: false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,6 +190,7 @@ export const MOBILE_DEFAULT_MAP_LAYERS: MapLayers = {
   democracy: false, elections: false,
   marketPerf: false,
   tariffBarriers: false,
+  gdeltEvents: false,
 };
 
 export const VARIANT_CONFIG: VariantConfig = {

@@ -196,6 +196,7 @@ const allLayersEnabled: MapLayers = {
   navWarnings: false,
   marketPerf: false,
   tariffBarriers: false,
+  gdeltEvents: false,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -257,6 +258,7 @@ const allLayersDisabled: MapLayers = {
   navWarnings: false,
   marketPerf: false,
   tariffBarriers: false,
+  gdeltEvents: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: Array<{

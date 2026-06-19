@@ -48,6 +48,7 @@ export function getSearchResultActionLabel(type: SearchResultType): string {
     secfiling: 'Read filing',
     institution: 'Open 13F filer profile',
     marketplace: 'Open in Marketplace',
+    gdeltEvent: 'View GDELT event',
   };
   return labels[type];
 }

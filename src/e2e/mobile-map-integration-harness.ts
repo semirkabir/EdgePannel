@@ -143,6 +143,7 @@ const layers = {
   navWarnings: false,
   marketPerf: false,
   tariffBarriers: false,
+  gdeltEvents: false,
 };
 
 await initI18n();
