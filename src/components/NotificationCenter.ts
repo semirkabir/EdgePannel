@@ -18,7 +18,6 @@ import {
   updateNotificationPrefs,
   requestNotificationPermission,
   NOTIFICATION_KINDS,
-  type NotificationPrefs,
 } from '@/services/notifications/prefs';
 
 /* ------------------------------------------------------------------ */
