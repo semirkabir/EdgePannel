@@ -338,6 +338,9 @@ export class Panel {
 
     this.header.appendChild(headerLeft);
 
+    const headerActions = document.createElement('div');
+    headerActions.className = 'panel-header-actions';
+
     if (options.showCopyButton !== false) {
       // ── Copy-to-clipboard button ────────────────────────────────────────
       const copyBtn = document.createElement('button');
@@ -354,7 +357,7 @@ export class Panel {
           this.copyResetTimer = setTimeout(() => { copyBtn.textContent = '\u29c9'; }, 1600);
         }).catch(() => {});
       });
-      this.header.appendChild(copyBtn);
+      headerActions.appendChild(copyBtn);
     }
 
     const removeBtn = document.createElement('button');
@@ -362,12 +365,12 @@ export class Panel {
     removeBtn.title = 'Remove panel';
     removeBtn.setAttribute('aria-label', 'Remove panel');
     removeBtn.textContent = '\u2212';
-    this.header.appendChild(removeBtn);
+    headerActions.appendChild(removeBtn);
 
     this.statusBadgeEl = document.createElement('span');
     this.statusBadgeEl.className = 'panel-data-badge';
     this.statusBadgeEl.style.display = 'none';
-    this.header.appendChild(this.statusBadgeEl);
+    headerActions.appendChild(this.statusBadgeEl);
 
     // Re-apply badge when auth state resolves (avoids stale "next update" for logged-in users)
     subscribeToAuth((state) => {
@@ -380,8 +383,10 @@ export class Panel {
       this.countEl = document.createElement('span');
       this.countEl.className = 'panel-count';
       this.countEl.textContent = '0';
-      this.header.appendChild(this.countEl);
+      headerActions.appendChild(this.countEl);
     }
+
+    this.header.appendChild(headerActions);
 
     this.content = document.createElement('div');
     this.content.className = 'panel-content';

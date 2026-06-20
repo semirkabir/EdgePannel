@@ -296,10 +296,12 @@ export class NewsPanel extends Panel {
     this.summaryBtn.setAttribute('aria-label', 'Generate AI summary');
     this.summaryBtn.addEventListener('click', () => this.handleSummarize());
 
-    // Insert before count element (use inherited this.header directly)
-    const countEl = this.header.querySelector('.panel-count');
-    if (countEl) {
-      this.header.insertBefore(this.summaryBtn, countEl);
+    const headerActions = this.header.querySelector('.panel-header-actions');
+    const countEl = headerActions?.querySelector('.panel-count');
+    if (headerActions && countEl) {
+      headerActions.insertBefore(this.summaryBtn, countEl);
+    } else if (headerActions) {
+      headerActions.appendChild(this.summaryBtn);
     } else {
       this.header.appendChild(this.summaryBtn);
     }

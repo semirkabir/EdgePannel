@@ -1285,6 +1285,7 @@ export class PanelLayoutManager implements AppModule {
 
     const defaultOrder = Object.keys(DEFAULT_PANELS).filter(k => k !== 'map');
     const activePanelKeys = Object.keys(this.ctx.panelSettings).filter(k => k !== 'map');
+    const availableDefaultOrder = defaultOrder.filter(k => this.ctx.panels[k]);
     const bottomSet = this.getSavedBottomSet();
     const savedOrder = this.getSavedPanelOrder();
     this.bottomSetMemory = bottomSet;
@@ -1343,14 +1344,44 @@ export class PanelLayoutManager implements AppModule {
       }
     }
 
+    // Self-heal bad persisted layout/settings states. A stale saved order or an
+    // imported settings file can otherwise leave the dashboard with an empty
+    // sidebar and no recovery affordance, which makes the app look blank.
+    allOrder = allOrder.filter(k => this.ctx.panels[k]);
+    if (allOrder.length === 0) {
+      allOrder = [...availableDefaultOrder];
+    }
+
+    const hasEnabledPanel = allOrder.some(k => this.ctx.panelSettings[k]?.enabled !== false);
+    if (!hasEnabledPanel) {
+      const rescueKeys = availableDefaultOrder.slice(0, Math.min(8, availableDefaultOrder.length));
+      rescueKeys.forEach(k => {
+        const fallbackConfig = DEFAULT_PANELS[k];
+        this.ctx.panelSettings[k] = {
+          ...(fallbackConfig ?? this.ctx.panelSettings[k] ?? { name: k, enabled: true }),
+          enabled: true,
+        };
+      });
+      if (rescueKeys.length > 0) {
+        saveToStorage(getVariantStorageKey(STORAGE_KEYS.panels, SITE_VARIANT), this.ctx.panelSettings);
+      }
+    }
+
     this.resolvedPanelOrder = allOrder;
 
-    const sidebarOrder = effectiveUltraWide
+    let sidebarOrder = effectiveUltraWide
       ? allOrder.filter(k => !this.bottomSetMemory.has(k))
       : allOrder;
-    const bottomOrder = effectiveUltraWide
+    let bottomOrder = effectiveUltraWide
       ? allOrder.filter(k => this.bottomSetMemory.has(k))
       : [];
+
+    if (effectiveUltraWide && sidebarOrder.length === 0 && allOrder.length > 0) {
+      this.bottomSetMemory.clear();
+      sidebarOrder = [...allOrder];
+      bottomOrder = [];
+      localStorage.setItem(this.ctx.PANEL_ORDER_KEY + '-bottom-set', JSON.stringify([]));
+    }
 
     sidebarOrder.forEach((key: string) => {
       const panel = this.ctx.panels[key];
@@ -2061,13 +2092,37 @@ export class PanelLayoutManager implements AppModule {
 
   public ensureCorrectZones(): void {
     const effectiveUltraWide = this.getEffectiveUltraWide();
-
-    if (effectiveUltraWide === this.wasUltraWide) return;
-    this.wasUltraWide = effectiveUltraWide;
-
     const grid = document.getElementById('panelsGrid');
     const bottomGrid = document.getElementById('mapBottomGrid');
     if (!grid || !bottomGrid) return;
+
+    if (effectiveUltraWide) {
+      const panelsInGrid = Array.from(grid.querySelectorAll('.panel')) as HTMLElement[];
+      const panelsInBottom = Array.from(bottomGrid.querySelectorAll('.panel')) as HTMLElement[];
+      const gridIds = panelsInGrid.map(panelEl => panelEl.dataset.panel).filter((id): id is string => !!id);
+
+      if (gridIds.length > 0 && gridIds.every(id => this.bottomSetMemory.has(id))) {
+        this.bottomSetMemory.clear();
+        localStorage.setItem(this.ctx.PANEL_ORDER_KEY + '-bottom-set', JSON.stringify([]));
+        this.wasUltraWide = effectiveUltraWide;
+        return;
+      }
+
+      if (gridIds.length === 0 && panelsInBottom.length > 0) {
+        this.bottomSetMemory.clear();
+        panelsInBottom.forEach(panelEl => {
+          const id = panelEl.dataset.panel;
+          if (!id) return;
+          this.insertByOrder(grid, panelEl, id);
+        });
+        localStorage.setItem(this.ctx.PANEL_ORDER_KEY + '-bottom-set', JSON.stringify([]));
+        this.wasUltraWide = effectiveUltraWide;
+        return;
+      }
+    }
+
+    if (effectiveUltraWide === this.wasUltraWide) return;
+    this.wasUltraWide = effectiveUltraWide;
 
     if (!effectiveUltraWide) {
       const panelsInBottom = Array.from(bottomGrid.querySelectorAll('.panel')) as HTMLElement[];
@@ -2172,6 +2227,7 @@ export class PanelLayoutManager implements AppModule {
         if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
         dragStarted = true;
         el.classList.add('dragging');
+        document.body.classList.add('panel-dragging');
       }
       const cx = e.clientX;
       const cy = e.clientY;
@@ -2188,6 +2244,7 @@ export class PanelLayoutManager implements AppModule {
       if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
       if (dragStarted) {
         el.classList.remove('dragging');
+        document.body.classList.remove('panel-dragging');
         const isInBottom = !!el.closest('.map-bottom-grid');
         if (isInBottom) {
           this.bottomSetMemory.add(key);
@@ -2214,6 +2271,7 @@ export class PanelLayoutManager implements AppModule {
       isDragging = false;
       dragStarted = false;
       el.classList.remove('dragging');
+      document.body.classList.remove('panel-dragging');
     });
   }
 
