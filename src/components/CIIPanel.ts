@@ -7,7 +7,6 @@ import { getPreferredCountryScores, toCountryScore } from '@/services/cached-ris
 
 export class CIIPanel extends Panel {
   private scores: CountryScore[] = [];
-  private focalPointsReady = false;
   private hasCachedRender = false;
   private activeCountryCode: string | null = null;
   private onShareStory?: (code: string, name: string) => void;
@@ -224,15 +223,12 @@ export class CIIPanel extends Panel {
     });
   }
 
-  public async refresh(forceLocal = false): Promise<void> {
-    if (!this.focalPointsReady && !forceLocal) {
-      return;
-    }
-
-    if (forceLocal) {
-      this.focalPointsReady = true;
-      console.log('[CIIPanel] Focal points ready, calculating scores...');
-    }
+  public async refresh(_forceLocal = false): Promise<void> {
+    // Focal points are an optional CII boost (focalBoost, 0–8 pts), not a prerequisite for
+    // live scoring. Previously this returned early until the `focal-points-ready` event fired,
+    // which left the panel frozen on cached/baseline scores whenever focal-point analysis
+    // never completed (e.g. analysis worker unavailable in dev). Live scores now render as
+    // soon as intelligence signals load; focalBoost is simply 0 until focal points are ready.
 
     if (!this.hasCachedRender) this.showLoading();
 

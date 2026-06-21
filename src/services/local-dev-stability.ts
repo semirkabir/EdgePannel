@@ -13,7 +13,7 @@ const DISABLED_PANEL_KEYS = new Set([
 ]);
 
 const DISABLED_TASKS = new Set([
-  'pizzint', 'spending', 'tradePolicy', 'supplyChain', 'giving', 'intelligence',
+  'pizzint', 'spending', 'tradePolicy', 'supplyChain', 'giving',
   'techEvents', 'temporalBaseline',
 ]);
 

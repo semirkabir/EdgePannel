@@ -444,7 +444,7 @@ export class App {
       },
       flashMapForNews: (items) => this.dataLoader.flashMapForNews(items),
       updateSearchIndex: () => this.searchManager.updateSearchIndex(),
-      refreshCiiAndBrief: () => this.countryIntel.refreshOpenBrief(),
+      refreshCiiAndBrief: (forceLocal?: boolean) => this.dataLoader?.refreshCiiAndBrief?.(forceLocal),
       tryFetchDigest: () => this.dataLoader.tryFetchDigest(),
     });
 
@@ -456,7 +456,7 @@ export class App {
       renderCriticalBanner: (postures) => this.panelLayout.renderCriticalBanner(postures as import('@/services/military-surge').TheaterPostureSummary[]),
       updateSearchIndex: () => this.searchManager.updateSearchIndex(),
       markIntelligenceSourceFetched: (source) => this.dataLoader.markIntelligenceSourceFetched(source),
-      refreshCiiAndBrief: () => this.countryIntel.refreshOpenBrief(),
+      refreshCiiAndBrief: (forceLocal?: boolean) => this.dataLoader?.refreshCiiAndBrief?.(forceLocal),
       shouldFetchIntelligenceSource: (source, isStatic) => this.dataLoader.shouldFetchIntelligenceSource(source, isStatic),
     });
 
@@ -466,7 +466,7 @@ export class App {
       },
       publishSupplementalSignals: (opts) => this.signalPublisher.publishSupplementalSignals(opts),
       clearSupplementalSignals: (sourceId, dataSourceId, error) => this.signalPublisher.clearSupplementalSignals(sourceId, dataSourceId, error),
-      refreshCiiAndBrief: () => this.countryIntel.refreshOpenBrief(),
+      refreshCiiAndBrief: (forceLocal?: boolean) => this.dataLoader?.refreshCiiAndBrief?.(forceLocal),
       updateSearchIndex: () => this.searchManager.updateSearchIndex(),
     });
 

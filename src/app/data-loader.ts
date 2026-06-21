@@ -233,7 +233,7 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
-  private refreshCiiAndBrief(forceLocal = false): void {
+  public refreshCiiAndBrief(forceLocal = false): void {
     this.debouncedRefreshCiiAndBrief(forceLocal);
   }
 
