@@ -107,6 +107,15 @@ export class SignalPublisher {
   private deps: SignalPublisherDeps;
   private readonly debouncedRefreshCiiAndBrief: (...args: unknown[]) => void;
   private supplementalListenersWired = false;
+  private readonly inFlightCalls = new Map<string, Promise<void>>();
+
+  private dedup(key: string, fn: () => Promise<void>): Promise<void> {
+    const existing = this.inFlightCalls.get(key);
+    if (existing) return existing;
+    const p = fn().finally(() => this.inFlightCalls.delete(key));
+    this.inFlightCalls.set(key, p);
+    return p;
+  }
 
   constructor(ctx: AppContext, deps: SignalPublisherDeps) {
     this.ctx = ctx;
@@ -1154,21 +1163,24 @@ export class SignalPublisher {
   }
 
   async loadSecurityAdvisories(): Promise<void> {
-    try {
-      const result = await fetchSecurityAdvisories();
-      if (result.ok) {
-        this.deps.callPanel('security-advisories', 'setData', result.advisories);
-        this.ctx.intelligenceStore.updateCache({ advisories: result.advisories });
-        ingestAdvisoriesForCII(result.advisories);
-        this.deps.refreshCiiAndBrief();
+    return this.dedup('security-advisories', async () => {
+      try {
+        const result = await fetchSecurityAdvisories();
+        if (result.ok) {
+          this.deps.callPanel('security-advisories', 'setData', result.advisories);
+          this.ctx.intelligenceStore.updateCache({ advisories: result.advisories });
+          ingestAdvisoriesForCII(result.advisories);
+          this.deps.refreshCiiAndBrief();
+        }
+      } catch (error) {
+        console.error('[App] Security advisories fetch failed:', error);
+        this.deps.callPanel('security-advisories', 'showError', 'Security advisories unavailable');
       }
-    } catch (error) {
-      console.error('[App] Security advisories fetch failed:', error);
-      this.deps.callPanel('security-advisories', 'showError', 'Security advisories unavailable');
-    }
+    });
   }
 
   async loadTelegramIntel(): Promise<void> {
+    return this.dedup('telegram-intel', async () => {
     try {
       const customTgs = (this.ctx.uiStore.customFeeds || []).filter(f => f.type === 'telegram');
       const globalFeed = await fetchTelegramFeed();
@@ -1221,30 +1233,33 @@ export class SignalPublisher {
       console.error('[App] Telegram intel fetch failed:', error);
       this.deps.callPanel('telegram-intel', 'showError', 'Telegram intel unavailable');
     }
+    });
   }
 
   async loadOrefSirens(): Promise<void> {
-    try {
-      const data = await fetchOrefAlerts();
-      this.deps.callPanel('oref-sirens', 'setData', data);
-      const alertCount = data.alerts?.length ?? 0;
-      const historyCount24h = data.historyCount24h ?? 0;
-      ingestOrefForCII(alertCount, historyCount24h);
-      this.ctx.intelligenceStore.updateCache({ orefAlerts: { alertCount, historyCount24h } });
-      if (data.alerts?.length) dispatchOrefBreakingAlert(data.alerts);
-      onOrefAlertsUpdate((update) => {
-        this.deps.callPanel('oref-sirens', 'setData', update);
-        const updAlerts = update.alerts?.length ?? 0;
-        const updHistory = update.historyCount24h ?? 0;
-        ingestOrefForCII(updAlerts, updHistory);
-        this.ctx.intelligenceStore.updateCache({ orefAlerts: { alertCount: updAlerts, historyCount24h: updHistory } });
-        if (update.alerts?.length) dispatchOrefBreakingAlert(update.alerts);
-      });
-      startOrefPolling();
-    } catch (error) {
-      console.error('[Intelligence] OREF alerts fetch failed:', error);
-      this.deps.callPanel('oref-sirens', 'showError', 'Siren alerts unavailable');
-    }
+    return this.dedup('oref-sirens', async () => {
+      try {
+        const data = await fetchOrefAlerts();
+        this.deps.callPanel('oref-sirens', 'setData', data);
+        const alertCount = data.alerts?.length ?? 0;
+        const historyCount24h = data.historyCount24h ?? 0;
+        ingestOrefForCII(alertCount, historyCount24h);
+        this.ctx.intelligenceStore.updateCache({ orefAlerts: { alertCount, historyCount24h } });
+        if (data.alerts?.length) dispatchOrefBreakingAlert(data.alerts);
+        onOrefAlertsUpdate((update) => {
+          this.deps.callPanel('oref-sirens', 'setData', update);
+          const updAlerts = update.alerts?.length ?? 0;
+          const updHistory = update.historyCount24h ?? 0;
+          ingestOrefForCII(updAlerts, updHistory);
+          this.ctx.intelligenceStore.updateCache({ orefAlerts: { alertCount: updAlerts, historyCount24h: updHistory } });
+          if (update.alerts?.length) dispatchOrefBreakingAlert(update.alerts);
+        });
+        startOrefPolling();
+      } catch (error) {
+        console.error('[Intelligence] OREF alerts fetch failed:', error);
+        this.deps.callPanel('oref-sirens', 'showError', 'Siren alerts unavailable');
+      }
+    });
   }
 
   async loadNatural(): Promise<void> {

@@ -15,11 +15,12 @@ export function clusterNews(items: NewsItem[]): ClusteredEvent[] {
 }
 
 /**
- * Hybrid clustering: Jaccard first, then semantic refinement if ML available
+ * Hybrid clustering: Jaccard first (off main thread), then semantic refinement if ML available
  */
 export async function clusterNewsHybrid(items: NewsItem[]): Promise<ClusteredEvent[]> {
-  // Step 1: Fast Jaccard clustering
-  const jaccardClusters = clusterNewsCore(items, getSourceTier) as ClusteredEvent[];
+  // Step 1: Jaccard clustering off the main thread via analysis worker
+  const { analysisWorker } = await import('@/services/analysis-worker');
+  const jaccardClusters = await analysisWorker.clusterNews(items);
 
   // Step 2: If ML unavailable or too few clusters, return Jaccard results
   if (!mlWorker.isAvailable || jaccardClusters.length < ML_THRESHOLDS.minClustersForML) {

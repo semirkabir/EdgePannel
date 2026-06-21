@@ -111,7 +111,7 @@ export class EventHandlerManager implements AppModule {
     tvKeydown:            null as ((e: KeyboardEvent) => void) | null,
     focalPointsReady:     null as (() => void) | null,
     themeChanged:         null as (() => void) | null,
-    mapResizeMove:        null as ((e: MouseEvent) => void) | null,
+    mapResizeMove:        null as ((e: PointerEvent) => void) | null,
     mapEndResize:         null as (() => void) | null,
     bloombergKey:         null as ((e: KeyboardEvent) => void) | null,
     mapResizeVisChange:   null as (() => void) | null,
@@ -280,11 +280,12 @@ export class EventHandlerManager implements AppModule {
       this.handlers.themeChanged = null;
     }
     if (this.handlers.mapResizeMove) {
-      document.removeEventListener('mousemove', this.handlers.mapResizeMove);
+      document.removeEventListener('pointermove', this.handlers.mapResizeMove);
       this.handlers.mapResizeMove = null;
     }
     if (this.handlers.mapEndResize) {
-      document.removeEventListener('mouseup', this.handlers.mapEndResize);
+      document.removeEventListener('pointerup', this.handlers.mapEndResize);
+      document.removeEventListener('pointercancel', this.handlers.mapEndResize);
       window.removeEventListener('blur', this.handlers.mapEndResize);
       this.handlers.mapEndResize = null;
     }
@@ -1224,11 +1225,22 @@ export class EventHandlerManager implements AppModule {
     let startX = 0;
     let startHeight = 0;
     let startMapWidth = 0;
+    let activeResizePointerId: number | null = null;
+    let resizeRafId: number | null = null;
+    let pendingClientX = 0;
+    let pendingClientY = 0;
+
+    const beginResize = (handle: HTMLElement, event: PointerEvent): void => {
+      activeResizePointerId = event.pointerId;
+      try { handle.setPointerCapture(event.pointerId); } catch {}
+    };
 
     this.handlers.mapEndResize = () => {
       if (resizeMode === 'none') return;
+      if (resizeRafId !== null) { cancelAnimationFrame(resizeRafId); resizeRafId = null; }
       const endedMode = resizeMode;
       resizeMode = 'none';
+      activeResizePointerId = null;
       this.ctx.map?.setIsResizing(false);
       this.ctx.map?.resize();
       mapSection.classList.remove('resizing');
@@ -1252,7 +1264,9 @@ export class EventHandlerManager implements AppModule {
     const endResize = this.handlers.mapEndResize;
 
     if (bottomHandle) {
-      bottomHandle.addEventListener('mousedown', (e) => {
+      bottomHandle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || resizeMode !== 'none') return;
+        beginResize(bottomHandle, e);
         resizeMode = 'bottom';
         startY = e.clientY;
         const target = getBottomResizeTarget();
@@ -1294,8 +1308,10 @@ export class EventHandlerManager implements AppModule {
     }
 
     if (cornerHandle) {
-      cornerHandle.addEventListener('mousedown', (e) => {
+      cornerHandle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || resizeMode !== 'none') return;
         if (!isSideLikeLayout()) return;
+        beginResize(cornerHandle, e);
         resizeMode = 'both';
         startX = e.clientX;
         startY = e.clientY;
@@ -1312,7 +1328,9 @@ export class EventHandlerManager implements AppModule {
     }
 
     if (rightHandle) {
-      rightHandle.addEventListener('mousedown', (e) => {
+      rightHandle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || resizeMode !== 'none') return;
+        beginResize(rightHandle, e);
         // In side layout: horizontal split resize
         // In stacked/bottom layout: vertical height resize (same as bottomHandle)
         if (isSideLikeLayout()) {
@@ -1349,54 +1367,60 @@ export class EventHandlerManager implements AppModule {
       });
     }
 
-    this.handlers.mapResizeMove = (e: MouseEvent) => {
+    this.handlers.mapResizeMove = (e: PointerEvent) => {
       if (resizeMode === 'none') return;
+      if (activeResizePointerId !== null && e.pointerId !== activeResizePointerId) return;
 
-      if (resizeMode === 'bottom') {
-        const isWide = window.innerWidth >= 1600;
-        const target = isWide ? mapContainer : mapSection;
-        const deltaY = e.clientY - startY;
-        const newHeight = clamp(startHeight + deltaY, getMinHeight(), getMaxHeight());
+      pendingClientX = e.clientX;
+      pendingClientY = e.clientY;
 
-        target.style.flex = 'none';
-        target.style.setProperty('height', `${newHeight}px`, 'important');
-        this.ctx.map?.resize();
-        return;
-      }
+      if (resizeRafId !== null) return;
 
-      if (resizeMode === 'right') {
-        if (!isSideLikeLayout()) return;
-        const totalWidth = mainContent.getBoundingClientRect().width;
-        if (totalWidth <= 0) return;
-        const deltaX = e.clientX - startX;
-        const desiredPercent = ((startMapWidth + deltaX) / totalWidth) * 100;
-        applySidebarSplit(desiredPercent, false);
-        this.ctx.map?.resize();
-        return;
-      }
+      resizeRafId = requestAnimationFrame(() => {
+        resizeRafId = null;
+        const clientX = pendingClientX;
+        const clientY = pendingClientY;
 
-      if (resizeMode === 'both') {
-        if (!isSideLikeLayout()) return;
-        // Resize height
-        const isWide = window.innerWidth >= 1600;
-        const target = isWide ? mapContainer : mapSection;
-        const deltaY = e.clientY - startY;
-        const newHeight = clamp(startHeight + deltaY, getMinHeight(), getMaxHeight());
-        target.style.flex = 'none';
-        target.style.setProperty('height', `${newHeight}px`, 'important');
-        // Resize width
-        const totalWidth = mainContent.getBoundingClientRect().width;
-        if (totalWidth > 0) {
-          const deltaX = e.clientX - startX;
-          const desiredPercent = ((startMapWidth + deltaX) / totalWidth) * 100;
-          applySidebarSplit(desiredPercent, false);
+        if (resizeMode === 'bottom') {
+          const isWide = window.innerWidth >= 1600;
+          const target = isWide ? mapContainer : mapSection;
+          const newHeight = clamp(startHeight + (clientY - startY), getMinHeight(), getMaxHeight());
+          target.style.flex = 'none';
+          target.style.setProperty('height', `${newHeight}px`, 'important');
+          this.ctx.map?.resize();
+          return;
         }
-        this.ctx.map?.resize();
-      }
-    };
-    document.addEventListener('mousemove', this.handlers.mapResizeMove);
 
-    document.addEventListener('mouseup', endResize);
+        if (resizeMode === 'right') {
+          if (!isSideLikeLayout()) return;
+          const totalWidth = mainContent.getBoundingClientRect().width;
+          if (totalWidth <= 0) return;
+          const desiredPercent = ((startMapWidth + (clientX - startX)) / totalWidth) * 100;
+          applySidebarSplit(desiredPercent, false);
+          this.ctx.map?.resize();
+          return;
+        }
+
+        if (resizeMode === 'both') {
+          if (!isSideLikeLayout()) return;
+          const isWide = window.innerWidth >= 1600;
+          const target = isWide ? mapContainer : mapSection;
+          const newHeight = clamp(startHeight + (clientY - startY), getMinHeight(), getMaxHeight());
+          target.style.flex = 'none';
+          target.style.setProperty('height', `${newHeight}px`, 'important');
+          const totalWidth = mainContent.getBoundingClientRect().width;
+          if (totalWidth > 0) {
+            const desiredPercent = ((startMapWidth + (clientX - startX)) / totalWidth) * 100;
+            applySidebarSplit(desiredPercent, false);
+          }
+          this.ctx.map?.resize();
+        }
+      });
+    };
+    document.addEventListener('pointermove', this.handlers.mapResizeMove);
+
+    document.addEventListener('pointerup', endResize);
+    document.addEventListener('pointercancel', endResize);
     window.addEventListener('blur', endResize);
     this.handlers.mapResizeVisChange = () => {
       if (document.hidden) endResize();

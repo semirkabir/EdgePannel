@@ -662,7 +662,7 @@ export class DeckGLMap {
   private _globeProjection = false;
   private styleLoadTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private tileMonitorGeneration = 0;
-
+  private lastHoveredKey: string | null = null;
 
   private layerCache: Map<string, Layer> = new Map();
   private dirtyLayers = new Set<string>();
@@ -988,10 +988,13 @@ export class DeckGLMap {
       // Disable tiny hover tooltips; use full popup on hover instead of click
       getTooltip: () => null,
       onHover: (info: PickingInfo) => {
-        // Show rich popup when hovering an object; clear when leaving
         if (info.object) {
+          const key = `${info.layer?.id ?? ''}:${info.index}`;
+          if (key === this.lastHoveredKey) return;
+          this.lastHoveredKey = key;
           this.handleClick(info);
         } else {
+          this.lastHoveredKey = null;
           this.popup.hide();
         }
       },

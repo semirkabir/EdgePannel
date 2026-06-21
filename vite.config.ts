@@ -1156,6 +1156,8 @@ export default defineConfig({
   envPrefix: ['VITE_'],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_BUILD_TARGET__: JSON.stringify(isDesktopBuild ? 'desktop' : 'web'),
+    __APP_BUILD_VARIANT__: JSON.stringify(buildVariant),
     SITE_VARIANT: JSON.stringify(buildVariant),
   },
   plugins: [
@@ -1211,8 +1213,9 @@ export default defineConfig({
       },
 
       workbox: {
+        inlineWorkboxRuntime: true,
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
-        globIgnores: ['**/ml*.js', '**/onnx*.wasm', '**/locale-*.js'],
+        globIgnores: ['**/ml*.js', '**/onnx*.wasm', '**/locale-*.js', '**/*.worker-*.js'],
         // globe.gl + three.js grows main bundle past the 2 MiB default limit
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: '/offline.html',
@@ -1329,17 +1332,33 @@ export default defineConfig({
     },
   },
   build: {
-    // Geospatial bundles (maplibre/deck) are expected to be large even when split.
-    // Raise warning threshold to reduce noisy false alarms in CI.
-    chunkSizeWarningLimit: 1200,
+    // Map/rendering/panel bundles are intentionally large and already manually
+    // separated. A lower threshold encourages unsafe circular source chunking.
+    chunkSizeWarningLimit: 2400,
     rollupOptions: {
+      checks: {
+        pluginTimings: false,
+        ineffectiveDynamicImport: false,
+      },
       onwarn(warning, warn) {
+        const message = typeof warning.message === 'string' ? warning.message : '';
         // onnxruntime-web ships a minified browser bundle that intentionally uses eval.
         // Keep build logs focused by filtering this known third-party warning only.
         if (
           warning.code === 'EVAL'
           && typeof warning.id === 'string'
           && warning.id.includes('/onnxruntime-web/dist/ort-web.min.js')
+        ) {
+          return;
+        }
+
+        // Several singleton data/runtime modules are both statically imported by the
+        // app shell and dynamically imported by fallback paths. Rollup cannot make
+        // those dynamic imports into separate chunks, which is expected here.
+        if (
+          message.includes('is dynamically imported by')
+          && message.includes('but also statically imported by')
+          && message.includes('dynamic import will not move module into another chunk')
         ) {
           return;
         }
@@ -1354,7 +1373,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('/@xenova/transformers/')) {
+            if (id.includes('/@huggingface/transformers/')) {
               return 'transformers';
             }
             if (id.includes('/onnxruntime-web/')) {
@@ -1372,7 +1391,7 @@ export default defineConfig({
             ) {
               return 'deck-stack';
             }
-            if (id.includes('/d3/')) {
+            if (/\/node_modules\/d3(?:-|\/)/.test(id)) {
               return 'd3';
             }
             if (id.includes('/topojson-client/')) {

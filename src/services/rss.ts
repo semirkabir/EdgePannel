@@ -14,6 +14,7 @@ import { isHeadlineMemoryEnabled } from './ai-flow-settings';
 const FEED_COOLDOWN_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 2;
 const MAX_CACHE_ENTRIES = 100;
+const MAX_PERSISTENT_FEED_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 const FEED_SCOPE_SEPARATOR = '::';
 const feedFailures = new Map<string, { count: number; cooldownUntil: number }>();
 const feedCache = new Map<string, { items: NewsItem[]; timestamp: number }>();
@@ -78,6 +79,7 @@ function getPersistentFeedKey(feedScope: string): string {
 async function readPersistentFeed(key: string): Promise<NewsItem[] | null> {
   const entry = await getPersistentCache<Array<Omit<NewsItem, 'pubDate'> & { pubDate: string }>>(key);
   if (!entry?.data?.length) return null;
+  if (Date.now() - entry.updatedAt > MAX_PERSISTENT_FEED_AGE_MS) return null;
   return fromSerializable(entry.data);
 }
 

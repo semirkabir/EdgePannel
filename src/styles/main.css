@@ -2618,7 +2618,7 @@ canvas,
   font-family: inherit;
   font-size: 11px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3024,7 +3024,7 @@ canvas,
   font-weight: 600;
   padding: 4px 10px;
   cursor: var(--wm-cursor-pointer);
-  transition: all var(--motion-fast) var(--ease-standard);
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard), filter var(--motion-fast) var(--ease-standard), width var(--motion-fast) var(--ease-standard), height var(--motion-fast) var(--ease-standard);
   letter-spacing: 0.5px;
 }
 
@@ -3058,7 +3058,7 @@ canvas,
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--motion-fast) var(--ease-standard);
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard), filter var(--motion-fast) var(--ease-standard), width var(--motion-fast) var(--ease-standard), height var(--motion-fast) var(--ease-standard);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -3133,10 +3133,20 @@ canvas,
   transition: transform 0.15s, box-shadow 0.2s, border-color 0.2s;
   position: relative;
   contain: layout style;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
   container-type: inline-size;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4),
               0 1px 3px rgba(0, 0, 0, 0.2),
               inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.panel.dragging,
+.panel.resizing,
+.panel.col-resizing,
+.panel.hidden {
+  content-visibility: visible;
+  contain-intrinsic-size: none;
 }
 
 .panel:hover {
@@ -4356,7 +4366,7 @@ body.panel-resize-active iframe {
   font-family: inherit;
   font-size: 10px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
@@ -4453,7 +4463,7 @@ body.panel-resize-active iframe {
   font-family: inherit;
   font-size: 10px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4489,7 +4499,7 @@ body.panel-resize-active iframe {
   letter-spacing: 0.75px;
   white-space: nowrap;
   cursor: grab;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
 }
 
 .live-news-manage-row:active {
@@ -4913,7 +4923,7 @@ body.panel-resize-active iframe {
   background: var(--surface);
   border: 1px solid var(--border);
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s, filter 0.15s, width 0.15s, height 0.15s;
 }
 
 .live-news-manage-card:hover {
@@ -5541,7 +5551,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   font-family: inherit;
   font-size: 10px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -7232,7 +7242,7 @@ body.playback-mode #shellGuidanceStrip {
   font-family: inherit;
   font-size: 9px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease, width 0.2s ease, height 0.2s ease;
 }
 
 .time-settings-btn {
@@ -7564,7 +7574,7 @@ body.playback-mode #shellGuidanceStrip {
   font-size: 11px;
   font-weight: 700;
   cursor: help;
-  transition: all var(--motion-fast) var(--ease-standard);
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard), filter var(--motion-fast) var(--ease-standard), width var(--motion-fast) var(--ease-standard), height var(--motion-fast) var(--ease-standard);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7834,7 +7844,7 @@ body.playback-mode #shellGuidanceStrip {
   filter: drop-shadow(0 0 3px var(--status-live));
   cursor: var(--wm-cursor-pointer);
   pointer-events: stroke;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease, width 0.2s ease, height 0.2s ease;
 }
 
 .cable-flow-path {
@@ -7957,7 +7967,7 @@ body.playback-mode #shellGuidanceStrip {
 .pipeline-path {
   cursor: var(--wm-cursor-pointer);
   pointer-events: stroke;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease, width 0.2s ease, height 0.2s ease;
 }
 
 .pipeline-path.pipeline-oil {
@@ -10822,7 +10832,7 @@ a.prediction-link:hover {
   background: var(--status-live);
   transform: rotate(45deg);
   box-shadow: 0 0 6px rgba(0, 255, 170, 0.6);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease, width 0.2s ease, height 0.2s ease;
 }
 
 .waterway-marker:hover .waterway-diamond {
@@ -11191,7 +11201,6 @@ a.prediction-link:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
   padding: 4px 8px;
   min-width: 74px;
   height: 28px;
@@ -11336,7 +11345,7 @@ a.prediction-link:hover {
   letter-spacing: 0.02em;
   padding: 8px 10px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s cubic-bezier(0.16, 1, 0.3, 1), width 0.25s cubic-bezier(0.16, 1, 0.3, 1), height 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
 }
@@ -11500,7 +11509,7 @@ a.prediction-link:hover {
   font-weight: 600;
   padding: 4px 8px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
 }
 
 .situation-room-view-link:hover {
@@ -11569,7 +11578,7 @@ a.prediction-link:hover {
   font-weight: 600;
   padding: 6px 12px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
 }
 
 .situation-room-attach:hover {
@@ -11633,6 +11642,37 @@ a.prediction-link:hover {
 .visitor-counter:hover {
   border-color: var(--accent);
   color: var(--text);
+}
+
+/* Main content wrapper — slides left on hover to make room for open icon */
+.vc-main {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.visitor-counter:hover .vc-main {
+  transform: translateX(-5px);
+}
+
+/* Open/expand arrow — ↗, appears from the right on hover */
+.vc-open-icon {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1);
+  pointer-events: none;
+}
+
+.visitor-counter:hover .vc-open-icon {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
 }
 
 /* Eye icon wrapper */
@@ -13423,7 +13463,7 @@ body.urgency-mode #header {
   background: var(--overlay-subtle);
   border-radius: 4px;
   border-left: 2px solid var(--border);
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s, filter 0.15s, width 0.15s, height 0.15s;
 }
 
 .trade-restriction-card:hover,
@@ -15389,7 +15429,7 @@ button.cluster-flight-item:focus-visible {
   font-size: 13px;
   font-weight: 600;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease, width 0.2s ease, height 0.2s ease;
   font-family: inherit;
 }
 
@@ -15421,7 +15461,7 @@ button.cluster-flight-item:focus-visible {
   border-radius: 4px;
   padding: 4px 8px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
 }
 
 .pizzint-toggle:hover {
@@ -17164,7 +17204,7 @@ button.cluster-flight-item:focus-visible {
   font-size: 12px;
   font-weight: 700;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
 }
 
 .cascade-analyze-btn:hover:not(:disabled) {
@@ -17389,7 +17429,7 @@ button.cluster-flight-item:focus-visible {
   background: var(--overlay-subtle);
   border-radius: 6px;
   border: 1px solid var(--border);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease, width 0.2s ease, height 0.2s ease;
 }
 
 .risk-metric:hover {
@@ -17553,7 +17593,7 @@ button.cluster-flight-item:focus-visible {
 .risk-item-clickable,
 .risk-alert-clickable {
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease, width 0.15s ease, height 0.15s ease;
 }
 
 .risk-item-clickable:hover,
@@ -17596,7 +17636,7 @@ button.cluster-flight-item:focus-visible {
   color: var(--text);
   font-size: 10px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
 }
 
 .risk-refresh-btn:hover {
@@ -17759,7 +17799,7 @@ button.cluster-flight-item:focus-visible {
   color: var(--accent);
   font-size: 9px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
 }
 
 .risk-source-enable:hover {
@@ -17808,7 +17848,7 @@ button.cluster-flight-item:focus-visible {
   color: var(--text);
   font-size: 11px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
 }
 
 .risk-action-btn:hover {
@@ -18090,7 +18130,7 @@ button.cluster-flight-item:focus-visible {
   font-family: var(--font-mono);
   font-size: 12px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease, width 0.15s ease, height 0.15s ease;
 }
 
 .location-link:hover {
@@ -19793,7 +19833,7 @@ button.cluster-flight-item:focus-visible {
   background: var(--overlay-subtle);
   border-radius: 4px;
   border-left: 3px solid var(--border);
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease, width 0.15s ease, height 0.15s ease;
 }
 
 .tech-event:hover {
@@ -19948,7 +19988,7 @@ button.cluster-flight-item:focus-visible {
   align-items: center;
   justify-content: center;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease, width 0.2s ease, height 0.2s ease;
   transform: translate(-50%, -50%) scale(var(--marker-scale, 1));
   transform-origin: center;
   will-change: transform;
@@ -20093,6 +20133,64 @@ button.cluster-flight-item:focus-visible {
   font-size: 11px;
 }
 
+.service-status-backend,
+.service-status-desktop-readiness {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: color-mix(in srgb, var(--green) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--green) 34%, transparent);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.service-status-backend.warning {
+  background: color-mix(in srgb, var(--yellow) 9%, var(--surface));
+  border-color: color-mix(in srgb, var(--yellow) 34%, transparent);
+}
+
+.service-status-backend-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.service-status-backend-meta span,
+.service-status-backend-line.muted {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.service-status-backend-line {
+  line-height: 1.45;
+}
+
+.service-status-desktop-title {
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.service-status-desktop-subtitle {
+  color: var(--text-dim);
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+
+.service-status-desktop-list,
+.service-status-non-parity ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.service-status-non-parity {
+  margin-top: 8px;
+  color: var(--text-dim);
+}
+
 .service-status-summary {
   display: flex;
   gap: 8px;
@@ -20150,7 +20248,7 @@ button.cluster-flight-item:focus-visible {
   border-radius: 3px;
   color: var(--text-dim);
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s, filter 0.15s, width 0.15s, height 0.15s;
 }
 
 .status-filter-btn:hover {
@@ -20346,7 +20444,7 @@ button.cluster-flight-item:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease, width 0.2s ease, height 0.2s ease;
   pointer-events: auto;
   position: relative;
   z-index: 1;
@@ -20518,7 +20616,7 @@ button.cluster-flight-item:focus-visible {
   font-family: inherit;
   font-size: 10px;
   cursor: var(--wm-cursor-pointer);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease, width 0.2s ease, height 0.2s ease;
 }
 
 .deckgl-time-slider .time-settings-btn {
@@ -24766,7 +24864,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
   color: var(--accent);
   cursor: var(--wm-cursor-pointer);
   font-size: 12px;
-  transition: all 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s, filter 0.2s, width 0.2s, height 0.2s;
 }
 
 .posture-retry-btn:hover {
@@ -24870,7 +24968,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
   height: 8px;
   border-radius: 50%;
   background: var(--overlay-heavy);
-  transition: all 0.3s;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, transform 0.3s, opacity 0.3s, filter 0.3s, width 0.3s, height 0.3s;
 }
 
 .posture-stage.active .posture-stage-dot {
@@ -25061,7 +25159,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
   cursor: var(--wm-cursor-pointer);
   padding: 4px 8px;
   border-radius: 6px;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s, filter 0.15s, width 0.15s, height 0.15s;
 }
 
 .country-intel-close:hover {
@@ -26094,7 +26192,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
   padding: 4px 8px;
   border-radius: 8px;
   line-height: 1;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s, filter 0.15s, width 0.15s, height 0.15s;
 }
 
 .cb-close:hover {
@@ -26112,7 +26210,7 @@ body:has(.tauri-titlebar) .breaking-news-container {
   cursor: var(--wm-cursor-pointer);
   padding: 6px 8px;
   border-radius: 6px;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s, filter 0.15s, width 0.15s, height 0.15s;
   display: flex;
   align-items: center;
 }

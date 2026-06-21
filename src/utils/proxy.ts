@@ -1,5 +1,5 @@
 import { isDesktopRuntime, toRuntimeUrl } from '../services/runtime';
-import { getPersistentCache, setPersistentCache } from '../services/persistent-cache';
+import { getPersistentCache, setPersistentCache, cacheAgeMs } from '../services/persistent-cache';
 
 const viteEnv = (import.meta as ImportMeta & { env?: ImportMetaEnv }).env ?? {};
 const isDev = Boolean(viteEnv.DEV);
@@ -89,7 +89,9 @@ async function fetchAndPersist(url: string): Promise<Response> {
   return response;
 }
 
-export async function fetchWithProxy(url: string): Promise<Response> {
+const DEFAULT_MAX_CACHE_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+export async function fetchWithProxy(url: string, maxAgeMs = DEFAULT_MAX_CACHE_AGE_MS): Promise<Response> {
   if (!shouldPersistResponse(url)) {
     return fetch(proxyUrl(url));
   }
@@ -98,6 +100,16 @@ export async function fetchWithProxy(url: string): Promise<Response> {
   const cached = await getPersistentCache<CachedResponsePayload>(cacheKey);
 
   if (cached?.data) {
+    const isStale = cacheAgeMs(cached.updatedAt) >= maxAgeMs;
+    if (isStale) {
+      // Cache is too old — try a foreground fetch, fall back to stale data if offline/failed
+      try {
+        return await fetchAndPersist(url);
+      } catch {
+        return toResponse(cached.data);
+      }
+    }
+    // Fresh enough — return immediately and refresh in background
     void fetchAndPersist(url).catch((error) => {
       console.warn('[proxy] Background refresh failed for cached API response', error);
     });

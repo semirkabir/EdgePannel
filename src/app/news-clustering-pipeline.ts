@@ -14,7 +14,6 @@ import {
   getFeedFailures,
 } from '@/services';
 import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
-import { mlWorker } from '@/services/ml-worker';
 import { clusterNewsHybrid } from '@/services/clustering';
 import { ingestHeadlines } from '@/services/trending-keywords';
 import { classifyWithAI } from '@/services/threat-classifier';
@@ -471,9 +470,7 @@ export class NewsClusteringPipeline {
     this.deps.callPanel('monitors', 'renderResults', this.ctx.newsStore.allNews);
 
     try {
-      this.ctx.intelligenceStore.setClusters(mlWorker.isAvailable
-        ? await clusterNewsHybrid(this.ctx.newsStore.allNews)
-        : await (await import('@/services/analysis-worker')).analysisWorker.clusterNews(this.ctx.newsStore.allNews));
+      this.ctx.intelligenceStore.setClusters(await clusterNewsHybrid(this.ctx.newsStore.allNews));
 
       const insightsPanel = this.ctx.panels['insights'] as import('@/components').InsightsPanel | undefined;
       insightsPanel?.updateInsights(this.ctx.intelligenceStore.latestClusters);

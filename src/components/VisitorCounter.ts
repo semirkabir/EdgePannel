@@ -110,8 +110,18 @@ export class VisitorCounter {
     this.tooltipEl.appendChild(this.tooltipActionEl);
     this.tooltipEl.appendChild(this.tooltipSpikeEl);
 
-    this.el.appendChild(this.eyeEl);
-    this.el.appendChild(countWrap);
+    const mainWrap = document.createElement('span');
+    mainWrap.className = 'vc-main';
+    mainWrap.appendChild(this.eyeEl);
+    mainWrap.appendChild(countWrap);
+
+    const openIcon = document.createElement('span');
+    openIcon.className = 'vc-open-icon';
+    openIcon.setAttribute('aria-hidden', 'true');
+    openIcon.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>`;
+
+    this.el.appendChild(mainWrap);
+    this.el.appendChild(openIcon);
     this.el.appendChild(this.tooltipEl);
 
     this.el.addEventListener('mouseenter', () => this.showTooltip());
