@@ -23,13 +23,33 @@ window.addEventListener('unhandledrejection', (e) => {
 
 import { debugGetCells, getCellCount } from '@/services/geo-convergence';
 import { initMetaTags } from '@/services/meta-tags';
-import { installRuntimeFetchPatch, installWebApiRedirect } from '@/services/runtime';
+import { installRuntimeFetchPatch, installWebApiRedirect, isDesktopRuntime } from '@/services/runtime';
 import { loadDesktopSecrets } from '@/services/runtime-config';
 import { applyStoredTheme } from '@/utils/theme-manager';
 import { SITE_VARIANT } from '@/config/variant';
 import { clearChunkReloadGuard, installChunkReloadGuard } from '@/bootstrap/chunk-reload';
 import { onAuthChange, isFirebaseConfigured } from '@/services/firebase-auth';
 import { onUserLogin, onUserLogout } from '@/services/preferences-sync';
+
+const FONT_STYLESHEETS = [
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Tajawal:wght@200;300;400;500;700;800;900&display=swap',
+  'https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Playfair+Display:wght@700;900&family=Montserrat:wght@800;900&family=Poppins:wght@300;400;500;600&display=swap',
+];
+
+function loadDeferredFontStylesheets(): void {
+  for (const href of FONT_STYLESHEETS) {
+    if (document.querySelector(`link[href="${href}"]`)) continue;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.dataset.fontSheet = 'google';
+    document.head.appendChild(link);
+  }
+}
+
+function scheduleDeferredFontStylesheets(): void {
+  requestAnimationFrame(() => requestAnimationFrame(loadDeferredFontStylesheets));
+}
 
 // Auto-reload on stale chunk 404s after deployment (Vite fires this for modulepreload failures).
 const chunkReloadStorageKey = installChunkReloadGuard(__APP_VERSION__);
@@ -48,6 +68,9 @@ loadDesktopSecrets().catch(() => {});
 
 // Apply stored theme preference before app initialization (safety net for inline script)
 applyStoredTheme();
+
+// Keep first paint off the Google Fonts CSS path; load font faces immediately after.
+scheduleDeferredFontStylesheets();
 
 // Cloud preferences sync — TradingView-style session persistence.
 // Only active when Firebase auth is configured (not in anonymous/local-only mode).
@@ -72,6 +95,11 @@ initCustomSelects();
 initTooltips();
 
 // Set data-variant on <html> so CSS theme overrides activate
+document.documentElement.dataset.buildTarget = __APP_BUILD_TARGET__;
+if (isDesktopRuntime()) {
+  document.documentElement.dataset.runtime = 'desktop';
+}
+
 if (SITE_VARIANT && SITE_VARIANT !== 'full') {
   document.documentElement.dataset.variant = SITE_VARIANT;
 

@@ -1,4 +1,6 @@
-import * as d3 from 'd3';
+import { geoEquirectangular, geoGraticule, geoPath, type GeoPath, type GeoProjection } from 'd3-geo';
+import { select, type Selection } from 'd3-selection';
+import { curveCardinal, line } from 'd3-shape';
 import * as topojson from 'topojson-client';
 import { escapeHtml } from '@/utils/sanitize';
 import { getCSSColor, getCurrentTheme } from '@/utils';
@@ -187,7 +189,7 @@ export class MapComponent {
     };
 
   private container: HTMLElement;
-  private svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
+  private svg: Selection<SVGSVGElement, unknown, null, undefined>;
   private wrapper: HTMLElement;
   private overlays: HTMLElement;
   private clusterCanvas: HTMLCanvasElement;
@@ -196,8 +198,8 @@ export class MapComponent {
   private worldData: WorldTopology | null = null;
   private countryFeatures: Feature<Geometry>[] | null = null;
   private isResizing = false;
-  private baseLayerGroup: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
-  private dynamicLayerGroup: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
+  private baseLayerGroup: Selection<SVGGElement, unknown, null, undefined> | null = null;
+  private dynamicLayerGroup: Selection<SVGGElement, unknown, null, undefined> | null = null;
   private baseRendered = false;
   private baseWidth = 0;
   private baseHeight = 0;
@@ -310,7 +312,7 @@ export class MapComponent {
       jitterFraction: 0,
     });
 
-    this.svg = d3.select(svgElement);
+    this.svg = select(svgElement);
     this.baseLayerGroup = this.svg.append('g').attr('class', 'map-base');
     this.dynamicLayerGroup = this.svg.append('g').attr('class', 'map-dynamic');
     this.popup = new MapPopup(container);
@@ -1046,7 +1048,7 @@ export class MapComponent {
     this.clusterGl.clear(this.clusterGl.COLOR_BUFFER_BIT);
   }
 
-  private renderClusterLayer(_projection: d3.GeoProjection): void {
+  private renderClusterLayer(_projection: GeoProjection): void {
     // WebGL clustering disabled - all layers use HTML markers for visual fidelity
     // (severity colors, emoji icons, magnitude sizing, animations)
     this.wrapper.classList.toggle('cluster-active', false);
@@ -1141,7 +1143,7 @@ export class MapComponent {
 
       // Setup projection for base elements
       const baseProjection = this.getProjection(width, height);
-      const basePath = d3.geoPath().projection(baseProjection);
+      const basePath = geoPath().projection(baseProjection);
 
       // Graticule
       this.renderGraticule(this.baseLayerGroup, basePath);
@@ -1203,7 +1205,7 @@ export class MapComponent {
   }
 
   private renderGrid(
-    group: d3.Selection<SVGGElement, unknown, null, undefined>,
+    group: Selection<SVGGElement, unknown, null, undefined>,
     width: number,
     height: number,
     yStart = 0
@@ -1233,7 +1235,7 @@ export class MapComponent {
     }
   }
 
-  private getProjection(width: number, height: number): d3.GeoProjection {
+  private getProjection(width: number, height: number): GeoProjection {
     // Equirectangular with cropped latitude range (72°N to 56°S = 128°)
     // Shows Greenland/Iceland while trimming extreme polar regions
     const LAT_NORTH = 72;  // Includes Greenland (extends to ~83°N but 72 shows most)
@@ -1246,18 +1248,17 @@ export class MapComponent {
     const scaleForHeight = height / (LAT_RANGE * Math.PI / 180);
     const scale = Math.min(scaleForWidth, scaleForHeight);
 
-    return d3
-      .geoEquirectangular()
+    return geoEquirectangular()
       .scale(scale)
       .center([0, LAT_CENTER])
       .translate([width / 2, height / 2]);
   }
 
   private renderGraticule(
-    group: d3.Selection<SVGGElement, unknown, null, undefined>,
-    path: d3.GeoPath
+    group: Selection<SVGGElement, unknown, null, undefined>,
+    path: GeoPath
   ): void {
-    const graticule = d3.geoGraticule();
+    const graticule = geoGraticule();
     group
       .append('path')
       .datum(graticule())
@@ -1269,8 +1270,8 @@ export class MapComponent {
   }
 
   private renderCountries(
-    group: d3.Selection<SVGGElement, unknown, null, undefined>,
-    path: d3.GeoPath
+    group: Selection<SVGGElement, unknown, null, undefined>,
+    path: GeoPath
   ): void {
     if (!this.countryFeatures) return;
 
@@ -1286,16 +1287,15 @@ export class MapComponent {
       .attr('stroke-width', 0.7);
   }
 
-  private renderCables(projection: d3.GeoProjection): void {
+  private renderCables(projection: GeoProjection): void {
     if (!this.dynamicLayerGroup) return;
     const cableGroup = this.dynamicLayerGroup.append('g').attr('class', 'cables');
 
     UNDERSEA_CABLES.forEach((cable, index) => {
-      const lineGenerator = d3
-        .line<[number, number]>()
+      const lineGenerator = line<[number, number]>()
         .x((d) => projection(d)?.[0] ?? 0)
         .y((d) => projection(d)?.[1] ?? 0)
-        .curve(d3.curveCardinal);
+        .curve(curveCardinal);
 
       const isHighlighted = this.highlightedAssets.cable.has(cable.id);
       const cableAdvisory = this.getCableAdvisory(cable.id);
@@ -1334,17 +1334,16 @@ export class MapComponent {
     });
   }
 
-  private renderPipelines(projection: d3.GeoProjection): void {
+  private renderPipelines(projection: GeoProjection): void {
     if (!this.dynamicLayerGroup) return;
     this.hydratePipelinesIfNeeded();
     const pipelineGroup = this.dynamicLayerGroup.append('g').attr('class', 'pipelines');
 
     PIPELINES.forEach((pipeline) => {
-      const lineGenerator = d3
-        .line<[number, number]>()
+      const lineGenerator = line<[number, number]>()
         .x((d) => projection(d)?.[0] ?? 0)
         .y((d) => projection(d)?.[1] ?? 0)
-        .curve(d3.curveCardinal.tension(0.5));
+        .curve(curveCardinal.tension(0.5));
 
       const color = PIPELINE_COLORS[pipeline.type] || getCSSColor('--text-dim');
       const opacity = 0.85;
@@ -1394,7 +1393,7 @@ export class MapComponent {
     });
   }
 
-  private renderConflicts(projection: d3.GeoProjection): void {
+  private renderConflicts(projection: GeoProjection): void {
     if (!this.dynamicLayerGroup) return;
     const conflictGroup = this.dynamicLayerGroup.append('g').attr('class', 'conflicts');
 
@@ -1426,7 +1425,7 @@ export class MapComponent {
     const useSanctions = this.state.layers.sanctions;
 
     this.baseLayerGroup.selectAll('.country').each(function (datum) {
-      const el = d3.select(this);
+      const el = select(this);
       const id = datum as { id?: number };
       if (!useSanctions) {
         el.attr('fill', defaultFill);
@@ -1447,7 +1446,7 @@ export class MapComponent {
   // groupKey function ensures only items with same key can cluster (e.g., same city)
   private clusterMarkers<T extends { lat: number; lon: number }>(
     items: T[],
-    projection: d3.GeoProjection,
+    projection: GeoProjection,
     pixelRadius: number,
     getGroupKey?: (item: T) => string
   ): Array<{ items: T[]; center: [number, number]; pos: [number, number] }> {
@@ -1519,7 +1518,7 @@ export class MapComponent {
     });
   }
 
-  private renderOverlays(projection: d3.GeoProjection): void {
+  private renderOverlays(projection: GeoProjection): void {
     this.overlays.innerHTML = '';
     if (this.state.layers.sanctions) this.hydrateSanctionedAssetsIfNeeded();
 
@@ -3234,7 +3233,7 @@ export class MapComponent {
     }
   }
 
-  private renderWaterways(projection: d3.GeoProjection): void {
+  private renderWaterways(projection: GeoProjection): void {
     STRATEGIC_WATERWAYS.forEach((waterway) => {
       const pos = projection([waterway.lon, waterway.lat]);
       if (!pos) return;
@@ -3264,7 +3263,7 @@ export class MapComponent {
     });
   }
 
-  private renderAisDisruptions(projection: d3.GeoProjection): void {
+  private renderAisDisruptions(projection: GeoProjection): void {
     this.aisDisruptions.forEach((event) => {
       const pos = projection([event.lon, event.lat]);
       if (!pos) return;
@@ -3299,7 +3298,7 @@ export class MapComponent {
     });
   }
 
-  private renderMaritimeGeospatial(projection: d3.GeoProjection): void {
+  private renderMaritimeGeospatial(projection: GeoProjection): void {
     if (!this.maritimeGeospatial) return;
     const features: MaritimeGeospatialFeature[] = [
       ...this.maritimeGeospatial.oceanConditions,
@@ -3336,7 +3335,7 @@ export class MapComponent {
     });
   }
 
-  private renderAisDensity(projection: d3.GeoProjection): void {
+  private renderAisDensity(projection: GeoProjection): void {
     if (!this.dynamicLayerGroup) return;
     const densityGroup = this.dynamicLayerGroup.append('g').attr('class', 'ais-density');
 
@@ -3362,7 +3361,7 @@ export class MapComponent {
     });
   }
 
-  private renderPorts(projection: d3.GeoProjection): void {
+  private renderPorts(projection: GeoProjection): void {
     PORTS.forEach((port) => {
       const pos = projection([port.lon, port.lat]);
       if (!pos) return;
@@ -3397,7 +3396,7 @@ export class MapComponent {
     });
   }
 
-  private renderAPTMarkers(projection: d3.GeoProjection): void {
+  private renderAPTMarkers(projection: GeoProjection): void {
     APT_GROUPS.forEach((apt) => {
       const pos = projection([apt.lon, apt.lat]);
       if (!pos) return;

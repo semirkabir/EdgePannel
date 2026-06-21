@@ -163,7 +163,7 @@ tests/                        # Node test runner tests (data services, configs)
 
 8. **Data Loading:** Split across `DataLoaderManager` (orchestration), `NewsClusteringPipeline` (news/clustering), `SignalPublisher` (intelligence signals), and `DataRenderer` (panel rendering).
 
-9. **AI Pipeline:** Multi-tier fallback chain — Ollama (local) → Groq → OpenRouter → browser T5. Browser ML runs via `@xenova/transformers` in a Web Worker.
+9. **AI Pipeline:** Multi-tier fallback chain — Ollama (local) → Groq → OpenRouter → browser T5. Browser ML runs via `@huggingface/transformers` in a Web Worker.
 
 10. **Scoring:** Country Instability Index (CII), Hotspot Escalation, Strategic Risk Score — all computed client-side from multi-signal data blends.
 

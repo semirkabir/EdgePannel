@@ -98,7 +98,7 @@
   cursor: var(--wm-cursor-pointer);
   backdrop-filter: var(--panel-glass-blur);
   -webkit-backdrop-filter: var(--panel-glass-blur);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
 }
 
 .pd-icon-btn {
@@ -249,7 +249,7 @@
   background: rgba(0, 0, 0, 0.2);
   backdrop-filter: var(--panel-glass-blur);
   -webkit-backdrop-filter: var(--panel-glass-blur);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 .pd-heat-tile:hover {
@@ -316,7 +316,7 @@
   color: var(--text);
   cursor: var(--wm-cursor-pointer);
   text-align: left;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 

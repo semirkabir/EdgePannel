@@ -1,7 +1,7 @@
 
 import { Panel } from './Panel';
 import { t } from '@/services/i18n';
-import { getLocalApiPort, isDesktopRuntime } from '@/services/runtime';
+import { getApiBaseUrl, getLocalApiPort, getRemoteApiBaseUrl, isDesktopRuntime, waitForSidecarReady } from '@/services/runtime';
 import {
   getDesktopReadinessChecks,
   getKeyBackedAvailabilitySummary,
@@ -14,10 +14,10 @@ import {
 import { h, replaceChildren, type DomChild } from '@/utils/dom-utils';
 
 interface LocalBackendStatus {
-  enabled?: boolean;
-  mode?: string;
-  port?: number;
-  remoteBase?: string;
+  enabled: boolean;
+  apiBase: string;
+  port: number;
+  remoteBase: string;
 }
 
 type CategoryFilter = 'all' | 'cloud' | 'dev' | 'comm' | 'ai' | 'saas';
@@ -50,6 +50,7 @@ export class ServiceStatusPanel extends Panel {
 
   public async fetchStatus(): Promise<boolean> {
     try {
+      await this.refreshLocalBackendStatus();
       const data = await fetchServiceStatuses();
       if (!this.element?.isConnected) return false;
       if (!data.success) throw new Error('Failed to load status');
@@ -82,6 +83,18 @@ export class ServiceStatusPanel extends Panel {
   private getFilteredServices(): ServiceStatus[] {
     if (this.filter === 'all') return this.services;
     return this.services.filter(s => s.category === this.filter);
+  }
+
+  private async refreshLocalBackendStatus(): Promise<void> {
+    if (!isDesktopRuntime()) return;
+
+    const enabled = await waitForSidecarReady(1200);
+    this.localBackend = {
+      enabled,
+      apiBase: getApiBaseUrl(),
+      port: getLocalApiPort(),
+      remoteBase: getRemoteApiBaseUrl() || 'https://edgepannel.app',
+    };
   }
 
   protected render(): void {
@@ -119,9 +132,18 @@ export class ServiceStatusPanel extends Panel {
   private buildBackendStatus(): DomChild {
     if (!isDesktopRuntime()) return false;
 
+    const meta = h('div', { className: 'service-status-backend-meta' },
+      h('strong', null, `Desktop app v${__APP_VERSION__}`),
+      h('span', null, `${__APP_BUILD_VARIANT__} · ${__APP_BUILD_TARGET__}`),
+    );
+
     if (!this.localBackend?.enabled) {
       return h('div', { className: 'service-status-backend warning' },
-        t('components.serviceStatus.backendUnavailable'),
+        meta,
+        h('div', { className: 'service-status-backend-line' }, t('components.serviceStatus.backendUnavailable')),
+        h('div', { className: 'service-status-backend-line muted' },
+          'Cloud fallback: ', h('strong', null, this.localBackend?.remoteBase ?? 'https://edgepannel.app'),
+        ),
       );
     }
 
@@ -129,8 +151,13 @@ export class ServiceStatusPanel extends Panel {
     const remote = this.localBackend.remoteBase ?? 'https://edgepannel.app';
 
     return h('div', { className: 'service-status-backend' },
-      'Local backend active on ', h('strong', null, `127.0.0.1:${port}`),
-      ' · cloud fallback: ', h('strong', null, remote),
+      meta,
+      h('div', { className: 'service-status-backend-line' },
+        'Local backend active on ', h('strong', null, `127.0.0.1:${port}`),
+      ),
+      h('div', { className: 'service-status-backend-line muted' },
+        'Cloud fallback: ', h('strong', null, remote),
+      ),
     );
   }
 

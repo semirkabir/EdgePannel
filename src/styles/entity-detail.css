@@ -4277,7 +4277,7 @@
   font-family: var(--font-mono, monospace);
   font-size: 10px;
   font-weight: 700;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: var(--wm-cursor-pointer);
 }
 
@@ -7470,7 +7470,7 @@
   border-radius: 50%;
   background: var(--surface);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 80%, transparent);
-  transition: all var(--motion-normal) var(--ease-standard);
+  transition: background-color var(--motion-normal) var(--ease-standard), color var(--motion-normal) var(--ease-standard), border-color var(--motion-normal) var(--ease-standard), box-shadow var(--motion-normal) var(--ease-standard), transform var(--motion-normal) var(--ease-standard), opacity var(--motion-normal) var(--ease-standard), filter var(--motion-normal) var(--ease-standard);
 }
 
 .whats-new-release.is-current .whats-new-marker {
@@ -7650,7 +7650,7 @@
   font-family: var(--font-mono, monospace);
   padding: 7px 14px;
   cursor: var(--wm-cursor-pointer);
-  transition: all var(--motion-fast) var(--ease-standard);
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard), filter var(--motion-fast) var(--ease-standard);
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -7982,7 +7982,7 @@
 
 /* Clickable sector badge hover styles */
 .cp-clickable-sector-badge {
-  transition: all 0.2s ease-in-out;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out, opacity 0.2s ease-in-out, filter 0.2s ease-in-out;
 }
 
 .cp-clickable-sector-badge:hover {
@@ -8100,7 +8100,7 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
   cursor: var(--wm-cursor-pointer, pointer);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cp-peer-chip:hover {

@@ -1,4 +1,7 @@
-import * as d3 from 'd3';
+import { axisBottom } from 'd3-axis';
+import { scaleBand, scaleTime, type NumberValue, type ScaleBand, type ScaleTime } from 'd3-scale';
+import { select, type Selection } from 'd3-selection';
+import { timeFormat } from 'd3-time-format';
 import { escapeHtml } from '@/utils/sanitize';
 import { getCSSColor } from '@/utils';
 import { t } from '@/services/i18n';
@@ -32,7 +35,7 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class CountryTimeline {
   private container: HTMLElement;
-  private svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null;
+  private svg: Selection<SVGSVGElement, unknown, null, undefined> | null = null;
   private tooltip: HTMLDivElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private currentEvents: TimelineEvent[] = [];
@@ -89,8 +92,7 @@ export class CountryTimeline {
     const innerW = width - MARGIN.left - MARGIN.right;
     const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
 
-    this.svg = d3
-      .select(this.container)
+    this.svg = select(this.container)
       .append('svg')
       .attr('width', width)
       .attr('height', HEIGHT)
@@ -101,13 +103,11 @@ export class CountryTimeline {
       .attr('transform', `translate(${MARGIN.left},${MARGIN.top})`);
 
     const now = Date.now();
-    const xScale = d3
-      .scaleTime()
+    const xScale = scaleTime()
       .domain([new Date(now - SEVEN_DAYS_MS), new Date(now)])
       .range([0, innerW]);
 
-    const yScale = d3
-      .scaleBand<string>()
+    const yScale = scaleBand<string>()
       .domain(LANES)
       .range([0, innerH])
       .padding(0.2);
@@ -120,8 +120,8 @@ export class CountryTimeline {
   }
 
   private drawGrid(
-    g: d3.Selection<SVGGElement, unknown, null, undefined>,
-    xScale: d3.ScaleTime<number, number>,
+    g: Selection<SVGGElement, unknown, null, undefined>,
+    xScale: ScaleTime<number, number>,
     innerH: number,
   ): void {
     const ticks = xScale.ticks(6);
@@ -137,15 +137,14 @@ export class CountryTimeline {
   }
 
   private drawAxes(
-    g: d3.Selection<SVGGElement, unknown, null, undefined>,
-    xScale: d3.ScaleTime<number, number>,
-    yScale: d3.ScaleBand<string>,
+    g: Selection<SVGGElement, unknown, null, undefined>,
+    xScale: ScaleTime<number, number>,
+    yScale: ScaleBand<string>,
     innerH: number,
   ): void {
-    const xAxis = d3
-      .axisBottom(xScale)
+    const xAxis = axisBottom(xScale)
       .ticks(6)
-      .tickFormat(d3.timeFormat('%b %d') as (d: Date | d3.NumberValue, i: number) => string);
+      .tickFormat(timeFormat('%b %d') as (d: Date | NumberValue, i: number) => string);
 
     const xAxisG = g
       .append('g')
@@ -177,8 +176,8 @@ export class CountryTimeline {
   }
 
   private drawNowMarker(
-    g: d3.Selection<SVGGElement, unknown, null, undefined>,
-    xScale: d3.ScaleTime<number, number>,
+    g: Selection<SVGGElement, unknown, null, undefined>,
+    xScale: ScaleTime<number, number>,
     now: Date,
     innerH: number,
   ): void {
@@ -203,9 +202,9 @@ export class CountryTimeline {
   }
 
   private drawEmptyLaneLabels(
-    g: d3.Selection<SVGGElement, unknown, null, undefined>,
+    g: Selection<SVGGElement, unknown, null, undefined>,
     events: TimelineEvent[],
-    yScale: d3.ScaleBand<string>,
+    yScale: ScaleBand<string>,
     innerW: number,
   ): void {
     const populatedLanes = new Set(events.map((e) => e.lane));
@@ -225,14 +224,14 @@ export class CountryTimeline {
   }
 
   private drawEvents(
-    g: d3.Selection<SVGGElement, unknown, null, undefined>,
+    g: Selection<SVGGElement, unknown, null, undefined>,
     events: TimelineEvent[],
-    xScale: d3.ScaleTime<number, number>,
-    yScale: d3.ScaleBand<string>,
+    xScale: ScaleTime<number, number>,
+    yScale: ScaleBand<string>,
   ): void {
     const tooltip = this.tooltip!;
     const container = this.container;
-    const fmt = d3.timeFormat('%b %d, %H:%M');
+    const fmt = timeFormat('%b %d, %H:%M');
 
     g.selectAll('.event-circle')
       .data(events)
@@ -246,7 +245,7 @@ export class CountryTimeline {
       .attr('stroke', getCSSColor('--shadow-color'))
       .attr('stroke-width', 0.5)
       .on('mouseenter', function (event: MouseEvent, d: TimelineEvent) {
-        d3.select(this).attr('opacity', 1).attr('stroke', getCSSColor('--text')).attr('stroke-width', 1.5);
+        select(this).attr('opacity', 1).attr('stroke', getCSSColor('--text')).attr('stroke-width', 1.5);
         const dateStr = fmt(new Date(d.timestamp));
         tooltip.innerHTML = `<strong>${escapeHtml(d.label)}</strong><br/>${escapeHtml(dateStr)}`;
         tooltip.style.display = 'block';
@@ -264,7 +263,7 @@ export class CountryTimeline {
         tooltip.style.top = `${y}px`;
       })
       .on('mouseleave', function () {
-        d3.select(this).attr('opacity', 0.85).attr('stroke', getCSSColor('--shadow-color')).attr('stroke-width', 0.5);
+        select(this).attr('opacity', 0.85).attr('stroke', getCSSColor('--shadow-color')).attr('stroke-width', 0.5);
         tooltip.style.display = 'none';
       });
   }
