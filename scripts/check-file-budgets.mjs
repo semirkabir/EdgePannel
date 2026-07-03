@@ -11,7 +11,6 @@ const FILE_BUDGETS = [
   ['src/components/MapPopup.ts', 2800],
   ['src/components/Map.ts', 4400],
   ['src/components/DeckGLMap.ts', 9400],
-  ['src/components/GlobeMap.ts', 2650],
 ];
 
 const ARTIFACT_BUDGETS = {
