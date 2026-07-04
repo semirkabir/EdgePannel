@@ -1,6 +1,7 @@
 import { getCorsHeaders } from './_cors.js';
 import { createGunzip } from 'node:zlib';
 import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const SEC_UA = 'EdgePannel/1.0 (contact@edgepannel.app)';
@@ -338,29 +339,42 @@ async function fetchAdvCompilationForFirm(firmCrd) {
     headers: { 'User-Agent': SEC_UA, Accept: 'application/gzip,application/xml,*/*' },
     signal: AbortSignal.timeout(30_000),
   });
-  if (!resp.ok || !resp.body) return null;
-
-  const gunzip = Readable.fromWeb(resp.body).pipe(createGunzip());
-  let buffer = '';
-  for await (const chunk of gunzip) {
-    buffer += chunk.toString('latin1');
-    let endIdx = buffer.indexOf('</Firm>');
-    while (endIdx >= 0) {
-      const block = buffer.slice(0, endIdx + '</Firm>'.length);
-      buffer = buffer.slice(endIdx + '</Firm>'.length);
-      if (block.includes(`FirmCrdNb="${firmCrd}"`)) {
-        gunzip.destroy();
-        const result = buildAdvProfileFromXml(block, file.name);
-        setCache(cacheKey, result);
-        return result;
-      }
-      endIdx = buffer.indexOf('</Firm>');
-    }
-    if (buffer.length > 500_000) buffer = buffer.slice(-250_000);
+  if (!resp.ok || !resp.body) {
+    resp.body?.cancel().catch(() => {});
+    return null;
   }
 
-  setCache(cacheKey, null);
-  return null;
+  const source = Readable.fromWeb(resp.body);
+  const gunzip = createGunzip();
+  // pipeline() forwards source errors (e.g. the timeout abort) into gunzip and
+  // tears both streams down. A bare .pipe() leaves the source's 'error' event
+  // unhandled, which kills the whole process mid-download.
+  const piped = pipeline(source, gunzip).catch(() => {});
+  try {
+    let buffer = '';
+    for await (const chunk of gunzip) {
+      buffer += chunk.toString('latin1');
+      let endIdx = buffer.indexOf('</Firm>');
+      while (endIdx >= 0) {
+        const block = buffer.slice(0, endIdx + '</Firm>'.length);
+        buffer = buffer.slice(endIdx + '</Firm>'.length);
+        if (block.includes(`FirmCrdNb="${firmCrd}"`)) {
+          const result = buildAdvProfileFromXml(block, file.name);
+          setCache(cacheKey, result);
+          return result;
+        }
+        endIdx = buffer.indexOf('</Firm>');
+      }
+      if (buffer.length > 500_000) buffer = buffer.slice(-250_000);
+    }
+
+    setCache(cacheKey, null);
+    return null;
+  } finally {
+    gunzip.destroy();
+    source.destroy();
+    await piped;
+  }
 }
 
 async function fetchAdviserProfile(managerName) {
