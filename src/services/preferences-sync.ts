@@ -10,6 +10,7 @@
  */
 
 import { showShellNotification } from '@/app/shell-notifications';
+import { log } from '@/utils/logger';
 import { getCurrentAuthState, isLoggedIn } from '@/services/user-auth';
 
 // ---------------------------------------------------------------------------
@@ -227,11 +228,11 @@ export async function onUserLogin(): Promise<void> {
   if (cloudPrefs === null) {
     // First-ever login — snapshot current state to cloud
     await pushCloudPrefs(captureLocalPrefs());
-    console.log('[prefs-sync] Initial snapshot saved to cloud');
+    log.debug('[prefs-sync] Initial snapshot saved to cloud');
   } else {
     const needsReload = hasLayoutDiff(cloudPrefs);
     applyPrefsToLocal(cloudPrefs);
-    console.log('[prefs-sync] Cloud prefs applied', { needsReload });
+    log.debug('[prefs-sync] Cloud prefs applied', { needsReload });
 
     if (needsReload) {
       showShellNotification('Restoring your last session…', 'info', 1800, 'top');
@@ -251,7 +252,7 @@ export async function onUserLogin(): Promise<void> {
 export function onUserLogout(): void {
   stopSync();
   window.removeEventListener('beforeunload', handleBeforeUnload);
-  console.log('[prefs-sync] Sync stopped');
+  log.debug('[prefs-sync] Sync stopped');
 }
 
 /**

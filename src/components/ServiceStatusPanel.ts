@@ -40,6 +40,7 @@ export class ServiceStatusPanel extends Panel {
   private error: string | null = null;
   private filter: CategoryFilter = 'all';
   private localBackend: LocalBackendStatus | null = null;
+  private localBackendRefreshPromise: Promise<LocalBackendStatus> | null = null;
 
   constructor() {
     super({ id: 'service-status', title: t('panels.serviceStatus'), showCount: false });
@@ -88,13 +89,18 @@ export class ServiceStatusPanel extends Panel {
   private async refreshLocalBackendStatus(): Promise<void> {
     if (!isDesktopRuntime()) return;
 
-    const enabled = await waitForSidecarReady(1200);
-    this.localBackend = {
-      enabled,
-      apiBase: getApiBaseUrl(),
-      port: getLocalApiPort(),
-      remoteBase: getRemoteApiBaseUrl() || 'https://edgepannel.app',
-    };
+    this.localBackendRefreshPromise ??= waitForSidecarReady(1200)
+      .then((enabled) => ({
+        enabled,
+        apiBase: getApiBaseUrl(),
+        port: getLocalApiPort(),
+        remoteBase: getRemoteApiBaseUrl() ?? 'https://edgepannel.app',
+      }))
+      .finally(() => {
+        this.localBackendRefreshPromise = null;
+      });
+
+    this.localBackend = await this.localBackendRefreshPromise;
   }
 
   protected render(): void {

@@ -7,6 +7,7 @@
 // ============================================================================
 
 import type { Candidate, Donor, FundingSummary } from '@/types/elections';
+import { log } from '@/utils/logger';
 import { createCircuitBreaker } from '@/utils/circuit-breaker';
 
 const OPENFEC_BASE = 'https://api.open.fec.gov/v1';
@@ -26,7 +27,7 @@ async function openfecFetch<T>(endpoint: string, params: Record<string, string |
   // Respect backoff window
   if (Date.now() < openfecBackoffUntil) {
     const remaining = openfecBackoffUntil - Date.now();
-    console.log(`[OpenFEC] In backoff, waiting ${Math.round(remaining / 1000)}s`);
+    log.debug(`[OpenFEC] In backoff, waiting ${Math.round(remaining / 1000)}s`);
     await sleep(Math.min(remaining, 5000)); // wait up to 5s, then proceed
   }
 

@@ -1,4 +1,5 @@
 import { Panel } from './Panel';
+import { log } from '@/utils/logger';
 import { hasIntelligenceSignalsLoaded, type CountryScore } from '@/services/country-instability';
 import { t } from '../services/i18n';
 import { h, replaceChildren, rawHtml } from '@/utils/dom-utils';
@@ -236,7 +237,7 @@ export class CIIPanel extends Panel {
       const scores = getPreferredCountryScores();
       const withScore = scores.filter(s => s.score > 0).length;
       this.scores = scores;
-      console.log(`[CIIPanel] Loaded ${withScore} country scores`);
+      log.debug(`[CIIPanel] Loaded ${withScore} country scores`);
 
       const withData = this.scores.filter(s => s.score > 0);
       this.setCount(withData.length);
@@ -267,7 +268,7 @@ export class CIIPanel extends Panel {
     const scores = cached.cii.map(toCountryScore).filter(s => s.score > 0);
     if (scores.length === 0) return;
     this.renderScores(scores);
-    console.log(`[CIIPanel] Rendered ${scores.length} countries from cached/bootstrap data`);
+    log.debug(`[CIIPanel] Rendered ${scores.length} countries from cached/bootstrap data`);
   }
 
   public renderScores(scores: CountryScore[]): void {

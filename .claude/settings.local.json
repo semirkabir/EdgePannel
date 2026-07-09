@@ -33,7 +33,10 @@
       "Bash(npm install *)",
       "Bash(npx tsc *)",
       "Bash(git remote *)",
-      "Bash(git rev-list *)"
+      "Bash(git rev-list *)",
+      "Bash(grep -v \"= \\\\`\\\\`\")",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")",
+      "Bash(npm audit *)"
     ]
   }
 }

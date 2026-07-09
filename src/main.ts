@@ -1,4 +1,5 @@
 import './styles/base-layer.css';
+import { log } from '@/utils/logger';
 import './styles/happy-theme.css';
 import './styles/cursors.css';
 import { enqueueSentryCall, installPreInitErrorQueue, scheduleSentryInit } from '@/bootstrap/sentry-defer';
@@ -166,7 +167,7 @@ if (import.meta.env.DEV) {
 Object.defineProperty(window, 'beta', {
   get() {
     const on = localStorage.getItem('worldmonitor-beta-mode') === 'true';
-    console.log(`[Beta] ${on ? 'ON' : 'OFF'}`);
+    log.debug(`[Beta] ${on ? 'ON' : 'OFF'}`);
     return on;
   },
   set(v: boolean) {
@@ -197,7 +198,7 @@ if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window) && 'serviceWo
 
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
     .then((registration) => {
-      console.log('[PWA] Service worker registered');
+      log.debug('[PWA] Service worker registered');
       const swUpdateInterval = setInterval(async () => {
         if (!navigator.onLine) return;
         try { await registration.update(); } catch {}

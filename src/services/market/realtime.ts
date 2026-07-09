@@ -4,6 +4,7 @@
  */
 
 import type { MarketData } from '@/types';
+import { log } from '@/utils/logger';
 import { getMarketWatchlistEntries } from '@/services/market-watchlist';
 
 // Finnhub WebSocket URL (free tier: 60 calls/minute, US stocks only)
@@ -52,11 +53,11 @@ class MarketWebSocketService {
     }
 
     try {
-      console.log('[MarketWS] Connecting to Finnhub WebSocket...');
+      log.debug('[MarketWS] Connecting to Finnhub WebSocket...');
       this.ws = new WebSocket(`${FINNHUB_WS_URL}${apiKey}`);
 
       this.ws.onopen = () => {
-        console.log('[MarketWS] Connected to Finnhub WebSocket');
+        log.debug('[MarketWS] Connected to Finnhub WebSocket');
         this.isConnected = true;
         this.resubscribeAll();
         this.startHeartbeat();
@@ -65,7 +66,7 @@ class MarketWebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const msg: WebSocketMessage = JSON.parse(event.data);
-          console.log('[MarketWS] Received message:', msg.type, msg);
+          log.debug('[MarketWS] Received message:', msg.type, msg);
           this.handleMessage(msg);
         } catch (e) {
           console.error('[MarketWS] Failed to parse message:', e);
@@ -73,7 +74,7 @@ class MarketWebSocketService {
       };
 
       this.ws.onclose = (event) => {
-        console.log('[MarketWS] Disconnected:', event.code, event.reason);
+        log.debug('[MarketWS] Disconnected:', event.code, event.reason);
         this.isConnected = false;
         this.stopHeartbeat();
         this.scheduleReconnect();

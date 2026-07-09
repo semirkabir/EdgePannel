@@ -24,6 +24,14 @@ All notable changes to EdgePannel are documented here.
 - **Variant tree-shaking** — `SITE_VARIANT` injected at build time via Vite `define`, eliminating dead variant code from bundles
 - **AppContext extended** — now includes `eventBus`, `newsStore`, `intelligenceStore`, `uiStore`, `mapStore` alongside legacy fields for backward compat
 
+### Changed
+
+- **Build tooling** — Upgraded Vite and PWA tooling, with `__APP_BUILD_TARGET__` / `__APP_BUILD_VARIANT__` build defines exposed to runtime UI.
+- **Browser ML** — Migrated browser-side Transformers.js usage from `@xenova/transformers` to `@huggingface/transformers`; configured model IDs were smoke-tested against the new package.
+- **Charts** — Replaced the D3 umbrella package with per-module `d3-*` imports across map/timeline/progress/renewable/conservation/congress charts, while removing the now-unused `@types/d3` dev dependency.
+- **CSS transitions** — Replaced several `transition: all` declarations with explicit transition-property lists in entity detail, node editor, portfolio, and tier-one styles to keep the dependency-upgrade diff reviewable as intentional performance cleanup.
+- **Browser target** — Raised TypeScript compile libs/target to ES2023; production browser support should be validated with the configured Browserslist before release.
+
 ### Cleanup
 
 - Removed 8.2 MB temp file (`tmp-marketplace-check.js`)

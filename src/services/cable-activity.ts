@@ -51,7 +51,7 @@ function parseCoordinates(text: string): { lat: number; lon: number }[] {
 
   // Pattern: 26-32N 056-40E or 26-32.5N 056-40.5E
   const dmsPattern = /(\d{1,3})-(\d{1,2}(?:\.\d+)?)\s*([NS])\s+(\d{1,3})-(\d{1,2}(?:\.\d+)?)\s*([EW])/gi;
-  let match;
+  let match: RegExpExecArray | null;
 
   while ((match = dmsPattern.exec(text)) !== null) {
     if (!match[1] || !match[2] || !match[3] || !match[4] || !match[5] || !match[6]) continue;

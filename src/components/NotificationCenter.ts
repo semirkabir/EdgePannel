@@ -97,8 +97,10 @@ export class NotificationCenter {
 
     this.dropdownEl.appendChild(this.buildHeader());
     this.filtersEl = this.buildFilters();
+    this.renderFilters();
     this.dropdownEl.appendChild(this.filtersEl);
     this.viewToggleEl = this.buildViewToggle();
+    this.renderViewToggle();
     this.dropdownEl.appendChild(this.viewToggleEl);
 
     this.listEl = document.createElement('div');
@@ -201,7 +203,6 @@ export class NotificationCenter {
       });
       wrap.appendChild(tab);
     }
-    this.renderFilters();
     return wrap;
   }
 

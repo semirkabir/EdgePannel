@@ -1,4 +1,5 @@
 import type { Hotspot } from '@/types';
+import { log } from '@/utils/logger';
 import { t } from '@/services/i18n';
 import {
   IntelligenceServiceClient,
@@ -167,7 +168,7 @@ export async function fetchGdeltArticles(
     return cached.articles;
   }
 
-  console.log(`[GDELT-Intel] fetchGdeltArticles: query="${query.slice(0,80)}", maxrecords=${maxrecords}, timespan=${timespan}`);
+  log.debug(`[GDELT-Intel] fetchGdeltArticles: query="${query.slice(0,80)}", maxrecords=${maxrecords}, timespan=${timespan}`);
   const articles = await fetchGdeltDirect(query, maxrecords, timespan);
   // Only cache successful (non-empty) results so retries can try fresh fetches
   if (articles.length > 0) {
@@ -202,7 +203,7 @@ async function fetchGdeltDirect(
   // Respect active backoff window before attempting direct call
   if (Date.now() < gdeltRateLimitState.backoffUntil) {
     const remaining = Math.round((gdeltRateLimitState.backoffUntil - Date.now()) / 1000);
-    console.log(`[GDELT-Intel] In backoff window, waiting ${remaining}s`);
+    log.debug(`[GDELT-Intel] In backoff window, waiting ${remaining}s`);
     await sleep(gdeltRateLimitState.backoffUntil - Date.now());
   }
 
@@ -212,7 +213,7 @@ async function fetchGdeltDirect(
     let resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
     const rl = handleGdeltRateLimit(resp);
     if (rl.shouldRetry && rl.delayMs < GDELT_MAX_BACKOFF_MS) {
-      console.log(`[GDELT-Intel] Retrying direct after ${Math.round(rl.delayMs / 1000)}s backoff`);
+      log.debug(`[GDELT-Intel] Retrying direct after ${Math.round(rl.delayMs / 1000)}s backoff`);
       await sleep(rl.delayMs);
       resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
     }
@@ -221,7 +222,7 @@ async function fetchGdeltDirect(
     if (!text.startsWith('{')) throw new Error(`GDELT returned non-JSON: ${text.slice(0, 80)}`);
     const data = JSON.parse(text);
     const articles: GdeltArticle[] = (data.articles || []).map((a: any) => toGdeltArticleRaw(a));
-    console.log(`[GDELT-Intel] Direct result: ${articles.length} articles`);
+    log.debug(`[GDELT-Intel] Direct result: ${articles.length} articles`);
     if (articles.length > 0) return articles;
   } catch (e) {
     console.warn(`[GDELT-Intel] Direct GDELT call failed:`, e);
@@ -233,7 +234,7 @@ async function fetchGdeltDirect(
     let resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
     const rl = handleGdeltRateLimit(resp);
     if (rl.shouldRetry && rl.delayMs < GDELT_MAX_BACKOFF_MS) {
-      console.log(`[GDELT-Intel] Retrying proxy after ${Math.round(rl.delayMs / 1000)}s backoff`);
+      log.debug(`[GDELT-Intel] Retrying proxy after ${Math.round(rl.delayMs / 1000)}s backoff`);
       await sleep(rl.delayMs);
       resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
     }
@@ -242,7 +243,7 @@ async function fetchGdeltDirect(
     if (!text.startsWith('{')) throw new Error(`Proxy returned non-JSON: ${text.slice(0, 80)}`);
     const data = JSON.parse(text);
     const articles: GdeltArticle[] = (data.articles || []).map((a: any) => toGdeltArticleRaw(a));
-    console.log(`[GDELT-Intel] Proxy result: ${articles.length} articles`);
+    log.debug(`[GDELT-Intel] Proxy result: ${articles.length} articles`);
     if (articles.length > 0) return articles;
   } catch (e) {
     console.warn(`[GDELT-Intel] Vite proxy call failed:`, e);
@@ -274,7 +275,7 @@ function toGdeltArticleRaw(a: any): GdeltArticle {
 
 export async function fetchHotspotContext(hotspot: Hotspot): Promise<GdeltArticle[]> {
   const keywords = hotspot.keywords;
-  console.log('[GDELT] fetchHotspotContext - hotspot:', hotspot.name, 'keywords:', keywords);
+  log.debug('[GDELT] fetchHotspotContext - hotspot:', hotspot.name, 'keywords:', keywords);
   
   if (!keywords || keywords.length === 0) {
     console.warn('[GDELT] No keywords for hotspot:', hotspot.name);
@@ -282,9 +283,9 @@ export async function fetchHotspotContext(hotspot: Hotspot): Promise<GdeltArticl
   }
   
   const query = `(${keywords.slice(0, 5).join(' OR ')})`;
-  console.log('[GDELT] Query:', query);
+  log.debug('[GDELT] Query:', query);
   const articles = await fetchGdeltArticles(query, 8, '48h');
-  console.log('[GDELT] Results:', articles.length, 'articles for hotspot:', hotspot.name);
+  log.debug('[GDELT] Results:', articles.length, 'articles for hotspot:', hotspot.name);
   return articles;
 }
 

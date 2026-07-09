@@ -4,7 +4,12 @@
   "version": "0.1.0",
   "license": "AGPL-3.0-only",
   "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
+    "lint": "biome lint",
+    "lint:fix": "biome lint --write",
     "lint:md": "markdownlint-cli2 '**/*.md' '!**/node_modules/**' '!.agent/**' '!.agents/**' '!.claude/**' '!.factory/**' '!.windsurf/**' '!skills/**' '!docs/internal/**' '!docs/Docs_To_Review/**'",
     "version:sync": "node scripts/sync-desktop-version.mjs",
     "version:check": "node scripts/sync-desktop-version.mjs --check",
@@ -74,6 +79,7 @@
     "desktop:package": "node scripts/desktop-package.mjs"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.2",
     "@bufbuild/buf": "^1.66.0",
     "@playwright/test": "^1.52.0",
     "@tauri-apps/cli": "^2.10.0",

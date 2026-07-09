@@ -19,6 +19,7 @@ import { getCountryInfrastructure, getNearbyInfrastructure } from '@/services/re
 import { t } from '@/services/i18n';
 import { COUNTRY_BOUNDS } from './country-utils';
 import { getCountryProfile, getCountryIndices } from '@/services/country-profiles';
+import { log } from '@/utils/logger';
 
 type CountryStockSnapshot = {
   available: boolean;
@@ -292,7 +293,7 @@ export function mountCountryTimeline(ctx: AppContext, code: string, country: str
     .filter((e) => Number.isFinite(e.timestamp) && e.timestamp >= sevenDaysAgo)
     .sort((a, b) => a.timestamp - b.timestamp);
   ctx.countryTimeline.render(recentEvents);
-  console.debug('[CountryBrief] Timeline events rendered', {
+  log.debug('[CountryBrief] Timeline events rendered', {
     code,
     country,
     totalEvents: events.length,

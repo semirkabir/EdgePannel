@@ -8,6 +8,7 @@ import {
 } from '@/generated/client/worldmonitor/intelligence/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 import { getHydratedData } from '@/services/bootstrap';
+import { log } from '@/utils/logger';
 
 // ---- Sebuf client ----
 
@@ -236,7 +237,7 @@ export function savePersistedLiveCountryScores(scores: CountryScore[]): void {
       data: scores.map(toCachedCountryScore),
       savedAt: Date.now(),
     }));
-    console.debug('[CII] Persisted live local scores', { count: scores.length });
+    log.debug('[CII] Persisted live local scores', { count: scores.length });
   } catch {
     // Ignore storage quota failures.
   }
@@ -361,7 +362,7 @@ export function getPreferredCountryScores(): CountryScore[] {
       const logKey = `persisted-live:${pendingSources.join(',')}`;
       if (lastPreferredScoreLog !== logKey) {
         lastPreferredScoreLog = logKey;
-        console.debug('[CII] Using persisted live local scores while core feeds settle', { pendingSources });
+        log.debug('[CII] Using persisted live local scores while core feeds settle', { pendingSources });
       }
       return persistedLive;
     }
@@ -371,7 +372,7 @@ export function getPreferredCountryScores(): CountryScore[] {
       const logKey = `cached:${pendingSources.join(',')}`;
       if (lastPreferredScoreLog !== logKey) {
         lastPreferredScoreLog = logKey;
-        console.debug('[CII] Using cached scores while core feeds settle', { pendingSources });
+        log.debug('[CII] Using cached scores while core feeds settle', { pendingSources });
       }
       return cached.cii.map(toCountryScore);
     }
@@ -379,7 +380,7 @@ export function getPreferredCountryScores(): CountryScore[] {
   }
   if (lastPreferredScoreLog !== 'live') {
     lastPreferredScoreLog = 'live';
-    console.debug('[CII] Using live calculated scores', {
+    log.debug('[CII] Using live calculated scores', {
       pendingSources: getPendingCoreIntelligenceSources(),
     });
   }

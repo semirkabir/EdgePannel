@@ -14,24 +14,11 @@
  *   - Bulk historical import
  */
 
-const CONVEX_URL = (() => {
-  try {
-    // Vite injects VITE_CONVEX_URL at build time.
-    // @ts-expect-error — Vite define
-    return typeof VITE_CONVEX_URL !== 'undefined' ? VITE_CONVEX_URL : '';
-  } catch {
-    return '';
-  }
-})();
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || '';
 
-const ADMIN_TOKEN = (() => {
-  try {
-    // @ts-expect-error — Vite define
-    return typeof VITE_CONVEX_ADMIN_TOKEN !== 'undefined' ? VITE_CONVEX_ADMIN_TOKEN : '';
-  } catch {
-    return '';
-  }
-})();
+// A Convex admin token must never be inlined into the client bundle. Privileged
+// writes belong on the server, so the browser sends no admin Authorization here.
+const ADMIN_TOKEN = '';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

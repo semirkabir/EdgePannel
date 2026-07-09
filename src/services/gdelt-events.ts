@@ -1,3 +1,5 @@
+import { log } from '@/utils/logger';
+
 /**
  * GDELT 2.0 Event Database integration.
  *
@@ -258,7 +260,7 @@ export async function fetchGdeltEvents(
   // Respect backoff window
   if (Date.now() < gdeltEventsRateLimitState.backoffUntil) {
     const remaining = Math.round((gdeltEventsRateLimitState.backoffUntil - Date.now()) / 1000);
-    console.log(`[GDELT-Events] In backoff window, waiting ${remaining}s`);
+    log.debug(`[GDELT-Events] In backoff window, waiting ${remaining}s`);
     await sleep(gdeltEventsRateLimitState.backoffUntil - Date.now());
   }
 
@@ -278,7 +280,7 @@ export async function fetchGdeltEvents(
     if (!text.startsWith('{')) throw new Error(`GDELT Events returned non-JSON: ${text.slice(0, 80)}`);
     const data = JSON.parse(text);
     const events: GdeltEvent[] = (data.events || []).map((r: Record<string, unknown>) => toGdeltEvent(r));
-    console.log(`[GDELT-Events] Direct result: ${events.length} events`);
+    log.debug(`[GDELT-Events] Direct result: ${events.length} events`);
     if (events.length > 0) {
       eventCache.set(cacheKey, { events, timestamp: Date.now() });
       return events;
@@ -301,7 +303,7 @@ export async function fetchGdeltEvents(
     if (!text.startsWith('{')) throw new Error(`Proxy returned non-JSON: ${text.slice(0, 80)}`);
     const data = JSON.parse(text);
     const events: GdeltEvent[] = (data.events || []).map((r: Record<string, unknown>) => toGdeltEvent(r));
-    console.log(`[GDELT-Events] Proxy result: ${events.length} events`);
+    log.debug(`[GDELT-Events] Proxy result: ${events.length} events`);
     if (events.length > 0) {
       eventCache.set(cacheKey, { events, timestamp: Date.now() });
       return events;

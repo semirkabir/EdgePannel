@@ -43,6 +43,7 @@ import {
 } from './country-utils';
 import { trackCountrySelected, trackCountryBriefOpened } from '@/services/analytics';
 import { fetchCountryMacroData } from '@/services/economic';
+import { log } from '@/utils/logger';
 
 export class CountryIntelManager implements AppModule {
   private ctx: AppContext;
@@ -293,7 +294,7 @@ export class CountryIntelManager implements AppModule {
     mountCountryTimeline(this.ctx, code, name);
     this.refreshNewsForPanel(code, name);
     refreshEconomicForPanel(this.ctx, code, score);
-    console.debug('[CountryBrief] Refreshed open brief', {
+    log.debug('[CountryBrief] Refreshed open brief', {
       code,
       score: score?.score ?? null,
       protests: signals.protests,

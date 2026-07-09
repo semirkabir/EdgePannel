@@ -1,4 +1,5 @@
 import { getCursorCheckUrl, getCursorPreviewUrl } from '@/utils/forced-cursor';
+import { log } from './logger';
 
 type CursorDiagnosticState = {
   enabled: boolean;
@@ -73,7 +74,7 @@ async function checkCursorAssets(): Promise<void> {
       return { asset, ok: false, status: 0, error: String(error) };
     }
   }));
-  console.debug('[CursorDiag] Asset checks', results);
+  log.debug('[CursorDiag] Asset checks', results);
 }
 
 function inspectPointerTarget(target: Element | null, source: string): void {
@@ -86,7 +87,7 @@ function inspectPointerTarget(target: Element | null, source: string): void {
   const fingerprint = [source, describeElement(target), targetCursor, describeElement(interesting), interestingCursor].join('|');
   if (fingerprint === state.lastFingerprint) return;
   state.lastFingerprint = fingerprint;
-  console.debug('[CursorDiag] Pointer inspection', {
+  log.debug('[CursorDiag] Pointer inspection', {
     source,
     target: describeElement(target),
     targetCursor,
@@ -116,7 +117,7 @@ function enableCursorDiagnostics(): void {
     document.removeEventListener('pointerdown', onPointerDown);
   };
 
-  console.debug('[CursorDiag] Enabled', {
+  log.debug('[CursorDiag] Enabled', {
     stylesheetCursorRuleCount: getStylesheetCursorRuleCount(),
     location: window.location.href,
   });
@@ -128,7 +129,7 @@ function disableCursorDiagnostics(): void {
   state.cleanup = null;
   state.enabled = false;
   state.lastFingerprint = '';
-  console.debug('[CursorDiag] Disabled');
+  log.debug('[CursorDiag] Disabled');
 }
 
 function installCursorDiagnostics(): void {

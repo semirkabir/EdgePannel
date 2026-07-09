@@ -3,6 +3,7 @@ import { mlWorker } from './ml-worker';
 import { generateSummary } from './summarization';
 import { SUPPRESSED_TRENDING_TERMS, escapeRegex, generateSignalId, tokenize } from '@/utils/analysis-constants';
 import { t } from '@/services/i18n';
+import { log } from '@/utils/logger';
 
 export interface TrendingHeadlineInput {
   title: string;
@@ -272,7 +273,7 @@ export async function extractEntitiesWithML(text: string): Promise<string[]> {
       ...(mlEntitiesByText[0] ?? []),
     ]);
   } catch (error) {
-    console.debug('[TrendingKeywords] ML entity extraction failed, using regex entities only:', error);
+    log.debug('[TrendingKeywords] ML entity extraction failed, using regex entities only:', error);
     return dedupeEntityTerms(regexEntities);
   }
 }
@@ -523,7 +524,7 @@ async function handleSpike(spike: TrendingSpike, config: TrendingConfig): Promis
   try {
     const significant = await isSignificantTerm(spike.term, spike.headlines);
     if (!significant) {
-      console.debug(`[TrendingKeywords] Suppressed non-entity term: "${spike.term}"`);
+      log.debug(`[TrendingKeywords] Suppressed non-entity term: "${spike.term}"`);
       return;
     }
 
@@ -621,7 +622,7 @@ async function enrichWithMLEntities(headlines: PendingMLEnrichmentHeadline[], in
       void handleSpike(spike, config).catch(() => {});
     }
   } catch (error) {
-    console.debug('[TrendingKeywords] ML entity enrichment skipped:', error);
+    log.debug('[TrendingKeywords] ML entity enrichment skipped:', error);
   }
 }
 

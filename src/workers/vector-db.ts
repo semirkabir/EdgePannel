@@ -54,6 +54,7 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 export function sanitizeTitle(text: string): string {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — strips control characters (C0 range + DEL) from titles.
   return text.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 200);
 }
 

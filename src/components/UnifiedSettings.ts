@@ -7,6 +7,7 @@ import {
   getSourceTier,
   getSourceType,
 } from '@/config/feeds';
+import { log } from '@/utils/logger';
 import { PANEL_CATEGORY_MAP } from '@/config/panels';
 import { SITE_VARIANT } from '@/config/variant';
 import { MISSION_PACKS } from '@/config';
@@ -254,14 +255,14 @@ export class UnifiedSettings {
     window.addEventListener('worldmonitor:open-profile', this.openProfileHandler);
     window.addEventListener('worldmonitor:open-sources', this.openSourcesHandler);
 
-    console.log('[Settings] Subscribing to auth state');
+    log.debug('[Settings] Subscribing to auth state');
     this.authUnsubscribe = subscribeToAuth((state) => {
-      console.log('[Settings] Auth state received:', { user: state.user?.email, loading: state.loading, configured: state.isConfigured });
+      log.debug('[Settings] Auth state received:', { user: state.user?.email, loading: state.loading, configured: state.isConfigured });
       this.currentUser = state.user as User | null;
       this.authLoading = state.loading;
       this.currentTier = state.user ? state.tier : 'free';
       if (this.activeTab === 'profile') {
-        console.log('[Settings] Rendering profile tab');
+        log.debug('[Settings] Rendering profile tab');
         void this.renderProfileTab();
       }
     });
@@ -791,10 +792,10 @@ export class UnifiedSettings {
 
   private async renderProfileTab(): Promise<void> {
     const container = this.overlay.querySelector('#usProfileTab');
-    console.log('[Settings] Profile container:', container);
+    log.debug('[Settings] Profile container:', container);
     if (!container) {
-      console.log('[Settings] Container not found, checking DOM...');
-      console.log('[Settings] All elements with usProfileTab:', this.overlay.querySelectorAll('[id*="Profile"]'));
+      log.debug('[Settings] Container not found, checking DOM...');
+      log.debug('[Settings] All elements with usProfileTab:', this.overlay.querySelectorAll('[id*="Profile"]'));
       return;
     }
 
@@ -1162,8 +1163,8 @@ export class UnifiedSettings {
       return;
     }
 
-    // For now, send to the checkout endpoint.
-    // TODO: Integrate Stripe checkout session.
+    // Hand off to the checkout endpoint, which creates a Stripe Checkout session
+    // and redirects the browser to Stripe's hosted payment page.
     const uid = this.currentUser?.uid;
     window.location.href = `/api/checkout?tier=${tier}&uid=${uid || ''}`;
   }

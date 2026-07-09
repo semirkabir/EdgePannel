@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**World Monitor** — Real-time global intelligence dashboard. AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface. Single codebase with 5 deployable variants (full, tech, finance, happy, commodity).
+**World Monitor** — Real-time global intelligence dashboard. AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface. Single codebase with 6 deployable variants (full, tech, finance, happy, commodity, conflicts).
 
 - **Repo:** https://github.com/koala73/worldmonitor
 - **License:** AGPL-3.0-only
@@ -19,6 +19,7 @@ npm run dev:tech               # Tech variant dev
 npm run dev:finance            # Finance variant dev
 npm run dev:happy              # Happy variant dev
 npm run dev:commodity          # Commodity variant dev
+npm run dev:conflicts          # Conflicts variant dev
 npm run desktop:dev            # Tauri desktop app dev
 ```
 
@@ -29,6 +30,7 @@ npm run build:tech             # Build tech variant
 npm run build:finance          # Build finance variant
 npm run build:happy            # Build happy variant
 npm run build:commodity        # Build commodity variant
+npm run build:conflicts        # Build conflicts variant
 npm run build:full             # Build full variant
 npm run build:desktop          # Full build with sidecar (Tauri)
 ```

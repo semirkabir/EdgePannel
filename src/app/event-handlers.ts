@@ -1,4 +1,5 @@
 import type { AppContext, AppModule } from '@/app/app-context';
+import { log } from '@/utils/logger';
 import type { AirlineIntelPanel } from '@/components/AirlineIntelPanel';
 import type { PanelConfig, CustomFeed } from '@/types';
 import type { MarketplaceVariant } from '@/types/marketplace';
@@ -71,6 +72,7 @@ import { getHeaderTimezone } from '@/services/preferences-content';
 import { loadAlertRules, normalizeAlertRule, saveAlertRules } from '@/services/alert-rules';
 import { formatClockTime } from './header-clock';
 import { savePanelLayoutSnapshot } from './layout-snapshot';
+import { WS_SOURCES, RSS_SOURCES, getSourceDotClass, getSourceLabel } from './source-status';
 import {
   applyPanelDensity,
   confirmAndResetLayout,
@@ -768,7 +770,7 @@ export class EventHandlerManager implements AppModule {
       if (!document.hidden) {
         this.ctx.isIdle = true;
         document.body?.classList.add('animations-paused');
-        console.log('[App] User idle - pausing animations to save resources');
+        log.debug('[App] User idle - pausing animations to save resources');
       }
     }, this.idlePauseMs);
   }
@@ -1079,7 +1081,7 @@ export class EventHandlerManager implements AppModule {
 
   setupMapLayerHandlers(): void {
     this.ctx.map?.setOnLayerChange((layer, enabled, source) => {
-      console.log(`[App.onLayerChange] ${layer}: ${enabled} (${source})`);
+      log.debug(`[App.onLayerChange] ${layer}: ${enabled} (${source})`);
       trackMapLayerToggle(layer, enabled, source);
       this.ctx.mapLayers[layer] = enabled;
       saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
@@ -1639,9 +1641,6 @@ export class EventHandlerManager implements AppModule {
   // ─── Live status hover dropdown ───────────────────────────────────────────
 
   // Sources that use a persistent WebSocket connection (true "live")
-  private static readonly WS_SOURCES = new Set(['ais', 'opensky', 'wingbits', 'polymarket', 'predictions']);
-  private static readonly RSS_SOURCES = new Set(['rss', 'gdelt_doc', 'pizzint', 'outages', 'cyber_threats', 'gpsjam', 'webcams', 'security_advisories']);
-
   private setupStatusDropdown(): void {
     const indicator = document.querySelector<HTMLElement>('.status-indicator');
     if (!indicator) return;
@@ -1673,14 +1672,14 @@ export class EventHandlerManager implements AppModule {
     const statusOrder: Record<string, number> = { error: 0, no_data: 1, very_stale: 2, stale: 3, fresh: 4, disabled: 5 };
 
     const groups = [
-      { label: 'WebSocket', type: 'wss', ids: EventHandlerManager.WS_SOURCES },
-      { label: 'RSS / Feed', type: 'rss', ids: EventHandlerManager.RSS_SOURCES },
+      { label: 'WebSocket', type: 'wss', ids: WS_SOURCES },
+      { label: 'RSS / Feed', type: 'rss', ids: RSS_SOURCES },
       { label: 'REST API',  type: 'api', ids: null as Set<string> | null },
     ];
 
     for (const group of groups) {
       const groupSources = sources
-        .filter(s => group.ids ? group.ids.has(s.id) : !EventHandlerManager.WS_SOURCES.has(s.id) && !EventHandlerManager.RSS_SOURCES.has(s.id))
+        .filter(s => group.ids ? group.ids.has(s.id) : !WS_SOURCES.has(s.id) && !RSS_SOURCES.has(s.id))
         .sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
 
       if (groupSources.length === 0) continue;
@@ -1696,7 +1695,7 @@ export class EventHandlerManager implements AppModule {
         row.className = 'status-dropdown-row';
 
         const dot = document.createElement('span');
-        dot.className = `status-dropdown-dot status-dropdown-dot-${this.getSourceDotClass(source.status, isWs)}`;
+        dot.className = `status-dropdown-dot status-dropdown-dot-${getSourceDotClass(source.status, isWs)}`;
         row.appendChild(dot);
 
         const name = document.createElement('span');
@@ -1705,8 +1704,8 @@ export class EventHandlerManager implements AppModule {
         row.appendChild(name);
 
         const badge = document.createElement('span');
-        badge.className = `status-dropdown-badge status-dropdown-badge-${this.getSourceDotClass(source.status, isWs)}`;
-        badge.textContent = this.getSourceLabel(source, isWs);
+        badge.className = `status-dropdown-badge status-dropdown-badge-${getSourceDotClass(source.status, isWs)}`;
+        badge.textContent = getSourceLabel(source, isWs);
         row.appendChild(badge);
 
         dropdown.appendChild(row);
@@ -1727,30 +1726,6 @@ export class EventHandlerManager implements AppModule {
   private hideStatusDropdown(): void {
     this.statusDropdownEl?.remove();
     this.statusDropdownEl = null;
-  }
-
-  private getSourceDotClass(status: string, isWs: boolean): string {
-    if (isWs) return 'live';
-    if (status === 'error' || status === 'no_data') return 'error';
-    if (status === 'very_stale') return 'error';
-    if (status === 'stale') return 'stale';
-    if (status === 'fresh') return 'fresh';
-    return 'stale';
-  }
-
-  private getSourceLabel(source: { status: string; lastUpdate: Date | null; lastError: string | null }, isWs: boolean): string {
-    if (isWs) return 'LIVE';
-    if (source.status === 'error') return 'ERROR';
-    if (source.status === 'no_data' || !source.lastUpdate) return 'NO DATA';
-    return this.timeAgo(source.lastUpdate);
-  }
-
-  private timeAgo(date: Date): string {
-    const secs = Math.floor((Date.now() - date.getTime()) / 1000);
-    if (secs < 60) return 'just now';
-    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-    return `${Math.floor(secs / 86400)}d ago`;
   }
 
   private setupMapDimensionToggle(): void {

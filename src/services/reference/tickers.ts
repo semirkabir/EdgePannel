@@ -7,14 +7,7 @@
 
 import { getTickerSector } from '../market/portfolio.js';
 
-const FINNHUB_KEY = (() => {
-  try {
-    // @ts-expect-error — Vite define
-    return typeof VITE_FINNHUB_API_KEY !== 'undefined' ? VITE_FINNHUB_API_KEY : '';
-  } catch {
-    return '';
-  }
-})();
+const FINNHUB_KEY = import.meta.env.VITE_FINNHUB_API_KEY || '';
 
 export interface TickerInfo {
   ticker: string;

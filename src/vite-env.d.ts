@@ -10,6 +10,9 @@ interface ImportMetaEnv {
   readonly VITE_DESKTOP_RUNTIME?: string;
   readonly VITE_TAURI_API_BASE_URL?: string;
   readonly VITE_TAURI_REMOTE_API_BASE_URL?: string;
+  readonly VITE_CONVEX_URL?: string;
+  readonly VITE_FINNHUB_API_KEY?: string;
+  readonly VITE_OPENFIGI_API_KEY?: string;
 }
 
 interface ImportMeta {

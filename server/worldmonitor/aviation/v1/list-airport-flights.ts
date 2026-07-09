@@ -39,6 +39,18 @@ function parseTs(s?: string): number {
     try { return new Date(s).getTime(); } catch { return 0; }
 }
 
+function dedupeAvsFlights(flights: AVSFlight[]): AVSFlight[] {
+    const seen = new Set<string>();
+    const out: AVSFlight[] = [];
+    for (const f of flights) {
+        const key = `${f.flight?.iata ?? f.flight?.icao ?? ''}|${f.departure?.scheduled ?? ''}|${f.arrival?.scheduled ?? ''}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(f);
+    }
+    return out;
+}
+
 function normalizeFlights(flights: AVSFlight[], now: number): FlightInstance[] {
     return flights.map(f => {
         const carrier: Carrier = {
@@ -155,26 +167,42 @@ export async function listAirportFlights(
                     return { flights: buildSimulatedFlights(airport, direction, limit, now), source: 'simulated' };
                 }
 
-                // TODO: FLIGHT_DIRECTION_BOTH only fetches departures (dep_iata). To support true
-                // bidirectional results, two parallel calls (dep_iata + arr_iata at limit/2 each)
-                // would be needed — deferred due to AviationStack rate-limit cost.
-                const paramKey = direction === 'FLIGHT_DIRECTION_ARRIVAL' ? 'arr_iata' : 'dep_iata';
-                const params = new URLSearchParams({
-                    access_key: apiKey,
-                    [paramKey]: airport,
-                    limit: String(limit),
-                });
-                const url = `${AVIATIONSTACK_URL}?${params}`;
-
-                try {
-                    const resp = await fetch(url, {
+                const fetchDirection = async (
+                    paramKey: 'dep_iata' | 'arr_iata',
+                    perCallLimit: number,
+                ): Promise<AVSFlight[]> => {
+                    const params = new URLSearchParams({
+                        access_key: apiKey,
+                        [paramKey]: airport,
+                        limit: String(perCallLimit),
+                    });
+                    const resp = await fetch(`${AVIATIONSTACK_URL}?${params}`, {
                         headers: { 'User-Agent': CHROME_UA },
                         signal: AbortSignal.timeout(10_000),
                     });
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                     const json = await resp.json() as { data?: AVSFlight[]; error?: { message?: string } };
                     if (json.error) throw new Error(json.error.message);
-                    const flights = normalizeFlights(json.data ?? [], now);
+                    return json.data ?? [];
+                };
+
+                try {
+                    let raw: AVSFlight[];
+                    if (direction === 'FLIGHT_DIRECTION_BOTH') {
+                        // Split the quota across departures and arrivals so "both" returns
+                        // genuinely bidirectional traffic. This costs two AviationStack calls
+                        // per cache-miss (see CACHE_TTL) rather than one — amortized by caching.
+                        const half = Math.ceil(limit / 2);
+                        const [deps, arrs] = await Promise.all([
+                            fetchDirection('dep_iata', half),
+                            fetchDirection('arr_iata', half),
+                        ]);
+                        raw = dedupeAvsFlights([...deps, ...arrs]);
+                    } else {
+                        const paramKey = direction === 'FLIGHT_DIRECTION_ARRIVAL' ? 'arr_iata' : 'dep_iata';
+                        raw = await fetchDirection(paramKey, limit);
+                    }
+                    const flights = normalizeFlights(raw, now);
                     return { flights, source: 'aviationstack' };
                 } catch (err) {
                     console.warn(`[Aviation] Flights fetch failed for ${airport}: ${err instanceof Error ? err.message : err}`);

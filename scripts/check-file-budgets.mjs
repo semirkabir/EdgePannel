@@ -7,6 +7,7 @@ const ROOT = process.cwd();
 const FILE_BUDGETS = [
   ['src/app/data-loader.ts', 2400],
   ['src/app/panel-layout.ts', 2400],
+  ['src/app/search-manager.ts', 1100],
   ['src/app/event-handlers.ts', 1850],
   ['src/components/MapPopup.ts', 2800],
   ['src/components/Map.ts', 4400],

@@ -1,4 +1,9 @@
 import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
+import { max, min } from 'd3-array';
+import { axisBottom, axisLeft } from 'd3-axis';
+import { scaleLinear } from 'd3-scale';
+import { select } from 'd3-selection';
+import { area, curveMonotoneX, line } from 'd3-shape';
 import type { EntityRenderer, EntityRenderContext } from '../types';
 import {
   fetchPoliticianTrades,
@@ -330,44 +335,38 @@ export class CongressPoliticianRenderer implements EntityRenderer {
 
   private drawPoliticianPerfChart(container: HTMLElement, perf: PoliticianPerformance): void {
     if (!container || perf.dates.length < 2) return;
-    Promise.all([
-      import('d3-array'),
-      import('d3-axis'),
-      import('d3-scale'),
-      import('d3-selection'),
-      import('d3-shape'),
-    ]).then(([d3Array, d3Axis, d3Scale, d3Selection, d3Shape]) => {
+    try {
       const width = container.clientWidth || 400;
       const height = 200;
       const margin = { top: 10, right: 10, bottom: 20, left: 50 };
       const innerW = width - margin.left - margin.right;
       const innerH = height - margin.top - margin.bottom;
 
-      const svg = d3Selection.select(container).append('svg').attr('width', width).attr('height', height).style('overflow', 'visible');
+      const svg = select(container).append('svg').attr('width', width).attr('height', height).style('overflow', 'visible');
       const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-      const xScale = d3Scale.scaleLinear().domain([0, perf.dates.length - 1]).range([0, innerW]);
-      const yScale = d3Scale.scaleLinear().domain([d3Array.min(perf.values)! * 0.95, d3Array.max(perf.values)! * 1.05]).range([innerH, 0]);
+      const xScale = scaleLinear().domain([0, perf.dates.length - 1]).range([0, innerW]);
+      const yScale = scaleLinear().domain([min(perf.values)! * 0.95, max(perf.values)! * 1.05]).range([innerH, 0]);
 
-      const areaGen = d3Shape.area<number>().x((_, i) => xScale(i)).y0(innerH).y1(d => yScale(d)).curve(d3Shape.curveMonotoneX);
-      const lineGen = d3Shape.line<number>().x((_, i) => xScale(i)).y(d => yScale(d)).curve(d3Shape.curveMonotoneX);
+      const areaGen = area<number>().x((_, i) => xScale(i)).y0(innerH).y1(d => yScale(d)).curve(curveMonotoneX);
+      const lineGen = line<number>().x((_, i) => xScale(i)).y(d => yScale(d)).curve(curveMonotoneX);
 
       g.append('path').datum(perf.values).attr('fill', 'rgba(59, 130, 246, 0.15)').attr('d', areaGen);
       g.append('path').datum(perf.values).attr('fill', 'none').attr('stroke', '#3b82f6').attr('stroke-width', 1.5).attr('d', lineGen);
 
-      const xAxis = d3Axis.axisBottom(xScale).ticks(5).tickFormat((d) => {
+      const xAxis = axisBottom(xScale).ticks(5).tickFormat((d) => {
         const idx = Math.round(Number(d));
         return idx >= 0 && idx < perf.dates.length ? perf.dates[idx]!.slice(5) : '';
       });
       g.append('g').attr('transform', `translate(0,${innerH})`).call(xAxis).selectAll('text').attr('fill', 'var(--text-dim, #888)').style('font-size', '9px');
       g.selectAll('.domain, .tick line').attr('stroke', 'var(--border, #333)');
 
-      const yAxis = d3Axis.axisLeft(yScale).ticks(4).tickFormat((d) => `$${(Number(d) / 1000).toFixed(1)}k`);
+      const yAxis = axisLeft(yScale).ticks(4).tickFormat((d) => `$${(Number(d) / 1000).toFixed(1)}k`);
       g.append('g').call(yAxis).selectAll('text').attr('fill', 'var(--text-dim, #888)').style('font-size', '9px');
       g.selectAll('.domain, .tick line').attr('stroke', 'var(--border, #333)');
-    }).catch(() => {
+    } catch {
       container.innerHTML = '<div class="edp-empty">Chart rendering unavailable.</div>';
-    });
+    }
   }
 
   private renderFilings(content: HTMLElement, data: CongressPoliticianEnriched, ctx: EntityRenderContext): void {

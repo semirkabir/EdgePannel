@@ -1,5 +1,6 @@
 import { User } from 'firebase/auth';
 import { getFirebaseAuth, onAuthChange, isFirebaseConfigured, getCurrentUser, getIdToken, handleRedirectResult } from '@/services/firebase-auth';
+import { log } from '@/utils/logger';
 
 const AUTH_DEBUG = import.meta.env.DEV && import.meta.env.VITE_DEBUG_AUTH === '1';
 const CHECKOUT_POLL_ATTEMPTS = 6;
@@ -111,7 +112,7 @@ async function refreshUserTierInternal(expectedTier: UserTier | null = null): Pr
 
     if (resolved === null) {
       // Transient failure — preserve the current tier, do not downgrade paid users.
-      if (AUTH_DEBUG) console.debug('[Auth] Tier fetch failed transiently, keeping current tier:', authState.tier);
+      if (AUTH_DEBUG) log.debug('[Auth] Tier fetch failed transiently, keeping current tier:', authState.tier);
       tier = authState.tier;
     } else {
       tier = resolved;
@@ -165,18 +166,18 @@ export function initAuth(): void {
   getFirebaseAuth();
 
   onAuthChange((user) => {
-    if (AUTH_DEBUG) console.debug('[Auth] State changed:', { user: user?.email, uid: user?.uid, loading: false });
+    if (AUTH_DEBUG) log.debug('[Auth] State changed:', { user: user?.email, uid: user?.uid, loading: false });
     applyAuthUser(user);
   });
 
   const current = getCurrentUser();
   if (current) {
-    if (AUTH_DEBUG) console.debug('[Auth] Current user on init:', current.email);
+    if (AUTH_DEBUG) log.debug('[Auth] Current user on init:', current.email);
     applyAuthUser(current);
   }
 
   handleRedirectResult().then((user) => {
-    if (user && AUTH_DEBUG) console.debug('[Auth] User from redirect:', user.email);
+    if (user && AUTH_DEBUG) log.debug('[Auth] User from redirect:', user.email);
     if (user) applyAuthUser(user);
   }).catch(() => {
     // Ignore redirect completion errors and let auth listener settle state.
@@ -185,7 +186,7 @@ export function initAuth(): void {
   // Initial state check after a delay
   setTimeout(() => {
     if (authState.loading) {
-      if (AUTH_DEBUG) console.debug('[Auth] Timeout - assuming no user');
+      if (AUTH_DEBUG) log.debug('[Auth] Timeout - assuming no user');
       setAuthState({ loading: false });
     }
   }, 3000);

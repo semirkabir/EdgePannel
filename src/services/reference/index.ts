@@ -46,12 +46,7 @@ function cacheSet(type: string, value: string, ref: EntityRef): void {
 
 // ── Convex helpers ────────────────────────────────────────────────────────────
 
-const CONVEX_URL = (() => {
-  try {
-    // @ts-expect-error — Vite define
-    return typeof VITE_CONVEX_URL !== 'undefined' ? VITE_CONVEX_URL : '';
-  } catch { return ''; }
-})();
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || '';
 
 async function convexLookup(functionName: string, args: Record<string, string>): Promise<EntityRef | null> {
   if (!CONVEX_URL) return null;

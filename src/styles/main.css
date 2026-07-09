@@ -21,6 +21,8 @@
    Shared Visual System — operator-console tokens
    ============================================================ */
 :root {
+  color-scheme: dark;
+
   /* Control surfaces */
   --ctrl-bg: rgba(255, 255, 255, 0.03);
   --ctrl-bg-hover: rgba(255, 255, 255, 0.06);
@@ -92,6 +94,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --ctrl-bg: rgba(0, 0, 0, 0.03);
   --ctrl-bg-hover: rgba(0, 0, 0, 0.06);
   --ctrl-bg-active: rgba(0, 0, 0, 0.09);
@@ -922,7 +925,12 @@ select:hover {
 
 select:focus {
   outline: none;
-  border-color: var(--accent);
+}
+
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: var(--ui-focus-ring);
 }
 
 select option {
@@ -974,7 +982,12 @@ select optgroup {
 
 .wm-sel-btn:focus {
   outline: none;
+}
+
+.wm-sel-btn:focus-visible {
+  outline: none;
   border-color: var(--accent);
+  box-shadow: var(--ui-focus-ring);
 }
 
 .wm-sel--disabled .wm-sel-btn {
@@ -1848,6 +1861,11 @@ canvas,
   object-position: left center;
   image-rendering: auto;
   flex: 0 0 auto;
+}
+
+/* Logo asset is a white wordmark — invert it on light surfaces */
+[data-theme="light"] .brand-logo {
+  filter: invert(1);
 }
 
 .version {
@@ -4313,6 +4331,7 @@ body.panel-resize-active iframe {
   overflow-y: auto;
   padding: 10px;
   min-width: 0;
+  overscroll-behavior: contain;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -5122,7 +5141,7 @@ body.panel-resize-active iframe {
 .bot-check-actions .bot-check-signin {
   background: var(--accent, #4a9eff);
   border-color: var(--accent, #4a9eff);
-  color: #fff;
+  color: var(--bg, #0a0a12);
 }
 
 @keyframes loadingDots {
@@ -6448,6 +6467,80 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   border-top: 1px solid var(--panel-border);
   display: flex;
   justify-content: flex-end;
+}
+
+.signal-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.64);
+  backdrop-filter: blur(8px);
+  z-index: 11600;
+}
+
+.signal-modal-overlay.active {
+  display: flex;
+}
+
+.signal-modal {
+  width: min(560px, calc(100vw - 48px));
+  max-height: min(680px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.signal-modal-header,
+.signal-modal-footer {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--panel-header-bg, rgba(255, 255, 255, 0.04));
+}
+
+.signal-modal-header {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.signal-modal-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.signal-modal-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  cursor: var(--wm-cursor-pointer);
+}
+
+.signal-modal-close:hover {
+  color: var(--text);
+}
+
+.signal-modal-content {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.signal-modal-footer {
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--panel-border);
 }
 
 .signal-item {
@@ -10034,7 +10127,7 @@ a.prediction-link:hover {
   display: none;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 12000;
 }
 
 .modal-overlay.active {
@@ -10063,6 +10156,7 @@ a.prediction-link:hover {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
+  text-wrap: balance;
 }
 
 .modal-close {
@@ -13720,7 +13814,7 @@ body.urgency-mode #header {
   align-items: flex-start;
   justify-content: center;
   padding-top: 15vh;
-  z-index: 2000;
+  z-index: 12000;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -29662,6 +29756,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
   color: var(--text-dim, rgba(255,255,255,0.72));
   line-height: 1.5;
   margin-bottom: 10px;
+  text-wrap: pretty;
 }
 
 .ohint-actions {
@@ -29674,7 +29769,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
   padding: 4px 10px;
   border-radius: 6px;
   background: var(--accent, #4c8cf8);
-  color: #fff;
+  color: var(--bg, #0a0a12);
   border: none;
   font-size: 11px;
   font-weight: 600;
@@ -29934,6 +30029,12 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .workspace-setup-header h2,
 .workspace-setup-copy {
   margin: 0;
+}
+.workspace-setup-header h2 {
+  text-wrap: balance;
+}
+.workspace-setup-copy {
+  text-wrap: pretty;
 }
 .workspace-setup-close {
   border: 0;

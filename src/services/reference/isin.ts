@@ -6,14 +6,7 @@
  * https://www.openfigi.com/api
  */
 
-const OPENFIGI_KEY = (() => {
-  try {
-    // @ts-expect-error — Vite define
-    return typeof VITE_OPENFIGI_API_KEY !== 'undefined' ? VITE_OPENFIGI_API_KEY : '';
-  } catch {
-    return '';
-  }
-})();
+const OPENFIGI_KEY = import.meta.env.VITE_OPENFIGI_API_KEY || '';
 
 export interface FigiRecord {
   figi: string;

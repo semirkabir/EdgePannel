@@ -2,6 +2,7 @@ import type { AppContext, AppModule } from '@/app/app-context';
 import { invokeTauri } from '@/services/tauri-bridge';
 import { trackUpdateShown, trackUpdateClicked, trackUpdateDismissed } from '@/services/analytics';
 import { h } from '@/utils/dom-utils';
+import { log } from '@/utils/logger';
 
 interface DesktopRuntimeInfo {
   os: string;
@@ -57,7 +58,7 @@ export class DesktopUpdater implements AppModule {
   private logUpdaterOutcome(outcome: UpdaterOutcome, context: Record<string, unknown> = {}): void {
     const logger = outcome === 'open_failed' || outcome === 'fetch_failed'
       ? console.warn
-      : console.info;
+      : log.debug;
     logger('[updater]', outcome, context);
   }
 

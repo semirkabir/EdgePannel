@@ -1,4 +1,5 @@
 import { Panel } from './Panel';
+import { log } from '@/utils/logger';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { getCSSColor } from '@/utils';
@@ -134,7 +135,7 @@ export class StrategicRiskPanel extends Panel {
       if (!this.element?.isConnected) return false;
       if (cached && cached.strategicRisk) {
         this.usedCachedScores = true;
-        console.log('[StrategicRiskPanel] Using cached scores from backend');
+        log.debug('[StrategicRiskPanel] Using cached scores from backend');
       }
     }
 

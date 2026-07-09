@@ -56,10 +56,12 @@ function centroid(coords: SigmetCoord[]): SigmetCoord | null {
 function pointInPolygon(lat: number, lon: number, polygon: SigmetCoord[]): boolean {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const yi = polygon[i].lat;
-    const xi = polygon[i].lon;
-    const yj = polygon[j].lat;
-    const xj = polygon[j].lon;
+    const pi = polygon[i]!;
+    const pj = polygon[j]!;
+    const yi = pi.lat;
+    const xi = pi.lon;
+    const yj = pj.lat;
+    const xj = pj.lon;
     if (((yi > lat) !== (yj > lat)) && (lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi)) {
       inside = !inside;
     }
@@ -155,6 +157,7 @@ export function enrichAlertsWithSigmets(
     if (hits.length === 0) return alert;
 
     const primary = hits[0];
+    if (!primary) return alert;
     const hazardText = hits.map((h) => h.hazardLabel).slice(0, 2).join(', ');
     const sigmetNote = `SIGMET: ${hazardText}`;
     const reason = alert.reason?.includes('SIGMET:')

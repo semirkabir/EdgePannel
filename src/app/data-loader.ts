@@ -29,6 +29,7 @@ import { fetchRenewableInstallations } from '@/services/renewable-installations'
 import { fetchElections } from '@/services/elections';
 import { getPersistentCache, setPersistentCache } from '@/services/persistent-cache';
 import { dataTaskScheduler } from './data-task-scheduler';
+import { log } from '@/utils/logger';
 
 const NEWS_REFRESH_SWEEP_EVENT = 'wm:news-refresh-sweep';
 
@@ -266,7 +267,7 @@ export class DataLoaderManager implements AppModule {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json() as ListFeedDigestResponse;
       const catCount = Object.keys(data.categories ?? {}).length;
-      console.info(`[News] Digest fetched: ${catCount} categories`);
+      log.debug(`[News] Digest fetched: ${catCount} categories`);
       this.lastGoodDigest = data;
       this.persistDigest(data);
       this.digestBreaker = { state: 'closed', failures: 0, cooldownUntil: 0 };
@@ -392,7 +393,7 @@ export class DataLoaderManager implements AppModule {
           this.ctx.map?.setCIIScores(persistedLiveScores.map((s) => ({ code: s.code, score: s.score, level: s.level })));
           this.ctx.map?.setLayerReady('ciiChoropleth', true);
           hasStartupCiiRender = true;
-          console.debug('[CII] Rendered persisted live local scores on startup', { count: persistedLiveScores.length });
+          log.debug('[CII] Rendered persisted live local scores on startup', { count: persistedLiveScores.length });
         }
         const cached = await fetchCachedRiskScores().catch(() => null);
         if (!hasStartupCiiRender && cached && cached.cii.length > 0) {

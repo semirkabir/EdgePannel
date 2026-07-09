@@ -1,3 +1,4 @@
+import { log } from './logger';
 type ForcedCursorKind = 'default' | 'pointer' | 'text' | 'help' | 'move' | 'resize-v' | 'resize-h' | 'resize-nwse' | 'resize-nesw';
 type CursorPreference = 'auto' | 'forced';
 type CursorTheme = 'classic' | 'lars-kurth-art-design-12';
@@ -388,7 +389,7 @@ function enableForcedCursor(): void {
   document.addEventListener('mouseenter', handlePointerMove as EventListener, { passive: true, capture: true });
   document.addEventListener('mouseleave', handlePointerLeave, { passive: true, capture: true });
   window.addEventListener('blur', handlePointerLeave);
-  console.info('[ForcedCursor] Enabled');
+  log.debug('[ForcedCursor] Enabled');
 }
 
 function disableForcedCursor(): void {
@@ -407,7 +408,7 @@ function disableForcedCursor(): void {
     window.cancelAnimationFrame(rafId);
     rafId = 0;
   }
-  console.info('[ForcedCursor] Disabled');
+  log.debug('[ForcedCursor] Disabled');
 }
 
 function installForcedCursor(): void {

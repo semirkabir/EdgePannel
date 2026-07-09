@@ -101,6 +101,7 @@ function getCountryName(code: string): string {
 }
 
 import type { ManagedService } from './managed-service';
+import { log } from '@/utils/logger';
 
 class SignalAggregator implements ManagedService {
   private signals: GeoSignal[] = [];
@@ -165,7 +166,7 @@ class SignalAggregator implements ManagedService {
       });
     }
     if (fallbackAssignments > 0) {
-      console.debug('[SignalAggregator] Flight fallback assignments', { fallbackAssignments });
+      log.debug('[SignalAggregator] Flight fallback assignments', { fallbackAssignments });
     }
     this.pruneOld();
   }
@@ -201,7 +202,7 @@ class SignalAggregator implements ManagedService {
       });
     }
     if (fallbackAssignments > 0) {
-      console.debug('[SignalAggregator] Vessel fallback assignments', { fallbackAssignments });
+      log.debug('[SignalAggregator] Vessel fallback assignments', { fallbackAssignments });
     }
     this.pruneOld();
   }

@@ -10,6 +10,7 @@ import { dataFreshness } from '../data-freshness';
 import { isFeatureAvailable } from '../runtime-config';
 import { startSmartPollLoop, type SmartPollLoopHandle } from '../runtime';
 import { isLocalDevTaskEnabled } from '../local-dev-stability';
+import { log } from '@/utils/logger';
 export * from './geospatial';
 
 // ---- Proto fallback (desktop safety when relay URL is unavailable) ----
@@ -352,9 +353,9 @@ async function pollSnapshot(force = false, signal?: AbortSignal): Promise<void> 
       if (snapshot.sequence > lastSequence || lastSequence === 0) {
         const count = snapshot.candidateReports?.length ?? 0;
         if (count > 0) {
-          console.debug(`[AIS] Received ${count} vessel positions (seq ${snapshot.sequence})`);
+          log.debug(`[AIS] Received ${count} vessel positions (seq ${snapshot.sequence})`);
         } else {
-          console.debug(`[AIS] No candidate reports in snapshot (seq ${snapshot.sequence})`);
+          log.debug(`[AIS] No candidate reports in snapshot (seq ${snapshot.sequence})`);
         }
         emitCandidateReports(snapshot.candidateReports);
         lastSequence = snapshot.sequence;

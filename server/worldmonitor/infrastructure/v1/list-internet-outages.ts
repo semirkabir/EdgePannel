@@ -214,7 +214,7 @@ async function fetchIodaOutages(): Promise<InternetOutage[]> {
     const match = event.location?.match(/^country\/([A-Z]{2})$/i);
     if (!match) continue;
 
-    const countryCode = match[1].toUpperCase();
+    const countryCode = match[1]!.toUpperCase();
     const coords = COUNTRY_COORDS[countryCode];
     if (!coords) continue;
 
@@ -232,7 +232,7 @@ async function fetchIodaOutages(): Promise<InternetOutage[]> {
   const outages: InternetOutage[] = [];
 
   for (const event of seen.values()) {
-    const countryCode = event.location.split('/')[1].toUpperCase();
+    const countryCode = (event.location.split('/')[1] ?? '').toUpperCase();
     const coords = COUNTRY_COORDS[countryCode];
     if (!coords) continue;
 

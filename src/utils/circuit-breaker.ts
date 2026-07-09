@@ -1,3 +1,5 @@
+import { log } from '@/utils/logger';
+
 interface CircuitState {
   failures: number;
   cooldownUntil: number;
@@ -367,7 +369,7 @@ export class CircuitBreaker<T> {
     }
 
     if (this.isStateOnCooldown()) {
-      console.log(`[${this.name}] Currently unavailable, ${this.getCooldownRemaining()}s remaining`);
+      log.debug(`[${this.name}] Currently unavailable, ${this.getCooldownRemaining()}s remaining`);
       if (cachedEntry !== null && this.isCacheEntryFresh(cachedEntry)) {
         this.lastDataState = { mode: 'cached', timestamp: cachedEntry.timestamp, offline };
         this.touchCacheKey(cacheKey);

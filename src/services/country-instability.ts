@@ -15,6 +15,7 @@ import type { GpsJamHex } from '@/services/gps-interference';
 import { getCountryAtCoordinates, iso3ToIso2Code, nameToCountryCode, getCountryNameByCode, matchCountryNamesInText, ME_STRIKE_BOUNDS, resolveCountryFromBounds } from './country-geometry';
 import type { GovernanceScore, EconomicVulnerabilityData } from '@/services/economic';
 import type { DemocracyScore, PolityData } from '@/services/data360';
+import { log } from '@/utils/logger';
 
 export interface CountryScore {
   code: string;
@@ -164,7 +165,7 @@ export function markCoreIntelligenceSourceSettled(
   settledCoreIntelligenceSources.add(source);
   const pendingSources = CORE_INTELLIGENCE_SOURCES.filter((item) => !settledCoreIntelligenceSources.has(item));
 
-  console.debug('[CII] Core source settled', {
+  log.debug('[CII] Core source settled', {
     source,
     ok: meta?.ok ?? true,
     itemCount: meta?.itemCount ?? null,
@@ -173,7 +174,7 @@ export function markCoreIntelligenceSourceSettled(
 
   if (!intelligenceSignalsLoaded && pendingSources.length === 0) {
     intelligenceSignalsLoaded = true;
-    console.debug('[CII] Switching preferred scores to live calculation', {
+    log.debug('[CII] Switching preferred scores to live calculation', {
       settledSources: [...settledCoreIntelligenceSources],
     });
   }
@@ -562,7 +563,7 @@ export function ingestMilitaryForCII(flights: MilitaryFlight[], vessels: Militar
   }
 
   if (fallbackFlightAssignments > 0 || fallbackVesselAssignments > 0) {
-    console.debug('[CII] Military country fallback assignments', {
+    log.debug('[CII] Military country fallback assignments', {
       fallbackFlightAssignments,
       fallbackVesselAssignments,
     });

@@ -1,4 +1,5 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { log } from '@/utils/logger';
 import { 
   getAuth, 
   type Auth, 
@@ -24,7 +25,7 @@ const FIREBASE_DEBUG = import.meta.env.DEV && import.meta.env.VITE_DEBUG_FIREBAS
 const firebaseConfigured = !!firebaseConfig.apiKey && firebaseConfig.apiKey.length > 10 && firebaseConfig.apiKey !== 'demo';
 
 if (FIREBASE_DEBUG) {
-  console.debug('[Firebase] Config loaded:', {
+  log.debug('[Firebase] Config loaded:', {
     apiKey: firebaseConfig.apiKey?.slice(0, 8) + '...',
     authDomain: firebaseConfig.authDomain,
     projectId: firebaseConfig.projectId,
@@ -37,11 +38,11 @@ let auth: Auth | null = null;
 
 export function initFirebase(): Auth {
   if (!app) {
-    if (FIREBASE_DEBUG) console.debug('[Firebase] Initializing app');
+    if (FIREBASE_DEBUG) log.debug('[Firebase] Initializing app');
     app = initializeApp(firebaseConfig);
   }
   if (!auth) {
-    if (FIREBASE_DEBUG) console.debug('[Firebase] Initializing auth');
+    if (FIREBASE_DEBUG) log.debug('[Firebase] Initializing auth');
     auth = getAuth(app);
   }
   return auth;
@@ -67,7 +68,7 @@ export async function loginWithGoogle(): Promise<User | null> {
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (error: any) {
-    console.log('[Firebase] Popup failed, trying redirect:', error?.code);
+    log.debug('[Firebase] Popup failed, trying redirect:', error?.code);
     
     // If popup fails due to COOP, try redirect
     if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/internal-error' || error?.code === 'auth/popup-blocked') {

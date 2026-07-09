@@ -2,8 +2,9 @@
  * Quick Settings — Web-only user preferences for AI pipeline and map behavior.
  * Desktop (Tauri) manages AI config via its own settings window.
  *
- * TODO: Migrate panel visibility, sources, and language selector into this
- *       settings hub once the UI is extended with additional sections.
+ * Roadmap: panel visibility, sources, and language selector are planned to
+ * migrate into this settings hub once the UI is extended with additional
+ * sections (tracked in the improvement roadmap, Phase 0).
  */
 
 const STORAGE_KEY_BROWSER_MODEL = 'wm-ai-flow-browser-model';

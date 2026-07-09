@@ -1,4 +1,5 @@
 import type { AppContext, AppModule } from '@/app/app-context';
+import { log } from '@/utils/logger';
 import type { SearchResult } from '@/components/SearchModal';
 import type { PopupType } from '@/components/MapPopup';
 import type { NewsItem, MapLayers, SatelliteData } from '@/types';
@@ -669,7 +670,7 @@ export class SearchManager implements AppModule {
       subtitle: n.source,
       data: n,
     }));
-    console.log(`[Search] Indexing ${newsItems.length} news items (allNews total: ${this.ctx.allNews.length})`);
+    log.debug(`[Search] Indexing ${newsItems.length} news items (allNews total: ${this.ctx.allNews.length})`);
     this.ctx.searchModal.registerSource('news', newsItems);
 
     if (this.ctx.latestPredictions.length > 0) {

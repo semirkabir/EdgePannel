@@ -1,4 +1,5 @@
 import type { AppContext } from '@/app/app-context';
+import { log } from '@/utils/logger';
 import type { SupplementalSignal } from '@/services/supplemental-signal-bus';
 import type { DataSourceId } from '@/services/data-freshness';
 import {
@@ -559,7 +560,7 @@ export class SignalPublisher {
     }
 
     this.deps.refreshCiiAndBrief(true);
-    console.log('[Intelligence] All signals loaded for CII calculation');
+    log.debug('[Intelligence] All signals loaded for CII calculation');
   }
 
   async loadMilitary(): Promise<void> {
@@ -815,14 +816,14 @@ export class SignalPublisher {
       ]);
       const aisStatus = getAisStatus();
       const maritimeGeoCount = countMaritimeGeospatialFeatures(maritimeGeo);
-      console.log('[Ships] Events:', { disruptions: disruptions.length, density: density.length, vessels: aisStatus.vessels, connected: aisStatus.connected, maritimeGeo: maritimeGeoCount });
+      log.debug('[Ships] Events:', { disruptions: disruptions.length, density: density.length, vessels: aisStatus.vessels, connected: aisStatus.connected, maritimeGeo: maritimeGeoCount });
       this.ctx.mapStore.map?.setAisData(disruptions, density);
       this.ctx.mapStore.map?.setMaritimeGeospatialData(maritimeGeo);
       (this.ctx.panels['maritime-geospatial'] as { update?: (snapshot: typeof maritimeGeo) => void } | undefined)?.update?.(maritimeGeo);
       this.ctx.mapStore.map?.enableAisLiveTracking();
       setTimeout(() => {
         const afterStatus = getAisStatus();
-        console.log('[Ships] After live tracking enabled:', { vessels: afterStatus.vessels, connected: afterStatus.connected });
+        log.debug('[Ships] After live tracking enabled:', { vessels: afterStatus.vessels, connected: afterStatus.connected });
       }, 5000);
       signalAggregator.ingestAisDisruptions(disruptions);
       ingestAisDisruptionsForCII(disruptions);
@@ -974,7 +975,7 @@ export class SignalPublisher {
 
       if (governanceScores.status === 'fulfilled' && governanceScores.value?.length) {
         ingestGovernanceBaselines(governanceScores.value);
-        console.debug('[DataLoader] Governance baselines loaded:', governanceScores.value.length, 'countries');
+        log.debug('[DataLoader] Governance baselines loaded:', governanceScores.value.length, 'countries');
 
         const { iso3ToIso2Code } = await import('@/services/country-geometry');
         const govMapScores = governanceScores.value
@@ -990,7 +991,7 @@ export class SignalPublisher {
       }
       if (vulnerabilityData.status === 'fulfilled' && vulnerabilityData.value?.length) {
         ingestEconomicVulnerability(vulnerabilityData.value);
-        console.debug('[DataLoader] Economic vulnerability loaded:', vulnerabilityData.value.length, 'countries');
+        log.debug('[DataLoader] Economic vulnerability loaded:', vulnerabilityData.value.length, 'countries');
       }
 
       const { fetchVDemScores, fetchPolityScores } = await import('@/services/data360');
@@ -1001,15 +1002,15 @@ export class SignalPublisher {
 
       if (vdemResult.status === 'fulfilled' && vdemResult.value?.length) {
         ingestVDemForCII(vdemResult.value);
-        console.debug('[DataLoader] V-Dem electoral democracy loaded:', vdemResult.value.length, 'countries');
+        log.debug('[DataLoader] V-Dem electoral democracy loaded:', vdemResult.value.length, 'countries');
       } else {
-        console.debug('[DataLoader] V-Dem data unavailable; CII will use WGI+Polity only or pure WGI fallback');
+        log.debug('[DataLoader] V-Dem data unavailable; CII will use WGI+Polity only or pure WGI fallback');
       }
       if (polityResult.status === 'fulfilled' && polityResult.value?.length) {
         ingestPolityForCII(polityResult.value);
-        console.debug('[DataLoader] Polity scores loaded:', polityResult.value.length, 'countries');
+        log.debug('[DataLoader] Polity scores loaded:', polityResult.value.length, 'countries');
       } else {
-        console.debug('[DataLoader] Polity data unavailable; CII will use WGI+V-Dem only or pure WGI fallback');
+        log.debug('[DataLoader] Polity data unavailable; CII will use WGI+V-Dem only or pure WGI fallback');
       }
 
       if (vdemResult.status === 'fulfilled' && vdemResult.value?.length) {
@@ -1019,12 +1020,12 @@ export class SignalPublisher {
           regimeType: s.regimeType,
         }));
         this.ctx.mapStore.map?.setDemocracyScores(demScores);
-        console.debug('[DataLoader] Democracy Index choropleth loaded:', demScores.length, 'countries');
+        log.debug('[DataLoader] Democracy Index choropleth loaded:', demScores.length, 'countries');
       }
 
       const { fetchGemRiskScores } = await import('@/services/data360');
       const gemResult = await fetchGemRiskScores().catch(err => {
-        console.debug('[DataLoader] GEM Risk data unavailable:', err);
+        log.debug('[DataLoader] GEM Risk data unavailable:', err);
         return null;
       });
       if (gemResult?.length) {
@@ -1034,7 +1035,7 @@ export class SignalPublisher {
           rank: s.rank,
         }));
         this.ctx.mapStore.map?.setGemRiskScores(gemScores);
-        console.debug('[DataLoader] GEM Risk choropleth loaded:', gemScores.length, 'countries');
+        log.debug('[DataLoader] GEM Risk choropleth loaded:', gemScores.length, 'countries');
       }
     } catch (err) {
       console.warn('[DataLoader] Governance baselines failed (non-fatal):', err);
@@ -1073,7 +1074,7 @@ export class SignalPublisher {
       this.ctx.mapStore.map?.setNavWarnings(warnings);
       this.ctx.mapStore.map?.setLayerReady('navWarnings', warnings.length > 0);
     } catch (err) {
-      console.debug('[DataLoader] Nav warnings failed (non-fatal):', err);
+      log.debug('[DataLoader] Nav warnings failed (non-fatal):', err);
     }
   }
 
@@ -1103,7 +1104,7 @@ export class SignalPublisher {
       this.ctx.mapStore.map?.setMarketPerfScores(scores);
       this.ctx.mapStore.map?.setLayerReady('marketPerf', scores.length > 0);
     } catch (err) {
-      console.debug('[DataLoader] Market perf scores failed (non-fatal):', err);
+      log.debug('[DataLoader] Market perf scores failed (non-fatal):', err);
     }
   }
 
@@ -1131,7 +1132,7 @@ export class SignalPublisher {
       this.ctx.mapStore.map?.setTariffBarriers(barriers);
       this.ctx.mapStore.map?.setLayerReady('tariffBarriers', barriers.length > 0);
     } catch (err) {
-      console.debug('[DataLoader] Tariff barriers failed (non-fatal):', err);
+      log.debug('[DataLoader] Tariff barriers failed (non-fatal):', err);
     }
   }
 
@@ -1141,10 +1142,10 @@ export class SignalPublisher {
       const rates = await fetchEcbFxRates();
       if (rates.length) {
         dataFreshness.recordUpdate('ecb_fx', rates.length);
-        console.debug('[DataLoader] ECB FX rates loaded:', rates.length, 'currencies');
+        log.debug('[DataLoader] ECB FX rates loaded:', rates.length, 'currencies');
       }
     } catch (err) {
-      console.debug('[DataLoader] ECB FX rates failed (non-fatal):', err);
+      log.debug('[DataLoader] ECB FX rates failed (non-fatal):', err);
       dataFreshness.recordError('ecb_fx', String(err));
     }
   }

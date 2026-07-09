@@ -6,6 +6,7 @@
 // MapContainer is dynamic-imported from panel-layout, so this CSS rides into
 // the lazy map chunk instead of blocking the entry HTML.
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { log } from '@/utils/logger';
 import { isMobileDevice } from '@/utils';
 import { MapComponent } from './Map';
 import { DeckGLMap, type DeckMapView, type CountryClickPayload } from './DeckGLMap';
@@ -177,7 +178,7 @@ export class MapContainer {
   }
 
   private initSvgMap(logMessage: string): void {
-    console.log(logMessage);
+    log.debug(logMessage);
     this.useDeckGL = false;
     this.deckGLMap = null;
     this.container.classList.remove('deckgl-mode');
@@ -190,7 +191,7 @@ export class MapContainer {
 
   private init(): void {
     if (this.useGlobe || this.useDeckGL) {
-      console.log(`[MapContainer] Initializing deck.gl map (${this.useGlobe ? 'globe' : 'desktop'} mode)`);
+      log.debug(`[MapContainer] Initializing deck.gl map (${this.useGlobe ? 'globe' : 'desktop'} mode)`);
       try {
         this.container.classList.add('deckgl-mode');
         this.deckGLMap = new DeckGLMap(this.container, {

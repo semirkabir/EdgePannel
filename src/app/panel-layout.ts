@@ -1,4 +1,5 @@
 import type { AppContext, AppModule } from '@/app/app-context';
+import { log } from '@/utils/logger';
 import { replayPendingCalls, clearAllPendingCalls } from '@/app/pending-panel-data';
 import { getTimeRangeLabel as formatTimeRangeLabel, getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
 import type { RelatedAsset } from '@/types';
@@ -739,7 +740,7 @@ export class PanelLayoutManager implements AppModule {
     `;
 
     this.criticalBannerEl.querySelector('.banner-view')?.addEventListener('click', () => {
-      console.log('[Banner] View Region clicked:', top.theaterId, 'lat:', top.centerLat, 'lon:', top.centerLon);
+      log.debug('[Banner] View Region clicked:', top.theaterId, 'lat:', top.centerLat, 'lon:', top.centerLon);
       trackCriticalBannerAction('view', top.theaterId);
       if (typeof top.centerLat === 'number' && typeof top.centerLon === 'number') {
         this.ctx.map?.setCenter(top.centerLat, top.centerLon, 4);
@@ -1058,7 +1059,7 @@ export class PanelLayoutManager implements AppModule {
 
       const strategicPosturePanel = new StrategicPosturePanel(() => this.ctx.allNews);
       strategicPosturePanel.setLocationClickHandler((lat, lon) => {
-        console.log('[App] StrategicPosture handler called:', { lat, lon, hasMap: !!this.ctx.map });
+        log.debug('[App] StrategicPosture handler called:', { lat, lon, hasMap: !!this.ctx.map });
         this.ctx.map?.setCenter(lat, lon, 4);
       });
       this.ctx.panels['strategic-posture'] = strategicPosturePanel;

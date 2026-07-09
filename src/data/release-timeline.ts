@@ -1,4 +1,3 @@
-// @ts-ignore — Vite ?raw import of changelog
 import CHANGELOG_RAW from '../../CHANGELOG.md?raw';
 
 export interface ReleaseTimelineEntry {

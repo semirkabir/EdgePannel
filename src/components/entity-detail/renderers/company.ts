@@ -3,6 +3,18 @@ import type { ListSecFilingsRequest, ListSecFilingsResponse, MarketQuote, PriceS
 import { ColorType, createChart, type AreaData, type CandlestickData, type Time, type UTCTimestamp } from 'lightweight-charts';
 import { row } from '../types';
 import type { EntityRenderer, EntityRenderContext } from '../types';
+import {
+  fmtChange,
+  fmtPrice,
+  fmtDate,
+  fmtLargeNumber,
+  fmtFinancialValue,
+  fmtPlainNumber,
+  fmtFinnhubMarketCap,
+  fmtShares,
+  fmtMetric,
+  fmtPercent,
+} from './company-format';
 import { sanitizeUrl } from '@/utils/sanitize';
 import { applyArticleLinkDataset } from '@/services/article-open';
 import {
@@ -178,65 +190,6 @@ type HistoricalClose = { date: string; close: number };
 type CompanyFilingDateRange = 'all' | '7d' | '30d' | '90d' | '1y';
 type CompanyFilingSort = 'newest' | 'oldest' | 'type';
 
-function fmtChange(change: number): string {
-  return (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
-}
-
-function fmtPrice(price: number): string {
-  return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function fmtDate(isoDate: string): string {
-  try {
-    return new Date(isoDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  } catch {
-    return isoDate;
-  }
-}
-
-function fmtLargeNumber(value: number): string {
-  if (value >= 1e12) return '$' + (value / 1e12).toFixed(2) + 'T';
-  if (value >= 1e9) return '$' + (value / 1e9).toFixed(2) + 'B';
-  if (value >= 1e6) return '$' + (value / 1e6).toFixed(2) + 'M';
-  if (value >= 1e3) return '$' + (value / 1e3).toFixed(1) + 'K';
-  return '$' + value.toFixed(0);
-}
-
-function fmtFinancialValue(value: number | null | undefined, currency = '$'): string {
-  if (value === undefined || value === null || !Number.isFinite(value)) return '-';
-  const sign = value < 0 ? '-' : '';
-  const abs = Math.abs(value);
-  if (abs >= 1e12) return `${sign}${currency}${(abs / 1e12).toFixed(2)}T`;
-  if (abs >= 1e9) return `${sign}${currency}${(abs / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `${sign}${currency}${(abs / 1e6).toFixed(2)}M`;
-  if (abs >= 1e3) return `${sign}${currency}${(abs / 1e3).toFixed(1)}K`;
-  return `${sign}${currency}${abs.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-}
-
-function fmtPlainNumber(value: number | null | undefined, suffix = ''): string {
-  if (value === undefined || value === null || !Number.isFinite(value)) return '-';
-  return value.toLocaleString('en-US', { maximumFractionDigits: 2 }) + suffix;
-}
-
-function fmtFinnhubMarketCap(value: number): string {
-  return fmtLargeNumber(value * 1_000_000);
-}
-
-function fmtShares(value: number): string {
-  if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
-  if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
-  if (value >= 1e3) return (value / 1e3).toFixed(1) + 'K';
-  return value.toFixed(0);
-}
-
-function fmtMetric(value: number | undefined, suffix = ''): string {
-  if (value === undefined || value === null || isNaN(value)) return '—';
-  return value.toFixed(2) + suffix;
-}
-
-function fmtPercent(value: number | undefined): string {
-  return fmtMetric(value, '%');
-}
 
 function rangePointCount(range: ChartRange): number {
   const option = CHART_RANGES.find(item => item.id === range);

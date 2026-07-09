@@ -1,4 +1,5 @@
 import { SITE_VARIANT } from '@/config/variant';
+import { log } from '@/utils/logger';
 
 const viteEnv = (import.meta as ImportMeta & { env?: ImportMetaEnv }).env ?? {};
 const WS_API_URL = viteEnv.VITE_WS_API_URL || '';
@@ -535,7 +536,7 @@ export function installRuntimeFetchPatch(): void {
     if (!target?.startsWith('/api/')) {
       if (debug) {
         const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-        console.log(`[fetch] passthrough → ${raw.slice(0, 120)}`);
+        log.debug(`[fetch] passthrough → ${raw.slice(0, 120)}`);
       }
       return nativeFetch(input, init);
     }
@@ -564,7 +565,7 @@ export function installRuntimeFetchPatch(): void {
     const localInit = { ...init, headers };
 
     const localUrl = `${getApiBaseUrl()}${target}`;
-    if (debug) console.log(`[fetch] intercept → ${target}`);
+    if (debug) log.debug(`[fetch] intercept → ${target}`);
     let allowCloudFallback = !isLocalOnlyApiTarget(target);
 
     if (allowCloudFallback && !isKeyFreeApiTarget(target)) {
@@ -585,7 +586,7 @@ export function installRuntimeFetchPatch(): void {
         throw new Error(`Cloud fallback blocked for ${target}`);
       }
       const cloudUrl = `${getRemoteApiBaseUrl()}${target}`;
-      if (debug) console.log(`[fetch] cloud fallback → ${cloudUrl}`);
+      if (debug) log.debug(`[fetch] cloud fallback → ${cloudUrl}`);
       const cloudHeaders = new Headers(init?.headers);
       if (KEYED_CLOUD_API_PATTERN.test(target)) {
         const { getRuntimeConfigSnapshot } = await import('@/services/runtime-config');
@@ -600,12 +601,12 @@ export function installRuntimeFetchPatch(): void {
     try {
       const t0 = performance.now();
       let response = await fetchLocalWithStartupRetry(nativeFetch, localUrl, localInit);
-      if (debug) console.log(`[fetch] ${target} → ${response.status} (${Math.round(performance.now() - t0)}ms)`);
+      if (debug) log.debug(`[fetch] ${target} → ${response.status} (${Math.round(performance.now() - t0)}ms)`);
 
       // Token may be stale after a sidecar restart — refresh and retry once.
       // Skip retry if we recently failed (avoid doubling every request during auth outages).
       if (response.status === 401 && localApiToken && Date.now() > authRetryCooldownUntil) {
-        if (debug) console.log(`[fetch] 401 from sidecar, refreshing token and retrying`);
+        if (debug) log.debug(`[fetch] 401 from sidecar, refreshing token and retrying`);
         try {
           const { tryInvokeTauri } = await import('@/services/tauri-bridge');
           localApiToken = await tryInvokeTauri<string>('get_local_api_token');
@@ -618,10 +619,10 @@ export function installRuntimeFetchPatch(): void {
           const retryHeaders = new Headers(init?.headers);
           retryHeaders.set('Authorization', `Bearer ${localApiToken}`);
           response = await fetchLocalWithStartupRetry(nativeFetch, localUrl, { ...init, headers: retryHeaders });
-          if (debug) console.log(`[fetch] retry ${target} → ${response.status}`);
+          if (debug) log.debug(`[fetch] retry ${target} → ${response.status}`);
           if (response.status === 401) {
             authRetryCooldownUntil = Date.now() + 60_000;
-            if (debug) console.log(`[fetch] auth retry failed, suppressing retries for 60s`);
+            if (debug) log.debug(`[fetch] auth retry failed, suppressing retries for 60s`);
           } else {
             authRetryCooldownUntil = 0;
           }
@@ -633,10 +634,10 @@ export function installRuntimeFetchPatch(): void {
 
       if (!response.ok) {
         if (!allowCloudFallback) {
-          if (debug) console.log(`[fetch] local-only endpoint ${target} returned ${response.status}; skipping cloud fallback`);
+          if (debug) log.debug(`[fetch] local-only endpoint ${target} returned ${response.status}; skipping cloud fallback`);
           return response;
         }
-        if (debug) console.log(`[fetch] local ${response.status}, falling back to cloud`);
+        if (debug) log.debug(`[fetch] local ${response.status}, falling back to cloud`);
         return cloudFallback();
       }
       return response;

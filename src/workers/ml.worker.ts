@@ -6,6 +6,7 @@
 import { pipeline, env } from '@huggingface/transformers';
 import { MODEL_CONFIGS, type ModelConfig } from '@/config/ml-config';
 import { storeVectors, searchVectors, getCount, resetStore, sanitizeTitle, type VectorSearchResult } from './vector-db';
+import { log } from '@/utils/logger';
 
 // Configure transformers.js
 env.allowLocalModels = false;
@@ -135,7 +136,7 @@ async function loadModel(modelId: string): Promise<void> {
   const config = getModelConfig(modelId);
   if (!config) throw new Error(`Unknown model: ${modelId}`);
 
-  console.log(`[MLWorker] Loading model: ${config.hfModel}`);
+  log.debug(`[MLWorker] Loading model: ${config.hfModel}`);
   const startTime = Date.now();
 
   const loadPromise = (async () => {
@@ -158,7 +159,7 @@ async function loadModel(modelId: string): Promise<void> {
 
     loadedPipelines.set(modelId, pipe);
     loadingPromises.delete(modelId);
-    console.log(`[MLWorker] Model loaded in ${Date.now() - startTime}ms: ${modelId}`);
+    log.debug(`[MLWorker] Model loaded in ${Date.now() - startTime}ms: ${modelId}`);
 
     // Notify manager that model is now available (no id = unsolicited notification)
     self.postMessage({ type: 'model-loaded', modelId });
@@ -172,7 +173,7 @@ function unloadModel(modelId: string): void {
   const pipe = loadedPipelines.get(modelId);
   if (pipe) {
     loadedPipelines.delete(modelId);
-    console.log(`[MLWorker] Unloaded model: ${modelId}`);
+    log.debug(`[MLWorker] Unloaded model: ${modelId}`);
   }
 }
 

@@ -1,6 +1,7 @@
 // Patch global fetch to attach Firebase ID token to all /api/ requests.
 // Must be imported before any other module that makes API calls.
 import '@/services/api-auth-fetch';
+import { log } from '@/utils/logger';
 import type { Monitor, PanelConfig, MapLayers } from '@/types';
 import type { AppContext } from '@/app/app-context';
 import {
@@ -110,10 +111,10 @@ export class App {
       full: [],
     };
     const requiredLayers = REQUIRED_VARIANT_LAYERS[currentVariant] ?? [];
-    console.log(`[App] Variant check: applied="${appliedVariant}", current="${currentVariant}"`);
+    log.debug(`[App] Variant check: applied="${appliedVariant}", current="${currentVariant}"`);
     if (appliedVariant !== currentVariant) {
       // Variant changed - use defaults for new variant, clear old settings
-      console.log('[App] Variant changed - resetting to defaults');
+      log.debug('[App] Variant changed - resetting to defaults');
       localStorage.setItem(APPLIED_VARIANT_KEY, currentVariant);
       localStorage.setItem('worldmonitor-variant', currentVariant);
       localStorage.removeItem(STORAGE_KEYS.mapLayers);
@@ -150,7 +151,7 @@ export class App {
           panelSettings[key] = { ...config };
         }
       }
-      console.log('[App] Loaded panel settings from storage:', Object.entries(panelSettings).filter(([_, v]) => !v.enabled).map(([k]) => k));
+      log.debug('[App] Loaded panel settings from storage:', Object.entries(panelSettings).filter(([_, v]) => !v.enabled).map(([k]) => k));
 
       // One-time migration: reorder panels for existing users (v1.9 panel layout)
       const PANEL_ORDER_MIGRATION_KEY = 'worldmonitor-panel-order-v1.9';
@@ -166,7 +167,7 @@ export class App {
             newOrder.push(...priorityPanels.filter(p => order.includes(p)));
             newOrder.push(...filtered);
             localStorage.setItem(PANEL_ORDER_KEY, JSON.stringify(newOrder));
-            console.log('[App] Migrated panel order to v1.8 layout');
+            log.debug('[App] Migrated panel order to v1.8 layout');
           } catch {
             // Invalid saved order, will use defaults
           }
@@ -188,7 +189,7 @@ export class App {
               if (order.includes('insights')) newOrder.push('insights');
               newOrder.push(...filtered);
               localStorage.setItem(PANEL_ORDER_KEY, JSON.stringify(newOrder));
-              console.log('[App] Tech variant: Migrated insights panel to top');
+              log.debug('[App] Tech variant: Migrated insights panel to top');
             } catch {
               // Invalid saved order, will use defaults
             }
@@ -264,7 +265,7 @@ export class App {
         localStorage.removeItem(PANEL_ORDER_KEY + '-bottom-set');
         localStorage.removeItem(PANEL_SPANS_KEY);
         localStorage.removeItem(PANEL_COL_SPANS_KEY);
-        console.log('[App] Applied layout reset migration (v2.5): cleared panel order/spans/col-spans');
+        log.debug('[App] Applied layout reset migration (v2.5): cleared panel order/spans/col-spans');
       }
       localStorage.setItem(LAYOUT_RESET_MIGRATION_KEY, 'done');
     }
@@ -334,7 +335,7 @@ export class App {
         saveToStorage(STORAGE_KEYS.disabledFeeds, defaultDisabled);
         localStorage.setItem(baseKey, 'done');
         const total = getTotalFeedCount();
-        console.log(`[App] Sources reduction: ${defaultDisabled.length} disabled, ${total - defaultDisabled.length} enabled`);
+        log.debug(`[App] Sources reduction: ${defaultDisabled.length} disabled, ${total - defaultDisabled.length} enabled`);
       }
       // Locale boost: additively enable locale-matched sources (runs once per locale)
       const userLang = ((navigator.language ?? 'en').split('-')[0] ?? 'en').toLowerCase();
@@ -345,7 +346,7 @@ export class App {
           const current = loadFromStorage<string[]>(STORAGE_KEYS.disabledFeeds, []);
           const updated = current.filter(name => !boosted.has(name));
           saveToStorage(STORAGE_KEYS.disabledFeeds, updated);
-          console.log(`[App] Locale boost (${userLang}): enabled ${current.length - updated.length} sources`);
+          log.debug(`[App] Locale boost (${userLang}): enabled ${current.length - updated.length} sources`);
         }
         localStorage.setItem(localeKey, 'done');
       }
@@ -913,7 +914,7 @@ export class App {
     // Re-setup intervals when auth state changes
     import('@/services/user-auth').then(({ subscribeToAuth }) => {
       subscribeToAuth(() => {
-        console.log('[App] Auth state changed, re-setting refresh intervals');
+        log.debug('[App] Auth state changed, re-setting refresh intervals');
         setupIntervals();
       });
     });

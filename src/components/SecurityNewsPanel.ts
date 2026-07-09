@@ -76,9 +76,13 @@ export class SecurityNewsPanel extends NewsPanel {
       this.kevEntries = [];
       this.kevError = error instanceof Error ? error.message : 'CISA KEV catalog unavailable';
     } finally {
-      if (requestId !== this.kevRequestId) return;
-      this.kevLoaded = true;
-      this.renderKevStrip();
+      // Only commit results if this is still the latest request. Guard with a
+      // positive conditional rather than an early `return` — a `return` inside
+      // `finally` would silently override control flow from `try`/`catch`.
+      if (requestId === this.kevRequestId) {
+        this.kevLoaded = true;
+        this.renderKevStrip();
+      }
     }
   }
 

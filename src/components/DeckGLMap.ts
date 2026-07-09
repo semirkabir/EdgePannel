@@ -4,6 +4,7 @@
  * Mobile devices gracefully degrade to the D3/SVG-based Map component
  */
 import { MapboxOverlay } from '@deck.gl/mapbox';
+import { log } from '@/utils/logger';
 import type { Layer, LayersList, PickingInfo } from '@deck.gl/core';
 import { GeoJsonLayer, ScatterplotLayer, PathLayer, IconLayer, TextLayer, PolygonLayer } from '@deck.gl/layers';
 import maplibregl from 'maplibre-gl';
@@ -185,6 +186,26 @@ import {
   type CustomLookbackUnit,
   type TimeRange,
 } from '@/utils/time-range';
+import type { MapEngine } from './map-engine';
+import {
+  formatAircraftAge,
+  formatAircraftSourceLabel,
+  clampNumber,
+  stableUnitInterval,
+  smoothstep,
+  interpolateLongitude,
+  interpolateDegrees,
+  roughDistanceMeters,
+  projectAircraftPosition,
+  lngLatToMercatorUnit,
+} from './deckgl-geo-math';
+import {
+  countryToFlagEmoji,
+  loadCustomCategories,
+  saveCustomCategories,
+  type CustomCategory,
+} from './deckgl-helpers';
+import { buildLayerHelpHtml } from './deckgl-layer-help';
 export type { TimeRange };
 export type DeckMapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 type MapInteractionMode = 'flat' | '3d';
@@ -226,56 +247,7 @@ interface CableFlowTrip {
   color: [number, number, number, number];
 }
 
-interface CustomCategory {
-  id: string;
-  name: string;
-  layers: (keyof MapLayers)[];
-}
-
-const CC_STORAGE_KEY = 'wm-custom-categories';
-
-const COUNTRY_FLAG_MAP: Record<string, string> = {
-  'United States': '🇺🇸', 'USA': '🇺🇸', 'US': '🇺🇸',
-  'United Kingdom': '🇬🇧', 'UK': '🇬🇧', 'Britain': '🇬🇧',
-  'Russia': '🇷🇺', 'Russian Federation': '🇷🇺',
-  'China': '🇨🇳', 'PRC': '🇨🇳',
-  'France': '🇫🇷',
-  'Germany': '🇩🇪',
-  'Italy': '🇮🇹',
-  'Japan': '🇯🇵',
-  'India': '🇮🇳',
-  'Turkey': '🇹🇷',
-  'UAE': '🇦🇪', 'United Arab Emirates': '🇦🇪',
-  'Israel': '🇮🇱',
-  'Iran': '🇮🇷',
-  'Australia': '🇦🇺',
-  'Canada': '🇨🇦',
-  'South Korea': '🇰🇷',
-  'Spain': '🇪🇸',
-  'Netherlands': '🇳🇱',
-  'Poland': '🇵🇱',
-  'Saudi Arabia': '🇸🇦',
-  'Qatar': '🇶🇦',
-  'Pakistan': '🇵🇰',
-  'Brazil': '🇧🇷',
-  'Egypt': '🇪🇬',
-  'South Africa': '🇿🇦',
-};
-
-function countryToFlagEmoji(country: string): string {
-  return COUNTRY_FLAG_MAP[country] || '';
-}
-
-function loadCustomCategories(): CustomCategory[] {
-  try {
-    const raw = localStorage.getItem(CC_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as CustomCategory[]) : [];
-  } catch { return []; }
-}
-
-function saveCustomCategories(cats: CustomCategory[]): void {
-  try { localStorage.setItem(CC_STORAGE_KEY, JSON.stringify(cats)); } catch { /* ignore */ }
-}
+// Flag-emoji lookup and custom-category storage now live in ./deckgl-helpers.
 
 export interface CountryClickPayload {
   lat: number;
@@ -359,109 +331,9 @@ const AIRCRAFT_LABEL_FADE_ZOOM_RANGE = 0.65;
 const AIRCRAFT_MOTION_FRAME_MS = 66;
 const AIRCRAFT_TRANSITION_MIN_MS = 1200;
 const AIRCRAFT_TRANSITION_MAX_MS = 9000;
-const AIRCRAFT_EXTRAPOLATION_MAX_MS = 25_000;
 const AIRCRAFT_GLIDE_MAX_DISTANCE_M = 300_000;
-const KNOTS_TO_METERS_PER_SECOND = 0.514444;
-const METERS_PER_DEGREE_LAT = 111_320;
 
-function formatAircraftAge(observedAt: Date): string {
-  const ageSec = Math.max(0, Math.round((Date.now() - observedAt.getTime()) / 1000));
-  if (!Number.isFinite(ageSec)) return 'age unknown';
-  if (ageSec < 60) return `${ageSec}s old`;
-  return `${Math.round(ageSec / 60)}m old`;
-}
-
-function formatAircraftSourceLabel(position: PositionSample): string {
-  const provider = position.provider || position.source || 'unknown';
-  const tech = position.positionSource && position.positionSource !== 'unknown'
-    ? `/${position.positionSource.toUpperCase()}`
-    : '';
-  return `${provider}${tech}`;
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function stableUnitInterval(key: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < key.length; i++) {
-    hash ^= key.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) / 0xffffffff;
-}
-
-function smoothstep(edge0: number, edge1: number, value: number): number {
-  if (edge0 === edge1) return value >= edge1 ? 1 : 0;
-  const t = clampNumber((value - edge0) / (edge1 - edge0), 0, 1);
-  return t * t * (3 - 2 * t);
-}
-
-function shortestLongitudeDelta(from: number, to: number): number {
-  let delta = to - from;
-  if (delta > 180) delta -= 360;
-  if (delta < -180) delta += 360;
-  return delta;
-}
-
-function normalizeLongitude(lon: number): number {
-  if (lon > 180) return lon - 360;
-  if (lon < -180) return lon + 360;
-  return lon;
-}
-
-function interpolateLongitude(from: number, to: number, t: number): number {
-  const delta = shortestLongitudeDelta(from, to);
-  return normalizeLongitude(from + delta * t);
-}
-
-function interpolateDegrees(from: number, to: number, t: number): number {
-  if (!Number.isFinite(from)) return to;
-  if (!Number.isFinite(to)) return from;
-  const delta = shortestLongitudeDelta(from, to);
-  return (from + delta * t + 360) % 360;
-}
-
-function roughDistanceMeters(a: PositionSample, b: PositionSample): number {
-  const latDeltaM = (b.lat - a.lat) * METERS_PER_DEGREE_LAT;
-  const lonDelta = shortestLongitudeDelta(a.lon, b.lon);
-  const lonDeltaM = lonDelta * METERS_PER_DEGREE_LAT * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180);
-  return Math.hypot(latDeltaM, lonDeltaM);
-}
-
-function projectAircraftPosition(position: PositionSample, elapsedMs: number): PositionSample {
-  if (position.onGround || position.freshness === 'stale') return position;
-  if (!Number.isFinite(position.groundSpeedKts) || position.groundSpeedKts < 25 || position.groundSpeedKts > 750) return position;
-  if (!Number.isFinite(position.trackDeg)) return position;
-
-  const seconds = clampNumber(elapsedMs, 0, AIRCRAFT_EXTRAPOLATION_MAX_MS) / 1000;
-  if (seconds <= 0) return position;
-
-  const meters = position.groundSpeedKts * KNOTS_TO_METERS_PER_SECOND * seconds;
-  const headingRad = (position.trackDeg * Math.PI) / 180;
-  const northMeters = Math.cos(headingRad) * meters;
-  const eastMeters = Math.sin(headingRad) * meters;
-  const lat = clampNumber(position.lat + northMeters / METERS_PER_DEGREE_LAT, -90, 90);
-  const cosLat = Math.max(0.08, Math.cos((position.lat * Math.PI) / 180));
-  const lon = normalizeLongitude(position.lon + eastMeters / (METERS_PER_DEGREE_LAT * cosLat));
-  const climbFt = Number.isFinite(position.verticalRateMps) ? position.verticalRateMps * seconds * 3.28084 : 0;
-
-  return {
-    ...position,
-    lat,
-    lon,
-    altitudeFt: Math.max(0, position.altitudeFt + climbFt),
-  };
-}
-
-function lngLatToMercatorUnit(lon: number, lat: number): [number, number] {
-  const safeLat = clampNumber(lat, -85.05112878, 85.05112878);
-  const x = (lon + 180) / 360;
-  const sinLat = Math.sin((safeLat * Math.PI) / 180);
-  const y = 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI);
-  return [x, y];
-}
+// Pure geo/aircraft math helpers now live in ./deckgl-geo-math (imported above).
 
 const GLOBE_NATIVE_SOURCES = [
   'wm-globe-cables',
@@ -503,7 +375,7 @@ const CONFLICT_ZONES_GEOJSON: GeoJSON.FeatureCollection = {
 };
 
 
-export class DeckGLMap {
+export class DeckGLMap implements MapEngine {
   private static readonly MAX_CLUSTER_LEAVES = 200;
 
   private container: HTMLElement;
@@ -939,7 +811,7 @@ export class DeckGLMap {
     });
     canvas.addEventListener('webglcontextrestored', () => {
       this.webglLost = false;
-      console.info('[DeckGLMap] WebGL context restored');
+      log.debug('[DeckGLMap] WebGL context restored');
       this.maplibreMap?.triggerRepaint();
     });
 
@@ -5468,7 +5340,7 @@ export class DeckGLMap {
   }
 
   private handleClick(info: PickingInfo): void {
-    console.log('[DeckGLMap.handleClick] layer:', info.layer?.id, 'object:', info.object ? 'yes' : 'no');
+    log.debug('[DeckGLMap.handleClick] layer:', info.layer?.id, 'object:', info.object ? 'yes' : 'no');
     if (!info.object) {
       // Empty map click → country detection
       if (info.coordinate && this.onCountryClick) {
@@ -5738,7 +5610,7 @@ export class DeckGLMap {
 
     const popupType = layerToPopupType[layerId];
     if (!popupType) {
-      console.log('[DeckGLMap.handleClick] No popup type for layer:', layerId, 'hasObject:', !!info.object, 'layer:', info.layer?.id);
+      log.debug('[DeckGLMap.handleClick] No popup type for layer:', layerId, 'hasObject:', !!info.object, 'layer:', info.layer?.id);
       return;
     }
     let data = info.object;
@@ -7183,210 +7055,7 @@ export class DeckGLMap {
     const popup = document.createElement('div');
     popup.className = 'layer-help-popup';
 
-    const label = (layerKey: string): string => t(`components.deckgl.layers.${layerKey}`).toUpperCase();
-    const helpItem = (layerLabel: string, descriptionKey: string): string =>
-      `<div class="layer-help-item"><span>${layerLabel}</span> ${t(`components.deckgl.layerHelp.descriptions.${descriptionKey}`)}</div>`;
-    const helpSection = (titleKey: string, items: string[], noteKey?: string): string => `
-      <div class="layer-help-section">
-        <div class="layer-help-title">${t(`components.deckgl.layerHelp.sections.${titleKey}`)}</div>
-        ${items.join('')}
-        ${noteKey ? `<div class="layer-help-note">${t(`components.deckgl.layerHelp.notes.${noteKey}`)}</div>` : ''}
-      </div>
-    `;
-    const helpHeader = `
-      <div class="layer-help-header">
-        <span>${t('components.deckgl.layerHelp.title')}</span>
-        <button class="layer-help-close" aria-label="Close">×</button>
-      </div>
-    `;
-
-    const controlsFooter = `
-      <div class="layer-help-controls-footer">
-        <div class="layer-help-controls-row">
-          <span class="layer-help-ctrl-badge ctrl-clear">✕</span>
-          <span>${t('components.deckgl.layerHelp.controls.clearDesc')}</span>
-        </div>
-        <div class="layer-help-controls-row">
-          <span class="layer-help-ctrl-badge ctrl-marketplace">▦</span>
-          <span>${t('components.deckgl.layerHelp.controls.marketplaceDesc')}</span>
-        </div>
-        <div class="layer-help-controls-row">
-          <span class="layer-help-ctrl-badge ctrl-help">?</span>
-          <span>${t('components.deckgl.layerHelp.controls.helpDesc')}</span>
-        </div>
-      </div>
-    `;
-
-    // ── TECH variant ─────────────────────────────────────────────────────────
-    // Layers: startupHubs, techHQs, accelerators, cloudRegions,
-    //         datacenters, cables, outages, cyberThreats, techEvents
-    const techHelpContent = `
-      ${helpHeader}
-      <div class="layer-help-content">
-        ${helpSection('techEcosystem', [
-      helpItem(label('startupHubs'), 'techStartupHubs'),
-      helpItem(label('techHQs'), 'techHQs'),
-      helpItem(label('accelerators'), 'techAccelerators'),
-      helpItem(label('cloudRegions'), 'techCloudRegions'),
-      helpItem(label('techEvents'), 'techEvents'),
-    ])}
-        ${helpSection('infrastructure', [
-      helpItem(label('aiDataCenters'), 'infraDatacenters'),
-      helpItem(label('underseaCables'), 'infraCables'),
-      helpItem(label('internetOutages'), 'infraOutages'),
-      helpItem(label('cyberThreats'), 'techCyberThreats'),
-    ])}
-        ${controlsFooter}
-      </div>
-    `;
-
-    // ── FINANCE variant ───────────────────────────────────────────────────────
-    // Layers: stockExchanges, financialCenters, centralBanks, commodityHubs,
-    //         gulfInvestments, tradeRoutes, cables, pipelines,
-    //         outages, weather, economic, waterways,
-    //         natural, cyberThreats, dayNight
-    const financeHelpContent = `
-      ${helpHeader}
-      <div class="layer-help-content">
-        ${helpSection('financeCore', [
-      helpItem(label('stockExchanges'), 'financeExchanges'),
-      helpItem(label('financialCenters'), 'financeCenters'),
-      helpItem(label('centralBanks'), 'financeCentralBanks'),
-      helpItem(label('commodityHubs'), 'financeCommodityHubs'),
-      helpItem(label('gulfInvestments'), 'financeGulfInvestments'),
-    ])}
-        ${helpSection('infrastructureRisk', [
-      helpItem(label('tradeRoutes'), 'financeTradeRoutes'),
-      helpItem(label('underseaCables'), 'financeCables'),
-      helpItem(label('pipelines'), 'financePipelines'),
-      helpItem(label('internetOutages'), 'financeOutages'),
-      helpItem(label('cyberThreats'), 'financeCyberThreats'),
-    ])}
-        ${helpSection('macroContext', [
-      helpItem(label('weatherAlerts'), 'weatherAlertsMarket'),
-      helpItem(label('economicCenters'), 'economicCenters'),
-      helpItem(label('strategicWaterways'), 'macroWaterways'),
-      helpItem(label('naturalEvents'), 'financeNatural'),
-      helpItem(label('dayNight'), 'dayNight'),
-    ])}
-        ${controlsFooter}
-      </div>
-    `;
-
-    // ── HAPPY variant ─────────────────────────────────────────────────────────
-    // Layers: positiveEvents, kindness, happiness, speciesRecovery, renewableInstallations
-    const happyHelpContent = `
-      ${helpHeader}
-      <div class="layer-help-content">
-        ${helpSection('happyCore', [
-      helpItem(label('positiveEvents'), 'happyPositiveEvents'),
-      helpItem(label('kindness'), 'happyKindness'),
-      helpItem(label('happiness'), 'happyHappiness'),
-    ])}
-        ${helpSection('happyEnvironment', [
-      helpItem(label('speciesRecovery'), 'happySpecies'),
-      helpItem(label('renewableInstallations'), 'happyRenewable'),
-    ])}
-        ${controlsFooter}
-      </div>
-    `;
-
-    // ── COMMODITY variant ─────────────────────────────────────────────────────
-    // Layers: miningSites, processingPlants, commodityPorts, commodityHubs,
-    //         minerals, pipelines, waterways, tradeRoutes,
-    //         natural, weather, outages, dayNight
-    const commodityHelpContent = `
-      ${helpHeader}
-      <div class="layer-help-content">
-        ${helpSection('commodityAssets', [
-      helpItem(label('miningSites'), 'commodityMining'),
-      helpItem(label('processingPlants'), 'commodityProcessing'),
-      helpItem(label('commodityPorts'), 'commodityPorts'),
-      helpItem(label('commodityHubs'), 'commodityHubs'),
-      helpItem(label('criticalMinerals'), 'commodityMinerals'),
-    ])}
-        ${helpSection('commodityRoutes', [
-      helpItem(label('pipelines'), 'commodityPipelines'),
-      helpItem(label('strategicWaterways'), 'commodityWaterways'),
-      helpItem(label('tradeRoutes'), 'commodityTradeRoutes'),
-    ])}
-        ${helpSection('commodityContext', [
-      helpItem(label('naturalEvents'), 'commodityNatural'),
-      helpItem(label('weatherAlerts'), 'commodityWeather'),
-      helpItem(label('internetOutages'), 'commodityOutages'),
-      helpItem(label('dayNight'), 'dayNight'),
-    ])}
-        ${controlsFooter}
-      </div>
-    `;
-
-    // ── FULL / WORLD variant ──────────────────────────────────────────────────
-    // Layers: iranAttacks, hotspots, conflicts, bases, nuclear, irradiators,
-    //         spaceports, cables, pipelines, datacenters, military,
-    //         ais, tradeRoutes, flights, protests, ucdpEvents, displacement,
-    //         climate, weather, outages, cyberThreats, natural, fires,
-    //         waterways, economic, minerals, gpsJamming, ciiChoropleth, dayNight
-    const fullHelpContent = `
-      ${helpHeader}
-      <div class="layer-help-content">
-        ${helpSection('timeFilter', [
-      helpItem('1H / 6H / 24H', 'timeRecent'),
-      helpItem('7D / ALL', 'timeExtended'),
-    ], 'timeAffects')}
-        ${helpSection('geopolitical', [
-      helpItem(label('intelHotspots'), 'geoHotspots'),
-      helpItem(label('conflictZones'), 'geoConflicts'),
-      helpItem(label('iranAttacks'), 'geoIranAttacks'),
-      helpItem(label('protests'), 'geoProtests'),
-      helpItem(label('ucdpEvents'), 'geoUcdpEvents'),
-      helpItem(label('displacementFlows'), 'geoDisplacement'),
-    ])}
-        ${helpSection('militaryStrategic', [
-      helpItem(label('militaryBases'), 'militaryBases'),
-      helpItem(label('nuclearSites'), 'militaryNuclear'),
-      helpItem(label('gammaIrradiators'), 'militaryIrradiators'),
-      helpItem(label('spaceports'), 'militarySpaceports'),
-      helpItem(label('militaryActivity'), 'militaryActivity'),
-    ])}
-        ${helpSection('infrastructure', [
-      helpItem(label('underseaCables'), 'infraCablesFull'),
-      helpItem(label('pipelines'), 'infraPipelinesFull'),
-      helpItem(label('aiDataCenters'), 'infraDatacentersFull'),
-      helpItem(label('internetOutages'), 'infraOutages'),
-      helpItem(label('cyberThreats'), 'infraCyberThreats'),
-    ])}
-        ${helpSection('transport', [
-      helpItem(label('shipTraffic'), 'transportShipping'),
-      helpItem(label('tradeRoutes'), 'tradeRoutes'),
-      helpItem(label('flightDelays'), 'transportDelays'),
-    ])}
-        ${helpSection('naturalEconomic', [
-      helpItem(label('naturalEvents'), 'naturalEventsFull'),
-      helpItem(label('fires'), 'firesFull'),
-      helpItem(label('weatherAlerts'), 'weatherAlerts'),
-      helpItem(label('climateAnomalies'), 'climateAnomalies'),
-      helpItem(label('economicCenters'), 'economicCenters'),
-      helpItem(label('criticalMinerals'), 'mineralsFull'),
-    ])}
-        ${helpSection('overlays', [
-      helpItem(label('ciiChoropleth'), 'ciiChoropleth'),
-      helpItem(label('gpsJamming'), 'gpsJamming'),
-      helpItem(label('dayNight'), 'dayNight'),
-      helpItem(label('strategicWaterways'), 'waterwaysLabels'),
-    ])}
-        ${controlsFooter}
-      </div>
-    `;
-
-    popup.innerHTML = SITE_VARIANT === 'tech'
-      ? techHelpContent
-      : SITE_VARIANT === 'finance'
-        ? financeHelpContent
-        : SITE_VARIANT === 'happy'
-          ? happyHelpContent
-          : SITE_VARIANT === 'commodity'
-            ? commodityHelpContent
-            : fullHelpContent;
+    popup.innerHTML = buildLayerHelpHtml();
 
     popup.querySelector('.layer-help-close')?.addEventListener('click', () => popup.remove());
 

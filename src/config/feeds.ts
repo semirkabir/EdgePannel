@@ -1,4 +1,5 @@
 import type { Feed } from '@/types';
+import { log } from '@/utils/logger';
 import { SITE_VARIANT } from './variant';
 import { rssProxyUrl } from '@/utils';
 
@@ -69,6 +70,7 @@ const TIER_2: string[] = [
   'RUSI', 'CNAS',
   'Arms Control Assn', 'Bulletin of Atomic Scientists',
   'FAO GIEWS', 'War on the Rocks',
+  'OCCRP', 'DFRLab',
   'Politico Tech', 'EU Commission Digital', 'NATO News',
   'CERT-EU Threat Intelligence', 'BIS Central Bank Speeches',
   // Podcasts & newsletters
@@ -123,6 +125,8 @@ const TIER_3: string[] = [
   // Security / defense think tanks
   'Wilson Center', 'GMF', 'Stimson Center',
   'AEI', 'Responsible Statecraft', 'FPRI', 'Jamestown', 'EU ISS',
+  // Investigative journalism & accountability
+  'Lighthouse Reports', 'The Sentry', 'GITOC', 'VSquare', 'Correctiv',
   // Tech policy
   'AI Regulation', 'Tech Antitrust', 'EFF News',
   'EU Digital Policy', 'Euractiv Digital', 'China Tech Policy',
@@ -184,6 +188,9 @@ export const SOURCE_TYPES: Record<string, SourceType> = {
   'IAEA': 'gov', 'WHO': 'gov', 'UNHCR': 'gov',
   'NCSC Threat Reports': 'intel', 'CERT-EU Security Advisories': 'intel',
   'CERT-EU Threat Intelligence': 'intel', 'MSRC Security Updates': 'intel',
+  'OCCRP': 'intel', 'DFRLab': 'intel', 'Lighthouse Reports': 'intel',
+  'The Sentry': 'intel', 'GITOC': 'intel', 'VSquare': 'intel',
+  'Correctiv': 'intel',
   'Xinhua': 'wire', 'TASS': 'wire', 'RT': 'wire', 'RT Russia': 'wire',
   'NHK World': 'mainstream', 'Nikkei Asia': 'market',
 
@@ -350,6 +357,7 @@ const FULL_FEEDS: Record<string, Feed[]> = {
     { name: 'AP News', url: rss('https://news.google.com/rss/search?q=site:apnews.com&hl=en-US&gl=US&ceid=US:en') },
     { name: 'Reuters World', url: rss('https://news.google.com/rss/search?q=site:reuters.com+world&hl=en-US&gl=US&ceid=US:en') },
     { name: 'CNN World', url: rss('https://news.google.com/rss/search?q=site:cnn.com+world+news+when:1d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Trump - Truth Social', url: rss('https://trumpstruth.org/feed') },
   ],
   us: [
     { name: 'Reuters US', url: rss('https://news.google.com/rss/search?q=site:reuters.com+US&hl=en-US&gl=US&ceid=US:en') },
@@ -1384,6 +1392,15 @@ export const INTEL_SOURCES: Feed[] = [
   { name: 'FAO News', url: rss('https://www.fao.org/feeds/fao-newsroom-rss'), type: 'economic' },
   { name: 'FAO GIEWS', url: rss('https://news.google.com/rss/search?q=site:fao.org+GIEWS+food+security+when:30d&hl=en-US&gl=US&ceid=US:en'), type: 'economic' },
   { name: 'EU ISS', url: rss('https://news.google.com/rss/search?q=site:iss.europa.eu+when:7d&hl=en-US&gl=US&ceid=US:en'), type: 'intl' },
+
+  // Investigative Journalism & Accountability
+  { name: 'OCCRP', url: rss('https://www.occrp.org/en/feed'), type: 'investigative' },
+  { name: 'DFRLab', url: rss('https://dfrlab.org/feed/'), type: 'investigative' },
+  { name: 'Lighthouse Reports', url: rss('https://www.lighthousereports.com/feed/'), type: 'investigative' },
+  { name: 'The Sentry', url: rss('https://thesentry.org/feed/'), type: 'investigative' },
+  { name: 'GITOC', url: rss('https://globalinitiative.net/feed/'), type: 'investigative' },
+  { name: 'VSquare', url: rss('https://vsquare.org/feed/'), type: 'investigative' },
+  { name: 'Correctiv', url: rss('https://correctiv.org/feed/'), type: 'investigative' },
 ];
 
 // Default-enabled sources per panel (Tier 1+2 priority, ≥8 per panel)
@@ -1472,7 +1489,7 @@ if (import.meta.env.DEV) {
   for (const name of defaultEnabled) {
     if (!allFeedNames.has(name)) console.error(`[feeds] DEFAULT_ENABLED name "${name}" not found in FULL_FEEDS!`);
   }
-  console.log(`[feeds] ${defaultEnabled.size} unique default-enabled sources / ${allFeedNames.size} total`);
+  log.debug(`[feeds] ${defaultEnabled.size} unique default-enabled sources / ${allFeedNames.size} total`);
 }
 
 // Keywords that trigger alert status - must be specific to avoid false positives

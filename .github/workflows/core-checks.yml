@@ -20,6 +20,7 @@ jobs:
       - run: npm ci
       - run: npm run check:unsafe-dom
       - run: npm run check:size-budgets
+      - run: npm run lint
 
   tests:
     if: github.event.pull_request.head.repo.full_name == github.repository

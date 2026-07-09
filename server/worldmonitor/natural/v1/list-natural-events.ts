@@ -223,6 +223,7 @@ async function fetchOpenMeteoFloods(): Promise<NaturalEvent[]> {
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
+    if (!entry) continue;
     const point = FLOOD_MONITOR_POINTS[entry.location_id ?? i];
     if (!point) continue;
 
