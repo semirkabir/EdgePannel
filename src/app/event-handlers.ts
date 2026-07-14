@@ -1264,10 +1264,17 @@ export class EventHandlerManager implements AppModule {
       }
     };
     const endResize = this.handlers.mapEndResize;
+    // The collapse buttons are absolutely-positioned children of the resize
+    // handles (they share the same hit area). Without this guard, every
+    // pointerdown on a button also starts a resize drag and captures the
+    // pointer on the ancestor handle, which silently swallows the button's
+    // own click — the button visually exists but never fires its handler.
+    const isCollapseButtonTarget = (e: PointerEvent): boolean =>
+      !!(e.target as HTMLElement | null)?.closest('.panels-collapse-btn, .bottom-grid-collapse-btn');
 
     if (bottomHandle) {
       bottomHandle.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0 || resizeMode !== 'none') return;
+        if (e.button !== 0 || resizeMode !== 'none' || isCollapseButtonTarget(e)) return;
         beginResize(bottomHandle, e);
         resizeMode = 'bottom';
         startY = e.clientY;
@@ -1331,7 +1338,7 @@ export class EventHandlerManager implements AppModule {
 
     if (rightHandle) {
       rightHandle.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0 || resizeMode !== 'none') return;
+        if (e.button !== 0 || resizeMode !== 'none' || isCollapseButtonTarget(e)) return;
         beginResize(rightHandle, e);
         // In side layout: horizontal split resize
         // In stacked/bottom layout: vertical height resize (same as bottomHandle)
