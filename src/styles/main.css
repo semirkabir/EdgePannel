@@ -6662,19 +6662,157 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 }
 
 .signal-dismiss-btn {
-  background: var(--accent);
-  border: none;
-  color: var(--bg);
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--text);
   padding: 6px 16px;
   font-size: 11px;
   cursor: var(--wm-cursor-pointer);
   border-radius: 2px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
 .signal-dismiss-btn:hover {
-  opacity: 0.9;
+  background: var(--overlay-medium, rgba(255, 255, 255, 0.08));
+  border-color: var(--accent);
+}
+
+/* ── Hormuz ship-transits widget ─────────────────────────── */
+.hz-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.hz-divider {
+  height: 1px;
+  background: var(--panel-border);
+  margin: 14px 0 12px;
+}
+
+.hz-transit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.hz-transit-live {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.hz-transit-live-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.hz-transit-live-na {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 6px 0;
+}
+
+.hz-tf-toggle {
+  display: inline-flex;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.hz-tf-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 4px 9px;
+  cursor: var(--wm-cursor-pointer);
+  transition: background-color 0.12s, color 0.12s;
+}
+
+.hz-tf-btn:not(:last-child) {
+  border-right: 1px solid var(--panel-border);
+}
+
+.hz-tf-btn:hover {
+  background: var(--overlay-medium, rgba(255, 255, 255, 0.06));
+  color: var(--text);
+}
+
+.hz-tf-btn.active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--text);
+}
+
+.hz-transit-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.hz-transit-total {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.hz-transit-total-label {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.hz-transit-delta {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.hz-transit-delta.up {
+  color: var(--semantic-high, #e67e22);
+}
+
+.hz-transit-delta.down {
+  color: var(--text-dim);
+}
+
+.hz-transit-sub {
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.hz-transit-chart {
+  position: relative;
+}
+
+.hz-transit-hint {
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.hz-trade-status {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 8px 0;
 }
 
 /* Header flash for signals */
