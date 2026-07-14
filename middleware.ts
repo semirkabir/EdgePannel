@@ -57,6 +57,12 @@ const ALLOWED_HOSTS = new Set([
   'edgepannel.app',
   ...Object.keys(VARIANT_HOST_MAP),
 ]);
+
+// Query params that mean "this root URL is an app deep link, not a landing
+// page visit": shared country stories (c/t), standalone windows
+// (settings/live-channels), and Stripe checkout returns (checkout/tier).
+// Keep in sync with landingRoutingPlugin in vite.config.ts.
+const APP_DEEP_LINK_PARAMS = ['c', 't', 'settings', 'live-channels', 'checkout', 'tier'];
 const VERCEL_PREVIEW_RE = /^[a-z0-9-]+-[a-z0-9]{8,}\.vercel\.app$/;
 
 function normalizeHost(raw: string): string {
@@ -100,6 +106,21 @@ export default function middleware(request: Request) {
           },
         });
       }
+    }
+  }
+
+  // Main-domain root serves the marketing landing page; the dashboard lives
+  // at /app. Variant subdomains keep their dashboards at '/'. App deep links
+  // (shared stories, standalone windows, checkout returns) fall through to
+  // the dashboard so no pre-existing URL breaks.
+  if (path === '/' && !VARIANT_HOST_MAP[host] && isAllowedHost(host)) {
+    const isAppDeepLink = APP_DEEP_LINK_PARAMS.some((p) => url.searchParams.has(p));
+    if (!isAppDeepLink) {
+      const dest = new URL('/landing.html', url);
+      dest.search = url.search;
+      return new Response(null, {
+        headers: { 'x-middleware-rewrite': dest.toString() },
+      });
     }
   }
 

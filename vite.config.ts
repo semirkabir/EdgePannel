@@ -1150,6 +1150,34 @@ function youtubeLivePlugin(): Plugin {
   };
 }
 
+/**
+ * Dev-server mirror of the production routing in middleware.ts:
+ * '/' serves the marketing landing page, '/app' serves the dashboard.
+ * Requests carrying app deep-link params (shared stories, standalone windows,
+ * checkout returns) keep hitting the dashboard at '/' for back-compat.
+ * Disabled for e2e (tests target the app at '/') and desktop builds.
+ */
+function landingRoutingPlugin(): Plugin {
+  const APP_DEEP_LINK_PARAMS = ['c', 't', 'settings', 'live-channels', 'checkout', 'tier'];
+  return {
+    name: 'landing-routing',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.method !== 'GET' || !req.url) return next();
+        const url = new URL(req.url, 'http://localhost');
+        if (url.pathname === '/') {
+          if (!APP_DEEP_LINK_PARAMS.some((p) => url.searchParams.has(p))) {
+            req.url = `/landing.html${url.search}`;
+          }
+        } else if (url.pathname === '/app' || url.pathname === '/app/') {
+          req.url = `/index.html${url.search}`;
+        }
+        next();
+      });
+    },
+  };
+}
+
 const buildVariant = process.env.VITE_VARIANT || 'full';
 
 export default defineConfig({
@@ -1161,6 +1189,7 @@ export default defineConfig({
     SITE_VARIANT: JSON.stringify(buildVariant),
   },
   plugins: [
+    ...(!isE2E && !isDesktopBuild ? [landingRoutingPlugin()] : []),
     htmlVariantPlugin({ activeMeta, activeVariant, isDesktopBuild }),
     polymarketPlugin(),
     camerasPlugin(),
@@ -1198,7 +1227,10 @@ export default defineConfig({
         name: `${activeMeta.siteName} - ${activeMeta.subject}`,
         short_name: activeMeta.shortName,
         description: activeMeta.description,
-        start_url: '/',
+        // '/' now serves the marketing landing page on the main domain, so
+        // installed PWAs must launch the dashboard route. '/app' resolves to
+        // the dashboard on every host (variant subdomains included).
+        start_url: '/app',
         scope: '/',
         display: 'standalone',
         orientation: 'any',
@@ -1367,6 +1399,7 @@ export default defineConfig({
       },
       input: {
         main: resolve(__dirname, 'index.html'),
+        landing: resolve(__dirname, 'landing.html'),
         settings: resolve(__dirname, 'settings.html'),
         liveChannels: resolve(__dirname, 'live-channels.html'),
       },
@@ -1432,7 +1465,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: Number(process.env.PORT) || 3000,
     open: !isE2E,
     hmr: isE2E ? false : undefined,
     watch: {

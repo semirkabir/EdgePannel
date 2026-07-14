@@ -11,7 +11,9 @@ export function htmlVariantPlugin(options: HtmlVariantPluginOptions): Plugin {
   const { activeMeta, activeVariant, isDesktopBuild } = options;
   return {
     name: 'html-variant',
-    transformIndexHtml(html) {
+    transformIndexHtml(html, ctx) {
+      // The landing page owns its own static meta tags — never variant-rewritten.
+      if (ctx.filename.endsWith('landing.html')) return html;
       let result = html
         .replace(/<title>.*?<\/title>/, `<title>${activeMeta.title}</title>`)
         .replace(/<meta name="title" content=".*?" \/>/, `<meta name="title" content="${activeMeta.title}" />`)

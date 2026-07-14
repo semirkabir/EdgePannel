@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en" data-page="landing">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EdgePannel — Real-Time Global Intelligence Dashboard</title>
+    <meta name="description" content="Free real-time global intelligence dashboard. 60 map layers, 680+ live feeds — ships, flights, markets, earthquakes, outages and conflict signals on one live map, with AI briefs. No signup." />
+    <link rel="canonical" href="https://edgepannel.app/" />
+    <meta name="theme-color" content="#04080a" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://edgepannel.app/" />
+    <meta property="og:site_name" content="EdgePannel" />
+    <meta property="og:title" content="EdgePannel — Real-Time Global Intelligence Dashboard" />
+    <meta property="og:description" content="Free live map of the world's signals: ships, flights, markets, earthquakes, outages, conflicts. 60 layers, 680+ feeds, AI briefs. No signup." />
+    <meta property="og:image" content="https://edgepannel.app/favico/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="EdgePannel — Real-Time Global Intelligence Dashboard" />
+    <meta name="twitter:description" content="Free live map of the world's signals: ships, flights, markets, earthquakes, outages, conflicts. 60 layers, 680+ feeds, AI briefs. No signup." />
+    <meta name="twitter:image" content="https://edgepannel.app/favico/og-image.png" />
+
+    <link rel="icon" href="/favico/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favico/favicon-32x32.png" />
+    <link rel="apple-touch-icon" href="/favico/apple-touch-icon.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;800&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/src/landing/landing.css" />
+    <script type="module" src="/src/landing/landing.ts"></script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "EdgePannel",
+      "url": "https://edgepannel.app/",
+      "applicationCategory": "NewsApplication",
+      "operatingSystem": "Web",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "description": "Real-time global intelligence dashboard with live news, markets, military tracking, infrastructure monitoring, and geopolitical data."
+    }
+    </script>
+  </head>
+  <body>
+    <a class="lp-skip" href="#main">Skip to content</a>
+
+    <header class="lp-nav" id="nav">
+      <div class="lp-nav-inner">
+        <a class="lp-brand" href="/">
+          <img class="lp-brand-logo" src="/src/assets/edgepannel-logo.png" alt="EdgePannel" width="149" height="30" />
+        </a>
+        <nav class="lp-nav-links" aria-label="Page sections">
+          <a href="#live">Live now</a>
+          <a href="#product">Product</a>
+          <a href="#who">Who it's for</a>
+          <a href="#lenses">Lenses</a>
+          <a href="#faq">FAQ</a>
+          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+        <a class="lp-btn lp-btn-primary lp-nav-cta" href="/app">Launch dashboard <span aria-hidden="true">→</span></a>
+        <button class="lp-nav-burger" id="nav-burger" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+      <nav class="lp-nav-menu" id="nav-menu" aria-label="Page sections">
+        <a href="#live">Live now</a>
+        <a href="#product">Product</a>
+        <a href="#who">Who it's for</a>
+        <a href="#lenses">Lenses</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <!-- ============ HERO ============ -->
+      <section class="lp-hero" id="hero">
+        <div class="lp-hero-globe" aria-hidden="true">
+          <canvas id="globe-canvas"></canvas>
+        </div>
+        <div class="lp-hero-content">
+          <p class="lp-eyebrow"><span class="lp-live-dot" aria-hidden="true"></span>Live global intelligence · free · no account</p>
+          <h1 class="lp-h1">
+            Headlines run hours late.<br />
+            <span class="lp-h1-accent">The map doesn't.</span>
+          </h1>
+          <p class="lp-hero-sub">
+            EdgePannel streams ships, flights, markets, earthquakes, outages and conflict
+            signals onto one live map — with AI briefs that tell you why they matter.
+          </p>
+          <div class="lp-hero-ctas">
+            <a class="lp-btn lp-btn-primary lp-btn-lg" href="/app">Launch the dashboard <span aria-hidden="true">→</span></a>
+            <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#live">See what's live <span aria-hidden="true">↓</span></a>
+          </div>
+          <p class="lp-micro">Free · No signup · Runs in your browser</p>
+          <dl class="lp-hero-stats">
+            <div><dt data-count="60">60</dt><dd>map layers</dd></div>
+            <div><dt data-count="680" data-suffix="+">680+</dt><dd>live feeds</dd></div>
+            <div><dt data-count="6">6</dt><dd>focused lenses</dd></div>
+            <div><dt data-count="21">21</dt><dd>languages</dd></div>
+          </dl>
+        </div>
+        <div class="lp-hero-fade" aria-hidden="true"></div>
+      </section>
+
+      <!-- ============ LIVE PROOF ============ -->
+      <section class="lp-section" id="live">
+        <div class="lp-container">
+          <p class="lp-label lp-reveal">Live right now</p>
+          <h2 class="lp-h2 lp-reveal">This page is wired to the same APIs as the dashboard.</h2>
+          <p class="lp-section-sub lp-reveal">
+            No mockups. The numbers below are fetched live while you read — a small
+            sample of what the full map watches around the clock.
+          </p>
+          <div class="lp-live-grid lp-reveal">
+            <article class="lp-live-card" data-widget="markets">
+              <header><h3>Markets</h3><span class="lp-live-badge">live</span></header>
+              <ul class="lp-live-rows" data-slot="rows">
+                <li class="lp-live-placeholder">Connecting…</li>
+              </ul>
+            </article>
+            <article class="lp-live-card" data-widget="quakes">
+              <header><h3>Earthquakes · 24h</h3><span class="lp-live-badge">live</span></header>
+              <ul class="lp-live-rows" data-slot="rows">
+                <li class="lp-live-placeholder">Connecting…</li>
+              </ul>
+            </article>
+            <article class="lp-live-card" data-widget="signals">
+              <header><h3>Top signals</h3><span class="lp-live-badge">live</span></header>
+              <ul class="lp-live-rows" data-slot="rows">
+                <li class="lp-live-placeholder">Connecting…</li>
+              </ul>
+            </article>
+            <article class="lp-live-card" data-widget="fx">
+              <header><h3>FX &amp; crypto</h3><span class="lp-live-badge">live</span></header>
+              <ul class="lp-live-rows" data-slot="rows">
+                <li class="lp-live-placeholder">Connecting…</li>
+              </ul>
+            </article>
+          </div>
+          <p class="lp-footnote lp-reveal">
+            Sources are cited on every panel inside the app — don't take the numbers on
+            faith, <a href="/app">open the map and count</a>.
+          </p>
+        </div>
+      </section>
+
+      <div class="lp-divider" aria-hidden="true"><span></span></div>
+
+      <!-- ============ PRODUCT ============ -->
+      <section class="lp-section" id="product">
+        <div class="lp-container">
+          <p class="lp-label lp-reveal">The product</p>
+          <h2 class="lp-h2 lp-reveal">One screen. The whole picture.</h2>
+          <p class="lp-section-sub lp-reveal">
+            Conflicts, vessels, flights, fires and outages render as the page loads.
+            Nothing to configure first — the map is already moving when you arrive.
+          </p>
+          <a class="lp-frame lp-reveal" href="/app" aria-label="Open the live dashboard">
+            <span class="lp-frame-bar" aria-hidden="true">
+              <span class="lp-frame-dots"><i></i><i></i><i></i></span>
+              <span class="lp-frame-title">edgepannel.app — global situation</span>
+              <span class="lp-frame-open">click to open live →</span>
+            </span>
+            <span class="lp-frame-shots">
+              <img
+                src="/landing/dashboard.jpg"
+                alt="EdgePannel dashboard: dark world map with live signal layers, news feeds and market panels"
+                width="1440" height="810" loading="lazy" decoding="async"
+              />
+              <img
+                src="/landing/dashboard-region.jpg"
+                alt="Zoomed regional view with conflict zones and threat clusters"
+                width="1440" height="810" loading="lazy" decoding="async" aria-hidden="true"
+              />
+              <img
+                src="/landing/dashboard-brief.jpg"
+                alt="Incident brief popup for a maritime chokepoint crisis"
+                width="1440" height="810" loading="lazy" decoding="async" aria-hidden="true"
+              />
+            </span>
+          </a>
+          <ul class="lp-product-points lp-reveal">
+            <li><strong aria-label="Cmd+K or Ctrl+K commander"><span class="lp-shortcut"><span class="lp-shortcut-inner" id="shortcut-swap" aria-hidden="true">⌘K</span></span> commander.</strong> Jump to any layer, panel or country without learning the UI.</li>
+            <li><strong>Country dossiers.</strong> Click any country for instability scores, active signals and an AI brief with cited headlines.</li>
+            <li><strong>Works offline-first.</strong> Installable PWA in 21 languages, RTL included.</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="lp-divider" aria-hidden="true"><span></span></div>
+
+      <!-- ============ WHO IT'S FOR ============ -->
+      <section class="lp-section" id="who">
+        <div class="lp-container">
+          <p class="lp-label lp-reveal">Who it's for</p>
+          <h2 class="lp-h2 lp-reveal">Built for people who watch the world for a living.</h2>
+          <p class="lp-section-sub lp-reveal">
+            If your morning starts with twenty tabs, this is the one that replaces them.
+          </p>
+          <div class="lp-who-grid lp-reveal">
+            <article class="lp-who" data-who="analysts">
+              <h3>Analysts</h3>
+              <p>Country instability scores, escalation watchlists and AI dossiers replace an hour of morning tab-cycling.</p>
+              <span class="lp-who-tags">CII scores · hotspots · briefs</span>
+            </article>
+            <article class="lp-who" data-who="traders">
+              <h3>Traders</h3>
+              <p>Markets, commodities and crypto sit next to the physical events that move them — chokepoints, outages, sanctions.</p>
+              <span class="lp-who-tags">markets · chokepoints · macro</span>
+            </article>
+            <article class="lp-who" data-who="journalists">
+              <h3>Journalists</h3>
+              <p>Wire speed without the wire cost: 680+ feeds deduplicated, clustered and pinned to the map as stories break.</p>
+              <span class="lp-who-tags">feeds · clusters · webcams</span>
+            </article>
+            <article class="lp-who" data-who="osint">
+              <h3>OSINT researchers</h3>
+              <p>Flights, vessels, cables, sanctions and satellites on one map — with sources cited on every panel.</p>
+              <span class="lp-who-tags">ADS-B · AIS · infrastructure</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <div class="lp-divider" aria-hidden="true"><span></span></div>
+
+      <!-- ============ LENSES ============ -->
+      <section class="lp-section" id="lenses">
+        <div class="lp-container">
+          <p class="lp-label lp-reveal">Six lenses</p>
+          <h2 class="lp-h2 lp-reveal">Same engine, six tuned monitors.</h2>
+          <p class="lp-section-sub lp-reveal">
+            One click swaps the whole dashboard — layers, feeds and panels retuned for
+            what you actually watch.
+          </p>
+          <div class="lp-lens-grid lp-reveal">
+            <a class="lp-lens" href="/app" data-lens="world">
+              <h3>World</h3>
+              <p>The full picture: geopolitics, markets, infrastructure and conflict on one map.</p>
+              <span class="lp-lens-open">edgepannel.app →</span>
+            </a>
+            <a class="lp-lens" href="https://tech.edgepannel.app" data-lens="tech">
+              <h3>Tech</h3>
+              <p>AI labs, tech giants, startup ecosystems, funding rounds and datacenter buildout.</p>
+              <span class="lp-lens-open">tech. →</span>
+            </a>
+            <a class="lp-lens" href="https://finance.edgepannel.app" data-lens="finance">
+              <h3>Finance</h3>
+              <p>Global markets, exchanges, central banks, forex, crypto and economic indicators.</p>
+              <span class="lp-lens-open">finance. →</span>
+            </a>
+            <a class="lp-lens" href="https://commodity.edgepannel.app" data-lens="commodity">
+              <h3>Commodity</h3>
+              <p>Mines, processing plants, commodity ports, supply chains and trade flows.</p>
+              <span class="lp-lens-open">commodity. →</span>
+            </a>
+            <a class="lp-lens" href="https://conflicts.edgepannel.app" data-lens="conflicts">
+              <h3>Conflicts</h3>
+              <p>Wars, military activity, displacement and escalation signals in real time.</p>
+              <span class="lp-lens-open">conflicts. →</span>
+            </a>
+            <a class="lp-lens" href="https://happy.edgepannel.app" data-lens="happy">
+              <h3>Happy</h3>
+              <p>The antidote: curated good news, progress data and uplifting stories.</p>
+              <span class="lp-lens-open">happy. →</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <div class="lp-divider" aria-hidden="true"><span></span></div>
+
+      <!-- ============ FAQ ============ -->
+      <section class="lp-section" id="faq">
+        <div class="lp-container lp-container-narrow">
+          <p class="lp-label lp-reveal">No catch</p>
+          <h2 class="lp-h2 lp-reveal">FAQ</h2>
+          <div class="lp-faq lp-reveal">
+            <details open>
+              <summary>Is EdgePannel really free?</summary>
+              <p>
+                Yes. Every map layer, every feed, every lens — free, with no signup and
+                no trial clock. No ads either, and since there's no account, there's no
+                user data to sell.
+              </p>
+            </details>
+            <details>
+              <summary>Where does the data come from?</summary>
+              <p>
+                680+ curated public feeds and institutional sources: USGS, NOAA, GDACS,
+                ECB, FRED, World Bank, OpenSky, AIS vessel streams, Cloudflare Radar,
+                official government channels and major wire services. Every panel cites
+                its sources.
+              </p>
+            </details>
+            <details>
+              <summary>Do I need an account?</summary>
+              <p>
+                No. The dashboard is fully usable anonymously. An optional sign-in exists
+                only to sync your panel layout and watchlists across devices.
+              </p>
+            </details>
+            <details>
+              <summary>What are the six lenses?</summary>
+              <p>
+                World, Tech, Finance, Commodity, Conflicts and Happy — the same live
+                engine with layers, feeds and panels retuned per focus. Each lens lives
+                on its own subdomain and is one click away.
+              </p>
+            </details>
+            <details>
+              <summary>Is it open source?</summary>
+              <p>
+                Yes — AGPL-3.0, developed in the open on
+                <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>.
+                Run it yourself, audit it, or contribute.
+              </p>
+            </details>
+            <details>
+              <summary>Does it work on mobile?</summary>
+              <p>
+                Yes. It's an installable PWA that works offline-first, translated into 21
+                languages including right-to-left scripts.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ FINAL CTA ============ -->
+      <section class="lp-final" id="launch">
+        <div class="lp-container">
+          <h2 class="lp-h2 lp-reveal">The map is already moving.</h2>
+          <p class="lp-section-sub lp-reveal">
+            Ships reroute, markets reprice, quakes register — while this page sits
+            still. Open the live view and see for yourself.
+          </p>
+          <div class="lp-final-cta lp-reveal">
+            <a class="lp-btn lp-btn-primary lp-btn-lg" href="/app">Launch EdgePannel <span aria-hidden="true">→</span></a>
+            <p class="lp-micro">Free · No signup · Loads in seconds</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="lp-footer">
+      <div class="lp-container lp-footer-inner">
+        <a class="lp-brand" href="/">
+          <img class="lp-brand-logo" src="/src/assets/edgepannel-logo.png" alt="EdgePannel" width="149" height="30" />
+        </a>
+        <nav class="lp-footer-links" aria-label="Footer">
+          <a href="/app">Dashboard</a>
+          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://tech.edgepannel.app">Tech</a>
+          <a href="https://finance.edgepannel.app">Finance</a>
+          <a href="https://conflicts.edgepannel.app">Conflicts</a>
+        </nav>
+        <p class="lp-footer-legal">© 2026 EdgePannel · AGPL-3.0</p>
+      </div>
+    </footer>
+  </body>
+</html>
