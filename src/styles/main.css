@@ -6132,6 +6132,28 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   border-radius: 2px;
 }
 
+/* Company ticker tag — shown in .item-source when a headline mentions a
+   tracked company. Reuses .ticker-link for the global click-to-open-company
+   delegation (see entity-intel.ts). */
+.company-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
+  background: rgba(var(--accent-rgb, 96, 165, 250), 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb, 96, 165, 250), 0.35);
+  cursor: var(--wm-cursor-pointer);
+  text-transform: uppercase;
+}
+
+.company-tag:hover {
+  background: rgba(var(--accent-rgb, 96, 165, 250), 0.22);
+  border-color: var(--accent);
+}
+
 /* "Also reported by" label */
 .also-reported {
   font-size: 8px;

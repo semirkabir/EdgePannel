@@ -10,6 +10,11 @@ import { getSourcePropagandaRisk, getSourceTier, getSourceType } from '@/config/
 import { SITE_VARIANT } from '@/config';
 import { t, getCurrentLanguage } from '@/services/i18n';
 import { buildArticleLinkAttributes } from '@/services/article-open';
+import { extractEntitiesFromTitle } from '@/services/entity-extraction';
+import { getEntityIndex } from '@/services/entity-index';
+
+/** Cap the number of company ticker tags shown per headline to avoid clutter. */
+const MAX_COMPANY_TAGS = 2;
 
 /** Threshold for enabling virtual scrolling */
 const VIRTUAL_SCROLL_THRESHOLD = 15;
@@ -586,6 +591,7 @@ export class NewsPanel extends Panel {
           ${escapeHtml(item.source)}
           ${item.lang && item.lang !== getCurrentLanguage() ? `<span class="lang-badge">${item.lang.toUpperCase()}</span>` : ''}
           ${item.isAlert ? '<span class="alert-tag">ALERT</span>' : ''}
+          ${this.buildCompanyTagsHtml(item.title)}
         </div>
         <div class="item-title-row">
           <a class="item-title" href="${sanitizeUrl(item.link)}" target="_blank" rel="noopener" ${articleAttrs}>${escapeHtml(item.title)}</a>
@@ -822,6 +828,7 @@ export class NewsPanel extends Panel {
           ${sentimentBadge}
           ${cluster.isAlert ? '<span class="alert-tag">ALERT</span>' : ''}
           ${categoryBadge}
+          ${this.buildCompanyTagsHtml(cluster.primaryTitle)}
         </div>
         <div class="item-title-row">
           <a class="item-title" href="${sanitizeUrl(cluster.primaryLink)}" target="_blank" rel="noopener" ${articleAttrs}>${linkifyTickers(escapeHtml(cluster.primaryTitle))}</a>
@@ -835,6 +842,28 @@ export class NewsPanel extends Panel {
         ${relatedAssetsHtml}
       </div>
     `;
+  }
+
+  /**
+   * Detect companies mentioned in a headline and render them as clickable
+   * ticker tags (reuses the global .ticker-link delegation set up in
+   * entity-intel.ts, so clicking opens the company detail panel for free).
+   */
+  private buildCompanyTagsHtml(title: string): string {
+    const index = getEntityIndex();
+    const companies = extractEntitiesFromTitle(title)
+      .filter(entity => index.byId.get(entity.entityId)?.type === 'company')
+      .slice(0, MAX_COMPANY_TAGS);
+
+    if (companies.length === 0) return '';
+
+    return companies
+      .map(entity => {
+        const ticker = escapeHtml(entity.entityId);
+        const name = escapeHtml(entity.name);
+        return `<span class="company-tag ticker-link" data-ticker="${ticker}" data-name="${name}" role="button" tabindex="0" title="${name}">${ticker}</span>`;
+      })
+      .join('');
   }
 
   private bindRelatedAssetEvents(): void {
