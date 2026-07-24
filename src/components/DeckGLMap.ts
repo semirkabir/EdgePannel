@@ -120,6 +120,7 @@ import {
   saveDeckControlSettings,
   type DeckControlSettings,
 } from './deck-gl/control-settings';
+import { MapDrawController } from './map-draw/MapDrawController';
 import {
   SATELLITE_ANIMATION_FRAME_MS,
   SATELLITE_ICON_LIMIT,
@@ -426,6 +427,7 @@ export class DeckGLMap implements MapEngine {
   private followedAircraftIcao: string | null = null;
   private aircraftFollowCallback: ((positions: PositionSample[]) => void) | null = null;
   private airspaceControls: AirspaceControls | null = null;
+  private mapDrawController: MapDrawController | null = null;
   private aircraftFetchTimer: ReturnType<typeof setInterval> | null = null;
   private news: NewsItem[] = [];
   private newsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }> = [];
@@ -5769,6 +5771,39 @@ export class DeckGLMap implements MapEngine {
   }
 
   // UI Creation methods
+  /**
+   * Lazily create the draw & measure controller on first use. The map is
+   * guaranteed style-loaded by the time the user opens the toolbar, so this
+   * sidesteps map-load ordering and only adds draw layers when needed.
+   */
+  private ensureDrawController(): MapDrawController | null {
+    if (this.mapDrawController) return this.mapDrawController;
+    if (!this.maplibreMap) return null;
+    try {
+      const ctrl = new MapDrawController(this.maplibreMap);
+      ctrl.mount(this.container);
+      this.mapDrawController = ctrl;
+      return ctrl;
+    } catch (err) {
+      console.error('[DeckGLMap] draw init failed:', err);
+      return null;
+    }
+  }
+
+  private toggleDraw(btn: HTMLButtonElement): void {
+    const ctrl = this.ensureDrawController();
+    if (!ctrl) return;
+    ctrl.toggleToolbar();
+    const open = ctrl.isOpen();
+    btn.classList.toggle('active', open);
+    btn.setAttribute('aria-pressed', String(open));
+  }
+
+  /** Enclosed-area drawings as GeoJSON polygons (for geofencing consumers). */
+  public getDrawnZones(): Array<{ id: string; name: string; geometry: GeoJSON.Polygon }> {
+    return this.mapDrawController?.getDrawnZones() ?? [];
+  }
+
   private createControls(): void {
     const controls = document.createElement('div');
     controls.className = 'map-controls deckgl-controls';
@@ -5805,6 +5840,12 @@ export class DeckGLMap implements MapEngine {
           </button>
           <div class="map-theme-picker-panel">${pickerHtml}</div>
         </div>
+        <button class="map-btn map-draw-btn" aria-label="Draw and measure" title="Draw &amp; measure" aria-pressed="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+          </svg>
+        </button>
       </div>
       <div class="view-selector">
         <select class="view-select">
@@ -5828,6 +5869,13 @@ export class DeckGLMap implements MapEngine {
       if (target.classList.contains('zoom-in')) { this.zoomIn(); return; }
       if (target.classList.contains('zoom-out')) { this.zoomOut(); return; }
       if (target.classList.contains('zoom-reset')) { this.resetView(); return; }
+    });
+
+    // Draw & measure toolkit (lazily initialised on first open)
+    const drawBtn = controls.querySelector<HTMLButtonElement>('.map-draw-btn');
+    drawBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleDraw(drawBtn);
     });
 
     // Theme picker toggle + item selection
@@ -8938,6 +8986,8 @@ export class DeckGLMap implements MapEngine {
       this.styleLoadTimeoutId = null;
     }
     this.container.classList.remove('globe-projection');
+    this.mapDrawController?.destroy();
+    this.mapDrawController = null;
     this.stopPulseAnimation();
     this.stopDayNightTimer();
     this.manageAircraftMotionAnimation(false);
