@@ -9,6 +9,8 @@ import { escapeHtml } from '@/utils/sanitize';
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  /** Provenance shown under assistant replies: which model answered, how many live tools it hit. */
+  meta?: { model?: string; sourceCount?: number };
 }
 
 export class AgentChatPanel {
@@ -93,7 +95,15 @@ export class AgentChatPanel {
       this.connectorSelect.innerHTML = chatConnectors.length
         ? chatConnectors.map(connector => `<option value="${escapeHtml(connector.id)}">${escapeHtml(connector.name)}</option>`).join('')
         : '<option value="">No chat connector configured</option>';
-      this.statusEl.textContent = chatConnectors.length ? `${chatConnectors.length} connector${chatConnectors.length === 1 ? '' : 's'}` : 'Configure an Agent API in Settings';
+      if (chatConnectors.length) {
+        const connectorLabel = `${chatConnectors.length} connector${chatConnectors.length === 1 ? '' : 's'}`;
+        const toolCount = this.status.tools?.length ?? 0;
+        this.statusEl.textContent = toolCount
+          ? `${connectorLabel} · ${toolCount} live tool${toolCount === 1 ? '' : 's'}`
+          : connectorLabel;
+      } else {
+        this.statusEl.textContent = 'Configure an Agent API in Settings';
+      }
     } catch (error) {
       this.statusEl.textContent = error instanceof Error ? error.message : 'Agent gateway unavailable';
       this.connectorSelect.innerHTML = '<option value="">Unavailable</option>';
@@ -105,11 +115,30 @@ export class AgentChatPanel {
     this.renderMessages();
   }
 
+  /** Human-readable model label for the currently selected connector. */
+  private selectedModelLabel(): string {
+    const connectorId = this.connectorSelect.value;
+    const connector = this.status?.connectors.find(c => c.id === connectorId);
+    return (connector?.model || connector?.name || '').trim();
+  }
+
+  private renderMessageMeta(meta?: ChatMessage['meta']): string {
+    if (!meta) return '';
+    const parts: string[] = [];
+    if (meta.model) parts.push(`via ${escapeHtml(meta.model)}`);
+    if (typeof meta.sourceCount === 'number') {
+      parts.push(`${meta.sourceCount} live source${meta.sourceCount === 1 ? '' : 's'}`);
+    }
+    if (!parts.length) return '';
+    return `<div class="agent-chat-meta">${parts.join(' · ')}</div>`;
+  }
+
   private renderMessages(extraHtml = ''): void {
     const html = this.messages.map(message => `
       <div class="agent-chat-msg ${message.role}">
         <span class="agent-chat-role">${message.role === 'user' ? 'You' : 'Agent'}</span>
         <div class="agent-chat-bubble">${escapeHtml(message.content)}</div>
+        ${message.role === 'assistant' ? this.renderMessageMeta(message.meta) : ''}
       </div>
     `).join('');
     this.messagesEl.innerHTML = html + extraHtml;
@@ -140,7 +169,11 @@ export class AgentChatPanel {
       if (response.error) {
         this.addMessage({ role: 'assistant', content: response.error });
       } else {
-        this.addMessage({ role: 'assistant', content: response.content || 'No response.' });
+        this.addMessage({
+          role: 'assistant',
+          content: response.content || 'No response.',
+          meta: { model: this.selectedModelLabel(), sourceCount: response.toolEvents?.length ?? 0 },
+        });
       }
       if (toolHtml || response.alertDrafts?.length) {
         this.renderMessages(`

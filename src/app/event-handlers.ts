@@ -56,6 +56,7 @@ import { getEnrichmentDataSourceId } from '@/services/enrichment-gates';
 import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
 import { AgentChatPanel } from '@/components/AgentChatPanel';
+import { SituationReportPanel } from '@/components/SituationReportPanel';
 import { VisitorCounter } from '@/components/VisitorCounter';
 import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -324,6 +325,8 @@ export class EventHandlerManager implements AppModule {
     this.ctx.unifiedSettings = null;
     this.ctx.agentChatPanel?.destroy();
     this.ctx.agentChatPanel = null;
+    this.ctx.situationReportPanel?.destroy();
+    this.ctx.situationReportPanel = null;
     this.ctx.situationRoomDrawer?.destroy();
     this.ctx.situationRoomDrawer = null;
     this.ctx.visitorCounter?.destroy();
@@ -978,6 +981,27 @@ export class EventHandlerManager implements AppModule {
       } else if (headerRight) {
         headerRight.insertBefore(agentBtn, mount?.parentElement === headerRight ? mount : null);
       }
+    }
+
+    // Situation Report — full structured intelligence brief. Available on web
+    // and desktop (gated at generation time on an AI provider being enabled).
+    this.ctx.situationReportPanel = new SituationReportPanel();
+    this.ctx.situationReportPanel.setHeadlinesProvider(() =>
+      (this.ctx.newsStore?.allNews ?? []).map((n) => n.title).filter(Boolean),
+    );
+    const sitrepHeaderRight = this.ctx.container.querySelector<HTMLElement>('.header-right');
+    const sitrepOverflow = document.getElementById('headerOverflowPanel');
+    const sitrepBtn = document.createElement('button');
+    sitrepBtn.type = 'button';
+    sitrepBtn.className = 'sitrep-open-btn';
+    sitrepBtn.title = 'Open situation report';
+    sitrepBtn.setAttribute('aria-label', 'Open situation report');
+    sitrepBtn.textContent = 'BRIEF';
+    sitrepBtn.addEventListener('click', () => void this.ctx.situationReportPanel?.open());
+    if (sitrepOverflow) {
+      sitrepOverflow.insertBefore(sitrepBtn, mount || null);
+    } else if (sitrepHeaderRight) {
+      sitrepHeaderRight.insertBefore(sitrepBtn, mount?.parentElement === sitrepHeaderRight ? mount : null);
     }
 
     const mobileBtn = document.getElementById('mobileSettingsBtn');

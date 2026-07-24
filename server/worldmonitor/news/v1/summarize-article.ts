@@ -112,7 +112,8 @@ export async function summarizeArticle(
               { role: 'user', content: userPrompt },
             ],
             temperature: 0.3,
-            max_tokens: 100,
+            // Structured situation reports need room; terse brief/analysis stay tight.
+            max_tokens: mode === 'situation-report' ? 900 : 100,
             top_p: 0.9,
             ...extraBody,
           }),

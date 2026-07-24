@@ -110,7 +110,7 @@ import spaceportIconUrl from '@/assets/spaceport.png';
 import satelliteIconUrl from '@/assets/sattelite.png';
 import type { GulfInvestment } from '@/types';
 import { resolveTradeRouteSegments, TRADE_ROUTES as TRADE_ROUTES_LIST, type TradeRouteSegment } from '@/config/trade-routes';
-import { getLayersForVariant, resolveLayerLabel, resolveLayerAccentColor, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
+import { getLayersForVariant, getCategorizedLayersForVariant, getLayerCategory, resolveLayerLabel, resolveLayerAccentColor, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
 import { getSecretState } from '@/services/runtime-config';
 import { MapPopup, type PopupType } from './MapPopup';
 import {
@@ -6249,7 +6249,7 @@ export class DeckGLMap implements MapEngine {
     list.style.overflowY = 'auto';
     list.style.setProperty('scrollbar-width', 'thin');
 
-    layerConfig.forEach(({ key, label, icon, premium }) => {
+    const buildToggle = (key: string, label: string, icon: string, premium?: string): HTMLLabelElement => {
       const isLocked = premium === 'locked' && !_wmKey;
       const isEnhanced = premium === 'enhanced' && !_wmKey;
 
@@ -6257,6 +6257,7 @@ export class DeckGLMap implements MapEngine {
       toggle.className = `layer-toggle${isLocked ? ' layer-toggle-locked' : ''}`;
       toggle.dataset.layer = key;
       toggle.dataset.layerName = label;
+      toggle.dataset.category = getLayerCategory(key as keyof MapLayers);
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
@@ -6267,7 +6268,7 @@ export class DeckGLMap implements MapEngine {
 
       const iconSpan = document.createElement('span');
       iconSpan.className = 'toggle-icon';
-      iconSpan.style.color = resolveLayerAccentColor(key, getCurrentTheme());
+      iconSpan.style.color = resolveLayerAccentColor(key as keyof MapLayers, getCurrentTheme());
       iconSpan.innerHTML = icon;
       toggle.appendChild(iconSpan);
 
@@ -6282,8 +6283,19 @@ export class DeckGLMap implements MapEngine {
         labelSpan.appendChild(badge);
       }
       toggle.appendChild(labelSpan);
+      return toggle;
+    };
 
-      list.appendChild(toggle);
+    // Render layers grouped by category, with a section header before each group.
+    getCategorizedLayersForVariant((SITE_VARIANT || 'full') as MapVariant, 'flat').forEach(group => {
+      const header = document.createElement('div');
+      header.className = 'layer-category-divider';
+      header.dataset.category = group.category;
+      header.textContent = group.label;
+      list.appendChild(header);
+      group.layers.forEach(def => {
+        list.appendChild(buildToggle(def.key, resolveLayerLabel(def, t), def.icon, def.premium));
+      });
     });
 
     const flightsToggle = list.querySelector('.layer-toggle[data-layer="flights"]');
@@ -6462,6 +6474,14 @@ export class DeckGLMap implements MapEngine {
     });
     list.querySelectorAll<HTMLElement>('.marketplace-layer-divider').forEach((divider) => {
       divider.style.display = visibleMarketplaceCount > 0 ? '' : 'none';
+    });
+    // Hide a category header when every layer in that group is filtered out.
+    list.querySelectorAll<HTMLElement>('.layer-category-divider').forEach((divider) => {
+      const cat = divider.dataset.category;
+      const anyVisible = Array.from(
+        list.querySelectorAll<HTMLElement>(`.layer-toggle[data-category="${cat}"]`),
+      ).some((toggle) => toggle.style.display !== 'none');
+      divider.style.display = anyVisible ? '' : 'none';
     });
 
     noResults.style.display = visibleCount === 0 ? 'block' : 'none';

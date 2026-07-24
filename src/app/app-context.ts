@@ -14,6 +14,7 @@ import type { PlaybackControl } from '@/components';
 import type { ExportPanel } from '@/utils';
 import type { UnifiedSettings } from '@/components/UnifiedSettings';
 import type { AgentChatPanel } from '@/components/AgentChatPanel';
+import type { SituationReportPanel } from '@/components/SituationReportPanel';
 import type { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import type { VisitorCounter } from '@/components/VisitorCounter';
 import type { PizzIntIndicator } from '@/components';
@@ -114,6 +115,7 @@ export interface AppContext {
   exportPanel: ExportPanel | null;
   unifiedSettings: UnifiedSettings | null;
   agentChatPanel: AgentChatPanel | null;
+  situationReportPanel: SituationReportPanel | null;
   situationRoomDrawer: SituationRoomDrawer | null;
   visitorCounter: VisitorCounter | null;
   pizzintIndicator: PizzIntIndicator | null;

@@ -143,6 +143,99 @@ export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
   gdeltEvents:              def('gdeltEvents',              ICONS.target,    'gdeltEvents',            'GDELT Events',        ['flat', 'globe']),
 };
 
+// ── Layer categories (grouping for the layer picker) ─────────────────────────
+
+export type LayerCategory =
+  | 'conflict'
+  | 'military'
+  | 'cyber'
+  | 'aviation'
+  | 'space'
+  | 'economy'
+  | 'environment'
+  | 'governance'
+  | 'technology'
+  | 'positive'
+  | 'commodities';
+
+/** Display order of categories in the layer picker. */
+export const LAYER_CATEGORY_ORDER: LayerCategory[] = [
+  'conflict',
+  'military',
+  'cyber',
+  'aviation',
+  'space',
+  'economy',
+  'environment',
+  'governance',
+  'technology',
+  'positive',
+  'commodities',
+];
+
+/** Section header labels shown above each group in the layer picker. */
+export const LAYER_CATEGORY_LABELS: Record<LayerCategory, string> = {
+  conflict:     'Conflict & Security',
+  military:     'Military & Defense',
+  cyber:        'Cyber & Infrastructure',
+  aviation:     'Aviation & Maritime',
+  space:        'Space',
+  economy:      'Economy & Markets',
+  environment:  'Environment & Climate',
+  governance:   'Governance & Society',
+  technology:   'Technology',
+  positive:     'Positive Signals',
+  commodities:  'Commodities',
+};
+
+/** Every layer key mapped to exactly one category. */
+const LAYER_CATEGORY_MAP: Record<keyof MapLayers, LayerCategory> = {
+  // Conflict & Security
+  iranAttacks: 'conflict', hotspots: 'conflict', conflicts: 'conflict',
+  ucdpEvents: 'conflict', protests: 'conflict', displacement: 'conflict',
+  sanctions: 'conflict', gdeltEvents: 'conflict',
+  // Military & Defense
+  bases: 'military', nuclear: 'military', irradiators: 'military', military: 'military',
+  // Cyber & Infrastructure
+  cables: 'cyber', pipelines: 'cyber', datacenters: 'cyber', outages: 'cyber',
+  cyberThreats: 'cyber', aptGroups: 'cyber', gpsJamming: 'cyber',
+  // Aviation & Maritime
+  ais: 'aviation', flights: 'aviation', tradeRoutes: 'aviation',
+  waterways: 'aviation', navWarnings: 'aviation',
+  // Space
+  spaceports: 'space', satellite: 'space',
+  // Economy & Markets
+  economic: 'economy', marketPerf: 'economy', polymarketMarkets: 'economy',
+  stockExchanges: 'economy', financialCenters: 'economy', centralBanks: 'economy',
+  commodityHubs: 'economy', gulfInvestments: 'economy', tariffBarriers: 'economy',
+  minerals: 'economy',
+  // Environment & Climate
+  climate: 'environment', weather: 'environment', natural: 'environment',
+  earthquakes: 'environment', fires: 'environment', gemRisk: 'environment',
+  dayNight: 'environment',
+  // Governance & Society
+  ciiChoropleth: 'governance', governanceChoropleth: 'governance',
+  democracy: 'governance', elections: 'governance',
+  // Technology
+  startupHubs: 'technology', techHQs: 'technology', accelerators: 'technology',
+  cloudRegions: 'technology', techEvents: 'technology',
+  // Positive Signals
+  positiveEvents: 'positive', kindness: 'positive', happiness: 'positive',
+  speciesRecovery: 'positive', renewableInstallations: 'positive',
+  // Commodities
+  miningSites: 'commodities', processingPlants: 'commodities', commodityPorts: 'commodities',
+};
+
+export function getLayerCategory(key: keyof MapLayers): LayerCategory {
+  return LAYER_CATEGORY_MAP[key] ?? 'conflict';
+}
+
+export interface LayerCategoryGroup {
+  category: LayerCategory;
+  label: string;
+  layers: LayerDefinition[];
+}
+
 // ── Weather category icon/color/label maps ───────────────────────────────────
 
 export const WEATHER_CATEGORY_ICONS: Record<WeatherCategory, string> = {
@@ -288,6 +381,29 @@ export function getLayersForVariant(variant: MapVariant, renderer: MapRenderer):
   return keys
     .map(k => LAYER_REGISTRY[k])
     .filter(d => d.renderers.includes(renderer));
+}
+
+/**
+ * Same layers as {@link getLayersForVariant}, grouped by category. Both the
+ * layer order within each group and the order of the groups themselves follow
+ * the variant's curated {@link VARIANT_LAYER_ORDER} — the picker leads with the
+ * category the variant lists first (e.g. commodity → Commodities, tech →
+ * Technology). Categories with no layers in this variant/renderer are omitted.
+ */
+export function getCategorizedLayersForVariant(variant: MapVariant, renderer: MapRenderer): LayerCategoryGroup[] {
+  const defs = getLayersForVariant(variant, renderer);
+  const byCategory = new Map<LayerCategory, LayerDefinition[]>();
+  for (const def of defs) {
+    const cat = getLayerCategory(def.key);
+    const group = byCategory.get(cat);
+    if (group) group.push(def);
+    else byCategory.set(cat, [def]); // first-appearance insertion order = variant-curated priority
+  }
+  return Array.from(byCategory.entries()).map(([category, layers]) => ({
+    category,
+    label: LAYER_CATEGORY_LABELS[category],
+    layers,
+  }));
 }
 
 /** Returns the set of layer keys permitted in a given variant's toggle panel. */

@@ -75,6 +75,35 @@ Rules:
 - No bullet points, no meta-commentary, no elaboration beyond the core facts${langInstruction}`;
     }
     userPrompt = `Each headline below is a separate story. Pick the most important ONE and summarize only that story:\n${headlineText}${intelSection}`;
+  } else if (opts.mode === 'situation-report') {
+    // Full structured intelligence brief (BLUF format). Unlike 'brief'/'analysis',
+    // this mode SYNTHESIZES across all headlines into a multi-section report.
+    systemPrompt = `${dateContext}
+
+You are a senior geopolitical intelligence analyst writing a concise global situation report from the headlines and signals below. Synthesize across ALL of them.
+
+Output GitHub-flavored Markdown with EXACTLY these sections, in this order, using these headings:
+
+## BLUF
+2-3 sentences stating the single most important takeaway across everything below.
+
+## Key Developments
+3-5 bullet points, most significant first. End each bullet with a confidence tag in the form \`[Confidence: HIGH]\`, \`[Confidence: MODERATE]\`, or \`[Confidence: LOW]\` reflecting how well-supported it is by the provided material.
+
+## Regional Highlights
+Short bullets grouped by region (only regions actually represented below). Omit this section entirely if the material is not geographic.
+
+## Market Implications
+1-3 bullets on likely effects on markets, commodities, or trade. Write "No material market signal in this reporting period." if none applies.
+
+## Indicators to Watch
+2-4 bullets naming specific, checkable developments to monitor over the next 24-48 hours.
+
+Rules:
+- Use ONLY the headlines and intelligence context provided. Do NOT invent specific numbers, names, casualty figures, or events not present in the material.
+- Be specific and factual. No filler, no meta-commentary, no TV-style openings.
+- Keep the whole report under 350 words.${langInstruction}`;
+    userPrompt = `Write the situation report from these headlines (each is a separate story; synthesize across them):\n${headlineText}${intelSection}`;
   } else if (opts.mode === 'analysis') {
     if (isTechVariant) {
       systemPrompt = `${dateContext}

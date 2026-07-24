@@ -2,6 +2,7 @@ import type { MapLayers } from '@/types';
 import { SITE_VARIANT } from '@/config';
 import { t } from '@/services/i18n';
 import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferences';
+import { getLayerCategory, LAYER_CATEGORY_LABELS, type LayerCategory } from '@/config/map-layer-definitions';
 
 interface SvgLayerTrayOptions {
   container: HTMLElement;
@@ -74,11 +75,12 @@ export function createSvgLayerToggles(options: SvgLayerTrayOptions): HTMLElement
     status.textContent = activeCount === 0 ? 'No active layers' : `${activeCount} active`;
   };
 
-  options.getVariantLayerKeys().forEach((layer) => {
+  const buildLayerButton = (layer: keyof MapLayers): HTMLButtonElement => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `layer-toggle ${options.layersState[layer] ? 'active' : ''}`;
     btn.dataset.layer = layer;
+    btn.dataset.category = getLayerCategory(layer);
     btn.setAttribute('aria-pressed', String(Boolean(options.layersState[layer])));
     btn.setAttribute('aria-label', `${options.getLayerLabel(layer)} layer`);
     const icon = options.createSharedIcon(layer, 'layer-toggle-icon');
@@ -91,7 +93,26 @@ export function createSvgLayerToggles(options: SvgLayerTrayOptions): HTMLElement
       btn.setAttribute('aria-pressed', String(btn.classList.contains('active')));
       enforceLayerLimit();
     });
-    body.appendChild(btn);
+    return btn;
+  };
+
+  // Group the variant's layers by category, preserving order within each group.
+  const keys = options.getVariantLayerKeys();
+  const byCategory = new Map<LayerCategory, (keyof MapLayers)[]>();
+  for (const layer of keys) {
+    const cat = getLayerCategory(layer);
+    const group = byCategory.get(cat);
+    if (group) group.push(layer);
+    else byCategory.set(cat, [layer]);
+  }
+  // Insertion order = variant-curated priority (matches getCategorizedLayersForVariant).
+  byCategory.forEach((layers, cat) => {
+    const divider = document.createElement('div');
+    divider.className = 'layer-category-divider';
+    divider.dataset.category = cat;
+    divider.textContent = LAYER_CATEGORY_LABELS[cat];
+    body.appendChild(divider);
+    layers.forEach((layer) => body.appendChild(buildLayerButton(layer)));
   });
 
   const helpBtn = document.createElement('button');

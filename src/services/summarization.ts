@@ -80,6 +80,7 @@ async function tryApiProvider(
   headlines: string[],
   geoContext?: string,
   lang?: string,
+  mode: string = 'brief',
 ): Promise<SummarizationResult | null> {
   if (isCloudSummaryUnavailable()) return null;
   if (!isFeatureAvailable(providerDef.featureId)) return null;
@@ -89,7 +90,7 @@ async function tryApiProvider(
       return newsClient.summarizeArticle({
         provider: providerDef.provider,
         headlines,
-        mode: 'brief',
+        mode,
         geoContext: geoContext || '',
         variant: SITE_VARIANT,
         lang: lang || 'en',
@@ -197,6 +198,50 @@ export async function generateSummary(
   }
 
   return result;
+}
+
+/**
+ * Generate a full structured situation report (BLUF → Key Developments →
+ * Regional → Market Implications → Indicators to Watch) as Markdown.
+ *
+ * Isolated from {@link generateSummary}: cloud providers only (a capable model
+ * is required — the browser T5 fallback cannot produce structured output), its
+ * own 'situation-report' cache namespace, and it never touches the terse-brief
+ * orchestration used by the Insights ticker.
+ */
+export async function generateSituationReport(
+  headlines: string[],
+  geoContext?: string,
+  lang: string = 'en',
+): Promise<SummarizationResult | null> {
+  if (!headlines || headlines.length < 2) return null;
+  lastAttemptedProvider = 'none';
+
+  // Server-side Redis cache (shared across users) under the report namespace.
+  if (!isCloudSummaryUnavailable() && isLocalDevTaskEnabled('intelligence')) {
+    try {
+      const cacheKey = buildSummaryCacheKey(headlines, 'situation-report', geoContext, SITE_VARIANT, lang);
+      const cached = await summaryCacheBreaker.execute(
+        async () => newsClient.getSummarizeArticleCache({ cacheKey }),
+        emptySummaryCacheFallback,
+      );
+      if (cached.summary) {
+        return { summary: cached.summary, provider: 'cache', model: cached.model || '', cached: true };
+      }
+    } catch (error) {
+      if (isUnavailableError(error)) markCloudSummaryUnavailable();
+    }
+  }
+
+  for (const providerDef of API_PROVIDERS) {
+    const result = await tryApiProvider(providerDef, headlines, geoContext, lang, 'situation-report');
+    if (result) {
+      trackLLMUsage(result.provider, result.model, result.cached);
+      return result;
+    }
+  }
+  trackLLMFailure(lastAttemptedProvider);
+  return null;
 }
 
 async function generateSummaryInternal(
