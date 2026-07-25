@@ -12,36 +12,25 @@
  */
 import type maplibregl from 'maplibre-gl';
 import { haversineKm, bearingDeg, destinationPoint, formatDistance, type DistanceUnit } from '@/utils/geo';
+import {
+  DRAWINGS_STORAGE_KEY,
+  RING_COUNT,
+  drawingsToZones,
+  loadStoredDrawings,
+  polygonRings,
+  type Drawing,
+  type DrawTool,
+  type LngLat,
+} from './geometry';
 
-export type DrawTool =
-  | 'distance'
-  | 'circle'
-  | 'rangeRings'
-  | 'sector'
-  | 'polygon'
-  | 'rectangle'
-  | 'bearing';
-
-type LngLat = [number, number];
-
-export interface Drawing {
-  id: string;
-  tool: DrawTool;
-  name: string;
-  color: string;
-  points: LngLat[];
-  radiusKm?: number;
-  rings?: number;
-  visible: boolean;
-  createdAt: number;
-}
+export type { Drawing, DrawTool } from './geometry';
 
 const SRC = 'wm-draw-src';
 const L_FILL = 'wm-draw-fill';
 const L_LINE = 'wm-draw-line';
 const L_VERTEX = 'wm-draw-vertex';
 const L_LABEL = 'wm-draw-label';
-const STORAGE_KEY = 'wm-map-drawings-v1';
+const STORAGE_KEY = DRAWINGS_STORAGE_KEY;
 
 const PALETTE = ['#22d3ee', '#f472b6', '#a3e635', '#fbbf24', '#c084fc', '#fb7185', '#38bdf8', '#34d399'];
 
@@ -54,13 +43,6 @@ const TOOL_LABEL: Record<DrawTool, string> = {
   rectangle: 'Rectangle',
   bearing: 'Bearing',
 };
-
-/** Tools whose committed shape encloses an area (usable as a geofence). */
-const AREA_TOOLS: ReadonlySet<DrawTool> = new Set<DrawTool>(['circle', 'rangeRings', 'sector', 'polygon', 'rectangle']);
-
-const SECTOR_HALF_ANGLE = 30; // ±30° → 60° wedge
-const RING_COUNT = 3;
-const ARC_STEPS = 72;
 
 type Feature = GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>;
 
@@ -124,14 +106,11 @@ export class MapDrawController {
 
   /** Enclosed-area drawings as GeoJSON polygons — for geofencing consumers. */
   getDrawnZones(): Array<{ id: string; name: string; geometry: GeoJSON.Polygon }> {
-    const zones: Array<{ id: string; name: string; geometry: GeoJSON.Polygon }> = [];
-    for (const d of this.drawings) {
-      if (!AREA_TOOLS.has(d.tool)) continue;
-      const rings = this.polygonRings(d);
-      const outer = rings[rings.length - 1];
-      if (outer) zones.push({ id: d.id, name: d.name, geometry: { type: 'Polygon', coordinates: [outer] } });
-    }
-    return zones;
+    return drawingsToZones(this.drawings).map(z => ({
+      id: z.id,
+      name: z.name,
+      geometry: { type: 'Polygon', coordinates: [z.ring] } as GeoJSON.Polygon,
+    }));
   }
 
   // ── map layers ───────────────────────────────────────────────────────────────
@@ -196,60 +175,6 @@ export class MapDrawController {
     this.layersReady = true;
   }
 
-  // ── geometry ─────────────────────────────────────────────────────────────────
-
-  private circleRing(center: LngLat, radiusKm: number): LngLat[] {
-    const [lng, lat] = center;
-    const ring: LngLat[] = [];
-    for (let i = 0; i <= ARC_STEPS; i++) {
-      ring.push(destinationPoint(lat, lng, (i / ARC_STEPS) * 360, radiusKm));
-    }
-    return ring;
-  }
-
-  private sectorRing(center: LngLat, radiusKm: number, bearing: number): LngLat[] {
-    const [lng, lat] = center;
-    const ring: LngLat[] = [center];
-    const start = bearing - SECTOR_HALF_ANGLE;
-    for (let i = 0; i <= ARC_STEPS; i++) {
-      ring.push(destinationPoint(lat, lng, start + (i / ARC_STEPS) * (SECTOR_HALF_ANGLE * 2), radiusKm));
-    }
-    ring.push(center);
-    return ring;
-  }
-
-  private rectRing(a: LngLat, b: LngLat): LngLat[] {
-    const [x1, y1] = a; const [x2, y2] = b;
-    return [[x1, y1], [x2, y1], [x2, y2], [x1, y2], [x1, y1]];
-  }
-
-  /** Closed rings that define a drawing's enclosed area(s). */
-  private polygonRings(d: Drawing): LngLat[][] {
-    const p = d.points;
-    const c = p[0];
-    const e = p[1];
-    switch (d.tool) {
-      case 'circle':
-        return c && d.radiusKm ? [this.circleRing(c, d.radiusKm)] : [];
-      case 'rangeRings': {
-        if (!c || !d.radiusKm) return [];
-        const r = d.radiusKm;
-        const n = d.rings ?? RING_COUNT;
-        return Array.from({ length: n }, (_, i) => this.circleRing(c, (r * (i + 1)) / n));
-      }
-      case 'sector':
-        return c && e && d.radiusKm
-          ? [this.sectorRing(c, d.radiusKm, bearingDeg(c[1], c[0], e[1], e[0]))]
-          : [];
-      case 'rectangle':
-        return c && e ? [this.rectRing(c, e)] : [];
-      case 'polygon':
-        return p.length >= 3 && c ? [[...p, c]] : [];
-      default:
-        return [];
-    }
-  }
-
   // ── feature building ───────────────────────────────────────────────────────
 
   private featuresFor(d: Drawing, draft = false): Feature[] {
@@ -298,7 +223,7 @@ export class MapDrawController {
     }
 
     // area tools
-    const rings = this.polygonRings(d);
+    const rings = polygonRings(d);
     for (const ring of rings) { fill(ring); line(ring); }
     const c = p[0];
     const e = p[1];
@@ -456,11 +381,7 @@ export class MapDrawController {
   // ── persistence ──────────────────────────────────────────────────────────────
 
   private load(): Drawing[] {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr.filter(d => d && typeof d.id === 'string' && Array.isArray(d.points)) : [];
-    } catch { return []; }
+    return loadStoredDrawings();
   }
 
   private save(): void {

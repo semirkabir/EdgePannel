@@ -57,6 +57,7 @@ import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
 import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { SituationReportPanel } from '@/components/SituationReportPanel';
+import { DataSourcesPanel } from '@/components/DataSourcesPanel';
 import { VisitorCounter } from '@/components/VisitorCounter';
 import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -327,6 +328,8 @@ export class EventHandlerManager implements AppModule {
     this.ctx.agentChatPanel = null;
     this.ctx.situationReportPanel?.destroy();
     this.ctx.situationReportPanel = null;
+    this.ctx.dataSourcesPanel?.destroy();
+    this.ctx.dataSourcesPanel = null;
     this.ctx.situationRoomDrawer?.destroy();
     this.ctx.situationRoomDrawer = null;
     this.ctx.visitorCounter?.destroy();
@@ -1002,6 +1005,21 @@ export class EventHandlerManager implements AppModule {
       sitrepOverflow.insertBefore(sitrepBtn, mount || null);
     } else if (sitrepHeaderRight) {
       sitrepHeaderRight.insertBefore(sitrepBtn, mount?.parentElement === sitrepHeaderRight ? mount : null);
+    }
+
+    // Data sources & pipeline health — an auditable view of where data comes from.
+    this.ctx.dataSourcesPanel = new DataSourcesPanel();
+    const sourcesBtn = document.createElement('button');
+    sourcesBtn.type = 'button';
+    sourcesBtn.className = 'dsrc-open-btn';
+    sourcesBtn.title = 'Data sources & status';
+    sourcesBtn.setAttribute('aria-label', 'Data sources and status');
+    sourcesBtn.textContent = 'DATA';
+    sourcesBtn.addEventListener('click', () => this.ctx.dataSourcesPanel?.open());
+    if (sitrepOverflow) {
+      sitrepOverflow.insertBefore(sourcesBtn, mount || null);
+    } else if (sitrepHeaderRight) {
+      sitrepHeaderRight.insertBefore(sourcesBtn, mount?.parentElement === sitrepHeaderRight ? mount : null);
     }
 
     const mobileBtn = document.getElementById('mobileSettingsBtn');

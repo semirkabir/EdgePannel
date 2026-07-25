@@ -318,8 +318,86 @@
   font-size: 0.75rem;
 }
 .rule-value { font-weight: 600; }
+.rule-value-muted { color: var(--text-dim); font-weight: 400; font-style: italic; }
 .severity-high, .severity-critical { color: var(--semantic-critical); }
 .severity-all { color: var(--text-secondary); }
+
+/* Match mode + geofence chips */
+.rule-match-mode {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+.rule-zone-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--semantic-info);
+  background: color-mix(in srgb, var(--semantic-info) 14%, transparent);
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+
+/* Inline rule editor */
+.rule-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.rule-edit-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rule-edit-row .rule-edit-field { flex: 1; min-width: 110px; }
+.rule-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.rule-edit-field > span { font-weight: 500; }
+.rule-edit-field small { opacity: 0.7; font-weight: 400; }
+.rule-edit-field input,
+.rule-edit-field select {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 7px;
+}
+.rule-edit-field input:focus,
+.rule-edit-field select:focus {
+  outline: none;
+  border-color: var(--semantic-info);
+}
+.rule-edit-field select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.rule-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
 .alerts-footer {
   padding: 12px 16px;
   text-align: center;

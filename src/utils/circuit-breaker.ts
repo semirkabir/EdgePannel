@@ -462,6 +462,49 @@ export function getCircuitBreakerStatus(): Record<string, string> {
   return status;
 }
 
+/** Health classification for a single data source. */
+export type DataSourceHealth = 'live' | 'cached' | 'stale' | 'error' | 'idle';
+
+export interface DataSourceStatus {
+  name: string;
+  health: DataSourceHealth;
+  /** Human-readable status from the breaker. */
+  detail: string;
+  /** Last successful fetch, or null if it has never delivered data. */
+  lastUpdated: number | null;
+  offline: boolean;
+}
+
+/** How old a successful fetch may be before it is reported as stale. */
+const STALE_AFTER_MS = 30 * 60 * 1000;
+
+/**
+ * Snapshot of every registered data source's health — powers the Sources
+ * panel and doubles as an at-a-glance ops view of the fetch pipeline.
+ */
+export function getDataSourceStatuses(now = Date.now()): DataSourceStatus[] {
+  const out: DataSourceStatus[] = [];
+  breakers.forEach((breaker, name) => {
+    const state = breaker.getDataState();
+    const detail = breaker.getStatus();
+    let health: DataSourceHealth;
+    if (breaker.isOnCooldown()) {
+      health = 'error';
+    } else if (state.mode === 'unavailable') {
+      // Never delivered data yet vs. tried and failed.
+      health = state.timestamp === null ? 'idle' : 'error';
+    } else if (state.timestamp !== null && now - state.timestamp > STALE_AFTER_MS) {
+      health = 'stale';
+    } else if (state.mode === 'cached') {
+      health = 'cached';
+    } else {
+      health = 'live';
+    }
+    out.push({ name, health, detail, lastUpdated: state.timestamp, offline: state.offline });
+  });
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function isCircuitBreakerOnCooldown(name: string): boolean {
   const breaker = breakers.get(name);
   return breaker ? breaker.isOnCooldown() : false;

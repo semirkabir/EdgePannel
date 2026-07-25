@@ -40,6 +40,28 @@ export function destinationPoint(lat: number, lon: number, bearing: number, dist
   return [lon2, lat2];
 }
 
+/**
+ * Ray-casting point-in-polygon test. `ring` is a closed or open list of
+ * [lng, lat] pairs; `lng`/`lat` are the test point. Planar test — accurate for
+ * the map-scale zones drawn in the UI, not for polygons spanning a pole or the
+ * antimeridian.
+ */
+export function pointInPolygon(lng: number, lat: number, ring: Array<[number, number]>): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (!a || !b) continue;
+    const [xi, yi] = a;
+    const [xj, yj] = b;
+    // Does the edge straddle the test latitude, and is the crossing east of the point?
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 /** Distance-unit conversions from kilometres. */
 export type DistanceUnit = 'km' | 'mi' | 'nmi';
 
