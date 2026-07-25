@@ -47,6 +47,11 @@ export function workspaceKeys(variant: string = SITE_VARIANT): string[] {
     'worldmonitor-layout-mode',
     'worldmonitor-panel-spans',
     'worldmonitor-panel-col-spans',
+    // Row-drag resize stores pixel heights separately and applies them as an
+    // inline `grid-row: span N`, which overrides the span classes above. Without
+    // this key a restore silently keeps the previous workspace's row heights.
+    'worldmonitor-panel-heights',
+    'map-pinned',
     'map-height',
     'worldmonitor-sidebar-split',
     'worldmonitor-panels-collapsed',

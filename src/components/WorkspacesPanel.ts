@@ -178,9 +178,11 @@ export class WorkspacesPanel {
           <span class="wsp-meta">${w.panelCount} panel${w.panelCount === 1 ? '' : 's'} · ${escapeHtml(formatWhen(w.updatedAt))}${foreign ? ` · saved on ${escapeHtml(w.variant)}` : ''}</span>
         </div>
         <div class="wsp-item-actions">
-          ${foreign ? '' : '<button type="button" class="wsp-apply" title="Apply">Apply</button>'}
-          <button type="button" class="wsp-rename" aria-label="Rename workspace" title="Rename">✏️</button>
-          <button type="button" class="wsp-delete" aria-label="Delete workspace" title="Delete">×</button>
+          ${foreign
+            ? ''
+            : `<button type="button" class="wsp-apply" title="Apply">Apply</button>
+               <button type="button" class="wsp-rename" aria-label="Rename workspace" title="Rename">✏️</button>
+               <button type="button" class="wsp-delete" aria-label="Delete workspace" title="Delete">×</button>`}
         </div>
       </div>
     `;

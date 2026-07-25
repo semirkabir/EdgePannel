@@ -65,6 +65,13 @@ export class MapDrawController {
   private readonly onMove = (e: maplibregl.MapMouseEvent) => this.handleMove(e);
   private readonly onDblClick = (e: maplibregl.MapMouseEvent) => this.handleDblClick(e);
   private readonly onKey = (e: KeyboardEvent) => this.handleKey(e);
+  /** Re-add our source/layers after a basemap style swap wipes them. */
+  private readonly onStyleData = () => {
+    if (this.map.getSource(SRC)) return;
+    this.layersReady = false;
+    this.ensureLayers();
+    this.render();
+  };
 
   constructor(map: maplibregl.Map) {
     this.map = map;
@@ -79,11 +86,16 @@ export class MapDrawController {
     this.buildToolbar();
     this.render();
     document.addEventListener('keydown', this.onKey);
+    // Switching basemap calls setStyle(), which drops every custom source and
+    // layer. Without this the drawings survive in memory but vanish from the
+    // map until reload.
+    this.map.on('styledata', this.onStyleData);
   }
 
   destroy(): void {
     this.deactivate();
     document.removeEventListener('keydown', this.onKey);
+    this.map.off('styledata', this.onStyleData);
     this.toolbar?.remove();
     this.readout?.remove();
     const m = this.map;
@@ -160,7 +172,12 @@ export class MapDrawController {
         layout: {
           'text-field': ['get', 'label'],
           'text-size': 11,
-          'text-font': ['Noto Sans Regular', 'Open Sans Regular', 'Arial Unicode MS Regular'],
+          // A text-font array is a composite fontstack, not a fallback list: the
+          // glyph server is asked for the comma-joined name. Both the protomaps
+          // and OpenFreeMap glyph endpoints 404 on multi-font stacks, which
+          // silently drops every measurement label. "Noto Sans Regular" is the
+          // one stack all three basemap providers serve.
+          'text-font': ['Noto Sans Regular'],
           'text-offset': [0, -0.8],
           'text-anchor': 'bottom',
           'text-allow-overlap': true,
