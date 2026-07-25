@@ -400,6 +400,7 @@ export class App {
       agentChatPanel: null,
       situationReportPanel: null,
       dataSourcesPanel: null,
+      workspacesPanel: null,
       situationRoomDrawer: null,
       visitorCounter: null,
       pizzintIndicator: null,

@@ -58,6 +58,7 @@ import { UnifiedSettings } from '@/components/UnifiedSettings';
 import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { SituationReportPanel } from '@/components/SituationReportPanel';
 import { DataSourcesPanel } from '@/components/DataSourcesPanel';
+import { WorkspacesPanel } from '@/components/WorkspacesPanel';
 import { VisitorCounter } from '@/components/VisitorCounter';
 import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -330,6 +331,8 @@ export class EventHandlerManager implements AppModule {
     this.ctx.situationReportPanel = null;
     this.ctx.dataSourcesPanel?.destroy();
     this.ctx.dataSourcesPanel = null;
+    this.ctx.workspacesPanel?.destroy();
+    this.ctx.workspacesPanel = null;
     this.ctx.situationRoomDrawer?.destroy();
     this.ctx.situationRoomDrawer = null;
     this.ctx.visitorCounter?.destroy();
@@ -1020,6 +1023,21 @@ export class EventHandlerManager implements AppModule {
       sitrepOverflow.insertBefore(sourcesBtn, mount || null);
     } else if (sitrepHeaderRight) {
       sitrepHeaderRight.insertBefore(sourcesBtn, mount?.parentElement === sitrepHeaderRight ? mount : null);
+    }
+
+    // Workspaces — save and switch between named layouts.
+    this.ctx.workspacesPanel = new WorkspacesPanel();
+    const wspBtn = document.createElement('button');
+    wspBtn.type = 'button';
+    wspBtn.className = 'wsp-open-btn';
+    wspBtn.title = 'Workspaces — save & switch layouts';
+    wspBtn.setAttribute('aria-label', 'Workspaces');
+    wspBtn.textContent = 'VIEWS';
+    wspBtn.addEventListener('click', () => this.ctx.workspacesPanel?.open());
+    if (sitrepOverflow) {
+      sitrepOverflow.insertBefore(wspBtn, mount || null);
+    } else if (sitrepHeaderRight) {
+      sitrepHeaderRight.insertBefore(wspBtn, mount?.parentElement === sitrepHeaderRight ? mount : null);
     }
 
     const mobileBtn = document.getElementById('mobileSettingsBtn');
