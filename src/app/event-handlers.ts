@@ -72,7 +72,7 @@ import { getHeaderTimezone } from '@/services/preferences-content';
 import { loadAlertRules, normalizeAlertRule, saveAlertRules } from '@/services/alert-rules';
 import { formatClockTime } from './header-clock';
 import { savePanelLayoutSnapshot } from './layout-snapshot';
-import { WS_SOURCES, RSS_SOURCES, getSourceDotClass, getSourceLabel } from './source-status';
+import { SourceStatusPanel } from '@/components/SourceStatusPanel';
 import {
   applyPanelDensity,
   confirmAndResetLayout,
@@ -123,8 +123,9 @@ export class EventHandlerManager implements AppModule {
     mapModeChanged:       null as ((e: Event) => void) | null,
   };
   private kbShortcutsOverlay: HTMLElement | null = null;
-  private statusDropdownEl: HTMLElement | null = null;
+  private statusDropdownEl: SourceStatusPanel | null = null;
   private statusDropdownTimer: ReturnType<typeof setTimeout> | null = null;
+  private statusDropdownPinned = false;
   private searchTickerStop: (() => void) | null = null;
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -1645,9 +1646,8 @@ export class EventHandlerManager implements AppModule {
     this.kbShortcutsOverlay = overlay;
   }
 
-  // ─── Live status hover dropdown ───────────────────────────────────────────
+  // ─── Sources & status hover panel ─────────────────────────────────────────
 
-  // Sources that use a persistent WebSocket connection (true "live")
   private setupStatusDropdown(): void {
     const indicator = document.querySelector<HTMLElement>('.status-indicator');
     if (!indicator) return;
@@ -1660,78 +1660,58 @@ export class EventHandlerManager implements AppModule {
       this.showStatusDropdown(indicator);
     });
     indicator.addEventListener('mouseleave', () => {
-      this.statusDropdownTimer = setTimeout(() => this.hideStatusDropdown(), 200);
+      if (this.statusDropdownPinned) return;
+      this.statusDropdownTimer = setTimeout(() => this.hideStatusDropdown(), 220);
+    });
+
+    // The panel re-renders its list in place, so a clicked row/header can be
+    // detached from the DOM before the event finishes bubbling. Read the
+    // dispatch-time path instead of the (possibly stale) target's ancestors.
+    const pathHas = (e: Event, predicate: (node: HTMLElement) => boolean): boolean =>
+      e.composedPath().some(node => node instanceof HTMLElement && predicate(node));
+
+    // Click pins the panel open so search and filters stay usable.
+    indicator.addEventListener('click', (e) => {
+      if (pathHas(e, node => node.classList.contains('ss-panel'))) return;
+      this.statusDropdownPinned = !this.statusDropdownPinned;
+      if (this.statusDropdownPinned) this.showStatusDropdown(indicator);
+      else this.hideStatusDropdown();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!this.statusDropdownPinned) return;
+      if (pathHas(e, node => node === indicator)) return;
+      this.statusDropdownPinned = false;
+      this.hideStatusDropdown();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.statusDropdownEl) {
+        this.statusDropdownPinned = false;
+        this.hideStatusDropdown();
+      }
     });
   }
 
   private showStatusDropdown(anchor: HTMLElement): void {
-    this.hideStatusDropdown();
+    if (this.statusDropdownEl) return;
 
-    const sources = dataFreshness.getAllSources();
-    const dropdown = document.createElement('div');
-    dropdown.className = 'status-dropdown';
-
-    const header = document.createElement('div');
-    header.className = 'status-dropdown-header';
-    header.textContent = 'DATA SOURCES';
-    dropdown.appendChild(header);
-
-    const statusOrder: Record<string, number> = { error: 0, no_data: 1, very_stale: 2, stale: 3, fresh: 4, disabled: 5 };
-
-    const groups = [
-      { label: 'WebSocket', type: 'wss', ids: WS_SOURCES },
-      { label: 'RSS / Feed', type: 'rss', ids: RSS_SOURCES },
-      { label: 'REST API',  type: 'api', ids: null as Set<string> | null },
-    ];
-
-    for (const group of groups) {
-      const groupSources = sources
-        .filter(s => group.ids ? group.ids.has(s.id) : !WS_SOURCES.has(s.id) && !RSS_SOURCES.has(s.id))
-        .sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
-
-      if (groupSources.length === 0) continue;
-
-      const groupLabel = document.createElement('div');
-      groupLabel.className = `status-dropdown-group-label status-dropdown-group-${group.type}`;
-      groupLabel.textContent = group.label;
-      dropdown.appendChild(groupLabel);
-
-      for (const source of groupSources) {
-        const isWs = group.type === 'wss';
-        const row = document.createElement('div');
-        row.className = 'status-dropdown-row';
-
-        const dot = document.createElement('span');
-        dot.className = `status-dropdown-dot status-dropdown-dot-${getSourceDotClass(source.status, isWs)}`;
-        row.appendChild(dot);
-
-        const name = document.createElement('span');
-        name.className = 'status-dropdown-name';
-        name.textContent = source.name;
-        row.appendChild(name);
-
-        const badge = document.createElement('span');
-        badge.className = `status-dropdown-badge status-dropdown-badge-${getSourceDotClass(source.status, isWs)}`;
-        badge.textContent = getSourceLabel(source, isWs);
-        row.appendChild(badge);
-
-        dropdown.appendChild(row);
-      }
-    }
-
-    dropdown.addEventListener('mouseenter', () => {
+    const panel = new SourceStatusPanel();
+    const node = panel.getElement();
+    node.addEventListener('mouseenter', () => {
       if (this.statusDropdownTimer) clearTimeout(this.statusDropdownTimer);
     });
-    dropdown.addEventListener('mouseleave', () => {
-      this.statusDropdownTimer = setTimeout(() => this.hideStatusDropdown(), 200);
+    node.addEventListener('mouseleave', () => {
+      if (this.statusDropdownPinned) return;
+      this.statusDropdownTimer = setTimeout(() => this.hideStatusDropdown(), 220);
     });
 
-    anchor.appendChild(dropdown);
-    this.statusDropdownEl = dropdown;
+    anchor.appendChild(node);
+    this.statusDropdownEl = panel;
   }
 
   private hideStatusDropdown(): void {
-    this.statusDropdownEl?.remove();
+    this.statusDropdownEl?.destroy();
     this.statusDropdownEl = null;
   }
 
