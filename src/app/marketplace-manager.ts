@@ -1,6 +1,6 @@
 import type { AppContext, AppModule } from './app-context';
 import { MarketplaceService } from '@/services/marketplace';
-import { MarketplaceModal } from '@/components/MarketplaceModal';
+import { MarketplaceModal, type MarketplaceTab } from '@/components/MarketplaceModal';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
 import type { MarketplacePanelSelection, MarketplaceSearchResultData, MarketplaceVariant } from '@/types/marketplace';
 import { SITE_VARIANT, STORAGE_KEYS, getVariantStorageKey } from '@/config';
@@ -84,8 +84,8 @@ export class MarketplaceManager implements AppModule {
     this.ctx.marketplace = null;
   }
 
-  public async openModal(): Promise<void> {
-    await this.modal.open();
+  public async openModal(tab?: MarketplaceTab): Promise<void> {
+    await this.modal.open(tab);
   }
 
   public getSearchItems() {

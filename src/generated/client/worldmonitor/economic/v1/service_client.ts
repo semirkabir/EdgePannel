@@ -271,79 +271,6 @@ export interface SearchData360Result {
   description: string;
 }
 
-export interface GetOilInventoriesRequest {}
-
-export interface GetOilInventoriesResponse {
-  crudeWeeks: CrudeInventoryWeekRef[];
-  spr?: OilInventoriesSprSnapshot;
-  natGasWeeks: NatGasWeekRef[];
-  euGas?: OilInventoriesEuGas;
-  ieaStocks?: OilInventoriesIeaStocks;
-  refinery?: OilInventoriesRefinery;
-  updatedAt: string;
-}
-
-export interface CrudeInventoryWeekRef {
-  period: string;
-  stocksMb: number;
-  weeklyChangeMb?: number;
-}
-
-export interface OilInventoriesSprSnapshot {
-  latestStocksMb: number;
-  changeWow: number;
-  weeks: OilInventoriesSprWeek[];
-}
-
-export interface OilInventoriesSprWeek {
-  period: string;
-  stocksMb: number;
-}
-
-export interface NatGasWeekRef {
-  period: string;
-  storBcf: number;
-  weeklyChangeBcf?: number;
-}
-
-export interface OilInventoriesEuGas {
-  fillPct: number;
-  fillPctChange1d: number;
-  trend: string;
-  history: OilInventoriesEuGasDay[];
-}
-
-export interface OilInventoriesEuGasDay {
-  date: string;
-  fillPct: number;
-}
-
-export interface OilInventoriesIeaStocks {
-  dataMonth: string;
-  members: OilInventoriesIeaMember[];
-  europe?: OilInventoriesRegionStats;
-  asiaPacific?: OilInventoriesRegionStats;
-  northAmerica?: OilInventoriesRegionStats;
-}
-
-export interface OilInventoriesIeaMember {
-  iso2: string;
-  daysOfCover?: number;
-  netExporter: boolean;
-  belowObligation: boolean;
-}
-
-export interface OilInventoriesRegionStats {
-  avgDays?: number;
-  minDays?: number;
-  countBelowObligation?: number;
-}
-
-export interface OilInventoriesRefinery {
-  inputsMbpd: number;
-  period: string;
-}
-
 export interface FieldViolation {
   field: string;
   description: string;
@@ -669,29 +596,6 @@ export class EconomicServiceClient {
     }
 
     return await resp.json() as SearchData360Response;
-  }
-
-  async getOilInventories(_req: GetOilInventoriesRequest, options?: EconomicServiceCallOptions): Promise<GetOilInventoriesResponse> {
-    const path = "/api/economic/v1/get-oil-inventories";
-    const url = this.baseURL + path;
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...this.defaultHeaders,
-      ...options?.headers,
-    };
-
-    const resp = await this.fetchFn(url, {
-      method: "GET",
-      headers,
-      signal: options?.signal,
-    });
-
-    if (!resp.ok) {
-      return this.handleError(resp);
-    }
-
-    return await resp.json() as GetOilInventoriesResponse;
   }
 
   private async handleError(resp: Response): Promise<never> {

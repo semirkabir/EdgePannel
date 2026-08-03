@@ -18,10 +18,10 @@ async function computeSignature(secret, payload, timestamp) {
 }
 
 async function makeSignedRequest(body, signature) {
-  return new Request('https://worldmonitor.app/api/stripe-webhook', {
+  return new Request('https://edgepannel.app/api/stripe-webhook', {
     method: 'POST',
     headers: {
-      origin: 'https://worldmonitor.app',
+      origin: 'https://edgepannel.app',
       'content-type': 'application/json',
       'stripe-signature': signature,
     },
@@ -90,7 +90,7 @@ test('processes checkout.session.completed by updating Redis and Convex', async 
     data: {
       object: {
         client_reference_id: 'user_123',
-        metadata: { firebaseUid: 'user_123', tier: 'pro' },
+        metadata: { firebaseUid: 'user_123', tier: 'analyst' },
       },
     },
   });
@@ -103,7 +103,7 @@ test('processes checkout.session.completed by updating Redis and Convex', async 
     const data = await response.json();
     assert.equal(data.processed, true);
     assert.equal(data.firebaseUid, 'user_123');
-    assert.equal(data.tier, 'pro');
+    assert.equal(data.tier, 'analyst');
     assert.equal(fetchCalls.length, 2);
   } finally {
     process.env.STRIPE_WEBHOOK_SECRET = originalSecret;
@@ -140,7 +140,7 @@ test('treats duplicate successful webhook deliveries as safe replays', async () 
     type: 'checkout.session.completed',
     data: {
       object: {
-        metadata: { firebaseUid: 'user_789', tier: 'business' },
+        metadata: { firebaseUid: 'user_789', tier: 'strategist' },
       },
     },
   });

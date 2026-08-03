@@ -24,7 +24,7 @@ export async function getUserTier(): Promise<FeatureTier> {
 
 export function hasPaidSubscription(): boolean {
   const { tier } = getCurrentAuthState();
-  return hasTierAccess(tier, 'pro');
+  return hasTierAccess(tier, 'enthusiast');
 }
 
 export function canAccessFeature(featureKey: string): boolean {

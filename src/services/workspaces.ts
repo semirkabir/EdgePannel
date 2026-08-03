@@ -13,13 +13,45 @@
  * an exact restore requires a reload — {@link applyWorkspace} stages the keys
  * and leaves reloading to the caller.
  */
-import { STORAGE_KEYS, SITE_VARIANT, getVariantStorageKey } from '@/config';
+import { STORAGE_KEYS, SITE_VARIANT, getVariantStorageKey, DEFAULT_PANELS, MONITOR_COLORS } from '@/config';
 import { buildPanelLayoutSnapshot } from '@/app/layout-snapshot';
+import { loadAlertRules, saveAlertRules, normalizeAlertRule } from '@/services/alert-rules';
+import { generateId } from '@/utils';
+import type { DeckTemplate } from '@/config/deck-templates';
+import type { MissionPack } from '@/config/mission-packs';
+import type { Monitor, MapLayers } from '@/types';
 
 export const WORKSPACES_STORAGE_KEY = 'wm-workspaces-v1';
 
 /** Max workspaces kept, to stay well inside the localStorage budget. */
 const MAX_WORKSPACES = 24;
+
+/** Which workspace is currently applied, so nav UI (the top-left switcher) can highlight it. */
+const ACTIVE_WORKSPACE_KEY = 'wm-active-workspace-v1';
+
+export function getActiveWorkspaceId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_WORKSPACE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setActiveWorkspace(id: string): void {
+  try {
+    localStorage.setItem(ACTIVE_WORKSPACE_KEY, id);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearActiveWorkspace(): void {
+  try {
+    localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export interface Workspace {
   id: string;
@@ -142,6 +174,7 @@ export function saveWorkspace(name: string, id?: string): Workspace {
 
   const rest = listWorkspaces().filter(w => w.id !== workspace.id);
   persist([workspace, ...rest]);
+  setActiveWorkspace(workspace.id);
   return workspace;
 }
 
@@ -164,11 +197,107 @@ export function applyWorkspace(id: string): string | null {
       /* skip unwritable key rather than abort the whole restore */
     }
   }
+  setActiveWorkspace(workspace.id);
+  return `${window.location.pathname}${workspace.mapQuery || ''}`;
+}
+
+/** Set panels to exactly `wanted` (plus `map`, always kept on) — replacing the panel set rather than adding to whatever's already on screen. */
+function replacePanels(wanted: Set<string>): boolean {
+  const variant = SITE_VARIANT;
+  const panelsKey = getVariantStorageKey(STORAGE_KEYS.panels, variant);
+  const panels = JSON.parse(JSON.stringify(DEFAULT_PANELS)) as Record<string, { enabled: boolean }>;
+  for (const id of Object.keys(panels)) {
+    const panel = panels[id];
+    if (panel) panel.enabled = wanted.has(id) || id === 'map';
+  }
+  try {
+    const serialized = JSON.stringify(panels);
+    localStorage.setItem(panelsKey, serialized);
+    localStorage.setItem(STORAGE_KEYS.panels, serialized);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Create a new named workspace from a themed preset: every panel is set to
+ * exactly the template's `recommendedPanels` (plus `map`, always kept on).
+ * Returns the URL to navigate to for an exact restore, or null if the panel
+ * settings couldn't be written.
+ */
+export function createWorkspaceFromTemplate(template: DeckTemplate): string | null {
+  if (!replacePanels(new Set(template.recommendedPanels))) return null;
+  const workspace = saveWorkspace(template.name);
+  return `${window.location.pathname}${workspace.mapQuery || ''}`;
+}
+
+/**
+ * Create a new named workspace from a Mission Pack. Panels replace the current
+ * set (like {@link createWorkspaceFromTemplate}); map layers, sources, monitors,
+ * and alert rules are layered on additively since those are cross-cutting app
+ * state, not something a single deck "owns" — enabling them here just means
+ * they're already on by the time the deck's snapshot is captured.
+ */
+export function createWorkspaceFromMissionPack(pack: MissionPack): string | null {
+  if (!replacePanels(new Set(pack.recommendedPanels))) return null;
+
+  try {
+    // App.ts reads the variant-scoped key on load; write both so the layers
+    // survive the reload createDeckFromMissionPack triggers right after this.
+    const variantLayersKey = getVariantStorageKey(STORAGE_KEYS.mapLayers, SITE_VARIANT);
+    const layers = JSON.parse(localStorage.getItem(variantLayersKey) || localStorage.getItem(STORAGE_KEYS.mapLayers) || '{}') as MapLayers;
+    for (const layer of pack.recommendedLayers) layers[layer] = true;
+    const serializedLayers = JSON.stringify(layers);
+    localStorage.setItem(variantLayersKey, serializedLayers);
+    localStorage.setItem(STORAGE_KEYS.mapLayers, serializedLayers);
+  } catch {
+    /* non-fatal — deck still saves with whatever layers were already on */
+  }
+
+  try {
+    const disabled = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEYS.disabledFeeds) || '[]'));
+    for (const source of pack.recommendedSources) disabled.delete(source);
+    localStorage.setItem(STORAGE_KEYS.disabledFeeds, JSON.stringify([...disabled]));
+  } catch {
+    /* non-fatal */
+  }
+
+  try {
+    const existing = JSON.parse(localStorage.getItem(STORAGE_KEYS.monitors) || '[]') as Monitor[];
+    const existingNames = new Set(existing.map((m) => m.name || m.keywords.join(',')));
+    const added = pack.monitorTemplates
+      .filter((m) => !existingNames.has(m.name || m.keywords.join(',')))
+      .map((m, index) => ({
+        ...m,
+        id: generateId(),
+        color: MONITOR_COLORS[(existing.length + index) % MONITOR_COLORS.length] ?? '#60a5fa',
+      }));
+    if (added.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.monitors, JSON.stringify([...existing, ...added]));
+    }
+  } catch {
+    /* non-fatal */
+  }
+
+  try {
+    const existingRules = loadAlertRules();
+    const existingNames = new Set(existingRules.map((r) => r.name));
+    const added = pack.alertRuleTemplates
+      .filter((r) => r.name && !existingNames.has(r.name))
+      .map((r) => normalizeAlertRule(r));
+    if (added.length > 0) saveAlertRules([...existingRules, ...added]);
+  } catch {
+    /* non-fatal */
+  }
+
+  const workspace = saveWorkspace(pack.name);
   return `${window.location.pathname}${workspace.mapQuery || ''}`;
 }
 
 export function deleteWorkspace(id: string): void {
   persist(listWorkspaces().filter(w => w.id !== id));
+  if (getActiveWorkspaceId() === id) clearActiveWorkspace();
 }
 
 export function renameWorkspace(id: string, name: string): void {

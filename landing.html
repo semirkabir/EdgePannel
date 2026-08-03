@@ -56,9 +56,18 @@
         </a>
         <nav class="lp-nav-links" aria-label="Page sections">
           <a href="#live">Live now</a>
-          <a href="#product">Product</a>
+          <div class="lp-nav-drop">
+            <button type="button" class="lp-nav-drop-btn" aria-expanded="false" aria-haspopup="true">Product <span aria-hidden="true">▾</span></button>
+            <div class="lp-nav-drop-menu" role="menu">
+              <a role="menuitem" href="#product">Overview</a>
+              <a role="menuitem" href="/lenses">Six lenses</a>
+              <a role="menuitem" href="/dossiers">Country dossiers</a>
+              <a role="menuitem" href="/commander">⌘K Commander</a>
+              <a role="menuitem" href="/resources">OSINT resources</a>
+            </div>
+          </div>
           <a href="#who">Who it's for</a>
-          <a href="#lenses">Lenses</a>
+          <a href="/pricing">Pricing</a>
           <a href="#faq">FAQ</a>
           <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
         </nav>
@@ -70,8 +79,12 @@
       <nav class="lp-nav-menu" id="nav-menu" aria-label="Page sections">
         <a href="#live">Live now</a>
         <a href="#product">Product</a>
+        <a href="/lenses">Six lenses</a>
+        <a href="/dossiers">Country dossiers</a>
+        <a href="/commander">⌘K Commander</a>
+        <a href="/resources">OSINT resources</a>
+        <a href="/pricing">Pricing</a>
         <a href="#who">Who it's for</a>
-        <a href="#lenses">Lenses</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
       </nav>
@@ -97,7 +110,7 @@
             <a class="lp-btn lp-btn-primary lp-btn-lg" href="/app">Launch the dashboard <span aria-hidden="true">→</span></a>
             <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#live">See what's live <span aria-hidden="true">↓</span></a>
           </div>
-          <p class="lp-micro">Free · No signup · Runs in your browser</p>
+          <p class="lp-micro">Free · No signup · Runs in your browser<span id="gh-stars" hidden> · <a class="lp-gh-stars" href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">★ <span id="gh-stars-count"></span> on GitHub</a></span></p>
           <dl class="lp-hero-stats">
             <div><dt data-count="60">60</dt><dd>map layers</dd></div>
             <div><dt data-count="680" data-suffix="+">680+</dt><dd>live feeds</dd></div>
@@ -117,6 +130,29 @@
             No mockups. The numbers below are fetched live while you read — a small
             sample of what the full map watches around the clock.
           </p>
+          <article class="lp-pulse lp-reveal" data-widget="pulse">
+            <div class="lp-pulse-main">
+              <header class="lp-pulse-header">
+                <h3>Global instability index</h3>
+                <span class="lp-live-badge">live</span>
+              </header>
+              <div class="lp-pulse-score">
+                <span class="lp-pulse-num" data-slot="score">–</span>
+                <span class="lp-pulse-denom">/ 100</span>
+              </div>
+              <span class="lp-pulse-level" data-slot="level">connecting…</span>
+              <p class="lp-pulse-note">
+                Fused from live conflict, unrest, outage and security signals — the
+                same score behind every <a href="/dossiers">country dossier</a> in the app.
+              </p>
+            </div>
+            <div class="lp-pulse-side">
+              <h4>Highest pressure right now</h4>
+              <ul class="lp-live-rows" data-slot="rows">
+                <li class="lp-live-placeholder">Connecting…</li>
+              </ul>
+            </div>
+          </article>
           <div class="lp-live-grid lp-reveal">
             <article class="lp-live-card" data-widget="markets">
               <header><h3>Markets</h3><span class="lp-live-badge">live</span></header>
@@ -143,9 +179,13 @@
               </ul>
             </article>
           </div>
+          <div class="lp-ticker lp-reveal" aria-label="Sample of live data sources">
+            <div class="lp-ticker-track" data-slot="ticker-track"></div>
+          </div>
           <p class="lp-footnote lp-reveal">
-            Sources are cited on every panel inside the app — don't take the numbers on
-            faith, <a href="/app">open the map and count</a>.
+            A sample of the 680+ feeds the map watches. Sources are cited on every panel
+            inside the app — don't take the numbers on faith,
+            <a href="/app">open the map and count</a>.
           </p>
         </div>
       </section>
@@ -167,7 +207,7 @@
               <span class="lp-frame-title">edgepannel.app — global situation</span>
               <span class="lp-frame-open">click to open live →</span>
             </span>
-            <span class="lp-frame-shots">
+            <span class="lp-frame-shots lp-shot">
               <img
                 src="/landing/dashboard.jpg"
                 alt="EdgePannel dashboard: dark world map with live signal layers, news feeds and market panels"
@@ -190,6 +230,76 @@
             <li><strong>Country dossiers.</strong> Click any country for instability scores, active signals and an AI brief with cited headlines.</li>
             <li><strong>Works offline-first.</strong> Installable PWA in 21 languages, RTL included.</li>
           </ul>
+        </div>
+      </section>
+
+      <div class="lp-divider" aria-hidden="true"><span></span></div>
+
+      <!-- ============ CAPABILITIES ============ -->
+      <section class="lp-section" id="capabilities">
+        <div class="lp-container">
+          <p class="lp-label lp-reveal">Inside the dashboard</p>
+          <h2 class="lp-h2 lp-reveal">Depth, not just dots on a map.</h2>
+          <p class="lp-section-sub lp-reveal">
+            Every layer is wired to a panel, a score and a keyboard shortcut. These
+            are counted from the shipping build, not rounded up for a landing page.
+          </p>
+          <dl class="lp-statstrip lp-reveal">
+            <div><dt data-count="137">137</dt><dd>⌘K commands</dd></div>
+            <div><dt data-count="64">64</dt><dd>live panels</dd></div>
+            <div><dt data-count="250">250</dt><dd>country profiles</dd></div>
+            <div><dt data-count="11">11</dt><dd>layer categories</dd></div>
+          </dl>
+          <div class="lp-bento lp-reveal">
+            <a class="lp-card" href="/app" style="--lp-card: #3dffa2">
+              <span class="lp-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg>
+              </span>
+              <h3>60 map layers</h3>
+              <p>Ships, flights, fires, cables, outages and conflict events — grouped into 11 categories you can toggle one at a time.</p>
+              <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
+            </a>
+            <a class="lp-card" href="/commander" style="--lp-card: #7aa8ff">
+              <span class="lp-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 10 3 2.5L7 15"/><path d="M12.5 15H17"/></svg>
+              </span>
+              <h3>⌘K commander</h3>
+              <p>137 commands plus every country — jump to any layer, panel or region without learning the UI.</p>
+              <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
+            </a>
+            <a class="lp-card" href="/dossiers" style="--lp-card: #ffd166">
+              <span class="lp-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h4"/></svg>
+              </span>
+              <h3>Country dossiers</h3>
+              <p>Click any country for a live 0–100 instability score, its active signals and an AI brief with cited headlines.</p>
+              <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
+            </a>
+            <a class="lp-card" href="/app" style="--lp-card: #b79dff">
+              <span class="lp-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 4.4L18 9l-4.1 1.6L12 15l-1.9-4.4L6 9l4.1-1.6L12 3Z"/><path d="M18.5 15v3M20 16.5h-3"/><path d="M5.5 16v2M6.5 17h-2"/></svg>
+              </span>
+              <h3>Situation reports</h3>
+              <p>AI briefs on any region, with the model, the prompt window and the source headlines shown alongside the output.</p>
+              <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
+            </a>
+            <a class="lp-card" href="/app" style="--lp-card: #6de3ff">
+              <span class="lp-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15V10a6 6 0 1 0-12 0v5l-1.5 3h15L18 15Z"/><path d="M10 21h4"/></svg>
+              </span>
+              <h3>Geofenced alerts</h3>
+              <p>Draw an area, pick the signals that matter inside it, and get told the moment one of them fires.</p>
+              <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
+            </a>
+            <a class="lp-card" href="/app" style="--lp-card: #ffb6d9">
+              <span class="lp-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="13" width="7" height="7" rx="1.5"/><rect x="14" y="13" width="7" height="7" rx="1.5"/></svg>
+              </span>
+              <h3>Workspaces</h3>
+              <p>Save named panel layouts — morning brief, market open, one crisis — and switch the whole dashboard in a click.</p>
+              <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
+            </a>
+          </div>
         </div>
       </section>
 
@@ -336,7 +446,7 @@
       <!-- ============ FINAL CTA ============ -->
       <section class="lp-final" id="launch">
         <div class="lp-container">
-          <h2 class="lp-h2 lp-reveal">The map is already moving.</h2>
+          <h2 class="lp-h2 lp-reveal">The map is <span class="lp-h1-accent">already moving.</span></h2>
           <p class="lp-section-sub lp-reveal">
             Ships reroute, markets reprice, quakes register — while this page sits
             still. Open the live view and see for yourself.
@@ -356,10 +466,12 @@
         </a>
         <nav class="lp-footer-links" aria-label="Footer">
           <a href="/app">Dashboard</a>
+          <a href="/lenses">Six lenses</a>
+          <a href="/dossiers">Country dossiers</a>
+          <a href="/commander">⌘K Commander</a>
+          <a href="/resources">Resources</a>
+          <a href="/pricing">Pricing</a>
           <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
-          <a href="https://tech.edgepannel.app">Tech</a>
-          <a href="https://finance.edgepannel.app">Finance</a>
-          <a href="https://conflicts.edgepannel.app">Conflicts</a>
         </nav>
         <p class="lp-footer-legal">© 2026 EdgePannel · AGPL-3.0</p>
       </div>

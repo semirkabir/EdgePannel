@@ -411,7 +411,7 @@ export class LiveNewsPanel extends Panel {
   private idleCallbackId: number | ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    super({ id: 'live-news', title: t('panels.liveNews'), className: 'panel-wide' });
+    super({ id: 'live-news', title: t('panels.liveNews'), className: 'panel-wide', showExpandButton: false });
     this.youtubeOrigin = LiveNewsPanel.resolveYouTubeOrigin();
     this.playerElementId = `live-news-player-${Date.now()}`;
     this.channels = loadChannelsFromStorage();

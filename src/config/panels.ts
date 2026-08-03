@@ -1,5 +1,4 @@
 import type { PanelConfig, MapLayers } from '@/types';
-import type { DataSourceId } from '@/services/data-freshness';
 import { SITE_VARIANT } from './variant';
 import { isDesktopRuntime } from '@/services/runtime';
 import { applyLocalDevPanelStability } from '@/services/local-dev-stability';
@@ -35,7 +34,7 @@ const BASE_LAYERS: MapLayers = {
   aptGroups: false,
   gemRisk: false, democracy: false, elections: false,
   earthquakes: false, navWarnings: false, marketPerf: false, tariffBarriers: false,
-  gdeltEvents: false,
+  gdeltEvents: false, satellite: false,
 };
 
 // ============================================
@@ -435,22 +434,6 @@ const MOBILE_LAYERS_BY_VARIANT: Record<string, MapLayers> = {
 export const DEFAULT_PANELS              = applyLocalDevPanelStability(PANELS_BY_VARIANT[SITE_VARIANT] ?? FULL_PANELS);
 export const DEFAULT_MAP_LAYERS          = LAYERS_BY_VARIANT[SITE_VARIANT]        ?? FULL_MAP_LAYERS;
 export const MOBILE_DEFAULT_MAP_LAYERS   = MOBILE_LAYERS_BY_VARIANT[SITE_VARIANT] ?? FULL_MOBILE_MAP_LAYERS;
-
-/** Maps map-layer toggle keys to their data-freshness source IDs (single source of truth). */
-export const LAYER_TO_SOURCE: Partial<Record<keyof MapLayers, DataSourceId[]>> = {
-  military:     ['opensky', 'wingbits'],
-  ais:          ['ais'],
-  natural:      ['usgs'],
-  weather:      ['weather'],
-  outages:      ['outages'],
-  cyberThreats: ['cyber_threats'],
-  protests:     ['acled', 'gdelt_doc'],
-  gdeltEvents:  ['gdelt_events'],
-  sanctions:    ['sanctions'],
-  ucdpEvents:   ['ucdp_events'],
-  displacement: ['unhcr'],
-  climate:      ['climate'],
-};
 
 // ============================================
 // PANEL CATEGORY MAP (variant-aware)

@@ -28,15 +28,15 @@ test('rejects invalid subscription tiers', async () => {
 });
 
 test('requires a uid for self-serve tiers', async () => {
-  const response = await handler(makeRequest('?tier=pro'));
+  const response = await handler(makeRequest('?tier=analyst'));
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: 'Missing uid parameter' });
 });
 
-test('redirects enterprise requests to contact sales', async () => {
+test('rejects the retired enterprise tier', async () => {
   const response = await handler(makeRequest('?tier=enterprise&uid=user_123'));
-  assert.equal(response.status, 302);
-  assert.equal(response.headers.get('location'), 'mailto:sales@edgepannel.app?subject=Enterprise%20Inquiry');
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: 'Invalid tier' });
 });
 
 test('returns 503 when Stripe is not configured', async () => {
@@ -49,7 +49,7 @@ test('returns 503 when Stripe is not configured', async () => {
   };
 
   try {
-    const response = await handler(makeAuthedRequest('?tier=pro&uid=user_123'));
+    const response = await handler(makeAuthedRequest('?tier=analyst&uid=user_123'));
     assert.equal(response.status, 503);
     const data = await response.json();
     assert.equal(data.error, 'Stripe is not configured');
@@ -75,7 +75,7 @@ test('creates a Stripe checkout session and redirects to the hosted URL', async 
   };
 
   try {
-    const response = await handler(makeAuthedRequest('?tier=pro&uid=user_123'));
+    const response = await handler(makeAuthedRequest('?tier=analyst&uid=user_123'));
     assert.equal(response.status, 303);
     assert.equal(response.headers.get('location'), 'https://checkout.stripe.test/session');
     const stripeCall = fetchCalls.find(call => call.url === 'https://api.stripe.com/v1/checkout/sessions');
@@ -84,9 +84,9 @@ test('creates a Stripe checkout session and redirects to the hosted URL', async 
 
     const body = String(stripeCall.init.body);
     assert.match(body, /metadata%5BfirebaseUid%5D=user_123/);
-    assert.match(body, /metadata%5Btier%5D=pro/);
-    assert.match(body, /success_url=https%3A%2F%2Fedgepannel\.app%2F%3Fcheckout%3Dsuccess%26tier%3Dpro/);
-    assert.match(body, /cancel_url=https%3A%2F%2Fedgepannel\.app%2F%3Fcheckout%3Dcanceled/);
+    assert.match(body, /metadata%5Btier%5D=analyst/);
+    assert.match(body, /success_url=https%3A%2F%2Fedgepannel\.app%2Fapp%3Fcheckout%3Dsuccess%26tier%3Danalyst/);
+    assert.match(body, /cancel_url=https%3A%2F%2Fedgepannel\.app%2Fpricing%3Fcheckout%3Dcanceled/);
   } finally {
     process.env.STRIPE_SECRET_KEY = originalStripeKey;
     globalThis.fetch = originalFetch;

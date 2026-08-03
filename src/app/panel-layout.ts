@@ -94,12 +94,13 @@ import {
   APP_TIME_RANGE_EVENT,
   APP_TIME_RANGE_STORAGE_KEY,
   NEWS_REFRESH_SWEEP_EVENT,
-  generateCategoryId,
   getRelatedAssetLayer,
-  loadCustomCategories,
-  saveCustomCategories,
-  type CustomCategory,
+  clearLegacyCategories,
+  renderWorkspaceTabsHtml,
+  canSwitchVariantInPlace,
+  SITE_VARIANTS,
 } from './panel-layout-helpers';
+import { applyWorkspace } from '@/services/workspaces';
 import permanentLogoUrl from '@/assets/edgepannel-logo.png';
 
 export interface PanelLayoutCallbacks {
@@ -119,8 +120,6 @@ export class PanelLayoutManager implements AppModule {
   private criticalBannerEl: HTMLElement | null = null;
   private aviationCommandBar: AviationCommandBar | null = null;
   private readonly applyTimeRangeFilterDebounced: (() => void) & { cancel(): void };
-  private customCategories: CustomCategory[] = [];
-  private hoverTimers: Map<string, number> = new Map();
   private newsRefreshSweepCleanup: (() => void) | null = null;
   private scheduledLoadAllRaf: number | null = null;
   private scrollBtnCleanup: (() => void) | null = null;
@@ -131,7 +130,8 @@ export class PanelLayoutManager implements AppModule {
     this.applyTimeRangeFilterDebounced = debounce(() => {
       this.applyTimeRangeFilterToNewsPanels();
     }, 120);
-    this.customCategories = loadCustomCategories();
+    // Legacy custom categories were label-only and clicking one did nothing — drop them.
+    clearLegacyCategories();
   }
 
   init(): void {
@@ -185,77 +185,20 @@ export class PanelLayoutManager implements AppModule {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <div class="variant-switcher" id="variantSwitcher">${(() => {
-        const local = this.ctx.isDesktopApp || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-        const vHref = (v: string, prod: string) => local || SITE_VARIANT === v ? '#' : prod;
-        const vTarget = (_v: string) => '';
-        const customCats = this.customCategories.map(cat => `
-            <span class="variant-divider"></span>
-            <a href="#"
-               class="variant-option custom-category"
-               data-custom-id="${cat.id}"
-               title="${escapeHtml(cat.name)}">
-              <span class="variant-icon">${cat.icon}</span>
-              <span class="variant-label">${escapeHtml(cat.name)}</span>
-              <button class="variant-delete" data-delete-id="${cat.id}" title="Delete category">×</button>
-            </a>
-        `).join('');
+        const local = canSwitchVariantInPlace();
         return `
-            <a href="${vHref('full', 'https://edgepannel.app')}"
-               class="variant-option ${SITE_VARIANT === 'full' ? 'active' : ''}"
-               data-variant="full"
-               ${vTarget('full')}
-               title="${t('header.world')}${SITE_VARIANT === 'full' ? ` ${t('common.currentVariant')}` : ''}">
-              <span class="variant-icon">🌍</span>
-              <span class="variant-label">${t('header.world')}</span>
-            </a>
+            ${SITE_VARIANTS.map((v, i) => `
+            ${i > 0 ? '<span class="variant-divider"></span>' : ''}
+            <a href="${local || SITE_VARIANT === v.id ? '#' : v.prodUrl}"
+               class="variant-option ${SITE_VARIANT === v.id ? 'active' : ''}"
+               data-variant="${v.id}"
+               title="${t(v.labelKey)}${SITE_VARIANT === v.id ? ` ${t('common.currentVariant')}` : ''}">
+              <span class="variant-icon">${v.icon}</span>
+              <span class="variant-label">${t(v.labelKey)}</span>
+            </a>`).join('')}
+            <span class="workspace-tabs-group" id="workspaceTabsGroup">${renderWorkspaceTabsHtml()}</span>
             <span class="variant-divider"></span>
-            <a href="${vHref('tech', 'https://tech.edgepannel.app')}"
-               class="variant-option ${SITE_VARIANT === 'tech' ? 'active' : ''}"
-               data-variant="tech"
-               ${vTarget('tech')}
-               title="${t('header.tech')}${SITE_VARIANT === 'tech' ? ` ${t('common.currentVariant')}` : ''}">
-              <span class="variant-icon">💻</span>
-              <span class="variant-label">${t('header.tech')}</span>
-            </a>
-            <span class="variant-divider"></span>
-            <a href="${vHref('finance', 'https://finance.edgepannel.app')}"
-               class="variant-option ${SITE_VARIANT === 'finance' ? 'active' : ''}"
-               data-variant="finance"
-               ${vTarget('finance')}
-               title="${t('header.finance')}${SITE_VARIANT === 'finance' ? ` ${t('common.currentVariant')}` : ''}">
-              <span class="variant-icon">📈</span>
-              <span class="variant-label">${t('header.finance')}</span>
-            </a>
-            <span class="variant-divider"></span>
-            <a href="${vHref('commodity', 'https://commodity.edgepannel.app')}"
-               class="variant-option ${SITE_VARIANT === 'commodity' ? 'active' : ''}"
-               data-variant="commodity"
-               ${vTarget('commodity')}
-               title="${t('header.commodity')}${SITE_VARIANT === 'commodity' ? ` ${t('common.currentVariant')}` : ''}">
-              <span class="variant-icon">⛏️</span>
-              <span class="variant-label">${t('header.commodity')}</span>
-            </a>
-            <span class="variant-divider"></span>
-            <a href="${vHref('happy', 'https://happy.edgepannel.app')}"
-               class="variant-option ${SITE_VARIANT === 'happy' ? 'active' : ''}"
-               data-variant="happy"
-               ${vTarget('happy')}
-               title="${t('header.happy')}${SITE_VARIANT === 'happy' ? ` ${t('common.currentVariant')}` : ''}">
-              <span class="variant-icon">☀️</span>
-              <span class="variant-label">${t('header.happy')}</span>
-            </a>
-            <span class="variant-divider"></span>
-            <a href="${vHref('conflicts', 'https://conflicts.edgepannel.app')}"
-               class="variant-option ${SITE_VARIANT === 'conflicts' ? 'active' : ''}"
-               data-variant="conflicts"
-               ${vTarget('conflicts')}
-               title="${t('header.conflicts')}${SITE_VARIANT === 'conflicts' ? ` ${t('common.currentVariant')}` : ''}">
-              <span class="variant-icon">⚔️</span>
-              <span class="variant-label">${t('header.conflicts')}</span>
-            </a>
-            ${customCats}
-            <span class="variant-divider"></span>
-            <button class="variant-option new-category" id="newCategoryBtn" title="Create new category">
+            <button class="variant-option new-category" id="newCategoryBtn" title="New deck — start from a themed template">
               <span class="variant-icon">+</span>
               <span class="variant-label">New</span>
             </button>`;
@@ -313,43 +256,6 @@ export class PanelLayoutManager implements AppModule {
         <div class="shell-guidance-actions">
           <button type="button" class="shell-guidance-btn" id="shellGuidanceSearch">Open search</button>
           <button type="button" class="shell-guidance-btn" id="shellGuidanceDismiss">Dismiss</button>
-        </div>
-      </div>
-      <div class="workspace-setup-overlay" id="workspaceSetupOverlay">
-        <div class="workspace-setup-modal">
-          <div class="workspace-setup-header">
-            <div>
-              <div class="workspace-setup-eyebrow">Start with a mission</div>
-              <h2>Build a useful workspace in one click</h2>
-            </div>
-            <button class="workspace-setup-close" id="workspaceSetupClose" aria-label="Close">×</button>
-          </div>
-          <p class="workspace-setup-copy">Choose the question you want to answer first. We’ll add the panels, layers, monitors, and alert defaults that fit that job.</p>
-          <div class="workspace-setup-grid">
-            <button class="workspace-setup-card" data-setup-pack="red-sea-shipping-risk">
-              <strong>Monitor shipping risk</strong>
-              <span>Corridors, ports, chokepoints, conflict spillover</span>
-            </button>
-            <button class="workspace-setup-card" data-setup-pack="critical-minerals-exposure">
-              <strong>Track critical minerals</strong>
-              <span>Refineries, trade, sovereign risk, bottlenecks</span>
-            </button>
-            <button class="workspace-setup-card" data-setup-pack="ai-defense-watch">
-              <strong>Watch AI + defense</strong>
-              <span>Markets, launches, cyber, procurement catalysts</span>
-            </button>
-            <button class="workspace-setup-card" data-setup-pack="infrastructure-disruption">
-              <strong>Watch infrastructure</strong>
-              <span>Cables, pipelines, outages, GPS interference</span>
-            </button>
-            <button class="workspace-setup-card" data-setup-pack="sovereign-stress">
-              <strong>Track sovereign stress</strong>
-              <span>Debt, unrest, macro, and instability signals</span>
-            </button>
-          </div>
-          <div class="workspace-setup-actions">
-            <button type="button" class="shell-guidance-btn" id="workspaceSetupSkip">I’ll configure it myself</button>
-          </div>
         </div>
       </div>
       ${LIMITED_LOCAL_RPC_DEV_MODE && !isLocalDevApiNoticeDismissed() ? `
@@ -468,10 +374,6 @@ export class PanelLayoutManager implements AppModule {
             </div>
             <span class="header-clock" id="headerClock" translate="no"></span>
             <div class="map-header-actions">
-              <div class="map-dimension-toggle" id="mapDimensionToggle">
-                <button class="map-dim-btn active" data-mode="flat" title="2D Map">2D</button>
-                <button class="map-dim-btn" data-mode="globe" title="3D Globe">3D</button>
-              </div>
               <button class="map-pin-btn" id="mapFullscreenBtn" title="Fullscreen">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
               </button>
@@ -480,6 +382,15 @@ export class PanelLayoutManager implements AppModule {
                   <path d="M12 17v5M9 10.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V16a1 1 0 001 1h12a1 1 0 001-1v-.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V7a1 1 0 011-1 1 1 0 001-1V4a1 1 0 00-1-1H8a1 1 0 00-1 1v1a1 1 0 001 1 1 1 0 011 1v3.76z"/>
                 </svg>
               </button>
+            </div>
+          </div>
+          <div class="map-toolbar" id="mapToolbar">
+            <div class="map-toolbar-group" id="mapToolbarLeft"></div>
+            <div class="map-toolbar-group" id="mapToolbarRight">
+              <div class="map-dimension-toggle" id="mapDimensionToggle">
+                <button class="map-dim-btn active" data-mode="flat" title="2D Map">2D</button>
+                <button class="map-dim-btn" data-mode="globe" title="3D Globe">3D</button>
+              </div>
             </div>
           </div>
           <div class="map-container" id="mapContainer"></div>
@@ -497,169 +408,30 @@ export class PanelLayoutManager implements AppModule {
 
     applyStoredMapHeight();
     this.createPanels();
-    this.setupCustomCategoryHandlers();
+    this.setupDeckTabHandlers();
 
     if (this.ctx.isMobile) {
       this.setupMobileMapToggle();
     }
   }
 
-  private setupCustomCategoryHandlers(): void {
+  private setupDeckTabHandlers(): void {
     const variantSwitcher = document.getElementById('variantSwitcher');
     if (!variantSwitcher) return;
 
-    // Handle "New" category button
-    const newCategoryBtn = document.getElementById('newCategoryBtn');
-    newCategoryBtn?.addEventListener('click', () => this.handleCreateCategory());
+    // "New" opens the Marketplace's Decks tab (template gallery included) rather
+    // than creating the label-only custom category this button used to make.
+    document.getElementById('newCategoryBtn')
+      ?.addEventListener('click', () => { void this.ctx.marketplace?.openModal('decks'); });
 
-    // Handle hover effects and delete buttons for custom categories
-    const customCategoryLinks = variantSwitcher.querySelectorAll('.custom-category');
-    customCategoryLinks.forEach((link) => {
-      const categoryId = link.getAttribute('data-custom-id');
-      if (!categoryId) return;
-
-      // Prevent default link behavior on click
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-      });
-
-      // Show delete button after 3 seconds of hover
-      link.addEventListener('mouseenter', () => {
-        const timer = window.setTimeout(() => {
-          link.classList.add('show-delete');
-        }, 3000);
-        this.hoverTimers.set(categoryId, timer);
-      });
-
-      // Cancel timer and hide delete button on mouse leave
-      link.addEventListener('mouseleave', () => {
-        const timer = this.hoverTimers.get(categoryId);
-        if (timer) {
-          window.clearTimeout(timer);
-          this.hoverTimers.delete(categoryId);
-        }
-        link.classList.remove('show-delete');
-      });
-    });
-
-    // Handle delete button clicks
+    // Delegated (survives #workspaceTabsGroup being re-rendered on save/delete/rename).
     variantSwitcher.addEventListener('click', (e) => {
-      const deleteBtn = (e.target as HTMLElement).closest('.variant-delete');
-      if (!deleteBtn) return;
+      const workspaceTab = (e.target as HTMLElement).closest<HTMLAnchorElement>('.workspace-tab');
+      if (!workspaceTab?.dataset.workspaceId) return;
       e.preventDefault();
-      e.stopPropagation();
-      const categoryId = deleteBtn.getAttribute('data-delete-id');
-      if (categoryId) {
-        this.handleDeleteCategory(categoryId);
-      }
+      const url = applyWorkspace(workspaceTab.dataset.workspaceId);
+      if (url) window.location.assign(url);
     });
-  }
-
-  private handleCreateCategory(): void {
-    // Remove any existing modal
-    document.querySelector('.custom-category-modal-overlay')?.remove();
-
-    const overlay = document.createElement('div');
-    overlay.className = 'custom-category-modal-overlay';
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        overlay.remove();
-      }
-    });
-
-    const modal = document.createElement('div');
-    modal.className = 'custom-category-modal';
-
-    const title = document.createElement('div');
-    title.className = 'custom-category-modal-title';
-    title.textContent = 'Create Custom Category';
-    modal.appendChild(title);
-
-    const nameLabel = document.createElement('label');
-    nameLabel.className = 'custom-category-modal-label';
-    nameLabel.textContent = 'Category name';
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.className = 'custom-category-modal-input';
-    nameInput.placeholder = 'e.g. My Watch List';
-    nameInput.maxLength = 40;
-    nameInput.focus();
-    nameLabel.appendChild(nameInput);
-    modal.appendChild(nameLabel);
-
-    const iconLabel = document.createElement('label');
-    iconLabel.className = 'custom-category-modal-label';
-    iconLabel.textContent = 'Icon (emoji)';
-    const iconInput = document.createElement('input');
-    iconInput.type = 'text';
-    iconInput.className = 'custom-category-modal-input';
-    iconInput.placeholder = 'e.g. 🎯 📌 🔔';
-    iconInput.maxLength = 2;
-    iconInput.value = '📁';
-    iconLabel.appendChild(iconInput);
-    modal.appendChild(iconLabel);
-
-    const actions = document.createElement('div');
-    actions.className = 'custom-category-modal-actions';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'custom-category-modal-btn cancel';
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.addEventListener('click', () => overlay.remove());
-    actions.appendChild(cancelBtn);
-
-    const createBtn = document.createElement('button');
-    createBtn.className = 'custom-category-modal-btn create';
-    createBtn.textContent = 'Create';
-    createBtn.addEventListener('click', () => {
-      const name = nameInput.value.trim();
-      if (!name) {
-        nameInput.focus();
-        return;
-      }
-      const icon = iconInput.value.trim() || '📁';
-
-      const newCategory: CustomCategory = {
-        id: generateCategoryId(),
-        name: name,
-        icon: icon,
-        createdAt: Date.now(),
-      };
-
-      this.customCategories.push(newCategory);
-      saveCustomCategories(this.customCategories);
-      overlay.remove();
-      this.renderLayout();
-      this.initShellGuidanceAfterRender();
-    });
-    actions.appendChild(createBtn);
-    modal.appendChild(actions);
-
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    // Allow Enter to create, Escape to cancel
-    nameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') createBtn.click();
-      if (e.key === 'Escape') overlay.remove();
-    });
-    iconInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') createBtn.click();
-      if (e.key === 'Escape') overlay.remove();
-    });
-  }
-
-  private handleDeleteCategory(categoryId: string): void {
-    const category = this.customCategories.find(c => c.id === categoryId);
-    if (!category) return;
-
-    const confirmed = confirm(`Delete category "${category.name}"?`);
-    if (!confirmed) return;
-
-    this.customCategories = this.customCategories.filter(c => c.id !== categoryId);
-    saveCustomCategories(this.customCategories);
-    this.renderLayout();
-    this.initShellGuidanceAfterRender();
   }
 
   private setupMobileMapToggle(): void {

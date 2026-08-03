@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package worldmonitor.alerts.v1;
+
+import "buf/validate/validate.proto";
+import "worldmonitor/alerts/v1/alert_match.proto";
+
+// DeliverAlertWebhookRequest carries a fired alert rule's match details plus the
+// destination webhook URL the user configured on that rule. Gated to the
+// webhook-alerts (analyst+) tier server-side.
+message DeliverAlertWebhookRequest {
+  // The fired rule's match details.
+  AlertMatch match = 1 [(buf.validate.field).required = true];
+  // Destination webhook URL, as configured on the rule. Must be http(s),
+  // validated + SSRF-checked server-side before any request is made.
+  string webhook_url = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.pattern = "^https?://",
+    (buf.validate.field).string.max_len = 2048
+  ];
+}
+
+// DeliverAlertWebhookResponse reports whether the webhook POST succeeded.
+message DeliverAlertWebhookResponse {
+  // True if the destination responded with a 2xx status.
+  bool delivered = 1;
+}

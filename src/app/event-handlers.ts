@@ -2,7 +2,6 @@ import type { AppContext, AppModule } from '@/app/app-context';
 import { log } from '@/utils/logger';
 import type { AirlineIntelPanel } from '@/components/AirlineIntelPanel';
 import type { PanelConfig, CustomFeed } from '@/types';
-import type { MarketplaceVariant } from '@/types/marketplace';
 import type { MapView } from '@/components';
 import type { ClusteredEvent } from '@/types';
 import type { DashboardSnapshot } from '@/services/storage';
@@ -16,7 +15,6 @@ import {
   debounce,
   saveToStorage,
   ExportPanel,
-  generateId,
   getCurrentTheme,
   setThemeWithLinkedMap,
 } from '@/utils';
@@ -27,13 +25,9 @@ import {
   IDLE_PAUSE_MS,
   STORAGE_KEYS,
   SITE_VARIANT,
-  LAYER_TO_SOURCE,
   FEEDS,
   INTEL_SOURCES,
   DEFAULT_PANELS,
-  MONITOR_COLORS,
-  getMissionPack,
-  getVariantStorageKey,
 } from '@/config';
 import {
   saveSnapshot,
@@ -44,7 +38,6 @@ import {
 import { isLoggedIn } from '@/services/user-auth';
 import {
   trackPanelView,
-  trackVariantSwitch,
   trackThemeChanged,
   trackMapViewChange,
   trackMapLayerToggle,
@@ -58,7 +51,7 @@ import { UnifiedSettings } from '@/components/UnifiedSettings';
 import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { SituationReportPanel } from '@/components/SituationReportPanel';
 import { DataSourcesPanel } from '@/components/DataSourcesPanel';
-import { WorkspacesPanel } from '@/components/WorkspacesPanel';
+import { switchToVariant, canSwitchVariantInPlace, SITE_VARIANTS } from '@/app/panel-layout-helpers';
 import { VisitorCounter } from '@/components/VisitorCounter';
 import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -72,10 +65,10 @@ import { showShellNotification } from './shell-notifications';
 import { checkFeatureAccess } from '@/services/auth-modal';
 import { forceSaveToCloud } from '@/services/preferences-sync';
 import { getHeaderTimezone } from '@/services/preferences-content';
-import { loadAlertRules, normalizeAlertRule, saveAlertRules } from '@/services/alert-rules';
 import { formatClockTime } from './header-clock';
 import { savePanelLayoutSnapshot } from './layout-snapshot';
 import { SourceStatusPanel } from '@/components/SourceStatusPanel';
+import { getLayerSources } from '@/config/map-layer-definitions';
 import {
   applyPanelDensity,
   confirmAndResetLayout,
@@ -84,8 +77,6 @@ import {
   setupShellGuidance,
   togglePanelDensity,
 } from './event-handler-shell-ui';
-
-const WORKSPACE_SETUP_DISMISSED_KEY = 'wm-workspace-setup-dismissed-v1';
 
 export interface EventHandlerCallbacks {
   updateSearchIndex: () => void;
@@ -122,7 +113,6 @@ export class EventHandlerManager implements AppModule {
     mapResizeVisChange:   null as (() => void) | null,
     mapFullscreenEsc:     null as ((e: KeyboardEvent) => void) | null,
     mobileMenuKey:        null as ((e: KeyboardEvent) => void) | null,
-    missionPackApply:     null as ((e: Event) => void) | null,
     mapModeChanged:       null as ((e: Event) => void) | null,
   };
   private kbShortcutsOverlay: HTMLElement | null = null;
@@ -147,35 +137,16 @@ export class EventHandlerManager implements AppModule {
     this.callbacks = callbacks;
   }
 
-  private switchVariant(variant: string): void {
-    trackVariantSwitch(SITE_VARIANT, variant);
-    localStorage.setItem('worldmonitor-variant', variant);
-
-    // Clear persisted UI/map state for the old variant only
-    localStorage.removeItem(STORAGE_KEYS.mapLayers);
-    localStorage.removeItem(getVariantStorageKey(STORAGE_KEYS.panels, SITE_VARIANT));
-    localStorage.removeItem('panel-order');
-    localStorage.removeItem('panel-order-bottom');
-    localStorage.removeItem('panel-order-bottom-set');
-    localStorage.removeItem('worldmonitor-panel-spans');
-
-    // Drop query params like ?layers=... that can override variant defaults.
-    const cleanUrl = `${window.location.origin}${window.location.pathname}`;
-    window.location.assign(cleanUrl);
-  }
-
   init(): void {
     this.setupEventListeners();
     applyPanelDensity();
     setupShellGuidance(this.ctx.isMobile);
-    this.setupWorkspaceSetup();
     setupMobileHelpSheet(this.ctx.isMobile);
     new OnboardingHints().init();
     this.setupIdleDetection();
     this.setupTvMode();
     this.setupBloombergShortcuts();
     this.setupStatusDropdown();
-    this.setupMissionPackHandling();
 
     // Update header status indicator when auth state changes
     subscribeToAuth(() => {
@@ -307,10 +278,6 @@ export class EventHandlerManager implements AppModule {
       document.removeEventListener('keydown', this.handlers.mobileMenuKey);
       this.handlers.mobileMenuKey = null;
     }
-    if (this.handlers.missionPackApply) {
-      window.removeEventListener('wm:apply-mission-pack', this.handlers.missionPackApply);
-      this.handlers.missionPackApply = null;
-    }
     if (this.handlers.mapModeChanged) {
       window.removeEventListener(MAP_MODE_CHANGE_EVENT, this.handlers.mapModeChanged);
       this.handlers.mapModeChanged = null;
@@ -331,121 +298,12 @@ export class EventHandlerManager implements AppModule {
     this.ctx.situationReportPanel = null;
     this.ctx.dataSourcesPanel?.destroy();
     this.ctx.dataSourcesPanel = null;
-    this.ctx.workspacesPanel?.destroy();
-    this.ctx.workspacesPanel = null;
     this.ctx.situationRoomDrawer?.destroy();
     this.ctx.situationRoomDrawer = null;
     this.ctx.visitorCounter?.destroy();
     this.ctx.visitorCounter = null;
     this.whatsNewPanel?.hide();
     this.whatsNewPanel = null;
-  }
-
-  private setupMissionPackHandling(): void {
-    this.handlers.missionPackApply = (event: Event) => {
-      const detail = (event as CustomEvent<{ packId?: string }>).detail;
-      if (detail?.packId) this.applyMissionPack(detail.packId);
-    };
-    window.addEventListener('wm:apply-mission-pack', this.handlers.missionPackApply);
-  }
-
-  private setupWorkspaceSetup(): void {
-    const overlay = document.getElementById('workspaceSetupOverlay');
-    if (!overlay) return;
-
-    const dismiss = (): void => {
-      overlay.classList.remove('open');
-      localStorage.setItem(WORKSPACE_SETUP_DISMISSED_KEY, '1');
-    };
-
-    document.getElementById('workspaceSetupClose')?.addEventListener('click', dismiss);
-    document.getElementById('workspaceSetupSkip')?.addEventListener('click', dismiss);
-    overlay.querySelectorAll<HTMLElement>('[data-setup-pack]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const packId = button.dataset.setupPack;
-        if (!packId) return;
-        window.dispatchEvent(new CustomEvent('wm:apply-mission-pack', { detail: { packId } }));
-        dismiss();
-      });
-    });
-
-    if (!localStorage.getItem(WORKSPACE_SETUP_DISMISSED_KEY)) {
-      window.setTimeout(() => overlay.classList.add('open'), 450);
-    }
-  }
-
-  private applyMissionPack(packId: string): void {
-    const pack = getMissionPack(packId);
-    if (!pack || !pack.compatibleVariants.includes(SITE_VARIANT as MarketplaceVariant)) return;
-
-    let enabledPanels = 0;
-    for (const panelId of pack.recommendedPanels) {
-      const panel = this.ctx.panelSettings[panelId];
-      if (panel && !panel.enabled) {
-        panel.enabled = true;
-        enabledPanels += 1;
-      }
-    }
-    saveToStorage(getVariantStorageKey(STORAGE_KEYS.panels, SITE_VARIANT), this.ctx.panelSettings);
-    this.applyPanelSettings();
-    pack.recommendedPanels.forEach((panelId) => {
-      if (this.ctx.panelSettings[panelId]?.enabled) this.callbacks.loadDataForPanel(panelId);
-    });
-
-    let enabledLayers = 0;
-    for (const layer of pack.recommendedLayers) {
-      if (!this.ctx.mapLayers[layer]) {
-        this.ctx.mapLayers[layer] = true;
-        enabledLayers += 1;
-      }
-    }
-    saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
-    this.ctx.map?.setLayers(this.ctx.mapLayers);
-
-    let enabledSources = 0;
-    for (const source of pack.recommendedSources) {
-      if (!this.ctx.uiStore.isSourceEnabled(source)) {
-        this.ctx.uiStore.enableSource(source);
-        enabledSources += 1;
-      }
-      const enrichmentDataSourceId = getEnrichmentDataSourceId(source);
-      if (enrichmentDataSourceId) {
-        dataFreshness.setEnabled(enrichmentDataSourceId, true);
-      }
-    }
-    saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.uiStore.disabledSources));
-
-    const monitorPanel = this.ctx.panels['monitors'] as import('@/components').MonitorPanel | undefined;
-    const existingMonitors = monitorPanel?.getMonitors() ?? this.ctx.monitors;
-    const monitorNames = new Set(existingMonitors.map((monitor) => monitor.name || monitor.keywords.join(',')));
-    const newMonitors = pack.monitorTemplates
-      .filter((monitor) => !monitorNames.has(monitor.name || monitor.keywords.join(',')))
-      .map((monitor, index) => ({
-        ...monitor,
-        id: generateId(),
-        color: MONITOR_COLORS[(existingMonitors.length + index) % MONITOR_COLORS.length] ?? '#60a5fa',
-      }));
-    if (newMonitors.length > 0) {
-      this.ctx.monitors = [...existingMonitors, ...newMonitors];
-      monitorPanel?.setMonitors(this.ctx.monitors);
-      saveToStorage(STORAGE_KEYS.monitors, this.ctx.monitors);
-      monitorPanel?.renderResults(this.ctx.newsStore.allNews);
-    }
-
-    const alertRules = loadAlertRules();
-    const existingRuleNames = new Set(alertRules.map((rule) => rule.name));
-    const addedRules = pack.alertRuleTemplates
-      .filter((rule) => rule.name && !existingRuleNames.has(rule.name))
-      .map((rule) => normalizeAlertRule(rule));
-    if (addedRules.length > 0) {
-      saveAlertRules([...alertRules, ...addedRules]);
-    }
-
-    this.ctx.unifiedSettings?.refreshPanelToggles();
-    showShellNotification(
-      `${pack.name} applied: ${enabledPanels} panels, ${enabledLayers} layers, ${enabledSources} sources${newMonitors.length ? `, ${newMonitors.length} monitor` : ''}.`,
-      'success',
-    );
   }
 
   private setupEventListeners(): void {
@@ -521,14 +379,13 @@ export class EventHandlerManager implements AppModule {
       trackThemeChanged(next);
     });
 
-    const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    if (this.ctx.isDesktopApp || isLocalDev) {
+    if (canSwitchVariantInPlace()) {
       this.ctx.container.querySelectorAll<HTMLAnchorElement>('.variant-option').forEach(link => {
         link.addEventListener('click', (e) => {
           const variant = link.dataset.variant;
           if (variant && variant !== SITE_VARIANT) {
             e.preventDefault();
-            this.switchVariant(variant);
+            switchToVariant(variant);
           }
         });
       });
@@ -644,24 +501,15 @@ export class EventHandlerManager implements AppModule {
     overlay.addEventListener('click', () => this.closeMobileMenu());
     closeBtn.addEventListener('click', () => this.closeMobileMenu());
 
-    const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     menu.querySelectorAll<HTMLButtonElement>('.mobile-menu-variant').forEach(btn => {
       btn.addEventListener('click', () => {
         const variant = btn.dataset.variant;
-        if (variant && variant !== SITE_VARIANT) {
-          if (this.ctx.isDesktopApp || isLocalDev) {
-            this.switchVariant(variant);
-          } else {
-            const hosts: Record<string, string> = {
-              full: 'https://edgepannel.app',
-              tech: 'https://tech.edgepannel.app',
-              finance: 'https://finance.edgepannel.app',
-              commodity: 'https://commodity.edgepannel.app',
-              happy: 'https://happy.edgepannel.app',
-              conflicts: 'https://conflicts.edgepannel.app',
-            };
-            if (hosts[variant]) window.location.href = hosts[variant] ?? '';
-          }
+        if (!variant || variant === SITE_VARIANT) return;
+        if (canSwitchVariantInPlace()) {
+          switchToVariant(variant);
+        } else {
+          const prodUrl = SITE_VARIANTS.find(v => v.id === variant)?.prodUrl;
+          if (prodUrl) window.location.href = prodUrl;
         }
       });
     });
@@ -1025,15 +873,16 @@ export class EventHandlerManager implements AppModule {
       sitrepHeaderRight.insertBefore(sourcesBtn, mount?.parentElement === sitrepHeaderRight ? mount : null);
     }
 
-    // Workspaces — save and switch between named layouts.
-    this.ctx.workspacesPanel = new WorkspacesPanel();
+    // Decks — save/switch named layouts, now folded into the Marketplace as
+    // the "decks" tab so it sits alongside mission packs and datasets instead
+    // of being a separate surface.
     const wspBtn = document.createElement('button');
     wspBtn.type = 'button';
     wspBtn.className = 'wsp-open-btn';
-    wspBtn.title = 'Workspaces — save & switch layouts';
-    wspBtn.setAttribute('aria-label', 'Workspaces');
-    wspBtn.textContent = 'VIEWS';
-    wspBtn.addEventListener('click', () => this.ctx.workspacesPanel?.open());
+    wspBtn.title = 'Decks — save & switch layouts';
+    wspBtn.setAttribute('aria-label', 'Decks');
+    wspBtn.textContent = 'DECKS';
+    wspBtn.addEventListener('click', () => { void this.ctx.marketplace?.openModal('decks'); });
     if (sitrepOverflow) {
       sitrepOverflow.insertBefore(wspBtn, mount || null);
     } else if (sitrepHeaderRight) {
@@ -1148,11 +997,8 @@ export class EventHandlerManager implements AppModule {
       saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
       this.syncUrlState();
 
-      const sourceIds = LAYER_TO_SOURCE[layer];
-      if (sourceIds) {
-        for (const sourceId of sourceIds) {
-          dataFreshness.setEnabled(sourceId, enabled);
-        }
+      for (const sourceId of getLayerSources(layer)) {
+        dataFreshness.setEnabled(sourceId, enabled);
       }
 
       if (layer === 'ais') {

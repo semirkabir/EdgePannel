@@ -2,19 +2,20 @@ syntax = "proto3";
 
 package worldmonitor.reference.v1;
 
+import "sebuf/http/annotations.proto";
 import "worldmonitor/reference/v1/entity_ref.proto";
 
 // ResolveEntity — resolve any identifier to a full EntityRef.
 message ResolveEntityRequest {
   // Provide exactly one of the following identifiers.
   // If multiple are provided, priority: ticker > isin > lei > q.
-  string ticker = 1;
-  string isin = 2;
-  string lei = 3;
-  string cusip = 4;
+  string ticker = 1 [(sebuf.http.query) = { name: "ticker" }];
+  string isin = 2 [(sebuf.http.query) = { name: "isin" }];
+  string lei = 3 [(sebuf.http.query) = { name: "lei" }];
+  string cusip = 4 [(sebuf.http.query) = { name: "cusip" }];
 
   // Freeform query — type detected automatically by format.
-  string q = 5;
+  string q = 5 [(sebuf.http.query) = { name: "q" }];
 }
 
 message ResolveEntityResponse {
@@ -25,7 +26,7 @@ message ResolveEntityResponse {
 
 // LookupByLei — direct LEI lookup without auto-detection.
 message LookupByLeiRequest {
-  string lei = 1;
+  string lei = 1 [(sebuf.http.query) = { name: "lei" }];
 }
 
 message LookupByLeiResponse {
@@ -34,8 +35,8 @@ message LookupByLeiResponse {
 
 // SearchEntities — full-text search across cached entity names.
 message SearchEntitiesRequest {
-  string query = 1;
-  int32 limit = 2;
+  string query = 1 [(sebuf.http.query) = { name: "query" }];
+  int32 limit = 2 [(sebuf.http.query) = { name: "limit" }];
 }
 
 message SearchEntitiesResponse {

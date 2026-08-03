@@ -1,45 +1,10 @@
 import type { MapLayers } from '@/types';
 import type { MapView, TimeRange } from '@/components/Map';
 import { TIME_RANGE_OPTIONS } from '@/utils/time-range';
+import { LAYER_REGISTRY } from '@/config/map-layer-definitions';
 
-const LAYER_KEYS: (keyof MapLayers)[] = [
-  'conflicts',
-  'bases',
-  'cables',
-  'pipelines',
-  'hotspots',
-  'ais',
-  'nuclear',
-  'irradiators',
-  'sanctions',
-  'weather',
-  'economic',
-  'polymarketMarkets',
-  'waterways',
-  'outages',
-  'cyberThreats',
-  'datacenters',
-  'protests',
-  'flights',
-  'military',
-  'natural',
-  'spaceports',
-  'minerals',
-  'fires',
-  'ucdpEvents',
-  'displacement',
-  'climate',
-  'startupHubs',
-  'cloudRegions',
-  'accelerators',
-  'techHQs',
-  'techEvents',
-  'tradeRoutes',
-  'iranAttacks',
-  'gpsJamming',
-  'ciiChoropleth',
-  'aptGroups',
-];
+/** Every layer key the app knows about — this is what `?layers=` can name. */
+const LAYER_KEYS = Object.keys(LAYER_REGISTRY) as (keyof MapLayers)[];
 
 const VIEW_VALUES: MapView[] = ['global', 'america', 'mena', 'eu', 'asia', 'latam', 'africa', 'oceania'];
 

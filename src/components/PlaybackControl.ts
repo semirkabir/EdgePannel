@@ -20,7 +20,7 @@ interface TierInfo {
 
 function getTierInfo(): TierInfo {
   if (hasPaidSubscription()) return { label: '30-day history', cta: null };
-  if (isLoggedIn())          return { label: '7-day history',  cta: 'Upgrade to Pro for 30-day history →' };
+  if (isLoggedIn())          return { label: '7-day history',  cta: 'Upgrade for 30-day history →' };
   return                            { label: '48h history',    cta: 'Sign in for 7-day history →' };
 }
 

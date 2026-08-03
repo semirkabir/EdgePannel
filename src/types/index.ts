@@ -660,7 +660,7 @@ export interface MapLayers {
   // GPS/GNSS interference layer
   gpsJamming: boolean;
   // Satellite tracking layer
-  satellite?: boolean;
+  satellite: boolean;
 
   // CII choropleth layer
   ciiChoropleth: boolean;

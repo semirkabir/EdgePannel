@@ -15,7 +15,7 @@ import {
   getVariantStorageKey,
 } from '@/config';
 import { initDB, cleanOldSnapshots, isAisConfigured, initAisStream, isOutagesConfigured, disconnectAisStream } from '@/services';
-import { initAuth } from '@/services/user-auth';
+import { initAuth, consumeUpgradeIntent } from '@/services/user-auth';
 import { isLoggedIn } from '@/services/user-auth';
 import { mlWorker } from '@/services/ml-worker';
 import { getAiFlowSettings, subscribeAiFlowChange, isHeadlineMemoryEnabled } from '@/services/ai-flow-settings';
@@ -25,6 +25,7 @@ import type { ParsedMapUrlState } from '@/utils';
 import { BreakingNewsBanner, SignalModal, IntelligenceGapBadge, PredictionBriefPage } from '@/components';
 import { IntelligenceFindingPanel } from '@/components/IntelligenceFindingPanel';
 import { initBreakingNewsAlerts, destroyBreakingNewsAlerts } from '@/services/breaking-news-alerts';
+import { initAlertRuleEngine, destroyAlertRuleEngine } from '@/services/alert-rule-engine';
 import { isDesktopRuntime, waitForSidecarReady } from '@/services/runtime';
 import { BETA_MODE } from '@/config/beta';
 import { trackEvent, trackDeeplinkOpened } from '@/services/analytics';
@@ -61,6 +62,7 @@ export class App {
   private pendingDeepLinkCountry: string | null = null;
   private pendingDeepLinkExpanded = false;
   private pendingDeepLinkStoryCode: string | null = null;
+  private pendingDeepLinkPanel: string | null = null;
 
   private panelLayout: PanelLayoutManager;
   private dataLoader: DataLoaderManager;
@@ -400,7 +402,6 @@ export class App {
       agentChatPanel: null,
       situationReportPanel: null,
       dataSourcesPanel: null,
-      workspacesPanel: null,
       situationRoomDrawer: null,
       visitorCounter: null,
       pizzintIndicator: null,
@@ -541,6 +542,7 @@ export class App {
     await initDB();
     await initI18n();
     initAuth();
+    consumeUpgradeIntent();
     const aiFlow = getAiFlowSettings();
     if (aiFlow.browserModel) {
       await mlWorker.init();
@@ -647,6 +649,11 @@ export class App {
       initBreakingNewsAlerts();
     }
 
+    // Not gated on desktop like the breaking banner above — alert rules are a
+    // paid feature and deliver through the toast/inbox, both of which exist on
+    // mobile.
+    initAlertRuleEngine();
+
     // Phase 3: UI setup methods
     this.eventHandlers.startHeaderClock();
     this.eventHandlers.setupPlaybackControl();
@@ -677,6 +684,7 @@ export class App {
     this.pendingDeepLinkExpanded = initState.expanded === true;
     const earlyParams = new URLSearchParams(window.location.search);
     this.pendingDeepLinkStoryCode = earlyParams.get('c') ?? null;
+    this.pendingDeepLinkPanel = earlyParams.get('panel') ?? null;
     this.eventHandlers.setupUrlStateSync();
 
     this.state.countryBriefPage?.onStateChange?.(() => {
@@ -737,6 +745,7 @@ export class App {
     this.state.notificationCenter?.destroy();
     this.state.breakingNewsBanner?.destroy();
     destroyBreakingNewsAlerts();
+    destroyAlertRuleEngine();
     this.state.map?.destroy();
     disconnectAisStream();
   }
@@ -776,6 +785,20 @@ export class App {
           maximize: deepLinkExpanded,
         });
         this.eventHandlers.syncUrlState();
+      }, DEEP_LINK_INITIAL_DELAY_MS);
+    }
+
+    // Shared-widget deep link: ?panel=<id> (captured early before URL sync)
+    const deepLinkPanel = this.pendingDeepLinkPanel;
+    this.pendingDeepLinkPanel = null;
+    if (deepLinkPanel) {
+      trackDeeplinkOpened('panel', deepLinkPanel);
+      setTimeout(() => {
+        const panelEl = document.querySelector(`[data-panel="${CSS.escape(deepLinkPanel)}"]`);
+        if (!panelEl) return;
+        panelEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        panelEl.classList.add('panel-shared-highlight');
+        setTimeout(() => panelEl.classList.remove('panel-shared-highlight'), 2500);
       }, DEEP_LINK_INITIAL_DELAY_MS);
     }
   }

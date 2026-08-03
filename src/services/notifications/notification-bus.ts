@@ -25,6 +25,14 @@ export interface NotificationInput {
   country?: string;
   action?: AppNotification['action'];
   payload?: unknown;
+  /**
+   * Push regardless of the kind-level `prefs.push` default. For notifications
+   * the user configured explicitly (an alert rule naming the `desktop`
+   * channel), that per-item choice should outrank the global kind default —
+   * `push.signal` is off by default and would otherwise mute it silently.
+   * OS permission and the visibility check still apply.
+   */
+  forcePush?: boolean;
 }
 
 type Listener = () => void;
@@ -126,7 +134,8 @@ class NotificationBus {
     if ((display === 'toast' || display === 'both') && prefs.toast[kind] && this.toastRenderer) {
       try { this.toastRenderer(n); } catch { /* renderer isolated */ }
     }
-    if ((display === 'toast' || display === 'both') && prefs.push[kind]) {
+    const pushAllowed = input.forcePush || ((display === 'toast' || display === 'both') && prefs.push[kind]);
+    if (pushAllowed) {
       this.sendDesktopPush(n);
     }
     return n;

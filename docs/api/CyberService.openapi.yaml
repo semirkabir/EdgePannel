@@ -75,6 +75,52 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
+    /api/cyber/v1/list-known-exploited-vulns:
+        get:
+            tags:
+                - CyberService
+            summary: ListKnownExploitedVulns
+            description: ListKnownExploitedVulns retrieves the CISA Known Exploited Vulnerabilities catalog.
+            operationId: ListKnownExploitedVulns
+            parameters:
+                - name: page_size
+                  in: query
+                  description: Maximum items per page (1-100).
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: cursor
+                  in: query
+                  description: Cursor for next page.
+                  required: false
+                  schema:
+                    type: string
+                - name: search
+                  in: query
+                  description: Optional case-insensitive search across CVE ID, vendor, product, and title.
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListKnownExploitedVulnsResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
         Error:
@@ -146,9 +192,10 @@ components:
                         - CYBER_THREAT_SOURCE_C2INTEL
                         - CYBER_THREAT_SOURCE_OTX
                         - CYBER_THREAT_SOURCE_ABUSEIPDB
+                        - CYBER_THREAT_SOURCE_THREATFOX
                     description: |-
                         CyberThreatSource represents the intelligence source of a cyber threat.
-                         Maps to TS union: 'feodo' | 'urlhaus' | 'c2intel' | 'otx' | 'abuseipdb'.
+                         Maps to TS union: 'feodo' | 'urlhaus' | 'c2intel' | 'otx' | 'abuseipdb' | 'threatfox'.
                 minSeverity:
                     type: string
                     enum:
@@ -198,9 +245,10 @@ components:
                         - CYBER_THREAT_SOURCE_C2INTEL
                         - CYBER_THREAT_SOURCE_OTX
                         - CYBER_THREAT_SOURCE_ABUSEIPDB
+                        - CYBER_THREAT_SOURCE_THREATFOX
                     description: |-
                         CyberThreatSource represents the intelligence source of a cyber threat.
-                         Maps to TS union: 'feodo' | 'urlhaus' | 'c2intel' | 'otx' | 'abuseipdb'.
+                         Maps to TS union: 'feodo' | 'urlhaus' | 'c2intel' | 'otx' | 'abuseipdb' | 'threatfox'.
                 indicator:
                     type: string
                     description: Threat indicator value (IP, domain, or URL).
@@ -250,7 +298,7 @@ components:
                 - id
             description: |-
                 CyberThreat represents a cyber threat indicator aggregated from multiple sources.
-                 Sources include Feodo Tracker, URLhaus, OTX, AbuseIPDB, and C2Intel.
+                 Sources include Feodo Tracker, URLhaus, OTX, AbuseIPDB, C2Intel, and ThreatFox.
         GeoCoordinates:
             type: object
             properties:
@@ -278,3 +326,67 @@ components:
                     format: int32
                     description: Total count of items matching the query, if known. Zero if the total is unknown.
             description: PaginationResponse contains pagination metadata returned alongside list results.
+        ListKnownExploitedVulnsRequest:
+            type: object
+            properties:
+                pageSize:
+                    type: integer
+                    format: int32
+                    description: Maximum items per page (1-100).
+                cursor:
+                    type: string
+                    description: Cursor for next page.
+                search:
+                    type: string
+                    description: Optional case-insensitive search across CVE ID, vendor, product, and title.
+            description: ListKnownExploitedVulnsRequest specifies filters for the CISA KEV catalog.
+        ListKnownExploitedVulnsResponse:
+            type: object
+            properties:
+                vulnerabilities:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/KnownExploitedVulnerability'
+                pagination:
+                    $ref: '#/components/schemas/PaginationResponse'
+            description: ListKnownExploitedVulnsResponse contains KEV catalog entries.
+        KnownExploitedVulnerability:
+            type: object
+            properties:
+                cveId:
+                    type: string
+                    description: CVE identifier (e.g. "CVE-2024-1234").
+                vendorProject:
+                    type: string
+                    description: Vendor or project name.
+                product:
+                    type: string
+                    description: Affected product name.
+                vulnerabilityName:
+                    type: string
+                    description: Human-readable vulnerability title.
+                dateAdded:
+                    type: string
+                    description: Date added to the catalog (YYYY-MM-DD).
+                shortDescription:
+                    type: string
+                    description: Short description of the vulnerability.
+                requiredAction:
+                    type: string
+                    description: Required remediation action.
+                dueDate:
+                    type: string
+                    description: Remediation due date (YYYY-MM-DD).
+                knownRansomwareCampaignUse:
+                    type: string
+                    description: Known ransomware campaign use indicator.
+                notes:
+                    type: string
+                    description: Additional notes.
+                cwe:
+                    type: string
+                    description: Associated CWE identifier, if present.
+                source:
+                    type: string
+                    description: Catalog source identifier.
+            description: KnownExploitedVulnerability represents a CISA Known Exploited Vulnerability catalog entry.

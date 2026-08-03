@@ -4,9 +4,6 @@ import { checkRateLimit } from './_rate-limit.js';
 
 export const config = { runtime: 'edge' };
 
-/** Tier ordering for comparison. */
-const TIER_ORDER = { free: 0, pro: 1, business: 2, enterprise: 3 };
-
 /**
  * Call Convex HTTP API. The CONVEX_URL env var is the Convex deployment URL
  * (e.g. https://myapp-abc123.convex.cloud).  For queries we use the public
@@ -103,7 +100,7 @@ export default async function handler(req) {
       format: body.format || 'json',
       recordCount: body.recordCount || 0,
       fileSizeBytes: body.fileSizeBytes || 0,
-      minTier: body.minTier || 'pro',
+      minTier: body.minTier || 'analyst',
       price: body.price || 0,
       data: typeof body.data === 'string' ? body.data : JSON.stringify(body.data),
       preview: body.preview ? (typeof body.preview === 'string' ? body.preview : JSON.stringify(body.preview)) : null,

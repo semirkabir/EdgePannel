@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package worldmonitor.alerts.v1;
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+
+// AlertMatch carries a fired alert rule's match details, shared by every
+// delivery-channel RPC in this service so the two channel-specific request
+// messages can't drift on field number or shape.
+message AlertMatch {
+  // The alert rule's id (for logging/traceability only).
+  string rule_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 100
+  ];
+  // The alert rule's display name.
+  string rule_name = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 200
+  ];
+  // Rule severity at fire time. "all" means no minimum was configured.
+  string severity = 3 [(buf.validate.field).string = { in: ["all", "high", "critical"] }];
+  // Human-readable reason the rule matched.
+  string reason = 4 [(buf.validate.field).string.max_len = 500];
+  // Match score at fire time (0-100; see alert-rules.ts's scoring formula).
+  double score = 5 [(buf.validate.field).double = { gte: 0, lte: 100 }];
+  // Keywords that matched.
+  repeated string matched_keywords = 6 [(buf.validate.field).repeated.max_items = 30];
+  // Entities that matched.
+  repeated string matched_entities = 7 [(buf.validate.field).repeated.max_items = 30];
+  // Fire timestamp, Unix epoch milliseconds.
+  int64 fired_at = 8 [
+    (sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER,
+    (buf.validate.field).int64.gt = 0
+  ];
+}

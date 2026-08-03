@@ -11,8 +11,9 @@ export type PmtilesTheme = 'black' | 'dark' | 'grayscale' | 'light' | 'white';
 export type OpenFreeMapTheme = 'dark' | 'positron';
 export type CartoTheme = 'dark-matter' | 'voyager' | 'positron';
 export type CustomTheme = 'smooth_dark' | 'toner' | 'smooth_light' | 'toner_lite' | 'dark';
-export type MapTheme = PmtilesTheme | OpenFreeMapTheme | CartoTheme | CustomTheme;
-export type MapProvider = 'pmtiles' | 'auto' | 'openfreemap' | 'carto' | 'custom';
+export type SatelliteTheme = 'esri';
+export type MapTheme = PmtilesTheme | OpenFreeMapTheme | CartoTheme | CustomTheme | SatelliteTheme;
+export type MapProvider = 'pmtiles' | 'auto' | 'openfreemap' | 'carto' | 'custom' | 'satellite';
 
 const PMTILES_URL = ((import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_PMTILES_URL ?? '').trim();
 const HAS_PMTILES_URL = PMTILES_URL.length > 0;
@@ -50,6 +51,8 @@ function buildUnifiedOptions(): UnifiedThemeOption[] {
     // ── Light ──
     { value: 'carto:voyager',              label: 'Ivory',             group: 'Light',     provider: 'carto',       theme: 'voyager' },
     { value: 'custom:toner_lite',          label: 'Chalk',             group: 'Light',     provider: 'custom',      theme: 'toner_lite' },
+    // ── Satellite ──
+    { value: 'satellite:esri',             label: 'Sat Photo',         group: 'Satellite', provider: 'satellite',   theme: 'esri' },
   ];
   if (HAS_PMTILES_URL) {
     opts.unshift(
@@ -336,6 +339,9 @@ export const MAP_THEME_OPTIONS: Record<MapProvider, Option<MapTheme>[]> = {
     { value: 'toner_lite', label: 'Toner Lite' },
     { value: 'dark', label: 'Matrix' },
   ],
+  satellite: [
+    { value: 'esri', label: 'Sat Photo' },
+  ],
 };
 
 const DEFAULT_MAP_THEME: Record<MapProvider, MapTheme> = {
@@ -344,6 +350,7 @@ const DEFAULT_MAP_THEME: Record<MapProvider, MapTheme> = {
   openfreemap: 'dark',
   carto: 'dark-matter',
   custom: 'smooth_dark',
+  satellite: 'esri',
 };
 
 const LIGHT_MAP_THEMES = new Set<string>([
@@ -359,6 +366,22 @@ const CARTO_STYLE_MAP: Record<CartoTheme, string> = {
   'dark-matter': CARTO_DARK_STYLE,
   voyager: CARTO_VOYAGER_STYLE,
   positron: CARTO_POSITRON_STYLE,
+};
+
+// Esri World Imagery — free, no API key, no usage cap for this tile size/zoom range.
+const ESRI_WORLD_IMAGERY_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    'esri-world-imagery': {
+      type: 'raster',
+      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+      tileSize: 256,
+      attribution: 'Esri, Maxar, Earthstar Geographics',
+    },
+  },
+  layers: [
+    { id: 'esri-world-imagery', type: 'raster', source: 'esri-world-imagery' },
+  ],
 };
 
 let pmtilesProtocolRegistered = false;
@@ -381,7 +404,7 @@ function writeStorage(key: string, value: string): void {
 }
 
 function isMapProvider(value: string): value is MapProvider {
-  return value === 'pmtiles' || value === 'auto' || value === 'openfreemap' || value === 'carto' || value === 'custom';
+  return value === 'pmtiles' || value === 'auto' || value === 'openfreemap' || value === 'carto' || value === 'custom' || value === 'satellite';
 }
 
 function isValidThemeForProvider(provider: MapProvider, theme: string): theme is MapTheme {
@@ -490,6 +513,8 @@ export function getStyleForProvider(provider: MapProvider, mapTheme: string): st
       }
       return FALLBACK_DARK_STYLE;
     }
+    case 'satellite':
+      return ESRI_WORLD_IMAGERY_STYLE;
     case 'auto':
     default: {
       const style = getPmtilesStyle(normalizePmtilesTheme(mapTheme));

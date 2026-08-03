@@ -144,6 +144,7 @@ const layers = {
   marketPerf: false,
   tariffBarriers: false,
   gdeltEvents: false,
+  satellite: false,
 };
 
 await initI18n();

@@ -3,7 +3,8 @@ import { enqueuePanelCall } from '@/app/pending-panel-data';
 import type { NewsItem, MapLayers } from '@/types';
 import type { TimeRange } from '@/components';
 import { getTimeRangeLabel as formatTimeRangeLabel, getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
-import { SITE_VARIANT, LAYER_TO_SOURCE } from '@/config';
+import { SITE_VARIANT } from '@/config';
+import { getLayerSourceEntries } from '@/config/map-layer-definitions';
 import { isOutagesConfigured, isAisConfigured } from '@/services';
 import { signalAggregator } from '@/services/signal-aggregator';
 import { supplementalBus } from '@/services/supplemental-signal-bus';
@@ -11,7 +12,7 @@ import { consumeServerAnomalies, fetchLiveAnomalies } from '@/services/temporal-
 import { createSupplementalAlert } from '@/services/cross-module-integration';
 import { ingestTemporalAnomaliesForCII, hasIntelligenceSignalsLoaded } from '@/services/country-instability';
 import { fetchCachedRiskScores, getPersistedLiveCountryScores, savePersistedLiveCountryScores, getPreferredCountryScores } from '@/services/cached-risk-scores';
-import { dataFreshness, type DataSourceId } from '@/services/data-freshness';
+import { dataFreshness } from '@/services/data-freshness';
 import { stopOrefPolling } from '@/services/oref-alerts';
 import { debounce } from '@/utils';
 import { isLocalDevTaskEnabled } from '@/services/local-dev-stability';
@@ -871,10 +872,10 @@ export class DataLoaderManager implements AppModule {
   }
 
   syncDataFreshnessWithLayers(): void {
-    for (const [layer, sourceIds] of Object.entries(LAYER_TO_SOURCE)) {
-      const enabled = this.ctx.mapLayers[layer as keyof MapLayers] ?? false;
+    for (const [layer, sourceIds] of getLayerSourceEntries()) {
+      const enabled = this.ctx.mapLayers[layer] ?? false;
       for (const sourceId of sourceIds) {
-        dataFreshness.setEnabled(sourceId as DataSourceId, enabled);
+        dataFreshness.setEnabled(sourceId, enabled);
       }
     }
 

@@ -197,6 +197,7 @@ const allLayersEnabled: MapLayers = {
   marketPerf: false,
   tariffBarriers: false,
   gdeltEvents: false,
+  satellite: true,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -259,6 +260,7 @@ const allLayersDisabled: MapLayers = {
   marketPerf: false,
   tariffBarriers: false,
   gdeltEvents: false,
+  satellite: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: Array<{

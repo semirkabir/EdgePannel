@@ -9,6 +9,7 @@ import { getSecretState } from '@/services/runtime-config';
 import { dataFreshness, type FreshnessStatus } from '@/services/data-freshness';
 import { isLoggedIn, getCurrentAuthState, subscribeToAuth } from '@/services/user-auth';
 import { buildPanelEmptyState, buildPanelErrorState, buildPanelLoadingState, type PanelEmptyKind } from './panel-state';
+import { showShellNotification } from '@/app/shell-notifications';
 
 
 export interface PanelOptions {
@@ -20,6 +21,8 @@ export interface PanelOptions {
   infoTooltip?: string;
   premium?: 'locked' | 'enhanced';
   showCopyButton?: boolean;
+  /** Set false for panels that already provide their own fullscreen/expand affordance (e.g. live video). */
+  showExpandButton?: boolean;
 }
 
 const PANEL_SPANS_KEY = 'worldmonitor-panel-spans';
@@ -259,6 +262,10 @@ export class Panel {
   private lastFreshnessStatus: FreshnessStatus | null = null;
   private nextUpdateCountdownTimer: ReturnType<typeof setInterval> | null = null;
   private nextUpdateEndTime = 0;
+  private updatedAtEl: HTMLElement | null = null;
+  private updatedAtTickTimer: ReturnType<typeof setInterval> | null = null;
+  private expandKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private isExpanded = false;
 
   constructor(options: PanelOptions) {
     this.panelId = options.id;
@@ -282,6 +289,13 @@ export class Panel {
     this.freshnessEl.className = 'panel-freshness-dot';
     this.freshnessEl.style.display = 'none';
     headerLeft.appendChild(this.freshnessEl);
+
+    // Always-visible "Updated Xm ago" text (SitDeck-style, unlike the anon-only text in the status badge)
+    this.updatedAtEl = document.createElement('span');
+    this.updatedAtEl.className = 'panel-updated-at';
+    this.updatedAtEl.style.display = 'none';
+    headerLeft.appendChild(this.updatedAtEl);
+
     this.setupFreshnessTracking();
 
     if (options.infoTooltip) {
@@ -360,10 +374,40 @@ export class Panel {
       headerActions.appendChild(copyBtn);
     }
 
+    // \u2500\u2500 Expand/maximize button \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    if (options.showExpandButton !== false) {
+      const expandBtn = document.createElement('button');
+      expandBtn.className = 'panel-expand-btn';
+      expandBtn.title = t('components.panel.expand');
+      expandBtn.setAttribute('aria-label', t('components.panel.expand'));
+      expandBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+      expandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleExpanded(expandBtn);
+      });
+      headerActions.appendChild(expandBtn);
+    }
+
+    // \u2500\u2500 Share button (copies a ?panel=<id> deep link) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'panel-share-btn';
+    shareBtn.title = t('components.panel.share');
+    shareBtn.setAttribute('aria-label', t('components.panel.share'));
+    shareBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
+    shareBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = new URL(window.location.href);
+      url.searchParams.set('panel', this.panelId);
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        showShellNotification(t('components.panel.shareLinkCopied'), 'success');
+      }).catch(() => {});
+    });
+    headerActions.appendChild(shareBtn);
+
     const removeBtn = document.createElement('button');
     removeBtn.className = 'panel-remove-btn';
-    removeBtn.title = 'Remove panel';
-    removeBtn.setAttribute('aria-label', 'Remove panel');
+    removeBtn.title = t('components.panel.removePanel');
+    removeBtn.setAttribute('aria-label', t('components.panel.removePanel'));
     removeBtn.textContent = '\u2212';
     headerActions.appendChild(removeBtn);
 
@@ -852,8 +896,27 @@ export class Panel {
   }
 
 
+  private updateUpdatedAtText(): void {
+    if (!this.updatedAtEl) return;
+    const status = dataFreshness.getStatusForPanel(this.panelId);
+    if (status === 'disabled') {
+      this.updatedAtEl.style.display = 'none';
+      return;
+    }
+    const timeSince = dataFreshness.getTimeSinceForPanel(this.panelId);
+    if (!timeSince) {
+      this.updatedAtEl.style.display = 'none';
+      return;
+    }
+    this.updatedAtEl.style.display = '';
+    this.updatedAtEl.textContent = `${t('components.panel.updated')} ${timeSince}`;
+    this.updatedAtEl.title = dataFreshness.getFreshnessTooltipForPanel(this.panelId);
+  }
+
   private setupFreshnessTracking(): void {
     const update = () => {
+      this.updateUpdatedAtText();
+
       if (!this.freshnessEl) return;
       const status = dataFreshness.getStatusForPanel(this.panelId);
       if (status === this.lastFreshnessStatus) return;
@@ -875,6 +938,9 @@ export class Panel {
 
     // Subscribe to changes
     this.freshnessUnsubscribe = dataFreshness.subscribe(update);
+
+    // Tick independently so "3m ago" advances to "4m ago" without a status change/reload
+    this.updatedAtTickTimer = setInterval(() => this.updateUpdatedAtText(), 30_000);
   }
 
   private clearNextUpdateCountdown(): void {
@@ -1249,6 +1315,36 @@ export class Panel {
     clearPanelColSpan(this.panelId);
   }
 
+  private toggleExpanded(btn: HTMLButtonElement): void {
+    this.isExpanded = !this.isExpanded;
+    this.element.classList.toggle('panel-expanded', this.isExpanded);
+
+    // The grid container (.panels-grid) deliberately sits at a low z-index so it
+    // scrolls under the pinned map — bump it only while one of its panels is
+    // expanded, so the fullscreen overlay isn't trapped under the map's own overlays.
+    this.element.parentElement?.classList.toggle('has-expanded-panel', this.isExpanded);
+
+    const label = t(this.isExpanded ? 'components.panel.collapse' : 'components.panel.expand');
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.innerHTML = this.isExpanded
+      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>'
+      : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+
+    if (this.isExpanded) {
+      this.expandKeyHandler = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') this.toggleExpanded(btn);
+      };
+      document.addEventListener('keydown', this.expandKeyHandler);
+    } else if (this.expandKeyHandler) {
+      document.removeEventListener('keydown', this.expandKeyHandler);
+      this.expandKeyHandler = null;
+    }
+
+    // Nudge any chart/canvas content inside the panel to reflow at the new size
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  }
+
   protected get signal(): AbortSignal {
     return this.abortController.signal;
   }
@@ -1300,6 +1396,17 @@ export class Panel {
     this.clearRetryCountdown();
     this.unobserveViewport();
     this.clearNextUpdateCountdown();
+    if (this.updatedAtTickTimer) {
+      clearInterval(this.updatedAtTickTimer);
+      this.updatedAtTickTimer = null;
+    }
+    if (this.expandKeyHandler) {
+      document.removeEventListener('keydown', this.expandKeyHandler);
+      this.expandKeyHandler = null;
+    }
+    if (this.isExpanded) {
+      this.element.parentElement?.classList.remove('has-expanded-panel');
+    }
     if (this.freshnessUnsubscribe) {
       this.freshnessUnsubscribe();
       this.freshnessUnsubscribe = null;

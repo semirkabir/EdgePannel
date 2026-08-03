@@ -1842,170 +1842,6 @@ canvas,
   color: var(--accent, #22d3ee);
 }
 
-.wsp-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10020;
-  background: rgba(0, 0, 0, 0.35);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-.wsp-overlay.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.wsp-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: min(440px, 100vw);
-  height: 100%;
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  background: var(--bg-panel, #101216);
-  border-left: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.35);
-}
-
-.wsp-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-}
-.wsp-header h2 { margin: 0; font-size: 16px; }
-.wsp-status {
-  margin: 4px 0 0;
-  color: var(--text-muted, #9aa0aa);
-  font-size: 11px;
-}
-.wsp-close {
-  width: 30px;
-  height: 30px;
-  background: transparent;
-  border: 0;
-  color: var(--text-muted, #9aa0aa);
-  font-size: 20px;
-  line-height: 1;
-  cursor: var(--wm-cursor-pointer, pointer);
-  flex-shrink: 0;
-}
-
-.wsp-save {
-  display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-}
-.wsp-name {
-  flex: 1;
-  min-width: 0;
-  color: var(--text, #f5f5f5);
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
-  border-radius: 6px;
-  padding: 7px 10px;
-  font-size: 12.5px;
-}
-.wsp-name:focus { outline: none; border-color: var(--accent, #22d3ee); }
-.wsp-save-btn {
-  font: 600 11.5px/1 var(--font-mono, monospace);
-  padding: 7px 12px;
-  color: var(--accent, #22d3ee);
-  background: color-mix(in srgb, var(--accent, #22d3ee) 14%, transparent);
-  border: 1px solid var(--accent, #22d3ee);
-  border-radius: 6px;
-  cursor: var(--wm-cursor-pointer, pointer);
-  white-space: nowrap;
-}
-
-.wsp-list {
-  min-height: 0;
-  overflow: auto;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.wsp-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.02);
-}
-.wsp-item:hover { border-color: rgba(255, 255, 255, 0.24); }
-.wsp-item-foreign { opacity: 0.6; }
-.wsp-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.wsp-name-text {
-  font-size: 13px;
-  color: var(--text, #e8eaed);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: var(--wm-cursor-pointer, pointer);
-}
-.wsp-item-foreign .wsp-name-text { cursor: default; }
-.wsp-meta {
-  font-size: 10.5px;
-  color: var(--text-muted, #9aa0aa);
-  font-variant-numeric: tabular-nums;
-}
-.wsp-rename-input {
-  font-size: 13px;
-  color: var(--text, #f5f5f5);
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--accent, #22d3ee);
-  border-radius: 4px;
-  padding: 2px 6px;
-  width: 100%;
-  box-sizing: border-box;
-}
-.wsp-item-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.wsp-apply {
-  font: 600 10.5px/1 var(--font-mono, monospace);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 5px 9px;
-  color: var(--text, #e8eaed);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.16));
-  border-radius: 5px;
-  cursor: var(--wm-cursor-pointer, pointer);
-}
-.wsp-apply:hover { border-color: var(--accent, #22d3ee); color: var(--accent, #22d3ee); }
-.wsp-rename,
-.wsp-delete {
-  background: none;
-  border: 0;
-  color: var(--text-muted, #9aa0aa);
-  cursor: var(--wm-cursor-pointer, pointer);
-  padding: 0 2px;
-  line-height: 1;
-}
-.wsp-rename { font-size: 12px; }
-.wsp-delete { font-size: 16px; }
-.wsp-delete:hover { color: var(--red, #f87171); }
-.wsp-empty {
-  padding: 16px 8px;
-  color: var(--text-muted, #9aa0aa);
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-.wsp-footer {
-  padding: 10px 16px;
-  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-  color: var(--text-muted, #9aa0aa);
-  font-size: 10.5px;
-  text-align: center;
-}
-
 .agent-chat-overlay.active {
   opacity: 1;
   pointer-events: auto;
@@ -2233,6 +2069,14 @@ canvas,
   padding: 2px 4px;
   margin-right: 6px;
   box-shadow: var(--depth-resting), inset 0 1px 0 var(--frame-inset-highlight);
+  /* Custom categories + saved workspaces can add many tabs — scroll rather than overflow the header. */
+  max-width: 45vw;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.variant-switcher::-webkit-scrollbar {
+  display: none;
 }
 
 .variant-option {
@@ -2252,6 +2096,11 @@ canvas,
               background var(--motion-fast) var(--ease-standard),
               transform var(--motion-fast) var(--ease-press);
   cursor: var(--wm-cursor-pointer);
+}
+
+/* Lets #workspaceTabsGroup wrap saved-workspace tabs without breaking the parent flex row. */
+.workspace-tabs-group {
+  display: contents;
 }
 
 .variant-option .variant-icon {
@@ -2325,40 +2174,7 @@ canvas,
   position: relative;
 }
 
-.variant-option .variant-delete {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 14px;
-  height: 14px;
-  background: var(--semantic-critical, #ef4444);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  font-size: 10px;
-  line-height: 1;
-  cursor: var(--wm-cursor-pointer);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  z-index: 10;
-}
-
-.variant-option.show-delete .variant-delete {
-  opacity: 1;
-  visibility: visible;
-}
-
-.variant-option .variant-delete:hover {
-  background: #dc2626;
-  transform: scale(1.1);
-}
-
-/* New category button */
+/* New deck button */
 .variant-option.new-category {
   border: 1px dashed var(--border-strong);
   background: transparent;
@@ -3645,6 +3461,153 @@ canvas,
   background: color-mix(in srgb, var(--accent) 85%, white 15%);
 }
 
+/* Toolbar row above the map canvas — Layers/Draw on the left, map-type
+   controls on the right. Buttons here are relocated from the map's own
+   floating overlays (DeckGLMap.createControls/createTimeSlider), not
+   reimplemented, so their existing click behavior carries over unchanged. */
+.map-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-bottom: 1px solid var(--frame-border);
+  min-height: 30px;
+}
+
+.map-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-toolbar-group:empty {
+  display: none;
+}
+
+.map-toolbar .map-btn,
+.map-toolbar .layers-toggle-btn,
+.map-toolbar .map-draw-btn,
+.map-toolbar .map-theme-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 9px;
+  background: transparent;
+  border: 1px solid var(--frame-border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font: 600 10.5px/1 var(--font-mono, monospace);
+  letter-spacing: 0.04em;
+  cursor: var(--wm-cursor-pointer);
+}
+
+.map-toolbar .map-btn:hover,
+.map-toolbar .layers-toggle-btn:hover,
+.map-toolbar .map-draw-btn:hover,
+.map-toolbar .map-theme-picker-btn:hover {
+  color: var(--text);
+  border-color: var(--frame-border-strong);
+}
+
+.map-toolbar .layers-toggle-btn.active,
+.map-toolbar .map-draw-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.map-toolbar .layers-btn-count {
+  font-size: 9.5px;
+  opacity: 0.85;
+}
+
+.map-toolbar .layers-toggle-btn { order: 1; }
+.map-toolbar .map-draw-btn { order: 2; }
+.map-toolbar .layers-row-clear { order: 3; }
+.map-toolbar .layers-row-marketplace { order: 4; }
+.map-toolbar .layers-row-help { order: 5; }
+
+.map-toolbar .layers-row-clear,
+.map-toolbar .layers-row-marketplace,
+.map-toolbar .layer-help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--frame-border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: var(--wm-cursor-pointer);
+}
+.map-toolbar .layers-row-clear:hover,
+.map-toolbar .layers-row-marketplace:hover,
+.map-toolbar .layer-help-btn:hover {
+  color: var(--text);
+  border-color: var(--frame-border-strong);
+}
+.map-toolbar .layers-row-clear svg,
+.map-toolbar .layers-row-marketplace svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Jump + Locate trail the layer/draw controls. Without an explicit order they
+   default to 0 and jump ahead of the LAYERS button. */
+.map-toolbar .map-jump-form { order: 6; display: flex; }
+.map-toolbar .map-locate-btn { order: 7; }
+
+/* Match the toolbar's button metrics instead of native form styling. */
+.map-toolbar .map-jump-input {
+  width: 150px;
+  height: 24px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid var(--frame-border);
+  border-radius: 6px;
+  color: var(--text);
+  font: 600 10.5px/1 var(--font-mono, monospace);
+  letter-spacing: 0.04em;
+  transition: width var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard);
+}
+
+.map-toolbar .map-jump-input::placeholder {
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.map-toolbar .map-jump-input:hover {
+  border-color: var(--frame-border-strong);
+}
+
+.map-toolbar .map-jump-input:focus {
+  width: 200px;
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Square, like the other icon-only toolbar controls. */
+.map-toolbar .map-locate-btn {
+  width: 24px;
+  padding: 0;
+  justify-content: center;
+}
+
+.map-toolbar .map-locate-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.map-toolbar .map-theme-picker {
+  position: relative;
+}
+
 /* Hidden by default — shown only inside 768px media query */
 .map-collapse-btn {
   display: none;
@@ -3707,6 +3670,42 @@ canvas,
 .panel.hidden {
   content-visibility: visible;
   contain-intrinsic-size: none;
+}
+
+/* Expanded (maximized) widget — mirrors .edp-maximized/.dp-maximized elsewhere in the app */
+.panel.panel-expanded {
+  position: fixed;
+  inset: 12px;
+  width: auto;
+  height: auto;
+  grid-row: auto !important;
+  grid-column: auto !important;
+  z-index: 10000;
+  transition: none !important;
+  content-visibility: visible;
+  contain-intrinsic-size: none;
+}
+
+.panel.panel-expanded .panel-expand-btn,
+.panel.panel-expanded .panel-share-btn,
+.panel.panel-expanded .panel-remove-btn {
+  opacity: 1;
+}
+
+/* Grid containers deliberately sit at a low z-index so panels scroll under the
+   pinned map (see .panels-grid) — lift the whole grid above the map's own
+   overlays (z-index: 100) only while one of its panels is expanded. */
+.has-expanded-panel {
+  z-index: 10001 !important;
+}
+
+@keyframes panel-shared-highlight-pulse {
+  0%, 100% { box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+  50% { box-shadow: 0 0 0 2px var(--accent), 0 0 24px color-mix(in srgb, var(--accent) 55%, transparent); }
+}
+
+.panel-shared-highlight {
+  animation: panel-shared-highlight-pulse 1.25s ease-in-out 2;
 }
 
 .panel:hover {
@@ -4012,6 +4011,8 @@ body.panel-resize-active iframe {
 .news-panel .panel-data-badge,
 .news-panel .panel-summarize-btn,
 .news-panel .panel-sort-trigger,
+.news-panel .panel-expand-btn,
+.news-panel .panel-share-btn,
 .news-panel .panel-remove-btn {
   flex-shrink: 0;
 }
@@ -4615,6 +4616,15 @@ body.panel-resize-active iframe {
 .panel-freshness-dot.freshness-stale {
   background: var(--status-critical);
   opacity: 0.7;
+}
+
+/* Always-visible "Updated Xm ago" text, next to the freshness dot */
+.panel-updated-at {
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes freshness-pulse {
@@ -7033,16 +7043,16 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   justify-content: flex-end;
 }
 
+/* A corner notification, not a page-blocking dialog — these fire automatically
+   whenever new correlation signals arrive, not from a user action, so they
+   must never interrupt whatever the user is doing underneath. */
 .signal-modal-overlay {
   position: fixed;
-  inset: 0;
+  top: 60px;
+  right: 16px;
   display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.64);
-  backdrop-filter: blur(8px);
   z-index: 11600;
+  pointer-events: none;
 }
 
 .signal-modal-overlay.active {
@@ -7050,15 +7060,22 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 }
 
 .signal-modal {
-  width: min(560px, calc(100vw - 48px));
-  max-height: min(680px, calc(100vh - 48px));
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(70vh, 640px);
   display: flex;
   flex-direction: column;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
   overflow: hidden;
+  pointer-events: auto;
+  animation: signal-modal-slide-in 0.22s ease-out;
+}
+
+@keyframes signal-modal-slide-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .signal-modal-header,
@@ -28223,6 +28240,46 @@ body.live-news-fullscreen-active .panel-scroll-btn {
   transform: translateY(1px);
 }
 
+/* ── Panel expand & share buttons ─────────────────────────────────── */
+.panel-expand-btn,
+.panel-share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: var(--wm-cursor-pointer);
+  padding: 0;
+  margin-left: 0;
+  flex-shrink: 0;
+  transition: background var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard),
+              color var(--motion-fast) var(--ease-standard),
+              transform var(--motion-fast) var(--ease-press);
+}
+
+.panel-expand-btn:hover,
+.panel-share-btn:hover {
+  background: var(--ctrl-bg-hover);
+  border-color: var(--frame-border);
+  color: var(--text);
+}
+
+.panel-expand-btn:active,
+.panel-share-btn:active {
+  background: var(--ctrl-bg-pressed);
+  transform: translateY(1px);
+}
+
+.panel-expand-btn svg,
+.panel-share-btn svg {
+  pointer-events: none;
+}
+
 /* ── Add Widget ghost card ────────────────────────────── */
 .add-widget-btn {
   display: flex;
@@ -31013,6 +31070,115 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .marketplace-modal-value-card p {
   margin: 0;
 }
+
+/* ─── Decks tab ────────────────────────────────────────────────────────── */
+.marketplace-modal-deck-template-card {
+  cursor: var(--wm-cursor-pointer, pointer);
+  text-align: left;
+  transition: border-color var(--motion-fast) var(--ease-standard);
+}
+.marketplace-modal-deck-template-card:hover {
+  border-color: var(--accent);
+}
+
+.marketplace-modal-variant-row-wrap {
+  margin-bottom: 14px;
+}
+.marketplace-modal-variant-row {
+  display: flex;
+  gap: 6px;
+}
+.marketplace-modal-variant-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  font-size: 14px;
+  text-decoration: none;
+  cursor: var(--wm-cursor-pointer, pointer);
+  filter: grayscale(70%);
+  opacity: 0.7;
+  transition: filter var(--motion-fast) var(--ease-standard),
+              opacity var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard);
+}
+.marketplace-modal-variant-link:hover { border-color: var(--frame-border-strong, rgba(255, 255, 255, 0.24)); filter: grayscale(30%); opacity: 0.9; }
+.marketplace-modal-variant-link.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  filter: none;
+  opacity: 1;
+  cursor: default;
+}
+
+.marketplace-modal-deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.marketplace-modal-deck-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+}
+.marketplace-modal-deck-row:hover { border-color: var(--frame-border-strong, rgba(255, 255, 255, 0.24)); }
+.marketplace-modal-deck-row.foreign { opacity: 0.6; }
+.marketplace-modal-deck-row-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.marketplace-modal-deck-row-main > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.marketplace-modal-deck-icon { font-size: 16px; line-height: 1.2; flex-shrink: 0; }
+.marketplace-modal-deck-name {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.marketplace-modal-deck-meta {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.marketplace-modal-deck-rename-input {
+  font-size: 13px;
+  color: var(--text);
+  background: color-mix(in srgb, black 30%, transparent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.marketplace-modal-deck-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.marketplace-modal-deck-icon-btn {
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  cursor: var(--wm-cursor-pointer, pointer);
+  padding: 0 2px;
+  line-height: 1;
+  font-size: 13px;
+}
+.marketplace-modal-deck-icon-btn:hover { color: var(--red, #f87171); }
+
 .marketplace-modal-trust-grid,
 .data-manager-summary {
   display: grid;
@@ -31092,83 +31258,6 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .source-toggle-meta {
   color: var(--text-dim);
   font-size: 10px;
-}
-.workspace-setup-overlay {
-  position: fixed;
-  inset: 0;
-  display: none;
-  place-items: center;
-  background: rgba(4, 8, 14, .66);
-  backdrop-filter: blur(8px);
-  z-index: 10020;
-}
-.workspace-setup-overlay.open {
-  display: grid;
-}
-.workspace-setup-modal {
-  width: min(760px, calc(100vw - 28px));
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--surface-1);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
-}
-.workspace-setup-header,
-.workspace-setup-actions {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.workspace-setup-eyebrow {
-  color: var(--text-dim);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
-.workspace-setup-header h2,
-.workspace-setup-copy {
-  margin: 0;
-}
-.workspace-setup-header h2 {
-  text-wrap: balance;
-}
-.workspace-setup-copy {
-  text-wrap: pretty;
-}
-.workspace-setup-close {
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font-size: 24px;
-  cursor: var(--wm-cursor-pointer);
-}
-.workspace-setup-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-}
-.workspace-setup-card {
-  display: grid;
-  gap: 5px;
-  text-align: left;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px;
-  background: var(--surface-2);
-  color: var(--text);
-  cursor: var(--wm-cursor-pointer);
-  transition: background 0.15s, border-color 0.15s;
-}
-.workspace-setup-card:hover {
-  background: var(--surface-3, color-mix(in srgb, var(--surface-2) 80%, var(--accent, #fff)));
-  border-color: var(--border-hover, var(--accent, rgba(255,255,255,0.3)));
-}
-.workspace-setup-card span {
-  color: var(--text-dim);
-  font-size: 11px;
 }
 .incident-brief-grid {
   display: grid;
@@ -31558,13 +31647,19 @@ body[data-panel-density="comfortable"] .panel-tabs {
   font-weight: 500;
 }
 
-.panel-remove-btn {
+.panel-remove-btn,
+.panel-expand-btn,
+.panel-share-btn {
   opacity: 0.5;
   transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .panel:hover .panel-remove-btn,
-.panel-remove-btn:focus-visible {
+.panel:hover .panel-expand-btn,
+.panel:hover .panel-share-btn,
+.panel-remove-btn:focus-visible,
+.panel-expand-btn:focus-visible,
+.panel-share-btn:focus-visible {
   opacity: 1;
 }
 

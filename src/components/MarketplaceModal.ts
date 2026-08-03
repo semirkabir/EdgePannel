@@ -3,8 +3,25 @@ import { DEFAULT_PANELS, MISSION_PACKS, SITE_VARIANT } from '@/config';
 import type { MarketplaceCatalogItem, MarketplaceManifest, MarketplacePreviewAsset, MarketplaceVariant, MarketplaceViewItem } from '@/types/marketplace';
 import { MarketplaceService } from '@/services/marketplace';
 import { renderGroupedInstalledItems, renderInstalledItemActions } from '@/utils/marketplace-installed-ui';
+import {
+  listWorkspaces,
+  saveWorkspace,
+  applyWorkspace,
+  deleteWorkspace,
+  renameWorkspace,
+  createWorkspaceFromTemplate,
+  createWorkspaceFromMissionPack,
+  type Workspace,
+} from '@/services/workspaces';
+import { DECK_TEMPLATES } from '@/config/deck-templates';
+import {
+  refreshWorkspaceTabsInHeader,
+  SITE_VARIANTS,
+  canSwitchVariantInPlace,
+  switchToVariant,
+} from '@/app/panel-layout-helpers';
 
-type MarketplaceTab = 'browse' | 'installed' | 'import' | 'submit';
+export type MarketplaceTab = 'decks' | 'browse' | 'installed' | 'import' | 'submit';
 
 interface MarketplaceModalFilters {
   search: string;
@@ -234,7 +251,11 @@ export class MarketplaceModal {
     }
   }
 
-  public async open(): Promise<void> {
+  public async open(tab?: MarketplaceTab): Promise<void> {
+    if (tab) {
+      this.activeTab = tab;
+      localStorage.setItem(TAB_KEY, this.activeTab);
+    }
     // Guard: if overlay was detached from DOM without close() being called (e.g. HMR), reset state
     if (this.overlay && !document.body.contains(this.overlay)) {
       this.overlay = null;
@@ -342,20 +363,56 @@ export class MarketplaceModal {
         return;
       }
 
-      const applyPackButton = target.closest<HTMLElement>('[data-marketplace-apply-pack]');
-      if (applyPackButton) {
-        const packId = applyPackButton.dataset.marketplaceApplyPack;
-        if (packId) {
-          window.dispatchEvent(new CustomEvent('wm:apply-mission-pack', { detail: { packId } }));
-          this.setStatus('Mission pack applied to workspace.');
-          this.render();
-        }
-        return;
-      }
-
       const importUrlButton = target.closest<HTMLElement>('[data-marketplace-import-url]');
       if (importUrlButton) {
         void this.importFromUrl();
+        return;
+      }
+
+      const variantLink = target.closest<HTMLAnchorElement>('[data-marketplace-variant]');
+      if (variantLink?.dataset.marketplaceVariant) {
+        const variant = variantLink.dataset.marketplaceVariant;
+        if (variant !== SITE_VARIANT && canSwitchVariantInPlace()) {
+          event.preventDefault();
+          switchToVariant(variant);
+        }
+        // Otherwise let the <a href> navigate to the production subdomain as-is.
+        return;
+      }
+
+      const deckSaveButton = target.closest<HTMLElement>('[data-marketplace-deck-save]');
+      if (deckSaveButton) {
+        this.saveCurrentDeck();
+        return;
+      }
+
+      const deckTemplateCard = target.closest<HTMLElement>('[data-marketplace-deck-template]');
+      if (deckTemplateCard?.dataset.marketplaceDeckTemplate) {
+        this.createDeckFromTemplate(deckTemplateCard.dataset.marketplaceDeckTemplate);
+        return;
+      }
+
+      const missionPackCard = target.closest<HTMLElement>('[data-marketplace-mission-pack]');
+      if (missionPackCard?.dataset.marketplaceMissionPack) {
+        this.createDeckFromMissionPack(missionPackCard.dataset.marketplaceMissionPack);
+        return;
+      }
+
+      const deckApplyButton = target.closest<HTMLElement>('[data-marketplace-deck-apply]');
+      if (deckApplyButton?.dataset.marketplaceDeckApply) {
+        this.applyDeck(deckApplyButton.dataset.marketplaceDeckApply);
+        return;
+      }
+
+      const deckRenameButton = target.closest<HTMLElement>('[data-marketplace-deck-rename]');
+      if (deckRenameButton?.dataset.marketplaceDeckRename) {
+        this.beginDeckRename(deckRenameButton.dataset.marketplaceDeckRename);
+        return;
+      }
+
+      const deckDeleteButton = target.closest<HTMLElement>('[data-marketplace-deck-delete]');
+      if (deckDeleteButton?.dataset.marketplaceDeckDelete) {
+        this.deleteDeck(deckDeleteButton.dataset.marketplaceDeckDelete);
         return;
       }
 
@@ -363,6 +420,15 @@ export class MarketplaceModal {
       if (submitButton) {
         void this.submitManifest();
         return;
+      }
+    });
+
+    this.overlay.addEventListener('keydown', (event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (target.matches('[data-marketplace-deck-name-input]') && event.key === 'Enter') {
+        event.preventDefault();
+        this.saveCurrentDeck();
       }
     });
 
@@ -531,6 +597,205 @@ export class MarketplaceModal {
     }
   }
 
+  private saveCurrentDeck(): void {
+    const input = this.overlay?.querySelector<HTMLInputElement>('[data-marketplace-deck-name-input]');
+    const name = input?.value.trim() || '';
+    if (!name) {
+      this.setStatus('Give the layout a name first.', 'error');
+      input?.focus();
+      return;
+    }
+    const saved = saveWorkspace(name);
+    if (input) input.value = '';
+    refreshWorkspaceTabsInHeader();
+    this.setStatus(`Saved “${saved.name}”.`);
+    this.render();
+  }
+
+  private createDeckFromTemplate(templateId: string): void {
+    const template = DECK_TEMPLATES.find((t) => t.id === templateId);
+    if (!template) return;
+    const url = createWorkspaceFromTemplate(template);
+    if (!url) {
+      this.setStatus('Could not create that deck — try again.', 'error');
+      this.render();
+      return;
+    }
+    this.setStatus(`Creating “${template.name}”…`);
+    window.location.assign(url);
+  }
+
+  private createDeckFromMissionPack(packId: string): void {
+    const pack = MISSION_PACKS.find((p) => p.id === packId);
+    if (!pack) return;
+    const url = createWorkspaceFromMissionPack(pack);
+    if (!url) {
+      this.setStatus('Could not create that deck — try again.', 'error');
+      this.render();
+      return;
+    }
+    this.setStatus(`Creating “${pack.name}”…`);
+    window.location.assign(url);
+  }
+
+  private applyDeck(id: string): void {
+    const url = applyWorkspace(id);
+    if (!url) {
+      this.setStatus('That deck was saved on a different variant and can’t be applied here.', 'error');
+      this.render();
+      return;
+    }
+    // Panel order and sizes are read when panels are built, so reload for an
+    // exact restore rather than leaving a half-applied layout on screen.
+    this.setStatus('Applying…');
+    window.location.assign(url);
+  }
+
+  private deleteDeck(id: string): void {
+    const deck = listWorkspaces().find((w) => w.id === id);
+    if (!deck || !confirm(`Delete deck "${deck.name}"?`)) return;
+    deleteWorkspace(id);
+    refreshWorkspaceTabsInHeader();
+    this.setStatus('Deck deleted.');
+    this.render();
+  }
+
+  private beginDeckRename(id: string): void {
+    const row = this.overlay?.querySelector<HTMLElement>(`[data-marketplace-deck-row="${CSS.escape(id)}"]`);
+    const nameEl = row?.querySelector<HTMLElement>('[data-marketplace-deck-name]');
+    if (!row || !nameEl) return;
+    const input = document.createElement('input');
+    input.className = 'marketplace-modal-deck-rename-input';
+    input.value = nameEl.textContent ?? '';
+    input.maxLength = 60;
+    nameEl.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const finish = (commit: boolean) => {
+      if (commit && input.value.trim()) {
+        renameWorkspace(id, input.value);
+        refreshWorkspaceTabsInHeader();
+      }
+      this.render();
+    };
+    input.addEventListener('blur', () => finish(true));
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+      else if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+    });
+  }
+
+  /**
+   * The 6 built-in variants aren't decks — separate app builds, not something
+   * you save — but they used to only live in the header switcher, disconnected
+   * from this "browse everything" catalog. Surfacing them here too keeps the
+   * catalog matching what the header shows, instead of covering half of it.
+   */
+  private renderVariantSwitchRow(): string {
+    const local = canSwitchVariantInPlace();
+    return `
+      <div class="marketplace-modal-variant-row-wrap">
+        <div class="marketplace-modal-section-head"><strong>Switch app</strong></div>
+        <div class="marketplace-modal-variant-row">
+          ${SITE_VARIANTS.map((v) => `
+            <a href="${local || SITE_VARIANT === v.id ? '#' : v.prodUrl}"
+               class="marketplace-modal-variant-link${SITE_VARIANT === v.id ? ' active' : ''}"
+               data-marketplace-variant="${v.id}"
+               title="${escapeHtml(v.id === SITE_VARIANT ? 'Current app' : `Switch to ${v.id}`)}">
+              <span>${v.icon}</span>
+            </a>`).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderDeckRow(w: Workspace): string {
+    const foreign = w.variant !== SITE_VARIANT;
+    return `
+      <div class="marketplace-modal-deck-row${foreign ? ' foreign' : ''}" data-marketplace-deck-row="${escapeHtml(w.id)}">
+        <div class="marketplace-modal-deck-row-main">
+          <span class="marketplace-modal-deck-icon">\u{1F5C2}\u{FE0F}</span>
+          <div>
+            <span class="marketplace-modal-deck-name" data-marketplace-deck-name>${escapeHtml(w.name)}</span>
+            <span class="marketplace-modal-deck-meta">${w.panelCount} panel${w.panelCount === 1 ? '' : 's'} · ${escapeHtml(formatWhen(w.updatedAt))}${foreign ? ` · saved on ${escapeHtml(w.variant)}` : ''}</span>
+          </div>
+        </div>
+        ${foreign ? '' : `
+          <div class="marketplace-modal-deck-row-actions">
+            <button class="marketplace-modal-secondary" type="button" data-marketplace-deck-apply="${escapeHtml(w.id)}">Apply</button>
+            <button class="marketplace-modal-deck-icon-btn" type="button" data-marketplace-deck-rename="${escapeHtml(w.id)}" aria-label="Rename deck" title="Rename">✏️</button>
+            <button class="marketplace-modal-deck-icon-btn" type="button" data-marketplace-deck-delete="${escapeHtml(w.id)}" aria-label="Delete deck" title="Delete">×</button>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  private renderDecks(): string {
+    const decks = listWorkspaces();
+    const templates = DECK_TEMPLATES.filter((t) => t.compatibleVariants.includes(SITE_VARIANT as MarketplaceVariant));
+    const packs = MISSION_PACKS.filter((p) => p.compatibleVariants.includes(SITE_VARIANT as MarketplaceVariant));
+
+    return `
+      ${this.renderVariantSwitchRow()}
+
+      <section class="marketplace-modal-section">
+        <div class="marketplace-modal-section-head">
+          <strong>Save current layout</strong>
+          <span>Snapshots which panels are shown, their order, sizes, and the map view</span>
+        </div>
+        <div class="marketplace-modal-inline-form">
+          <input type="text" maxlength="60" placeholder="Name this layout…" data-marketplace-deck-name-input aria-label="Deck name" />
+          <button class="marketplace-modal-primary" type="button" data-marketplace-deck-save="true">Save current</button>
+        </div>
+      </section>
+
+      <section class="marketplace-modal-section">
+        <div class="marketplace-modal-section-head">
+          <strong>My decks</strong>
+          <span>${decks.length} saved</span>
+        </div>
+        ${decks.length === 0
+          ? '<div class="marketplace-modal-empty-inline">No saved decks yet — save the current layout above, or start from a template below.</div>'
+          : `<div class="marketplace-modal-deck-list">${decks.map((w) => this.renderDeckRow(w)).join('')}</div>`
+        }
+      </section>
+
+      <section class="marketplace-modal-pack-shelf">
+        <div class="marketplace-modal-section-head">
+          <strong>Start from a template</strong>
+          <span>Replace the current layout with a themed preset and save it as a new deck</span>
+        </div>
+        ${templates.length === 0 && packs.length === 0
+          ? '<div class="marketplace-modal-empty-inline">No starter templates for this build yet.</div>'
+          : `<div class="marketplace-modal-pack-grid">
+              ${templates.map((t) => `
+                <article class="marketplace-modal-pack-card marketplace-modal-deck-template-card" data-marketplace-deck-template="${escapeHtml(t.id)}" role="button" tabindex="0">
+                  <div class="marketplace-modal-pack-kicker">${escapeHtml(t.icon)} ${escapeHtml(t.recommendedPanels.length.toString())} panels</div>
+                  <strong>${escapeHtml(t.name)}</strong>
+                  <p>${escapeHtml(t.tagline)}</p>
+                </article>
+              `).join('')}
+              ${packs.map((p) => `
+                <article class="marketplace-modal-pack-card marketplace-modal-deck-template-card" data-marketplace-mission-pack="${escapeHtml(p.id)}" role="button" tabindex="0">
+                  <div class="marketplace-modal-pack-kicker">${escapeHtml(p.domain.replace('-', ' '))} · ${escapeHtml(p.recommendedPanels.length.toString())} panels</div>
+                  <strong>${escapeHtml(p.name)}</strong>
+                  <p>${escapeHtml(p.tagline)}</p>
+                  <div class="marketplace-modal-chip-row">
+                    ${p.recommendedLayers.length > 0 ? `<span class="marketplace-modal-chip">${p.recommendedLayers.length} layers</span>` : ''}
+                    ${p.recommendedSources.length > 0 ? `<span class="marketplace-modal-chip">${p.recommendedSources.length} sources</span>` : ''}
+                    ${p.monitorTemplates.length > 0 ? `<span class="marketplace-modal-chip">${p.monitorTemplates.length} monitors</span>` : ''}
+                    ${p.alertRuleTemplates.length > 0 ? `<span class="marketplace-modal-chip">${p.alertRuleTemplates.length} alert rules</span>` : ''}
+                  </div>
+                </article>
+              `).join('')}
+            </div>`
+        }
+      </section>
+    `;
+  }
+
   private async loadDetail(itemId: string): Promise<void> {
     const installed = this.service.getInstalledItem(itemId)?.manifest;
     if (installed) {
@@ -586,26 +851,6 @@ export class MarketplaceModal {
     const currentCommercial = detailManifest?.commercial || selectedCatalog?.commercial;
 
     return `
-      <section class="marketplace-modal-pack-shelf">
-        <div class="marketplace-modal-section-head">
-          <strong>Mission packs</strong>
-          <span>Install workflows, not only datasets</span>
-        </div>
-        <div class="marketplace-modal-pack-grid">
-          ${MISSION_PACKS.filter((pack) => pack.compatibleVariants.includes(SITE_VARIANT as MarketplaceVariant)).map((pack) => `
-            <article class="marketplace-modal-pack-card">
-              <div class="marketplace-modal-pack-kicker">${escapeHtml(pack.domain.replace('-', ' '))}</div>
-              <strong>${escapeHtml(pack.name)}</strong>
-              <p>${escapeHtml(pack.tagline)}</p>
-              <div class="marketplace-modal-chip-row">
-                ${pack.datasetIds.slice(0, 3).map((datasetId) => `<span class="marketplace-modal-chip">${escapeHtml(datasetId.replace(/-/g, ' '))}</span>`).join('')}
-              </div>
-              <button class="marketplace-modal-secondary" type="button" data-marketplace-apply-pack="${escapeHtml(pack.id)}">Apply workspace</button>
-            </article>
-          `).join('')}
-        </div>
-      </section>
-
       <div class="marketplace-modal-filters">
         <input type="search" data-marketplace-filter="search" placeholder="Search datasets, tags, and authors" value="${escapeHtml(this.filters.search)}" />
         <select data-marketplace-filter="category">
@@ -831,27 +1076,29 @@ export class MarketplaceModal {
   private render(): void {
     if (!this.overlay) return;
     const installedItems = this.service.getViewItems(SITE_VARIANT as MarketplaceVariant);
-    const tabContent = this.activeTab === 'browse'
-      ? this.renderBrowse(installedItems)
-      : this.activeTab === 'installed'
-        ? this.renderInstalled(installedItems)
-        : this.activeTab === 'import'
-          ? this.renderImport()
-          : this.renderSubmit();
+    const tabContent = this.activeTab === 'decks'
+      ? this.renderDecks()
+      : this.activeTab === 'browse'
+        ? this.renderBrowse(installedItems)
+        : this.activeTab === 'installed'
+          ? this.renderInstalled(installedItems)
+          : this.activeTab === 'import'
+            ? this.renderImport()
+            : this.renderSubmit();
 
     this.overlay.innerHTML = `
       <div class="marketplace-modal">
         <div class="marketplace-modal-header">
           <div class="marketplace-modal-heading">
             <h2>Intelligence Catalog</h2>
-            <span class="marketplace-modal-kicker">datasets + mission packs</span>
+            <span class="marketplace-modal-kicker">decks + datasets + mission packs</span>
             <span class="marketplace-modal-beta">BETA</span>
           </div>
           <button class="marketplace-modal-close" type="button" data-marketplace-close="true">×</button>
         </div>
 
         <div class="marketplace-modal-tabs">
-          ${(['browse', 'installed', 'import', 'submit'] as MarketplaceTab[]).map((tab) => `
+          ${(['decks', 'browse', 'installed', 'import', 'submit'] as MarketplaceTab[]).map((tab) => `
             <button class="marketplace-modal-tab${this.activeTab === tab ? ' active' : ''}" type="button" data-marketplace-tab="${tab}">
               ${tab}
             </button>
@@ -866,4 +1113,13 @@ export class MarketplaceModal {
       </div>
     `;
   }
+}
+
+function formatWhen(ts: number): string {
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }

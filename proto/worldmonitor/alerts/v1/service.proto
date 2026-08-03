@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package worldmonitor.alerts.v1;
+
+import "sebuf/http/annotations.proto";
+import "worldmonitor/alerts/v1/deliver_alert_email.proto";
+import "worldmonitor/alerts/v1/deliver_alert_webhook.proto";
+
+// AlertsService delivers fired alert rules to destinations the user configured
+// on the rule (email, webhook). Requires a verified, tiered account — enforced
+// server-side, not just by the client's own feature gate.
+service AlertsService {
+  option (sebuf.http.service_config) = {base_path: "/api/alerts/v1"};
+
+  // DeliverAlertEmail sends a fired alert rule's match to an email address.
+  rpc DeliverAlertEmail(DeliverAlertEmailRequest) returns (DeliverAlertEmailResponse) {
+    option (sebuf.http.config) = {path: "/deliver-alert-email", method: HTTP_METHOD_POST};
+  }
+
+  // DeliverAlertWebhook POSTs a fired alert rule's match to a webhook URL.
+  // Gated to the webhook-alerts (analyst+) tier.
+  rpc DeliverAlertWebhook(DeliverAlertWebhookRequest) returns (DeliverAlertWebhookResponse) {
+    option (sebuf.http.config) = {path: "/deliver-alert-webhook", method: HTTP_METHOD_POST};
+  }
+}

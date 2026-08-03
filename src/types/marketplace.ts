@@ -33,7 +33,7 @@ export interface MarketplaceTrustMetadata {
 
 export interface MarketplaceCommercialMetadata {
   access?: 'included' | 'upgrade-required' | 'add-on' | 'enterprise';
-  tier?: 'free' | 'pro' | 'business' | 'enterprise';
+  tier?: 'free' | 'enthusiast' | 'analyst' | 'strategist' | 'maximalist';
   priceLabel?: string;
 }
 

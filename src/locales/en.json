@@ -1141,7 +1141,14 @@
         "renewableInstallations": "Clean Energy",
         "miningSites": "Mining Sites",
         "processingPlants": "Processing Plants",
-        "commodityPorts": "Commodity Ports"
+        "commodityPorts": "Commodity Ports",
+        "earthquakes": "Earthquakes",
+        "navWarnings": "Nav Warnings",
+        "polymarketMarkets": "Prediction Markets",
+        "satellite": "Satellites",
+        "marketPerf": "Market Performance",
+        "tariffBarriers": "Tariff Barriers",
+        "gdeltEvents": "GDELT Events"
       },
       "tooltip": {
         "earthquake": "Earthquake",
@@ -1781,7 +1788,13 @@
     "panel": {
       "showMethodologyInfo": "Show methodology info",
       "dragToResize": "Drag to resize (double-click to reset)",
-      "openSettings": "Open Settings"
+      "openSettings": "Open Settings",
+      "updated": "Updated",
+      "share": "Share widget",
+      "shareLinkCopied": "Link copied to clipboard",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "removePanel": "Remove panel"
     },
     "languageSelector": {
       "selectLanguage": "Select Language",

@@ -1,5 +1,6 @@
 import { User } from 'firebase/auth';
 import { getFirebaseAuth, onAuthChange, isFirebaseConfigured, getCurrentUser, getIdToken, handleRedirectResult } from '@/services/firebase-auth';
+import { canonicalizeTier, type FeatureTier } from '@/services/feature-entitlements';
 import { log } from '@/utils/logger';
 
 const AUTH_DEBUG = import.meta.env.DEV && import.meta.env.VITE_DEBUG_AUTH === '1';
@@ -7,12 +8,15 @@ const CHECKOUT_POLL_ATTEMPTS = 6;
 const CHECKOUT_POLL_INTERVAL_MS = 1_000;
 const TIER_ORDER: Record<UserTier, number> = {
   free: 0,
-  pro: 1,
-  business: 2,
-  enterprise: 3,
+  enthusiast: 1,
+  analyst: 2,
+  strategist: 3,
+  maximalist: 4,
 };
 
-export type UserTier = 'free' | 'pro' | 'business' | 'enterprise';
+// The auth tier mirrors the entitlements ladder exactly; `free` is the
+// anonymous default (shown as "Hobbyist").
+export type UserTier = FeatureTier;
 
 export interface AuthState {
   user: User | null;
@@ -37,8 +41,10 @@ function notifyListeners(): void {
   }
 }
 
+// Accepts current tier ids and legacy values (pro/business/enterprise/premium),
+// mapping legacy paid tiers up so existing subscribers never lose access.
 function normalizeTier(value: unknown): UserTier {
-  return value === 'pro' || value === 'business' || value === 'enterprise' ? value : 'free';
+  return canonicalizeTier(value);
 }
 
 function setAuthState(nextState: Partial<AuthState>): void {
@@ -212,4 +218,29 @@ export function getUserId(): string | null {
 
 export async function refreshUserTier(): Promise<UserTier> {
   return refreshUserTierInternal(getCheckoutExpectedTier());
+}
+
+/**
+ * Honors a `?upgrade=<tier>` intent carried from the marketing pricing page.
+ * Once a signed-in user is present, hands off to Stripe checkout for that tier.
+ * If the visitor never signs in, nothing happens — they simply land in the app.
+ * The intent is captured synchronously so a later sign-in still completes it.
+ */
+export function consumeUpgradeIntent(): void {
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('upgrade');
+  if (!requested || requested === 'free') return;
+  const interval = params.get('interval') === 'year' ? 'year' : 'month';
+
+  let handled = false;
+  const unsubscribe = subscribeToAuth((state) => {
+    if (state.loading || handled) return;
+    if (state.user) {
+      handled = true;
+      // Defer unsubscribe so we're not mutating the listener set mid-notify.
+      setTimeout(unsubscribe, 0);
+      window.location.href =
+        `/api/checkout?tier=${encodeURIComponent(requested)}&uid=${state.user.uid}&interval=${interval}`;
+    }
+  });
 }

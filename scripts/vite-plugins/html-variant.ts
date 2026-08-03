@@ -12,8 +12,9 @@ export function htmlVariantPlugin(options: HtmlVariantPluginOptions): Plugin {
   return {
     name: 'html-variant',
     transformIndexHtml(html, ctx) {
-      // The landing page owns its own static meta tags — never variant-rewritten.
-      if (ctx.filename.endsWith('landing.html')) return html;
+      // Marketing pages own their own static meta tags — never variant-rewritten.
+      const MARKETING_HTML = ['landing.html', 'lenses.html', 'dossiers.html', 'commander.html', 'resources.html', 'pricing.html'];
+      if (MARKETING_HTML.some((page) => ctx.filename.endsWith(page))) return html;
       let result = html
         .replace(/<title>.*?<\/title>/, `<title>${activeMeta.title}</title>`)
         .replace(/<meta name="title" content=".*?" \/>/, `<meta name="title" content="${activeMeta.title}" />`)

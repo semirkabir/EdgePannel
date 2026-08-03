@@ -39,6 +39,10 @@ export interface AlertRule {
   threshold: number;
   cooldownMinutes: number;
   channels: AlertRuleChannel[];
+  /** Destination for the 'email' channel. Preserved even if that channel is toggled off. */
+  email: string;
+  /** Destination for the 'webhook' channel (analyst+ tier, enforced server-side). Preserved even if that channel is toggled off. */
+  webhookUrl: string;
   evidenceRequirement: AlertRuleEvidenceRequirement;
   createdAt: number;
   updatedAt: number;
@@ -59,6 +63,8 @@ export interface AlertRuleDraftInput {
   threshold?: number;
   cooldownMinutes?: number;
   channels?: string[] | string;
+  email?: string;
+  webhookUrl?: string;
   evidenceRequirement?: string;
   createdAt?: number;
   updatedAt?: number;
@@ -98,6 +104,10 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
   return Math.max(min, Math.min(max, parsed));
 }
 
+function trimCapped(value: string | undefined, maxLen: number): string {
+  return String(value ?? '').trim().slice(0, maxLen);
+}
+
 /** Accept a zone only if it carries a usable polygon ring. */
 function normalizeZone(zone: AlertRuleZone | null | undefined): AlertRuleZone | null {
   if (!zone || !Array.isArray(zone.ring) || zone.ring.length < 3) return null;
@@ -133,6 +143,8 @@ export function normalizeAlertRule(input: AlertRuleDraftInput, now = Date.now())
     threshold: clampNumber(input.threshold, 1, 100, input.severity === 'critical' ? 80 : 60),
     cooldownMinutes: clampNumber(input.cooldownMinutes, 1, 1440, 30),
     channels: channels.length > 0 ? channels : ['banner'],
+    email: trimCapped(input.email, 320),
+    webhookUrl: trimCapped(input.webhookUrl, 2048),
     evidenceRequirement: oneOf(input.evidenceRequirement, EVIDENCE_REQUIREMENTS, 'any'),
     createdAt: Number.isFinite(input.createdAt) ? Number(input.createdAt) : now,
     updatedAt: Number.isFinite(input.updatedAt) ? Number(input.updatedAt) : now,

@@ -1,35 +1,72 @@
 import { getCorsHeaders, isDisallowedOrigin } from './_cors.js';
 
-export const SUBSCRIPTION_TIERS = ['pro', 'business', 'enterprise'];
-export const SELF_SERVE_TIERS = ['pro', 'business'];
+// All four paid tiers are self-serve Stripe subscriptions. `free` (Hobbyist)
+// needs no checkout. Keep this ladder in sync with
+// src/services/feature-entitlements.ts.
+export const SUBSCRIPTION_TIERS = ['enthusiast', 'analyst', 'strategist', 'maximalist'];
+export const SELF_SERVE_TIERS = ['enthusiast', 'analyst', 'strategist', 'maximalist'];
 export const TIER_ORDER = {
   anonymous: 0,
   free: 1,
-  pro: 2,
-  business: 3,
-  enterprise: 4,
+  enthusiast: 2,
+  analyst: 3,
+  strategist: 4,
+  maximalist: 5,
+};
+
+// Legacy stored/checkout tier values → current ids. Maps old paid tiers UP so
+// existing subscribers keep (never lose) access after the migration.
+const LEGACY_TIER_ALIASES = {
+  premium: 'enthusiast',
+  pro: 'analyst',
+  business: 'strategist',
+  enterprise: 'maximalist',
 };
 
 const TOKEN_CACHE_TTL_MS = 50 * 60 * 1000;
 const tokenCache = new Map();
 
+// Amounts in cents. Yearly = 10× monthly (two months free), matching the
+// pricing page's "2 months free" yearly toggle. Stripe price ids, when set via
+// env, take precedence over the inline price_data fallback.
 const TIER_PRICES = {
-  pro: {
-    amount: 900,
-    label: 'Pro',
-    description: 'EdgePannel Pro monthly subscription',
-    envPriceId: 'STRIPE_PRICE_ID_PRO',
+  enthusiast: {
+    monthly: 997,
+    yearly: 9970,
+    label: 'Enthusiast',
+    description: 'EdgePannel Enthusiast subscription',
+    envMonthly: 'STRIPE_PRICE_ID_ENTHUSIAST_MONTHLY',
+    envYearly: 'STRIPE_PRICE_ID_ENTHUSIAST_YEARLY',
   },
-  business: {
-    amount: 2900,
-    label: 'Business',
-    description: 'EdgePannel Business monthly subscription',
-    envPriceId: 'STRIPE_PRICE_ID_BUSINESS',
+  analyst: {
+    monthly: 1997,
+    yearly: 19970,
+    label: 'Analyst',
+    description: 'EdgePannel Analyst subscription',
+    envMonthly: 'STRIPE_PRICE_ID_ANALYST_MONTHLY',
+    envYearly: 'STRIPE_PRICE_ID_ANALYST_YEARLY',
+  },
+  strategist: {
+    monthly: 3997,
+    yearly: 39970,
+    label: 'Strategist',
+    description: 'EdgePannel Strategist subscription',
+    envMonthly: 'STRIPE_PRICE_ID_STRATEGIST_MONTHLY',
+    envYearly: 'STRIPE_PRICE_ID_STRATEGIST_YEARLY',
+  },
+  maximalist: {
+    monthly: 9997,
+    yearly: 99970,
+    label: 'Maximalist',
+    description: 'EdgePannel Maximalist subscription',
+    envMonthly: 'STRIPE_PRICE_ID_MAXIMALIST_MONTHLY',
+    envYearly: 'STRIPE_PRICE_ID_MAXIMALIST_YEARLY',
   },
 };
 
 function normalizeTier(value) {
-  return SUBSCRIPTION_TIERS.includes(value) ? value : 'free';
+  if (SUBSCRIPTION_TIERS.includes(value)) return value;
+  return LEGACY_TIER_ALIASES[value] ?? 'free';
 }
 
 function getFirebaseProjectId() {
@@ -199,11 +236,15 @@ export function getCheckoutPlan(tier) {
   return TIER_PRICES[tier] ?? null;
 }
 
-export async function createCheckoutSession({ tier, firebaseUid, successUrl, cancelUrl }) {
+export async function createCheckoutSession({ tier, firebaseUid, successUrl, cancelUrl, interval = 'month' }) {
   const plan = getCheckoutPlan(tier);
   if (!plan) {
     throw new Error('Invalid tier');
   }
+
+  const billingInterval = interval === 'year' ? 'year' : 'month';
+  const amount = billingInterval === 'year' ? plan.yearly : plan.monthly;
+  const envPriceId = process.env[billingInterval === 'year' ? plan.envYearly : plan.envMonthly];
 
   const params = new URLSearchParams();
   params.set('mode', 'subscription');
@@ -212,17 +253,17 @@ export async function createCheckoutSession({ tier, firebaseUid, successUrl, can
   params.set('client_reference_id', firebaseUid);
   params.set('metadata[firebaseUid]', firebaseUid);
   params.set('metadata[tier]', tier);
+  params.set('metadata[interval]', billingInterval);
   params.set('subscription_data[metadata][firebaseUid]', firebaseUid);
   params.set('subscription_data[metadata][tier]', tier);
   params.set('line_items[0][quantity]', '1');
 
-  const envPriceId = process.env[plan.envPriceId];
   if (envPriceId) {
     params.set('line_items[0][price]', envPriceId);
   } else {
     params.set('line_items[0][price_data][currency]', 'usd');
-    params.set('line_items[0][price_data][unit_amount]', String(plan.amount));
-    params.set('line_items[0][price_data][recurring][interval]', 'month');
+    params.set('line_items[0][price_data][unit_amount]', String(amount));
+    params.set('line_items[0][price_data][recurring][interval]', billingInterval);
     params.set('line_items[0][price_data][product_data][name]', `EdgePannel ${plan.label}`);
     params.set('line_items[0][price_data][product_data][description]', plan.description);
   }

@@ -1,0 +1,210 @@
+openapi: 3.1.0
+info:
+    title: AlertsService API
+    version: 1.0.0
+paths:
+    /api/alerts/v1/deliver-alert-email:
+        post:
+            tags:
+                - AlertsService
+            summary: DeliverAlertEmail
+            description: DeliverAlertEmail sends a fired alert rule's match to an email address.
+            operationId: DeliverAlertEmail
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/DeliverAlertEmailRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DeliverAlertEmailResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/alerts/v1/deliver-alert-webhook:
+        post:
+            tags:
+                - AlertsService
+            summary: DeliverAlertWebhook
+            description: |-
+                DeliverAlertWebhook POSTs a fired alert rule's match to a webhook URL.
+                 Gated to the webhook-alerts (analyst+) tier.
+            operationId: DeliverAlertWebhook
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/DeliverAlertWebhookRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DeliverAlertWebhookResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        DeliverAlertEmailRequest:
+            type: object
+            properties:
+                match:
+                    $ref: '#/components/schemas/AlertMatch'
+                email:
+                    type: string
+                    maxLength: 320
+                    format: email
+                    description: Destination email address, as configured on the rule.
+            required:
+                - match
+                - email
+            description: |-
+                DeliverAlertEmailRequest carries a fired alert rule's match details plus the
+                 destination email address the user configured on that rule.
+        AlertMatch:
+            type: object
+            properties:
+                ruleId:
+                    type: string
+                    maxLength: 100
+                    minLength: 1
+                    description: The alert rule's id (for logging/traceability only).
+                ruleName:
+                    type: string
+                    maxLength: 200
+                    minLength: 1
+                    description: The alert rule's display name.
+                severity:
+                    type: string
+                    enum:
+                        - all
+                        - high
+                        - critical
+                    description: Rule severity at fire time. "all" means no minimum was configured.
+                reason:
+                    type: string
+                    maxLength: 500
+                    description: Human-readable reason the rule matched.
+                score:
+                    type: number
+                    maximum: 100
+                    minimum: 0
+                    format: double
+                    description: Match score at fire time (0-100; see alert-rules.ts's scoring formula).
+                matchedKeywords:
+                    type: array
+                    items:
+                        type: string
+                        maxItems: 30
+                        description: Keywords that matched.
+                    maxItems: 30
+                matchedEntities:
+                    type: array
+                    items:
+                        type: string
+                        maxItems: 30
+                        description: Entities that matched.
+                    maxItems: 30
+                firedAt:
+                    exclusiveMinimum: false
+                    type: integer
+                    format: int64
+                    description: 'Fire timestamp, Unix epoch milliseconds.. Warning: Values > 2^53 may lose precision in JavaScript'
+            required:
+                - ruleId
+                - ruleName
+            description: |-
+                AlertMatch carries a fired alert rule's match details, shared by every
+                 delivery-channel RPC in this service so the two channel-specific request
+                 messages can't drift on field number or shape.
+        DeliverAlertEmailResponse:
+            type: object
+            properties:
+                delivered:
+                    type: boolean
+                    description: True if the email provider accepted the send.
+            description: DeliverAlertEmailResponse reports whether the email was sent.
+        DeliverAlertWebhookRequest:
+            type: object
+            properties:
+                match:
+                    $ref: '#/components/schemas/AlertMatch'
+                webhookUrl:
+                    type: string
+                    maxLength: 2048
+                    pattern: ^https?://
+                    format: uri
+                    description: |-
+                        Destination webhook URL, as configured on the rule. Must be http(s),
+                         validated + SSRF-checked server-side before any request is made.
+            required:
+                - match
+                - webhookUrl
+            description: |-
+                DeliverAlertWebhookRequest carries a fired alert rule's match details plus the
+                 destination webhook URL the user configured on that rule. Gated to the
+                 webhook-alerts (analyst+) tier server-side.
+        DeliverAlertWebhookResponse:
+            type: object
+            properties:
+                delivered:
+                    type: boolean
+                    description: True if the destination responded with a 2xx status.
+            description: DeliverAlertWebhookResponse reports whether the webhook POST succeeded.

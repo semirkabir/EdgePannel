@@ -19,7 +19,7 @@ test('returns anonymous metadata without a token', async () => {
   assert.equal(data.mcpEnabled, false);
 });
 
-test('accepts x-worldmonitor-token and resolves Redis-backed tiers', async () => {
+test('accepts x-worldmonitor-token and migrates a legacy Redis-backed tier', async () => {
   const originalFetch = globalThis.fetch;
   const originalProjectId = process.env.FIREBASE_PROJECT_ID;
   const originalRedisUrl = process.env.UPSTASH_REDIS_REST_URL;
@@ -38,6 +38,7 @@ test('accepts x-worldmonitor-token and resolves Redis-backed tiers', async () =>
     }
 
     if (String(url).includes('/get/user:user_123:tier')) {
+      // Legacy stored value — must migrate up to the current ladder.
       return new Response(JSON.stringify({ result: JSON.stringify('business') }), { status: 200 });
     }
 
@@ -48,7 +49,7 @@ test('accepts x-worldmonitor-token and resolves Redis-backed tiers', async () =>
     const response = await handler(makeRequest({ 'x-worldmonitor-token': 'firebase_token' }));
     assert.equal(response.status, 200);
     const data = await response.json();
-    assert.equal(data.tier, 'business');
+    assert.equal(data.tier, 'strategist');
     assert.equal(data.mcpEnabled, true);
   } finally {
     process.env.FIREBASE_PROJECT_ID = originalProjectId;
@@ -77,7 +78,7 @@ test('accepts Authorization bearer tokens for compatibility', async () => {
     }
 
     if (String(url).includes('/get/user:user_456:tier')) {
-      return new Response(JSON.stringify({ result: JSON.stringify('pro') }), { status: 200 });
+      return new Response(JSON.stringify({ result: JSON.stringify('analyst') }), { status: 200 });
     }
 
     throw new Error(`Unexpected fetch: ${url}`);
@@ -87,7 +88,7 @@ test('accepts Authorization bearer tokens for compatibility', async () => {
     const response = await handler(makeRequest({ authorization: 'Bearer firebase_token_auth_header' }));
     assert.equal(response.status, 200);
     const data = await response.json();
-    assert.equal(data.tier, 'pro');
+    assert.equal(data.tier, 'analyst');
   } finally {
     process.env.FIREBASE_PROJECT_ID = originalProjectId;
     process.env.UPSTASH_REDIS_REST_URL = originalRedisUrl;

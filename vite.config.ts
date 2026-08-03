@@ -89,10 +89,12 @@ function sebufApiPlugin(): Plugin {
   // Cache router across requests (H-13 fix). Invalidated by Vite's module graph on HMR.
   let cachedRouter: Awaited<ReturnType<typeof buildRouter>> | null = null;
   let cachedCorsMod: any = null;
+  let cachedAuthTierMod: any = null;
 
   async function buildRouter() {
     const [
-      routerMod, corsMod, errorMod,
+      routerMod, corsMod, errorMod, authTierMod,
+      alertsServerMod, alertsHandlerMod,
       economicServerMod, economicHandlerMod,
       intelligenceServerMod, intelligenceHandlerMod,
       marketServerMod, marketHandlerMod,
@@ -119,6 +121,9 @@ function sebufApiPlugin(): Plugin {
         import('./server/router'),
         import('./server/cors'),
         import('./server/error-mapper'),
+        import('./server/_shared/auth-tier'),
+        import('./src/generated/server/worldmonitor/alerts/v1/service_server'),
+        import('./server/worldmonitor/alerts/v1/handler'),
         import('./src/generated/server/worldmonitor/economic/v1/service_server'),
         import('./server/worldmonitor/economic/v1/handler'),
         import('./src/generated/server/worldmonitor/intelligence/v1/service_server'),
@@ -167,6 +172,7 @@ function sebufApiPlugin(): Plugin {
 
     const serverOptions = { onError: errorMod.mapErrorToResponse };
     const allRoutes = [
+      ...alertsServerMod.createAlertsServiceRoutes(alertsHandlerMod.alertsHandler, serverOptions),
       ...aviationServerMod.createAviationServiceRoutes(aviationHandlerMod.aviationHandler, serverOptions),
       ...climateServerMod.createClimateServiceRoutes(climateHandlerMod.climateHandler, serverOptions),
       ...conflictServerMod.createConflictServiceRoutes(conflictHandlerMod.conflictHandler, serverOptions),
@@ -191,6 +197,7 @@ function sebufApiPlugin(): Plugin {
       ...wildfireServerMod.createWildfireServiceRoutes(wildfireHandlerMod.wildfireHandler, serverOptions),
     ];
     cachedCorsMod = corsMod;
+    cachedAuthTierMod = authTierMod;
     return routerMod.createRouter(allRoutes);
   }
 
@@ -247,6 +254,24 @@ function sebufApiPlugin(): Plugin {
             headers,
             body: body || undefined,
           });
+
+          // Auth tier detection — mirrors server/gateway.ts's production
+          // logic so sebuf handlers that check ctx.headers['x-wm-user-id']/
+          // ['x-wm-user-tier'] behave the same locally as on Vercel.
+          const firebaseProjectId = process.env.FIREBASE_PROJECT_ID ?? '';
+          if (firebaseProjectId && cachedAuthTierMod) {
+            const authHeader = webRequest.headers.get('authorization') || '';
+            const customToken = webRequest.headers.get('x-edgepannel-token') || '';
+            const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : customToken.trim();
+            if (idToken) {
+              const verified = await cachedAuthTierMod.verifyFirebaseJwt(idToken, firebaseProjectId);
+              if (verified) {
+                const userTier = await cachedAuthTierMod.getUserTier(verified.uid);
+                webRequest.headers.set('x-wm-user-id', verified.uid);
+                webRequest.headers.set('x-wm-user-tier', userTier);
+              }
+            }
+          }
 
           const corsHeaders = corsMod.getCorsHeaders(webRequest);
 
@@ -1159,6 +1184,15 @@ function youtubeLivePlugin(): Plugin {
  */
 function landingRoutingPlugin(): Plugin {
   const APP_DEEP_LINK_PARAMS = ['c', 't', 'settings', 'live-channels', 'checkout', 'tier'];
+  // Marketing sub-pages served at clean URLs. Keep in sync with the explicit
+  // rewrites in vercel.json.
+  const MARKETING_PAGES: Record<string, string> = {
+    '/lenses': '/lenses.html',
+    '/dossiers': '/dossiers.html',
+    '/commander': '/commander.html',
+    '/resources': '/resources.html',
+    '/pricing': '/pricing.html',
+  };
   return {
     name: 'landing-routing',
     configureServer(server) {
@@ -1171,6 +1205,8 @@ function landingRoutingPlugin(): Plugin {
           }
         } else if (url.pathname === '/app' || url.pathname === '/app/') {
           req.url = `/index.html${url.search}`;
+        } else if (MARKETING_PAGES[url.pathname]) {
+          req.url = `${MARKETING_PAGES[url.pathname]}${url.search}`;
         }
         next();
       });
@@ -1400,6 +1436,11 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         landing: resolve(__dirname, 'landing.html'),
+        lenses: resolve(__dirname, 'lenses.html'),
+        dossiers: resolve(__dirname, 'dossiers.html'),
+        commander: resolve(__dirname, 'commander.html'),
+        resources: resolve(__dirname, 'resources.html'),
+        pricing: resolve(__dirname, 'pricing.html'),
         settings: resolve(__dirname, 'settings.html'),
         liveChannels: resolve(__dirname, 'live-channels.html'),
       },

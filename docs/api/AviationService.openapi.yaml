@@ -1055,11 +1055,31 @@ components:
                         - POSITION_SOURCE_OPENSKY
                         - POSITION_SOURCE_WINGBITS
                         - POSITION_SOURCE_SIMULATED
+                        - POSITION_SOURCE_ADSB_LOL
+                        - POSITION_SOURCE_AIRPLANES_LIVE
                     description: PositionSource identifies the provider of aircraft position data.
                 observedAt:
                     type: integer
                     format: int64
                     description: 'Observation time as Unix epoch milliseconds.. Warning: Values > 2^53 may lose precision in JavaScript'
+                originCountry:
+                    type: string
+                    description: Country inferred from the ICAO 24-bit address when available.
+                lastContactAt:
+                    type: integer
+                    format: int64
+                    description: 'Last transponder contact time as Unix epoch milliseconds.. Warning: Values > 2^53 may lose precision in JavaScript'
+                positionSourceCode:
+                    type: integer
+                    format: int32
+                    description: Raw upstream position source code, for example OpenSky's ADS-B/ASTERIX/MLAT/FLARM code.
+                aircraftCategory:
+                    type: integer
+                    format: int32
+                    description: Raw upstream aircraft category code.
+                stale:
+                    type: boolean
+                    description: True when the latest usable position is old enough to require stale UI treatment.
             description: PositionSample represents a single aircraft position observation.
         SearchFlightPricesRequest:
             type: object

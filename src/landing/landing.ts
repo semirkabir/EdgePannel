@@ -30,7 +30,25 @@ if (burger && nav && navMenu) {
   });
 }
 
-// --- Scroll reveal ---
+// --- Numeral count-up ---
+// The markup always ships the final value, so a no-JS or reduced-motion visitor
+// reads the real number and this only ever replays it as a tween.
+function countUp(el: HTMLElement): void {
+  const target = Number(el.dataset.count);
+  const suffix = el.dataset.suffix ?? '';
+  if (!Number.isFinite(target)) return;
+  const started = performance.now();
+  const duration = 1200;
+  const tick = (now: number): void => {
+    const t = Math.min((now - started) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = `${Math.round(target * eased)}${suffix}`;
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+// --- Scroll reveal (also fires any count-up numerals inside the revealed block) ---
 const revealables = document.querySelectorAll<HTMLElement>('.lp-reveal');
 if (reducedMotion || !('IntersectionObserver' in window)) {
   revealables.forEach((el) => el.classList.add('lp-in'));
@@ -40,6 +58,7 @@ if (reducedMotion || !('IntersectionObserver' in window)) {
       for (const entry of entries) {
         if (entry.isIntersecting) {
           entry.target.classList.add('lp-in');
+          entry.target.querySelectorAll<HTMLElement>('dt[data-count]').forEach(countUp);
           io.unobserve(entry.target);
         }
       }
@@ -49,23 +68,9 @@ if (reducedMotion || !('IntersectionObserver' in window)) {
   revealables.forEach((el) => io.observe(el));
 }
 
-// --- Hero stat count-up ---
+// --- Hero stats sit above the fold, so they run on load rather than on reveal ---
 if (!reducedMotion) {
-  const stats = document.querySelectorAll<HTMLElement>('.lp-hero-stats dt[data-count]');
-  stats.forEach((el) => {
-    const target = Number(el.dataset.count);
-    const suffix = el.dataset.suffix ?? '';
-    if (!Number.isFinite(target)) return;
-    const started = performance.now();
-    const duration = 1200;
-    const tick = (now: number): void => {
-      const t = Math.min((now - started) / duration, 1);
-      const eased = 1 - Math.pow(1 - t, 3);
-      el.textContent = `${Math.round(target * eased)}${suffix}`;
-      if (t < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  });
+  document.querySelectorAll<HTMLElement>('.lp-hero-stats dt[data-count]').forEach(countUp);
 }
 
 // --- Alternate the ⌘K / Ctrl+K shortcut label so both audiences see "their" key ---
@@ -97,6 +102,81 @@ if (shortcutSwap) {
       shortcutSwap.style.transform = 'rotateX(0deg)';
     }, FLIP_MS);
   }, 2000);
+}
+
+// --- GitHub stars: real social proof, fetched live; stays hidden on failure ---
+const ghStars = document.getElementById('gh-stars');
+const ghStarsCount = document.getElementById('gh-stars-count');
+if (ghStars && ghStarsCount) {
+  const showStars = async (): Promise<void> => {
+    try {
+      const resp = await fetch('https://api.github.com/repos/koala73/worldmonitor', {
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!resp.ok) return;
+      const data = (await resp.json()) as { stargazers_count?: number };
+      const n = data.stargazers_count;
+      if (!Number.isFinite(n) || (n as number) < 1) return;
+      ghStarsCount.textContent =
+        (n as number) >= 1000 ? `${((n as number) / 1000).toFixed(1)}k` : String(n);
+      ghStars.hidden = false;
+    } catch {
+      /* stays hidden — never show a made-up number */
+    }
+  };
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => void showStars(), { timeout: 4000 });
+  } else {
+    setTimeout(() => void showStars(), 1500);
+  }
+}
+
+// --- Product dropdown (desktop nav) ---
+const drop = document.querySelector<HTMLElement>('.lp-nav-drop');
+const dropBtn = drop?.querySelector<HTMLButtonElement>('.lp-nav-drop-btn');
+if (drop && dropBtn) {
+  const setDropOpen = (open: boolean): void => {
+    drop.classList.toggle('lp-drop-open', open);
+    dropBtn.setAttribute('aria-expanded', String(open));
+  };
+  dropBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setDropOpen(!drop.classList.contains('lp-drop-open'));
+  });
+  document.addEventListener('click', (e) => {
+    if (!drop.contains(e.target as Node)) setDropOpen(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') setDropOpen(false);
+  });
+}
+
+// --- Pricing page: monthly/yearly billing toggle ---
+const billingToggle = document.getElementById('billing-toggle');
+if (billingToggle) {
+  const pricing = document.getElementById('pricing');
+  const setInterval = (yearly: boolean): void => {
+    pricing?.classList.toggle('lp-yearly', yearly);
+    billingToggle.setAttribute('aria-checked', String(yearly));
+    billingToggle.querySelectorAll<HTMLElement>('[data-interval]').forEach((el) => {
+      el.classList.toggle('lp-billing-active', el.dataset.interval === (yearly ? 'year' : 'month'));
+    });
+    // Repoint every paid CTA at the chosen interval.
+    document.querySelectorAll<HTMLAnchorElement>('a[data-tier-cta]').forEach((a) => {
+      const tier = a.dataset.tierCta;
+      if (!tier || tier === 'free') return;
+      a.href = `/app?upgrade=${tier}${yearly ? '&interval=year' : ''}`;
+    });
+  };
+  billingToggle.addEventListener('click', () => {
+    setInterval(!pricing?.classList.contains('lp-yearly'));
+  });
+  billingToggle.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setInterval(!pricing?.classList.contains('lp-yearly'));
+    }
+  });
 }
 
 // --- Lazy: globe hero (skip on reduced motion; CSS glow remains as fallback) ---

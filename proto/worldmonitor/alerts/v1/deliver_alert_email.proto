@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package worldmonitor.alerts.v1;
+
+import "buf/validate/validate.proto";
+import "worldmonitor/alerts/v1/alert_match.proto";
+
+// DeliverAlertEmailRequest carries a fired alert rule's match details plus the
+// destination email address the user configured on that rule.
+message DeliverAlertEmailRequest {
+  // The fired rule's match details.
+  AlertMatch match = 1 [(buf.validate.field).required = true];
+  // Destination email address, as configured on the rule.
+  string email = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.email = true,
+    (buf.validate.field).string.max_len = 320
+  ];
+}
+
+// DeliverAlertEmailResponse reports whether the email was sent.
+message DeliverAlertEmailResponse {
+  // True if the email provider accepted the send.
+  bool delivered = 1;
+}

@@ -10,11 +10,10 @@ import {
 import { log } from '@/utils/logger';
 import { PANEL_CATEGORY_MAP } from '@/config/panels';
 import { SITE_VARIANT } from '@/config/variant';
-import { MISSION_PACKS } from '@/config';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 import type { MapLayers, PanelConfig, CustomFeed } from '@/types';
-import type { MarketplaceVariant, MarketplaceViewItem } from '@/types/marketplace';
+import type { MarketplaceViewItem } from '@/types/marketplace';
 import { FEATURES } from '@/services/feature-flags';
 import { getUserTier, type FeatureTier } from '@/services/feature-flags';
 import { subscribeToAuth } from '@/services/user-auth';
@@ -63,7 +62,7 @@ export class UnifiedSettings {
   private readonly openSourcesHandler: (e: Event) => void;
 
   private readonly profilePlans: Array<{
-    key: FeatureTier | 'enterprise';
+    key: FeatureTier;
     title: string;
     price: string;
     features: string[];
@@ -71,28 +70,34 @@ export class UnifiedSettings {
   }> = [
     {
       key: 'free',
-      title: 'Free',
+      title: 'Hobbyist',
       price: '$0',
-      features: ['Core global monitoring', 'Breaking alerts', 'Basic saved settings'],
+      features: ['All 680+ data feeds', '60 map layers · 6 lenses', 'Global instability pulse', 'Breaking alerts'],
     },
     {
-      key: 'pro',
-      title: 'Pro',
-      price: '$9/mo',
-      features: ['Real-time data', 'Export & API access', 'Data marketplace access', '1,000 MCP API calls/mo'],
+      key: 'enthusiast',
+      title: 'Enthusiast',
+      price: '$9.97/mo',
+      features: ['Everything free, plus:', 'AI summaries', 'Country-level scores', '30-day playback', 'Custom alert rules'],
     },
     {
-      key: 'business',
-      title: 'Business',
-      price: '$29/mo',
-      features: ['Everything in Pro', '10,000 MCP API calls/mo', 'Team workflows'],
-    },
-    {
-      key: 'enterprise',
-      title: 'Enterprise',
-      price: 'Contact us',
-      features: ['Unlimited API calls', 'Custom datasets', 'Dedicated support'],
+      key: 'analyst',
+      title: 'Analyst',
+      price: '$19.97/mo',
+      features: ['Everything in Enthusiast, plus:', 'AI Analyst chat', 'Situation reports', 'Live object tracking', 'Real-time & webhook alerts', 'Export · API · marketplace'],
       featured: true,
+    },
+    {
+      key: 'strategist',
+      title: 'Strategist',
+      price: '$39.97/mo',
+      features: ['Everything in Analyst, plus:', 'Premium AI models', 'Area monitors', 'Higher usage limits'],
+    },
+    {
+      key: 'maximalist',
+      title: 'Maximalist',
+      price: '$99.97/mo',
+      features: ['Everything in Strategist, plus:', 'Maximum usage limits', 'Priority processing'],
     },
   ];
 
@@ -200,13 +205,6 @@ export class UnifiedSettings {
         this.config.setSourcesEnabled(visible, false);
         this.renderSourcesGrid();
         this.updateSourcesCounter();
-        return;
-      }
-
-      const applyPackBtn = target.closest<HTMLElement>('[data-apply-pack]');
-      if (applyPackBtn?.dataset.applyPack) {
-        window.dispatchEvent(new CustomEvent('wm:apply-mission-pack', { detail: { packId: applyPackBtn.dataset.applyPack } }));
-        this.renderDataTab();
         return;
       }
 
@@ -683,7 +681,6 @@ export class UnifiedSettings {
     const mapLayers = this.config.getMapLayers();
     const enabledLayers = Object.values(mapLayers).filter(Boolean).length;
     const marketplaceItems = this.config.getMarketplaceItems();
-    const compatiblePacks = MISSION_PACKS.filter((pack) => pack.compatibleVariants.includes(SITE_VARIANT as MarketplaceVariant));
 
     container.innerHTML = `
       <section class="data-manager-summary">
@@ -697,29 +694,9 @@ export class UnifiedSettings {
         <div class="data-manager-section-head">
           <div>
             <strong>Add / Manage Data</strong>
-            <span>One place to grow the workspace across panels, layers, sources, and packages.</span>
+            <span>One place to grow the workspace across decks, panels, layers, sources, and packages.</span>
           </div>
           <button class="data-manager-primary" type="button" data-open-marketplace="true">Open catalog</button>
-        </div>
-      </section>
-
-      <section class="data-manager-section">
-        <div class="data-manager-section-head">
-          <div>
-            <strong>Mission packs</strong>
-            <span>Apply a goal-oriented workspace starter.</span>
-          </div>
-        </div>
-        <div class="data-manager-pack-grid">
-          ${compatiblePacks.map((pack) => `
-            <article class="data-manager-pack-card">
-              <div class="data-manager-pack-kicker">${escapeHtml(pack.domain.replace('-', ' '))}</div>
-              <strong>${escapeHtml(pack.name)}</strong>
-              <p>${escapeHtml(pack.tagline)}</p>
-              <div class="data-manager-pack-meta">${pack.recommendedPanels.length} panels • ${pack.recommendedLayers.length} layers • ${pack.datasetIds.length} datasets</div>
-              <button type="button" data-apply-pack="${escapeHtml(pack.id)}">Apply workspace</button>
-            </article>
-          `).join('')}
         </div>
       </section>
 
@@ -769,13 +746,11 @@ export class UnifiedSettings {
     return this.profilePlans.map((plan) => {
       const isCurrent = plan.key === this.currentTier;
       const classes = ['profile-plan-card', plan.featured ? 'featured' : '', isCurrent ? 'current' : ''].filter(Boolean).join(' ');
-      const buttonLabel = plan.key === 'enterprise'
-        ? 'Contact Sales'
-        : isCurrent
-          ? 'Current Plan'
-          : plan.key === 'free'
-            ? 'Select Free'
-            : `Upgrade to ${plan.title}`;
+      const buttonLabel = isCurrent
+        ? 'Current Plan'
+        : plan.key === 'free'
+          ? 'Included Free'
+          : `Upgrade to ${plan.title}`;
 
       return `
         <div class="${classes}">
@@ -784,7 +759,7 @@ export class UnifiedSettings {
           <ul class="plan-features">
             ${plan.features.map(feature => `<li>${feature}</li>`).join('')}
           </ul>
-          <button class="profile-upgrade-btn" data-tier="${plan.key}" ${isCurrent && plan.key !== 'enterprise' ? 'disabled' : ''}>${buttonLabel}</button>
+          <button class="profile-upgrade-btn" data-tier="${plan.key}" ${isCurrent || plan.key === 'free' ? 'disabled' : ''}>${buttonLabel}</button>
         </div>
       `;
     }).join('');
@@ -1154,12 +1129,6 @@ export class UnifiedSettings {
 
   private async handleUpgrade(tier: string): Promise<void> {
     if (tier === 'free') {
-      return;
-    }
-
-    if (tier === 'enterprise') {
-      // Open external email or contact page
-      window.open('mailto:sales@edgepannel.app?subject=Enterprise%20Inquiry', '_blank');
       return;
     }
 

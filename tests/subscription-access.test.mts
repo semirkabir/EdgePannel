@@ -15,10 +15,39 @@ describe('feature entitlement checks', () => {
   });
 
   it('allows login-only features for authenticated free users', () => {
+    // `watchlist` is cosmetic/convenience — free with an account, never paywalled.
     assert.equal(
-      canAccessFeatureForState('historical-playback', { isLoggedIn: true, tier: 'free' }),
+      canAccessFeatureForState('watchlist', { isLoggedIn: true, tier: 'free' }),
       true,
     );
+  });
+
+  it('requires an account for login-only features', () => {
+    assert.equal(
+      canAccessFeatureForState('watchlist', { isLoggedIn: false, tier: 'free' }),
+      false,
+    );
+  });
+
+  it('paywalls historical playback at the entry paid tier', () => {
+    // Moved from login-only to `enthusiast` in the 2026-07-24 freemium switch:
+    // history/tracking is one of the three paywalled families.
+    assert.equal(
+      canAccessFeatureForState('historical-playback', { isLoggedIn: true, tier: 'free' }),
+      false,
+    );
+    assert.equal(
+      canAccessFeatureForState('historical-playback', { isLoggedIn: true, tier: 'enthusiast' }),
+      true,
+    );
+  });
+
+  it('maps legacy paid tiers up rather than denying access', () => {
+    // Stored tiers from before the switch must never lose access.
+    assert.equal(canAccessFeatureForState('marketplace', { isLoggedIn: true, tier: 'business' }), true);
+    assert.equal(canAccessFeatureForState('ai-summaries', { isLoggedIn: true, tier: 'premium' }), true);
+    // An unknown tier still fails closed.
+    assert.equal(canAccessFeatureForState('marketplace', { isLoggedIn: true, tier: 'bogus' as never }), false);
   });
 
   it('blocks paid-only features for authenticated free users', () => {

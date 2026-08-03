@@ -1,7 +1,7 @@
 /**
  * Checkout API endpoint — creates a Stripe Checkout session and redirects.
  *
- * GET /api/checkout?tier=pro&uid=firebase_uid
+ * GET /api/checkout?tier=analyst&uid=firebase_uid&interval=month
  */
 import {
   buildSubscriptionResponseHeaders,
@@ -22,13 +22,10 @@ export default async function handler(req) {
   const url = new URL(req.url);
   const tier = url.searchParams.get('tier');
   const uid = url.searchParams.get('uid');
+  const interval = url.searchParams.get('interval') === 'year' ? 'year' : 'month';
 
-  if (!tier || (!getCheckoutPlan(tier) && tier !== 'enterprise')) {
+  if (!tier || !getCheckoutPlan(tier)) {
     return new Response(JSON.stringify({ error: 'Invalid tier' }), { status: 400, headers: { 'Content-Type': 'application/json', ...cors } });
-  }
-
-  if (tier === 'enterprise') {
-    return Response.redirect('mailto:sales@edgepannel.app?subject=Enterprise%20Inquiry', 302);
   }
 
   if (!uid) {
@@ -41,16 +38,17 @@ export default async function handler(req) {
   }
 
   const origin = url.origin;
-  const successUrl = new URL('/', origin);
+  const successUrl = new URL('/app', origin);
   successUrl.searchParams.set('checkout', 'success');
   successUrl.searchParams.set('tier', tier);
-  const cancelUrl = new URL('/', origin);
+  const cancelUrl = new URL('/pricing', origin);
   cancelUrl.searchParams.set('checkout', 'canceled');
 
   try {
     const session = await createCheckoutSession({
       tier,
       firebaseUid: uid,
+      interval,
       successUrl: successUrl.toString(),
       cancelUrl: cancelUrl.toString(),
     });

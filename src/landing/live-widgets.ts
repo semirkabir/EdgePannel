@@ -5,6 +5,8 @@
  * lies about freshness.
  */
 
+import { TICKER_FEEDS, TICKER_CATEGORY_LABELS } from './ticker-data';
+
 interface MarketQuote {
   symbol: string;
   name: string;
@@ -224,7 +226,95 @@ async function loadSignals(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------- pulse
+
+interface RiskScoresResponse {
+  ciiScores: Array<{
+    region: string;
+    combinedScore: number;
+    trend: string;
+  }>;
+  strategicRisks: Array<{
+    region: string;
+    score: number;
+    level: string;
+  }>;
+}
+
+/** Country names for the tier-1 codes the risk API scores. */
+const PULSE_COUNTRY_NAMES: Record<string, string> = {
+  US: 'United States', RU: 'Russia', CN: 'China', UA: 'Ukraine', IR: 'Iran',
+  IL: 'Israel', TW: 'Taiwan', KP: 'North Korea', SA: 'Saudi Arabia', TR: 'Turkey',
+  PL: 'Poland', DE: 'Germany', FR: 'France', GB: 'United Kingdom', IN: 'India',
+  PK: 'Pakistan', SY: 'Syria', YE: 'Yemen', MM: 'Myanmar', VE: 'Venezuela',
+};
+
+function pulseBand(score: number): { label: string; cls: string } {
+  if (score >= 70) return { label: 'High pressure', cls: 'lp-pulse-high' };
+  if (score >= 40) return { label: 'Elevated', cls: 'lp-pulse-elevated' };
+  return { label: 'Guarded', cls: 'lp-pulse-guarded' };
+}
+
+function renderPulseScore(score: number): void {
+  const num = document.querySelector<HTMLElement>('[data-widget="pulse"] [data-slot="score"]');
+  const level = document.querySelector<HTMLElement>('[data-widget="pulse"] [data-slot="level"]');
+  if (!num || !level) return;
+  const band = pulseBand(score);
+  num.textContent = String(score);
+  num.classList.add(band.cls);
+  level.textContent = band.label;
+  level.classList.add(band.cls);
+}
+
+function pulseCountryRow(code: string, score: number): string {
+  const band = pulseBand(score);
+  return `<li><span class="lp-row-name">${escapeHtml(PULSE_COUNTRY_NAMES[code] ?? code)}</span><span class="lp-row-value ${band.cls}">${score}</span></li>`;
+}
+
+const PULSE_SAMPLE: Array<[string, number]> = [
+  ['UA', 78], ['IR', 64], ['SY', 58], ['MM', 55], ['YE', 52],
+];
+
+async function loadPulse(): Promise<void> {
+  const slot = getSlot('pulse');
+  if (!slot) return;
+  try {
+    const data = await fetchJson<RiskScoresResponse>('/api/intelligence/v1/get-risk-scores');
+    const global = data.strategicRisks?.find((r) => r.region === 'global');
+    const top = (data.ciiScores ?? [])
+      .filter((s) => Number.isFinite(s.combinedScore))
+      .slice(0, 5);
+    if (!global || !top.length) throw new Error('empty');
+    renderPulseScore(Math.round(global.score));
+    slot.innerHTML = top
+      .map((s) => pulseCountryRow(s.region, Math.round(s.combinedScore)))
+      .join('');
+  } catch {
+    markSample('pulse');
+    renderPulseScore(46);
+    slot.innerHTML = PULSE_SAMPLE.map(([c, s]) => pulseCountryRow(c, s)).join('');
+  }
+}
+
+// ---------------------------------------------------------------- ticker
+
+/**
+ * The marquee needs two identical copies of the strip: the animation slides
+ * the track by exactly -50%, so the second copy takes over seamlessly.
+ */
+function initTicker(): void {
+  const track = document.querySelector<HTMLElement>('[data-slot="ticker-track"]');
+  if (!track) return;
+  const cards = TICKER_FEEDS.map(
+    (f) =>
+      `<li class="lp-tick" data-cat="${f.category}"><span class="lp-tick-dot" aria-hidden="true"></span><span class="lp-tick-name">${escapeHtml(f.name)}</span><span class="lp-tick-cadence">${f.cadence}</span><span class="lp-tick-cat">${TICKER_CATEGORY_LABELS[f.category]}</span></li>`
+  ).join('');
+  track.innerHTML = `<ul class="lp-ticker-strip">${cards}</ul><ul class="lp-ticker-strip" aria-hidden="true">${cards}</ul>`;
+}
+
 export function initLiveWidgets(): void {
+  initTicker();
+  void loadPulse();
   void loadMarkets();
   void loadFx();
   void loadQuakes();

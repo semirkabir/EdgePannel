@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-page="landing">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Country Dossiers — Instability Scores &amp; AI Briefs | EdgePannel</title>
+    <meta name="description" content="Click any country for a live dossier: a 0–100 instability score fused from conflict, unrest, outage and security signals, plus an AI brief with cited headlines. Free, no signup." />
+    <link rel="canonical" href="https://edgepannel.app/dossiers" />
+    <meta name="theme-color" content="#04080a" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://edgepannel.app/dossiers" />
+    <meta property="og:site_name" content="EdgePannel" />
+    <meta property="og:title" content="Country Dossiers — Instability Scores &amp; AI Briefs | EdgePannel" />
+    <meta property="og:description" content="A live 0–100 instability score for every tier-1 country, plus AI briefs with cited headlines. Free, no signup." />
+    <meta property="og:image" content="https://edgepannel.app/favico/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favico/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favico/favicon-32x32.png" />
+    <link rel="apple-touch-icon" href="/favico/apple-touch-icon.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;800&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/src/landing/landing.css" />
+    <script type="module" src="/src/landing/landing.ts"></script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://edgepannel.app/" },
+        { "@type": "ListItem", "position": 2, "name": "Country Dossiers", "item": "https://edgepannel.app/dossiers" }
+      ]
+    }
+    </script>
+  </head>
+  <body>
+    <a class="lp-skip" href="#main">Skip to content</a>
+
+    <header class="lp-nav" id="nav">
+      <div class="lp-nav-inner">
+        <a class="lp-brand" href="/">
+          <img class="lp-brand-logo" src="/src/assets/edgepannel-logo.png" alt="EdgePannel" width="149" height="30" />
+        </a>
+        <nav class="lp-nav-links" aria-label="Site">
+          <a href="/#live">Live now</a>
+          <div class="lp-nav-drop">
+            <button type="button" class="lp-nav-drop-btn" aria-expanded="false" aria-haspopup="true">Product <span aria-hidden="true">▾</span></button>
+            <div class="lp-nav-drop-menu" role="menu">
+              <a role="menuitem" href="/#product">Overview</a>
+              <a role="menuitem" href="/lenses">Six lenses</a>
+              <a role="menuitem" href="/dossiers">Country dossiers</a>
+              <a role="menuitem" href="/commander">⌘K Commander</a>
+              <a role="menuitem" href="/resources">OSINT resources</a>
+            </div>
+          </div>
+          <a href="/#who">Who it's for</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/#faq">FAQ</a>
+          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+        <a class="lp-btn lp-btn-primary lp-nav-cta" href="/app">Launch dashboard <span aria-hidden="true">→</span></a>
+        <button class="lp-nav-burger" id="nav-burger" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+      <nav class="lp-nav-menu" id="nav-menu" aria-label="Site">
+        <a href="/#live">Live now</a>
+        <a href="/#product">Product</a>
+        <a href="/lenses">Six lenses</a>
+        <a href="/dossiers">Country dossiers</a>
+        <a href="/commander">⌘K Commander</a>
+        <a href="/resources">OSINT resources</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/#faq">FAQ</a>
+        <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="lp-subhero" style="--lp-subhero-glow: rgba(255, 180, 84, 0.09)">
+        <div class="lp-container">
+          <nav class="lp-breadcrumb" aria-label="Breadcrumb">
+            <a href="/">Home</a><span aria-hidden="true">›</span><span class="lp-crumb-here">Country dossiers</span>
+          </nav>
+          <h1 class="lp-h1 lp-reveal lp-in">
+            Every country,<br /><span class="lp-h1-accent">scored and briefed.</span>
+          </h1>
+          <p class="lp-hero-sub lp-reveal lp-in">
+            Click any country on the map and get a live dossier: a 0–100 instability
+            score fused from real events, the signals driving it, and an AI brief that
+            cites its headlines. No black box — the methodology is
+            <a href="/resources#methodology" style="color: var(--lp-accent)">public</a>.
+          </p>
+          <div class="lp-hero-ctas lp-reveal lp-in">
+            <a class="lp-btn lp-btn-primary lp-btn-lg" href="/app">Open the map <span aria-hidden="true">→</span></a>
+            <a class="lp-btn lp-btn-ghost lp-btn-lg" href="/resources#methodology">Read the methodology</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- The id="live" wrapper triggers the same lazy live-widgets loader the
+           homepage uses; only the pulse slots exist here so only it renders. -->
+      <section class="lp-section" id="live" style="padding-top: 40px">
+        <div class="lp-container">
+          <article class="lp-pulse lp-reveal" data-widget="pulse">
+            <div class="lp-pulse-main">
+              <header class="lp-pulse-header">
+                <h3>Global instability index</h3>
+                <span class="lp-live-badge">live</span>
+              </header>
+              <div class="lp-pulse-score">
+                <span class="lp-pulse-num" data-slot="score">–</span>
+                <span class="lp-pulse-denom">/ 100</span>
+              </div>
+              <span class="lp-pulse-level" data-slot="level">connecting…</span>
+              <p class="lp-pulse-note">
+                This is the same endpoint the dashboard polls — fetched live while you
+                read this page.
+              </p>
+            </div>
+            <div class="lp-pulse-side">
+              <h4>Highest pressure right now</h4>
+              <ul class="lp-live-rows" data-slot="rows">
+                <li class="lp-live-placeholder">Connecting…</li>
+              </ul>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <div class="lp-divider" aria-hidden="true"><span></span></div>
+
+      <section class="lp-section">
+        <div class="lp-container">
+          <p class="lp-label lp-reveal">Inside a dossier</p>
+          <h2 class="lp-h2 lp-reveal">What you get per country.</h2>
+
+          <div class="lp-feature-row lp-reveal">
+            <div>
+              <h3>The instability score</h3>
+              <p>
+                A 0–100 composite blending a structural baseline with live events:
+                protests and riots, battles and strikes, security incidents, plus
+                climate, cyber and wildfire pressure. Countries in active war never
+                score below the conflict floor — the number can't pretend a war away.
+              </p>
+              <ul class="lp-feature-list">
+                <li>Rebuilt from source events every few minutes, cached ten</li>
+                <li>Score components shown, not hidden — see what's driving it</li>
+              </ul>
+            </div>
+            <div>
+              <h3>The AI brief</h3>
+              <p>
+                A short analyst-style brief generated from the country's current
+                headlines and signals — with the cited articles listed under it, so
+                you can check every claim against its source in one click.
+              </p>
+              <ul class="lp-feature-list">
+                <li>Briefs cite their headlines — no unsourced claims</li>
+                <li>Runs on the same multi-tier AI chain as the rest of the app</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="lp-feature-row lp-reveal">
+            <div>
+              <h3>Active signals, pinned</h3>
+              <p>
+                Everything currently live in that country — quakes, outages, conflict
+                events, military activity, infrastructure alerts — listed and pinned
+                to the map, each with its source.
+              </p>
+            </div>
+            <div>
+              <h3>Escalation watch</h3>
+              <p>
+                Hotspot pairs and strategic risk contributors update as events land,
+                so a dossier isn't a snapshot — leave it open and it keeps up.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-final">
+        <div class="lp-container">
+          <h2 class="lp-h2 lp-reveal">Pick a country. Any country.</h2>
+          <p class="lp-section-sub lp-reveal">
+            The dossier is one click from the map — no setup, no account.
+          </p>
+          <div class="lp-final-cta lp-reveal">
+            <a class="lp-btn lp-btn-primary lp-btn-lg" href="/app">Launch EdgePannel <span aria-hidden="true">→</span></a>
+            <p class="lp-micro">Free · No signup · Methodology public</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="lp-footer">
+      <div class="lp-container lp-footer-inner">
+        <a class="lp-brand" href="/">
+          <img class="lp-brand-logo" src="/src/assets/edgepannel-logo.png" alt="EdgePannel" width="149" height="30" />
+        </a>
+        <nav class="lp-footer-links" aria-label="Footer">
+          <a href="/app">Dashboard</a>
+          <a href="/lenses">Six lenses</a>
+          <a href="/dossiers">Country dossiers</a>
+          <a href="/commander">⌘K Commander</a>
+          <a href="/resources">Resources</a>
+          <a href="/pricing">Pricing</a>
+          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+        <p class="lp-footer-legal">© 2026 EdgePannel · AGPL-3.0</p>
+      </div>
+    </footer>
+  </body>
+</html>

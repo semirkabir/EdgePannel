@@ -1,0 +1,261 @@
+openapi: 3.1.0
+info:
+    title: ReferenceService API
+    version: 1.0.0
+paths:
+    /api/reference/v1/resolve-entity:
+        get:
+            tags:
+                - ReferenceService
+            summary: ResolveEntity
+            description: ResolveEntity resolves any identifier to a full EntityRef.
+            operationId: ResolveEntity
+            parameters:
+                - name: ticker
+                  in: query
+                  description: |-
+                    Provide exactly one of the following identifiers.
+                     If multiple are provided, priority: ticker > isin > lei > q.
+                  required: false
+                  schema:
+                    type: string
+                - name: isin
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: lei
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: cusip
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: q
+                  in: query
+                  description: Freeform query — type detected automatically by format.
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ResolveEntityResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/reference/v1/lookup-by-lei:
+        get:
+            tags:
+                - ReferenceService
+            summary: LookupByLei
+            description: LookupByLei directly resolves a Legal Entity Identifier.
+            operationId: LookupByLei
+            parameters:
+                - name: lei
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LookupByLeiResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/reference/v1/search-entities:
+        get:
+            tags:
+                - ReferenceService
+            summary: SearchEntities
+            description: SearchEntities searches cached entities by name fragment.
+            operationId: SearchEntities
+            parameters:
+                - name: query
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SearchEntitiesResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        ResolveEntityRequest:
+            type: object
+            properties:
+                ticker:
+                    type: string
+                    description: |-
+                        Provide exactly one of the following identifiers.
+                         If multiple are provided, priority: ticker > isin > lei > q.
+                isin:
+                    type: string
+                lei:
+                    type: string
+                cusip:
+                    type: string
+                q:
+                    type: string
+                    description: Freeform query — type detected automatically by format.
+            description: ResolveEntity — resolve any identifier to a full EntityRef.
+        ResolveEntityResponse:
+            type: object
+            properties:
+                entity:
+                    $ref: '#/components/schemas/EntityRef'
+                resolvedType:
+                    type: string
+                    description: 'Detected input type: "ticker", "isin", "lei", "cusip".'
+        EntityRef:
+            type: object
+            properties:
+                ticker:
+                    type: string
+                    description: Canonical ticker symbol (uppercase, exchange-agnostic).
+                cusip:
+                    type: string
+                    description: CUSIP — 9-character North American identifier.
+                isin:
+                    type: string
+                    description: ISIN — 12-character international identifier (ISO 6166).
+                lei:
+                    type: string
+                    description: LEI — 20-character Legal Entity Identifier (ISO 17442).
+                figi:
+                    type: string
+                    description: FIGI — Bloomberg Global Identifier (OpenFIGI).
+                name:
+                    type: string
+                    description: Human-readable name.
+                country:
+                    type: string
+                    description: ISO 3166-1 alpha-2 country code.
+                sector:
+                    type: string
+                    description: Industry/GICS sector label.
+                exchange:
+                    type: string
+                    description: Exchange MIC or abbreviated name.
+                entityType:
+                    type: string
+                    description: 'Entity classification: "company", "etf", "index", "crypto", "sovereign", "fund".'
+                resolvedAt:
+                    type: string
+                    description: RFC 3339 timestamp of last resolution.
+                sources:
+                    type: array
+                    items:
+                        type: string
+                        description: Data sources used for this resolution (e.g. "finnhub", "openfigi", "gleif", "convex_cache").
+            description: |-
+                EntityRef represents a fully-resolved financial entity cross-reference.
+                 All identifier fields are optional; at least `name` is always populated.
+        LookupByLeiRequest:
+            type: object
+            properties:
+                lei:
+                    type: string
+            description: LookupByLei — direct LEI lookup without auto-detection.
+        LookupByLeiResponse:
+            type: object
+            properties:
+                entity:
+                    $ref: '#/components/schemas/EntityRef'
+        SearchEntitiesRequest:
+            type: object
+            properties:
+                query:
+                    type: string
+                limit:
+                    type: integer
+                    format: int32
+            description: SearchEntities — full-text search across cached entity names.
+        SearchEntitiesResponse:
+            type: object
+            properties:
+                entities:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/EntityRef'

@@ -6206,9 +6206,8 @@
   line-height: 1.25;
   color: var(--text, #ffffff);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
   margin: 0;
 }
 

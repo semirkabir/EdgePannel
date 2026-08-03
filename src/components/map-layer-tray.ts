@@ -3,6 +3,7 @@ import { SITE_VARIANT } from '@/config';
 import { t } from '@/services/i18n';
 import { getTrayOpenPreference, setTrayOpenPreference } from '@/app/ui-preferences';
 import { getLayerCategory, LAYER_CATEGORY_LABELS, type LayerCategory } from '@/config/map-layer-definitions';
+import { showLayerWarning } from '@/utils/layer-warning';
 
 interface SvgLayerTrayOptions {
   container: HTMLElement;
@@ -51,15 +52,36 @@ export function createSvgLayerToggles(options: SvgLayerTrayOptions): HTMLElement
   header.append(title, status, collapseBtn);
   toggles.append(header, body);
 
+  // Order layers were switched on (oldest first), so enforceLayerLimit can drop
+  // the oldest-enabled ones when trimming excess instead of by DOM position —
+  // the user keeps whatever they most recently chose to turn on. Seeded from
+  // whichever layers are already active when the tray is built; real toggles
+  // during this session update it going forward.
+  const activationOrder: (keyof MapLayers)[] = options.getVariantLayerKeys()
+    .filter((layer) => options.layersState[layer]);
+  let warnedThisSession = false;
+
+  const recordToggle = (layer: keyof MapLayers) => {
+    const idx = activationOrder.indexOf(layer);
+    if (options.layersState[layer]) {
+      if (idx === -1) activationOrder.push(layer);
+    } else if (idx !== -1) {
+      activationOrder.splice(idx, 1);
+    }
+  };
+
   const enforceLayerLimit = () => {
     const allBtns = Array.from(body.querySelectorAll<HTMLButtonElement>('.layer-toggle'));
     const activeBtns = allBtns.filter(b => b.classList.contains('active'));
     if (activeBtns.length > MAX_SVG_LAYERS) {
-      const excess = activeBtns.slice(MAX_SVG_LAYERS);
-      for (const btn of excess) {
-        btn.classList.remove('active');
-        const layer = btn.dataset.layer as keyof MapLayers | undefined;
-        if (layer) options.toggleLayer(layer);
+      const excess = activationOrder.slice(0, activationOrder.length - MAX_SVG_LAYERS);
+      for (const layer of excess) {
+        options.toggleLayer(layer);
+        recordToggle(layer);
+      }
+      if (!warnedThisSession) {
+        warnedThisSession = true;
+        showLayerWarning(MAX_SVG_LAYERS);
       }
     }
     const activeCount = allBtns.filter(b => b.classList.contains('active')).length;
@@ -90,6 +112,7 @@ export function createSvgLayerToggles(options: SvgLayerTrayOptions): HTMLElement
     btn.append(icon, label);
     btn.addEventListener('click', () => {
       options.toggleLayer(layer);
+      recordToggle(layer);
       btn.setAttribute('aria-pressed', String(btn.classList.contains('active')));
       enforceLayerLimit();
     });

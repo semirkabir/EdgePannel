@@ -7,7 +7,7 @@ import {
 
 export const config = { runtime: 'edge' };
 
-const PAID_TIERS = new Set(['pro', 'business', 'enterprise']);
+const PAID_TIERS = new Set(['enthusiast', 'analyst', 'strategist', 'maximalist']);
 
 function getSessionMetadata(session) {
   const metadata = session?.metadata ?? {};

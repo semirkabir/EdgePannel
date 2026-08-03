@@ -72,7 +72,7 @@ import { getAlertsNearLocation } from '@/services/geo-convergence';
 import { getCountryAtCoordinates, getCountryBbox } from '@/services/country-geometry';
 import type { CountryClickPayload } from './DeckGLMap';
 import { t } from '@/services/i18n';
-import { LAYER_REGISTRY, resolveLayerAccentColor, resolveLayerIcon, resolveLayerLabel, type MapVariant } from '@/config/map-layer-definitions';
+import { LAYER_REGISTRY, resolveLayerAccentColor, resolveLayerIcon, resolveLayerLabel, getLayerZoomThreshold, getLayerKeysWithZoomThreshold, getLayersForVariant, type MapVariant } from '@/config/map-layer-definitions';
 
 import {
   TIME_RANGE_OPTIONS,
@@ -179,16 +179,6 @@ interface WorldTopology extends Topology {
 }
 
 export class MapComponent {
-  private static readonly LAYER_ZOOM_THRESHOLDS: Partial<
-    Record<keyof MapLayers, { minZoom: number; showLabels?: number }>
-  > = {
-      bases: { minZoom: 3, showLabels: 5 },
-      nuclear: { minZoom: 2 },
-      conflicts: { minZoom: 1, showLabels: 3 },
-      economic: { minZoom: 2 },
-      natural: { minZoom: 1, showLabels: 2 },
-    };
-
   private container: HTMLElement;
   private svg: Selection<SVGSVGElement, unknown, null, undefined>;
   private wrapper: HTMLElement;
@@ -619,59 +609,6 @@ export class MapComponent {
     return getCurrentTheme() === 'light' ? 'light' : 'dark';
   }
 
-  private getVariantLayerKeys(): (keyof MapLayers)[] {
-    const fullLayers: (keyof MapLayers)[] = [
-      'conflicts', 'hotspots', 'sanctions', 'protests',
-      'bases', 'nuclear', 'irradiators',
-      'military',
-      'cables', 'pipelines', 'outages', 'datacenters',
-      'ais', 'flights', 'gpsJamming',
-      'natural', 'weather',
-      'economic',
-      'polymarketMarkets',
-      'waterways',
-      'ciiChoropleth',
-      'startupHubs', 'techHQs', 'accelerators', 'cloudRegions', 'techEvents',
-      'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments',
-      'positiveEvents', 'kindness', 'happiness', 'speciesRecovery', 'renewableInstallations',
-      'miningSites', 'processingPlants', 'commodityPorts',
-      'democracy', 'gemRisk',
-    ];
-    const techLayers: (keyof MapLayers)[] = [
-      'cables', 'datacenters', 'outages',
-      'startupHubs', 'cloudRegions', 'accelerators', 'techHQs', 'techEvents',
-      'natural', 'weather',
-      'economic',
-    ];
-    const financeLayers: (keyof MapLayers)[] = [
-      'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments',
-      'cables', 'pipelines', 'outages',
-      'sanctions', 'economic', 'waterways',
-      'natural', 'weather',
-    ];
-    const happyLayers: (keyof MapLayers)[] = [
-      'positiveEvents', 'kindness', 'happiness', 'speciesRecovery', 'renewableInstallations',
-    ];
-    const commodityLayers: (keyof MapLayers)[] = [
-      'miningSites', 'processingPlants', 'commodityPorts', 'commodityHubs',
-      'minerals', 'pipelines', 'waterways', 'tradeRoutes',
-      'natural', 'weather', 'outages',
-    ];
-
-    switch ((SITE_VARIANT || 'full') as MapVariant) {
-      case 'tech':
-        return techLayers;
-      case 'finance':
-        return financeLayers;
-      case 'happy':
-        return happyLayers;
-      case 'commodity':
-        return commodityLayers;
-      default:
-        return fullLayers;
-    }
-  }
-
   private getLayerLabel(layer: keyof MapLayers): string {
     return resolveLayerLabel(LAYER_REGISTRY[layer], t);
   }
@@ -690,7 +627,9 @@ export class MapComponent {
     const status = this.legendEl.querySelector('.map-tray-status') as HTMLElement | null;
     if (!itemsRoot) return;
 
-    const activeLayers = this.getVariantLayerKeys().filter((layer) => this.state.layers[layer]);
+    const activeLayers = getLayersForVariant((SITE_VARIANT || 'full') as MapVariant, 'svg')
+      .map((def) => def.key)
+      .filter((layer) => this.state.layers[layer]);
     if (status) {
       status.textContent = activeLayers.length === 0 ? 'No active layers' : `${activeLayers.length} active`;
     }
@@ -729,7 +668,7 @@ export class MapComponent {
     return createSvgLayerToggles({
       container: this.container,
       layersState: this.state.layers,
-      getVariantLayerKeys: () => this.getVariantLayerKeys(),
+      getVariantLayerKeys: () => getLayersForVariant((SITE_VARIANT || 'full') as MapVariant, 'svg').map((def) => def.key),
       getLayerLabel: (layer) => this.getLayerLabel(layer),
       createSharedIcon: (layer, className) => this.createSharedIcon(layer, className),
       toggleLayer: (layer) => this.toggleLayer(layer),
@@ -3588,7 +3527,7 @@ export class MapComponent {
     log.debug(`[Map.toggleLayer] ${layer}: ${this.state.layers[layer]} -> ${!this.state.layers[layer]}`);
     this.state.layers[layer] = !this.state.layers[layer];
     if (this.state.layers[layer]) {
-      const thresholds = MapComponent.LAYER_ZOOM_THRESHOLDS[layer];
+      const thresholds = getLayerZoomThreshold(layer);
       if (thresholds && this.state.zoom < thresholds.minZoom) {
         this.layerZoomOverrides[layer] = true;
       } else {
@@ -3884,7 +3823,7 @@ export class MapComponent {
   public enableLayer(layer: keyof MapLayers): void {
     if (!this.state.layers[layer]) {
       this.state.layers[layer] = true;
-      const thresholds = MapComponent.LAYER_ZOOM_THRESHOLDS[layer];
+      const thresholds = getLayerZoomThreshold(layer);
       if (thresholds && this.state.zoom < thresholds.minZoom) {
         this.layerZoomOverrides[layer] = true;
       } else {
@@ -4011,14 +3950,14 @@ export class MapComponent {
 
   private updateZoomLayerVisibility(): void {
     const zoom = this.state.zoom;
-    (Object.keys(MapComponent.LAYER_ZOOM_THRESHOLDS) as (keyof MapLayers)[]).forEach((layer) => {
-      const thresholds = MapComponent.LAYER_ZOOM_THRESHOLDS[layer];
+    getLayerKeysWithZoomThreshold().forEach((layer) => {
+      const thresholds = getLayerZoomThreshold(layer);
       if (!thresholds) return;
 
       const enabled = this.state.layers[layer];
       const override = Boolean(this.layerZoomOverrides[layer]);
       const isVisible = enabled && (override || zoom >= thresholds.minZoom);
-      const labelZoom = thresholds.showLabels ?? thresholds.minZoom;
+      const labelZoom = thresholds.labelZoom ?? thresholds.minZoom;
       const labelsVisible = enabled && zoom >= labelZoom;
       const hiddenAttr = `data-layer-hidden-${layer}`;
       const labelsHiddenAttr = `data-labels-hidden-${layer}`;

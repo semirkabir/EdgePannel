@@ -1,18 +1,88 @@
 import type { MapLayers } from '@/types';
 import type { WeatherCategory } from '@/services/weather';
+import type { DataSourceId } from '@/services/data-freshness';
 import { isDesktopRuntime } from '@/services/runtime';
 
-export type MapRenderer = 'flat' | 'globe';
+export type MapRenderer = 'flat' | 'globe' | 'svg';
 export type MapVariant = 'full' | 'tech' | 'finance' | 'happy' | 'commodity' | 'conflicts';
 
 const _desktop = isDesktopRuntime();
 
+// ── Layer categories (grouping for the layer picker) ─────────────────────────
+
+export type LayerCategory =
+  | 'conflict'
+  | 'military'
+  | 'cyber'
+  | 'aviation'
+  | 'space'
+  | 'economy'
+  | 'environment'
+  | 'governance'
+  | 'technology'
+  | 'positive'
+  | 'commodities';
+
+/** Display order of categories in the layer picker. */
+export const LAYER_CATEGORY_ORDER: LayerCategory[] = [
+  'conflict',
+  'military',
+  'cyber',
+  'aviation',
+  'space',
+  'economy',
+  'environment',
+  'governance',
+  'technology',
+  'positive',
+  'commodities',
+];
+
+/** Section header labels shown above each group in the layer picker. */
+export const LAYER_CATEGORY_LABELS: Record<LayerCategory, string> = {
+  conflict:     'Conflict & Security',
+  military:     'Military & Defense',
+  cyber:        'Cyber & Infrastructure',
+  aviation:     'Aviation & Maritime',
+  space:        'Space',
+  economy:      'Economy & Markets',
+  environment:  'Environment & Climate',
+  governance:   'Governance & Society',
+  technology:   'Technology',
+  positive:     'Positive Signals',
+  commodities:  'Commodities',
+};
+
+export interface LayerCategoryGroup {
+  category: LayerCategory;
+  label: string;
+  layers: LayerDefinition[];
+}
+
+/**
+ * Everything one map layer needs to register itself, in one place. Category,
+ * accent color, variant membership, data-freshness sources, and zoom gating
+ * used to be five separate `Record<keyof MapLayers, ...>` tables that could
+ * (and did — see `gdeltEvents`) silently drift out of sync with each other and
+ * with this registry. Now a new layer is one entry here.
+ */
 export interface LayerDefinition {
   key: keyof MapLayers;
   icon: string;
   i18nSuffix: string;
   fallbackLabel: string;
   renderers: MapRenderer[];
+  category: LayerCategory;
+  /** Accent color driving the toggle icon, map markers, and legend swatch. */
+  color: { light: string; dark: string };
+  /** Variants whose layer picker this layer appears in. Every layer is in 'full'. */
+  variants: MapVariant[];
+  /** Data-freshness sources to enable/disable in step with this layer's toggle. */
+  sources?: DataSourceId[];
+  /** Below this zoom the layer is hidden entirely (deck.gl values are canonical). */
+  minZoom?: number;
+  /** Below this zoom, points render but text labels are suppressed. */
+  labelZoom?: number;
   premium?: 'locked' | 'enhanced';
 }
 
@@ -71,169 +141,212 @@ const ICONS = {
   windLines: svgIcon('<path d="M5 8h10a3 3 0 0 0 0-6 3 3 0 0 0-2.8 2"/>', '<path d="M5 12h12a3 3 0 0 1 0 6 3 3 0 0 1-2.8-2"/>', '<path d="M5 16h7"/>'),
 } as const;
 
+interface DefOptions {
+  renderers?: MapRenderer[];
+  premium?: 'locked' | 'enhanced';
+  sources?: DataSourceId[];
+  minZoom?: number;
+  labelZoom?: number;
+}
+
 const def = (
   key: keyof MapLayers,
   icon: string,
   i18nSuffix: string,
   fallbackLabel: string,
-  renderers: MapRenderer[] = ['flat', 'globe'],
-  premium?: 'locked' | 'enhanced',
-): LayerDefinition => ({ key, icon, i18nSuffix, fallbackLabel, renderers, ...(premium && { premium }) });
+  category: LayerCategory,
+  color: { light: string; dark: string },
+  variants: MapVariant[],
+  opts: DefOptions = {},
+): LayerDefinition => ({
+  key, icon, i18nSuffix, fallbackLabel, category, color, variants,
+  renderers: opts.renderers ?? ['flat', 'globe'],
+  ...(opts.premium !== undefined && { premium: opts.premium }),
+  ...(opts.sources !== undefined && { sources: opts.sources }),
+  ...(opts.minZoom !== undefined && { minZoom: opts.minZoom }),
+  ...(opts.labelZoom !== undefined && { labelZoom: opts.labelZoom }),
+});
 
-export const LAYER_REGISTRY: Record<keyof MapLayers, LayerDefinition> = {
-  iranAttacks:              def('iranAttacks',              ICONS.target,    'iranAttacks',            'Iran Attacks', ['flat', 'globe'], _desktop ? 'locked' : undefined),
-  hotspots:                 def('hotspots',                 '<img src="/icons/spy-icon.png" width="16" height="16" style="display:block;object-fit:contain" />', 'intelHotspots', 'Intel Hotspots'),
-  conflicts:                def('conflicts',                ICONS.flags,     'conflictZones',          'Conflict Zones'),
-  bases:                    def('bases',                    ICONS.fort,      'militaryBases',          'Military Bases'),
-  nuclear:                  def('nuclear',                  ICONS.atom,      'nuclearSites',           'Nuclear Sites'),
-  irradiators:              def('irradiators',              ICONS.hazard,    'gammaIrradiators',       'Gamma Irradiators'),
-  spaceports:               def('spaceports',               ICONS.rocket,    'spaceports',             'Spaceports'),
-  cables:                   def('cables',                   ICONS.cable,     'underseaCables',         'Undersea Cables'),
-  pipelines:                def('pipelines',                ICONS.pipe,      'pipelines',              'Pipelines'),
-  datacenters:              def('datacenters',              ICONS.server,    'aiDataCenters',          'AI Data Centers'),
-  military:                 def('military',                 ICONS.warship,   'militaryActivity',       'Military Activity'),
-  ais:                      def('ais',                      ICONS.ship,      'shipTraffic',            'Ship Traffic'),
-  tradeRoutes:              def('tradeRoutes',              ICONS.route,     'tradeRoutes',            'Trade Routes'),
-  flights:                  def('flights',                  ICONS.plane,     'flightDelays',           'Flight Delays'),
-  protests:                 def('protests',                 ICONS.megaphone, 'protests',               'Protests'),
-  ucdpEvents:               def('ucdpEvents',               ICONS.flags,     'ucdpEvents',             'Armed Conflict Events'),
-  displacement:             def('displacement',             ICONS.usersArrow,'displacementFlows',      'Displacement Flows'),
-  climate:                  def('climate',                  ICONS.globe,     'climateAnomalies',       'Climate Anomalies'),
-  weather:                  def('weather',                  ICONS.cloud,     'weatherAlerts',          'Weather Alerts'),
-  outages:                  def('outages',                  ICONS.wifiOff,   'internetOutages',        'Internet Outages'),
-  cyberThreats:             def('cyberThreats',             ICONS.bug,       'cyberThreats',           'Cyber Threats'),
-  natural:                  def('natural',                  ICONS.globe,     'naturalEvents',          'Natural Events'),
-  earthquakes:              def('earthquakes',              ICONS.globe,     'earthquakes',            'Earthquakes'),
-  navWarnings:              def('navWarnings',              ICONS.waves,     'navWarnings',            'Nav Warnings'),
-  fires:                    def('fires',                    ICONS.flame,     'fires',                  'Fires'),
-  waterways:                def('waterways',                ICONS.waves,     'strategicWaterways',     'Strategic Waterways'),
-  economic:                 def('economic',                 ICONS.chart,     'economicCenters',        'Economic Centers'),
-  polymarketMarkets:        def('polymarketMarkets',        ICONS.chart,     'polymarketMarkets',      'Prediction Markets', ['flat', 'globe']),
-  minerals:                 def('minerals',                 ICONS.gem,       'criticalMinerals',       'Critical Minerals'),
-  gpsJamming:               def('gpsJamming',               ICONS.satellite, 'gpsJamming',             'GPS Jamming', ['flat', 'globe'], _desktop ? 'locked' : undefined),
-  satellite:                def('satellite',                ICONS.satellite, 'satellite',              'Satellites', ['flat', 'globe']),
-  ciiChoropleth:            def('ciiChoropleth',            ICONS.globe,     'ciiChoropleth',          'CII Instability', ['flat', 'globe'], _desktop ? 'enhanced' : undefined),
-  governanceChoropleth:    def('governanceChoropleth',    ICONS.shield,    'governanceChoropleth',   'Governance Quality', ['flat', 'globe']),
-  dayNight:                 def('dayNight',                 ICONS.sunMoon,   'dayNight',               'Day/Night', ['flat']),
-  sanctions:                def('sanctions',                ICONS.ban,       'sanctions',              'Sanctions', ['flat', 'globe']),
-  startupHubs:              def('startupHubs',              ICONS.spark,     'startupHubs',            'Startup Hubs'),
-  techHQs:                  def('techHQs',                  ICONS.building,  'techHQs',                'Tech HQs'),
-  accelerators:             def('accelerators',             ICONS.bolt,      'accelerators',           'Accelerators'),
-  cloudRegions:             def('cloudRegions',             ICONS.cloud,     'cloudRegions',           'Cloud Regions'),
-  techEvents:               def('techEvents',               ICONS.calendar,  'techEvents',             'Tech Events'),
-  stockExchanges:           def('stockExchanges',           ICONS.candlestick, 'stockExchanges',       'Stock Exchanges'),
-  financialCenters:         def('financialCenters',         ICONS.coins,     'financialCenters',       'Financial Centers'),
-  centralBanks:             def('centralBanks',             ICONS.bank,      'centralBanks',           'Central Banks'),
-  commodityHubs:            def('commodityHubs',            ICONS.warehouse, 'commodityHubs',          'Commodity Hubs'),
-  gulfInvestments:          def('gulfInvestments',          ICONS.coins,     'gulfInvestments',        'GCC Investments'),
-  positiveEvents:           def('positiveEvents',           ICONS.star,      'positiveEvents',         'Positive Events'),
-  kindness:                 def('kindness',                 ICONS.heart,     'kindness',               'Acts of Kindness'),
-  happiness:                def('happiness',                ICONS.smile,     'happiness',              'World Happiness'),
-  speciesRecovery:          def('speciesRecovery',          ICONS.sprout,    'speciesRecovery',        'Species Recovery'),
-  renewableInstallations:   def('renewableInstallations',   ICONS.boltLeaf,  'renewableInstallations', 'Clean Energy'),
-  miningSites:              def('miningSites',              ICONS.pickaxe,   'miningSites',            'Mining Sites'),
-  processingPlants:         def('processingPlants',         ICONS.factory,   'processingPlants',       'Processing Plants'),
-  commodityPorts:           def('commodityPorts',           ICONS.anchor,    'commodityPorts',         'Commodity Ports'),
-  aptGroups:                def('aptGroups',                ICONS.shield,    'aptGroups',              'APT Groups'),
-  gemRisk:                  def('gemRisk',                  ICONS.globe,     'gemRisk',                'Seismic Risk',        ['flat', 'globe']),
-  democracy:                def('democracy',                ICONS.building,  'democracy',              'Democracy Index',     ['flat', 'globe']),
-  elections:                def('elections',                ICONS.ballot,    'elections',              'Elections',           ['flat', 'globe']),
-  marketPerf:               def('marketPerf',               ICONS.chart,     'marketPerf',             'Market Performance',  ['flat', 'globe']),
-  tariffBarriers:           def('tariffBarriers',           ICONS.ban,       'tariffBarriers',         'Tariff Barriers',     ['flat', 'globe']),
-  gdeltEvents:              def('gdeltEvents',              ICONS.target,    'gdeltEvents',            'GDELT Events',        ['flat', 'globe']),
-};
+// Every layer belongs to 'full' — the unrestricted variant — plus whichever
+// themed variants list it in VARIANT_LAYER_ORDER below. That membership is
+// intentionally still expressed there too for now (see VARIANT_LAYER_ORDER's
+// docstring); this array exists so a guard test and future tooling have one
+// place to read "which variants show this layer" without needing to touch
+// the ordering table.
+const FULL_ONLY: MapVariant[] = ['full'];
 
-// ── Layer categories (grouping for the layer picker) ─────────────────────────
-
-export type LayerCategory =
-  | 'conflict'
-  | 'military'
-  | 'cyber'
-  | 'aviation'
-  | 'space'
-  | 'economy'
-  | 'environment'
-  | 'governance'
-  | 'technology'
-  | 'positive'
-  | 'commodities';
-
-/** Display order of categories in the layer picker. */
-export const LAYER_CATEGORY_ORDER: LayerCategory[] = [
-  'conflict',
-  'military',
-  'cyber',
-  'aviation',
-  'space',
-  'economy',
-  'environment',
-  'governance',
-  'technology',
-  'positive',
-  'commodities',
-];
-
-/** Section header labels shown above each group in the layer picker. */
-export const LAYER_CATEGORY_LABELS: Record<LayerCategory, string> = {
-  conflict:     'Conflict & Security',
-  military:     'Military & Defense',
-  cyber:        'Cyber & Infrastructure',
-  aviation:     'Aviation & Maritime',
-  space:        'Space',
-  economy:      'Economy & Markets',
-  environment:  'Environment & Climate',
-  governance:   'Governance & Society',
-  technology:   'Technology',
-  positive:     'Positive Signals',
-  commodities:  'Commodities',
-};
-
-/** Every layer key mapped to exactly one category. */
-const LAYER_CATEGORY_MAP: Record<keyof MapLayers, LayerCategory> = {
+export const LAYER_REGISTRY = {
   // Conflict & Security
-  iranAttacks: 'conflict', hotspots: 'conflict', conflicts: 'conflict',
-  ucdpEvents: 'conflict', protests: 'conflict', displacement: 'conflict',
-  sanctions: 'conflict', gdeltEvents: 'conflict',
+  iranAttacks: def('iranAttacks', ICONS.target, 'iranAttacks', 'Iran Attacks', 'conflict',
+    { light: '#b91c1c', dark: '#fb7185' }, FULL_ONLY, { premium: _desktop ? 'locked' : undefined }),
+  hotspots: def('hotspots', '<img src="/icons/spy-icon.png" width="16" height="16" style="display:block;object-fit:contain" />', 'intelHotspots', 'Intel Hotspots', 'conflict',
+    { light: '#7c3aed', dark: '#c4b5fd' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'] }),
+  conflicts: def('conflicts', ICONS.flags, 'conflictZones', 'Conflict Zones', 'conflict',
+    { light: '#b91c1c', dark: '#f87171' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'], minZoom: 1, labelZoom: 3 }),
+  ucdpEvents: def('ucdpEvents', ICONS.flags, 'ucdpEvents', 'Armed Conflict Events', 'conflict',
+    { light: '#b91c1c', dark: '#f87171' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'], sources: ['ucdp_events'] }),
+  protests: def('protests', ICONS.megaphone, 'protests', 'Protests', 'conflict',
+    { light: '#b45309', dark: '#fbbf24' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'], sources: ['acled', 'gdelt_doc'] }),
+  displacement: def('displacement', ICONS.usersArrow, 'displacementFlows', 'Displacement Flows', 'conflict',
+    { light: '#0f766e', dark: '#5eead4' }, ['full', 'conflicts'], { sources: ['unhcr'] }),
+  sanctions: def('sanctions', ICONS.ban, 'sanctions', 'Sanctions', 'conflict',
+    { light: '#dc2626', dark: '#fca5a5' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'], sources: ['sanctions'] }),
+  gdeltEvents: def('gdeltEvents', ICONS.target, 'gdeltEvents', 'GDELT Events', 'conflict',
+    { light: '#9a3412', dark: '#fdba74' }, ['full', 'conflicts'], { renderers: ['flat', 'globe'], sources: ['gdelt_events'] }),
+
   // Military & Defense
-  bases: 'military', nuclear: 'military', irradiators: 'military', military: 'military',
+  bases: def('bases', ICONS.fort, 'militaryBases', 'Military Bases', 'military',
+    { light: '#1d4ed8', dark: '#93c5fd' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'], minZoom: 1, labelZoom: 5 }),
+  nuclear: def('nuclear', ICONS.atom, 'nuclearSites', 'Nuclear Sites', 'military',
+    { light: '#a16207', dark: '#fde68a' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'] }),
+  irradiators: def('irradiators', ICONS.hazard, 'gammaIrradiators', 'Gamma Irradiators', 'military',
+    { light: '#a16207', dark: '#fde68a' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'] }),
+  military: def('military', ICONS.warship, 'militaryActivity', 'Military Activity', 'military',
+    { light: '#1d4ed8', dark: '#93c5fd' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'], sources: ['opensky', 'wingbits'] }),
+
   // Cyber & Infrastructure
-  cables: 'cyber', pipelines: 'cyber', datacenters: 'cyber', outages: 'cyber',
-  cyberThreats: 'cyber', aptGroups: 'cyber', gpsJamming: 'cyber',
+  cables: def('cables', ICONS.cable, 'underseaCables', 'Undersea Cables', 'cyber',
+    { light: '#0369a1', dark: '#38bdf8' }, ['full', 'tech', 'conflicts'], { renderers: ['flat', 'globe', 'svg'] }),
+  pipelines: def('pipelines', ICONS.pipe, 'pipelines', 'Pipelines', 'cyber',
+    { light: '#c2410c', dark: '#fdba74' }, ['full', 'commodity', 'conflicts'], { renderers: ['flat', 'globe', 'svg'] }),
+  datacenters: def('datacenters', ICONS.server, 'aiDataCenters', 'AI Data Centers', 'cyber',
+    { light: '#0f766e', dark: '#22d3ee' }, ['full', 'tech'], { renderers: ['flat', 'globe', 'svg'] }),
+  outages: def('outages', ICONS.wifiOff, 'internetOutages', 'Internet Outages', 'cyber',
+    { light: '#b91c1c', dark: '#fb7185' }, ['full', 'tech', 'conflicts'], { renderers: ['flat', 'globe', 'svg'], sources: ['outages'] }),
+  cyberThreats: def('cyberThreats', ICONS.bug, 'cyberThreats', 'Cyber Threats', 'cyber',
+    { light: '#991b1b', dark: '#f87171' }, ['full', 'tech', 'conflicts'], { sources: ['cyber_threats'] }),
+  aptGroups: def('aptGroups', ICONS.shield, 'aptGroups', 'APT Groups', 'cyber',
+    { light: '#991b1b', dark: '#f87171' }, ['full', 'conflicts']),
+  gpsJamming: def('gpsJamming', ICONS.satellite, 'gpsJamming', 'GPS Jamming', 'cyber',
+    { light: '#b45309', dark: '#fbbf24' }, ['full', 'conflicts'], { renderers: ['flat', 'globe'], premium: _desktop ? 'locked' : undefined }),
+
   // Aviation & Maritime
-  ais: 'aviation', flights: 'aviation', tradeRoutes: 'aviation',
-  waterways: 'aviation', navWarnings: 'aviation',
+  ais: def('ais', ICONS.ship, 'shipTraffic', 'Ship Traffic', 'aviation',
+    { light: '#0284c7', dark: '#7dd3fc' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'], sources: ['ais'] }),
+  flights: def('flights', ICONS.plane, 'flightDelays', 'Flight Delays', 'aviation',
+    { light: '#ea580c', dark: '#fdba74' }, ['full', 'conflicts'], { renderers: ['flat', 'globe', 'svg'] }),
+  tradeRoutes: def('tradeRoutes', ICONS.route, 'tradeRoutes', 'Trade Routes', 'aviation',
+    { light: '#a16207', dark: '#fde68a' }, ['full', 'finance', 'commodity']),
+  waterways: def('waterways', ICONS.waves, 'strategicWaterways', 'Strategic Waterways', 'aviation',
+    { light: '#0369a1', dark: '#60a5fa' }, ['full', 'commodity'], { renderers: ['flat', 'globe', 'svg'] }),
+  navWarnings: def('navWarnings', ICONS.waves, 'navWarnings', 'Nav Warnings', 'aviation',
+    { light: '#0369a1', dark: '#38bdf8' }, ['full', 'conflicts']),
+
   // Space
-  spaceports: 'space', satellite: 'space',
+  spaceports: def('spaceports', ICONS.rocket, 'spaceports', 'Spaceports', 'space',
+    { light: '#4338ca', dark: '#a5b4fc' }, FULL_ONLY, { renderers: ['flat', 'globe', 'svg'] }),
+  satellite: def('satellite', ICONS.satellite, 'satellite', 'Satellites', 'space',
+    { light: '#06b6d4', dark: '#22d3ee' }, FULL_ONLY, { renderers: ['flat', 'globe'] }),
+
   // Economy & Markets
-  economic: 'economy', marketPerf: 'economy', polymarketMarkets: 'economy',
-  stockExchanges: 'economy', financialCenters: 'economy', centralBanks: 'economy',
-  commodityHubs: 'economy', gulfInvestments: 'economy', tariffBarriers: 'economy',
-  minerals: 'economy',
+  economic: def('economic', ICONS.chart, 'economicCenters', 'Economic Centers', 'economy',
+    { light: '#475569', dark: '#cbd5e1' }, ['full', 'finance'], { renderers: ['flat', 'globe', 'svg'] }),
+  marketPerf: def('marketPerf', ICONS.chart, 'marketPerf', 'Market Performance', 'economy',
+    { light: '#15803d', dark: '#4ade80' }, ['full', 'finance'], { renderers: ['flat', 'globe'] }),
+  polymarketMarkets: def('polymarketMarkets', ICONS.chart, 'polymarketMarkets', 'Prediction Markets', 'economy',
+    { light: '#15803d', dark: '#86efac' }, FULL_ONLY, { renderers: ['flat', 'globe', 'svg'] }),
+  stockExchanges: def('stockExchanges', ICONS.candlestick, 'stockExchanges', 'Stock Exchanges', 'economy',
+    { light: '#92400e', dark: '#fbbf24' }, ['full', 'finance'], { renderers: ['flat', 'globe', 'svg'] }),
+  financialCenters: def('financialCenters', ICONS.coins, 'financialCenters', 'Financial Centers', 'economy',
+    { light: '#047857', dark: '#34d399' }, ['full', 'finance'], { renderers: ['flat', 'globe', 'svg'] }),
+  centralBanks: def('centralBanks', ICONS.bank, 'centralBanks', 'Central Banks', 'economy',
+    { light: '#92400e', dark: '#fde68a' }, ['full', 'finance'], { renderers: ['flat', 'globe', 'svg'] }),
+  commodityHubs: def('commodityHubs', ICONS.warehouse, 'commodityHubs', 'Commodity Hubs', 'economy',
+    { light: '#9a3412', dark: '#fdba74' }, ['full', 'finance', 'commodity'], { renderers: ['flat', 'globe', 'svg'] }),
+  gulfInvestments: def('gulfInvestments', ICONS.coins, 'gulfInvestments', 'GCC Investments', 'economy',
+    { light: '#0f766e', dark: '#5eead4' }, ['full', 'finance'], { renderers: ['flat', 'globe', 'svg'], minZoom: 1, labelZoom: 5 }),
+  tariffBarriers: def('tariffBarriers', ICONS.ban, 'tariffBarriers', 'Tariff Barriers', 'economy',
+    { light: '#b45309', dark: '#fbbf24' }, ['full', 'finance', 'commodity', 'conflicts'], { renderers: ['flat', 'globe'] }),
+  minerals: def('minerals', ICONS.gem, 'criticalMinerals', 'Critical Minerals', 'economy',
+    { light: '#7c3aed', dark: '#c4b5fd' }, ['full', 'commodity', 'conflicts'], { renderers: ['flat', 'globe', 'svg'] }),
+
   // Environment & Climate
-  climate: 'environment', weather: 'environment', natural: 'environment',
-  earthquakes: 'environment', fires: 'environment', gemRisk: 'environment',
-  dayNight: 'environment',
+  climate: def('climate', ICONS.globe, 'climateAnomalies', 'Climate Anomalies', 'environment',
+    { light: '#0f766e', dark: '#5eead4' }, FULL_ONLY, { sources: ['climate'] }),
+  weather: def('weather', ICONS.cloud, 'weatherAlerts', 'Weather Alerts', 'environment',
+    { light: '#2563eb', dark: '#93c5fd' }, ['full', 'commodity'], { renderers: ['flat', 'globe', 'svg'], sources: ['weather'] }),
+  natural: def('natural', ICONS.globe, 'naturalEvents', 'Natural Events', 'environment',
+    { light: '#dc2626', dark: '#fca5a5' }, ['full', 'commodity'], { renderers: ['flat', 'globe', 'svg'], sources: ['usgs'], minZoom: 1, labelZoom: 2 }),
+  earthquakes: def('earthquakes', ICONS.globe, 'earthquakes', 'Earthquakes', 'environment',
+    { light: '#c2410c', dark: '#fb923c' }, ['full', 'commodity']),
+  fires: def('fires', ICONS.flame, 'fires', 'Fires', 'environment',
+    { light: '#c2410c', dark: '#fb923c' }, FULL_ONLY, { renderers: ['flat', 'globe', 'svg'] }),
+  gemRisk: def('gemRisk', ICONS.globe, 'gemRisk', 'Seismic Risk', 'environment',
+    { light: '#c2410c', dark: '#fb923c' }, FULL_ONLY, { renderers: ['flat', 'globe'] }),
+  dayNight: def('dayNight', ICONS.sunMoon, 'dayNight', 'Day/Night', 'environment',
+    { light: '#334155', dark: '#94a3b8' }, FULL_ONLY, { renderers: ['flat'] }),
+
   // Governance & Society
-  ciiChoropleth: 'governance', governanceChoropleth: 'governance',
-  democracy: 'governance', elections: 'governance',
+  ciiChoropleth: def('ciiChoropleth', ICONS.globe, 'ciiChoropleth', 'CII Instability', 'governance',
+    { light: '#b91c1c', dark: '#fca5a5' }, ['full', 'conflicts'], { renderers: ['flat', 'globe'], premium: _desktop ? 'enhanced' : undefined }),
+  governanceChoropleth: def('governanceChoropleth', ICONS.shield, 'governanceChoropleth', 'Governance Quality', 'governance',
+    { light: '#4338ca', dark: '#a5b4fc' }, ['full', 'finance', 'conflicts'], { renderers: ['flat', 'globe'] }),
+  democracy: def('democracy', ICONS.building, 'democracy', 'Democracy Index', 'governance',
+    { light: '#1d4ed8', dark: '#93c5fd' }, FULL_ONLY, { renderers: ['flat', 'globe'] }),
+  elections: def('elections', ICONS.ballot, 'elections', 'Elections', 'governance',
+    { light: '#7c3aed', dark: '#c4b5fd' }, ['full', 'conflicts'], { renderers: ['flat', 'globe'] }),
+
   // Technology
-  startupHubs: 'technology', techHQs: 'technology', accelerators: 'technology',
-  cloudRegions: 'technology', techEvents: 'technology',
+  startupHubs: def('startupHubs', ICONS.spark, 'startupHubs', 'Startup Hubs', 'technology',
+    { light: '#15803d', dark: '#4ade80' }, ['full', 'tech'], { renderers: ['flat', 'globe', 'svg'] }),
+  techHQs: def('techHQs', ICONS.building, 'techHQs', 'Tech HQs', 'technology',
+    { light: '#0f766e', dark: '#67e8f9' }, ['full', 'tech'], { renderers: ['flat', 'globe', 'svg'] }),
+  accelerators: def('accelerators', ICONS.bolt, 'accelerators', 'Accelerators', 'technology',
+    { light: '#b45309', dark: '#fbbf24' }, ['full', 'tech'], { renderers: ['flat', 'globe', 'svg'] }),
+  cloudRegions: def('cloudRegions', ICONS.cloud, 'cloudRegions', 'Cloud Regions', 'technology',
+    { light: '#6d28d9', dark: '#a78bfa' }, ['full', 'tech'], { renderers: ['flat', 'globe', 'svg'] }),
+  techEvents: def('techEvents', ICONS.calendar, 'techEvents', 'Tech Events', 'technology',
+    { light: '#be185d', dark: '#f9a8d4' }, ['full', 'tech'], { renderers: ['flat', 'globe', 'svg'] }),
+
   // Positive Signals
-  positiveEvents: 'positive', kindness: 'positive', happiness: 'positive',
-  speciesRecovery: 'positive', renewableInstallations: 'positive',
+  positiveEvents: def('positiveEvents', ICONS.star, 'positiveEvents', 'Positive Events', 'positive',
+    { light: '#16a34a', dark: '#86efac' }, ['full', 'happy']),
+  kindness: def('kindness', ICONS.heart, 'kindness', 'Acts of Kindness', 'positive',
+    { light: '#db2777', dark: '#f9a8d4' }, ['full', 'happy']),
+  happiness: def('happiness', ICONS.smile, 'happiness', 'World Happiness', 'positive',
+    { light: '#ca8a04', dark: '#fde047' }, ['full', 'happy']),
+  speciesRecovery: def('speciesRecovery', ICONS.sprout, 'speciesRecovery', 'Species Recovery', 'positive',
+    { light: '#15803d', dark: '#86efac' }, ['full', 'happy']),
+  renewableInstallations: def('renewableInstallations', ICONS.boltLeaf, 'renewableInstallations', 'Clean Energy', 'positive',
+    { light: '#65a30d', dark: '#bef264' }, ['full', 'happy']),
+
   // Commodities
-  miningSites: 'commodities', processingPlants: 'commodities', commodityPorts: 'commodities',
-};
+  miningSites: def('miningSites', ICONS.pickaxe, 'miningSites', 'Mining Sites', 'commodities',
+    { light: '#92400e', dark: '#fdba74' }, ['full', 'commodity'], { renderers: ['flat', 'globe', 'svg'] }),
+  processingPlants: def('processingPlants', ICONS.factory, 'processingPlants', 'Processing Plants', 'commodities',
+    { light: '#525252', dark: '#d4d4d8' }, ['full', 'commodity'], { renderers: ['flat', 'globe', 'svg'] }),
+  commodityPorts: def('commodityPorts', ICONS.anchor, 'commodityPorts', 'Commodity Ports', 'commodities',
+    { light: '#0f766e', dark: '#5eead4' }, ['full', 'commodity'], { renderers: ['flat', 'globe', 'svg'] }),
+} satisfies Record<keyof MapLayers, LayerDefinition>;
 
 export function getLayerCategory(key: keyof MapLayers): LayerCategory {
-  return LAYER_CATEGORY_MAP[key] ?? 'conflict';
+  return LAYER_REGISTRY[key]?.category ?? 'conflict';
 }
 
-export interface LayerCategoryGroup {
-  category: LayerCategory;
-  label: string;
-  layers: LayerDefinition[];
+/** Data-freshness source ids to enable/disable in step with this layer's toggle. */
+export function getLayerSources(key: keyof MapLayers): DataSourceId[] {
+  return LAYER_REGISTRY[key]?.sources ?? [];
+}
+
+/** `[layerKey, sourceIds]` pairs for every layer that has data-freshness sources. */
+export function getLayerSourceEntries(): Array<[keyof MapLayers, DataSourceId[]]> {
+  return (Object.keys(LAYER_REGISTRY) as Array<keyof MapLayers>)
+    .filter(key => (LAYER_REGISTRY[key].sources?.length ?? 0) > 0)
+    .map(key => [key, LAYER_REGISTRY[key].sources!]);
+}
+
+/** Zoom gating for a layer, or undefined if it has none (always visible). */
+export function getLayerZoomThreshold(key: keyof MapLayers): { minZoom: number; labelZoom?: number } | undefined {
+  const minZoom = LAYER_REGISTRY[key]?.minZoom;
+  if (minZoom === undefined) return undefined;
+  const labelZoom = LAYER_REGISTRY[key].labelZoom;
+  return labelZoom !== undefined ? { minZoom, labelZoom } : { minZoom };
+}
+
+/** Every layer key that has a zoom threshold defined. */
+export function getLayerKeysWithZoomThreshold(): Array<keyof MapLayers> {
+  return (Object.keys(LAYER_REGISTRY) as Array<keyof MapLayers>)
+    .filter(key => LAYER_REGISTRY[key].minZoom !== undefined);
 }
 
 // ── Weather category icon/color/label maps ───────────────────────────────────
@@ -275,68 +388,34 @@ export const WEATHER_CATEGORY_LABELS: Record<WeatherCategory, string> = {
 };
 
 export function resolveLayerAccentColor(key: keyof MapLayers, theme: 'light' | 'dark' = 'dark'): string {
-  const light = theme === 'light';
-  switch (key) {
-    case 'startupHubs': return light ? '#15803d' : '#4ade80';
-    case 'techHQs': return light ? '#0f766e' : '#67e8f9';
-    case 'accelerators': return light ? '#b45309' : '#fbbf24';
-    case 'cloudRegions': return light ? '#6d28d9' : '#a78bfa';
-    case 'datacenters': return light ? '#0f766e' : '#22d3ee';
-    case 'cables': return light ? '#0369a1' : '#38bdf8';
-    case 'outages': return light ? '#b91c1c' : '#fb7185';
-    case 'cyberThreats': return light ? '#991b1b' : '#f87171';
-    case 'stockExchanges': return light ? '#92400e' : '#fbbf24';
-    case 'financialCenters': return light ? '#047857' : '#34d399';
-    case 'centralBanks': return light ? '#92400e' : '#fde68a';
-    case 'commodityHubs': return light ? '#9a3412' : '#fdba74';
-    case 'gulfInvestments': return light ? '#0f766e' : '#5eead4';
-    case 'weather': return light ? '#2563eb' : '#93c5fd';
-    case 'natural': return light ? '#dc2626' : '#fca5a5';
-    case 'earthquakes': return light ? '#c2410c' : '#fb923c';
-    case 'navWarnings': return light ? '#0369a1' : '#38bdf8';
-    case 'fires': return light ? '#c2410c' : '#fb923c';
-    case 'waterways': return light ? '#0369a1' : '#60a5fa';
-    case 'economic': return light ? '#475569' : '#cbd5e1';
-    case 'polymarketMarkets': return light ? '#15803d' : '#86efac';
-    case 'minerals': return light ? '#7c3aed' : '#c4b5fd';
-    case 'positiveEvents': return light ? '#16a34a' : '#86efac';
-    case 'kindness': return light ? '#db2777' : '#f9a8d4';
-    case 'happiness': return light ? '#ca8a04' : '#fde047';
-    case 'speciesRecovery': return light ? '#15803d' : '#86efac';
-    case 'renewableInstallations': return light ? '#65a30d' : '#bef264';
-    case 'miningSites': return light ? '#92400e' : '#fdba74';
-    case 'processingPlants': return light ? '#525252' : '#d4d4d8';
-    case 'commodityPorts': return light ? '#0f766e' : '#5eead4';
-    case 'aptGroups': return light ? '#991b1b' : '#f87171';
-    case 'iranAttacks': return light ? '#b91c1c' : '#fb7185';
-    case 'sanctions': return light ? '#dc2626' : '#fca5a5';
-    case 'satellite': return light ? '#06b6d4' : '#22d3ee';
-    case 'democracy': return light ? '#1d4ed8' : '#93c5fd';
-    case 'elections': return light ? '#7c3aed' : '#c4b5fd';
-    case 'gemRisk': return light ? '#c2410c' : '#fb923c';
-    case 'marketPerf': return light ? '#15803d' : '#4ade80';
-    case 'tariffBarriers': return light ? '#b45309' : '#fbbf24';
-    case 'conflicts':
-    case 'ucdpEvents': return light ? '#b91c1c' : '#f87171';
-    case 'bases':
-    case 'military': return light ? '#1d4ed8' : '#93c5fd';
-    case 'nuclear':
-    case 'irradiators': return light ? '#a16207' : '#fde68a';
-    default: return light ? '#475569' : '#a1a1aa';
-  }
+  const color = LAYER_REGISTRY[key]?.color;
+  if (!color) return theme === 'light' ? '#475569' : '#a1a1aa';
+  return theme === 'light' ? color.light : color.dark;
 }
 
 export function resolveLayerIcon(key: keyof MapLayers): string {
   return LAYER_REGISTRY[key].icon;
 }
 
+/**
+ * Per-variant layer membership AND ordering. Membership here is intentionally
+ * still the single behavioral source of truth (this is what `getLayersForVariant`
+ * actually reads) — `LayerDefinition.variants` above is a provably-redundant
+ * mirror of it, generated from this table, so a guard test can assert every
+ * registry key belongs to at least one variant without needing to export this
+ * private table. Consolidating the two into one (dropping this table in favor
+ * of category-ordered variant lists) is a deliberately separate, larger change
+ * — see the Phase 1b note in the map-layers plan — because it would also
+ * reorder layers within their category, which this table currently controls
+ * and category-order alone does not.
+ */
 const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
   full: [
     'hotspots', 'conflicts',
     'bases', 'nuclear', 'irradiators', 'spaceports',
     'cables', 'pipelines', 'datacenters', 'military',
     'ais', 'tradeRoutes', 'flights', 'protests',
-    'ucdpEvents', 'displacement', 'climate', 'weather',
+    'ucdpEvents', 'gdeltEvents', 'displacement', 'climate', 'weather',
     'outages', 'cyberThreats', 'aptGroups', 'natural', 'earthquakes', 'fires',
     'waterways', 'navWarnings', 'economic', 'marketPerf', 'polymarketMarkets', 'minerals', 'gpsJamming', 'satellite',
     'ciiChoropleth', 'governanceChoropleth', 'dayNight',
@@ -368,7 +447,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'hotspots', 'conflicts',
     'bases', 'nuclear', 'irradiators', 'gpsJamming',
     'military', 'ais', 'navWarnings', 'flights', 'protests',
-    'ucdpEvents', 'displacement', 'ciiChoropleth', 'governanceChoropleth',
+    'ucdpEvents', 'gdeltEvents', 'displacement', 'ciiChoropleth', 'governanceChoropleth',
     'cables', 'pipelines',
     'cyberThreats', 'aptGroups', 'outages', 'minerals', 'sanctions', 'tariffBarriers', 'elections',
   ],

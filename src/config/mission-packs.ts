@@ -35,7 +35,7 @@ export const MISSION_PACKS: MissionPack[] = [
     domain: 'supply-chain',
     compatibleVariants: ['full', 'finance', 'commodity', 'conflicts'],
     datasetIds: ['maritime-insurance-corridors', 'port-congestion-monitor', 'conflict-intensity-scores', 'energy-infrastructure-map'],
-    recommendedPanels: ['live-news', 'strategic-risk', 'supply-chain', 'trade-flows', 'monitors', 'alert-rules', 'marketplace'],
+    recommendedPanels: ['live-news', 'strategic-risk', 'supply-chain', 'monitors', 'marketplace'],
     recommendedLayers: ['ais', 'tradeRoutes', 'waterways', 'conflicts', 'hotspots'],
     recommendedSources: ['Reuters World', 'Reuters Business', 'AP News', 'gCaptain', 'USNI News'],
     monitorTemplates: [
@@ -66,7 +66,7 @@ export const MISSION_PACKS: MissionPack[] = [
     domain: 'supply-chain',
     compatibleVariants: ['full', 'finance', 'commodity'],
     datasetIds: ['critical-mineral-refineries', 'sovereign-risk-index', 'port-congestion-monitor', 'energy-infrastructure-map'],
-    recommendedPanels: ['supply-chain', 'trade-policy', 'trade-flows', 'commodities', 'monitors', 'marketplace'],
+    recommendedPanels: ['supply-chain', 'trade-policy', 'commodities', 'monitors', 'marketplace'],
     recommendedLayers: ['minerals', 'miningSites', 'processingPlants', 'commodityPorts', 'tradeRoutes'],
     recommendedSources: ['Reuters Business', 'Financial Times', 'WTO Latest News', 'BIS Press Releases'],
     monitorTemplates: [
@@ -97,7 +97,7 @@ export const MISSION_PACKS: MissionPack[] = [
     domain: 'markets',
     compatibleVariants: ['full', 'tech', 'finance'],
     datasetIds: ['ai-defense-quote-board', 'satellite-launch-manifest', 'cyber-incident-tracker'],
-    recommendedPanels: ['markets', 'watchlist', 'security-advisories', 'monitors', 'alert-rules', 'marketplace'],
+    recommendedPanels: ['markets', 'watchlist', 'security-advisories', 'monitors', 'marketplace'],
     recommendedLayers: ['spaceports', 'aptGroups', 'cyberThreats'],
     recommendedSources: ['Reuters Business', 'Defense One', 'Breaking Defense', 'The War Zone', 'MIT Tech Review'],
     monitorTemplates: [
@@ -128,7 +128,7 @@ export const MISSION_PACKS: MissionPack[] = [
     domain: 'infrastructure',
     compatibleVariants: ['full', 'tech', 'conflicts', 'commodity'],
     datasetIds: ['undersea-cable-map', 'energy-infrastructure-map', 'conflict-intensity-scores'],
-    recommendedPanels: ['cascade', 'strategic-risk', 'security-advisories', 'monitors', 'alert-rules', 'marketplace'],
+    recommendedPanels: ['cascade', 'strategic-risk', 'security-advisories', 'monitors', 'marketplace'],
     recommendedLayers: ['cables', 'pipelines', 'outages', 'gpsJamming', 'conflicts', 'hotspots'],
     recommendedSources: ['Reuters World', 'CISA', 'NCSC Threat Reports', 'CERT-EU Security Advisories', 'IODA'],
     monitorTemplates: [
@@ -159,7 +159,7 @@ export const MISSION_PACKS: MissionPack[] = [
     domain: 'geopolitics',
     compatibleVariants: ['full', 'finance', 'conflicts'],
     datasetIds: ['sovereign-risk-index', 'conflict-intensity-scores'],
-    recommendedPanels: ['cii', 'strategic-risk', 'economic', 'trade-policy', 'monitors', 'alert-rules', 'marketplace'],
+    recommendedPanels: ['cii', 'strategic-risk', 'economic', 'trade-policy', 'monitors', 'marketplace'],
     recommendedLayers: ['ciiChoropleth', 'governanceChoropleth', 'protests', 'conflicts', 'elections'],
     recommendedSources: ['Reuters World', 'Reuters Business', 'Financial Times', 'BIS Press Releases', 'ECB Press'],
     monitorTemplates: [
@@ -190,7 +190,7 @@ export const MISSION_PACKS: MissionPack[] = [
     domain: 'geopolitics',
     compatibleVariants: ['full', 'conflicts', 'finance'],
     datasetIds: ['conflict-intensity-scores', 'sovereign-risk-index'],
-    recommendedPanels: ['displacement', 'live-news', 'climate', 'monitors', 'alert-rules', 'marketplace'],
+    recommendedPanels: ['displacement', 'live-news', 'climate', 'monitors', 'marketplace'],
     recommendedLayers: ['displacement', 'conflicts', 'hotspots'],
     recommendedSources: ['WHO', 'UNHCR', 'ReliefWeb', 'WHO GHO', 'IAEA'],
     monitorTemplates: [
@@ -230,7 +230,7 @@ export const MISSION_PACKS: MissionPack[] = [
     domain: 'infrastructure',
     compatibleVariants: ['full', 'tech', 'finance'],
     datasetIds: ['energy-infrastructure-map'],
-    recommendedPanels: ['airline-intel', 'monitors', 'alert-rules', 'marketplace'],
+    recommendedPanels: ['airline-intel', 'monitors', 'marketplace'],
     recommendedLayers: ['flights', 'weather'],
     recommendedSources: ['Aviation SIGMET'],
     monitorTemplates: [
@@ -270,7 +270,7 @@ export const MISSION_PACKS: MissionPack[] = [
     domain: 'markets',
     compatibleVariants: ['full', 'tech', 'finance'],
     datasetIds: ['ai-defense-quote-board'],
-    recommendedPanels: ['crypto', 'economic', 'polymarket', 'markets', 'monitors', 'alert-rules', 'marketplace'],
+    recommendedPanels: ['crypto', 'economic', 'polymarket', 'markets', 'monitors', 'marketplace'],
     recommendedLayers: ['hotspots'],
     recommendedSources: ['DefiLlama', 'Global Indicators', 'Manifold'],
     monitorTemplates: [

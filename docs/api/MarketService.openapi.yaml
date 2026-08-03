@@ -280,6 +280,43 @@ paths:
                   schema:
                     type: integer
                     format: int32
+                - name: offset
+                  in: query
+                  description: Zero-based offset for paged results.
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: sort
+                  in: query
+                  description: 'Sort order: newest, oldest, or type.'
+                  required: false
+                  schema:
+                    type: string
+                - name: search
+                  in: query
+                  description: Optional search over title, form, accession, issuer, and CIK.
+                  required: false
+                  schema:
+                    type: string
+                - name: date_range
+                  in: query
+                  description: 'Date range: all, 7d, 30d, 90d, or 1y.'
+                  required: false
+                  schema:
+                    type: string
+                - name: from_date
+                  in: query
+                  description: Optional inclusive start date, yyyy-mm-dd.
+                  required: false
+                  schema:
+                    type: string
+                - name: to_date
+                  in: query
+                  description: Optional inclusive end date, yyyy-mm-dd.
+                  required: false
+                  schema:
+                    type: string
             responses:
                 "200":
                     description: Successful response
@@ -287,6 +324,63 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ListSecFilingsResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/market/v1/get-sec-filing-analysis:
+        get:
+            tags:
+                - MarketService
+            summary: GetSecFilingAnalysis
+            description: GetSecFilingAnalysis interprets a SEC filing into structured metrics and events.
+            operationId: GetSecFilingAnalysis
+            parameters:
+                - name: ticker
+                  in: query
+                  description: Optional ticker symbol used to resolve CIK when cik is not provided.
+                  required: false
+                  schema:
+                    type: string
+                - name: cik
+                  in: query
+                  description: SEC Central Index Key. May be padded or unpadded.
+                  required: false
+                  schema:
+                    type: string
+                - name: accession_number
+                  in: query
+                  description: SEC accession number, with or without dashes.
+                  required: false
+                  schema:
+                    type: string
+                - name: filing_type
+                  in: query
+                  description: Filing form type, used when accession lookup is unavailable.
+                  required: false
+                  schema:
+                    type: string
+                - name: document_url
+                  in: query
+                  description: Optional EDGAR document URL from a feed row.
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetSecFilingAnalysisResponse'
                 "400":
                     description: Validation error
                     content:
@@ -822,6 +916,25 @@ components:
                     type: integer
                     format: int32
                     description: Maximum number of filings to return. Defaults to 20.
+                offset:
+                    type: integer
+                    format: int32
+                    description: Zero-based offset for paged results.
+                sort:
+                    type: string
+                    description: 'Sort order: newest, oldest, or type.'
+                search:
+                    type: string
+                    description: Optional search over title, form, accession, issuer, and CIK.
+                dateRange:
+                    type: string
+                    description: 'Date range: all, 7d, 30d, 90d, or 1y.'
+                fromDate:
+                    type: string
+                    description: Optional inclusive start date, yyyy-mm-dd.
+                toDate:
+                    type: string
+                    description: Optional inclusive end date, yyyy-mm-dd.
             description: ListSecFilingsRequest specifies parameters for retrieving SEC EDGAR filings.
         ListSecFilingsResponse:
             type: object
@@ -834,6 +947,15 @@ components:
                     type: string
                 companyName:
                     type: string
+                totalCount:
+                    type: integer
+                    format: int32
+                offset:
+                    type: integer
+                    format: int32
+                limit:
+                    type: integer
+                    format: int32
             description: ListSecFilingsResponse contains SEC EDGAR filings for a company.
         SecFiling:
             type: object
@@ -853,6 +975,128 @@ components:
                 issuerCik:
                     type: string
             description: SecFiling represents a single SEC EDGAR filing.
+        GetSecFilingAnalysisRequest:
+            type: object
+            properties:
+                ticker:
+                    type: string
+                    description: Optional ticker symbol used to resolve CIK when cik is not provided.
+                cik:
+                    type: string
+                    description: SEC Central Index Key. May be padded or unpadded.
+                accessionNumber:
+                    type: string
+                    description: SEC accession number, with or without dashes.
+                filingType:
+                    type: string
+                    description: Filing form type, used when accession lookup is unavailable.
+                documentUrl:
+                    type: string
+                    description: Optional EDGAR document URL from a feed row.
+            description: GetSecFilingAnalysisRequest identifies a SEC filing to interpret.
+        GetSecFilingAnalysisResponse:
+            type: object
+            properties:
+                ticker:
+                    type: string
+                companyName:
+                    type: string
+                cik:
+                    type: string
+                accessionNumber:
+                    type: string
+                filingType:
+                    type: string
+                formCategory:
+                    type: string
+                filedAt:
+                    type: string
+                title:
+                    type: string
+                url:
+                    type: string
+                summaryBullets:
+                    type: array
+                    items:
+                        type: string
+                metrics:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SecFilingMetric'
+                events:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SecFilingEvent'
+                series:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SecFilingSeries'
+                structured:
+                    type: boolean
+                fallbackReason:
+                    type: string
+            description: GetSecFilingAnalysisResponse contains interpreted SEC filing data.
+        SecFilingMetric:
+            type: object
+            properties:
+                id:
+                    type: string
+                label:
+                    type: string
+                value:
+                    type: number
+                    format: double
+                formattedValue:
+                    type: string
+                unit:
+                    type: string
+                kind:
+                    type: string
+                yoy:
+                    type: number
+                    format: double
+                hasYoy:
+                    type: boolean
+                fiscalPeriod:
+                    type: string
+                filedAt:
+                    type: string
+            description: SecFilingMetric is a normalized number extracted from SEC facts.
+        SecFilingEvent:
+            type: object
+            properties:
+                label:
+                    type: string
+                value:
+                    type: string
+                kind:
+                    type: string
+            description: SecFilingEvent is a form-specific disclosure or interpretation.
+        SecFilingSeries:
+            type: object
+            properties:
+                id:
+                    type: string
+                label:
+                    type: string
+                unit:
+                    type: string
+                points:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SecFilingSeriesPoint'
+            description: SecFilingSeries is a visualization-ready series.
+        SecFilingSeriesPoint:
+            type: object
+            properties:
+                label:
+                    type: string
+                value:
+                    type: number
+                    format: double
+                filedAt:
+                    type: string
+            description: SecFilingSeriesPoint is one chart/table point.
         ListHistoricalPricesRequest:
             type: object
             properties:

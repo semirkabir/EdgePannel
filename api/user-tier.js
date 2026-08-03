@@ -19,9 +19,10 @@ export const config = { runtime: 'edge' };
 const TIER_META = {
   anonymous: { requestsPerHour: 30, cacheStaleness: 'aggressive', mcpEnabled: false },
   free: { requestsPerHour: 120, cacheStaleness: 'moderate', mcpEnabled: false },
-  pro: { requestsPerHour: 600, cacheStaleness: 'minimal', mcpEnabled: true },
-  business: { requestsPerHour: 2_000, cacheStaleness: 'minimal', mcpEnabled: true },
-  enterprise: { requestsPerHour: 10_000, cacheStaleness: 'none', mcpEnabled: true },
+  enthusiast: { requestsPerHour: 400, cacheStaleness: 'minimal', mcpEnabled: false },
+  analyst: { requestsPerHour: 900, cacheStaleness: 'minimal', mcpEnabled: true },
+  strategist: { requestsPerHour: 3_000, cacheStaleness: 'minimal', mcpEnabled: true },
+  maximalist: { requestsPerHour: 10_000, cacheStaleness: 'none', mcpEnabled: true },
 };
 
 export default async function handler(req) {

@@ -14,6 +14,7 @@ import {
   getFeedFailures,
 } from '@/services';
 import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
+import { checkBatchForAlertRules } from '@/services/alert-rule-engine';
 import { clusterNewsHybrid } from '@/services/clustering';
 import { ingestHeadlines } from '@/services/trending-keywords';
 import { classifyWithAI } from '@/services/threat-classifier';
@@ -464,6 +465,16 @@ export class NewsClusteringPipeline {
 
     this.ctx.newsStore.setAllNews(collectedNews);
     this.ctx.uiStore.setInitialLoadComplete(true);
+
+    // Rules are evaluated against the assembled corpus rather than per-category
+    // batches: evidence corroboration is cross-source by definition, and a
+    // geofence needs every geolocated item in play, not one feed's worth.
+    // Scoped to 'full' — the only variant with the AlertRulesPanel in its
+    // layout (config/panels.ts) — so a rule (with real email/webhook
+    // delivery) can never fire on a variant with no UI to see or stop it,
+    // e.g. after switching variants in place on desktop/localhost while
+    // sharing the same non-variant-scoped 'wm-alert-rules' storage key.
+    if (SITE_VARIANT === 'full') checkBatchForAlertRules(collectedNews);
 
     this.ctx.mapStore.map?.updateHotspotActivity(this.ctx.newsStore.allNews);
 
