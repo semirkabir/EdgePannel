@@ -45,7 +45,7 @@ import type {
 import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } from '@/services/military-bases';
 import type { MilitaryBaseType } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
-import { fetchAircraftPositions, AirspaceControls, registerAircraftCallback, unregisterAircraftCallback, filterRenderableAircraftPositions } from '@/services/aviation';
+import { fetchAircraftPositions, AirspaceControls, registerAircraftCallback, unregisterAircraftCallback, filterRenderableAircraftPositions, setAircraftFollowBackend, notifyAircraftFollowEnded } from '@/services/aviation';
 import {
   registerAisCallback,
   unregisterAisCallback,
@@ -194,12 +194,14 @@ import {
   clampNumber,
   stableUnitInterval,
   smoothstep,
-  interpolateLongitude,
-  interpolateDegrees,
-  roughDistanceMeters,
-  projectAircraftPosition,
   lngLatToMercatorUnit,
 } from './deck-gl/geo-math';
+import {
+  advanceMotionState,
+  createMotionState,
+  resolveMotionPosition,
+  type AircraftMotionState,
+} from './deck-gl/aircraft-motion';
 import {
   countryToFlagEmoji,
   loadCustomCategories,
@@ -234,12 +236,6 @@ type SatellitePositionSampleCache = {
   endMs: number;
   start: SatellitePositionRecord[];
   endById: Map<string, SatellitePositionRecord>;
-};
-type AircraftMotionState = {
-  from: PositionSample;
-  to: PositionSample;
-  startedAtMs: number;
-  durationMs: number;
 };
 
 interface CableFlowTrip {
@@ -319,10 +315,25 @@ const AIRCRAFT_FULL_RENDER_ZOOM = 6.5;
 const AIRCRAFT_MIN_ZOOM_DENSITY = 0.12;
 const AIRCRAFT_ZOOM_FADE_BAND = 0.08;
 const AIRCRAFT_LABEL_FADE_ZOOM_RANGE = 0.65;
-const AIRCRAFT_MOTION_FRAME_MS = 66;
-const AIRCRAFT_TRANSITION_MIN_MS = 1200;
-const AIRCRAFT_TRANSITION_MAX_MS = 9000;
-const AIRCRAFT_GLIDE_MAX_DISTANCE_M = 300_000;
+/** ~30fps for the ambient aircraft glide; 15fps read as a stutter, not motion. */
+const AIRCRAFT_MOTION_FRAME_MS = 33;
+/**
+ * While following, camera and icon must move in the same frame or the tracked
+ * aircraft jitters against the basemap — so the follow tick runs uncapped.
+ */
+const AIRCRAFT_FOLLOW_FRAME_MS = 0;
+/** Zoom used when follow mode starts from a wide view. */
+const AIRCRAFT_FOLLOW_DEFAULT_ZOOM = 9;
+/** Below this the followed aircraft is a speck; snap in on follow. */
+const AIRCRAFT_FOLLOW_MIN_ZOOM = 7;
+/** Dedicated single-aircraft refresh cadence while following. */
+const AIRCRAFT_FOLLOW_POLL_MS = 30_000;
+/** Keep the followed aircraft on the map this long after it drops out of a fetch. */
+const AIRCRAFT_FOLLOW_RETENTION_MS = 5 * 60 * 1000;
+/** Give up following once the last fix is older than this. */
+const AIRCRAFT_FOLLOW_TIMEOUT_MS = 8 * 60 * 1000;
+/** Trail sampling cadence for the followed aircraft's interpolated path. */
+const AIRCRAFT_FOLLOW_TRAIL_SAMPLE_MS = 2000;
 
 // Pure geo/aircraft math helpers now live in ./deckgl-geo-math (imported above).
 
@@ -411,6 +422,9 @@ export class DeckGLMap implements MapEngine {
   private flightDelays: AirportDelayAlert[] = [];
   private aircraftPositions: PositionSample[] = [];
   private aircraftMotion = new Map<string, AircraftMotionState>();
+  private renderPositionCache = new Map<string, PositionSample>();
+  private renderPositionCacheAtMs = -1;
+  private lastAircraftStatusAtMs = 0;
   private aircraftHistory = new Map<string, [number, number][]>();
   private readonly AIRCRAFT_HISTORY_MAX = 40;
   private aircraftDensity = 100;
@@ -418,6 +432,15 @@ export class DeckGLMap implements MapEngine {
   private selectedAircraftType: 'commercial' | 'military' | null = null;
   private followedAircraftIcao: string | null = null;
   private aircraftFollowCallback: ((positions: PositionSample[]) => void) | null = null;
+  private followHudEl: HTMLElement | null = null;
+  private followPollTimer: ReturnType<typeof setInterval> | null = null;
+  private followTrailSampledAtMs = 0;
+  /** Per-frame camera pinning is suspended until the intro flight completes. */
+  private followIntroUntilMs = 0;
+  /** Set while the follow loop drives the camera, so `moveend` skips its churn. */
+  private followCameraDriving = false;
+  private followUserPanHandler: (() => void) | null = null;
+  private followKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private airspaceControls: AirspaceControls | null = null;
   private mapDrawController: MapDrawController | null = null;
   private aircraftFetchTimer: ReturnType<typeof setInterval> | null = null;
@@ -631,6 +654,16 @@ export class DeckGLMap implements MapEngine {
     window.addEventListener('map-theme-changed', this.handleMapThemeChange);
 
     this.initMapLibre();
+
+    // Registered only once MapLibre exists — MapContainer falls back to the SVG
+    // map if construction throws, and a follow backend left pointing at a dead
+    // map would put a live Follow button on an unusable camera.
+    if (this.maplibreMap) {
+      setAircraftFollowBackend({
+        startFollowing: (icao24: string) => this.followAircraft(icao24),
+        stopFollowing: () => this.unfollowAircraft(),
+      });
+    }
 
     this.maplibreMap?.on('load', () => {
       localizeMapLabels(this.maplibreMap);
@@ -869,11 +902,7 @@ export class DeckGLMap implements MapEngine {
         } else {
           // Empty map click — clear any active aircraft trajectory
           this.clearInfrastructureLineSelection();
-          if (this.selectedAircraftIcao) {
-            this.selectedAircraftIcao = null;
-            this.selectedAircraftType = null;
-            this.render();
-          }
+          if (this.clearAircraftSelection()) this.render();
           if (info.coordinate && this.onCountryClick) {
             const [lon, lat] = info.coordinate as [number, number];
             const country = this.resolveCountryFromCoordinate(lon, lat);
@@ -896,6 +925,9 @@ export class DeckGLMap implements MapEngine {
     });
 
     this.maplibreMap.on('moveend', () => {
+      // Follow mode re-centres every frame; running the full move pipeline (and
+      // persisting map state) at 60Hz would swamp the app.
+      if (this.followCameraDriving) return;
       this.lastSCZoom = -1;
       this.rafUpdateLayers();
       this.debouncedFetchBases();
@@ -905,6 +937,7 @@ export class DeckGLMap implements MapEngine {
     });
 
     this.maplibreMap.on('move', () => {
+      if (this.followCameraDriving) return;
       if (this.moveTimeoutId) clearTimeout(this.moveTimeoutId);
       this.moveTimeoutId = setTimeout(() => {
         this.lastSCZoom = -1;
@@ -2971,6 +3004,10 @@ export class DeckGLMap implements MapEngine {
     const visible: PositionSample[] = [];
 
     for (const position of this.aircraftPositions) {
+      if (position.icao24 === this.followedAircraftIcao) {
+        visible.push(position);
+        continue;
+      }
       if (this.selectedAircraftType === 'commercial' && position.icao24 === this.selectedAircraftIcao) {
         visible.push(position);
         continue;
@@ -2988,38 +3025,42 @@ export class DeckGLMap implements MapEngine {
     return visible;
   }
 
+  /**
+   * Interpolated position for this frame. Deck.gl asks for position and angle
+   * separately (and the trajectory layers ask again), so results are memoised
+   * per animation frame — recomputing dead reckoning per accessor per aircraft
+   * is the hot path once the loop runs at 60fps.
+   */
   private getAircraftRenderPosition(position: PositionSample): PositionSample {
     const motion = this.aircraftMotion.get(position.icao24);
     if (!motion) return position;
 
     const now = performance.now();
-    if (motion.durationMs <= 0) {
-      return projectAircraftPosition(motion.to, now - motion.startedAtMs);
+    if (now !== this.renderPositionCacheAtMs) {
+      this.renderPositionCacheAtMs = now;
+      this.renderPositionCache.clear();
     }
 
-    const elapsed = now - motion.startedAtMs;
-    if (elapsed >= motion.durationMs) {
-      return projectAircraftPosition(motion.to, elapsed - motion.durationMs);
-    }
+    const cached = this.renderPositionCache.get(position.icao24);
+    if (cached) return cached;
 
-    const t = smoothstep(0, 1, elapsed / motion.durationMs);
-    return {
-      ...motion.to,
-      lat: motion.from.lat + (motion.to.lat - motion.from.lat) * t,
-      lon: interpolateLongitude(motion.from.lon, motion.to.lon, t),
-      altitudeFt: motion.from.altitudeFt + (motion.to.altitudeFt - motion.from.altitudeFt) * t,
-      trackDeg: interpolateDegrees(motion.from.trackDeg, motion.to.trackDeg, t),
-    };
+    const resolved = resolveMotionPosition(motion, now);
+    this.renderPositionCache.set(position.icao24, resolved);
+    return resolved;
   }
 
-  private getAircraftTransitionDurationMs(from: PositionSample, to: PositionSample): number {
-    if (roughDistanceMeters(from, to) > AIRCRAFT_GLIDE_MAX_DISTANCE_M) return 0;
-
-    const observedDeltaMs = to.observedAt.getTime() - from.observedAt.getTime();
-    if (Number.isFinite(observedDeltaMs) && observedDeltaMs > 0) {
-      return clampNumber(observedDeltaMs * 0.35, AIRCRAFT_TRANSITION_MIN_MS, AIRCRAFT_TRANSITION_MAX_MS);
-    }
-    return 2500;
+  /**
+   * Drop the aircraft trajectory selection. While following, selection belongs
+   * to the tracked aircraft — clearing it entirely would hide the trail and
+   * label of the thing the camera is locked to.
+   */
+  private clearAircraftSelection(): boolean {
+    const nextIcao = this.followedAircraftIcao;
+    const nextType = nextIcao ? 'commercial' as const : null;
+    if (this.selectedAircraftIcao === nextIcao && this.selectedAircraftType === nextType) return false;
+    this.selectedAircraftIcao = nextIcao;
+    this.selectedAircraftType = nextType;
+    return true;
   }
 
   private getEffectiveAircraftDensity(): number {
@@ -3037,6 +3078,7 @@ export class DeckGLMap implements MapEngine {
 
   private getAircraftZoomAlpha(position: PositionSample): number {
     if (this.aircraftPositions.length <= 1) return 1;
+    if (position.icao24 === this.followedAircraftIcao) return 1;
     if (this.selectedAircraftType === 'commercial' && position.icao24 === this.selectedAircraftIcao) return 1;
 
     const density = this.getEffectiveAircraftDensity();
@@ -3063,6 +3105,7 @@ export class DeckGLMap implements MapEngine {
   }
 
   private getAircraftLabelAlpha(position: PositionSample): number {
+    if (position.icao24 === this.followedAircraftIcao) return 1;
     if (this.selectedAircraftIcao === position.icao24 && this.selectedAircraftType === 'commercial') return 1;
     if (position.stale || !(position.callsign || position.icao24)) return 0;
 
@@ -3101,7 +3144,10 @@ export class DeckGLMap implements MapEngine {
       getIcon: () => 'plane',
       iconAtlas: AVIATION_PLANE_ICON_ATLAS,
       iconMapping: AVIATION_PLANE_ICON_MAPPING,
-      getSize: (d) => d.onGround ? 18 : 24,
+      getSize: (d) => {
+        if (d.icao24 === this.followedAircraftIcao) return 32;
+        return d.onGround ? 18 : 24;
+      },
       getColor: (d) => this.getAircraftColor(d),
       sizeMinPixels: 10,
       sizeMaxPixels: 36,
@@ -5477,8 +5523,7 @@ export class DeckGLMap implements MapEngine {
       this.popup.hide();
       this.entityClickConsumedAt = Date.now();
       this.clearInfrastructureLineSelection();
-      this.selectedAircraftIcao = null;
-      this.selectedAircraftType = null;
+      this.clearAircraftSelection();
       this.zoomToEntity(info, layerId);
       if (cluster.count === 1 && cluster.items[0]) {
         this.onEntityClick('datacenter', cluster.items[0]);
@@ -5597,10 +5642,25 @@ export class DeckGLMap implements MapEngine {
       data = this.satellitePanelData((data as { id?: string }).id, data as SatellitePositionRecord) ?? data;
     }
 
+    // Opening any other entity means the camera is wanted elsewhere — release
+    // the lock rather than have it yank the view back every frame.
+    if (this.followedAircraftIcao) {
+      const clickedIcao = layerId === 'aircraft-positions-layer'
+        ? (data as PositionSample).icao24
+        : null;
+      if (clickedIcao !== this.followedAircraftIcao) this.unfollowAircraft();
+    }
+
     // Toggle trajectory on aircraft/military-flight click
     if (layerId === 'aircraft-positions-layer') {
       const aircraft = data as PositionSample;
-      if (this.selectedAircraftIcao === aircraft.icao24 && this.selectedAircraftType === 'commercial') {
+      if (
+        this.selectedAircraftIcao === aircraft.icao24
+        && this.selectedAircraftType === 'commercial'
+        // Follow mode owns the selection — clicking the tracked aircraft must
+        // not strip its trail out from under the camera lock.
+        && aircraft.icao24 !== this.followedAircraftIcao
+      ) {
         this.selectedAircraftIcao = null;
         this.selectedAircraftType = null;
       } else {
@@ -5620,8 +5680,7 @@ export class DeckGLMap implements MapEngine {
       this.render();
     } else {
       // Clicking any other entity clears the trajectory
-      this.selectedAircraftIcao = null;
-      this.selectedAircraftType = null;
+      this.clearAircraftSelection();
     }
 
     // Dismiss the hover popup
@@ -7060,6 +7119,21 @@ export class DeckGLMap implements MapEngine {
     });
   }
 
+  /**
+   * Push layers on this frame instead of the next one. Only for callers that
+   * are already inside a rAF callback and need the layer update to land in the
+   * same frame as a camera change (aircraft follow mode).
+   */
+  private renderImmediate(dirtyLayer: string): void {
+    this.dirtyLayers.add(dirtyLayer);
+    this.dataVersions.set(dirtyLayer, ++this.versionCounter);
+    if (this.renderPaused) {
+      this.renderPending = true;
+      return;
+    }
+    this.updateLayers();
+  }
+
   public setRenderPaused(paused: boolean): void {
     if (this.renderPaused === paused) return;
     this.renderPaused = paused;
@@ -7094,7 +7168,7 @@ export class DeckGLMap implements MapEngine {
       this.deckOverlay?.setProps({ layers: this.buildLayers(dirty) });
     } catch { /* map may be mid-teardown (null.getProjection) */ }
     this.syncGlobeNativeLayers();
-    this.updateAircraftStatusControl();
+    this.updateAircraftStatusControl(true);
     this.maplibreMap?.triggerRepaint();
     const elapsed = performance.now() - startTime;
     if (import.meta.env.DEV && elapsed > 16) {
@@ -7546,31 +7620,35 @@ export class DeckGLMap implements MapEngine {
     return parts.join(' · ');
   }
 
-  private updateAircraftStatusControl(): void {
+  /**
+   * @param throttled Pass from per-frame callers. The status line scans every
+   * aircraft, and the motion loop drives layer updates at up to 60fps while
+   * following — recomputing it that often is pure waste at ~4Hz readability.
+   */
+  private updateAircraftStatusControl(throttled = false): void {
+    const now = performance.now();
+    if (throttled && now - this.lastAircraftStatusAtMs < 250) return;
+    this.lastAircraftStatusAtMs = now;
+
     const status = this.container.querySelector<HTMLElement>('.aircraft-density-substatus');
     if (status) status.textContent = this.getAircraftStatusText();
   }
 
   private applyAircraftPositions(positions: PositionSample[], notify = true): PositionSample[] {
-    const filtered = filterRenderableAircraftPositions(positions);
+    const filtered = this.retainFollowedAircraft(filterRenderableAircraftPositions(positions));
     const now = performance.now();
+    const nowEpoch = Date.now();
     const nextIds = new Set<string>();
 
     for (const pos of filtered) {
       nextIds.add(pos.icao24);
-      const previous = this.aircraftPositions.find((item) => item.icao24 === pos.icao24);
-      if (!previous) {
-        this.aircraftMotion.set(pos.icao24, { from: pos, to: pos, startedAtMs: now, durationMs: 0 });
-        continue;
-      }
-
-      const from = this.getAircraftRenderPosition(previous);
-      this.aircraftMotion.set(pos.icao24, {
-        from,
-        to: pos,
-        startedAtMs: now,
-        durationMs: this.getAircraftTransitionDurationMs(from, pos),
-      });
+      const previous = this.aircraftMotion.get(pos.icao24);
+      this.aircraftMotion.set(
+        pos.icao24,
+        previous
+          ? advanceMotionState(previous, pos, now, nowEpoch)
+          : createMotionState(pos, now, nowEpoch),
+      );
     }
 
     for (const icao24 of Array.from(this.aircraftMotion.keys())) {
@@ -7587,22 +7665,39 @@ export class DeckGLMap implements MapEngine {
       }
     }
     this.aircraftPositions = filtered;
+    this.renderPositionCacheAtMs = -1;
     this.updateAircraftStatusControl();
+    if (this.followedAircraftIcao) this.renderFollowHud();
     this.manageAircraftMotionAnimation(this.state.layers.flights && filtered.length > 0);
     if (notify) this.onAircraftPositionsUpdate?.(filtered);
     return filtered;
   }
 
   public setAircraftPositions(positions: PositionSample[]): void {
-    const filtered = this.applyAircraftPositions(positions);
+    this.applyAircraftPositions(positions);
     this.render('flights');
+    // The camera is driven by the motion loop, not by fetch arrivals — easing
+    // once per poll is what made following read as a lurch every 60 seconds.
+  }
 
-    if (this.followedAircraftIcao) {
-      const followed = filtered.find(p => p.icao24 === this.followedAircraftIcao);
-      if (followed && this.maplibreMap) {
-        this.maplibreMap.easeTo({ center: [followed.lon, followed.lat], duration: 800 });
-      }
-    }
+  /**
+   * Viewport fetches only return what is inside the current bbox, and the
+   * followed aircraft can fall out of one for a poll or two (bbox edges, a
+   * provider gap, a cached response). Dropping it would break the camera lock,
+   * so carry its last fix forward and let dead reckoning cover the gap.
+   */
+  private retainFollowedAircraft(incoming: PositionSample[]): PositionSample[] {
+    const icao = this.followedAircraftIcao;
+    if (!icao) return incoming;
+    if (incoming.some((pos) => pos.icao24 === icao)) return incoming;
+
+    const held = this.aircraftPositions.find((pos) => pos.icao24 === icao);
+    if (!held) return incoming;
+
+    const observed = held.observedAt instanceof Date ? held.observedAt.getTime() : 0;
+    if (!observed || Date.now() - observed > AIRCRAFT_FOLLOW_RETENTION_MS) return incoming;
+
+    return [...incoming, held];
   }
 
   public setMilitaryFlights(flights: MilitaryFlight[], clusters: MilitaryFlightCluster[] = []): void {
@@ -7612,41 +7707,74 @@ export class DeckGLMap implements MapEngine {
   }
 
   /**
-   * Follow an aircraft by icao24 — the camera will easeTo the aircraft's
-   * position on every `setAircraftPositions` update until `unfollowAircraft()`
-   * is called. Subscribes to the live aircraft callback for real-time tracking.
+   * Lock the camera onto an aircraft. The map centre is re-pinned to the
+   * aircraft's interpolated position on every animation frame (see
+   * `manageAircraftMotionAnimation`), which keeps the icon pixel-stationary
+   * while the basemap slides underneath it.
+   *
+   * Zoom, bearing and pitch stay under user control; panning breaks the lock.
    */
   public followAircraft(icao24: string): void {
-    if (this.followedAircraftIcao === icao24) return;
-    this.followedAircraftIcao = icao24;
+    const hex = icao24.trim().toLowerCase();
+    if (!hex || this.followedAircraftIcao === hex) return;
+
+    this.followedAircraftIcao = hex;
+    // Follow implies selection so the trail and label render for the target.
+    this.selectedAircraftIcao = hex;
+    this.selectedAircraftType = 'commercial';
+    this.followTrailSampledAtMs = 0;
 
     if (!this.aircraftFollowCallback) {
       this.aircraftFollowCallback = (positions: PositionSample[]) => {
-        if (!this.followedAircraftIcao || !this.maplibreMap) return;
-        const followed = positions.find(p => p.icao24 === this.followedAircraftIcao);
-        if (followed) {
-          this.maplibreMap.easeTo({ center: [followed.lon, followed.lat], duration: 800 });
-        }
+        if (!this.followedAircraftIcao) return;
+        // Merge the live stream into the map's own set; the camera reads from
+        // the motion model, not from this callback.
+        this.mergeAircraftPositions(positions);
       };
       registerAircraftCallback(this.aircraftFollowCallback);
     }
 
-    // Fly to the aircraft immediately if we already have its position
-    const existing = this.aircraftPositions.find(p => p.icao24 === icao24);
+    this.startFollowPolling();
+    this.bindFollowInteractionHandlers();
+    this.renderFollowHud();
+
+    const existing = this.aircraftPositions.find((p) => p.icao24 === hex);
     if (existing && this.maplibreMap) {
-      this.maplibreMap.flyTo({ center: [existing.lon, existing.lat], zoom: 8, duration: 1000 });
+      const current = this.getAircraftRenderPosition(existing);
+      const currentZoom = this.maplibreMap.getZoom();
+      const zoom = currentZoom < AIRCRAFT_FOLLOW_MIN_ZOOM ? AIRCRAFT_FOLLOW_DEFAULT_ZOOM : currentZoom;
+      const introMs = 900;
+      // Hold off the per-frame pin until the intro flight lands, otherwise the
+      // first `jumpTo` cancels the animation mid-way.
+      this.followIntroUntilMs = performance.now() + introMs;
+      this.maplibreMap.flyTo({
+        center: [current.lon, current.lat],
+        zoom,
+        duration: introMs,
+        essential: true,
+      });
     }
+
+    this.manageAircraftMotionAnimation(this.state.layers.flights && this.aircraftPositions.length > 0);
+    this.render('flights');
   }
 
-  /**
-   * Stop following an aircraft. Removes the live callback subscription.
-   */
+  /** Stop following. Safe to call when not following. */
   public unfollowAircraft(): void {
-    if (!this.followedAircraftIcao && !this.aircraftFollowCallback) return;
+    const wasFollowing = this.followedAircraftIcao !== null;
+    if (!wasFollowing && !this.aircraftFollowCallback) return;
+
     this.followedAircraftIcao = null;
     if (this.aircraftFollowCallback) {
       unregisterAircraftCallback(this.aircraftFollowCallback);
       this.aircraftFollowCallback = null;
+    }
+    this.stopFollowPolling();
+    this.unbindFollowInteractionHandlers();
+    this.renderFollowHud();
+    if (wasFollowing) {
+      notifyAircraftFollowEnded();
+      this.render('flights');
     }
   }
 
@@ -7655,6 +7783,161 @@ export class DeckGLMap implements MapEngine {
    */
   public getFollowedAircraft(): string | null {
     return this.followedAircraftIcao;
+  }
+
+  /** Upsert positions into the current set without discarding untouched aircraft. */
+  private mergeAircraftPositions(positions: PositionSample[]): void {
+    const incoming = filterRenderableAircraftPositions(positions);
+    if (incoming.length === 0) return;
+
+    const byIcao = new Map(this.aircraftPositions.map((pos) => [pos.icao24, pos]));
+    for (const pos of incoming) byIcao.set(pos.icao24, pos);
+    this.applyAircraftPositions(Array.from(byIcao.values()));
+    this.render('flights');
+  }
+
+  /**
+   * Poll the followed aircraft directly by hex. The viewport fetch runs on a
+   * 120s timer and skips when the map has not moved far enough, which is too
+   * coarse to track a single aircraft; the by-hex lookup is a cheap, separately
+   * cached request that keeps the anchor fresh.
+   */
+  private startFollowPolling(): void {
+    this.stopFollowPolling();
+    const poll = () => {
+      const icao = this.followedAircraftIcao;
+      if (!icao) return;
+      fetchAircraftPositions({ icao24: icao })
+        .then((positions) => {
+          if (this.followedAircraftIcao !== icao) return;
+          if (positions.length > 0) {
+            this.mergeAircraftPositions(positions);
+            return;
+          }
+          this.dropFollowIfLost(icao);
+        })
+        .catch(() => this.dropFollowIfLost(icao));
+    };
+    poll();
+    this.followPollTimer = setInterval(poll, AIRCRAFT_FOLLOW_POLL_MS);
+  }
+
+  private stopFollowPolling(): void {
+    if (this.followPollTimer) {
+      clearInterval(this.followPollTimer);
+      this.followPollTimer = null;
+    }
+  }
+
+  /** Release the lock once the aircraft has gone quiet for too long. */
+  private dropFollowIfLost(icao24: string): void {
+    if (this.followedAircraftIcao !== icao24) return;
+    const held = this.aircraftPositions.find((pos) => pos.icao24 === icao24);
+    const observed = held?.observedAt instanceof Date ? held.observedAt.getTime() : 0;
+    if (observed && Date.now() - observed < AIRCRAFT_FOLLOW_TIMEOUT_MS) return;
+    this.unfollowAircraft();
+  }
+
+  /**
+   * Pinning the camera to the aircraft means the user cannot pan — so a pan
+   * gesture is treated as "let me go". Zoom, rotate and pitch stay live.
+   */
+  private bindFollowInteractionHandlers(): void {
+    if (this.followUserPanHandler || !this.maplibreMap) return;
+
+    this.followUserPanHandler = () => {
+      if (this.followCameraDriving) return;
+      this.unfollowAircraft();
+    };
+    this.maplibreMap.on('dragstart', this.followUserPanHandler);
+
+    this.followKeyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && this.followedAircraftIcao) this.unfollowAircraft();
+    };
+    window.addEventListener('keydown', this.followKeyHandler);
+  }
+
+  private unbindFollowInteractionHandlers(): void {
+    if (this.followUserPanHandler) {
+      this.maplibreMap?.off('dragstart', this.followUserPanHandler);
+      this.followUserPanHandler = null;
+    }
+    if (this.followKeyHandler) {
+      window.removeEventListener('keydown', this.followKeyHandler);
+      this.followKeyHandler = null;
+    }
+  }
+
+  /**
+   * Re-pin the camera to the followed aircraft. Called from inside the motion
+   * rAF tick so the centre change and the icon's new position land in the same
+   * frame — split across frames, the tracked aircraft visibly shimmers.
+   */
+  private updateFollowCamera(nowMs: number): void {
+    const icao = this.followedAircraftIcao;
+    if (!icao || !this.maplibreMap) return;
+    if (nowMs < this.followIntroUntilMs) return;
+
+    const motion = this.aircraftMotion.get(icao);
+    if (!motion) return;
+
+    const current = resolveMotionPosition(motion, nowMs);
+    if (!Number.isFinite(current.lat) || !Number.isFinite(current.lon)) return;
+
+    this.followCameraDriving = true;
+    try {
+      this.maplibreMap.jumpTo({ center: [current.lon, current.lat] });
+    } catch {
+      /* map mid-teardown */
+    } finally {
+      this.followCameraDriving = false;
+    }
+
+    // Sample the interpolated path so the trail behind a followed aircraft is
+    // continuous instead of a 120s-per-segment zigzag.
+    if (nowMs - this.followTrailSampledAtMs >= AIRCRAFT_FOLLOW_TRAIL_SAMPLE_MS) {
+      this.followTrailSampledAtMs = nowMs;
+      const hist = this.aircraftHistory.get(icao) ?? [];
+      const last = hist[hist.length - 1];
+      if (!last || last[0] !== current.lon || last[1] !== current.lat) {
+        hist.push([current.lon, current.lat]);
+        if (hist.length > this.AIRCRAFT_HISTORY_MAX) hist.shift();
+        this.aircraftHistory.set(icao, hist);
+      }
+    }
+  }
+
+  /** On-map chip showing what is being followed, with an exit affordance. */
+  private renderFollowHud(): void {
+    const wrapper = this.container.querySelector<HTMLElement>('.deckgl-map-wrapper');
+    if (!wrapper) return;
+
+    const icao = this.followedAircraftIcao;
+    if (!icao) {
+      this.followHudEl?.remove();
+      this.followHudEl = null;
+      return;
+    }
+
+    if (!this.followHudEl) {
+      const hud = document.createElement('div');
+      hud.className = 'aircraft-follow-hud';
+      hud.innerHTML = `
+        <span class="aircraft-follow-hud-pulse" aria-hidden="true"></span>
+        <span class="aircraft-follow-hud-text">
+          <span class="aircraft-follow-hud-label">Following</span>
+          <span class="aircraft-follow-hud-callsign"></span>
+        </span>
+        <button class="aircraft-follow-hud-exit" type="button" aria-label="Stop following aircraft">Unlock</button>`;
+      hud.querySelector('.aircraft-follow-hud-exit')?.addEventListener('click', () => this.unfollowAircraft());
+      wrapper.appendChild(hud);
+      this.followHudEl = hud;
+    }
+
+    const tracked = this.aircraftPositions.find((pos) => pos.icao24 === icao);
+    const callsign = tracked?.callsign?.trim() || icao.toUpperCase();
+    const callsignEl = this.followHudEl.querySelector<HTMLElement>('.aircraft-follow-hud-callsign');
+    if (callsignEl) callsignEl.textContent = callsign;
   }
 
   public setMilitaryVessels(vessels: MilitaryVessel[], clusters: MilitaryVesselCluster[] = []): void {
@@ -7698,8 +7981,10 @@ export class DeckGLMap implements MapEngine {
         clearInterval(this.aircraftFetchTimer);
         this.aircraftFetchTimer = null;
       }
+      this.unfollowAircraft();
       this.aircraftPositions = [];
       this.aircraftMotion.clear();
+      this.renderPositionCache.clear();
       this.updateAircraftStatusControl();
       this.manageAircraftMotionAnimation(false);
     }
@@ -7711,16 +7996,26 @@ export class DeckGLMap implements MapEngine {
         const tick = () => {
           if (!this.aircraftAnimationId) return;
           const now = performance.now();
+          const following = this.followedAircraftIcao !== null;
+          const frameBudget = following ? AIRCRAFT_FOLLOW_FRAME_MS : AIRCRAFT_MOTION_FRAME_MS;
           if (
             !this.renderPaused &&
             !this.webglLost &&
             this.maplibreMap &&
             this.state.layers.flights &&
             this.aircraftPositions.length > 0 &&
-            now - this.lastAircraftAnimationFrameMs >= AIRCRAFT_MOTION_FRAME_MS
+            now - this.lastAircraftAnimationFrameMs >= frameBudget
           ) {
             this.lastAircraftAnimationFrameMs = now;
-            this.render('flights');
+            if (following) {
+              // Move the camera first, then push the layers synchronously — the
+              // usual rAF-deferred `render()` would land the icon one frame
+              // behind the map and the locked aircraft would jitter.
+              this.updateFollowCamera(now);
+              this.renderImmediate('flights');
+            } else {
+              this.render('flights');
+            }
           }
           this.aircraftAnimationId = requestAnimationFrame(tick);
         };
@@ -7797,8 +8092,10 @@ export class DeckGLMap implements MapEngine {
     const zoom = this.maplibreMap.getZoom();
     if (zoom < 2) {
       if (this.aircraftPositions.length > 0) {
+        this.unfollowAircraft();
         this.aircraftPositions = [];
         this.aircraftMotion.clear();
+        this.renderPositionCache.clear();
         this.updateAircraftStatusControl();
         this.manageAircraftMotionAnimation(false);
         this.render('flights');
@@ -8834,19 +9131,27 @@ export class DeckGLMap implements MapEngine {
         } else {
           this.clearInfrastructureLineSelection();
         }
+        if (this.followedAircraftIcao) {
+          const clickedIcao = resolvedFeature.popupType === 'aircraft'
+            ? (resolvedFeature.data as PositionSample).icao24
+            : null;
+          if (clickedIcao !== this.followedAircraftIcao) this.unfollowAircraft();
+        }
         if (resolvedFeature.popupType === 'aircraft') {
           const aircraft = resolvedFeature.data as PositionSample;
-          if (this.selectedAircraftIcao === aircraft.icao24 && this.selectedAircraftType === 'commercial') {
-            this.selectedAircraftIcao = null;
-            this.selectedAircraftType = null;
+          if (
+            this.selectedAircraftIcao === aircraft.icao24
+            && this.selectedAircraftType === 'commercial'
+            && aircraft.icao24 !== this.followedAircraftIcao
+          ) {
+            this.clearAircraftSelection();
           } else {
             this.selectedAircraftIcao = aircraft.icao24;
             this.selectedAircraftType = 'commercial';
           }
           this.render('flights');
         } else {
-          this.selectedAircraftIcao = null;
-          this.selectedAircraftType = null;
+          this.clearAircraftSelection();
         }
         if (resolvedFeature.points && resolvedFeature.popupType === 'tradeRoute') {
           this.fitLineBounds(resolvedFeature.points);
@@ -9121,6 +9426,8 @@ export class DeckGLMap implements MapEngine {
     }
 
     this.unfollowAircraft();
+    setAircraftFollowBackend(null);
+    this.renderPositionCache.clear();
     this.airspaceControls?.destroy();
     this.airspaceControls = null;
 

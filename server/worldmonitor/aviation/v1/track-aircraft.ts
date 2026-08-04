@@ -10,6 +10,10 @@ import { CHROME_UA } from '../../../_shared/constants';
 
 // 120s for anonymous OpenSky tier (~10 req/min limit); TODO: reduce to 10s on commercial tier
 const CACHE_TTL = 120;
+// Single-aircraft lookups back follow mode, where a two-minute-old fix is the
+// difference between tracking and guessing. One hex is a cheap upstream query,
+// so it gets a tighter TTL than the bbox sweeps.
+const SINGLE_AIRCRAFT_CACHE_TTL = 25;
 const NEGATIVE_CACHE_TTL = 15;
 const MAX_POSITION_AGE_MS = 20 * 60 * 1000;
 const STALE_POSITION_AGE_MS = 2 * 60 * 1000;
@@ -64,12 +68,27 @@ function parseOpenSkyStates(states: unknown[][]): PositionSample[] {
 
 const OPENSKY_PUBLIC_BASE = 'https://opensky-network.org/api';
 
+/**
+ * Whether the request carries a usable bounding box.
+ *
+ * The generated client sends `0` for absent numeric fields, so a null check
+ * alone treats an all-zero bbox as real and routes single-aircraft lookups into
+ * a degenerate box off West Africa — which is why `{ icao24 }` requests used to
+ * come back empty.
+ */
+function hasBoundingBox(req: TrackAircraftRequest): boolean {
+    const { swLat, swLon, neLat, neLon } = req;
+    if (swLat == null || neLat == null || swLon == null || neLon == null) return false;
+    if (!Number.isFinite(swLat) || !Number.isFinite(neLat) || !Number.isFinite(swLon) || !Number.isFinite(neLon)) return false;
+    return swLat !== neLat && swLon !== neLon;
+}
+
 async function fetchOpenSkyAnonymous(req: TrackAircraftRequest): Promise<PositionSample[]> {
     let url: string;
-    if (req.swLat != null && req.neLat != null) {
+    if (hasBoundingBox(req)) {
         url = `${OPENSKY_PUBLIC_BASE}/states/all?lamin=${req.swLat}&lomin=${req.swLon}&lamax=${req.neLat}&lomax=${req.neLon}`;
     } else if (req.icao24) {
-        url = `${OPENSKY_PUBLIC_BASE}/states/all?icao24=${req.icao24}`;
+        url = `${OPENSKY_PUBLIC_BASE}/states/all?icao24=${encodeURIComponent(req.icao24)}`;
     } else {
         url = `${OPENSKY_PUBLIC_BASE}/states/all`;
     }
@@ -84,8 +103,8 @@ async function fetchOpenSkyAnonymous(req: TrackAircraftRequest): Promise<Positio
 }
 
 function buildCacheKey(req: TrackAircraftRequest): string {
-    if (req.icao24) return `aviation:track:icao:${req.icao24}:v1`;
-    if (req.swLat != null && req.neLat != null) {
+    if (!hasBoundingBox(req) && req.icao24) return `aviation:track:icao:${req.icao24}:v1`;
+    if (hasBoundingBox(req)) {
         return `aviation:track:${Math.floor(req.swLat)}:${Math.floor(req.swLon)}:${Math.ceil(req.neLat)}:${Math.ceil(req.neLon)}:v1`;
     }
     return 'aviation:track:all:v1';
@@ -96,21 +115,22 @@ export async function trackAircraft(
     req: TrackAircraftRequest,
 ): Promise<TrackAircraftResponse> {
     const cacheKey = buildCacheKey(req);
+    const cacheTtl = !hasBoundingBox(req) && req.icao24 ? SINGLE_AIRCRAFT_CACHE_TTL : CACHE_TTL;
 
     let result: { positions: PositionSample[]; source: string } | null = null;
     try {
         result = await cachedFetchJson<{ positions: PositionSample[]; source: string }>(
-            cacheKey, CACHE_TTL, async () => {
+            cacheKey, cacheTtl, async () => {
                 const relayBase = getRelayBaseUrl();
 
                 // Try relay first if configured
                 if (relayBase) {
                     try {
                         let osUrl: string;
-                        if (req.swLat != null && req.neLat != null) {
+                        if (hasBoundingBox(req)) {
                             osUrl = `${relayBase}/opensky/states/all?lamin=${req.swLat}&lomin=${req.swLon}&lamax=${req.neLat}&lomax=${req.neLon}`;
                         } else if (req.icao24) {
-                            osUrl = `${relayBase}/opensky/states/all?icao24=${req.icao24}`;
+                            osUrl = `${relayBase}/opensky/states/all?icao24=${encodeURIComponent(req.icao24)}`;
                         } else {
                             osUrl = `${relayBase}/opensky/states/all`;
                         }

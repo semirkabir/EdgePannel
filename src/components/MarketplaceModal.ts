@@ -775,6 +775,10 @@ export class MarketplaceModal {
                   <div class="marketplace-modal-pack-kicker">${escapeHtml(t.icon)} ${escapeHtml(t.recommendedPanels.length.toString())} panels</div>
                   <strong>${escapeHtml(t.name)}</strong>
                   <p>${escapeHtml(t.tagline)}</p>
+                  <div class="marketplace-modal-card-meta">
+                    <span style="display:inline-flex;align-items:center;gap:4px">${authorAvatar(t.author, 'sm')}<span>${escapeHtml(t.author)}</span></span>
+                    <span class="marketplace-modal-pill">${escapeHtml(t.commercial.priceLabel || formatAccessLabel(t.commercial.access))}</span>
+                  </div>
                 </article>
               `).join('')}
               ${packs.map((p) => `

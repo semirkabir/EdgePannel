@@ -13,7 +13,11 @@ export type DrawTool =
   | 'sector'
   | 'polygon'
   | 'rectangle'
-  | 'bearing';
+  | 'polyline'
+  | 'bearing'
+  | 'arrow'
+  | 'corridor'
+  | 'text';
 
 export type LngLat = [number, number];
 
@@ -33,12 +37,60 @@ export const DRAWINGS_STORAGE_KEY = 'wm-map-drawings-v1';
 
 /** Tools whose committed shape encloses an area (usable as a geofence). */
 export const AREA_TOOLS: ReadonlySet<DrawTool> = new Set<DrawTool>([
-  'circle', 'rangeRings', 'sector', 'polygon', 'rectangle',
+  'circle', 'rangeRings', 'sector', 'polygon', 'rectangle', 'corridor',
 ]);
 
 export const SECTOR_HALF_ANGLE = 30; // ±30° → 60° wedge
 export const RING_COUNT = 3;
+export const CORRIDOR_HALF_WIDTH_KM = 20;
 const ARC_STEPS = 72;
+
+function segmentBearing(a: LngLat, b: LngLat): number {
+  return bearingDeg(a[1], a[0], b[1], b[0]);
+}
+
+/** Buffer a multi-point path into a ribbon polygon, halfWidthKm on each side. */
+export function corridorRing(points: LngLat[], halfWidthKm: number): LngLat[] {
+  if (points.length < 2) return [];
+  const left: LngLat[] = [];
+  const right: LngLat[] = [];
+  for (let i = 0; i < points.length; i++) {
+    const prev = points[i - 1];
+    const cur = points[i];
+    const next = points[i + 1];
+    if (!cur) continue;
+    let brg: number;
+    if (prev && next) {
+      const b1 = segmentBearing(prev, cur);
+      const b2 = segmentBearing(cur, next);
+      const diff = ((b2 - b1 + 540) % 360) - 180;
+      brg = (b1 + diff / 2 + 360) % 360;
+    } else if (next) {
+      brg = segmentBearing(cur, next);
+    } else if (prev) {
+      brg = segmentBearing(prev, cur);
+    } else {
+      brg = 0;
+    }
+    const [lng, lat] = cur;
+    left.push(destinationPoint(lat, lng, brg - 90, halfWidthKm));
+    right.push(destinationPoint(lat, lng, brg + 90, halfWidthKm));
+  }
+  const first = left[0];
+  if (!first) return [];
+  return [...left, ...right.reverse(), first];
+}
+
+/** Small filled triangle at `to`, oriented along the bearing from `from`. */
+export function arrowHead(from: LngLat, to: LngLat, sizeKm: number): LngLat[] {
+  const brg = segmentBearing(from, to);
+  const [lng, lat] = to;
+  const back = destinationPoint(lat, lng, brg + 180, sizeKm);
+  const [bLng, bLat] = back;
+  const left = destinationPoint(bLat, bLng, brg - 90, sizeKm * 0.5);
+  const right = destinationPoint(bLat, bLng, brg + 90, sizeKm * 0.5);
+  return [to, right, left, to];
+}
 
 export function circleRing(center: LngLat, radiusKm: number): LngLat[] {
   const [lng, lat] = center;
@@ -87,6 +139,10 @@ export function polygonRings(d: Drawing): LngLat[][] {
       return c && e ? [rectRing(c, e)] : [];
     case 'polygon':
       return p.length >= 3 && c ? [[...p, c]] : [];
+    case 'corridor': {
+      const ring = p.length >= 2 ? corridorRing(p, d.radiusKm ?? CORRIDOR_HALF_WIDTH_KM) : [];
+      return ring.length ? [ring] : [];
+    }
     default:
       return [];
   }

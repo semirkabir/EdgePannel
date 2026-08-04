@@ -13,6 +13,9 @@
 import type maplibregl from 'maplibre-gl';
 import { haversineKm, bearingDeg, destinationPoint, formatDistance, type DistanceUnit } from '@/utils/geo';
 import {
+  arrowHead,
+  CORRIDOR_HALF_WIDTH_KM,
+  corridorRing,
   DRAWINGS_STORAGE_KEY,
   RING_COUNT,
   drawingsToZones,
@@ -27,6 +30,7 @@ export type { Drawing, DrawTool } from './geometry';
 
 const SRC = 'wm-draw-src';
 const L_FILL = 'wm-draw-fill';
+const L_ARROWHEAD = 'wm-draw-arrowhead';
 const L_LINE = 'wm-draw-line';
 const L_VERTEX = 'wm-draw-vertex';
 const L_LABEL = 'wm-draw-label';
@@ -41,7 +45,26 @@ const TOOL_LABEL: Record<DrawTool, string> = {
   sector: 'Sector',
   polygon: 'Polygon',
   rectangle: 'Rectangle',
+  polyline: 'Polyline',
   bearing: 'Bearing',
+  arrow: 'Arrow',
+  corridor: 'Corridor',
+  text: 'Text',
+};
+
+// Lucide icon markup (ISC licensed), 24x24 viewBox, stroke=currentColor.
+const TOOL_ICON: Record<DrawTool, string> = {
+  distance: '<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/>',
+  circle: '<circle cx="12" cy="12" r="10"/>',
+  rangeRings: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  sector: '<path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>',
+  polygon: '<path d="M10.83 2.38a2 2 0 0 1 2.34 0l8 5.74a2 2 0 0 1 .73 2.25l-3.04 9.26a2 2 0 0 1-1.9 1.37H7.04a2 2 0 0 1-1.9-1.37L2.1 10.37a2 2 0 0 1 .73-2.25z"/>',
+  rectangle: '<rect width="20" height="12" x="2" y="6" rx="2"/>',
+  polyline: '<circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><path d="M5 17A12 12 0 0 1 17 5"/>',
+  bearing: '<path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/><circle cx="12" cy="12" r="10"/>',
+  arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  corridor: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+  text: '<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/>',
 };
 
 type Feature = GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>;
@@ -99,7 +122,7 @@ export class MapDrawController {
     this.toolbar?.remove();
     this.readout?.remove();
     const m = this.map;
-    for (const id of [L_LABEL, L_VERTEX, L_LINE, L_FILL]) {
+    for (const id of [L_LABEL, L_VERTEX, L_LINE, L_ARROWHEAD, L_FILL]) {
       if (m.getLayer(id)) m.removeLayer(id);
     }
     if (m.getSource(SRC)) m.removeSource(SRC);
@@ -138,6 +161,13 @@ export class MapDrawController {
         id: L_FILL, type: 'fill', source: SRC,
         filter: ['==', ['get', 'role'], 'fill'],
         paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.1 },
+      } as maplibregl.LayerSpecification);
+    }
+    if (!m.getLayer(L_ARROWHEAD)) {
+      m.addLayer({
+        id: L_ARROWHEAD, type: 'fill', source: SRC,
+        filter: ['==', ['get', 'role'], 'arrowhead'],
+        paint: { 'fill-color': ['get', 'color'], 'fill-opacity': ['case', ['get', 'draft'], 0.7, 0.95] },
       } as maplibregl.LayerSpecification);
     }
     if (!m.getLayer(L_LINE)) {
@@ -239,6 +269,53 @@ export class MapDrawController {
       return out;
     }
 
+    if (d.tool === 'polyline') {
+      if (p.length >= 1) line(p);
+      p.forEach(vertex);
+      return out;
+    }
+
+    if (d.tool === 'text') {
+      const at = p[0];
+      if (at) { label(at, d.name); vertex(at); }
+      return out;
+    }
+
+    if (d.tool === 'arrow') {
+      const a = p[0]; const b = p[1];
+      if (a && b) {
+        line([a, b]);
+        const dist = haversineKm(a[1], a[0], b[1], b[0]);
+        const headSize = Math.max(Math.min(dist * 0.15, 150), 5);
+        out.push({ type: 'Feature', properties: props({ role: 'arrowhead' }), geometry: { type: 'Polygon', coordinates: [arrowHead(a, b, headSize)] } });
+        label(b, formatDistance(dist, this.unit));
+      } else if (a) {
+        line([a]);
+      }
+      p.forEach(vertex);
+      return out;
+    }
+
+    if (d.tool === 'corridor') {
+      if (p.length >= 2) {
+        const halfWidth = d.radiusKm ?? CORRIDOR_HALF_WIDTH_KM;
+        const ring = corridorRing(p, halfWidth);
+        if (ring.length) { fill(ring); line(ring); }
+        line(p);
+        let total = 0;
+        for (let i = 1; i < p.length; i++) {
+          const p0 = p[i - 1]; const p1 = p[i];
+          if (p0 && p1) total += haversineKm(p0[1], p0[0], p1[1], p1[0]);
+        }
+        const last = p[p.length - 1];
+        if (last) label(last, `${formatDistance(total, this.unit)} · ±${formatDistance(halfWidth, this.unit)}`);
+      } else if (p.length === 1) {
+        line(p);
+      }
+      p.forEach(vertex);
+      return out;
+    }
+
     // area tools
     const rings = polygonRings(d);
     for (const ring of rings) { fill(ring); line(ring); }
@@ -332,7 +409,8 @@ export class MapDrawController {
     const pt: LngLat = [e.lngLat.lng, e.lngLat.lat];
     this.draft.push(pt);
     const t = this.active;
-    const twoPoint = t === 'circle' || t === 'rangeRings' || t === 'sector' || t === 'rectangle' || t === 'bearing';
+    if (t === 'text') { this.commit(); return; }
+    const twoPoint = t === 'circle' || t === 'rangeRings' || t === 'sector' || t === 'rectangle' || t === 'bearing' || t === 'arrow';
     if (twoPoint && this.draft.length >= 2) {
       this.commit();
     } else {
@@ -351,7 +429,7 @@ export class MapDrawController {
   private handleDblClick(e: maplibregl.MapMouseEvent): void {
     if (!this.active) return;
     e.preventDefault();
-    if (this.active === 'polygon' || this.active === 'distance') {
+    if (this.active === 'polygon' || this.active === 'distance' || this.active === 'polyline' || this.active === 'corridor') {
       // Drop the duplicate point the dblclick's first click added, then commit.
       if (this.draft.length > 1) this.draft.pop();
       this.commit();
@@ -369,7 +447,7 @@ export class MapDrawController {
     if (!this.active) return;
     const t = this.active;
     const pts = [...this.draft];
-    const minPts = t === 'polygon' ? 3 : 2;
+    const minPts = t === 'polygon' ? 3 : t === 'text' ? 1 : 2;
     if (pts.length < minPts) { this.draft = []; this.render(); return; }
 
     const color = this.nextColor();
@@ -384,6 +462,8 @@ export class MapDrawController {
       drawing.radiusKm = haversineKm(a[1], a[0], b[1], b[0]);
       if (t !== 'sector') drawing.points = [a];
       if (t === 'rangeRings') drawing.rings = RING_COUNT;
+    } else if (t === 'corridor') {
+      drawing.radiusKm = CORRIDOR_HALF_WIDTH_KM;
     }
 
     this.drawings.push(drawing);
@@ -393,6 +473,11 @@ export class MapDrawController {
     this.render();
     this.renderList();
     this.updateReadout();
+
+    if (t === 'text' && this.listEl) {
+      const row = this.listEl.querySelector<HTMLElement>(`[data-id="${CSS.escape(drawing.id)}"] .map-draw-name`);
+      if (row) this.renameDrawing(drawing, row);
+    }
   }
 
   // ── persistence ──────────────────────────────────────────────────────────────
@@ -468,6 +553,23 @@ export class MapDrawController {
       this.showReadout('Click opposite corner to set');
     } else if (t === 'polygon') {
       this.showReadout(`${this.draft.length} vertices — double-click to finish`);
+    } else if (t === 'polyline') {
+      let total = 0;
+      for (let i = 1; i < hoverPts.length; i++) {
+        const p0 = hoverPts[i - 1]; const p1 = hoverPts[i];
+        if (p0 && p1) total += haversineKm(p0[1], p0[0], p1[1], p1[0]);
+      }
+      this.showReadout(`${formatDistance(total, this.unit)} · ${this.draft.length} pt — double-click to finish`);
+    } else if (t === 'corridor') {
+      let total = 0;
+      for (let i = 1; i < hoverPts.length; i++) {
+        const p0 = hoverPts[i - 1]; const p1 = hoverPts[i];
+        if (p0 && p1) total += haversineKm(p0[1], p0[0], p1[1], p1[0]);
+      }
+      this.showReadout(`${formatDistance(total, this.unit)} · ±${formatDistance(CORRIDOR_HALF_WIDTH_KM, this.unit)} — double-click to finish`);
+    } else if (t === 'arrow' && a && b) {
+      const dist = haversineKm(a[1], a[0], b[1], b[0]);
+      this.showReadout(`${formatDistance(dist, this.unit)} — click to set`);
     }
   }
 
@@ -500,7 +602,8 @@ export class MapDrawController {
       btn.type = 'button';
       btn.className = 'map-draw-tool';
       btn.dataset.tool = tool;
-      btn.textContent = TOOL_LABEL[tool];
+      btn.title = TOOL_LABEL[tool];
+      btn.innerHTML = `<svg class="map-draw-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TOOL_ICON[tool]}</svg><span>${TOOL_LABEL[tool]}</span>`;
       btn.setAttribute('aria-pressed', 'false');
       btn.addEventListener('click', () => this.activate(tool));
       tools.appendChild(btn);
@@ -541,6 +644,7 @@ export class MapDrawController {
     for (const d of this.drawings) {
       const row = document.createElement('div');
       row.className = 'map-draw-item';
+      row.dataset.id = d.id;
       row.innerHTML = `
         <button type="button" class="map-draw-vis" aria-label="Toggle visibility" title="Toggle visibility">${d.visible ? '●' : '○'}</button>
         <span class="map-draw-swatch" style="background:${d.color}"></span>
@@ -570,7 +674,11 @@ export class MapDrawController {
     input.focus();
     input.select();
     const finish = (commit: boolean) => {
-      if (commit && input.value.trim()) { d.name = input.value.trim().slice(0, 40); this.save(); }
+      if (commit && input.value.trim()) {
+        d.name = input.value.trim().slice(0, 40);
+        this.save();
+        if (d.tool === 'text') this.render();
+      }
       this.renderList();
     };
     input.addEventListener('blur', () => finish(true));

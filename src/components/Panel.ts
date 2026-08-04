@@ -199,6 +199,33 @@ function setColSpanClass(element: HTMLElement, span: number): void {
   element.classList.add(`col-span-${span}`);
 }
 
+/**
+ * Column width is quantized to whole grid tracks (col-span-1/2/3), unlike
+ * row height which has a fine 4px auto-rows grid to move through smoothly.
+ * `grid-column` itself isn't CSS-transition-animatable, so we FLIP it: apply
+ * the class change, then animate an inline pixel `width` from the old
+ * measured size to the new one — same discrete end state, smooth in between.
+ */
+function flipAnimateWidth(element: HTMLElement, applyChange: () => void): void {
+  const before = element.getBoundingClientRect().width;
+  applyChange();
+  const after = element.getBoundingClientRect().width;
+  if (Math.abs(before - after) < 1) return;
+
+  element.style.transition = 'none';
+  element.style.width = `${before}px`;
+  void element.offsetWidth; // force reflow so the browser commits the start value
+  element.style.transition = 'width 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
+  element.style.width = `${after}px`;
+
+  const cleanup = () => {
+    element.style.transition = '';
+    element.style.width = '';
+  };
+  element.addEventListener('transitionend', cleanup, { once: true });
+  setTimeout(cleanup, 400); // safety net if transitionend is interrupted/never fires
+}
+
 
 
 function setSpanClass(element: HTMLElement, span: number): void {
@@ -797,7 +824,9 @@ export class Panel {
       if (!this.isColResizing) return;
       const deltaX = e.clientX - this.startX;
       const maxSpan = getMaxColSpan(this.element);
-      setColSpanClass(this.element, deltaToColSpan(this.startColSpan, deltaX, maxSpan));
+      const nextSpan = deltaToColSpan(this.startColSpan, deltaX, maxSpan);
+      if (nextSpan === getColSpan(this.element)) return;
+      flipAnimateWidth(this.element, () => setColSpanClass(this.element, nextSpan));
     };
 
     this.onColMouseUp = () => {
@@ -873,7 +902,9 @@ export class Panel {
       if (!touch) return;
       const deltaX = touch.clientX - this.startX;
       const maxSpan = getMaxColSpan(this.element);
-      setColSpanClass(this.element, deltaToColSpan(this.startColSpan, deltaX, maxSpan));
+      const nextSpan = deltaToColSpan(this.startColSpan, deltaX, maxSpan);
+      if (nextSpan === getColSpan(this.element)) return;
+      flipAnimateWidth(this.element, () => setColSpanClass(this.element, nextSpan));
     };
 
     this.onColTouchEnd = () => {
@@ -1311,7 +1342,7 @@ export class Panel {
   }
 
   public resetWidth(): void {
-    clearColSpanClass(this.element);
+    flipAnimateWidth(this.element, () => clearColSpanClass(this.element));
     clearPanelColSpan(this.panelId);
   }
 

@@ -7065,6 +7065,8 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   display: flex;
   flex-direction: column;
   background: var(--panel-bg);
+  backdrop-filter: var(--panel-glass-blur);
+  -webkit-backdrop-filter: var(--panel-glass-blur);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
@@ -7125,7 +7127,9 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 }
 
 .signal-item {
+  position: relative;
   padding: 12px;
+  padding-right: 30px;
   margin-bottom: 12px;
   background: var(--darken-heavy);
   border-left: 3px solid var(--accent);
@@ -7134,6 +7138,25 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 
 .signal-item:last-child {
   margin-bottom: 0;
+}
+
+.signal-item-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: var(--wm-cursor-pointer);
+}
+
+.signal-item-dismiss:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 .signal-item.velocity_spike {
@@ -29261,6 +29284,9 @@ body.live-news-fullscreen-active .panel-scroll-btn {
   margin-bottom: 12px;
 }
 .map-draw-tool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font: 600 11px/1.2 var(--font-mono, monospace);
   text-align: left;
   padding: 7px 8px;
@@ -29270,6 +29296,16 @@ body.live-news-fullscreen-active .panel-scroll-btn {
   border-radius: 6px;
   cursor: var(--wm-cursor-pointer, pointer);
   transition: border-color 0.12s ease, color 0.12s ease;
+}
+.map-draw-tool-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.map-draw-tool span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .map-draw-tool:hover {
   border-color: color-mix(in srgb, var(--accent, #22d3ee) 60%, var(--frame-border));
@@ -32026,3 +32062,103 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .search-result-item:nth-child(5) { animation-delay: 48ms; }
 .search-result-item:nth-child(6) { animation-delay: 60ms; }
 .search-result-item:nth-child(n+7) { animation-delay: 72ms; }
+
+/* ── Aircraft follow HUD ─────────────────────────────────────────────────────
+   On-map chip shown while the camera is locked onto an aircraft. Sits top-centre
+   so it reads as a mode indicator rather than another control. */
+.aircraft-follow-hud {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(90vw, 360px);
+  padding: 7px 8px 7px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-yellow, #f5c518) 38%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  animation: aircraft-follow-hud-in 180ms ease-out;
+}
+
+.aircraft-follow-hud-pulse {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-yellow, #f5c518);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-yellow, #f5c518) 60%, transparent);
+  animation: aircraft-follow-hud-ping 1.8s ease-out infinite;
+}
+
+.aircraft-follow-hud-text {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+
+.aircraft-follow-hud-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.aircraft-follow-hud-callsign {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--accent-yellow, #f5c518);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aircraft-follow-hud-exit {
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.aircraft-follow-hud-exit:hover {
+  background: var(--overlay-medium);
+  color: var(--text);
+}
+
+.aircraft-follow-hud-exit:focus-visible {
+  outline: 2px solid var(--accent-yellow, #f5c518);
+  outline-offset: 2px;
+}
+
+@keyframes aircraft-follow-hud-in {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes aircraft-follow-hud-ping {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-yellow, #f5c518) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aircraft-follow-hud { animation: none; }
+  .aircraft-follow-hud-pulse { animation: none; }
+}

@@ -24,8 +24,16 @@ export const AIS_PORT_ICON_ATLAS = '/icons/port.png';
 
 export const AVIATION_AIRPORT_ICON_MAPPING = { airport: { x: 0, y: 0, width: 512, height: 512, mask: false } };
 export const AVIATION_AIRPORT_ICON_ATLAS = '/icons/airport.png';
-export const AVIATION_PLANE_ICON_MAPPING = { plane: { x: 0, y: 0, width: 512, height: 512, mask: false } };
-export const AVIATION_PLANE_ICON_ATLAS = '/icons/plane.png';
+
+// Minimalist nose-up jet silhouette (SitDeck-style) — mask:true so getColor tints it
+// per aircraft state (selected/stale/on-ground/military) instead of a fixed cartoon PNG.
+export const AVIATION_PLANE_ICON_MAPPING = { plane: { x: 0, y: 0, width: 64, height: 64, mask: true } };
+export const AVIATION_PLANE_ICON_ATLAS = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+  '<svg viewBox="0 0 100 100" width="64" height="64" xmlns="http://www.w3.org/2000/svg" fill="white">'
+  + '<path d="M50,4 L56,20 L54,78 L50,97 L46,78 L44,20 Z '
+  + 'M46,40 L6,72 L14,79 L48,54 Z M54,40 L94,72 L86,79 L52,54 Z '
+  + 'M47,80 L28,95 L35,97 L49,86 Z M53,80 L72,95 L65,97 L51,86 Z"/></svg>'
+)}`;
 
 const SHARED_LAYER_ICON_ATLAS_CACHE = new Map<string, string>();
 const WEATHER_CATEGORY_ATLAS_CACHE = new Map<string, string>();

@@ -1,6 +1,13 @@
 import type { PositionSample } from '@/services/aviation';
 import { getAircraftDetails, analyzeAircraftDetails, type WingbitsAircraftDetails, type EnrichedAircraftInfo } from '@/services/wingbits';
-import { fetchFlightStatus, type FlightInstance } from '@/services/aviation';
+import {
+  fetchFlightStatus,
+  isAircraftFollowAvailable,
+  isFollowingAircraft,
+  subscribeAircraftFollow,
+  toggleFollowAircraft,
+  type FlightInstance,
+} from '@/services/aviation';
 import { getPlanePhoto, getPlanePhotoByHex, type PlanespottersPhoto } from '@/services/planespotters';
 import type { EntityRenderer, EntityRenderContext } from '../types';
 import { sanitizeUrl } from '@/utils/sanitize';
@@ -313,6 +320,36 @@ function hasRoute(status: FlightInstance | null): boolean {
   return Boolean(status && (status.origin.iata || status.origin.name || status.destination.iata || status.destination.name));
 }
 
+/**
+ * Follow toggle — locks the map camera onto this aircraft. Stays in sync with
+ * follow state changed elsewhere (map HUD, Esc, the aircraft going quiet), and
+ * unsubscribes when the panel is torn down.
+ */
+function buildFollowButton(ctx: EntityRenderContext, pos: PositionSample): HTMLElement | null {
+  if (!isAircraftFollowAvailable() || !pos.icao24) return null;
+
+  const btn = ctx.el('button', 'edp-flight-follow') as HTMLButtonElement;
+  btn.type = 'button';
+
+  const applyState = (following: boolean) => {
+    btn.classList.toggle('is-following', following);
+    btn.textContent = following ? 'Locked on' : 'Follow';
+    btn.setAttribute('aria-pressed', String(following));
+    btn.title = following
+      ? 'Release the camera (Esc, or pan the map)'
+      : 'Lock the map camera onto this aircraft';
+  };
+
+  const unsubscribe = subscribeAircraftFollow(() => applyState(isFollowingAircraft(pos.icao24)));
+  ctx.signal.addEventListener('abort', unsubscribe, { once: true });
+
+  btn.addEventListener('click', () => {
+    toggleFollowAircraft(pos.icao24, (pos.callsign || '').trim() || pos.icao24.toUpperCase());
+  });
+
+  return btn;
+}
+
 function appendFact(ctx: EntityRenderContext, grid: HTMLElement, label: string, value: string): void {
   const item = ctx.el('div', 'edp-flight-fact');
   item.append(ctx.el('div', 'edp-flight-fact-label', label));
@@ -510,9 +547,13 @@ function buildRouteHero(
   brand.append(meta);
   top.append(brand);
 
+  const actions = ctx.el('div', 'edp-flight-hero-actions');
   const statusPill = ctx.el('div', `edp-flight-status ${getAircraftStatusTone(pos, status)}`);
   statusPill.textContent = getAircraftStatusLabel(pos, status);
-  top.append(statusPill);
+  actions.append(statusPill);
+  const followBtn = buildFollowButton(ctx, pos);
+  if (followBtn) actions.append(followBtn);
+  top.append(actions);
   hero.append(top);
 
   if (status && hasRoute(status)) {
@@ -567,7 +608,11 @@ export class AircraftRenderer implements EntityRenderer {
     meta.append(ctx.el('h2', 'edp-flight-route-title', pos.callsign || pos.icao24 || 'Aircraft track'));
     brand.append(meta);
     top.append(brand);
-    top.append(ctx.el('div', 'edp-flight-status edp-flight-status-dim', 'Loading'));
+    const actions = ctx.el('div', 'edp-flight-hero-actions');
+    actions.append(ctx.el('div', 'edp-flight-status edp-flight-status-dim', 'Loading'));
+    const followBtn = buildFollowButton(ctx, pos);
+    if (followBtn) actions.append(followBtn);
+    top.append(actions);
     hero.append(top);
 
     hero.append(ctx.makeLoading('Loading route and aircraft details...'));

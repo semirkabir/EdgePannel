@@ -466,6 +466,20 @@ export {
 } from './live';
 
 export {
+  setAircraftFollowBackend,
+  isAircraftFollowAvailable,
+  followAircraft,
+  unfollowAircraft,
+  toggleFollowAircraft,
+  getFollowedAircraft,
+  isFollowingAircraft,
+  notifyAircraftFollowEnded,
+  subscribeAircraftFollow,
+  type AircraftFollowBackend,
+  type AircraftFollowState,
+} from './follow';
+
+export {
   PROVIDER_REGISTRY,
   getProviderMetadata,
   getProviderAttribution,

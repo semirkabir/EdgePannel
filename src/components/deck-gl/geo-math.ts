@@ -11,7 +11,12 @@ import type { PositionSample } from '@/services/aviation';
 
 export const METERS_PER_DEGREE_LAT = 111_320;
 const KNOTS_TO_METERS_PER_SECOND = 0.514444;
-const AIRCRAFT_EXTRAPOLATION_MAX_MS = 25_000;
+/**
+ * Dead-reckoning horizon. Must comfortably exceed the aircraft poll interval
+ * (60s live stream / 120s viewport refresh) or the icon freezes between fixes —
+ * at 25s it glided for a third of the gap and then sat still.
+ */
+export const AIRCRAFT_EXTRAPOLATION_MAX_MS = 180_000;
 
 export function formatAircraftAge(observedAt: Date): string {
   const ageSec = Math.max(0, Math.round((Date.now() - observedAt.getTime()) / 1000));
@@ -92,7 +97,10 @@ export function projectAircraftPosition(position: PositionSample, elapsedMs: num
   const northMeters = Math.cos(headingRad) * meters;
   const eastMeters = Math.sin(headingRad) * meters;
   const lat = clampNumber(position.lat + northMeters / METERS_PER_DEGREE_LAT, -90, 90);
-  const cosLat = Math.max(0.08, Math.cos((position.lat * Math.PI) / 180));
+  // Scale easting by the mean latitude of the leg — over the longer horizons
+  // used between fixes, anchoring on the start latitude visibly skews the track
+  // at high latitudes.
+  const cosLat = Math.max(0.08, Math.cos((((position.lat + lat) / 2) * Math.PI) / 180));
   const lon = normalizeLongitude(position.lon + eastMeters / (METERS_PER_DEGREE_LAT * cosLat));
   const climbFt = Number.isFinite(position.verticalRateMps) ? position.verticalRateMps * seconds * 3.28084 : 0;
 

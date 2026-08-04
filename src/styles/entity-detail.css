@@ -3319,6 +3319,69 @@
   color: var(--text-faint);
 }
 
+/* Status pill + follow toggle, stacked at the top-right of the flight hero */
+.edp-flight-hero-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.edp-flight-follow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-blue, #60a5fa) 32%, transparent);
+  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 12%, transparent);
+  color: var(--accent-blue, #60a5fa);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.edp-flight-follow:hover {
+  background: color-mix(in srgb, var(--accent-blue, #60a5fa) 22%, transparent);
+}
+
+.edp-flight-follow:focus-visible {
+  outline: 2px solid var(--accent-blue, #60a5fa);
+  outline-offset: 2px;
+}
+
+.edp-flight-follow.is-following {
+  border-color: color-mix(in srgb, var(--accent-yellow, #f5c518) 40%, transparent);
+  background: color-mix(in srgb, var(--accent-yellow, #f5c518) 18%, transparent);
+  color: var(--accent-yellow, #f5c518);
+}
+
+.edp-flight-follow.is-following::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: edp-flight-follow-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes edp-flight-follow-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edp-flight-follow.is-following::before {
+    animation: none;
+  }
+}
+
 .edp-flight-route-section,
 .edp-flight-track-section,
 .edp-flight-progress-wrap {

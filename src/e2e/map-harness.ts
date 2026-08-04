@@ -118,7 +118,28 @@ type MapHarness = {
   getProtestClusterCount: () => number;
   getOverlaySnapshot: () => OverlaySnapshot;
   getCyberTooltipHtml: (indicator: string) => string;
+  seedAircraft: (aircraft: HarnessAircraft[]) => void;
+  getAircraftScreenPoint: (icao24: string) => { x: number; y: number } | null;
+  getAircraftGeoPosition: (icao24: string) => { lat: number; lon: number } | null;
+  getMapCenter: () => { lat: number; lon: number; zoom: number } | null;
+  followAircraft: (icao24: string) => void;
+  unfollowAircraft: () => void;
+  getFollowedAircraft: () => string | null;
+  tickFollowCamera: () => void;
+  simulateUserPan: () => void;
   destroy: () => void;
+};
+
+type HarnessAircraft = {
+  icao24: string;
+  callsign?: string;
+  lat: number;
+  lon: number;
+  trackDeg?: number;
+  groundSpeedKts?: number;
+  altitudeFt?: number;
+  /** Age of the fix, to exercise report-age compensation. */
+  observedSecondsAgo?: number;
 };
 
 declare global {
@@ -298,6 +319,8 @@ const internals = map as unknown as {
   startupTime?: number;
   stopPulseAnimation?: () => void;
   setGlobeProjection?: (enabled: boolean) => boolean;
+  updateFollowCamera?: (nowMs: number) => void;
+  followIntroUntilMs?: number;
 };
 
 const buildLayerState = (enabledLayers: HarnessLayerKey[]): MapLayers => {
@@ -380,6 +403,104 @@ const getLayerFirstScreenTransform = (layerId: string): string | null => {
 
   const point = maplibreMap.project([lon as number, lat as number]);
   return `translate(${point.x.toFixed(2)}px, ${point.y.toFixed(2)}px)`;
+};
+
+/**
+ * Aircraft tracking hooks.
+ *
+ * The live aircraft layer is dead-reckoned between fixes and, in follow mode,
+ * drives the camera every frame. Both are time-dependent, so the harness
+ * exposes seeding plus a way to read back the interpolated screen position and
+ * the map centre.
+ */
+const seedAircraft = (aircraft: HarnessAircraft[]): void => {
+  const now = Date.now();
+  map.setAircraftPositions(aircraft.map((a) => {
+    const observedAt = new Date(now - (a.observedSecondsAgo ?? 0) * 1000);
+    return {
+      icao24: a.icao24,
+      callsign: a.callsign ?? '',
+      lat: a.lat,
+      lon: a.lon,
+      altitudeFt: a.altitudeFt ?? 35_000,
+      groundSpeedKts: a.groundSpeedKts ?? 450,
+      trackDeg: a.trackDeg ?? 90,
+      verticalRateMps: 0,
+      onGround: false,
+      source: 'opensky',
+      provider: 'opensky',
+      originCountry: 'Testland',
+      lastContactAt: observedAt,
+      positionSource: 'adsb' as const,
+      aircraftCategory: 3,
+      freshness: 'live' as const,
+      stale: false,
+      observedAt,
+    };
+  }));
+};
+
+/** Interpolated screen position of one aircraft icon, as deck.gl would draw it. */
+const getAircraftScreenPoint = (icao24: string): { x: number; y: number } | null => {
+  const maplibreMap = internals.maplibreMap;
+  if (!maplibreMap) return null;
+
+  const layers = internals.buildLayers?.() ?? [];
+  const target = layers.find((layer) => layer.id === 'aircraft-positions-layer');
+  const data = target?.props?.data;
+  if (!Array.isArray(data)) return null;
+
+  const match = data.find((d) => (d as { icao24?: string }).icao24 === icao24);
+  if (!match) return null;
+
+  const accessor = (target as { props?: { getPosition?: (d: unknown) => number[] } }).props?.getPosition;
+  const position = accessor?.(match);
+  if (!position || !Number.isFinite(position[0]) || !Number.isFinite(position[1])) return null;
+
+  const point = maplibreMap.project([position[0] as number, position[1] as number]);
+  return { x: point.x, y: point.y };
+};
+
+const getAircraftGeoPosition = (icao24: string): { lat: number; lon: number } | null => {
+  const layers = internals.buildLayers?.() ?? [];
+  const target = layers.find((layer) => layer.id === 'aircraft-positions-layer');
+  const data = target?.props?.data;
+  if (!Array.isArray(data)) return null;
+  const match = data.find((d) => (d as { icao24?: string }).icao24 === icao24);
+  if (!match) return null;
+  const accessor = (target as { props?: { getPosition?: (d: unknown) => number[] } }).props?.getPosition;
+  const position = accessor?.(match);
+  if (!position) return null;
+  return { lon: position[0] as number, lat: position[1] as number };
+};
+
+/**
+ * Run one frame of the follow-camera loop.
+ *
+ * The real loop is driven by requestAnimationFrame, which headless/background
+ * browser contexts suspend — so tests step it explicitly instead of waiting on
+ * frames that may never arrive. Skips the intro-flight hold for the same reason.
+ */
+const tickFollowCamera = (): void => {
+  internals.followIntroUntilMs = 0;
+  internals.updateFollowCamera?.(performance.now());
+  map.render('flights');
+};
+
+/**
+ * Fire MapLibre's `dragstart` as a real pan gesture would. MapLibre's own
+ * gesture recognition needs animation frames that headless contexts suspend, so
+ * tests raise the event directly to exercise the app's follow-release listener.
+ */
+const simulateUserPan = (): void => {
+  internals.maplibreMap?.fire('dragstart');
+};
+
+const getMapCenter = (): { lat: number; lon: number; zoom: number } | null => {
+  const maplibreMap = internals.maplibreMap;
+  if (!maplibreMap) return null;
+  const center = maplibreMap.getCenter();
+  return { lat: center.lat, lon: center.lng, zoom: maplibreMap.getZoom() };
 };
 
 const showFirstLayerPopup = (layerId: string): string | null => {
@@ -1340,6 +1461,19 @@ window.__mapHarness = {
   getProtestClusterCount,
   getOverlaySnapshot,
   getCyberTooltipHtml,
+  seedAircraft,
+  getAircraftScreenPoint,
+  getAircraftGeoPosition,
+  getMapCenter,
+  followAircraft: (icao24: string): void => {
+    map.followAircraft(icao24);
+  },
+  unfollowAircraft: (): void => {
+    map.unfollowAircraft();
+  },
+  getFollowedAircraft: (): string | null => map.getFollowedAircraft(),
+  tickFollowCamera,
+  simulateUserPan,
   destroy: (): void => {
     map.destroy();
   },

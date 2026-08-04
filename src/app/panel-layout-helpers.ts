@@ -53,6 +53,19 @@ export const NEWS_REFRESH_SWEEP_EVENT = 'wm:news-refresh-sweep';
 export const APP_TIME_RANGE_STORAGE_KEY = 'wm:time-range';
 export const APP_TIME_RANGE_EVENT = 'wm:time-range-changed';
 
+/**
+ * Briefly glows a panel's border/shadow in the accent color, same visual
+ * language as the existing `.panel-shared-highlight` treatment — reused here
+ * to flag "this panel just re-rendered" after a time-range switch (mirrors
+ * SitDeck's widget-update flash).
+ */
+export function flashPanelUpdate(element: HTMLElement): void {
+  element.classList.remove('panel-shared-highlight');
+  void element.offsetWidth; // force reflow so a re-trigger restarts the animation
+  element.classList.add('panel-shared-highlight');
+  setTimeout(() => element.classList.remove('panel-shared-highlight'), 2500);
+}
+
 const RELATED_ASSET_LAYER_MAP: Record<RelatedAsset['type'], keyof MapLayers> = {
   pipeline: 'pipelines',
   cable: 'cables',

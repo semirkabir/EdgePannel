@@ -75,6 +75,14 @@ export class SignalModal {
     // Delegate click handler for location links
     this.element.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
+
+      const dismissBtn = target.closest<HTMLElement>('.signal-item-dismiss');
+      if (dismissBtn) {
+        const id = dismissBtn.dataset.dismissSignal;
+        if (id) this.dismissSignal(id);
+        return;
+      }
+
       if (target.classList.contains('location-link')) {
         const lat = parseFloat(target.dataset.lat || '0');
         const lon = parseFloat(target.dataset.lon || '0');
@@ -256,6 +264,16 @@ export class SignalModal {
     document.removeEventListener('keydown', this.escHandler);
   }
 
+  /** Dismiss a single signal card. Closes the whole panel once none are left. */
+  private dismissSignal(id: string): void {
+    this.currentSignals = this.currentSignals.filter(signal => signal.id !== id);
+    if (this.currentSignals.length === 0) {
+      this.hide();
+    } else {
+      this.renderSignals();
+    }
+  }
+
   private renderSignals(): void {
     const content = this.element.querySelector('.signal-modal-content')!;
 
@@ -291,6 +309,7 @@ export class SignalModal {
 
       return `
         <div class="signal-item ${escapeHtml(signal.type)}">
+          <button class="signal-item-dismiss" data-dismiss-signal="${escapeHtml(signal.id)}" aria-label="${t('modals.signal.dismiss')}">×</button>
           <!-- Featured image from related headlines -->
           ${featuredImage ? `
             <div class="signal-featured-image">

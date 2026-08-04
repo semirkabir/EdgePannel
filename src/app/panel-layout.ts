@@ -96,6 +96,7 @@ import {
   NEWS_REFRESH_SWEEP_EVENT,
   getRelatedAssetLayer,
   clearLegacyCategories,
+  flashPanelUpdate,
   renderWorkspaceTabsHtml,
   canSwitchVariantInPlace,
   SITE_VARIANTS,
@@ -1614,15 +1615,17 @@ export class PanelLayoutManager implements AppModule {
   }
 
   private applyTimeRangeFilterToNewsPanels(): void {
+    console.log('[WM_DEBUG] applyTimeRangeFilterToNewsPanels', Object.keys(this.ctx.newsByCategory).length, Object.keys(this.ctx.newsPanels).length);
     Object.entries(this.ctx.newsByCategory).forEach(([category, items]) => {
       const panel = this.ctx.newsPanels[category];
-      if (!panel) return;
+      if (!panel) { console.log('[WM_DEBUG] no panel for', category); return; }
       const filtered = this.filterItemsByTimeRange(items);
       if (filtered.length === 0 && items.length > 0) {
         panel.renderFilteredEmpty(`No items in ${this.getTimeRangeLabel()}`);
-        return;
+      } else {
+        panel.renderNews(filtered);
       }
-      panel.renderNews(filtered);
+      flashPanelUpdate(panel.getElement());
     });
   }
 

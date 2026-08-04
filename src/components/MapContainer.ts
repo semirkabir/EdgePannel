@@ -33,6 +33,11 @@ import type {
   CableHealthRecord,
 } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
+import {
+  followAircraft as followAircraftGlobally,
+  setAircraftFollowBackend,
+  unfollowAircraft as unfollowAircraftGlobally,
+} from '@/services/aviation';
 import type { DisplacementFlow } from '@/services/displacement';
 import type { Earthquake } from '@/services/earthquakes';
 import type { ClimateAnomaly, ClimatePhysicalSignal } from '@/services/climate';
@@ -181,6 +186,10 @@ export class MapContainer {
     log.debug(logMessage);
     this.useDeckGL = false;
     this.deckGLMap = null;
+    // A half-constructed DeckGLMap may have registered itself as the aircraft
+    // follow backend before throwing. Clear it, or the aircraft panel would
+    // offer a Follow button that drives a map that no longer exists.
+    setAircraftFollowBackend(null);
     this.container.classList.remove('deckgl-mode');
     this.container.classList.add('svg-mode');
     // DeckGLMap mutates DOM early during construction. If initialization throws,
@@ -508,12 +517,17 @@ export class MapContainer {
     if (this.useDeckGL) { this.deckGLMap?.setMilitaryFlights(flights, clusters); } else { this.svgMap?.setMilitaryFlights(flights, clusters); }
   }
 
-  public followAircraft(icao24: string): void {
-    this.deckGLMap?.followAircraft(icao24);
+  /**
+   * Routed through the follow controller rather than straight at the map so
+   * follow-aware UI (the entity panel's toggle, the on-map HUD) stays in sync
+   * regardless of which surface started it.
+   */
+  public followAircraft(icao24: string, label = ''): void {
+    followAircraftGlobally(icao24, label);
   }
 
   public unfollowAircraft(): void {
-    this.deckGLMap?.unfollowAircraft();
+    unfollowAircraftGlobally();
   }
 
   public getFollowedAircraft(): string | null {
