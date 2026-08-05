@@ -8,14 +8,27 @@ Detailed documentation of EdgePannel's scoring formulas, detection algorithms, a
 
 ### Country Instability Index (CII)
 
-Every country with incoming event data receives a live instability score (0–100). 23 curated tier-1 nations (US, Russia, China, Ukraine, Iran, Israel, Taiwan, North Korea, Saudi Arabia, Turkey, Poland, Germany, France, UK, India, Pakistan, Syria, Yemen, Myanmar, Venezuela, Brazil, UAE, and Japan) have individually tuned baseline risk profiles and keyword lists. All other countries that generate any signal (protests, conflicts, outages, displacement flows, climate anomalies) are scored automatically using a universal default baseline (`DEFAULT_BASELINE_RISK = 15`, `DEFAULT_EVENT_MULTIPLIER = 1.0`). The score is computed from:
+Every country with incoming event data receives a live instability score (0–100). 23 curated tier-1 nations (US, Russia, China, Ukraine, Iran, Israel, Taiwan, North Korea, Saudi Arabia, Turkey, Poland, Germany, France, UK, India, Pakistan, Syria, Yemen, Myanmar, Venezuela, Brazil, UAE, and Japan) have individually tuned baseline risk profiles and keyword lists. All other countries that generate any signal (protests, conflicts, outages, displacement flows, climate anomalies) are scored automatically using a universal default baseline (`DEFAULT_BASELINE_RISK = 15`, `DEFAULT_EVENT_MULTIPLIER = 1.0`).
 
-| Component                | Weight | Details                                                                                                                                                                                         |
-| ------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Baseline risk**        | 40%    | Pre-configured per country reflecting structural fragility                                                                                                                                      |
-| **Unrest events**        | 20%    | Protests scored logarithmically for democracies (routine protests don't trigger), linearly for authoritarian states (every protest is significant). Boosted for fatalities and internet outages |
-| **Security activity**    | 20%    | Military flights (3pts) + vessels (5pts) from own forces + foreign military presence (doubled weight)                                                                                           |
-| **Information velocity** | 20%    | News mention frequency weighted by event severity multiplier, log-scaled for high-volume countries                                                                                              |
+The score blends a structural baseline with live event pressure:
+
+```
+eventScore    = unrest×0.20 + conflict×0.25 + security×0.15 + information×0.20 + economic×0.20
+blendedScore  = baselineRisk×0.40 + eventScore×0.60 + boosts
+score         = min(100, max(floor, blendedScore))
+```
+
+So the baseline carries 40% and the five event components share the remaining 60%:
+
+| Component                | Weight (of event score) | Details                                                                                                                                                                                        |
+| ------------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Conflict**             | 25%                     | Battles, explosions, strikes, and fatalities                                                                                                                                                   |
+| **Unrest events**        | 20%                     | Protests scored logarithmically for democracies (routine protests don't trigger), linearly for authoritarian states (every protest is significant). Boosted for fatalities and internet outages |
+| **Information velocity** | 20%                     | News mention frequency weighted by event severity multiplier, log-scaled for high-volume countries                                                                                             |
+| **Economic**             | 20%                     | Economic stress signals for the country                                                                                                                                                        |
+| **Security activity**    | 15%                     | Military flights (3pts) + vessels (5pts) from own forces + foreign military presence (doubled weight)                                                                                          |
+
+Source of truth: `src/services/country-instability.ts`. Capped additive boosts sit on top of the blend — climate stress (+15 extreme, +8 otherwise), cyber activity (up to +12), AIS disruption (up to +10), satellite fire activity (up to +8), plus hotspot, focal-point, displacement, OREF, and advisory boosts. A UCDP-derived floor then applies: `war` pins the score at ≥70 and `minor` armed conflict at ≥50.
 
 Additional boosts apply for hotspot proximity, focal point urgency, conflict-zone floors (e.g., Ukraine is pinned at ≥55, Syria at ≥50), GPS/GNSS jamming (up to +35 in Security component), OREF rocket alerts (up to +50 in Conflict component for Israel), and government travel advisories (Do-Not-Travel forces CII ≥ 60 with multi-source consensus bonuses).
 

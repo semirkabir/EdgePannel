@@ -1,5 +1,6 @@
 {
-  "ignoreCommand": "if [ -z \"$VERCEL_GIT_PREVIOUS_SHA\" ]; then exit 1; fi; git cat-file -e $VERCEL_GIT_PREVIOUS_SHA 2>/dev/null || exit 1; git diff --quiet $VERCEL_GIT_PREVIOUS_SHA HEAD -- ':!*.md' ':!.planning' ':!docs/' ':!e2e/' ':!scripts/' ':!.github/'",
+  "_ignoreCommandNote": "docs/, *.md and scripts/ are NOT excluded: /docs is generated from docs/*.md, docs/api/*.json, CHANGELOG.md and scripts/build-docs.mjs, so a change to any of them must trigger a redeploy or the published docs go stale.",
+  "ignoreCommand": "if [ -z \"$VERCEL_GIT_PREVIOUS_SHA\" ]; then exit 1; fi; git cat-file -e $VERCEL_GIT_PREVIOUS_SHA 2>/dev/null || exit 1; git diff --quiet $VERCEL_GIT_PREVIOUS_SHA HEAD -- ':!.planning' ':!e2e/' ':!.github/'",
   "crons": [],
   "rewrites": [
     { "source": "/pro", "destination": "/pro/index.html" },
@@ -8,7 +9,8 @@
     { "source": "/commander", "destination": "/commander.html" },
     { "source": "/resources", "destination": "/resources.html" },
     { "source": "/pricing", "destination": "/pricing.html" },
-    { "source": "/((?!api|assets|favico|map-styles|data|textures|pro|sw\\.js|manifest\\.webmanifest|offline\\.html|robots\\.txt|sitemap\\.xml|llms\\.txt|llms-full\\.txt|\\.well-known).*)", "destination": "/index.html" }
+    { "source": "/docs", "destination": "/docs/index.html" },
+    { "source": "/((?!api|assets|favico|map-styles|data|textures|pro|docs|sw\\.js|manifest\\.webmanifest|offline\\.html|robots\\.txt|sitemap\\.xml|llms\\.txt|llms-full\\.txt|\\.well-known).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

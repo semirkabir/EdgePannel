@@ -63,6 +63,7 @@
           </div>
           <a href="/#who">Who it's for</a>
           <a href="/pricing">Pricing</a>
+          <a href="/docs/">Docs</a>
           <a href="/#faq">FAQ</a>
           <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
         </nav>
@@ -79,6 +80,7 @@
         <a href="/commander">⌘K Commander</a>
         <a href="/resources">OSINT resources</a>
         <a href="/pricing">Pricing</a>
+        <a href="/docs/">Docs</a>
         <a href="/#faq">FAQ</a>
         <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
       </nav>
@@ -142,8 +144,10 @@
           <h2 class="lp-h2 lp-reveal">How the instability index is scored.</h2>
           <p class="lp-section-sub lp-reveal">
             The CII is a 0–100 composite recomputed every few minutes server-side and
-            cached for ten. It is deliberately simple enough to explain in full — and
-            the code is AGPL, so you can audit this description against the source.
+            cached for ten. This page explains what the score <em>means</em>; the exact
+            weights, caps and floors live in the
+            <a href="/docs/algorithms/">scoring documentation</a>, which is kept in step
+            with the source. The code is AGPL, so you can audit either against it.
           </p>
 
           <div class="lp-reveal">
@@ -157,27 +161,28 @@
 
             <h3 style="font-size: 19px; margin: 0 0 8px">2 · Live events (60%)</h3>
             <p style="color: var(--lp-text-dim); font-size: 15px; margin: 0 0 14px">
-              The dynamic part blends four weighted components from geocoded events in
+              The dynamic part blends five weighted components from geocoded events in
               roughly the last 24–48 hours:
             </p>
-            <div class="lp-weights" role="img" aria-label="Component weights: conflict 30%, unrest 25%, information 25%, security 20%">
-              <span style="width: 30%; background: #ff6161"></span>
-              <span style="width: 25%; background: #ffd166"></span>
-              <span style="width: 25%; background: #7aa8ff"></span>
-              <span style="width: 20%; background: #3dffa2"></span>
-            </div>
             <ul class="lp-weights-legend">
-              <li><i style="background: #ff6161"></i>Conflict 30% — battles, explosions, strikes, fatalities</li>
-              <li><i style="background: #ffd166"></i>Unrest 25% — protests, riots, major outages</li>
-              <li><i style="background: #7aa8ff"></i>Information 25% — news-signal pressure</li>
-              <li><i style="background: #3dffa2"></i>Security 20% — GPS interference, security incidents</li>
+              <li><i style="background: #ff6161"></i>Conflict — battles, explosions, strikes, fatalities</li>
+              <li><i style="background: #ffd166"></i>Unrest — protests, riots, major outages</li>
+              <li><i style="background: #7aa8ff"></i>Information — news-signal pressure</li>
+              <li><i style="background: #c9a0ff"></i>Economic — economic stress signals</li>
+              <li><i style="background: #3dffa2"></i>Security — military activity, GPS interference</li>
             </ul>
+            <p style="color: var(--lp-text-dim); font-size: 15px; margin: 14px 0 22px">
+              Conflict carries the most weight, security the least. The exact split is
+              in the <a href="/docs/algorithms/">scoring documentation</a>.
+            </p>
 
             <h3 style="font-size: 19px; margin: 34px 0 8px">3 · Environmental boosts</h3>
             <p style="color: var(--lp-text-dim); font-size: 15px; margin: 0 0 22px">
-              Capped additive pressure from ongoing hazards: severe climate events add
-              up to 15 points, cyber incident volume up to 10, and large wildfire
-              activity up to 8. Capped so a hurricane can't masquerade as a civil war.
+              Capped additive pressure from ongoing hazards — severe climate events,
+              cyber activity, shipping disruption and large wildfires each add a bounded
+              number of points, so a hurricane can't masquerade as a civil war. The
+              per-hazard caps are listed in the
+              <a href="/docs/algorithms/">scoring documentation</a>.
             </p>
 
             <h3 style="font-size: 19px; margin: 0 0 8px">4 · The conflict floor</h3>
@@ -224,6 +229,7 @@
           <a href="/commander">⌘K Commander</a>
           <a href="/resources">Resources</a>
           <a href="/pricing">Pricing</a>
+          <a href="/docs/">Docs</a>
           <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
         </nav>
         <p class="lp-footer-legal">© 2026 EdgePannel · AGPL-3.0</p>
