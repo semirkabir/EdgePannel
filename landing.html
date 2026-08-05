@@ -41,8 +41,72 @@
       "url": "https://edgepannel.app/",
       "applicationCategory": "NewsApplication",
       "operatingSystem": "Web",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "USD",
+        "lowPrice": "0",
+        "highPrice": "99.97",
+        "offerCount": "5",
+        "url": "https://edgepannel.app/pricing"
+      },
       "description": "Real-time global intelligence dashboard with live news, markets, military tracking, infrastructure monitoring, and geopolitical data."
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is EdgePannel really free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The data is. Every map layer, every feed, every lens — free forever, with no signup and no trial clock. No ads either, and with no account there's no user data to sell. Paid tiers never gate the raw data; they add the things computed on top of it — AI analysis, alerting, and tracking & history. See what's paid."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Where does the data come from?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "680+ curated public feeds and institutional sources: USGS, NOAA, GDACS, ECB, FRED, World Bank, OpenSky, AIS vessel streams, Cloudflare Radar, official government channels and major wire services. Every panel cites its sources."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need an account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The dashboard is fully usable anonymously. An optional sign-in exists only to sync your panel layout and watchlists across devices."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are the six lenses?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "World, Tech, Finance, Commodity, Conflicts and Happy — the same live engine with layers, feeds and panels retuned per focus. Each lens lives on its own subdomain and is one click away."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it open source?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes — AGPL-3.0, developed in the open on GitHub. Run it yourself, audit it, or contribute."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work on mobile?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. It's an installable PWA that works offline-first, translated into 21 languages including right-to-left scripts."
+          }
+        }
+      ]
     }
     </script>
   </head>
@@ -63,12 +127,19 @@
               <a role="menuitem" href="/lenses">Six lenses</a>
               <a role="menuitem" href="/dossiers">Country dossiers</a>
               <a role="menuitem" href="/commander">⌘K Commander</a>
-              <a role="menuitem" href="/resources">OSINT resources</a>
             </div>
           </div>
           <a href="#who">Who it's for</a>
           <a href="/pricing">Pricing</a>
-          <a href="/docs/">Docs</a>
+          <div class="lp-nav-drop">
+            <button type="button" class="lp-nav-drop-btn" aria-expanded="false" aria-haspopup="true">Docs <span aria-hidden="true">▾</span></button>
+            <div class="lp-nav-drop-menu" role="menu">
+              <a role="menuitem" href="/docs/">Documentation</a>
+              <a role="menuitem" href="/docs/api-reference/">API reference</a>
+              <a role="menuitem" href="/resources">OSINT resources</a>
+              <a role="menuitem" href="/docs/changelog/">Changelog</a>
+            </div>
+          </div>
           <a href="#faq">FAQ</a>
           <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
         </nav>
@@ -83,9 +154,9 @@
         <a href="/lenses">Six lenses</a>
         <a href="/dossiers">Country dossiers</a>
         <a href="/commander">⌘K Commander</a>
-        <a href="/resources">OSINT resources</a>
         <a href="/pricing">Pricing</a>
         <a href="/docs/">Docs</a>
+        <a href="/resources">OSINT resources</a>
         <a href="#who">Who it's for</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
@@ -129,8 +200,10 @@
           <p class="lp-label lp-reveal">Live right now</p>
           <h2 class="lp-h2 lp-reveal">This page is wired to the same APIs as the dashboard.</h2>
           <p class="lp-section-sub lp-reveal">
-            No mockups. The numbers below are fetched live while you read — a small
-            sample of what the full map watches around the clock.
+            The numbers below are fetched live while you read — a small sample of what
+            the map watches around the clock. Anything we can't reach right now is
+            labelled <span class="lp-inline-sample">sample</span> rather than quietly
+            faked.
           </p>
           <article class="lp-pulse lp-reveal" data-widget="pulse">
             <div class="lp-pulse-main">
@@ -185,8 +258,8 @@
             <div class="lp-ticker-track" data-slot="ticker-track"></div>
           </div>
           <p class="lp-footnote lp-reveal">
-            A sample of the 680+ feeds the map watches. Sources are cited on every panel
-            inside the app — don't take the numbers on faith,
+            A sample of the 680+ feeds carried across the six lenses. Sources are cited
+            on every panel inside the app — don't take the numbers on faith,
             <a href="/app">open the map and count</a>.
           </p>
         </div>
@@ -281,7 +354,7 @@
               <span class="lp-card-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 4.4L18 9l-4.1 1.6L12 15l-1.9-4.4L6 9l4.1-1.6L12 3Z"/><path d="M18.5 15v3M20 16.5h-3"/><path d="M5.5 16v2M6.5 17h-2"/></svg>
               </span>
-              <h3>Situation reports</h3>
+              <h3>Situation reports <span class="lp-card-tier">Paid</span></h3>
               <p>AI briefs on any region, with the model, the prompt window and the source headlines shown alongside the output.</p>
               <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
             </a>
@@ -289,7 +362,7 @@
               <span class="lp-card-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15V10a6 6 0 1 0-12 0v5l-1.5 3h15L18 15Z"/><path d="M10 21h4"/></svg>
               </span>
-              <h3>Geofenced alerts</h3>
+              <h3>Geofenced alerts <span class="lp-card-tier">Paid</span></h3>
               <p>Draw an area, pick the signals that matter inside it, and get told the moment one of them fires.</p>
               <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
             </a>
@@ -397,9 +470,11 @@
             <details open>
               <summary>Is EdgePannel really free?</summary>
               <p>
-                Yes. Every map layer, every feed, every lens — free, with no signup and
-                no trial clock. No ads either, and since there's no account, there's no
-                user data to sell.
+                The data is. Every map layer, every feed, every lens — free forever, with
+                no signup and no trial clock. No ads either, and with no account there's
+                no user data to sell. Paid tiers never gate the raw data; they add the
+                things computed <em>on top</em> of it — AI analysis, alerting, and
+                tracking &amp; history. <a href="/pricing">See what's paid</a>.
               </p>
             </details>
             <details>

@@ -29,8 +29,13 @@ interface NewsItem {
   publishedAt: number;
 }
 
-const TIMEOUT_MS = 9000;
-// The feed digest is generated on demand and can be slow on a cold cache.
+// Nine seconds of "Connecting…" reads as broken on a page whose whole pitch is
+// speed. These routes are CDN-cached and normally answer well inside a second,
+// so a shorter budget falls back to a labelled row long before a visitor
+// concludes the product is dead.
+const TIMEOUT_MS = 6000;
+// The feed digest is generated on demand and can be slow on a cold cache, so it
+// keeps a longer budget — it is the one call worth waiting on.
 const DIGEST_TIMEOUT_MS = 20000;
 
 /** Friendly display names — the quotes API sometimes echoes raw symbols. */
@@ -78,6 +83,11 @@ function quoteRow(name: string, price: number, change: number): string {
   return `<li><span class="lp-row-name">${name}</span><span class="lp-row-value">${fmtPrice(price)} <span class="${dir}">${fmtChange(change)}</span></span></li>`;
 }
 
+/** A named row with no value, for when the feed could not be reached. */
+function unavailableRow(name: string): string {
+  return `<li><span class="lp-row-name">${name}</span><span class="lp-row-value lp-row-unavailable">—</span></li>`;
+}
+
 function timeAgo(ts: number): string {
   const mins = Math.max(1, Math.round((Date.now() - ts) / 60000));
   if (mins < 60) return `${mins} min`;
@@ -92,13 +102,14 @@ function escapeHtml(s: string): string {
 
 // ---------------------------------------------------------------- markets
 
-const MARKET_SAMPLE: Array<[string, number, number]> = [
-  ['S&P 500', 6521, 0.42],
-  ['Nasdaq', 21480, -0.31],
-  ['VIX', 15.8, 1.9],
-  ['WTI crude', 78.4, 0.8],
-  ['Gold', 3390, 0.2],
-];
+/**
+ * Fallback rows name the instruments without inventing prices. Hardcoded numbers
+ * were frozen at authoring time, so the longer they shipped the more obviously
+ * wrong they looked — a "sample" badge does not rescue a Bitcoin price that is a
+ * year stale. Naming the row keeps the layout intact and states plainly that the
+ * value could not be fetched.
+ */
+const MARKET_SAMPLE: string[] = ['S&P 500', 'Nasdaq', 'VIX', 'WTI crude', 'Gold'];
 
 async function loadMarkets(): Promise<void> {
   const slot = getSlot('markets');
@@ -119,17 +130,13 @@ async function loadMarkets(): Promise<void> {
       .join('');
   } catch {
     markSample('markets');
-    slot.innerHTML = MARKET_SAMPLE.map(([n, p, c]) => quoteRow(n, p, c)).join('');
+    slot.innerHTML = MARKET_SAMPLE.map(unavailableRow).join('');
   }
 }
 
 // ---------------------------------------------------------------- crypto/fx
 
-const FX_SAMPLE: Array<[string, number, number]> = [
-  ['Bitcoin', 64100, -1.2],
-  ['Ethereum', 1830, -0.8],
-  ['Solana', 142, 0.6],
-];
+const FX_SAMPLE: string[] = ['Bitcoin', 'Ethereum', 'Solana'];
 
 async function loadFx(): Promise<void> {
   const slot = getSlot('fx');
@@ -145,36 +152,42 @@ async function loadFx(): Promise<void> {
       .join('');
   } catch {
     markSample('fx');
-    slot.innerHTML = FX_SAMPLE.map(([n, p, c]) => quoteRow(n, p, c)).join('');
+    slot.innerHTML = FX_SAMPLE.map(unavailableRow).join('');
   }
 }
 
 // ---------------------------------------------------------------- quakes
 
-interface UsgsFeature {
-  properties: { mag: number; place: string; time: number };
+interface Earthquake {
+  magnitude: number;
+  place: string;
+  occurredAt: number;
 }
 
+// Unlike a quote row, a quake row carries no meaning without its magnitude and
+// place — naming a placeholder location would just be inventing an earthquake.
+// So this card states the outage instead of filling itself with fiction.
 const QUAKE_SAMPLE = `
-  <li><span class="lp-row-name">South of Fiji</span><span class="lp-row-value">M5.6</span></li>
-  <li><span class="lp-row-name">Mindanao, Philippines</span><span class="lp-row-value">M5.1</span></li>
-  <li><span class="lp-row-name">Central Chile</span><span class="lp-row-value">M4.8</span></li>
-  <li><span class="lp-row-name">Hindu Kush</span><span class="lp-row-value">M4.6</span></li>`;
+  <li class="lp-live-placeholder">USGS feed unreachable — live magnitudes resume automatically.</li>`;
 
 async function loadQuakes(): Promise<void> {
   const slot = getSlot('quakes');
   if (!slot) return;
   try {
-    const data = await fetchJson<{ features: UsgsFeature[] }>(
-      'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson'
+    // Served through our own Seismology route rather than calling USGS directly
+    // from the browser: it keeps the widget behind the same cache and CDN as the
+    // rest of the page, removes a hard dependency on a third party's CORS policy,
+    // and stops every visitor's IP being handed to earthquake.usgs.gov.
+    const data = await fetchJson<{ earthquakes: Earthquake[] }>(
+      '/api/seismology/v1/list-earthquakes?min_magnitude=4.5&page_size=5'
     );
-    const rows = (data.features ?? []).slice(0, 5);
+    const rows = (data.earthquakes ?? []).slice(0, 5);
     if (!rows.length) throw new Error('empty');
     slot.innerHTML = rows
-      .map((f) => {
-        const p = f.properties;
-        return `<li><span class="lp-row-name">${escapeHtml(p.place || 'Unknown')}</span><span class="lp-row-value">M${p.mag?.toFixed(1)} <span class="lp-row-meta">${timeAgo(p.time)}</span></span></li>`;
-      })
+      .map(
+        (q) =>
+          `<li><span class="lp-row-name">${escapeHtml(q.place || 'Unknown')}</span><span class="lp-row-value">M${q.magnitude?.toFixed(1)} <span class="lp-row-meta">${timeAgo(q.occurredAt)}</span></span></li>`
+      )
       .join('');
   } catch {
     markSample('quakes');

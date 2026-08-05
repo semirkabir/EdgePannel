@@ -24,7 +24,19 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+/* scroll-padding keeps #anchor targets clear of the fixed nav (72px desktop,
+   63px at the mobile breakpoint) — without it, clicking "Live now" or "FAQ"
+   parked the section heading underneath the header. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+}
+@media (max-width: 760px) {
+  html { scroll-padding-top: 78px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
@@ -229,17 +241,22 @@ a { color: inherit; }
 
 /* scroll reveal */
 
-.lp-reveal {
+/* Scroll reveal is opt-in, not opt-out: elements are visible by default and the
+   hidden start state only applies once landing.ts has set `.lp-anim` on <html>.
+   Gating visibility on JS the other way round meant any script failure — a CSP
+   block, a failed module fetch, a throw before the observer was wired — left
+   every section below the hero permanently at opacity:0, i.e. a blank page. */
+html.lp-anim .lp-reveal {
   opacity: 0;
   transform: translateY(18px);
   transition: opacity 0.6s ease, transform 0.6s ease;
 }
-.lp-reveal.lp-in {
+html.lp-anim .lp-reveal.lp-in {
   opacity: 1;
   transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .lp-reveal { opacity: 1; transform: none; transition: none; }
+  html.lp-anim .lp-reveal { opacity: 1; transform: none; transition: none; }
 }
 
 /* ---------- nav ---------- */
@@ -532,6 +549,37 @@ a { color: inherit; }
 }
 .lp-live-badge.lp-sample { color: var(--lp-amber); }
 .lp-live-badge.lp-sample::before { background: var(--lp-amber); box-shadow: none; animation: none; }
+
+/* Marks a capability that sits behind a paid tier, so the bento grid doesn't
+   promise as free the exact things /pricing sells. */
+.lp-card-tier {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 7px;
+  font-family: var(--lp-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-amber);
+  border: 1px solid color-mix(in srgb, var(--lp-amber) 45%, transparent);
+  border-radius: 20px;
+  padding: 1px 7px;
+}
+
+/* Value slot for a row whose feed could not be reached — named, but blank. */
+.lp-row-unavailable { color: var(--lp-text-faint); }
+
+/* Inline echo of the amber "sample" badge, used in prose above the widgets so the
+   copy and the badges tell the same story when a feed is unreachable. */
+.lp-inline-sample {
+  font-family: var(--lp-mono);
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lp-amber);
+}
 
 .lp-live-rows {
   list-style: none;
