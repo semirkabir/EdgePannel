@@ -19,7 +19,7 @@ Thank you for helping spread the word about EdgePannel! This guide provides talk
 | [edgepannel.app](https://edgepannel.app) | Main dashboard — geopolitics, military, conflicts |
 | [tech.edgepannel.app](https://tech.edgepannel.app) | Tech variant — startups, AI/ML, cybersecurity |
 | [finance.edgepannel.app](https://finance.edgepannel.app) | Finance variant — markets, exchanges, central banks |
-| [GitHub](https://github.com/koala73/worldmonitor) | Source code (AGPL-3.0) |
+| [Docs](https://edgepannel.app/docs/) | Documentation and API reference |
 
 ---
 
@@ -131,7 +131,7 @@ Run AI summarization entirely on your own hardware — no API keys, no cloud, no
 - "40+ WebGL data layers running at 60fps"
 - "ONNX Runtime Web for browser-based ML inference (sentiment, NER, summarization)"
 - "Local LLM support — plug in Ollama or LM Studio, zero cloud dependency"
-- "Open source under AGPL-3.0 — contribute on GitHub"
+- "Published scoring methodology — every number is auditable"
 
 ### For Finance/OSINT Audience
 
@@ -170,8 +170,8 @@ Run AI summarization entirely on your own hardware — no API keys, no cloud, no
 
 - **Name**: "EdgePannel" (two words, capitalized)
 - **Tagline**: "Real-time global intelligence dashboard"
-- **License**: AGPL-3.0 (free and open source)
-- **Creator**: Credit "EdgePannel by Elie Habib" or link to the GitHub repo
+- **License**: Proprietary. Do NOT describe EdgePannel as open source, free software, or self-hostable — the free tier is a free *product*, not free software, and claiming otherwise is a false-advertising risk.
+- **Creator**: Credit "EdgePannel"; the original World Monitor work by Elie Habib is incorporated under a commercial licence
 - **Variants**: You can mention all three (World/Tech/Finance) or focus on the main one
 - **No login required**: Anyone can use the web app immediately — no signup, no paywall
 

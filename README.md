@@ -3,7 +3,7 @@
 **Real-time global intelligence dashboard** — AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface.
 
 [![GitHub stars](https://img.shields.io/github/stars/koala73/worldmonitor?style=social)](https://github.com/koala73/worldmonitor/stargazers)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Last commit](https://img.shields.io/github/last-commit/koala73/worldmonitor)](https://github.com/koala73/worldmonitor/commits/main)
 [![Latest release](https://img.shields.io/github/v/release/koala73/worldmonitor?style=flat)](https://github.com/koala73/worldmonitor/releases/latest)
@@ -29,7 +29,7 @@
 | No geospatial context for events   | **Interactive map** with 60 toggleable data layers on a unified MapLibre GL + deck.gl engine, plus a CII country risk heatmap |
 | Information overload               | **AI-synthesized briefs** with focal point detection and local LLM support                                 |
 | Crypto/macro signal noise          | **7-signal market radar** with composite BUY/CASH verdict                                                  |
-| Expensive OSINT tools ($$$)        | **Free forever core** — the full map, feeds, and layers need no account; self-hosting is always free under AGPL-3.0 |
+| Expensive OSINT tools ($$$)        | **Free forever core** — the full map, feeds, and layers need no account                                    |
 | Static news feeds                  | **Real-time updates** with live video streams, desktop push alerts, and AI-powered deductions               |
 | Cloud-dependent AI tools           | **Run AI locally** with Ollama/LM Studio — no API keys, no data leaves your machine                        |
 | Web-only dashboards                | **Native desktop app** (Tauri) for macOS, Windows, and Linux + installable PWA with offline map support    |
@@ -223,9 +223,10 @@ See [`.env.example`](./.env.example) for the complete list.
 
 ---
 
-## Self-Hosting
+## Deployment
 
-Self-hosted deployments are always fully free under AGPL-3.0 — there is no paid tier for source you run yourself.
+For authorised developers and deployments only — the source is proprietary and
+running it requires a written agreement (see [`LICENSE`](./LICENSE)).
 
 ### Option 1: Deploy to Vercel (Recommended)
 
@@ -317,22 +318,27 @@ npm run desktop:package:windows:full
 
 ## License
 
-Licensed under **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+**Proprietary — all rights reserved.** See [`LICENSE`](./LICENSE).
 
-**You are free to:** Use, study, modify, and distribute.
+This software is not open source. No right to use, copy, modify or distribute
+the source is granted except under a written agreement with the copyright
+holder. Access to the hosted service is governed by the
+[Terms of Service](https://edgepannel.app/terms), which do not grant any rights
+to the source code.
 
-**Conditions:** Source code disclosure for network use, same license (copyleft), attribution, state changes.
+| Use Case | Allowed? |
+|----------|----------|
+| Using the hosted service | Yes — under the Terms of Service |
+| Reading, copying or self-hosting the source | No — written agreement required |
+| Forking or modifying | No — written agreement required |
+| Redistributing, in whole or in part | No |
 
-| Use Case | Allowed? | Condition |
-|----------|----------|-----------|
-| Personal / internal use | Yes | No conditions |
-| Self-hosted deployment | Yes | No conditions if unmodified |
-| Forking & modifying | Yes | Must share source under AGPL-3.0 |
-| Commercial use | Yes | Must share source under AGPL-3.0 |
-| Running as a SaaS/web service | Yes | Must share source under AGPL-3.0 |
-| Bundling into a proprietary product | No | AGPL-3.0 copyleft prevents this |
+Third-party open-source components remain under their own licences, and
+third-party data providers' terms of use apply independently.
 
-Copyright (C) 2024-2026 Elie Habib. All rights reserved under AGPL-3.0.
+Copyright (C) 2026 Semir Kabir. All rights reserved.
+Portions copyright (C) 2024-2026 Elie Habib, incorporated under a separate
+commercial licence.
 
 ---
 

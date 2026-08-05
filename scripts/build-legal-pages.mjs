@@ -248,8 +248,9 @@ const terms = head({
 
           <h2>5. Licence and your content</h2>
           <p>
-            EdgePannel is open source under AGPL-3.0; the licence governs the software
-            itself, and self-hosting is always free. Underlying data belongs to its
+            EdgePannel is proprietary software. Your subscription grants access to the
+            hosted service, not any right to the source code, and nothing here permits
+            copying, modifying or redistributing it. Underlying data belongs to its
             original sources under their own terms. Anything you create in the
             product — workspaces, monitors, alert rules — remains yours.
           </p>

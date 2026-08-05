@@ -120,9 +120,11 @@ function rewriteLinks(html) {
     const [path, hash = ''] = clean.split('#');
     const name = basename(path);
     if (bySource.has(name)) return `href="/docs/${bySource.get(name)}/${hash ? '#' + hash : ''}"`;
-    if (name === 'README.md') return `href="https://github.com/koala73/worldmonitor/blob/main/README.md"`;
+    if (name === 'README.md') return 'href="/docs/"';
     if (path.startsWith('api/') || path === 'api' || path === 'api/') return `href="/docs/api-reference/"`;
-    if (name.endsWith('.md')) return `href="https://github.com/koala73/worldmonitor/blob/main/docs/${path}"`;
+    // Unpublished internal docs have no public URL now the source is proprietary,
+    // so the link is dropped rather than pointed at a repo nobody can read.
+    if (name.endsWith('.md')) return 'href="/docs/"';
     return match;
   });
 }
@@ -214,7 +216,6 @@ function layout({ title, description, slug, crumb, body, toc = [], services, can
     <a href="/">Home</a>
     <a href="/pricing">Pricing</a>
     <a href="/docs/api-reference/">API</a>
-    <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
     <a href="/app">Dashboard →</a>
   </nav>
 </header>
@@ -224,8 +225,8 @@ function layout({ title, description, slug, crumb, body, toc = [], services, can
     ${crumb ? `<nav class="d-crumb" aria-label="Breadcrumb">${crumb}</nav>` : ''}
     <div class="d-body">${body}</div>
     <footer class="d-foot">
-      <span>AGPL-3.0-only</span>
-      <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">Source</a>
+      <span>© 2026 EdgePannel</span>
+      <a href="/terms">Terms</a>
       <a href="/docs/llms.txt">llms.txt</a>
       <a href="/docs/changelog/">Changelog</a>
     </footer>
@@ -427,15 +428,13 @@ function main() {
 <p>Every data endpoint is reachable without a browser:</p>
 <pre><code>curl -s '${API_HOST}/api/seismology/v1/list-earthquakes'</code></pre>
 <div class="d-note">Use <code>api.edgepannel.app</code>, not <code>edgepannel.app</code> — the primary domain requires browser origin headers.</div>
-<p>To run the dashboard locally:</p>
-<pre><code>git clone https://github.com/koala73/worldmonitor.git
-cd worldmonitor
-npm install
-npm run dev</code></pre>
+<p>The dashboard itself runs at <a href="/app">/app</a> — no install required.</p>
 <h2 id="agents">For agents<a class="d-anchor" href="#agents">#</a></h2>
 <p>Every page in this portal is also served as raw Markdown at the same path with a <code>.md</code> suffix, and <a href="/docs/llms.txt">/docs/llms.txt</a> indexes the whole site for automated consumption.</p>
 <h2 id="license">License<a class="d-anchor" href="#license">#</a></h2>
-<p>AGPL-3.0-only. Self-hosting is free; network use requires source disclosure.</p>`;
+<p>EdgePannel is proprietary software offered as a hosted service. The scoring
+methodology is published in full so results stay auditable, but no right to the
+source code is granted. See the <a href="/terms">Terms of Service</a>.</p>`;
 
   write('index.html', layout({
     title: 'Introduction',
@@ -521,7 +520,7 @@ npm run dev</code></pre>
 <h2 id="services">Services<a class="d-anchor" href="#services">#</a></h2>
 <div class="d-cards">${svcCards}</div>
 <h2 id="specs">OpenAPI specifications<a class="d-anchor" href="#specs">#</a></h2>
-<p>Machine-readable specs for every service live in <a href="https://github.com/koala73/worldmonitor/tree/main/docs/api">docs/api</a> as both JSON and YAML — importable straight into Postman, Insomnia, or an SDK generator.</p>`,
+<p>Machine-readable OpenAPI specs for every service are available to API customers on request — importable straight into Postman, Insomnia, or an SDK generator.</p>`,
     toc: [
       { id: 'services', text: 'Services', depth: 2 },
       { id: 'specs', text: 'OpenAPI specifications', depth: 2 },
@@ -543,7 +542,7 @@ npm run dev</code></pre>
       canonical: `${SITE}/docs/api-reference/${svc.slug}/`,
       crumb: `<a href="/docs/">Docs</a> / <a href="/docs/api-reference/">API</a> / ${esc(svc.label)}`,
       body: `<h1>${esc(svc.label)} Service</h1>
-<p>${svc.operations.length} endpoint${svc.operations.length === 1 ? '' : 's'}. Spec: <a href="https://github.com/koala73/worldmonitor/blob/main/docs/api/${esc(svc.name)}.openapi.json">${esc(svc.name)}.openapi.json</a></p>
+<p>${svc.operations.length} endpoint${svc.operations.length === 1 ? '' : 's'}. Spec: <code>${esc(svc.name)}.openapi.json</code></p>
 <h2 id="endpoints">Endpoints<a class="d-anchor" href="#endpoints">#</a></h2>
 <ul class="d-op-list">${rows}</ul>`,
       toc: [{ id: 'endpoints', text: 'Endpoints', depth: 2 }],
@@ -584,7 +583,7 @@ npm run dev</code></pre>
   }
   llms += `\n## OpenAPI Specifications\n\n`;
   for (const svc of services) {
-    llms += `- [${svc.name}](https://github.com/koala73/worldmonitor/blob/main/docs/api/${svc.name}.openapi.yaml)\n`;
+    llms += `- ${svc.name}.openapi.yaml (available to API customers on request)\n`;
   }
   write('llms.txt', llms);
 
