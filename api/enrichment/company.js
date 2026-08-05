@@ -11,7 +11,7 @@
  */
 
 import { getCorsHeaders, isDisallowedOrigin } from '../_cors.js';
-import { checkRateLimit } from '../_rate-limit.js';
+import { checkKeyedRateLimit } from '../_rate-limit.js';
 
 export const config = { runtime: 'edge' };
 
@@ -146,7 +146,7 @@ export default async function handler(req) {
     return new Response('Forbidden', { status: 403, headers: cors });
   }
 
-  const rateLimitResult = await checkRateLimit(req, 'enrichment', 30, '60s');
+  const rateLimitResult = await checkKeyedRateLimit(req, 'enrichment', 30, '60s', cors);
   if (rateLimitResult) return rateLimitResult;
 
   const url = new URL(req.url);
