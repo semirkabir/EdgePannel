@@ -10,11 +10,6 @@
 
 <p align="center">
   <a href="https://edgepannel.app"><img src="https://img.shields.io/badge/Web_App-edgepannel.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web App"></a>&nbsp;
-  <a href="https://tech.edgepannel.app"><img src="https://img.shields.io/badge/Tech_Variant-tech.edgepannel.app-0891b2?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Tech Variant"></a>&nbsp;
-  <a href="https://finance.edgepannel.app"><img src="https://img.shields.io/badge/Finance_Variant-finance.edgepannel.app-059669?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Finance Variant"></a>&nbsp;
-  <a href="https://commodity.edgepannel.app"><img src="https://img.shields.io/badge/Commodity_Variant-commodity.edgepannel.app-b45309?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Commodity Variant"></a>&nbsp;
-  <a href="https://happy.edgepannel.app"><img src="https://img.shields.io/badge/Happy_Variant-happy.edgepannel.app-f59e0b?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Happy Variant"></a>&nbsp;
-  <a href="https://conflicts.edgepannel.app"><img src="https://img.shields.io/badge/Conflicts_Variant-conflicts.edgepannel.app-dc2626?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Conflicts Variant"></a>
 </p>
 
 <p align="center">
@@ -48,13 +43,6 @@
 | Variant             | URL                                                          | Focus                                            |
 | ------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
 | **EdgePannel**   | [edgepannel.app](https://edgepannel.app)                 | Geopolitics, military, conflicts, infrastructure |
-| **EdgePannel Tech**    | [tech.edgepannel.app](https://tech.edgepannel.app)       | Startups, AI/ML, cloud, cybersecurity            |
-| **EdgePannel Finance** | [finance.edgepannel.app](https://finance.edgepannel.app) | Global markets, trading, central banks, Gulf FDI |
-| **EdgePannel Commodity** | [commodity.edgepannel.app](https://commodity.edgepannel.app) | Mining, metals, energy commodities, critical minerals |
-| **EdgePannel Happy**   | [happy.edgepannel.app](https://happy.edgepannel.app)     | Good news, positive trends, uplifting stories    |
-| **EdgePannel Conflicts** | [conflicts.edgepannel.app](https://conflicts.edgepannel.app) | Conflict, military, displacement, security risk |
-
-All five variants run from a single codebase — switch between them with one click via the header bar.
 
 ---
 
@@ -348,10 +336,7 @@ We thank the following researchers for responsibly disclosing security issues:
 ---
 
 <p align="center">
-  <a href="https://edgepannel.app">edgepannel.app</a> &nbsp;·&nbsp;
-  <a href="https://tech.edgepannel.app">tech.edgepannel.app</a> &nbsp;·&nbsp;
-  <a href="https://finance.edgepannel.app">finance.edgepannel.app</a> &nbsp;·&nbsp;
-  <a href="https://commodity.edgepannel.app">commodity.edgepannel.app</a>
+  <a href="https://edgepannel.app">edgepannel.app</a>
 </p>
 
 ## Star History
