@@ -19,6 +19,7 @@ AI-powered real-time global intelligence dashboard aggregating news, markets, ge
 | [API Reference](./api/) | OpenAPI specs for all 22 services |
 | [Adding Endpoints](./ADDING_ENDPOINTS.md) | Guide for adding new RPC endpoints |
 | [Release Packaging](./RELEASE_PACKAGING.md) | Desktop build and release process |
+| [Dependency Advisories](./DEPENDENCY_ADVISORIES.md) | Accepted dependency alerts, lockfile locations, audit commands |
 
 ---
 
