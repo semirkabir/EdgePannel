@@ -1,6 +1,11 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import { log } from '@/utils/logger';
 import { replayPendingCalls, clearAllPendingCalls } from '@/app/pending-panel-data';
+import {
+  addResponsiveZoneListener,
+  removeResponsiveZoneListener,
+  type ResponsiveZoneListener,
+} from '@/app/responsive-zone-listener';
 import { getTimeRangeLabel as formatTimeRangeLabel, getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
 import type { RelatedAsset } from '@/types';
 import type { TheaterPostureSummary } from '@/services/military-surge';
@@ -124,6 +129,7 @@ export class PanelLayoutManager implements AppModule {
   private newsRefreshSweepCleanup: (() => void) | null = null;
   private scheduledLoadAllRaf: number | null = null;
   private scrollBtnCleanup: (() => void) | null = null;
+  private responsiveZoneListener: ResponsiveZoneListener | null = null;
 
   constructor(ctx: AppContext, callbacks: PanelLayoutCallbacks) {
     this.ctx = ctx;
@@ -174,7 +180,8 @@ export class PanelLayoutManager implements AppModule {
     this.aviationCommandBar = null;
     this.ctx.panels['airline-intel']?.destroy();
 
-    window.removeEventListener('resize', this.ensureCorrectZones);
+    removeResponsiveZoneListener(this.responsiveZoneListener);
+    this.responsiveZoneListener = null;
   }
 
   renderLayout(): void {
@@ -1178,7 +1185,12 @@ export class PanelLayoutManager implements AppModule {
       });
     }
 
-    window.addEventListener('resize', () => this.ensureCorrectZones());
+    removeResponsiveZoneListener(this.responsiveZoneListener);
+    this.responsiveZoneListener = addResponsiveZoneListener(
+      window,
+      this.getUltraWideMinWidth(),
+      () => this.ensureCorrectZones(),
+    );
 
     this.ctx.map.onTimeRangeChanged((range) => {
       this.ctx.currentTimeRange = range;
@@ -1835,10 +1847,14 @@ export class PanelLayoutManager implements AppModule {
     return new Set();
   }
 
+  private getUltraWideMinWidth(): number {
+    return 1600;
+  }
+
   private getEffectiveUltraWide(): boolean {
     const mapSection = document.getElementById('mapSection');
     const mapEnabled = !mapSection?.classList.contains('hidden');
-    return window.innerWidth >= 1600 && mapEnabled;
+    return window.innerWidth >= this.getUltraWideMinWidth() && mapEnabled;
   }
 
   private insertByOrder(grid: HTMLElement, el: HTMLElement, key: string): void {
