@@ -24,7 +24,19 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+/* scroll-padding keeps #anchor targets clear of the fixed nav (72px desktop,
+   63px at the mobile breakpoint) — without it, clicking "Live now" or "FAQ"
+   parked the section heading underneath the header. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+}
+@media (max-width: 760px) {
+  html { scroll-padding-top: 78px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }

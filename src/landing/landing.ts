@@ -136,23 +136,37 @@ if (ghStars && ghStarsCount) {
   }
 }
 
-// --- Product dropdown (desktop nav) ---
-const drop = document.querySelector<HTMLElement>('.lp-nav-drop');
-const dropBtn = drop?.querySelector<HTMLButtonElement>('.lp-nav-drop-btn');
-if (drop && dropBtn) {
-  const setDropOpen = (open: boolean): void => {
-    drop.classList.toggle('lp-drop-open', open);
-    dropBtn.setAttribute('aria-expanded', String(open));
-  };
-  dropBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    setDropOpen(!drop.classList.contains('lp-drop-open'));
-  });
-  document.addEventListener('click', (e) => {
-    if (!drop.contains(e.target as Node)) setDropOpen(false);
-  });
+// --- Nav dropdowns (desktop) ---
+// querySelectorAll, not querySelector: this used to wire only the first
+// .lp-nav-drop, so adding a second one left it inert with no visible error.
+const drops = document.querySelectorAll<HTMLElement>('.lp-nav-drop');
+if (drops.length) {
+  const setters: Array<(open: boolean) => void> = [];
+
+  for (const drop of drops) {
+    const dropBtn = drop.querySelector<HTMLButtonElement>('.lp-nav-drop-btn');
+    if (!dropBtn) continue;
+
+    const setDropOpen = (open: boolean): void => {
+      drop.classList.toggle('lp-drop-open', open);
+      dropBtn.setAttribute('aria-expanded', String(open));
+    };
+    setters.push(setDropOpen);
+
+    dropBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willOpen = !drop.classList.contains('lp-drop-open');
+      // Only one menu open at a time, so they can't overlap each other.
+      for (const close of setters) close(false);
+      setDropOpen(willOpen);
+    });
+    document.addEventListener('click', (e) => {
+      if (!drop.contains(e.target as Node)) setDropOpen(false);
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') setDropOpen(false);
+    if (e.key === 'Escape') for (const close of setters) close(false);
   });
 }
 

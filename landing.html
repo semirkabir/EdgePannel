@@ -52,6 +52,63 @@
       "description": "Real-time global intelligence dashboard with live news, markets, military tracking, infrastructure monitoring, and geopolitical data."
     }
     </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is EdgePannel really free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The data is. Every map layer, every feed, every lens — free forever, with no signup and no trial clock. No ads either, and with no account there's no user data to sell. Paid tiers never gate the raw data; they add the things computed on top of it — AI analysis, alerting, and tracking & history. See what's paid."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Where does the data come from?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "680+ curated public feeds and institutional sources: USGS, NOAA, GDACS, ECB, FRED, World Bank, OpenSky, AIS vessel streams, Cloudflare Radar, official government channels and major wire services. Every panel cites its sources."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need an account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. The dashboard is fully usable anonymously. An optional sign-in exists only to sync your panel layout and watchlists across devices."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are the six lenses?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "World, Tech, Finance, Commodity, Conflicts and Happy — the same live engine with layers, feeds and panels retuned per focus. Each lens lives on its own subdomain and is one click away."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it open source?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes — AGPL-3.0, developed in the open on GitHub. Run it yourself, audit it, or contribute."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work on mobile?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. It's an installable PWA that works offline-first, translated into 21 languages including right-to-left scripts."
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <a class="lp-skip" href="#main">Skip to content</a>
@@ -70,12 +127,19 @@
               <a role="menuitem" href="/lenses">Six lenses</a>
               <a role="menuitem" href="/dossiers">Country dossiers</a>
               <a role="menuitem" href="/commander">⌘K Commander</a>
-              <a role="menuitem" href="/resources">OSINT resources</a>
             </div>
           </div>
           <a href="#who">Who it's for</a>
           <a href="/pricing">Pricing</a>
-          <a href="/docs/">Docs</a>
+          <div class="lp-nav-drop">
+            <button type="button" class="lp-nav-drop-btn" aria-expanded="false" aria-haspopup="true">Docs <span aria-hidden="true">▾</span></button>
+            <div class="lp-nav-drop-menu" role="menu">
+              <a role="menuitem" href="/docs/">Documentation</a>
+              <a role="menuitem" href="/docs/api-reference/">API reference</a>
+              <a role="menuitem" href="/resources">OSINT resources</a>
+              <a role="menuitem" href="/docs/changelog/">Changelog</a>
+            </div>
+          </div>
           <a href="#faq">FAQ</a>
           <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
         </nav>
@@ -90,9 +154,9 @@
         <a href="/lenses">Six lenses</a>
         <a href="/dossiers">Country dossiers</a>
         <a href="/commander">⌘K Commander</a>
-        <a href="/resources">OSINT resources</a>
         <a href="/pricing">Pricing</a>
         <a href="/docs/">Docs</a>
+        <a href="/resources">OSINT resources</a>
         <a href="#who">Who it's for</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>

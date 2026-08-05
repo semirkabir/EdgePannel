@@ -29,8 +29,13 @@ interface NewsItem {
   publishedAt: number;
 }
 
-const TIMEOUT_MS = 9000;
-// The feed digest is generated on demand and can be slow on a cold cache.
+// Nine seconds of "Connecting…" reads as broken on a page whose whole pitch is
+// speed. These routes are CDN-cached and normally answer well inside a second,
+// so a shorter budget falls back to a labelled row long before a visitor
+// concludes the product is dead.
+const TIMEOUT_MS = 6000;
+// The feed digest is generated on demand and can be slow on a cold cache, so it
+// keeps a longer budget — it is the one call worth waiting on.
 const DIGEST_TIMEOUT_MS = 20000;
 
 /** Friendly display names — the quotes API sometimes echoes raw symbols. */
@@ -153,8 +158,10 @@ async function loadFx(): Promise<void> {
 
 // ---------------------------------------------------------------- quakes
 
-interface UsgsFeature {
-  properties: { mag: number; place: string; time: number };
+interface Earthquake {
+  magnitude: number;
+  place: string;
+  occurredAt: number;
 }
 
 // Unlike a quote row, a quake row carries no meaning without its magnitude and
@@ -167,16 +174,20 @@ async function loadQuakes(): Promise<void> {
   const slot = getSlot('quakes');
   if (!slot) return;
   try {
-    const data = await fetchJson<{ features: UsgsFeature[] }>(
-      'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson'
+    // Served through our own Seismology route rather than calling USGS directly
+    // from the browser: it keeps the widget behind the same cache and CDN as the
+    // rest of the page, removes a hard dependency on a third party's CORS policy,
+    // and stops every visitor's IP being handed to earthquake.usgs.gov.
+    const data = await fetchJson<{ earthquakes: Earthquake[] }>(
+      '/api/seismology/v1/list-earthquakes?min_magnitude=4.5&page_size=5'
     );
-    const rows = (data.features ?? []).slice(0, 5);
+    const rows = (data.earthquakes ?? []).slice(0, 5);
     if (!rows.length) throw new Error('empty');
     slot.innerHTML = rows
-      .map((f) => {
-        const p = f.properties;
-        return `<li><span class="lp-row-name">${escapeHtml(p.place || 'Unknown')}</span><span class="lp-row-value">M${p.mag?.toFixed(1)} <span class="lp-row-meta">${timeAgo(p.time)}</span></span></li>`;
-      })
+      .map(
+        (q) =>
+          `<li><span class="lp-row-name">${escapeHtml(q.place || 'Unknown')}</span><span class="lp-row-value">M${q.magnitude?.toFixed(1)} <span class="lp-row-meta">${timeAgo(q.occurredAt)}</span></span></li>`
+      )
       .join('');
   } catch {
     markSample('quakes');
