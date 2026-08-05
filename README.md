@@ -44,9 +44,6 @@
 | ------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
 | **EdgePannel**   | [edgepannel.app](https://edgepannel.app)                 | Geopolitics, military, conflicts, infrastructure |
 
-
-
-
 ---
 
 ## Key Features
@@ -339,10 +336,7 @@ We thank the following researchers for responsibly disclosing security issues:
 ---
 
 <p align="center">
-  <a href="https://edgepannel.app">edgepannel.app</a> &nbsp;·&nbsp;
-  <a href="https://tech.edgepannel.app">tech.edgepannel.app</a> &nbsp;·&nbsp;
-  <a href="https://finance.edgepannel.app">finance.edgepannel.app</a> &nbsp;·&nbsp;
-  <a href="https://commodity.edgepannel.app">commodity.edgepannel.app</a>
+  <a href="https://edgepannel.app">edgepannel.app</a>
 </p>
 
 ## Star History
