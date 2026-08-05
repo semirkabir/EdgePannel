@@ -10,11 +10,6 @@
 
 <p align="center">
   <a href="https://edgepannel.app"><img src="https://img.shields.io/badge/Web_App-edgepannel.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web App"></a>&nbsp;
-  <a href="https://tech.edgepannel.app"><img src="https://img.shields.io/badge/Tech_Variant-tech.edgepannel.app-0891b2?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Tech Variant"></a>&nbsp;
-  <a href="https://finance.edgepannel.app"><img src="https://img.shields.io/badge/Finance_Variant-finance.edgepannel.app-059669?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Finance Variant"></a>&nbsp;
-  <a href="https://commodity.edgepannel.app"><img src="https://img.shields.io/badge/Commodity_Variant-commodity.edgepannel.app-b45309?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Commodity Variant"></a>&nbsp;
-  <a href="https://happy.edgepannel.app"><img src="https://img.shields.io/badge/Happy_Variant-happy.edgepannel.app-f59e0b?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Happy Variant"></a>&nbsp;
-  <a href="https://conflicts.edgepannel.app"><img src="https://img.shields.io/badge/Conflicts_Variant-conflicts.edgepannel.app-dc2626?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Conflicts Variant"></a>
 </p>
 
 <p align="center">
