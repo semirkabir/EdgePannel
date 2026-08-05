@@ -965,16 +965,9 @@ a { color: inherit; }
 }
 .lp-term dd { margin: 0; color: var(--lp-text-dim); font-size: 14px; }
 
-/* Methodology weights bar (resources page) */
-.lp-weights {
-  display: flex;
-  height: 14px;
-  border-radius: 7px;
-  overflow: hidden;
-  margin: 18px 0 10px;
-  border: 1px solid var(--lp-border);
-}
-.lp-weights span { height: 100%; }
+/* Methodology component legend (resources page). The proportional weights bar
+   this sat next to was removed: exact weights now live in /docs/algorithms/,
+   generated from the source, so they are stated in one place only. */
 .lp-weights-legend {
   display: flex;
   flex-wrap: wrap;
