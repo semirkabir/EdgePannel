@@ -11,10 +11,17 @@ export function htmlVariantPlugin(options: HtmlVariantPluginOptions): Plugin {
   const { activeMeta, activeVariant, isDesktopBuild } = options;
   return {
     name: 'html-variant',
-    transformIndexHtml(html, ctx) {
+    transformIndexHtml(html) {
       // Marketing pages own their own static meta tags — never variant-rewritten.
-      const MARKETING_HTML = ['landing.html', 'lenses.html', 'dossiers.html', 'commander.html', 'resources.html', 'pricing.html'];
-      if (MARKETING_HTML.some((page) => ctx.filename.endsWith(page))) return html;
+      //
+      // Detected from the document itself rather than a hardcoded filename list.
+      // The list silently missed every page added after it was written: privacy,
+      // terms and contact shipped with their title, description, canonical and
+      // all og/twitter tags overwritten by the generic dashboard meta, which is
+      // invisible in source and only shows up in the built output. Keying off
+      // the marker the shell already sets means a new marketing page is exempt
+      // the moment it uses the standard shell.
+      if (/<html[^>]*\sdata-page="landing"/.test(html)) return html;
       let result = html
         .replace(/<title>.*?<\/title>/, `<title>${activeMeta.title}</title>`)
         .replace(/<meta name="title" content=".*?" \/>/, `<meta name="title" content="${activeMeta.title}" />`)

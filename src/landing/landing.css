@@ -305,6 +305,11 @@ html.lp-anim .lp-reveal.lp-in {
   transition: color 0.15s ease;
 }
 .lp-nav-links a:hover { color: var(--lp-text); }
+/* Current page — set by landing.ts from the pathname, so a visitor can see
+   where they are. Also carries aria-current="page" for screen readers. */
+.lp-nav-links a[aria-current="page"],
+.lp-nav-menu a[aria-current="page"] { color: var(--lp-accent); }
+.lp-footer-col a[aria-current="page"] { color: var(--lp-text); }
 
 /* Hamburger + slide-down menu (mobile only) */
 .lp-nav-burger {

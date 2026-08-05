@@ -8,6 +8,23 @@
 // than a blank one. Set first, before anything that could throw.
 document.documentElement.classList.add('lp-anim');
 
+// --- Mark the current page in every nav ---
+// Nothing indicated which page you were on: nav, mobile menu and footer all
+// rendered identically on all nine marketing pages. Matching on pathname keeps
+// this working for pages added later without touching each one's markup.
+{
+  const here = location.pathname.replace(/\/+$/, '') || '/';
+  const selector = '.lp-nav-links a[href], .lp-nav-menu a[href], .lp-footer-col a[href]';
+  for (const link of document.querySelectorAll<HTMLAnchorElement>(selector)) {
+    const href = link.getAttribute('href') ?? '';
+    // Only same-page destinations count — never in-page anchors like /#who,
+    // which describe a section of the landing page rather than a location.
+    if (!href.startsWith('/') || href.includes('#')) continue;
+    const target = href.replace(/\/+$/, '') || '/';
+    if (target === here) link.setAttribute('aria-current', 'page');
+  }
+}
+
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // --- Sticky nav state ---
