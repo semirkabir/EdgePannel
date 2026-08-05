@@ -43,13 +43,9 @@
 | Variant             | URL                                                          | Focus                                            |
 | ------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
 | **EdgePannel**   | [edgepannel.app](https://edgepannel.app)                 | Geopolitics, military, conflicts, infrastructure |
-| **EdgePannel Tech**    | [tech.edgepannel.app](https://tech.edgepannel.app)       | Startups, AI/ML, cloud, cybersecurity            |
-| **EdgePannel Finance** | [finance.edgepannel.app](https://finance.edgepannel.app) | Global markets, trading, central banks, Gulf FDI |
-| **EdgePannel Commodity** | [commodity.edgepannel.app](https://commodity.edgepannel.app) | Mining, metals, energy commodities, critical minerals |
-| **EdgePannel Happy**   | [happy.edgepannel.app](https://happy.edgepannel.app)     | Good news, positive trends, uplifting stories    |
-| **EdgePannel Conflicts** | [conflicts.edgepannel.app](https://conflicts.edgepannel.app) | Conflict, military, displacement, security risk |
 
-All five variants run from a single codebase — switch between them with one click via the header bar.
+
+
 
 ---
 
