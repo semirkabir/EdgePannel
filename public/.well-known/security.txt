@@ -1,6 +1,15 @@
-Contact: mailto:elie@worldmonitor.app
-Contact: https://github.com/eliehabib/worldmonitor/security/advisories
-Policy: https://github.com/eliehabib/worldmonitor/security/advisories
+# EdgePannel security contact (RFC 9116)
+#
+# DRAFT — every value below must be real before launch. The previous version of
+# this file was inherited unchanged from the upstream project: it routed reports
+# to another maintainer's inbox and its Canonical pointed at a different host,
+# which under RFC 9116 makes the file invalid wherever we serve it.
+#
+# Canonical MUST match the host serving this file. If the site ships on
+# edgepannel.com rather than edgepannel.app, update it there too.
+
+Contact: mailto:REPLACE-WITH-REAL-SECURITY-INBOX@example.com
+Expires: 2027-01-01T00:00:00.000Z
 Preferred-Languages: en
-Canonical: https://worldmonitor.app/.well-known/security.txt
-Expires: 2027-03-02T00:00:00.000Z
+Canonical: https://edgepannel.app/.well-known/security.txt
+Policy: https://edgepannel.app/contact

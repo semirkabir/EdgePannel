@@ -1443,6 +1443,9 @@ export default defineConfig({
         pricing: resolve(__dirname, 'pricing.html'),
         settings: resolve(__dirname, 'settings.html'),
         liveChannels: resolve(__dirname, 'live-channels.html'),
+        privacy: resolve(__dirname, 'privacy.html'),
+        terms: resolve(__dirname, 'terms.html'),
+        contact: resolve(__dirname, 'contact.html'),
       },
       output: {
         manualChunks(id) {
