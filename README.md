@@ -25,16 +25,17 @@
 
 | Problem                            | Solution                                                                                                   |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| News scattered across 100+ sources | **Single unified dashboard** with 435+ curated feeds across 15 categories                                  |
-| No geospatial context for events   | **Interactive map** with 45 toggleable data layers and CII country risk heatmap                             |
+| News scattered across 100+ sources | **Single unified dashboard** with 680+ curated feeds across 30 categories                                  |
+| No geospatial context for events   | **Interactive map** with 60 toggleable data layers on a unified MapLibre GL + deck.gl engine, plus a CII country risk heatmap |
 | Information overload               | **AI-synthesized briefs** with focal point detection and local LLM support                                 |
 | Crypto/macro signal noise          | **7-signal market radar** with composite BUY/CASH verdict                                                  |
-| Expensive OSINT tools ($$$)        | **100% free & open source**                                                                                |
-| Static news feeds                  | **Real-time updates** with live video streams and AI-powered deductions                                    |
+| Expensive OSINT tools ($$$)        | **Free forever core** — the full map, feeds, and layers need no account; self-hosting is always free under AGPL-3.0 |
+| Static news feeds                  | **Real-time updates** with live video streams, desktop push alerts, and AI-powered deductions               |
 | Cloud-dependent AI tools           | **Run AI locally** with Ollama/LM Studio — no API keys, no data leaves your machine                        |
 | Web-only dashboards                | **Native desktop app** (Tauri) for macOS, Windows, and Linux + installable PWA with offline map support    |
 | English-only OSINT tools           | **21 languages** with native-language RSS feeds, AI-translated summaries, and RTL support for Arabic       |
-| Undocumented, fragile APIs         | **Proto-first API contracts** — 22 typed services with auto-generated clients, servers, and OpenAPI docs   |
+| Undocumented, fragile APIs         | **Proto-first API contracts** — 28 typed services with auto-generated clients, servers, and OpenAPI docs   |
+| Fixed feature set                  | **Marketplace & Workspaces** — install community layers/panels/sources, save named dashboard layouts       |
 
 ---
 
@@ -50,46 +51,59 @@
 
 ### Maps & Visualization
 
-- **Dual Map Engine** — 3D globe (globe.gl + Three.js) and WebGL flat map (deck.gl), runtime-switchable with 45 shared data layers
-- **45 toggleable data layers** — conflicts, bases, cables, pipelines, flights, vessels, protests, fires, earthquakes, datacenters, and more
-- **8 regional presets** — Global, Americas, Europe, MENA, Asia, Africa, Oceania, Latin America with time filtering (1h–7d)
-- **CII choropleth heatmap** — five-stop color gradient paints every country by instability score on both map engines
+- **Unified map engine** — MapLibre GL + deck.gl render both the flat map and a native globe projection from the same WebGL layer stack (no separate 3D engine), switchable at runtime with 60 shared data layers
+- **60 toggleable data layers** across 11 categories — conflict, military, cyber/infrastructure, aviation & maritime, space, economy, environment, governance, technology, positive signals, and commodities
+- **Draw & measure toolkit** — native drawing, distance/area measurement, and annotation directly on the map
+- **CII / governance choropleths** — country-level instability and governance-quality heatmaps on the same map engine
 - **URL state sharing** — map center, zoom, active layers, and time range encoded in shareable URLs
+- **Workspaces** — save, name, and switch between multiple full dashboard layouts (panels, layers, layout mode)
 
 ### AI & Intelligence
 
-- **World Brief** — LLM-synthesized summary with 4-tier fallback: Ollama (local) → Groq → OpenRouter → browser T5
+- **World Brief** — LLM-synthesized summary with 4-tier fallback: Ollama/LM Studio (local) → Groq → OpenRouter → browser T5
 - **AI Deduction & Forecasting** — free-text geopolitical analysis grounded in live headlines
 - **Headline Memory (RAG)** — opt-in browser-local semantic index using ONNX embeddings in IndexedDB
 - **Threat Classification** — instant keyword classifier with async ML and LLM override
-- **Country Brief Pages** — full-page intelligence dossiers with CII scores, AI analysis, timelines, and prediction markets
+- **Country Brief Pages** — full-page intelligence dossiers with CII scores, AI analysis, timelines, factbook data, and prediction markets, with maximize mode and native share
+- **Country Factbook** — structured reference data (demographics, government, economy) per country
 
 ### Scoring & Detection
 
-- **Country Instability Index (CII)** — real-time stability scores using weighted multi-signal blend across 23 tier-1 nations + universal scoring for all countries
+- **Country Instability Index (CII)** — real-time stability scores using a weighted multi-signal blend across tier-1 nations + universal scoring for every country
 - **Hotspot Escalation** — dynamic scoring blending news activity, CII, geo-convergence, and military signals
-- **Strategic Risk Score** — composite geopolitical risk from convergence, CII, infrastructure, theater, and breaking news
-- **Signal Aggregation** — multi-source fusion with temporal baseline anomaly detection (Welford's algorithm)
-- **Cross-Stream Correlation** — 14 signal types detecting patterns across news, markets, military, and predictions
+- **Strategic Risk Score** — composite geopolitical risk from convergence, CII, infrastructure, theater posture, and breaking news
+- **Signal Aggregation** — multi-source fusion with temporal baseline anomaly detection (Welford's online algorithm)
+- **UCDP conflict data** — Uppsala Conflict Data Program integration for historical & ongoing armed-conflict events
+- **GPS/GNSS jamming detection** — H3 hexagonal-grid interference overlay wired into CII scoring
+- **Geofenced alert rules** — user-defined, editable alert rules with a Sources & Status health panel
 
-### Live News & Video
+### Live News, Signals & Video
 
-- **435+ RSS feeds** across geopolitics, defense, energy, tech, and finance with server-side aggregation
-- **30+ live video streams** — Bloomberg, Sky News, Al Jazeera, and more with HLS native streaming
-- **Custom keyword monitors** — user-defined alerts with word-boundary matching and auto-coloring
+- **680+ RSS feeds** across geopolitics, defense, energy, tech, and finance, deduplicated and tier-ranked server-side
+- **Telegram Intel panel** — curated OSINT channels relayed via MTProto
+- **OREF Israel Sirens** — real-time alert relay with Hebrew→English translation
+- **Security Advisories** — government travel/security alert aggregation
+- **AviationStack integration** — global airport delay tracking with NOTAM closure detection
+- **Article extraction** — full-text article fetching with readability parsing and reading-progress tracking
+- **30+ live video streams** — Bloomberg, Sky News, Al Jazeera, RT, and more with native HLS streaming
+- **Custom keyword monitors** — user-defined alerts with word-boundary matching, auto-coloring, and desktop push notifications
+- **Breaking news alert banner** — audio alerts for critical/high-severity items
 
 ### Desktop & Mobile
 
-- **Native desktop app** (Tauri) — macOS, Windows, Linux with OS keychain, local sidecar, and cloud fallback
+- **Native desktop app** (Tauri 2) — macOS, Windows, Linux with OS keychain, local Rust sidecar, and cloud fallback
 - **Progressive Web App** — installable with offline map support
 - **Mobile-optimized map** — touch pan with inertia, pinch-to-zoom, bottom-sheet popups, GPS centering
+- **Desktop push notifications** — OS-native alerts for critical intelligence signals
 - **Responsive layout** — ultra-wide L-shaped layout on 2000px+, collapsible panels
 
 ### Platform Features
 
 - **21 languages** — lazy-loaded bundles with native-language RSS feeds, AI translation, and RTL support
-- **Cmd+K command palette** — fuzzy search across 24 result types, layer presets, ~250 country commands
-- **Proto-first API contracts** — 92 proto files, 22 services, auto-generated TypeScript + OpenAPI docs
+- **Cmd+K command palette** — fuzzy search across news, countries, layers, and panel commands
+- **Marketplace** — install community-contributed map layers, panels, and custom RSS/Telegram/X sources
+- **Proto-first API contracts** — 168 proto files across 28 services, auto-generated TypeScript clients/servers + OpenAPI docs
+- **What's New panel** — release timeline auto-parsed from `CHANGELOG.md` at build time
 - **Story sharing** — intelligence briefs exportable to Twitter/X, LinkedIn, WhatsApp, Telegram, Reddit
 
 ---
@@ -121,15 +135,16 @@ src/app/
 ```
 
 **Key patterns:**
+
 - **Event bus** — modules communicate via `AppEventBus` instead of direct mutations
 - **Owned stores** — each domain (news, intelligence, UI, map) has a single writer
-- **Panel interfaces** — renderers look up by interface, not string key + type-cast
-- **ManagedService** — all singleton services implement `init()/destroy()` lifecycle
-- **Variant tree-shaking** — `SITE_VARIANT` is a build-time constant, dead code eliminated
+- **Panel interfaces** — 16 renderable interfaces replace string-key + type-cast lookups
+- **ManagedService** — singleton services implement `init()/destroy()` lifecycle via a registry
+- **Variant tree-shaking** — `SITE_VARIANT` is a build-time constant, dead variant code eliminated
 
 ### Data Flow
 
-1. **DataLoaderManager** orchestrates parallel fetches from 17+ domain services
+1. **DataLoaderManager** orchestrates parallel fetches across domain services
 2. **NewsClusteringPipeline** handles news loading, Jaccard clustering, categorization
 3. **SignalPublisher** manages supplemental bus, CII refresh, intelligence aggregation
 4. **DataRenderer** dispatches data to panels via interface contracts
@@ -143,10 +158,10 @@ A single codebase produces six specialized dashboards. `SITE_VARIANT` is injecte
 | Aspect                | EdgePannel                                           | EdgePannel Tech                                 | EdgePannel Finance                               | EdgePannel Commodity                                      | EdgePannel Happy                                      | EdgePannel Conflicts                                  |
 | --------------------- | ---------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
 | **Domain**            | edgepannel.app                                       | tech.edgepannel.app                             | finance.edgepannel.app                           | commodity.edgepannel.app                                  | happy.edgepannel.app                                  | conflicts.edgepannel.app                              |
-| **Focus**             | Geopolitics, military, conflicts                     | AI/ML, startups, cybersecurity                  | Markets, trading, central banks                  | Mining, metals, energy commodities, critical minerals     | Good news, conservation, human progress               | Conflict, military, displacement, security risk       |
-| **RSS Feeds**         | 15 categories, 200+ feeds                            | 21 categories, 152 feeds                        | 14 categories, 55 feeds                          | 10 categories, 50+ feeds                                  | 5 categories, 21 positive-news sources                | Conflict and security feeds                           |
-| **Panels**            | 45                                                   | 28                                              | 27                                               | 16                                                        | 10                                                    | 29                                                    |
-| **Desktop App**       | Yes                                                  | Yes                                             | Yes                                              | (web-only)                                                | (web-only)                                            | (web-only)                                            |
+| **Focus**             | Geopolitics, military, conflicts, infrastructure     | AI/ML, startups, cybersecurity                  | Markets, trading, central banks                  | Mining, metals, energy commodities, critical minerals     | Good news, conservation, human progress               | Conflict, military, displacement, security risk       |
+| **RSS Feeds**         | 30 categories, 250+ feeds                            | 21 categories, 150+ feeds                       | 15 categories, 65+ feeds                         | 10 categories, 60+ feeds                                  | 6 categories, 28+ feeds                                | 8 categories, 75+ feeds                               |
+| **Default panels**    | 30                                                    | 26                                              | 21                                                | 11                                                        | 9                                                     | 16                                                    |
+| **Desktop App**       | Yes                                                  | Yes                                             | Yes                                              | (web-only)                                                | (web-only)                                            | Yes                                                    |
 
 ---
 
@@ -168,7 +183,7 @@ curl -s 'https://api.edgepannel.app/api/seismology/v1/list-earthquakes'
 curl -s 'https://api.edgepannel.app/api/enrichment/company?domain=stripe.com'
 ```
 
-All 22 service domains available as `POST /api/{domain}/v1/{rpc-name}`. GET with query params supported for read-only RPCs.
+All 28 service domains (alerts, aviation, climate, conflict, consumer-prices, cyber, displacement, economic, forecast, giving, infrastructure, intelligence, maritime, market, military, natural, news, positive-events, prediction, reference, research, resilience, seismology, supply-chain, trade, unrest, wildfire, and core) are available as `POST /api/{domain}/v1/{rpc-name}`. GET with query params is supported for read-only RPCs.
 
 > **Note**: Use `api.edgepannel.app`, not `edgepannel.app` — the main domain requires browser origin headers.
 
@@ -180,10 +195,10 @@ All 22 service domains available as `POST /api/{domain}/v1/{rpc-name}`. GET with
 git clone https://github.com/koala73/worldmonitor.git
 cd worldmonitor
 npm install
-vercel dev       # Runs frontend + all 60+ API edge functions
+npm run dev       # Vite dev server + RSS/AIS relay on localhost:5173
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:5173](http://localhost:5173). Run `npm run dev:tech`, `dev:finance`, `dev:happy`, `dev:commodity`, or `dev:conflicts` for the other variants.
 
 ### Environment Variables (Optional)
 
@@ -191,19 +206,26 @@ Open [http://localhost:3000](http://localhost:3000)
 cp .env.example .env.local
 ```
 
-| Group             | Variables                                  | Free Tier                          |
-| ----------------- | ------------------------------------------ | ---------------------------------- |
-| **AI (Local)**    | `OLLAMA_API_URL`, `OLLAMA_MODEL`           | Free (runs on your hardware)       |
-| **AI (Cloud)**    | `GROQ_API_KEY`, `OPENROUTER_API_KEY`       | 14,400 req/day (Groq)              |
-| **Cache**         | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | 10K commands/day         |
-| **Markets**       | `FINNHUB_API_KEY`, `FRED_API_KEY`, `EIA_API_KEY` | All free tier               |
-| **UI**            | `VITE_VARIANT`                             | N/A                                |
+The dashboard runs with zero configuration — static layers, the map, and browser-side ML all work with no API keys. `.env.example` documents 60+ optional integrations; the main groups:
+
+| Group                | Variables                                                    | Free Tier                          |
+| --------------------- | ------------------------------------------------------------ | ---------------------------------- |
+| **AI (Local)**        | `OLLAMA_API_URL`, `OLLAMA_MODEL`                             | Free (runs on your hardware)       |
+| **AI (Cloud)**        | `GROQ_API_KEY`, `OPENROUTER_API_KEY`                         | 14,400 req/day (Groq)              |
+| **Cache**              | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`         | 10K commands/day                   |
+| **Markets**            | `FINNHUB_API_KEY`, `FRED_API_KEY`, `EIA_API_KEY`             | All free tier                      |
+| **Aviation / Maritime**| `AVIATIONSTACK_API`, `WINGBITS_API_KEY`, `AISSTREAM_API_KEY` | Free tier available                |
+| **Conflict / Cyber**   | `ACLED_ACCESS_TOKEN`, `UCDP_ACCESS_TOKEN`, `OTX_API_KEY`, `ABUSEIPDB_API_KEY` | Free tier available |
+| **Telegram Intel**     | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION`   | Free (MTProto)                     |
+| **UI**                 | `VITE_VARIANT`                                                | N/A                                 |
 
 See [`.env.example`](./.env.example) for the complete list.
 
 ---
 
 ## Self-Hosting
+
+Self-hosted deployments are always fully free under AGPL-3.0 — there is no paid tier for source you run yourself.
 
 ### Option 1: Deploy to Vercel (Recommended)
 
@@ -215,15 +237,17 @@ vercel
 ### Option 2: Local Development
 
 ```bash
-npm install -g vercel
-vercel dev                   # Frontend + edge functions on localhost:3000
+npm run dev                  # Frontend + RSS/AIS relay on localhost:5173
 ```
 
-### Option 3: Static Frontend Only
+### Option 3: Full Edge Function Parity
 
 ```bash
-npm run dev    # Vite dev server on localhost:5173
+npm install -g vercel
+vercel dev                   # Frontend + all Vercel edge functions on localhost:3000
 ```
+
+The RSS/AIS relay (`scripts/ais-relay.cjs`) is designed to run standalone (e.g. on Railway, see `railpack.json`) alongside the Vercel deployment for production.
 
 ---
 
@@ -231,16 +255,16 @@ npm run dev    # Vite dev server on localhost:5173
 
 | Category              | Technologies                                                                                                                                   |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend**          | Preact 10, TypeScript 5.7, Vite 6.0                                                                                                            |
-| **Maps (3D)**         | globe.gl + Three.js                                                                                                                            |
-| **Maps (2D)**         | deck.gl + MapLibre GL                                                                                                                          |
-| **Charts**            | D3.js, lightweight-charts                                                                                                                      |
-| **Desktop**           | Tauri 2.10 (Rust)                                                                                                                              |
-| **AI/ML**             | Ollama, Groq, OpenRouter, Transformers.js (browser), ONNX Runtime Web                                                                          |
-| **APIs**              | Protobuf (sebuf codegen), 22 services                                                                                                          |
-| **Testing**           | Playwright                                                                                                                                     |
-| **i18n**              | i18next (21 languages)                                                                                                                         |
-| **Analytics**         | Sentry, Vercel Analytics                                                                                                                       |
+| **Frontend**          | Preact 10, TypeScript 5.7, Vite 8                                                                                                              |
+| **Maps**              | MapLibre GL 5 (native globe projection) + deck.gl 9 — single unified engine for flat map and globe                                            |
+| **Charts**            | D3 (per-module `d3-*` imports), lightweight-charts                                                                                             |
+| **Desktop**           | Tauri 2 (Rust sidecar), OS keychain, local API server                                                                                          |
+| **Realtime data**     | Convex                                                                                                                                          |
+| **AI/ML**             | Ollama, LM Studio, Groq, OpenRouter, Transformers.js (browser), ONNX Runtime Web                                                               |
+| **APIs**              | Protobuf (sebuf codegen) — 168 proto files, 28 services                                                                                        |
+| **Testing**           | Playwright (e2e + visual regression), Node test runner (unit)                                                                                  |
+| **i18n**              | i18next (21 languages)                                                                                                                          |
+| **Analytics**         | Sentry, Vercel Analytics                                                                                                                        |
 
 ---
 
@@ -264,7 +288,8 @@ npm run build:happy      # Build happy variant
 npm run build:conflicts  # Build conflicts variant
 
 # Quality
-npm run typecheck        # TypeScript type checking
+npm run typecheck:all    # TypeScript type checking (frontend + API)
+npm run test:e2e         # Playwright e2e tests, all variants
 
 # Desktop packaging
 npm run desktop:package:macos:full
@@ -277,8 +302,6 @@ npm run desktop:package:windows:full
 
 **Upcoming:**
 
-- [ ] Mobile-optimized views
-- [ ] Push notifications for critical alerts
 - [ ] Self-hosted Docker image
 
 ---
