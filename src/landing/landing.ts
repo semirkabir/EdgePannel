@@ -3,6 +3,11 @@
  * dashboard bundle. Heavy pieces (globe canvas, live data) load lazily.
  */
 
+// Opt into the scroll-reveal animation. Until this runs, `.lp-reveal` content is
+// plainly visible, so a failure anywhere below degrades to a static page rather
+// than a blank one. Set first, before anything that could throw.
+document.documentElement.classList.add('lp-anim');
+
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // --- Sticky nav state ---
