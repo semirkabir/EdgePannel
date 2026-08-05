@@ -62,3 +62,7 @@ ds-bundle/
 .design-sync/.cache/
 .design-sync/learnings/
 .design-sync/node_modules
+
+# Generated docs portal — rebuilt from docs/*.md, docs/api/*.json and CHANGELOG.md
+# on every build (npm run docs:build), so it must never be committed.
+public/docs/
