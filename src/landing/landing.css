@@ -801,11 +801,6 @@ html.lp-anim .lp-reveal.lp-in {
 
 /* ---------- hero GitHub stars ---------- */
 
-.lp-gh-stars {
-  color: var(--lp-accent);
-  text-decoration: none;
-}
-.lp-gh-stars:hover { text-decoration: underline; }
 
 /* ---------- nav dropdown ---------- */
 

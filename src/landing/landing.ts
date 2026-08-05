@@ -109,33 +109,6 @@ if (shortcutSwap) {
   }, 2000);
 }
 
-// --- GitHub stars: real social proof, fetched live; stays hidden on failure ---
-const ghStars = document.getElementById('gh-stars');
-const ghStarsCount = document.getElementById('gh-stars-count');
-if (ghStars && ghStarsCount) {
-  const showStars = async (): Promise<void> => {
-    try {
-      const resp = await fetch('https://api.github.com/repos/koala73/worldmonitor', {
-        signal: AbortSignal.timeout(6000),
-      });
-      if (!resp.ok) return;
-      const data = (await resp.json()) as { stargazers_count?: number };
-      const n = data.stargazers_count;
-      if (!Number.isFinite(n) || (n as number) < 1) return;
-      ghStarsCount.textContent =
-        (n as number) >= 1000 ? `${((n as number) / 1000).toFixed(1)}k` : String(n);
-      ghStars.hidden = false;
-    } catch {
-      /* stays hidden — never show a made-up number */
-    }
-  };
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(() => void showStars(), { timeout: 4000 });
-  } else {
-    setTimeout(() => void showStars(), 1500);
-  }
-}
-
 // --- Nav dropdowns (desktop) ---
 // querySelectorAll, not querySelector: this used to wire only the first
 // .lp-nav-drop, so adding a second one left it inert with no visible error.
