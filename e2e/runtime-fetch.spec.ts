@@ -53,8 +53,8 @@ test.describe('desktop runtime routing guardrails', () => {
           hasTauriGlobals: false,
           userAgent: 'Mozilla/5.0',
           locationProtocol: 'https:',
-          locationHost: 'edgepannel.app',
-          locationOrigin: 'https://edgepannel.app',
+          locationHost: 'edgepannel.com',
+          locationOrigin: 'https://edgepannel.com',
         }),
       };
     });
@@ -97,14 +97,14 @@ test.describe('desktop runtime routing guardrails', () => {
         if (url.includes('127.0.0.1:46123/api/fred-data')) {
           return responseJson({ error: 'missing local api key' }, 500);
         }
-        if (url.includes('edgepannel.app/api/fred-data')) {
+        if (url.includes('edgepannel.com/api/fred-data')) {
           return responseJson({ observations: [{ value: '321.5' }] }, 200);
         }
 
         if (url.includes('127.0.0.1:46123/api/stablecoin-markets')) {
           throw new Error('ECONNREFUSED');
         }
-        if (url.includes('edgepannel.app/api/stablecoin-markets')) {
+        if (url.includes('edgepannel.com/api/stablecoin-markets')) {
           return responseJson({ stablecoins: [{ symbol: 'USDT' }] }, 200);
         }
 
@@ -152,9 +152,9 @@ test.describe('desktop runtime routing guardrails', () => {
     expect(result.stableSymbol).toBe('USDT');
 
     expect(result.calls.some((url) => url.includes('127.0.0.1:46123/api/fred-data'))).toBe(true);
-    expect(result.calls.some((url) => url.includes('edgepannel.app/api/fred-data'))).toBe(true);
+    expect(result.calls.some((url) => url.includes('edgepannel.com/api/fred-data'))).toBe(true);
     expect(result.calls.some((url) => url.includes('127.0.0.1:46123/api/stablecoin-markets'))).toBe(true);
-    expect(result.calls.some((url) => url.includes('edgepannel.app/api/stablecoin-markets'))).toBe(true);
+    expect(result.calls.some((url) => url.includes('edgepannel.com/api/stablecoin-markets'))).toBe(true);
   });
 
   test('runtime fetch patch never sends local-only endpoints to cloud', async ({ page }) => {
@@ -188,10 +188,10 @@ test.describe('desktop runtime routing guardrails', () => {
           throw new Error('ECONNREFUSED');
         }
 
-        if (url.includes('edgepannel.app/api/local-env-update')) {
+        if (url.includes('edgepannel.com/api/local-env-update')) {
           return responseJson({ leaked: true }, 200);
         }
-        if (url.includes('edgepannel.app/api/local-validate-secret')) {
+        if (url.includes('edgepannel.com/api/local-validate-secret')) {
           return responseJson({ leaked: true }, 200);
         }
 
@@ -243,8 +243,8 @@ test.describe('desktop runtime routing guardrails', () => {
 
     expect(result.calls.some((url) => url.includes('127.0.0.1:46123/api/local-env-update'))).toBe(true);
     expect(result.calls.some((url) => url.includes('127.0.0.1:46123/api/local-validate-secret'))).toBe(true);
-    expect(result.calls.some((url) => url.includes('edgepannel.app/api/local-env-update'))).toBe(false);
-    expect(result.calls.some((url) => url.includes('edgepannel.app/api/local-validate-secret'))).toBe(false);
+    expect(result.calls.some((url) => url.includes('edgepannel.com/api/local-env-update'))).toBe(false);
+    expect(result.calls.some((url) => url.includes('edgepannel.com/api/local-validate-secret'))).toBe(false);
   });
 
   test('chunk preload reload guard is one-shot until app boot clears it', async ({ page }) => {
@@ -376,9 +376,9 @@ test.describe('desktop runtime routing guardrails', () => {
       }
     });
 
-    expect(result.macArm).toBe('https://edgepannel.app/api/download?platform=macos-arm64&variant=full');
-    expect(result.windowsX64).toBe('https://edgepannel.app/api/download?platform=windows-msi&variant=full');
-    expect(result.linuxFallback).toBe('https://edgepannel.app/api/download?platform=linux-appimage&variant=full');
+    expect(result.macArm).toBe('https://edgepannel.com/api/download?platform=macos-arm64&variant=full');
+    expect(result.windowsX64).toBe('https://edgepannel.com/api/download?platform=windows-msi&variant=full');
+    expect(result.linuxFallback).toBe('https://edgepannel.com/api/download?platform=linux-appimage&variant=full');
   });
 
   test('MapContainer falls back to SVG when WebGL2 is unavailable', async ({ page }) => {
@@ -780,7 +780,7 @@ test.describe('desktop runtime routing guardrails', () => {
         if (url.includes('127.0.0.1:46123/api/fred-data')) {
           throw new Error('ECONNREFUSED');
         }
-        if (url.includes('edgepannel.app/api/fred-data')) {
+        if (url.includes('edgepannel.com/api/fred-data')) {
           return responseJson({ observations: [{ value: '999' }] }, 200);
         }
         return responseJson({ ok: true }, 200);
@@ -800,7 +800,7 @@ test.describe('desktop runtime routing guardrails', () => {
           fetchError = err instanceof Error ? err.message : String(err);
         }
 
-        const cloudCalls = calls.filter(u => u.includes('edgepannel.app'));
+        const cloudCalls = calls.filter(u => u.includes('edgepannel.com'));
 
         return {
           fetchError,
@@ -850,7 +850,7 @@ test.describe('desktop runtime routing guardrails', () => {
 
         calls.push(url);
 
-        if (url.includes('edgepannel.app') && init?.headers) {
+        if (url.includes('edgepannel.com') && init?.headers) {
           const h = new Headers(init.headers);
           const wmKey = h.get('X-EdgePannel-Key');
           if (wmKey) capturedHeaders['X-EdgePannel-Key'] = wmKey;
@@ -859,7 +859,7 @@ test.describe('desktop runtime routing guardrails', () => {
         if (url.includes('127.0.0.1:46123/api/market/v1/test')) {
           throw new Error('ECONNREFUSED');
         }
-        if (url.includes('edgepannel.app/api/market/v1/test')) {
+        if (url.includes('edgepannel.com/api/market/v1/test')) {
           return responseJson({ quotes: [] }, 200);
         }
         return responseJson({ ok: true }, 200);
@@ -881,7 +881,7 @@ test.describe('desktop runtime routing guardrails', () => {
         return {
           status: response.status,
           hasQuotes: Array.isArray(body.quotes),
-          cloudCalls: calls.filter(u => u.includes('edgepannel.app')).length,
+          cloudCalls: calls.filter(u => u.includes('edgepannel.com')).length,
           wmKeyHeader: capturedHeaders['X-EdgePannel-Key'] || null,
         };
       } finally {

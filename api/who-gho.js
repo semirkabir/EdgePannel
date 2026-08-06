@@ -28,7 +28,7 @@ const INDICATOR_QUERIES = [
 async function fetchIndicatorRows({ code, name, unit, filter }) {
   const url = `${GHO_BASE}/${code}?$filter=${encodeURIComponent(filter)}&$orderby=NumericValue desc&$top=20&$select=SpatialDim,TimeDim,NumericValue`;
   const response = await fetchWithTimeout(url, {
-    headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.app)' },
+    headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.com)' },
   }, 15000);
 
   if (!response.ok) throw new Error(`WHO GHO ${code} HTTP ${response.status}`);

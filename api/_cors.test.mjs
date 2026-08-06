@@ -7,7 +7,7 @@ function makeRequest(origin) {
   if (origin !== null) {
     headers.set('origin', origin);
   }
-  return new Request('https://edgepannel.app/api/test', { headers });
+  return new Request('https://edgepannel.com/api/test', { headers });
 }
 
 test('allows desktop Tauri origins', () => {
@@ -31,7 +31,7 @@ test('rejects unrelated external origins', () => {
   const req = makeRequest('https://evil.example.com');
   assert.equal(isDisallowedOrigin(req), true);
   const cors = getCorsHeaders(req);
-  assert.equal(cors['Access-Control-Allow-Origin'], 'https://edgepannel.app');
+  assert.equal(cors['Access-Control-Allow-Origin'], 'https://edgepannel.com');
 });
 
 test('requests without origin remain allowed', () => {

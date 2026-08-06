@@ -4,8 +4,8 @@ Allow: /
 Disallow: /api/
 Disallow: /tests/
 
-Sitemap: https://edgepannel.app/sitemap.xml
-Sitemap: https://edgepannel.app/docs/sitemap.xml
+Sitemap: https://edgepannel.com/sitemap.xml
+Sitemap: https://edgepannel.com/docs/sitemap.xml
 
 # Allow social media bots for OG previews
 User-agent: Twitterbot

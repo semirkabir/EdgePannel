@@ -19,7 +19,7 @@ Both files use the same regex patterns:
 
 | Pattern | Matches |
 | --- | --- |
-| `(*.)?edgepannel.app` | Production + subdomains (`tech.`, `finance.`, etc.) |
+| `(*.)?edgepannel.com` | Production + subdomains (`tech.`, `finance.`, etc.) |
 | `worldmonitor-*-elie-*.vercel.app` | Vercel preview deploys |
 | `localhost:*` / `127.0.0.1:*` | Local development |
 | `tauri.localhost:*` / `*.tauri.localhost:*` | Desktop app (Tauri v2) |

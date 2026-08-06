@@ -81,7 +81,7 @@ export default async function handler(req) {
     const response = await fetchWithTimeout(celestrakUrl.toString(), {
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'Mozilla/5.0 (compatible; EdgePannel/1.0; +https://edgepannel.app)',
+        'User-Agent': 'Mozilla/5.0 (compatible; EdgePannel/1.0; +https://edgepannel.com)',
       },
     }, 15000);
     const body = await response.text();

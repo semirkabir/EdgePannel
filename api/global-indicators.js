@@ -28,7 +28,7 @@ async function fetchEurostatUnemployment() {
   for (const period of recentMonths(6)) {
     const url = `${EUROSTAT_BASE}/UNE_RT_M?geo=EU27_2020&s_adj=SA&age=TOTAL&unit=PC_ACT&sex=T&time=${period}`;
     const response = await fetchWithTimeout(url, {
-      headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.app)' },
+      headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.com)' },
     }, 12000);
     if (!response.ok) continue;
 
@@ -51,7 +51,7 @@ async function fetchEurostatUnemployment() {
 
 async function fetchTreasuryDebt() {
   const response = await fetchWithTimeout(TREASURY_DEBT_URL, {
-    headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.app)' },
+    headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.com)' },
   }, 12000);
   if (!response.ok) return null;
 

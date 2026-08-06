@@ -75,4 +75,4 @@ Each tile provider offers different visual themes, selectable via **Settings →
 
 ### Static Map Assets & Geocoding
 
-Country boundaries, boundary overrides, and the geocoding service are documented in [MAPS_AND_GEOCODING.md](MAPS_AND_GEOCODING.md). All large static files are served from R2 CDN via `maps.edgepannel.app`.
+Country boundaries, boundary overrides, and the geocoding service are documented in [MAPS_AND_GEOCODING.md](MAPS_AND_GEOCODING.md). All large static files are served from R2 CDN via `maps.edgepannel.com`.

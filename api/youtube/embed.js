@@ -10,10 +10,14 @@ function sanitizeVideoId(value) {
   return /^[A-Za-z0-9_-]{11}$/.test(value) ? value : null;
 }
 
+// Vercel preview hostnames derive from the Vercel *project* name, which has not
+// been renamed in lockstep with the domain. Both prefixes are accepted so
+// previews keep working either way; drop `worldmonitor-` once the project is
+// renamed and no live preview URLs still use it.
 const ALLOWED_ORIGINS = [
-  /^https:\/\/(.*\.)?worldmonitor\.app$/,
-  /^https:\/\/worldmonitor-[a-z0-9-]+-elie-habib-projects\.vercel\.app$/,
-  /^https:\/\/worldmonitor-[a-z0-9-]+\.vercel\.app$/,
+  /^https:\/\/(.*\.)?edgepannel\.com$/,
+  /^https:\/\/(edgepannel|worldmonitor)-[a-z0-9-]+-elie-habib-projects\.vercel\.app$/,
+  /^https:\/\/(edgepannel|worldmonitor)-[a-z0-9-]+\.vercel\.app$/,
   /^https?:\/\/localhost(:\d+)?$/,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
   /^tauri:\/\/localhost$/,
@@ -39,7 +43,7 @@ function sanitizeAllowedOrigin(raw, fallback, allowList = ALLOWED_ORIGINS) {
 }
 
 function sanitizeOrigin(raw) {
-  return sanitizeAllowedOrigin(raw, 'https://edgepannel.app', ALLOWED_ORIGINS);
+  return sanitizeAllowedOrigin(raw, 'https://edgepannel.com', ALLOWED_ORIGINS);
 }
 
 function sanitizeParentOrigin(raw, fallback) {

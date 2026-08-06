@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **World Monitor** — Real-time global intelligence dashboard. AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface. Single codebase with 6 deployable variants (full, tech, finance, happy, commodity, conflicts).
 
 - **Repo:** https://github.com/koala73/worldmonitor
-- **License:** AGPL-3.0-only
+- **License:** Proprietary — all rights reserved (see LICENSE)
 
 ## Essential Commands
 

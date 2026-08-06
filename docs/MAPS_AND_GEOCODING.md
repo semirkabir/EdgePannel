@@ -2,13 +2,13 @@
 
 Static map assets, country geometry, geocoding services, and boundary overrides.
 
-## R2 CDN — `maps.edgepannel.app`
+## R2 CDN — `maps.edgepannel.com`
 
 All large static map files are served from Cloudflare R2, **not** from Vercel. The R2 bucket `worldmonitor-maps` is fronted by a CF-proxied custom domain:
 
 | URL | Use |
 |-----|-----|
-| `https://maps.edgepannel.app/<file>` | Production URL (CF-proxied, cached, CORS headers) |
+| `https://maps.edgepannel.com/<file>` | Production URL (CF-proxied, cached, CORS headers) |
 | `https://pub-8ace9f6a86d74cb2bd5eb1de5590dd9e.r2.dev/<file>` | Raw R2 — **never use in code** (no CF caching, no CORS) |
 
 ### Why R2 instead of Vercel?
@@ -54,7 +54,7 @@ country-boundary-overrides.geojson      │
 ```
 
 1. `countries.geojson` — base polygons with ISO codes and names, served from `/data/` (Vercel)
-2. `country-boundary-overrides.geojson` — optional higher-resolution polygons from [Natural Earth](https://www.naturalearthdata.com/), served from R2 CDN (`maps.edgepannel.app`). Features matched by `ISO3166-1-Alpha-2` (or `ISO_A2`) code; matching features replace the base geometry
+2. `country-boundary-overrides.geojson` — optional higher-resolution polygons from [Natural Earth](https://www.naturalearthdata.com/), served from R2 CDN (`maps.edgepannel.com`). Features matched by `ISO3166-1-Alpha-2` (or `ISO_A2`) code; matching features replace the base geometry
 3. Base file loads first and the country index is built immediately (service becomes usable). Override file is fetched afterward with a **3-second timeout** — failures are silently ignored. Override lookup uses a `Map<code, Feature>` for O(1) matching
 
 ### Indexed Data Structures
@@ -133,13 +133,13 @@ For regions where full polygon geometry may not be loaded, `ME_STRIKE_BOUNDS` in
 
 Basemap tile configuration lives in `src/config/basemap.ts`. See [MAP_ENGINE.md](MAP_ENGINE.md) for full details on tile providers (PMTiles, OpenFreeMap, CARTO), themes, and fallback behavior.
 
-PMTiles are also served from R2 via `maps.edgepannel.app`, configured through `VITE_PMTILES_URL`.
+PMTiles are also served from R2 via `maps.edgepannel.com`, configured through `VITE_PMTILES_URL`.
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
-| Using `pub-*.r2.dev` URLs in code | Always use `maps.edgepannel.app` (CF-proxied) |
+| Using `pub-*.r2.dev` URLs in code | Always use `maps.edgepannel.com` (CF-proxied) |
 | Serving large GeoJSON from Vercel | Upload to R2 — Vercel bandwidth is expensive at scale |
 | Fetching overrides without a timeout | Always use `AbortSignal.timeout` — override CDN may be slow or down |
 | Forgetting `POLITICAL_OVERRIDES` | Check if the country code needs mapping (e.g., `CN-TW → TW`) |

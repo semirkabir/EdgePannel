@@ -1,8 +1,8 @@
 // Configuration exports
 // For variant-specific builds, set VITE_VARIANT environment variable
-// VITE_VARIANT=tech -> tech.edgepannel.app (tech-focused)
-// VITE_VARIANT=full -> edgepannel.app (geopolitical)
-// VITE_VARIANT=finance -> finance.edgepannel.app (markets/trading)
+// VITE_VARIANT=tech -> tech.edgepannel.com (tech-focused)
+// VITE_VARIANT=full -> edgepannel.com (geopolitical)
+// VITE_VARIANT=finance -> finance.edgepannel.com (markets/trading)
 
 export { SITE_VARIANT } from './variant';
 

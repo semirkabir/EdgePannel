@@ -6,8 +6,10 @@
  */
 
 const PRODUCTION_PATTERNS: RegExp[] = [
-  /^https:\/\/(.*\.)?edgepannel\.app$/,
-  /^https:\/\/edgepannel-[a-z0-9-]+-elie-[a-z0-9]+\.vercel\.app$/,
+  /^https:\/\/(.*\.)?edgepannel\.com$/,
+  // Vercel preview hostnames derive from the Vercel project name, not the
+  // domain, and the project has not been renamed. Accept both prefixes.
+  /^https:\/\/(edgepannel|worldmonitor)-[a-z0-9-]+-elie-habib-projects\.vercel\.app$/,
   /^https?:\/\/tauri\.localhost(:\d+)?$/,
   /^https?:\/\/[a-z0-9-]+\.tauri\.localhost(:\d+)?$/i,
   /^tauri:\/\/localhost$/,
@@ -30,7 +32,7 @@ function isAllowedOrigin(origin: string): boolean {
 
 export function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') || '';
-  const allowOrigin = isAllowedOrigin(origin) ? origin : 'https://edgepannel.app';
+  const allowOrigin = isAllowedOrigin(origin) ? origin : 'https://edgepannel.com';
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',

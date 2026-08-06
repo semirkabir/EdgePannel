@@ -8,7 +8,7 @@ import { fetchWithTimeout } from './_relay.js';
 
 export const config = { runtime: 'edge' };
 
-const USER_AGENT = 'EdgePannel/2.0 (https://edgepannel.app)';
+const USER_AGENT = 'EdgePannel/2.0 (https://edgepannel.com)';
 const MIN_QUERY_LEN = 2;
 const MAX_PLACES = 5;
 const MAX_ENTITIES = 5;

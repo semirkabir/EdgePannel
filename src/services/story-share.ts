@@ -23,7 +23,7 @@ export function generateStoryDeepLink(
   });
   if (score !== undefined) params.set('s', String(score));
   if (level) params.set('l', level);
-  return `https://edgepannel.app/api/story?${params.toString()}`;
+  return `https://edgepannel.com/api/story?${params.toString()}`;
 }
 
 // Parse deep link parameters

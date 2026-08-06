@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pricing — Free Forever, Upgrade for AI &amp; Alerts | EdgePannel</title>
     <meta name="description" content="Every data feed, map layer and lens is free forever, no account needed. Upgrade for AI analysis, real-time alerts, live tracking and 30-day history. Five plans from $0 to $99.97/mo." />
-    <link rel="canonical" href="https://edgepannel.app/pricing" />
+    <link rel="canonical" href="https://edgepannel.com/pricing" />
     <meta name="theme-color" content="#04080a" />
 
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://edgepannel.app/pricing" />
+    <meta property="og:url" content="https://edgepannel.com/pricing" />
     <meta property="og:site_name" content="EdgePannel" />
     <meta property="og:title" content="Pricing — Free Forever, Upgrade for AI &amp; Alerts | EdgePannel" />
     <meta property="og:description" content="Every feed, layer and lens free forever. Pay only for AI, alerts, tracking and history. Five plans from $0." />
-    <meta property="og:image" content="https://edgepannel.app/favico/og-image.png" />
+    <meta property="og:image" content="https://edgepannel.com/favico/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
 
     <link rel="icon" href="/favico/favicon.ico" sizes="any" />
@@ -35,8 +35,8 @@
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://edgepannel.app/" },
-        { "@type": "ListItem", "position": 2, "name": "Pricing", "item": "https://edgepannel.app/pricing" }
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://edgepannel.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Pricing", "item": "https://edgepannel.com/pricing" }
       ]
     }
     </script>
@@ -60,6 +60,7 @@
               <a role="menuitem" href="/commander">⌘K Commander</a>
             </div>
           </div>
+          <a href="/#who">Who it's for</a>
           <a href="/pricing">Pricing</a>
           <div class="lp-nav-drop">
             <button type="button" class="lp-nav-drop-btn" aria-expanded="false" aria-haspopup="true">Docs <span aria-hidden="true">▾</span></button>
@@ -71,7 +72,6 @@
             </div>
           </div>
           <a href="/#faq">FAQ</a>
-          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
         </nav>
         <a class="lp-btn lp-btn-primary lp-nav-cta" href="/app">Launch dashboard <span aria-hidden="true">→</span></a>
         <button class="lp-nav-burger" id="nav-burger" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu">
@@ -84,10 +84,10 @@
         <a href="/lenses">Six lenses</a>
         <a href="/dossiers">Country dossiers</a>
         <a href="/commander">⌘K Commander</a>
+        <a href="/#who">Who it's for</a>
         <a href="/pricing">Pricing</a>
         <a href="/docs/">Docs</a>
         <a href="/resources">OSINT resources</a>
-        <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
       </nav>
     </header>
 
@@ -229,9 +229,9 @@
 
           <p class="lp-pricing-note lp-reveal">
             <strong>The free tier is not a trial.</strong> It has no clock, no ads, and no
-            account requirement — the project is open-source (AGPL-3.0), so there's no user
-            data to sell. Paid tiers fund the AI inference, alert infrastructure and hosting
-            that the derived features need.
+            account requirement — with no account there's no user data to sell. Paid tiers
+            fund the AI inference, alert infrastructure and hosting that the derived
+            features need.
           </p>
         </div>
       </section>
@@ -284,12 +284,12 @@
               </p>
             </details>
             <details>
-              <summary>Is it still open source?</summary>
+              <summary>Can I self-host it?</summary>
               <p>
-                Yes — AGPL-3.0, developed in the open on
-                <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>.
-                You can self-host the whole thing for free; the paid tiers are the hosted,
-                zero-setup convenience with managed AI and alert infrastructure.
+                Not currently — EdgePannel is proprietary software offered as a hosted
+                service. The free tier is a real product rather than a trial, and the
+                <a href="/resources#methodology">scoring methodology</a> is published in
+                full so the numbers stay auditable.
               </p>
             </details>
           </div>
@@ -315,17 +315,30 @@
         <a class="lp-brand" href="/">
           <img class="lp-brand-logo" src="/src/assets/edgepannel-logo.png" alt="EdgePannel" width="149" height="30" />
         </a>
-        <nav class="lp-footer-links" aria-label="Footer">
-          <a href="/app">Dashboard</a>
-          <a href="/lenses">Six lenses</a>
-          <a href="/dossiers">Country dossiers</a>
-          <a href="/commander">⌘K Commander</a>
-          <a href="/resources">Resources</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/docs/">Docs</a>
-          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">GitHub</a>
-        </nav>
-        <p class="lp-footer-legal">© 2026 EdgePannel · AGPL-3.0</p>
+        <div class="lp-footer-cols">
+          <nav class="lp-footer-col" aria-labelledby="foot-product">
+            <p class="lp-footer-col-title" id="foot-product">Product</p>
+            <a href="/app">Dashboard</a>
+            <a href="/lenses">Six lenses</a>
+            <a href="/dossiers">Country dossiers</a>
+            <a href="/commander">⌘K Commander</a>
+            <a href="/pricing">Pricing</a>
+          </nav>
+          <nav class="lp-footer-col" aria-labelledby="foot-resources">
+            <p class="lp-footer-col-title" id="foot-resources">Resources</p>
+            <a href="/docs/">Documentation</a>
+            <a href="/docs/api-reference/">API reference</a>
+            <a href="/resources">OSINT resources</a>
+            <a href="/docs/changelog/">Changelog</a>
+          </nav>
+          <nav class="lp-footer-col" aria-labelledby="foot-company">
+            <p class="lp-footer-col-title" id="foot-company">Company</p>
+            <a href="/contact">Contact</a>
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+          </nav>
+        </div>
+        <p class="lp-footer-legal">© 2026 EdgePannel · All rights reserved</p>
       </div>
     </footer>
   </body>

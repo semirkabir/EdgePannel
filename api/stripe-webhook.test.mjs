@@ -18,10 +18,10 @@ async function computeSignature(secret, payload, timestamp) {
 }
 
 async function makeSignedRequest(body, signature) {
-  return new Request('https://edgepannel.app/api/stripe-webhook', {
+  return new Request('https://edgepannel.com/api/stripe-webhook', {
     method: 'POST',
     headers: {
-      origin: 'https://edgepannel.app',
+      origin: 'https://edgepannel.com',
       'content-type': 'application/json',
       'stripe-signature': signature,
     },

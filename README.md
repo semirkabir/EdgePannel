@@ -3,20 +3,20 @@
 **Real-time global intelligence dashboard** — AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situational awareness interface.
 
 [![GitHub stars](https://img.shields.io/github/stars/koala73/worldmonitor?style=social)](https://github.com/koala73/worldmonitor/stargazers)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Last commit](https://img.shields.io/github/last-commit/koala73/worldmonitor)](https://github.com/koala73/worldmonitor/commits/main)
 [![Latest release](https://img.shields.io/github/v/release/koala73/worldmonitor?style=flat)](https://github.com/koala73/worldmonitor/releases/latest)
 
 <p align="center">
-  <a href="https://edgepannel.app"><img src="https://img.shields.io/badge/Web_App-edgepannel.app-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web App"></a>&nbsp;
+  <a href="https://edgepannel.com"><img src="https://img.shields.io/badge/Web_App-edgepannel.com-blue?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web App"></a>&nbsp;
 </p>
 
 <p align="center">
-  <a href="https://edgepannel.app/api/download?platform=windows-exe"><img src="https://img.shields.io/badge/Download-Windows_(.exe)-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows"></a>&nbsp;
-  <a href="https://edgepannel.app/api/download?platform=macos-arm64"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS ARM"></a>&nbsp;
-  <a href="https://edgepannel.app/api/download?platform=macos-x64"><img src="https://img.shields.io/badge/Download-macOS_Intel-555555?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Intel"></a>&nbsp;
-  <a href="https://edgepannel.app/api/download?platform=linux-appimage"><img src="https://img.shields.io/badge/Download-Linux_(.AppImage)-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download Linux"></a>
+  <a href="https://edgepannel.com/api/download?platform=windows-exe"><img src="https://img.shields.io/badge/Download-Windows_(.exe)-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows"></a>&nbsp;
+  <a href="https://edgepannel.com/api/download?platform=macos-arm64"><img src="https://img.shields.io/badge/Download-macOS_Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS ARM"></a>&nbsp;
+  <a href="https://edgepannel.com/api/download?platform=macos-x64"><img src="https://img.shields.io/badge/Download-macOS_Intel-555555?style=for-the-badge&logo=apple&logoColor=white" alt="Download macOS Intel"></a>&nbsp;
+  <a href="https://edgepannel.com/api/download?platform=linux-appimage"><img src="https://img.shields.io/badge/Download-Linux_(.AppImage)-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download Linux"></a>
 </p>
 
 ---
@@ -29,7 +29,7 @@
 | No geospatial context for events   | **Interactive map** with 60 toggleable data layers on a unified MapLibre GL + deck.gl engine, plus a CII country risk heatmap |
 | Information overload               | **AI-synthesized briefs** with focal point detection and local LLM support                                 |
 | Crypto/macro signal noise          | **7-signal market radar** with composite BUY/CASH verdict                                                  |
-| Expensive OSINT tools ($$$)        | **Free forever core** — the full map, feeds, and layers need no account; self-hosting is always free under AGPL-3.0 |
+| Expensive OSINT tools ($$$)        | **Free forever core** — the full map, feeds, and layers need no account                                    |
 | Static news feeds                  | **Real-time updates** with live video streams, desktop push alerts, and AI-powered deductions               |
 | Cloud-dependent AI tools           | **Run AI locally** with Ollama/LM Studio — no API keys, no data leaves your machine                        |
 | Web-only dashboards                | **Native desktop app** (Tauri) for macOS, Windows, and Linux + installable PWA with offline map support    |
@@ -43,7 +43,7 @@
 
 | Variant             | URL                                                          | Focus                                            |
 | ------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
-| **EdgePannel**   | [edgepannel.app](https://edgepannel.app)                 | Geopolitics, military, conflicts, infrastructure |
+| **EdgePannel**   | [edgepannel.com](https://edgepannel.com)                 | Geopolitics, military, conflicts, infrastructure |
 
 ---
 
@@ -157,7 +157,7 @@ A single codebase produces six specialized dashboards. `SITE_VARIANT` is injecte
 
 | Aspect                | EdgePannel                                           | EdgePannel Tech                                 | EdgePannel Finance                               | EdgePannel Commodity                                      | EdgePannel Happy                                      | EdgePannel Conflicts                                  |
 | --------------------- | ---------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
-| **Domain**            | edgepannel.app                                       | tech.edgepannel.app                             | finance.edgepannel.app                           | commodity.edgepannel.app                                  | happy.edgepannel.app                                  | conflicts.edgepannel.app                              |
+| **Domain**            | edgepannel.com                                       | tech.edgepannel.com                             | finance.edgepannel.com                           | commodity.edgepannel.com                                  | happy.edgepannel.com                                  | conflicts.edgepannel.com                              |
 | **Focus**             | Geopolitics, military, conflicts, infrastructure     | AI/ML, startups, cybersecurity                  | Markets, trading, central banks                  | Mining, metals, energy commodities, critical minerals     | Good news, conservation, human progress               | Conflict, military, displacement, security risk       |
 | **RSS Feeds**         | 30 categories, 250+ feeds                            | 21 categories, 150+ feeds                       | 15 categories, 65+ feeds                         | 10 categories, 60+ feeds                                  | 6 categories, 28+ feeds                                | 8 categories, 75+ feeds                               |
 | **Default panels**    | 64                                                    | 31                                              | 45                                                | 26                                                        | 10                                                    | 28                                                    |
@@ -167,25 +167,25 @@ A single codebase produces six specialized dashboards. `SITE_VARIANT` is injecte
 
 ## Programmatic API Access
 
-Every data endpoint is accessible via `api.edgepannel.app`:
+Every data endpoint is accessible via `api.edgepannel.com`:
 
 ```bash
 # Fetch market quotes
-curl -s 'https://api.edgepannel.app/api/market/v1/list-market-quotes?symbols=AAPL,MSFT,GOOGL'
+curl -s 'https://api.edgepannel.com/api/market/v1/list-market-quotes?symbols=AAPL,MSFT,GOOGL'
 
 # Get airport delays
-curl -s 'https://api.edgepannel.app/api/aviation/v1/list-airport-delays'
+curl -s 'https://api.edgepannel.com/api/aviation/v1/list-airport-delays'
 
 # Get earthquake data
-curl -s 'https://api.edgepannel.app/api/seismology/v1/list-earthquakes'
+curl -s 'https://api.edgepannel.com/api/seismology/v1/list-earthquakes'
 
 # Company enrichment
-curl -s 'https://api.edgepannel.app/api/enrichment/company?domain=stripe.com'
+curl -s 'https://api.edgepannel.com/api/enrichment/company?domain=stripe.com'
 ```
 
 All 28 service domains (alerts, aviation, climate, conflict, consumer-prices, cyber, displacement, economic, forecast, giving, infrastructure, intelligence, maritime, market, military, natural, news, positive-events, prediction, reference, research, resilience, seismology, supply-chain, trade, unrest, wildfire, and core) are available as `POST /api/{domain}/v1/{rpc-name}`. GET with query params is supported for read-only RPCs.
 
-> **Note**: Use `api.edgepannel.app`, not `edgepannel.app` — the main domain requires browser origin headers.
+> **Note**: Use `api.edgepannel.com`, not `edgepannel.com` — the main domain requires browser origin headers.
 
 ---
 
@@ -223,9 +223,10 @@ See [`.env.example`](./.env.example) for the complete list.
 
 ---
 
-## Self-Hosting
+## Deployment
 
-Self-hosted deployments are always fully free under AGPL-3.0 — there is no paid tier for source you run yourself.
+For authorised developers and deployments only — the source is proprietary and
+running it requires a written agreement (see [`LICENSE`](./LICENSE)).
 
 ### Option 1: Deploy to Vercel (Recommended)
 
@@ -272,7 +273,7 @@ The RSS/AIS relay (`scripts/ais-relay.cjs`) is designed to run standalone (e.g. 
 
 ```bash
 # Development
-npm run dev              # Full variant (edgepannel.app)
+npm run dev              # Full variant (edgepannel.com)
 npm run dev:tech         # Tech variant
 npm run dev:finance      # Finance variant
 npm run dev:commodity    # Commodity variant
@@ -317,22 +318,27 @@ npm run desktop:package:windows:full
 
 ## License
 
-Licensed under **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+**Proprietary — all rights reserved.** See [`LICENSE`](./LICENSE).
 
-**You are free to:** Use, study, modify, and distribute.
+This software is not open source. No right to use, copy, modify or distribute
+the source is granted except under a written agreement with the copyright
+holder. Access to the hosted service is governed by the
+[Terms of Service](https://edgepannel.com/terms), which do not grant any rights
+to the source code.
 
-**Conditions:** Source code disclosure for network use, same license (copyleft), attribution, state changes.
+| Use Case | Allowed? |
+|----------|----------|
+| Using the hosted service | Yes — under the Terms of Service |
+| Reading, copying or self-hosting the source | No — written agreement required |
+| Forking or modifying | No — written agreement required |
+| Redistributing, in whole or in part | No |
 
-| Use Case | Allowed? | Condition |
-|----------|----------|-----------|
-| Personal / internal use | Yes | No conditions |
-| Self-hosted deployment | Yes | No conditions if unmodified |
-| Forking & modifying | Yes | Must share source under AGPL-3.0 |
-| Commercial use | Yes | Must share source under AGPL-3.0 |
-| Running as a SaaS/web service | Yes | Must share source under AGPL-3.0 |
-| Bundling into a proprietary product | No | AGPL-3.0 copyleft prevents this |
+Third-party open-source components remain under their own licences, and
+third-party data providers' terms of use apply independently.
 
-Copyright (C) 2024-2026 Elie Habib. All rights reserved under AGPL-3.0.
+Copyright (C) 2026 Semir Kabir. All rights reserved.
+Portions copyright (C) 2024-2026 Elie Habib, incorporated under a separate
+commercial licence.
 
 ---
 
@@ -359,7 +365,7 @@ We thank the following researchers for responsibly disclosing security issues:
 ---
 
 <p align="center">
-  <a href="https://edgepannel.app">edgepannel.app</a>
+  <a href="https://edgepannel.com">edgepannel.com</a>
 </p>
 
 ## Star History

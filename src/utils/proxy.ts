@@ -11,7 +11,7 @@ const RSS_DIRECT_TO_RELAY = viteEnv.VITE_RSS_DIRECT_TO_RELAY === 'true';
 const RSS_PROXY_BASE = isDev
   ? '' // Dev uses Vite's rssProxyPlugin
   : RSS_DIRECT_TO_RELAY
-    ? 'https://proxy.edgepannel.app'
+    ? 'https://proxy.edgepannel.com'
     : '';
 
 export function rssProxyUrl(feedUrl: string): string {

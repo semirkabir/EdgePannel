@@ -28,7 +28,7 @@ export default async function handler(req) {
   try {
     const response = await fetchWithTimeout(NWS_URL, {
       headers: {
-        'User-Agent': 'EdgePannel/1.0 (edgepannel.app)',
+        'User-Agent': 'EdgePannel/1.0 (edgepannel.com)',
         'Accept': 'application/geo+json',
       },
     }, 15000);

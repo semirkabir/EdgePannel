@@ -2,7 +2,7 @@
 
 AI-powered real-time global intelligence dashboard aggregating news, markets, geopolitical data, and infrastructure monitoring into a unified situation awareness interface.
 
-[Live Demo: edgepannel.app](https://edgepannel.app) | [Tech Variant: tech.edgepannel.app](https://tech.edgepannel.app) | [Finance Variant: finance.edgepannel.app](https://finance.edgepannel.app) | [Happy Variant: happy.edgepannel.app](https://happy.edgepannel.app)
+[Live Demo: edgepannel.com](https://edgepannel.com) | [Tech Variant: tech.edgepannel.com](https://tech.edgepannel.com) | [Finance Variant: finance.edgepannel.com](https://finance.edgepannel.com) | [Happy Variant: happy.edgepannel.com](https://happy.edgepannel.com)
 
 ## Documentation Index
 
@@ -29,8 +29,8 @@ EdgePannel runs four specialized variants from a single codebase, each optimized
 
 | Variant | URL | Focus |
 |---------|-----|-------|
-| **🌍 EdgePannel** | [edgepannel.app](https://edgepannel.app) | Geopolitical intelligence, military tracking, conflict monitoring, infrastructure security |
-| **💻 Tech Monitor** | [tech.edgepannel.app](https://tech.edgepannel.app) | Technology sector intelligence, AI/startup ecosystems, cloud infrastructure, tech events |
+| **🌍 EdgePannel** | [edgepannel.com](https://edgepannel.com) | Geopolitical intelligence, military tracking, conflict monitoring, infrastructure security |
+| **💻 Tech Monitor** | [tech.edgepannel.com](https://tech.edgepannel.com) | Technology sector intelligence, AI/startup ecosystems, cloud infrastructure, tech events |
 
 A compact **variant switcher** in the header allows seamless navigation between variants while preserving your map position and panel configuration.
 
@@ -68,7 +68,7 @@ The primary variant focuses on geopolitical intelligence, military tracking, and
 
 ## Tech Monitor
 
-The tech variant ([tech.edgepannel.app](https://tech.edgepannel.app)) provides specialized layers for technology sector monitoring.
+The tech variant ([tech.edgepannel.com](https://tech.edgepannel.com)) provides specialized layers for technology sector monitoring.
 
 ### Tech Ecosystem Layers
 

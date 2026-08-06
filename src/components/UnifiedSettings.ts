@@ -964,11 +964,11 @@ export class UnifiedSettings {
 
     // Social share buttons
     container.querySelector('#shareTwitter')?.addEventListener('click', () => {
-      const text = encodeURIComponent('Check out EdgePannel - real-time global monitoring at edgepannel.app');
+      const text = encodeURIComponent('Check out EdgePannel - real-time global monitoring at edgepannel.com');
       window.open(`https://x.com/intent/tweet?text=${text}`, '_blank');
     });
     container.querySelector('#shareLinkedIn')?.addEventListener('click', () => {
-      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://edgepannel.app')}`, '_blank');
+      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://edgepannel.com')}`, '_blank');
     });
 
     // Fetch referral code display

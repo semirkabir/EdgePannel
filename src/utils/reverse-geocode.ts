@@ -38,7 +38,7 @@ export async function reverseGeocode(lat: number, lon: number, signal?: AbortSig
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=3&accept-language=en`;
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'EdgePannel/2.0 (https://edgepannel.app)' },
+      headers: { 'User-Agent': 'EdgePannel/2.0 (https://edgepannel.com)' },
       signal: controller.signal,
     });
     if (!res.ok) {

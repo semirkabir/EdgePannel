@@ -58,7 +58,7 @@ export default async function handler(req) {
   try {
     const response = await fetchWithTimeout(cfg.url, {
       headers: {
-        'User-Agent': 'EdgePannel/1.0 (edgepannel.app)',
+        'User-Agent': 'EdgePannel/1.0 (edgepannel.com)',
         'Accept': cfg.accept,
       },
     }, 15000);

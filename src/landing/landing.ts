@@ -8,6 +8,23 @@
 // than a blank one. Set first, before anything that could throw.
 document.documentElement.classList.add('lp-anim');
 
+// --- Mark the current page in every nav ---
+// Nothing indicated which page you were on: nav, mobile menu and footer all
+// rendered identically on all nine marketing pages. Matching on pathname keeps
+// this working for pages added later without touching each one's markup.
+{
+  const here = location.pathname.replace(/\/+$/, '') || '/';
+  const selector = '.lp-nav-links a[href], .lp-nav-menu a[href], .lp-footer-col a[href]';
+  for (const link of document.querySelectorAll<HTMLAnchorElement>(selector)) {
+    const href = link.getAttribute('href') ?? '';
+    // Only same-page destinations count — never in-page anchors like /#who,
+    // which describe a section of the landing page rather than a location.
+    if (!href.startsWith('/') || href.includes('#')) continue;
+    const target = href.replace(/\/+$/, '') || '/';
+    if (target === here) link.setAttribute('aria-current', 'page');
+  }
+}
+
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // --- Sticky nav state ---
@@ -107,33 +124,6 @@ if (shortcutSwap) {
       shortcutSwap.style.transform = 'rotateX(0deg)';
     }, FLIP_MS);
   }, 2000);
-}
-
-// --- GitHub stars: real social proof, fetched live; stays hidden on failure ---
-const ghStars = document.getElementById('gh-stars');
-const ghStarsCount = document.getElementById('gh-stars-count');
-if (ghStars && ghStarsCount) {
-  const showStars = async (): Promise<void> => {
-    try {
-      const resp = await fetch('https://api.github.com/repos/koala73/worldmonitor', {
-        signal: AbortSignal.timeout(6000),
-      });
-      if (!resp.ok) return;
-      const data = (await resp.json()) as { stargazers_count?: number };
-      const n = data.stargazers_count;
-      if (!Number.isFinite(n) || (n as number) < 1) return;
-      ghStarsCount.textContent =
-        (n as number) >= 1000 ? `${((n as number) / 1000).toFixed(1)}k` : String(n);
-      ghStars.hidden = false;
-    } catch {
-      /* stays hidden — never show a made-up number */
-    }
-  };
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(() => void showStars(), { timeout: 4000 });
-  } else {
-    setTimeout(() => void showStars(), 1500);
-  }
 }
 
 // --- Nav dropdowns (desktop) ---

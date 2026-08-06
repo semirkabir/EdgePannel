@@ -44,7 +44,7 @@ export default async function handler(req) {
       {
         headers: {
           Accept: 'application/json',
-          'User-Agent': 'WorldMonitor/1.0 (edgepannel.app)',
+          'User-Agent': 'WorldMonitor/1.0 (edgepannel.com)',
         },
       },
       25000,

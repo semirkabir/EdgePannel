@@ -54,7 +54,7 @@ export const deliverAlertEmail: AlertsServiceHandler['deliverAlertEmail'] = asyn
       'Authorization': `Bearer ${resendKey}`,
     },
     body: JSON.stringify({
-      from: 'World Monitor <noreply@edgepannel.app>',
+      from: 'World Monitor <noreply@edgepannel.com>',
       to: [req.email],
       subject: `Alert: ${req.match?.ruleName ?? 'Rule matched'}`,
       html: buildAlertEmailHtml(req),

@@ -11,10 +11,17 @@ export function htmlVariantPlugin(options: HtmlVariantPluginOptions): Plugin {
   const { activeMeta, activeVariant, isDesktopBuild } = options;
   return {
     name: 'html-variant',
-    transformIndexHtml(html, ctx) {
+    transformIndexHtml(html) {
       // Marketing pages own their own static meta tags — never variant-rewritten.
-      const MARKETING_HTML = ['landing.html', 'lenses.html', 'dossiers.html', 'commander.html', 'resources.html', 'pricing.html'];
-      if (MARKETING_HTML.some((page) => ctx.filename.endsWith(page))) return html;
+      //
+      // Detected from the document itself rather than a hardcoded filename list.
+      // The list silently missed every page added after it was written: privacy,
+      // terms and contact shipped with their title, description, canonical and
+      // all og/twitter tags overwritten by the generic dashboard meta, which is
+      // invisible in source and only shows up in the built output. Keying off
+      // the marker the shell already sets means a new marketing page is exempt
+      // the moment it uses the standard shell.
+      if (/<html[^>]*\sdata-page="landing"/.test(html)) return html;
       let result = html
         .replace(/<title>.*?<\/title>/, `<title>${activeMeta.title}</title>`)
         .replace(/<meta name="title" content=".*?" \/>/, `<meta name="title" content="${activeMeta.title}" />`)
@@ -33,7 +40,7 @@ export function htmlVariantPlugin(options: HtmlVariantPluginOptions): Plugin {
         .replace(/<meta name="twitter:description" content=".*?" \/>/, `<meta name="twitter:description" content="${activeMeta.description}" />`)
         .replace(/"name": "EdgePannel"/, `"name": "${activeMeta.siteName}"`)
         .replace(/"alternateName": "EdgePannel"/, `"alternateName": "${activeMeta.siteName.replace(' ', '')}"`)
-        .replace(/"url": "https:\/\/edgepannel\.app\/"/, `"url": "${activeMeta.url}"`)
+        .replace(/"url": "https:\/\/edgepannel\.com\/"/, `"url": "${activeMeta.url}"`)
         .replace(/"description": "Real-time global intelligence dashboard with live news, markets, military tracking, infrastructure monitoring, and geopolitical data."/, `"description": "${activeMeta.description}"`)
         .replace(/"featureList": \[[\s\S]*?\]/, `"featureList": ${JSON.stringify(activeMeta.features, null, 8).replace(/\n/g, '\n      ')}`);
 

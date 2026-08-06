@@ -39,7 +39,7 @@ async function verifyTurnstile(token, ip) {
 }
 
 async function sendConfirmationEmail(email, referralCode, position) {
-  const referralLink = `https://edgepannel.app/pro?ref=${referralCode}`;
+  const referralLink = `https://edgepannel.com/pro?ref=${referralCode}`;
   const shareText = encodeURIComponent('I just joined the EdgePannel Pro waitlist - real-time global intelligence powered by AI. Join me:');
   const shareUrl = encodeURIComponent(referralLink);
   const twitterShare = `https://x.com/intent/tweet?text=${shareText}&url=${shareUrl}`;
@@ -57,7 +57,7 @@ async function sendConfirmationEmail(email, referralCode, position) {
         'Authorization': `Bearer ${resendKey}`,
       },
       body: JSON.stringify({
-        from: 'EdgePannel <noreply@edgepannel.app>',
+        from: 'EdgePannel <noreply@edgepannel.com>',
         to: [email],
         subject: 'You are on the EdgePannel Pro waitlist',
         html: `
@@ -159,7 +159,7 @@ async function sendConfirmationEmail(email, referralCode, position) {
                 </table>
               </div>
               <div style="text-align: center; margin-bottom: 36px;">
-                <a href="https://edgepannel.app" style="display: inline-block; background: #4ade80; color: #0a0a0a; padding: 14px 36px; text-decoration: none; font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; border-radius: 2px;">Explore the Free Dashboard</a>
+                <a href="https://edgepannel.com" style="display: inline-block; background: #4ade80; color: #0a0a0a; padding: 14px 36px; text-decoration: none; font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; border-radius: 2px;">Explore the Free Dashboard</a>
                 <p style="font-size: 12px; color: #555; margin-top: 12px;">The free dashboard stays free forever. Pro adds intelligence on top.</p>
               </div>
             </div>
@@ -167,11 +167,11 @@ async function sendConfirmationEmail(email, referralCode, position) {
               <div style="margin-bottom: 16px;">
                 <a href="https://x.com/eliehabib" style="color: #666; text-decoration: none; font-size: 12px; margin: 0 12px;">X / Twitter</a>
                 <a href="https://github.com/koala73/worldmonitor" style="color: #666; text-decoration: none; font-size: 12px; margin: 0 12px;">GitHub</a>
-                <a href="https://edgepannel.app/pro" style="color: #666; text-decoration: none; font-size: 12px; margin: 0 12px;">Pro Waitlist</a>
+                <a href="https://edgepannel.com/pro" style="color: #666; text-decoration: none; font-size: 12px; margin: 0 12px;">Pro Waitlist</a>
               </div>
               <p style="font-size: 11px; color: #444; margin: 0; line-height: 1.6;">
                 EdgePannel - Real-time intelligence for a connected world.<br />
-                <a href="https://edgepannel.app" style="color: #4ade80; text-decoration: none;">edgepannel.app</a>
+                <a href="https://edgepannel.com" style="color: #4ade80; text-decoration: none;">edgepannel.com</a>
               </p>
             </div>
           </div>`,

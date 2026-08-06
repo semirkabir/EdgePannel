@@ -145,7 +145,7 @@ async function fetchJson<T>(url: string, timeoutMs = REQUEST_TIMEOUT_MS): Promis
   try {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (typeof window === 'undefined') {
-      headers['User-Agent'] = 'Mozilla/5.0 (compatible; EdgePannel/1.0; +https://edgepannel.app)';
+      headers['User-Agent'] = 'Mozilla/5.0 (compatible; EdgePannel/1.0; +https://edgepannel.com)';
     }
     const resp = await fetch(url, {
       signal: controller.signal,
