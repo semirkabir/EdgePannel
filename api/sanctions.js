@@ -132,7 +132,7 @@ function parseFtmEntity(raw) {
 async function fetchOpenSanctionsDatasetUrls() {
   const response = await fetchWithTimeout(
     OPENSANCTIONS_INDEX_URL,
-    { headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.app)' } },
+    { headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.com)' } },
     15000,
   );
   if (!response.ok) throw new Error(`OpenSanctions index HTTP ${response.status}`);
@@ -156,7 +156,7 @@ async function fetchOpenSanctionsEntities() {
 
     const response = await fetchWithTimeout(
       url,
-      { headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.app)' } },
+      { headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/1.0 (edgepannel.com)' } },
       25000,
     );
     if (!response.ok) continue;
@@ -182,7 +182,7 @@ async function fetchOfacEntities() {
     OFAC_URL,
     {
       headers: {
-        'User-Agent': 'WorldMonitor/1.0 (edgepannel.app)',
+        'User-Agent': 'WorldMonitor/1.0 (edgepannel.com)',
         Accept: 'application/json',
       },
     },

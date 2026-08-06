@@ -6,8 +6,10 @@ const DESKTOP_ORIGIN_PATTERNS = [
 ];
 
 const BROWSER_ORIGIN_PATTERNS = [
-  /^https:\/\/(.*\.)?edgepannel\.app$/,
-  /^https:\/\/edgepannel-[a-z0-9-]+-elie-[a-z0-9]+\.vercel\.app$/,
+  /^https:\/\/(.*\.)?edgepannel\.com$/,
+  // Vercel preview hostnames derive from the Vercel project name, not the
+  // domain, and the project has not been renamed. Accept both prefixes.
+  /^https:\/\/(edgepannel|worldmonitor)-[a-z0-9-]+-elie-habib-projects\.vercel\.app$/,
   ...(process.env.NODE_ENV === 'production' ? [] : [
     /^https?:\/\/localhost(:\d+)?$/,
     /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
@@ -27,7 +29,7 @@ function isTrustedBrowserOrigin(origin) {
 // Python requests). 'same-origin' = strict same-origin browser fetch.
 //
 // Replaces an earlier Referer-origin fallback (issue #3541) which trusted a
-// client-controlled header: `curl -H "Referer: https://edgepannel.app/"` with
+// client-controlled header: `curl -H "Referer: https://edgepannel.com/"` with
 // no Origin was classified as a trusted browser, bypassing the API-key gate.
 // Sec-Fetch-Site is unforgeable; Referer is not.
 function isSameOriginBrowserRequest(req) {
@@ -43,7 +45,7 @@ function isValidKey(key) {
 /**
  * API key validation used for:
  *  1. Desktop app — requires valid X-EdgePannel-Key.
- *  2. Trusted browser origins (edgepannel.app, Vercel previews, localhost) — no
+ *  2. Trusted browser origins (edgepannel.com, Vercel previews, localhost) — no
  *     key needed. Same-origin requests with no Origin use Sec-Fetch-Site to confirm.
  *  3. Unknown origins — require a valid X-EdgePannel-Key header.
  *

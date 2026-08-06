@@ -16,7 +16,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SITE = 'https://edgepannel.app';
+const SITE = 'https://edgepannel.com';
 
 const src = readFileSync(resolve(ROOT, 'resources.html'), 'utf8');
 const nav = src.match(/( {4}<header class="lp-nav"[\s\S]*?<\/header>\n)/)[1];

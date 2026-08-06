@@ -94,7 +94,7 @@ export class ServiceStatusPanel extends Panel {
         enabled,
         apiBase: getApiBaseUrl(),
         port: getLocalApiPort(),
-        remoteBase: getRemoteApiBaseUrl() ?? 'https://edgepannel.app',
+        remoteBase: getRemoteApiBaseUrl() ?? 'https://edgepannel.com',
       }))
       .finally(() => {
         this.localBackendRefreshPromise = null;
@@ -148,13 +148,13 @@ export class ServiceStatusPanel extends Panel {
         meta,
         h('div', { className: 'service-status-backend-line' }, t('components.serviceStatus.backendUnavailable')),
         h('div', { className: 'service-status-backend-line muted' },
-          'Cloud fallback: ', h('strong', null, this.localBackend?.remoteBase ?? 'https://edgepannel.app'),
+          'Cloud fallback: ', h('strong', null, this.localBackend?.remoteBase ?? 'https://edgepannel.com'),
         ),
       );
     }
 
     const port = this.localBackend.port ?? getLocalApiPort();
-    const remote = this.localBackend.remoteBase ?? 'https://edgepannel.app';
+    const remote = this.localBackend.remoteBase ?? 'https://edgepannel.com';
 
     return h('div', { className: 'service-status-backend' },
       meta,

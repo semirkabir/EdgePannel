@@ -12,11 +12,11 @@ const SOCIAL_IMAGE_UA =
   /Slack-ImgProxy|Slackbot|twitterbot|facebookexternalhit|linkedinbot|telegrambot|whatsapp|discordbot|redditbot/i;
 
 const VARIANT_HOST_MAP: Record<string, string> = {
-  'tech.edgepannel.app': 'tech',
-  'finance.edgepannel.app': 'finance',
-  'commodity.edgepannel.app': 'commodity',
-  'happy.edgepannel.app': 'happy',
-  'conflicts.edgepannel.app': 'conflicts',
+  'tech.edgepannel.com': 'tech',
+  'finance.edgepannel.com': 'finance',
+  'commodity.edgepannel.com': 'commodity',
+  'happy.edgepannel.com': 'happy',
+  'conflicts.edgepannel.com': 'conflicts',
 };
 
 // Source of truth: src/config/variant-meta.ts — keep in sync when variant metadata changes.
@@ -24,37 +24,37 @@ const VARIANT_OG: Record<string, { title: string; description: string; image: st
   tech: {
     title: 'EdgePannel Tech - Real-Time AI & Tech Industry Dashboard',
     description: 'Real-time AI and tech industry dashboard tracking tech giants, AI labs, startup ecosystems, funding rounds, and tech events worldwide.',
-    image: 'https://tech.edgepannel.app/favico/tech/og-image.png',
-    url: 'https://tech.edgepannel.app/',
+    image: 'https://tech.edgepannel.com/favico/tech/og-image.png',
+    url: 'https://tech.edgepannel.com/',
   },
   finance: {
     title: 'EdgePannel Finance - Real-Time Markets & Trading Dashboard',
     description: 'Real-time finance and trading dashboard tracking global markets, stock exchanges, central banks, commodities, forex, crypto, and economic indicators worldwide.',
-    image: 'https://finance.edgepannel.app/favico/finance/og-image.png',
-    url: 'https://finance.edgepannel.app/',
+    image: 'https://finance.edgepannel.com/favico/finance/og-image.png',
+    url: 'https://finance.edgepannel.com/',
   },
   commodity: {
     title: 'EdgePannel Commodity - Real-Time Commodity Markets & Supply Chain Dashboard',
     description: 'Real-time commodity markets dashboard tracking mining sites, processing plants, commodity ports, supply chains, and global commodity trade flows.',
-    image: 'https://commodity.edgepannel.app/favico/commodity/og-image.png',
-    url: 'https://commodity.edgepannel.app/',
+    image: 'https://commodity.edgepannel.com/favico/commodity/og-image.png',
+    url: 'https://commodity.edgepannel.com/',
   },
   happy: {
     title: 'EdgePannel Happy - Good News & Global Progress',
     description: 'Curated positive news, progress data, and uplifting stories from around the world.',
-    image: 'https://happy.edgepannel.app/favico/happy/og-image.png',
-    url: 'https://happy.edgepannel.app/',
+    image: 'https://happy.edgepannel.com/favico/happy/og-image.png',
+    url: 'https://happy.edgepannel.com/',
   },
   conflicts: {
     title: 'EdgePannel Conflicts - Real-Time Conflict & Security Dashboard',
     description: 'Real-time conflict and security dashboard tracking wars, military activity, displacement, infrastructure risk, and geopolitical escalation signals.',
-    image: 'https://conflicts.edgepannel.app/favico/conflicts/og-image.png',
-    url: 'https://conflicts.edgepannel.app/',
+    image: 'https://conflicts.edgepannel.com/favico/conflicts/og-image.png',
+    url: 'https://conflicts.edgepannel.com/',
   },
 };
 
 const ALLOWED_HOSTS = new Set([
-  'edgepannel.app',
+  'edgepannel.com',
   ...Object.keys(VARIANT_HOST_MAP),
 ]);
 

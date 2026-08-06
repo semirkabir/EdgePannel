@@ -16,10 +16,10 @@ Thank you for helping spread the word about EdgePannel! This guide provides talk
 
 | Link | Description |
 |------|-------------|
-| [edgepannel.app](https://edgepannel.app) | Main dashboard — geopolitics, military, conflicts |
-| [tech.edgepannel.app](https://tech.edgepannel.app) | Tech variant — startups, AI/ML, cybersecurity |
-| [finance.edgepannel.app](https://finance.edgepannel.app) | Finance variant — markets, exchanges, central banks |
-| [Docs](https://edgepannel.app/docs/) | Documentation and API reference |
+| [edgepannel.com](https://edgepannel.com) | Main dashboard — geopolitics, military, conflicts |
+| [tech.edgepannel.com](https://tech.edgepannel.com) | Tech variant — startups, AI/ML, cybersecurity |
+| [finance.edgepannel.com](https://finance.edgepannel.com) | Finance variant — markets, exchanges, central banks |
+| [Docs](https://edgepannel.com/docs/) | Documentation and API reference |
 
 ---
 

@@ -1127,7 +1127,7 @@ export class Panel {
     if (isDesktopRuntime()) {
       ctaBtn.addEventListener('click', () => void invokeTauri<void>('open_settings_window_command').catch(() => {}));
     } else {
-      ctaBtn.addEventListener('click', () => window.open('https://edgepannel.app/pro', '_blank'));
+      ctaBtn.addEventListener('click', () => window.open('https://edgepannel.com/pro', '_blank'));
     }
     lockedChildren.push(ctaBtn);
 

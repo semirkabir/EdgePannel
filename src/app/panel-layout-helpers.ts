@@ -17,12 +17,12 @@ export interface SiteVariantInfo {
 
 /** Single source of truth for the 6 built-in site variants — shared by the header switcher, mobile menu, and the Workspaces panel. */
 export const SITE_VARIANTS: SiteVariantInfo[] = [
-  { id: 'full', icon: '🌍', labelKey: 'header.world', prodUrl: 'https://edgepannel.app' },
-  { id: 'tech', icon: '💻', labelKey: 'header.tech', prodUrl: 'https://tech.edgepannel.app' },
-  { id: 'finance', icon: '📈', labelKey: 'header.finance', prodUrl: 'https://finance.edgepannel.app' },
-  { id: 'commodity', icon: '⛏️', labelKey: 'header.commodity', prodUrl: 'https://commodity.edgepannel.app' },
-  { id: 'happy', icon: '☀️', labelKey: 'header.happy', prodUrl: 'https://happy.edgepannel.app' },
-  { id: 'conflicts', icon: '⚔️', labelKey: 'header.conflicts', prodUrl: 'https://conflicts.edgepannel.app' },
+  { id: 'full', icon: '🌍', labelKey: 'header.world', prodUrl: 'https://edgepannel.com' },
+  { id: 'tech', icon: '💻', labelKey: 'header.tech', prodUrl: 'https://tech.edgepannel.com' },
+  { id: 'finance', icon: '📈', labelKey: 'header.finance', prodUrl: 'https://finance.edgepannel.com' },
+  { id: 'commodity', icon: '⛏️', labelKey: 'header.commodity', prodUrl: 'https://commodity.edgepannel.com' },
+  { id: 'happy', icon: '☀️', labelKey: 'header.happy', prodUrl: 'https://happy.edgepannel.com' },
+  { id: 'conflicts', icon: '⚔️', labelKey: 'header.conflicts', prodUrl: 'https://conflicts.edgepannel.com' },
 ];
 
 /** Local dev and the desktop app can switch variants in place; in production each variant is a separate deployment reached via a link. */

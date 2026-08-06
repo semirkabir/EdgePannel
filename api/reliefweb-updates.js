@@ -100,7 +100,7 @@ export default async function handler(req) {
       {
         headers: {
           Accept: 'application/rss+xml, application/xml, text/xml, */*',
-          'User-Agent': 'WorldMonitor/1.0 (edgepannel.app)',
+          'User-Agent': 'WorldMonitor/1.0 (edgepannel.com)',
         },
       },
       15000,

@@ -25,8 +25,8 @@
 
 ## Checklist
 
-- [ ] Tested on [edgepannel.app](https://edgepannel.app) variant
-- [ ] Tested on [tech.edgepannel.app](https://tech.edgepannel.app) variant (if applicable)
+- [ ] Tested on [edgepannel.com](https://edgepannel.com) variant
+- [ ] Tested on [tech.edgepannel.com](https://tech.edgepannel.com) variant (if applicable)
 - [ ] New RSS feed domains added to `api/rss-proxy.js` allowlist (if adding feeds)
 - [ ] No API keys or secrets committed
 - [ ] TypeScript compiles without errors (`npm run typecheck`)

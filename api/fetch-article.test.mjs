@@ -102,8 +102,8 @@ function jsonResponse(body, status = 200) {
 }
 
 function makeRequest(articleUrl) {
-  return new Request(`https://edgepannel.app/api/fetch-article?url=${encodeURIComponent(articleUrl)}`, {
-    headers: { Origin: 'https://edgepannel.app' },
+  return new Request(`https://edgepannel.com/api/fetch-article?url=${encodeURIComponent(articleUrl)}`, {
+    headers: { Origin: 'https://edgepannel.com' },
   });
 }
 

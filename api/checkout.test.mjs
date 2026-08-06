@@ -3,14 +3,14 @@ import test from 'node:test';
 import handler from './checkout.js';
 
 function makeRequest(query = '') {
-  return new Request(`https://edgepannel.app/api/checkout${query}`, {
-    headers: { origin: 'https://edgepannel.app' },
+  return new Request(`https://edgepannel.com/api/checkout${query}`, {
+    headers: { origin: 'https://edgepannel.com' },
   });
 }
 
 function makeAuthedRequest(query = '') {
-  return new Request(`https://edgepannel.app/api/checkout${query}`, {
-    headers: { origin: 'https://edgepannel.app', 'x-edgepannel-token': 'id-token-user-123' },
+  return new Request(`https://edgepannel.com/api/checkout${query}`, {
+    headers: { origin: 'https://edgepannel.com', 'x-edgepannel-token': 'id-token-user-123' },
   });
 }
 
@@ -85,8 +85,8 @@ test('creates a Stripe checkout session and redirects to the hosted URL', async 
     const body = String(stripeCall.init.body);
     assert.match(body, /metadata%5BfirebaseUid%5D=user_123/);
     assert.match(body, /metadata%5Btier%5D=analyst/);
-    assert.match(body, /success_url=https%3A%2F%2Fedgepannel\.app%2Fapp%3Fcheckout%3Dsuccess%26tier%3Danalyst/);
-    assert.match(body, /cancel_url=https%3A%2F%2Fedgepannel\.app%2Fpricing%3Fcheckout%3Dcanceled/);
+    assert.match(body, /success_url=https%3A%2F%2Fedgepannel\.com%2Fapp%3Fcheckout%3Dsuccess%26tier%3Danalyst/);
+    assert.match(body, /cancel_url=https%3A%2F%2Fedgepannel\.com%2Fpricing%3Fcheckout%3Dcanceled/);
   } finally {
     process.env.STRIPE_SECRET_KEY = originalStripeKey;
     globalThis.fetch = originalFetch;

@@ -31,7 +31,7 @@ export default async function handler(req) {
       GDACS_URL,
       {
         headers: {
-          'User-Agent': 'WorldMonitor/1.0 (edgepannel.app)',
+          'User-Agent': 'WorldMonitor/1.0 (edgepannel.com)',
           Accept: 'application/json',
         },
       },

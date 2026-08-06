@@ -1,6 +1,8 @@
 const ALLOWED_ORIGIN_PATTERNS = [
-  /^https:\/\/(.*\.)?edgepannel\.app$/,
-  /^https:\/\/worldmonitor-[a-z0-9-]+-elie-[a-z0-9]+\.vercel\.app$/,
+  /^https:\/\/(.*\.)?edgepannel\.com$/,
+  // Vercel preview hostnames derive from the Vercel project name, not the
+  // domain, and the project has not been renamed. Accept both prefixes.
+  /^https:\/\/(edgepannel|worldmonitor)-[a-z0-9-]+-elie-habib-projects\.vercel\.app$/,
   /^https?:\/\/localhost(:\d+)?$/,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
   /^https?:\/\/tauri\.localhost(:\d+)?$/,
@@ -15,7 +17,7 @@ function isAllowedOrigin(origin) {
 
 export function getCorsHeaders(req, methods = 'GET, OPTIONS') {
   const origin = req.headers.get('origin') || '';
-  const allowOrigin = isAllowedOrigin(origin) ? origin : 'https://edgepannel.app';
+  const allowOrigin = isAllowedOrigin(origin) ? origin : 'https://edgepannel.com';
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': methods,

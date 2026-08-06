@@ -275,10 +275,10 @@ All four dashboard variants (EdgePannel, Tech Monitor, Finance Monitor, Happy Mo
 
 | Hostname | Variant |
 | --- | --- |
-| `tech.edgepannel.app` | `tech` |
-| `finance.edgepannel.app` | `finance` |
-| `happy.edgepannel.app` | `happy` |
-| `edgepannel.app` (default) | `full` |
+| `tech.edgepannel.com` | `tech` |
+| `finance.edgepannel.com` | `finance` |
+| `happy.edgepannel.com` | `happy` |
+| `edgepannel.com` (default) | `full` |
 
 On the desktop app, the variant is stored in `localStorage['worldmonitor-variant']` and can be switched without rebuilding. The variant selector in the header bar navigates between deployed domains on the web or toggles the localStorage value on desktop.
 
@@ -476,7 +476,7 @@ The Sentry SDK initialization includes a `beforeSend` hook and `ignoreErrors` li
 
 ### Error Tracking & Production Hardening
 
-Sentry captures unhandled exceptions and promise rejections in production, with environment-aware routing (production on `edgepannel.app`, preview on `*.vercel.app`, disabled on localhost and Tauri desktop).
+Sentry captures unhandled exceptions and promise rejections in production, with environment-aware routing (production on `edgepannel.com`, preview on `*.vercel.app`, disabled on localhost and Tauri desktop).
 
 The configuration includes 30+ `ignoreErrors` patterns that suppress noise from:
 

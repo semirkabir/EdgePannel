@@ -139,7 +139,7 @@ export function getRemoteApiBaseUrl(): string {
   if (fromHosts) return fromHosts;
 
   // Desktop builds may not set VITE_WS_API_URL; default to production.
-  if (isDesktopRuntime()) return 'https://edgepannel.app';
+  if (isDesktopRuntime()) return 'https://edgepannel.com';
   return '';
 }
 
@@ -166,14 +166,14 @@ function extractHostnames(...urls: (string | undefined)[]): string[] {
 }
 
 const APP_HOSTS = new Set([
-  'edgepannel.app',
-  'www.edgepannel.app',
-  'tech.edgepannel.app',
-  'finance.edgepannel.app',
-  'commodity.edgepannel.app',
-  'happy.edgepannel.app',
-  'conflicts.edgepannel.app',
-  'api.edgepannel.app',
+  'edgepannel.com',
+  'www.edgepannel.com',
+  'tech.edgepannel.com',
+  'finance.edgepannel.com',
+  'commodity.edgepannel.com',
+  'happy.edgepannel.com',
+  'conflicts.edgepannel.com',
+  'api.edgepannel.com',
   'localhost',
   '127.0.0.1',
   ...extractHostnames(WS_API_URL, viteEnv.VITE_WS_RELAY_URL),
@@ -183,7 +183,7 @@ function isAppOriginUrl(urlStr: string): boolean {
   try {
     const u = new URL(urlStr);
     const host = u.hostname;
-    return APP_HOSTS.has(host) || host.endsWith('.edgepannel.app');
+    return APP_HOSTS.has(host) || host.endsWith('.edgepannel.com');
   } catch {
     return false;
   }

@@ -5,11 +5,11 @@
 # to another maintainer's inbox and its Canonical pointed at a different host,
 # which under RFC 9116 makes the file invalid wherever we serve it.
 #
-# Canonical MUST match the host serving this file. If the site ships on
-# edgepannel.com rather than edgepannel.app, update it there too.
+# Canonical MUST match the host serving this file. The site currently ships on
+# edgepannel.com; if it later moves to edgepannel.app, update both URLs below.
 
 Contact: mailto:REPLACE-WITH-REAL-SECURITY-INBOX@example.com
 Expires: 2027-01-01T00:00:00.000Z
 Preferred-Languages: en
-Canonical: https://edgepannel.app/.well-known/security.txt
-Policy: https://edgepannel.app/contact
+Canonical: https://edgepannel.com/.well-known/security.txt
+Policy: https://edgepannel.com/contact

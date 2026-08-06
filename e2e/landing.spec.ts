@@ -28,7 +28,7 @@ test.describe('landing page', () => {
     await expect(page.locator('.lp-lens')).toHaveCount(6);
     await expect(page.locator('.lp-lens[data-lens="tech"]')).toHaveAttribute(
       'href',
-      'https://tech.edgepannel.app'
+      'https://tech.edgepannel.com'
     );
   });
 

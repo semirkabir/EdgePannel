@@ -4,7 +4,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const SEC_UA = 'EdgePannel/1.0 (contact@edgepannel.app)';
+const SEC_UA = 'EdgePannel/1.0 (contact@edgepannel.com)';
 const UPSTREAM_TIMEOUT = 15000;
 const SEC_13F_LIST_PAGE = 'https://www.sec.gov/rules-regulations/staff-guidance/official-list-section-13f-securities';
 const SEC_TICKER_DIRECTORY_URL = 'https://www.sec.gov/files/company_tickers_exchange.json';

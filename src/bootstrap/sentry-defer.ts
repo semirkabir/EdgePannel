@@ -75,7 +75,7 @@ function buildSentryInitOptions(): Parameters<SentryNs['init']>[0] {
   return {
     dsn: sentryDsn || undefined,
     release: `edgepannel@${__APP_VERSION__}`,
-    environment: location.hostname === 'edgepannel.app' ? 'production'
+    environment: location.hostname === 'edgepannel.com' ? 'production'
       : location.hostname.includes('vercel.app') ? 'preview'
       : 'development',
     enabled: Boolean(sentryDsn) && !location.hostname.startsWith('localhost') && !('__TAURI_INTERNALS__' in window),

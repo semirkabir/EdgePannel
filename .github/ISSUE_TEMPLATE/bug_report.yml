@@ -13,9 +13,9 @@ body:
       label: Variant
       description: Which variant are you using?
       options:
-        - edgepannel.app (Full / Geopolitical)
-        - tech.edgepannel.app (Tech / Startup)
-        - finance.edgepannel.app (Finance)
+        - edgepannel.com (Full / Geopolitical)
+        - tech.edgepannel.com (Tech / Startup)
+        - finance.edgepannel.com (Finance)
         - Desktop app (Windows)
         - Desktop app (macOS)
         - Desktop app (Linux)
