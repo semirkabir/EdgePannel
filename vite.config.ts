@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { brotliPrecompressPlugin } from './scripts/vite-plugins/build-assets';
 import { htmlVariantPlugin } from './scripts/vite-plugins/html-variant';
+import { cspHashPlugin } from './scripts/vite-plugins/csp-hashes';
 import { RSS_PROXY_ALLOWED_DOMAINS } from './scripts/vite-plugins/rss-allowlist';
 import { VitePWA } from 'vite-plugin-pwa';
 import { resolve, dirname, extname } from 'path';
@@ -1227,6 +1228,9 @@ export default defineConfig({
   plugins: [
     ...(!isE2E && !isDesktopBuild ? [landingRoutingPlugin()] : []),
     htmlVariantPlugin({ activeMeta, activeVariant, isDesktopBuild }),
+    // Must follow html-variant: it rewrites the bootstrap script per variant,
+    // which changes the hash the CSP has to allow.
+    cspHashPlugin(),
     polymarketPlugin(),
     camerasPlugin(),
     prefsPlugin(),
