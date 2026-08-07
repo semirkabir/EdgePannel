@@ -1990,6 +1990,91 @@ a { color: inherit; }
   .lp-frame-shots img + img { animation: none; }
 }
 
+/* ---------- style showcase (counter-scrolling screenshot belt) ---------- */
+
+.lp-showcase {
+  margin-top: 36px;
+  /* Eat the container gutter so rows run edge-to-edge, same as the source belt.
+     Deliberately not a 50vw full bleed: that overflows by the scrollbar width. */
+  margin-inline: -24px;
+}
+.lp-showcase-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  position: relative;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 72px, #000 calc(100% - 72px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 72px, #000 calc(100% - 72px), transparent);
+}
+.lp-shot-row {
+  display: flex;
+  width: max-content;
+  animation: lp-marquee var(--shot-dur, 96s) linear infinite;
+  will-change: transform;
+}
+/* Even rows run the other way, so the belt reads as counter-moving layers. */
+.lp-shot-row[data-dir='ltr'] { animation-direction: reverse; }
+.lp-showcase-rows:hover .lp-shot-row { animation-play-state: paused; }
+
+.lp-shot-strip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 0 8px 0 0;
+  list-style: none;
+}
+.lp-shot {
+  flex: none;
+  width: clamp(240px, 26vw, 400px);
+  border: 1px solid var(--lp-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--lp-bg-raised);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.lp-shot:hover {
+  transform: translateY(-4px);
+  border-color: var(--lp-border-strong);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 50px rgba(61, 255, 162, 0.1);
+}
+.lp-shot img {
+  display: block;
+  width: 100%;
+  /* Screenshots arrive at assorted aspect ratios; a fixed 16:10 crop keeps the
+     rows from going ragged, and the top of the frame is the part worth seeing. */
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top center;
+}
+.lp-showcase-foot {
+  padding-inline: 24px;
+  margin: 16px 0 0;
+  text-align: center;
+  color: var(--lp-text-faint);
+  font-size: 13.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-shot-row { animation: none; }
+  /* Without motion the rows are just a clipped wall of images — let them wrap
+     into a static grid instead so nothing is cut off mid-frame. */
+  .lp-showcase-rows {
+    -webkit-mask-image: none;
+    mask-image: none;
+    max-height: 560px;
+  }
+  .lp-shot-row {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .lp-shot-strip { flex-wrap: wrap; }
+  /* Direct child only — the duplicate strip goes, the cards inside stay. */
+  .lp-shot-row > [aria-hidden='true'] { display: none; }
+}
+
 .lp-product-points {
   list-style: none;
   margin: 36px 0 0;
