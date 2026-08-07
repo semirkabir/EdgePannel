@@ -154,7 +154,7 @@ export function LandingGlobe({ className }: LandingGlobeProps) {
                     showGrid={false}
                     feedData={feedFeatures}
                     disableZoom={true}
-                    initialZoom={1.8}
+                    initialZoom={2.5}
                     hideControls={true}
                     forcedActiveLayers={['PREDICTION', 'FINANCE']}
                     exchanges={exchangeGeoJSON}

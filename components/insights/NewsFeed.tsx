@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Twitter, RefreshCw, Heart, Repeat, Share2, ExternalLink, MessageCircle } from 'lucide-react';
+import { Twitter, RefreshCw, Heart, Repeat, Share2, ExternalLink, MessageCircle, Flame, TrendingUp, Globe, Coins, Shield, Radio } from 'lucide-react';
 import Image from 'next/image';
 
 import { cn } from '@/lib/utils/cn';
@@ -19,6 +19,17 @@ interface Tweet {
     url?: string;
 }
 
+// News stream channel definitions
+const NEWS_CHANNELS = [
+    { key: 'ALL',         label: 'All Streams',   icon: Radio,      color: '#00ff7f', glowColor: 'rgba(0,255,127,0.4)' },
+    { key: 'BREAKING',    label: 'Breaking',       icon: Flame,      color: '#ff4444', glowColor: 'rgba(255,68,68,0.5)' },
+    { key: 'LIVE',        label: 'Live',           icon: Radio,      color: '#ff3b3b', glowColor: 'rgba(255,59,59,0.5)' },
+    { key: 'MARKETS',     label: 'Markets',        icon: TrendingUp, color: '#ffb000', glowColor: 'rgba(255,176,0,0.4)' },
+    { key: 'GEOPOLITICS', label: 'Geopolitics',    icon: Globe,      color: '#3b82f6', glowColor: 'rgba(59,130,246,0.4)' },
+    { key: 'CRYPTO',      label: 'Crypto',         icon: Coins,      color: '#facc15', glowColor: 'rgba(250,204,21,0.4)' },
+    { key: 'DEFENSE',     label: 'Defense',        icon: Shield,     color: '#a78bfa', glowColor: 'rgba(167,139,250,0.4)' },
+] as const;
+
 export function NewsFeed() {
     const [tweets, setTweets] = useState<Tweet[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -26,6 +37,7 @@ export function NewsFeed() {
     const [trackedAccounts, setTrackedAccounts] = useState<string[]>(['Polymarket', 'Kalshi']);
     const [newAccount, setNewAccount] = useState('');
     const [showInput, setShowInput] = useState(false);
+    const [activeChannel, setActiveChannel] = useState('ALL');
 
     const fetchTweets = useCallback(async (refresh = false) => {
         if (refresh) setIsRefreshing(true);
@@ -66,6 +78,18 @@ export function NewsFeed() {
 
     return (
         <div className="flex flex-col h-full bg-gradient-to-b from-white/5 to-white/10 border border-white/10 rounded-xl overflow-hidden backdrop-blur-sm shadow-lg shadow-blue-500/5">
+            {/* Keyframes for pulsing neon ring */}
+            <style>{`
+                @keyframes neon-pulse {
+                    0%, 100% { box-shadow: 0 0 4px var(--neon-color), 0 0 8px var(--neon-color), inset 0 0 6px var(--neon-color); opacity: 1; }
+                    50% { box-shadow: 0 0 8px var(--neon-color), 0 0 16px var(--neon-color), inset 0 0 10px var(--neon-color); opacity: 0.85; }
+                }
+                @keyframes dot-breathe {
+                    0%, 100% { transform: scale(1); opacity: 1; }
+                    50% { transform: scale(1.4); opacity: 0.7; }
+                }
+            `}</style>
+
             {/* Header */}
             <div className="p-5 border-b border-white/10 bg-gradient-to-r from-white/5 to-white/10">
                 <div className="flex items-center justify-between mb-4">
@@ -105,14 +129,55 @@ export function NewsFeed() {
                     </div>
                 </div>
 
-                {/* Active Filters */}
-                <div className="flex flex-wrap gap-2">
+                {/* ─── News Channel Capsule Track ─── */}
+                <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+                    {NEWS_CHANNELS.map((channel) => {
+                        const isActive = activeChannel === channel.key;
+                        const Icon = channel.icon;
+                        return (
+                            <button
+                                key={channel.key}
+                                onClick={() => setActiveChannel(channel.key)}
+                                className={cn(
+                                    "relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider whitespace-nowrap transition-all duration-300 flex-shrink-0 cursor-pointer select-none",
+                                    isActive
+                                        ? "bg-white/[0.08] backdrop-blur-md text-white"
+                                        : "bg-white/[0.02] backdrop-blur-sm text-gray-500 hover:text-gray-300 hover:bg-white/[0.05] border border-transparent hover:border-white/10"
+                                )}
+                                style={isActive ? {
+                                    ['--neon-color' as string]: channel.glowColor,
+                                    borderColor: channel.color + '66',
+                                    animation: 'neon-pulse 2s ease-in-out infinite',
+                                } : undefined}
+                            >
+                                {/* Dot indicator */}
+                                <span
+                                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                    style={{
+                                        backgroundColor: isActive ? channel.color : 'rgba(255,255,255,0.2)',
+                                        boxShadow: isActive ? `0 0 6px ${channel.glowColor}` : 'none',
+                                        animation: isActive ? 'dot-breathe 2s ease-in-out infinite' : 'none',
+                                    }}
+                                />
+                                <Icon className="w-3 h-3" style={{ color: isActive ? channel.color : undefined }} />
+                                <span>{channel.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Tracked Accounts */}
+                <div className="flex flex-wrap gap-2 pt-3 mt-2 border-t border-white/5">
                     {trackedAccounts.map(account => (
-                        <div key={account} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500/20 to-blue-600/10 border border-blue-500/30 text-[10px] text-blue-300 font-medium transition-all hover:from-blue-500/30 hover:to-blue-600/20">
+                        <div 
+                            key={account} 
+                            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-amber-500/40 text-[10px] font-mono text-gray-300 hover:text-amber-400 font-bold transition-all duration-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:shadow-[0_0_8px_rgba(245,158,11,0.25)] group/capsule"
+                        >
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 transition-all shadow-[0_0_4px_rgba(245,158,11,0.6)] group-hover/capsule:scale-110" />
                             <span>{account}</span>
                             <button
                                 onClick={() => removeAccount(account)}
-                                className="hover:text-red-400 transition-colors font-bold text-xs"
+                                className="text-gray-500 hover:text-red-400 transition-colors text-xs font-bold pl-1 font-sans"
                                 title="Remove account"
                             >
                                 ×

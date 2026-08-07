@@ -97,3 +97,55 @@ export function useCensusLayer(enabled: boolean, dataset: string | null, geograp
         error
     }
 }
+
+/**
+ * Hook for fetching USNI Navy Fleet layer data with SWR caching
+ */
+export function useUSNILayer(enabled: boolean) {
+    const { data, error, isLoading } = useSWR<GeoJSONFeatureCollection>(
+        enabled ? '/api/layers/usni' : null,
+        layerFetcher,
+        LAYER_CONFIG
+    )
+
+    return {
+        data: data ?? EMPTY_COLLECTION,
+        isLoading,
+        error
+    }
+}
+
+/**
+ * Hook for fetching Celestrak satellite layer data with SWR caching
+ */
+export function useCelestrakLayer(enabled: boolean) {
+    const { data, error, isLoading } = useSWR<GeoJSONFeatureCollection>(
+        enabled ? '/api/layers/satellites' : null,
+        layerFetcher,
+        LAYER_CONFIG
+    )
+
+    return {
+        data: data ?? EMPTY_COLLECTION,
+        isLoading,
+        error
+    }
+}
+
+/**
+ * Hook for fetching GPS Jamming layer data with SWR caching
+ */
+export function useGpsJamLayer(enabled: boolean) {
+    const { data, error, isLoading } = useSWR<GeoJSONFeatureCollection>(
+        enabled ? '/api/layers/gpsjam' : null,
+        layerFetcher,
+        LAYER_CONFIG
+    )
+
+    return {
+        data: data ?? EMPTY_COLLECTION,
+        isLoading,
+        error
+    }
+}
+

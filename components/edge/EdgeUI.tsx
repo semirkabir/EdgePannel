@@ -491,39 +491,74 @@ export function EdgeUI({
 
             <div className="w-px h-4 bg-white/10 mx-1" />
 
-            {/* Navigation Tabs */}
-            <div className="flex p-0.5 bg-black/40 border border-white/10 rounded-xl">
-              <button
-                onClick={onMapGlobeToggle} // This toggles between map/globe
-                className={cn(
-                  "group px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 relative",
-                  !isInsightsView
-                    ? "bg-white/20 text-white shadow-md border border-white/10"
-                    : "text-gray-300 hover:text-white hover:bg-white/15"
+            {/* Navigation Tabs (Tactical Segmented Capsule Controls) */}
+            <div className="flex p-0.5 bg-black/40 border border-white/10 rounded-xl items-center gap-1">
+              <div className="flex p-0.5 bg-black/60 border border-white/5 rounded-lg relative overflow-hidden h-7">
+                {/* Sliding Indicator */}
+                {!isInsightsView && (
+                  <div
+                    className={cn(
+                      "absolute top-0.5 bottom-0.5 rounded bg-[#00ff7f]/20 border border-[#00ff7f]/30 transition-all duration-300 ease-out",
+                      isMapView ? "left-0.5 w-[calc(50%-2px)]" : "left-[calc(50%+1px)] w-[calc(50%-2px)]"
+                    )}
+                    style={{
+                      boxShadow: "0 0 10px rgba(0, 255, 127, 0.15)"
+                    }}
+                  />
                 )}
-              >
-                {/* Main Icon */}
-                <div className="relative w-3.5 h-3.5">
-                  <div className={cn("absolute inset-0 transition-all duration-300", !isInsightsView ? "opacity-100 group-hover:opacity-0 group-hover:scale-75" : "opacity-100")}>
-                    {isMapView ? <Map className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
-                  </div>
-                  <div className={cn("absolute inset-0 transition-all duration-300 opacity-0 scale-75 rotate-90", !isInsightsView ? "group-hover:opacity-100 group-hover:scale-100 group-hover:rotate-0" : "hidden")}>
-                    <ArrowRightLeft className="w-3.5 h-3.5 text-white/80" />
-                  </div>
-                </div>
-
-                {/* Text Label */}
-                <span>{isMapView ? 'Map' : 'Globe'}</span>
-              </button>
+                <button
+                  onClick={() => {
+                    if (isInsightsView) {
+                      onViewToggle?.();
+                      setTimeout(() => {
+                        const check = localStorage.getItem('polyglobe-last-map-view') || 'globe';
+                        if (check !== 'map') onMapGlobeToggle?.();
+                      }, 50);
+                    } else if (!isMapView) {
+                      onMapGlobeToggle?.();
+                    }
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 rounded text-[9px] uppercase font-bold transition-all flex items-center justify-center gap-1 z-10 w-11 font-mono",
+                    (!isInsightsView && isMapView) ? "text-[#00ff7f]" : "text-gray-400 hover:text-white"
+                  )}
+                  title="2D Mercator Map View"
+                >
+                  <Map className="w-3 h-3" />
+                  <span>2D</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (isInsightsView) {
+                      onViewToggle?.();
+                      setTimeout(() => {
+                        const check = localStorage.getItem('polyglobe-last-map-view') || 'globe';
+                        if (check !== 'globe') onMapGlobeToggle?.();
+                      }, 50);
+                    } else if (isMapView) {
+                      onMapGlobeToggle?.();
+                    }
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 rounded text-[9px] uppercase font-bold transition-all flex items-center justify-center gap-1 z-10 w-11 font-mono",
+                    (!isInsightsView && !isMapView) ? "text-[#00ff7f]" : "text-gray-400 hover:text-white"
+                  )}
+                  title="3D Globe Projection View"
+                >
+                  <Globe className="w-3 h-3" />
+                  <span>3D</span>
+                </button>
+              </div>
 
               <button
                 onClick={onViewToggle}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+                  "px-3 py-1 rounded-lg text-[10px] uppercase font-bold tracking-wider font-mono transition-all flex items-center gap-1.5 h-7",
                   isInsightsView
-                    ? "bg-amber-600/90 text-white shadow-md border border-amber-500/50"
-                    : "text-gray-300 hover:text-white hover:bg-white/15"
+                    ? "bg-amber-600/20 text-[#ffb000] shadow-md border border-amber-500/30 shadow-[0_0_8px_rgba(255,176,0,0.15)]"
+                    : "text-gray-400 hover:text-white hover:bg-white/10"
                 )}
+                title="Geopolitical Intelligence Dashboard"
               >
                 <Brain className="w-3.5 h-3.5" />
                 <span>Insights</span>

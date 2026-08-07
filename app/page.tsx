@@ -477,23 +477,23 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Floating Globe */}
-            <div className={cn(
-              'relative transition-all duration-1000 delay-300',
-              mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            )}>
-              {/* Globe container - seamless floating */}
-              <div className="relative h-[500px] lg:h-[650px] -mx-6 lg:-mx-12">
-                <LandingGlobe className="w-full h-full" />
-              </div>
+          {/* Floating Globe - full viewport width, outside max-w-7xl */}
+          <div className={cn(
+            'relative transition-all duration-1000 delay-300',
+            mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          )}>
+            {/* Globe container - edge to edge */}
+            <div className="relative h-[500px] lg:h-[650px] -mx-6 lg:-mx-12">
+              <LandingGlobe className="w-full h-full" />
+            </div>
 
-              {/* Subtle status indicator */}
-              <div className="absolute bottom-4 right-4 z-20">
-                <div className="flex items-center gap-2 text-xs font-mono text-[#00ff7f]/60">
-                  <span className="inline-block w-1.5 h-1.5 bg-[#00ff7f] rounded-full animate-pulse" />
-                  LIVE
-                </div>
+            {/* Subtle status indicator */}
+            <div className="absolute bottom-4 right-4 z-20">
+              <div className="flex items-center gap-2 text-xs font-mono text-[#00ff7f]/60">
+                <span className="inline-block w-1.5 h-1.5 bg-[#00ff7f] rounded-full animate-pulse" />
+                LIVE
               </div>
             </div>
           </div>

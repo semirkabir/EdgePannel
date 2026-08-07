@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession, signIn } from 'next-auth/react'
-import { X, User, Key, Save, Loader2, Shield, Eye, EyeOff, Globe, Gauge, MousePointer2, Play, Pause, Mail, Lock, Check, AlertCircle, Zap, Layers, MapPin, Maximize2, Minimize2, RotateCw } from 'lucide-react'
+import { X, User, Key, Save, Loader2, Shield, Eye, EyeOff, Globe, Gauge, MousePointer2, Play, Pause, Mail, Lock, Check, AlertCircle, Zap, Layers, MapPin, Maximize2, Minimize2, RotateCw, Sparkles, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
 import { useToast } from '@/hooks/use-toast'
@@ -59,8 +59,49 @@ export function SettingsModal({
 
     const { data: session } = useSession()
     const { toast } = useToast()
-    const [activeTab, setActiveTab] = useState<'profile' | 'api' | 'map'>('profile')
+    const [activeTab, setActiveTab] = useState<'profile' | 'api' | 'map' | 'whats-new'>('profile')
     const [isLoading, setIsLoading] = useState(false)
+
+    type OS = 'mac' | 'windows' | 'linux' | 'unknown';
+    const [detectedOS, setDetectedOS] = useState<OS>('unknown');
+
+    const getDetectOS = (): OS => {
+        if (typeof window === 'undefined') return 'unknown';
+
+        if ((navigator as any).userAgentData?.platform) {
+            const platform = (navigator as any).userAgentData.platform.toLowerCase();
+            if (platform.includes('mac')) return 'mac';
+            if (platform.includes('win')) return 'windows';
+            if (platform.includes('linux')) return 'linux';
+        }
+
+        const userAgent = navigator.userAgent.toLowerCase();
+        if (userAgent.includes('macintosh') || userAgent.includes('mac os')) return 'mac';
+        if (userAgent.includes('windows') || userAgent.includes('win32') || userAgent.includes('win64')) return 'windows';
+        if (userAgent.includes('linux') && !userAgent.includes('android')) return 'linux';
+
+        return 'unknown';
+    };
+
+    useEffect(() => {
+        if (isOpen) {
+            setDetectedOS(getDetectOS());
+        }
+    }, [isOpen]);
+
+    const DOWNLOAD_LINKS: Record<OS, string> = {
+        mac: 'https://releases.edgepannel.com/download/EdgePannel-mac.dmg',
+        windows: 'https://releases.edgepannel.com/download/EdgePannel-windows-setup.exe',
+        linux: 'https://releases.edgepannel.com/download/EdgePannel-linux.AppImage',
+        unknown: 'https://releases.edgepannel.com/download'
+    };
+
+    const DOWNLOAD_LABELS: Record<OS, string> = {
+        mac: 'Download for macOS (.DMG)',
+        windows: 'Download for Windows (.EXE)',
+        linux: 'Download for Linux (.AppImage)',
+        unknown: 'Download Desktop App'
+    };
     const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({})
     const [authInfo, setAuthInfo] = useState<{
         providers: string[]
@@ -251,6 +292,21 @@ export function SettingsModal({
                             )}
                             <Globe className="w-4 h-4" />
                             Map Settings
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('whats-new')}
+                            className={cn(
+                                "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all relative group",
+                                activeTab === 'whats-new'
+                                    ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white shadow-lg shadow-blue-500/10 border border-blue-500/30"
+                                    : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                            )}
+                        >
+                            {activeTab === 'whats-new' && (
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-400 to-purple-400 rounded-r-full" />
+                            )}
+                            <Sparkles className="w-4 h-4 text-cyan-400" />
+                            What's New
                         </button>
                     </div>
 
@@ -698,6 +754,103 @@ export function SettingsModal({
                                                 </span>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* WHAT'S NEW TAB */}
+                        {activeTab === 'whats-new' && (
+                            <div className="space-y-6 max-w-2xl">
+                                <div>
+                                    <h3 className="text-xl font-black text-white mb-2">What's New in EdgePannel</h3>
+                                    <p className="text-sm text-gray-400">Track latest features, visual upgrades, and platform releases</p>
+                                </div>
+
+                                {/* Premium Desktop App Download Banner */}
+                                <div className="p-6 rounded-3xl bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-transparent border border-white/10 backdrop-blur-xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
+                                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                                        <div className="space-y-2 text-left">
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-bold text-cyan-400 tracking-wider uppercase">
+                                                DESKTOP PLATFORM
+                                            </div>
+                                            <h4 className="text-lg font-black text-white">Get EdgePannel Desktop</h4>
+                                            <p className="text-xs text-gray-400 max-w-md">
+                                                Unlock hardware-accelerated 3D rendering, global custom hotkeys, multi-monitor widget dock layouts, and local-first memory cache.
+                                            </p>
+                                        </div>
+
+                                        {/* Dynamic CTA Button */}
+                                        <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                                            <a
+                                                href={DOWNLOAD_LINKS[detectedOS]}
+                                                className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white font-bold py-2.5 px-5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 hover:scale-[1.02] active:scale-[0.98] transition-all text-xs tracking-wide pointer-events-auto"
+                                            >
+                                                <Download className="w-4 h-4" />
+                                                {DOWNLOAD_LABELS[detectedOS]}
+                                            </a>
+                                            
+                                            {/* Manual Fallbacks */}
+                                            <div className="text-[10px] text-gray-500 flex gap-2">
+                                                <span>Or download for:</span>
+                                                <a href={DOWNLOAD_LINKS.mac} className="text-gray-400 hover:text-white underline pointer-events-auto">macOS</a> •
+                                                <a href={DOWNLOAD_LINKS.windows} className="text-gray-400 hover:text-white underline pointer-events-auto">Windows</a> •
+                                                <a href={DOWNLOAD_LINKS.linux} className="text-gray-400 hover:text-white underline pointer-events-auto">Linux</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Release Notes Timeline */}
+                                <div className="space-y-6 mt-4">
+                                    <div className="relative pl-6 border-l border-white/10 space-y-8">
+                                        
+                                        {/* Release 1: Real-Time OSINT */}
+                                        <div className="relative text-left">
+                                            {/* Glowing Dot indicator */}
+                                            <div className="absolute -left-[32px] top-1 w-4 h-4 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold font-mono text-cyan-400">v2.4.0</span>
+                                                    <span className="text-[10px] text-gray-500">— MAY 2026</span>
+                                                </div>
+                                                <h4 className="text-sm font-bold text-white">Advanced Real-Time OSINT Telemetry Layers</h4>
+                                                <p className="text-xs text-gray-400 leading-relaxed">
+                                                    Integrated three new high-fidelity GIS overlays displaying real-time global datasets directly onto the map and 3D globe:
+                                                </p>
+                                                <ul className="text-xs text-gray-400 space-y-1 pl-4 list-disc">
+                                                    <li><strong className="text-white">USNI Navy Fleet Tracker:</strong> Active global deployment positions and operational briefs for Carrier Strike Groups.</li>
+                                                    <li><strong className="text-white">Celestrak Satellite Orbit Tracker:</strong> Real-time orbital propagation and trajectory rendering for visible spacecraft (ISS, Hubble, Tiangong).</li>
+                                                    <li><strong className="text-white">GPS Jamming Radar:</strong> Geodesic signal denial vectors mapped over Baltic Sea, Levant, Crimea, and Red Sea corridors.</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        {/* Release 2: Dashboard fixes */}
+                                        <div className="relative text-left">
+                                            <div className="absolute -left-[32px] top-1 w-4 h-4 rounded-full bg-purple-500/20 border border-purple-400 flex items-center justify-center">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold font-mono text-purple-400">v2.3.0</span>
+                                                    <span className="text-[10px] text-gray-500">— APR 2026</span>
+                                                </div>
+                                                <h4 className="text-sm font-bold text-white">Dashboard Telemetry & GIS Integration Repairs</h4>
+                                                <p className="text-xs text-gray-400 leading-relaxed">
+                                                    Overhauled core dashboard integrations to resolve connection and display failures:
+                                                </p>
+                                                <ul className="text-xs text-gray-400 space-y-1 pl-4 list-disc">
+                                                    <li><strong className="text-white">Fires & Operational Risk:</strong> Re-anchored to NASA's public keyless thermal anomalies GIS raster overlay.</li>
+                                                    <li><strong className="text-white">Economic Indicators:</strong> Created a fail-safe offline local fallback service for historical GDP, Fed Funds rates, and M2 money supply parameters.</li>
+                                                    <li><strong className="text-white">Sector Heatmap:</strong> Integrated an interactive stock sector yield Breakdown panel within hover popups and full details sidebar views.</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>

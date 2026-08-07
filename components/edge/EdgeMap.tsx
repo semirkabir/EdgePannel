@@ -11,7 +11,7 @@ import { loadGeoJSON } from '@/lib/geojson-loader';
 import {
   Landmark, TrendingUp, CloudRain, Trophy, Cpu, Film, Activity,
   Globe as GlobeIcon, LayoutGrid, MapPin, Clock,
-  Flame, Zap, Briefcase, Banknote, Coins, Factory, Rss
+  Flame, Zap, Briefcase, Banknote, Coins, Factory, Rss, Ship
 } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MarketPopupVolume } from './MarketPopup';
@@ -22,7 +22,7 @@ import { getExchangeById } from '@/lib/data/exchanges';
 import { getDetailedMarketStatus } from '@/lib/utils/exchange-geojson';
 import { ExchangePopup } from './ExchangePopup';
 import { useLayerStore } from '@/lib/store/layer-store';
-import { useNewsLayer, useFinanceLayer, useCustomLayer, useCensusLayer } from '@/hooks/use-layer-data';
+import { useNewsLayer, useFinanceLayer, useCustomLayer, useCensusLayer, useUSNILayer, useCelestrakLayer, useGpsJamLayer } from '@/hooks/use-layer-data';
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -76,6 +76,7 @@ const MAP_ICONS = {
   'icon-crypto': Coins,
   'icon-commodities': Factory,
   'icon-layoffs': Activity,
+  'icon-usni': Ship,
 };
 
 export type VisualizationMode = 'dots' | 'heatmap' | 'cluster' | 'choropleth';
@@ -275,6 +276,132 @@ export function InnerMap({
   const { data: fetchedNewsData } = useNewsLayer(isLayerActive('NEWS'));
   const { data: fetchedFinanceData } = useFinanceLayer(isLayerActive('FINANCE'));
   const { data: fetchedCustomData } = useCustomLayer(isLayerActive('CUSTOM'));
+  const { data: fetchedUSNIData } = useUSNILayer(isLayerActive('USNI') || activeFilters.usni);
+  const { data: fetchedSatelliteData } = useCelestrakLayer(isLayerActive('SATELLITES') || activeFilters.satellites);
+  const { data: fetchedGpsJamData } = useGpsJamLayer(isLayerActive('GPSJAM') || activeFilters.gpsjam);
+
+  // Live Satellite data state for real-time propagation
+  const [liveSatelliteData, setLiveSatelliteData] = useState<any>(null);
+
+  useEffect(() => {
+    if (!(isLayerActive('SATELLITES') || activeFilters.satellites) || !fetchedSatelliteData.features?.length) {
+      setLiveSatelliteData(null);
+      return;
+    }
+
+    const propagateAll = () => {
+      const now = Date.now();
+      const propagatedFeatures = fetchedSatelliteData.features.map((f: any) => {
+        const props = f.properties;
+        
+        // Simple orbital propagation formulas inside the client
+        const epochTime = new Date(props.epoch).getTime();
+        const elapsedMinutes = (now - epochTime) / (60 * 1000);
+        const meanMotionRadMin = (props.meanMotion * 2 * Math.PI) / 1440;
+        const M = (props.meanAnomaly * Math.PI) / 180 + meanMotionRadMin * elapsedMinutes;
+        const argLat = M + (props.argPerigee * Math.PI) / 180;
+        
+        const inc = (props.inclination * Math.PI) / 180;
+        const raan = (props.raan * Math.PI) / 180;
+        
+        const x0 = Math.cos(argLat);
+        const y0 = Math.sin(argLat) * Math.cos(inc);
+        const z0 = Math.sin(argLat) * Math.sin(inc);
+        
+        const earthRotationMin = 0.004363323 * elapsedMinutes;
+        const adjustedRaan = raan - earthRotationMin;
+        
+        const x = x0 * Math.cos(adjustedRaan) - y0 * Math.sin(adjustedRaan);
+        const y = x0 * Math.sin(adjustedRaan) + y0 * Math.cos(adjustedRaan);
+        const z = z0;
+        
+        let lat = Math.asin(z) * (180 / Math.PI);
+        let lng = Math.atan2(y, x) * (180 / Math.PI);
+        
+        if (lng > 180) lng -= 360;
+        if (lng < -180) lng += 360;
+
+        return {
+          ...f,
+          geometry: {
+            type: 'Point',
+            coordinates: [lng, lat]
+          }
+        };
+      });
+
+      setLiveSatelliteData({
+        type: 'FeatureCollection',
+        features: propagatedFeatures
+      });
+    };
+
+    propagateAll();
+    const interval = setInterval(propagateAll, 1000);
+    return () => clearInterval(interval);
+  }, [fetchedSatelliteData, activeLayers, activeFilters.satellites]);
+
+  // Generate Orbit Line Strings for active satellites
+  const orbitLinesData = useMemo(() => {
+    if (!(isLayerActive('SATELLITES') || activeFilters.satellites) || !fetchedSatelliteData.features?.length) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+
+    const lines = fetchedSatelliteData.features.map((f: any) => {
+      const props = f.properties;
+      const epochTime = new Date(props.epoch).getTime();
+      const periodMinutes = 1440 / props.meanMotion;
+      const coords: [number, number][] = [];
+      const numPoints = 120; // High-res orbit lines
+
+      for (let i = 0; i <= numPoints; i++) {
+        const stepMin = (i / numPoints) * periodMinutes;
+        const meanMotionRadMin = (props.meanMotion * 2 * Math.PI) / 1440;
+        const M = (props.meanAnomaly * Math.PI) / 180 + meanMotionRadMin * stepMin;
+        const argLat = M + (props.argPerigee * Math.PI) / 180;
+        
+        const inc = (props.inclination * Math.PI) / 180;
+        const raan = (props.raan * Math.PI) / 180;
+        
+        const x0 = Math.cos(argLat);
+        const y0 = Math.sin(argLat) * Math.cos(inc);
+        const z0 = Math.sin(argLat) * Math.sin(inc);
+        
+        const currentTimeOffsetMin = (Date.now() - epochTime) / (60 * 1000);
+        const earthRotationMin = 0.004363323 * (currentTimeOffsetMin + stepMin);
+        const adjustedRaan = raan - earthRotationMin;
+        
+        const x = x0 * Math.cos(adjustedRaan) - y0 * Math.sin(adjustedRaan);
+        const y = x0 * Math.sin(adjustedRaan) + y0 * Math.cos(adjustedRaan);
+        const z = z0;
+        
+        let lat = Math.asin(z) * (180 / Math.PI);
+        let lng = Math.atan2(y, x) * (180 / Math.PI);
+        
+        if (lng > 180) lng -= 360;
+        if (lng < -180) lng += 360;
+        
+        coords.push([lng, lat]);
+      }
+
+      return {
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: coords
+        },
+        properties: {
+          satelliteName: props.title,
+          noradId: props.noradId
+        }
+      };
+    });
+
+    return {
+      type: 'FeatureCollection',
+      features: lines
+    };
+  }, [fetchedSatelliteData, activeLayers, activeFilters.satellites]);
 
   // Filter logic for newsData
   const newsData = useMemo(() => {
@@ -1074,10 +1201,10 @@ export function InnerMap({
   const firmsSource = {
     type: 'raster',
     tiles: [
-      'https://firms.modaps.eosdis.nasa.gov/mapserver/tms/1.0.0/Fires_All/{z}/{x}/{y}.png'
+      'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&layer=VIIRS_NOAA20_Thermal_Anomalies_375m_All&style=default&tilematrixset=GoogleMapsCompatible_Level9&TileMatrix={z}&TileCol={x}&TileRow={y}&format=image/png'
     ],
     tileSize: 256,
-    attribution: 'NASA FIRMS'
+    attribution: 'NASA GIBS Thermal Anomalies'
   };
 
   const firmsLayer: any = {
@@ -1405,6 +1532,9 @@ export function InnerMap({
     const isFeed = feature.layer.id.startsWith('feed-');
     const isCensus = feature.layer.id === 'census-layer' || feature.layer.id === 'census-glow' || feature.layer.id === 'census-fill';
     const isGroup = props.isGroup === true && isMarket;
+    const isUSNI = feature.layer.id === 'usni-layer';
+    const isSatellite = feature.layer.id === 'satellites-layer';
+    const isGpsJam = feature.layer.id === 'gpsjam-layer' || feature.layer.id === 'gpsjam-fill-layer' || feature.layer.id === 'gpsjam-outline-layer';
 
     return (
       <Popup
@@ -1619,6 +1749,99 @@ export function InnerMap({
             </div>
           )}
 
+          {/* USNI Navy Fleet Popup */}
+          {isUSNI && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Ship className="w-3.5 h-3.5 text-[#00bfff]" />
+                  <span className="text-[10px] uppercase font-bold text-[#00bfff]">USNI Fleet Tracker</span>
+                </div>
+                <span className={cn(
+                  "text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider",
+                  props.deploymentStatus === 'deployed' ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" :
+                  props.deploymentStatus === 'transit' ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
+                  "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                )}>
+                  {props.deploymentStatus}
+                </span>
+              </div>
+              <h3 className="text-xs font-bold text-white leading-tight">{props.title}</h3>
+              <div className="text-[11px] font-medium text-gray-300 leading-snug">{props.subTitle}</div>
+              <div className="text-[11px] text-gray-400 bg-black/30 border border-white/5 rounded-lg p-2 font-sans mt-1">
+                <span className="text-[9px] font-bold text-white/50 block mb-0.5">CURRENT ACTIVITY</span>
+                {props.activityDescription}
+              </div>
+              <div className="text-[9px] text-gray-500 mt-1 flex justify-between border-t border-white/5 pt-1">
+                <span>Region: {props.region}</span>
+                <span>As of {props.date}</span>
+              </div>
+              {props.url && (
+                <a href={props.url} target="_blank" rel="noreferrer" className="text-[10px] text-[#00bfff] hover:underline mt-1 font-mono flex items-center gap-1">
+                  <span>⚓ news.usni.org</span>
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Celestrak Satellite Popup */}
+          {isSatellite && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 mb-1">
+                <GlobeIcon className="w-3.5 h-3.5 text-[#22d3ee]" />
+                <span className="text-[10px] uppercase font-bold text-[#22d3ee]">Orbit Tracker</span>
+              </div>
+              <h3 className="text-xs font-bold text-white leading-tight">{props.title}</h3>
+              <div className="text-[10px] font-mono text-gray-400">{props.subTitle}</div>
+              
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] bg-black/30 border border-white/5 rounded-lg p-2 font-mono mt-1">
+                <div className="text-gray-500">INCLINATION</div>
+                <div className="text-cyan-400 text-right">{parseFloat(props.inclination || 0).toFixed(4)}°</div>
+                <div className="text-gray-500">MEAN MOTION</div>
+                <div className="text-white text-right">{parseFloat(props.meanMotion || 0).toFixed(4)} rev/d</div>
+                <div className="text-gray-500">ECCENTRICITY</div>
+                <div className="text-white text-right">{parseFloat(props.eccentricity || 0).toFixed(6)}</div>
+              </div>
+
+              <div className="text-[9px] text-gray-500 mt-1 flex justify-between border-t border-white/5 pt-1">
+                <span>Live Propagation Tick</span>
+                <span className="text-[#00ff7f] animate-pulse">● ACTIVE</span>
+              </div>
+            </div>
+          )}
+
+          {/* GPS Jamming Radar Popup */}
+          {isGpsJam && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-red-400" />
+                  <span className="text-[10px] uppercase font-bold text-red-400">GPS Jamming Radar</span>
+                </div>
+                <span className={cn(
+                  "text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider animate-pulse",
+                  props.intensity === 'high' ? "bg-red-500/20 text-red-300 border-red-500/30" :
+                  props.intensity === 'medium' ? "bg-orange-500/20 text-orange-300 border-orange-500/30" :
+                  "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                )}>
+                  {props.intensity} Jamming
+                </span>
+              </div>
+              <h3 className="text-xs font-bold text-white leading-tight">{props.title}</h3>
+              <div className="text-[10px] font-mono text-gray-400">{props.subTitle}</div>
+              
+              <div className="text-[11px] text-gray-300 bg-red-950/20 border border-red-500/10 rounded-lg p-2 font-sans mt-1">
+                <span className="text-[9px] font-bold text-red-400/50 block mb-0.5">INTEL SUMMARY</span>
+                {props.description}
+              </div>
+
+              <div className="text-[10px] font-mono text-gray-400 mt-1 flex justify-between border-t border-white/5 pt-1">
+                <span>Impact Radius:</span>
+                <span className="text-white font-bold">{props.radiusKm} km</span>
+              </div>
+            </div>
+          )}
+
           {/* EXCHANGES / MARKETS */}
           {(isMarket || isExchange) && (
             <>
@@ -1829,7 +2052,10 @@ export function InnerMap({
       'census-fill',
       'tweets-layer',
       'exchanges-layer',        // Always interactive if rendered
-      'exchanges-glow-layer'    // Always interactive if rendered
+      'exchanges-glow-layer',    // Always interactive if rendered
+      'usni-layer',
+      'satellites-layer',
+      'gpsjam-layer'
     ];
 
     if (visualizationMode === 'heatmap') {
@@ -1956,7 +2182,7 @@ export function InnerMap({
         {/* OSINT Layer (NASA FIRMS) */}
         {/* OSINT / Wildfires Layer */}
         {(activeFilters.fires || isLayerActive('WILDFIRES')) && (
-          <Source id="firms" type="raster" tiles={['https://firms.modaps.eosdis.nasa.gov/mapserver/tms/1.0.0/Fires_All/{z}/{x}/{y}.png']} tileSize={256}>
+          <Source id="firms" type="raster" tiles={['https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&layer=VIIRS_NOAA20_Thermal_Anomalies_375m_All&style=default&tilematrixset=GoogleMapsCompatible_Level9&TileMatrix={z}&TileCol={x}&TileRow={y}&format=image/png']} tileSize={256}>
             <Layer {...firmsLayer} />
           </Source>
         )}
@@ -2138,6 +2364,162 @@ export function InnerMap({
           </Source>
         )}
 
+        {/* USNI Navy Fleet Layer */}
+        {(isLayerActive('USNI') || activeFilters.usni) && fetchedUSNIData && (
+          <Source id="usni-source" type="geojson" data={fetchedUSNIData as any}>
+            <Layer
+              id="usni-glow"
+              type="circle"
+              paint={{
+                'circle-radius': 24,
+                'circle-color': '#00bfff', // Electric-blue (DeepSkyBlue)
+                'circle-opacity': 0.15,
+                'circle-blur': 0.8
+              }}
+            />
+            <Layer
+              id="usni-layer"
+              type="symbol"
+              layout={{
+                'icon-image': 'icon-usni',
+                'icon-size': 0.8,
+                'icon-anchor': 'center',
+                'icon-allow-overlap': true,
+                'text-field': '{title}',
+                'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                'text-offset': [0, 1.2],
+                'text-anchor': 'top',
+                'text-size': 10
+              }}
+              paint={{
+                'icon-color': '#00bfff',
+                'icon-opacity': 0.95,
+                'text-color': '#e2e8f0',
+                'text-halo-color': '#000',
+                'text-halo-width': 1
+              }}
+            />
+          </Source>
+        )}
+
+        {/* CELESTRAK SATELLITES Layer */}
+        {(isLayerActive('SATELLITES') || activeFilters.satellites) && (
+          <>
+            {/* Orbit paths */}
+            {orbitLinesData && (
+              <Source id="satellites-orbits-source" type="geojson" data={orbitLinesData as any}>
+                <Layer
+                  id="satellites-orbit-lines"
+                  type="line"
+                  paint={{
+                    'line-color': '#22d3ee', // Cyber-cyan
+                    'line-width': 1,
+                    'line-dasharray': [2, 4],
+                    'line-opacity': 0.4
+                  }}
+                />
+              </Source>
+            )}
+
+            {/* Live spacecraft */}
+            {liveSatelliteData && (
+              <Source id="satellites-source" type="geojson" data={liveSatelliteData as any}>
+                <Layer
+                  id="satellites-glow"
+                  type="circle"
+                  paint={{
+                    'circle-radius': 14,
+                    'circle-color': '#22d3ee',
+                    'circle-opacity': 0.2,
+                    'circle-blur': 0.6
+                  }}
+                />
+                <Layer
+                  id="satellites-layer"
+                  type="symbol"
+                  layout={{
+                    'icon-image': 'icon-geopolitics', // Reusing high-fidelity Globe icon for satellites
+                    'icon-size': 0.7,
+                    'icon-anchor': 'center',
+                    'icon-allow-overlap': true,
+                    'text-field': '{title}',
+                    'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                    'text-offset': [0, 1.2],
+                    'text-anchor': 'top',
+                    'text-size': 9
+                  }}
+                  paint={{
+                    'icon-color': '#22d3ee',
+                    'icon-opacity': 0.95,
+                    'text-color': '#e2e8f0',
+                    'text-halo-color': '#000',
+                    'text-halo-width': 1
+                  }}
+                />
+              </Source>
+            )}
+          </>
+        )}
+
+        {/* GPS JAMMING Layer */}
+        {(isLayerActive('GPSJAM') || activeFilters.gpsjam) && fetchedGpsJamData && (
+          <Source id="gpsjam-source" type="geojson" data={fetchedGpsJamData as any}>
+            {/* Translucent Jamming zone fill */}
+            <Layer
+              id="gpsjam-fill-layer"
+              type="fill"
+              paint={{
+                'fill-color': [
+                  'match',
+                  ['get', 'intensity'],
+                  'high', '#ef4444',   // Red
+                  'medium', '#f97316', // Orange
+                  'low', '#fbbf24',    // Yellow
+                  '#ef4444'
+                ],
+                'fill-opacity': 0.12
+              }}
+            />
+            {/* Pulsing jamming zone boundaries */}
+            <Layer
+              id="gpsjam-outline-layer"
+              type="line"
+              paint={{
+                'line-color': [
+                  'match',
+                  ['get', 'intensity'],
+                  'high', '#f87171',   // Red 400
+                  'medium', '#fb923c', // Orange 400
+                  'low', '#fcd34d',    // Yellow 300
+                  '#f87171'
+                ],
+                'line-width': 1.5,
+                'line-dasharray': [4, 4],
+                'line-opacity': 0.6
+              }}
+            />
+            {/* Center target circle marker */}
+            <Layer
+              id="gpsjam-layer"
+              type="circle"
+              paint={{
+                'circle-radius': 6,
+                'circle-color': [
+                  'match',
+                  ['get', 'intensity'],
+                  'high', '#ef4444',
+                  'medium', '#f97316',
+                  'low', '#fbbf24',
+                  '#ef4444'
+                ],
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#ffffff',
+                'circle-opacity': 0.95
+              }}
+            />
+          </Source>
+        )}
+
         {/* FEED LAYERS (Conflict, Contracts, Policy, etc.) */}
         {/* We assume these features are passed in via overrideMarkets/markets or a dedicated feeds prop.
             For now, check if they exist in the main data source or a new source.
@@ -2253,6 +2635,87 @@ export function InnerMap({
               paint={{
                 'icon-color': '#facc15',
                 'icon-opacity': 0.9
+              }}
+            />
+
+            {/* Money Printer (Economic Indicators) - Green */}
+            <Layer
+              id="feed-money-printer"
+              type="symbol"
+              filter={['==', ['get', 'layer'], 'money-printer']}
+              layout={{
+                'icon-image': 'icon-money',
+                'icon-size': 0.8,
+                'icon-anchor': 'center'
+              }}
+              paint={{
+                'icon-color': '#22c55e',
+                'icon-opacity': 0.95
+              }}
+            />
+            <Layer
+              id="feed-money-printer-glow"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'money-printer']}
+              paint={{
+                'circle-radius': 15,
+                'circle-color': '#22c55e',
+                'circle-opacity': 0.2,
+                'circle-blur': 0.8
+              }}
+            />
+
+            {/* Commodities - Orange */}
+            <Layer
+              id="feed-commodities"
+              type="symbol"
+              filter={['==', ['get', 'layer'], 'commodities']}
+              layout={{
+                'icon-image': 'icon-commodities',
+                'icon-size': 0.8,
+                'icon-anchor': 'center'
+              }}
+              paint={{
+                'icon-color': '#f97316',
+                'icon-opacity': 0.95
+              }}
+            />
+            <Layer
+              id="feed-commodities-glow"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'commodities']}
+              paint={{
+                'circle-radius': 15,
+                'circle-color': '#f97316',
+                'circle-opacity': 0.2,
+                'circle-blur': 0.8
+              }}
+            />
+
+            {/* Geopolitics - Blue */}
+            <Layer
+              id="feed-geopolitics"
+              type="symbol"
+              filter={['==', ['get', 'layer'], 'geopolitics']}
+              layout={{
+                'icon-image': 'icon-geopolitics',
+                'icon-size': 0.8,
+                'icon-anchor': 'center'
+              }}
+              paint={{
+                'icon-color': '#3b82f6',
+                'icon-opacity': 0.95
+              }}
+            />
+            <Layer
+              id="feed-geopolitics-glow"
+              type="circle"
+              filter={['==', ['get', 'layer'], 'geopolitics']}
+              paint={{
+                'circle-radius': 15,
+                'circle-color': '#3b82f6',
+                'circle-opacity': 0.2,
+                'circle-blur': 0.8
               }}
             />
           </Source>

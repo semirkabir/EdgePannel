@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useExchangeMovers } from '@/hooks/use-exchange-movers';
 import { StockMover } from '@/types/exchange';
@@ -203,44 +203,81 @@ export function ExchangePopup({
         <button
           onClick={() => setActiveTab('gainers')}
           className={cn(
-            'flex-1 px-2 py-1.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center gap-1',
+            'flex-1 px-1 py-1.5 rounded-md text-[9px] font-bold transition-all flex items-center justify-center gap-1',
             activeTab === 'gainers'
-              ? 'bg-emerald-600 text-white'
+              ? 'bg-emerald-600 text-white shadow-sm'
               : 'text-gray-400 hover:text-gray-200'
           )}
         >
-          <TrendingUp className="w-3 h-3" />
+          <TrendingUp className="w-2.5 h-2.5" />
           Gainers
         </button>
         <button
           onClick={() => setActiveTab('losers')}
           className={cn(
-            'flex-1 px-2 py-1.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center gap-1',
+            'flex-1 px-1 py-1.5 rounded-md text-[9px] font-bold transition-all flex items-center justify-center gap-1',
             activeTab === 'losers'
-              ? 'bg-red-600 text-white'
+              ? 'bg-red-600 text-white shadow-sm'
               : 'text-gray-400 hover:text-gray-200'
           )}
         >
-          <TrendingDown className="w-3 h-3" />
+          <TrendingDown className="w-2.5 h-2.5" />
           Losers
         </button>
         <button
           onClick={() => setActiveTab('volume')}
           className={cn(
-            'flex-1 px-2 py-1.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center gap-1',
+            'flex-1 px-1 py-1.5 rounded-md text-[9px] font-bold transition-all flex items-center justify-center gap-1',
             activeTab === 'volume'
-              ? 'bg-blue-600 text-white'
+              ? 'bg-blue-600 text-white shadow-sm'
               : 'text-gray-400 hover:text-gray-200'
           )}
         >
-          <Activity className="w-3 h-3" />
+          <Activity className="w-2.5 h-2.5" />
           Volume
+        </button>
+        <button
+          onClick={() => setActiveTab('sectors' as any)}
+          className={cn(
+            'flex-1 px-1 py-1.5 rounded-md text-[9px] font-bold transition-all flex items-center justify-center gap-1',
+            activeTab === ('sectors' as any)
+              ? 'bg-purple-600 text-white shadow-sm'
+              : 'text-gray-400 hover:text-gray-200'
+          )}
+        >
+          <LayoutGrid className="w-2.5 h-2.5" />
+          Sectors
         </button>
       </div>
 
       {/* Content */}
       <div className="space-y-1.5 mb-3 max-h-[240px] overflow-y-auto scrollbar-hide">
-        {isLoading ? (
+        {activeTab === ('sectors' as any) ? (
+          <div className="grid grid-cols-2 gap-1.5 py-1">
+            {getSectorBreakdown(exchangeId).slice(0, 6).map((sector, idx) => {
+              const isPositive = sector.changePercent >= 0;
+              return (
+                <div
+                  key={idx}
+                  className={cn(
+                    "p-2 rounded-lg border flex flex-col justify-between h-13 transition-all hover:scale-[1.02] bg-gray-800/40 border-gray-700/30",
+                    isPositive
+                      ? "hover:bg-emerald-500/10 hover:border-emerald-500/20"
+                      : "hover:bg-rose-500/10 hover:border-rose-500/20"
+                  )}
+                >
+                  <span className="text-[8px] text-gray-400 font-mono truncate uppercase tracking-wider">{sector.name}</span>
+                  <span className={cn(
+                    "text-xs font-bold leading-none mt-1.5",
+                    isPositive ? "text-emerald-400" : "text-rose-400"
+                  )}>
+                    {isPositive ? '+' : ''}{sector.changePercent.toFixed(2)}%
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : isLoading ? (
           <div className="text-center py-4 text-xs text-gray-400">Loading...</div>
         ) : currentData.length === 0 ? (
           <div className="text-center py-4 text-xs text-gray-400">No data available</div>
@@ -348,3 +385,39 @@ function formatVolume(volume: number): string {
   if (volume >= 1e3) return `${(volume / 1e3).toFixed(1)}K`;
   return volume.toString();
 }
+
+export const getSectorBreakdown = (exchangeId: string) => {
+  const sectors = [
+    { name: 'Technology', weight: 0.28 },
+    { name: 'Financials', weight: 0.13 },
+    { name: 'Healthcare', weight: 0.12 },
+    { name: 'Consumer Cyclical', weight: 0.10 },
+    { name: 'Industrials', weight: 0.08 },
+    { name: 'Communication', weight: 0.08 },
+    { name: 'Consumer Defensive', weight: 0.06 },
+    { name: 'Energy', weight: 0.04 },
+    { name: 'Basic Materials', weight: 0.03 },
+    { name: 'Utilities', weight: 0.03 },
+    { name: 'Real Estate', weight: 0.03 },
+  ];
+
+  // Seeded random number generator
+  let seed = 0;
+  for (let i = 0; i < exchangeId.length; i++) {
+    seed += exchangeId.charCodeAt(i);
+  }
+  const random = () => {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  };
+
+  return sectors.map(sec => {
+    // Generate a realistic daily change between -3.5% and +3.5%
+    const changePercent = (random() * 7 - 3.5) * (0.4 + random() * 0.6);
+    return {
+      name: sec.name,
+      changePercent,
+      weight: sec.weight
+    };
+  }).sort((a, b) => b.weight - a.weight);
+};

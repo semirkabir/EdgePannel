@@ -19,6 +19,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { LatencyTag } from '@/components/edge/LatencyTag'
 import { useExchangeMovers } from '@/hooks/use-exchange-movers'
 import { FeedItemDetails } from '@/components/panels/FeedItemDetails'
+import { getSectorBreakdown } from '@/components/edge/ExchangePopup'
 
 // Map categories to icons
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -1150,6 +1151,41 @@ export function MarketDetails({ market, onClose }: MarketDetailsProps) {
               Visit Exchange Website
               <ExternalLink className="w-4 h-4" />
             </a>
+          </div>
+
+          {/* Sector Heatmap Breakdown */}
+          <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/30 mb-6">
+            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+              <LayoutGrid className="w-4 h-4 text-purple-400" />
+              Sector Heatmap Breakdown
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {getSectorBreakdown(activeExchange.id).map((sector, idx) => {
+                const isPositive = sector.changePercent >= 0;
+                return (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "p-3 rounded-lg border flex flex-col justify-between h-20 transition-all duration-300 hover:scale-[1.02] cursor-pointer bg-gray-900/50 border-gray-700/30",
+                      isPositive
+                        ? "hover:bg-emerald-500/10 hover:border-emerald-500/30"
+                        : "hover:bg-rose-500/10 hover:border-rose-500/30"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <span className="text-[10px] text-gray-400 font-mono uppercase tracking-wider leading-tight">{sector.name}</span>
+                      <span className="text-[9px] text-gray-600 font-medium">{(sector.weight * 100).toFixed(0)}% wt</span>
+                    </div>
+                    <span className={cn(
+                      "text-base font-bold mt-2 leading-none",
+                      isPositive ? "text-emerald-400" : "text-rose-400"
+                    )}>
+                      {isPositive ? '+' : ''}{sector.changePercent.toFixed(2)}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Top Movers Sections */}

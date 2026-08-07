@@ -52,6 +52,7 @@ export default function EdgePage() {
   // Integrated Situation Feeds
   const [activeFeeds, setActiveFeeds] = useState<Record<string, boolean>>({
     'CONFLICT': true,
+    'fires': false,
     'TECH_AI': false,
     'GEOPOLITICS': false,
     'MONEY_PRINTER': false,
@@ -60,7 +61,10 @@ export default function EdgePage() {
     'POLICY': false,
     'CRYPTO': false,
     'COMMODITIES': false,
-    'LAYOFFS': false
+    'LAYOFFS': false,
+    'usni': false,
+    'satellites': false,
+    'gpsjam': false
   });
 
   const { feedFeatures } = useFeedData({ activeFeeds });
@@ -69,7 +73,22 @@ export default function EdgePage() {
     setActiveFeeds(prev => ({ ...prev, [feedKey]: active }));
     // Also toggle the main 'feeds' filter to ensure layers are rendered if any feed is active
     const anyActive = active || Object.entries(activeFeeds).some(([k, v]) => k !== feedKey && v);
-    setActiveFilters(prev => ({ ...prev, feeds: anyActive }));
+    setActiveFilters(prev => {
+      const nextFilters: Record<string, boolean> = { ...prev, feeds: anyActive };
+      if (feedKey === 'fires') {
+        nextFilters.fires = active;
+      }
+      if (feedKey === 'usni') {
+        nextFilters.usni = active;
+      }
+      if (feedKey === 'satellites') {
+        nextFilters.satellites = active;
+      }
+      if (feedKey === 'gpsjam') {
+        nextFilters.gpsjam = active;
+      }
+      return nextFilters;
+    });
   };
 
   // Research Notebook state

@@ -142,10 +142,7 @@ export function CommandCenter({ isOpen, onClose, onMarketSelect }: CommandCenter
 
                         {/* Loading State */}
                         {(isSearchLoading || isInsightLoading) && (
-                            <div className="flex flex-col items-center justify-center h-full gap-4 py-12">
-                                <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
-                                <p className="text-gray-400 font-mono text-sm">Aggregating intelligence...</p>
-                            </div>
+                            <RadarLoader />
                         )}
 
                         {/* Flash Card (Topic Insight) */}
@@ -335,5 +332,66 @@ function ActionButton({ icon, title, desc }: { icon: React.ReactNode, title: str
                 <div className="text-[10px] text-gray-500 group-hover:text-gray-400 transition-colors uppercase tracking-wider font-bold">{desc}</div>
             </div>
         </button>
+    )
+}
+
+function RadarLoader() {
+    const [coords, setCoords] = React.useState({ lat: '34.0522', lng: '-118.2437' })
+
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            setCoords({
+                lat: (Math.random() * 180 - 90).toFixed(4),
+                lng: (Math.random() * 360 - 180).toFixed(4)
+            })
+        }, 300)
+        return () => clearInterval(interval)
+    }, [])
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full gap-6 py-12 select-none w-full">
+            {/* CSS Keyframe Animation inject */}
+            <style>{`
+                @keyframes radar-sweep {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
+
+            {/* Radar Container */}
+            <div className="relative w-32 h-32 rounded-full border border-[#00ff7f]/25 bg-[#00ff7f]/5 flex items-center justify-center overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,127,0.05)]">
+                {/* Grid Lines */}
+                <div className="absolute inset-3 rounded-full border border-[#00ff7f]/10" />
+                <div className="absolute inset-9 rounded-full border border-[#00ff7f]/10" />
+                <div className="absolute inset-16 rounded-full border border-[#00ff7f]/15" />
+                <div className="absolute inset-24 rounded-full border border-[#00ff7f]/20" />
+                <div className="absolute h-full w-[1px] bg-[#00ff7f]/15" />
+                <div className="absolute w-full h-[1px] bg-[#00ff7f]/15" />
+                
+                {/* Sweeper Vector */}
+                <div 
+                    className="absolute top-0 left-0 w-full h-full rounded-full origin-center animate-[radar-sweep_3s_linear_infinite]"
+                    style={{
+                        background: "conic-gradient(from 0deg, rgba(0, 255, 127, 0.4) 0deg, rgba(0, 255, 127, 0.1) 60deg, transparent 180deg)"
+                    }}
+                />
+                
+                {/* Blinking Targets */}
+                <div className="absolute top-1/4 left-1/3 w-1.5 h-1.5 rounded-full bg-[#00ff7f] animate-ping" />
+                <div className="absolute top-2/3 right-1/4 w-1 h-1 rounded-full bg-[#00ff7f] animate-[pulse_1.5s_infinite]" />
+                <div className="absolute bottom-1/3 left-1/4 w-1.5 h-1.5 rounded-full bg-[#00ff7f] animate-pulse" />
+                
+                {/* Center Core */}
+                <div className="w-2 h-2 rounded-full bg-[#00ff7f] shadow-[0_0_8px_#00ff7f] border border-white/20" />
+            </div>
+
+            {/* Monospace Ticking Coordinates */}
+            <div className="text-center space-y-1">
+                <p className="text-[#00ff7f] font-mono text-xs tracking-widest uppercase font-black animate-pulse">Scanning Geopolitical Signals...</p>
+                <p className="text-gray-500 font-mono text-[9px] tracking-wider">
+                    SEC_GRID // LAT: {coords.lat}° // LNG: {coords.lng}°
+                </p>
+            </div>
+        </div>
     )
 }
