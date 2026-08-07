@@ -224,7 +224,13 @@ class GlobeRenderer {
     const h = canvas.height;
     const cx = w / 2;
     const cy = h * this.centerYFrac;
-    const r = Math.min(w, h) * 0.36 * this.zoom;
+    // 0.46, not 0.36: the canvas is now the full stage rather than a fixed
+    // 1150px square, so the same apparent globe needs a larger fraction of the
+    // (shorter) viewport dimension. Derived, not eyeballed — the old canvas was
+    // 1150 CSS px at 0.36, i.e. a 414px radius; 414 / 900 ≈ 0.46 at this
+    // viewport. Measuring the drawn span instead would mislead: the globe
+    // rotates, so limb dots and arcs move the extent frame to frame.
+    const r = Math.min(w, h) * 0.46 * this.zoom;
 
     ctx.clearRect(0, 0, w, h);
 

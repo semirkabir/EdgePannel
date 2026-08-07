@@ -484,8 +484,13 @@ a { color: inherit; }
   perspective: 900px;
 }
 .lp-hero-globe canvas {
-  width: min(135vmin, 1150px);
-  height: min(135vmin, 1150px);
+  /* Full-bleed, not a fixed square. A capped square canvas left dead margins
+     either side on anything wider than it (~385px each at 1920), and the
+     descent's 2.6x zoom then clipped the dot field at the canvas edge instead
+     of at the viewport — a hard vertical seam. The renderer keys its radius off
+     min(w, h), so a non-square canvas still draws a circular globe. */
+  width: 100%;
+  height: 100%;
   /* Held back while the painting owns the first screen, then up to its normal
      weight as the descent starts. The crossover is the point of the sequence:
      the argument gives way to the world it applies to. */
@@ -2518,19 +2523,60 @@ a { color: inherit; }
 
 .lp-footer {
   border-top: 1px solid var(--lp-border);
-  padding: 30px 0;
+  padding: 48px 0 30px;
 }
+
+/* Two rows: brand + link columns on top, a divider, then the legal line —
+   as a 2x2 grid rather than nested wrappers, since brand/cols/legal are three
+   flat siblings in the markup on every page that uses this footer. */
 .lp-footer-inner {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'brand cols' 'legal legal';
+  align-items: start;
+  column-gap: 48px;
+  row-gap: 28px;
 }
+.lp-brand { grid-area: brand; }
+
+/* --- Grouped columns (Product / Resources / Company) --- */
+.lp-footer-cols {
+  grid-area: cols;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: clamp(32px, 6vw, 80px);
+}
+.lp-footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 130px;
+}
+.lp-footer-col-title {
+  margin: 0 0 2px;
+  font-family: var(--lp-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lp-text-faint);
+}
+.lp-footer-col a {
+  color: var(--lp-text-dim);
+  text-decoration: none;
+  font-size: 13.5px;
+}
+.lp-footer-col a:hover { color: var(--lp-text); }
+
+/* --- Older flat link list: still used on a few pages not yet migrated to
+   the grouped columns above. Kept working rather than ripped out. --- */
 .lp-footer-links {
+  grid-area: cols;
   display: flex;
   gap: 20px;
-  margin-left: auto;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .lp-footer-links a {
   color: var(--lp-text-dim);
@@ -2538,16 +2584,25 @@ a { color: inherit; }
   font-size: 13.5px;
 }
 .lp-footer-links a:hover { color: var(--lp-text); }
+
 .lp-footer-legal {
-  width: 100%;
-  margin: 10px 0 0;
+  grid-area: legal;
+  margin: 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--lp-border);
   font-family: var(--lp-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--lp-text-faint);
 }
-@media (min-width: 761px) {
-  .lp-footer-legal { width: auto; margin: 0 0 0 auto; }
-  .lp-footer-links { margin-left: 0; margin-right: auto; }
+
+@media (max-width: 640px) {
+  .lp-footer-inner {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'brand' 'cols' 'legal';
+  }
+  .lp-footer-cols,
+  .lp-footer-links { justify-content: flex-start; }
+  .lp-footer-cols { gap: 28px 48px; }
 }
