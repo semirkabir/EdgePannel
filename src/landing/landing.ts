@@ -304,9 +304,16 @@ if (showcaseSection) {
   }
 }
 
-// --- Lazy: live proof widgets, when the section approaches the viewport ---
-const liveSection = document.getElementById('live');
-if (liveSection) {
+// --- Lazy: live proof widgets, when the first section that needs them nears ---
+// initLiveWidgets renders both the source ticker and the live API cards, and
+// those now live in two different sections. Observing only #live would leave
+// the ticker — which sits above it — empty until the user scrolled past it.
+const widgetHosts = [
+  document.querySelector<HTMLElement>('[data-slot="ticker-belt"]')?.closest('section') ?? null,
+  document.getElementById('live'),
+].filter((el): el is HTMLElement => el !== null);
+
+if (widgetHosts.length > 0) {
   const load = (): void => {
     void import('./live-widgets').then((m) => m.initLiveWidgets());
   };
@@ -320,7 +327,8 @@ if (liveSection) {
       },
       { rootMargin: '600px 0px' }
     );
-    io.observe(liveSection);
+    // Whichever comes into view first wins; the observer disconnects on load.
+    for (const host of widgetHosts) io.observe(host);
   } else {
     load();
   }
