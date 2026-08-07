@@ -38,7 +38,7 @@ test.describe('landing page', () => {
   });
 
   test('renders all six sections and footer', async ({ page }) => {
-    for (const id of ['hero', 'live', 'product', 'who', 'lenses', 'faq', 'launch']) {
+    for (const id of ['hero', 'live', 'product', 'who', 'faq', 'launch']) {
       await expect(page.locator(`#${id}`)).toBeAttached();
     }
     await expect(page.locator('.lp-footer')).toBeVisible();
@@ -61,15 +61,6 @@ test.describe('landing page', () => {
     }
   });
 
-  test('lens cards link to the variant subdomains', async ({ page }) => {
-    const lensGrid = page.locator('.lp-lens-grid');
-    await lensGrid.scrollIntoViewIfNeeded();
-    await expect(page.locator('.lp-lens')).toHaveCount(6);
-    await expect(page.locator('.lp-lens[data-lens="tech"]')).toHaveAttribute(
-      'href',
-      'https://tech.edgepannel.com'
-    );
-  });
 
   test('live widgets resolve to live or sample rows', async ({ page }) => {
     await page.locator('#live').scrollIntoViewIfNeeded();

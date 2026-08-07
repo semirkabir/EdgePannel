@@ -16,7 +16,7 @@ export function htmlVariantPlugin(options: HtmlVariantPluginOptions): Plugin {
       // The document marker is the source of truth, so future standard-shell pages
       // are safe automatically. The explicit list retains compatibility with older
       // marketing pages that have not yet adopted the marker.
-      const MARKETING_HTML = ['landing.html', 'lenses.html', 'dossiers.html', 'commander.html', 'resources.html', 'data-sources.html', 'downloads.html', 'pricing.html', 'roadmap.html', 'feature-request.html', 'terms.html'];
+      const MARKETING_HTML = ['landing.html', 'dossiers.html', 'commander.html', 'resources.html', 'data-sources.html', 'downloads.html', 'pricing.html', 'roadmap.html', 'feature-request.html', 'terms.html'];
       if (/<html[^>]*\sdata-page="landing"/.test(html) || MARKETING_HTML.some((page) => ctx.filename.endsWith(page))) return html;
       let result = html
         .replace(/<title>.*?<\/title>/, `<title>${activeMeta.title}</title>`)

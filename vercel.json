@@ -4,7 +4,6 @@
   "crons": [],
   "rewrites": [
     { "source": "/pro", "destination": "/pro/index.html" },
-    { "source": "/lenses", "destination": "/lenses.html" },
     { "source": "/dossiers", "destination": "/dossiers.html" },
     { "source": "/commander", "destination": "/commander.html" },
     { "source": "/resources", "destination": "/resources.html" },

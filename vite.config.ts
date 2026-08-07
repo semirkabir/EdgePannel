@@ -1188,7 +1188,6 @@ function landingRoutingPlugin(): Plugin {
   // Marketing sub-pages served at clean URLs. Keep in sync with the explicit
   // rewrites in vercel.json.
   const MARKETING_PAGES: Record<string, string> = {
-    '/lenses': '/lenses.html',
     '/dossiers': '/dossiers.html',
     '/commander': '/commander.html',
     '/resources': '/resources.html',
@@ -1452,7 +1451,6 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         landing: resolve(__dirname, 'landing.html'),
-        lenses: resolve(__dirname, 'lenses.html'),
         dossiers: resolve(__dirname, 'dossiers.html'),
         commander: resolve(__dirname, 'commander.html'),
         resources: resolve(__dirname, 'resources.html'),
