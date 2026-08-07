@@ -220,6 +220,28 @@ if (hero && globeCanvas && !reducedMotion && window.matchMedia('(pointer: fine)'
   });
 }
 
+// --- Lazy: style showcase belt, when the product section approaches ---
+const productSection = document.getElementById('product');
+if (productSection) {
+  const loadShowcase = (): void => {
+    void import('./showcase').then((m) => m.initShowcase());
+  };
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          io.disconnect();
+          loadShowcase();
+        }
+      },
+      { rootMargin: '600px 0px' }
+    );
+    io.observe(productSection);
+  } else {
+    loadShowcase();
+  }
+}
+
 // --- Lazy: live proof widgets, when the section approaches the viewport ---
 const liveSection = document.getElementById('live');
 if (liveSection) {
