@@ -5,7 +5,7 @@
  * lies about freshness.
  */
 
-import { TICKER_FEEDS, TICKER_CATEGORY_LABELS } from './ticker-data';
+import { TICKER_CATEGORY_LABELS, tickerRows } from './ticker-data';
 
 interface MarketQuote {
   symbol: string;
@@ -203,7 +203,7 @@ interface DigestResponse {
 
 const SIGNAL_SAMPLE = `
   <li class="lp-live-headline"><a>Wire services and official channels stream here the moment the map loads.</a><span class="lp-row-meta">Sample</span></li>
-  <li class="lp-live-headline"><a>680+ feeds are deduplicated and clustered into signals.</a><span class="lp-row-meta">Sample</span></li>`;
+  <li class="lp-live-headline"><a>572 feeds are deduplicated and clustered into signals.</a><span class="lp-row-meta">Sample</span></li>`;
 
 async function loadSignals(): Promise<void> {
   const slot = getSlot('signals');
@@ -311,18 +311,37 @@ async function loadPulse(): Promise<void> {
 
 // ---------------------------------------------------------------- ticker
 
+/** Per-row drift, seconds. Neighbouring rows never share a period, so the
+ *  belt never visually "locks" into a single moving block. */
+const BELT_DURATIONS = [74, 96, 62, 108, 84];
+
 /**
- * The marquee needs two identical copies of the strip: the animation slides
- * the track by exactly -50%, so the second copy takes over seamlessly.
+ * Multi-row source belt. Each row is its own marquee: odd rows run right-to-
+ * left, even rows left-to-right, at different speeds. Every row carries two
+ * identical copies of its strip — the animation slides the track by exactly
+ * -50%, so the second copy takes over seamlessly.
  */
 function initTicker(): void {
-  const track = document.querySelector<HTMLElement>('[data-slot="ticker-track"]');
-  if (!track) return;
-  const cards = TICKER_FEEDS.map(
-    (f) =>
-      `<li class="lp-tick" data-cat="${f.category}"><span class="lp-tick-dot" aria-hidden="true"></span><span class="lp-tick-name">${escapeHtml(f.name)}</span><span class="lp-tick-cadence">${f.cadence}</span><span class="lp-tick-cat">${TICKER_CATEGORY_LABELS[f.category]}</span></li>`
-  ).join('');
-  track.innerHTML = `<ul class="lp-ticker-strip">${cards}</ul><ul class="lp-ticker-strip" aria-hidden="true">${cards}</ul>`;
+  const belt = document.querySelector<HTMLElement>('[data-slot="ticker-belt"]');
+  if (!belt) return;
+  const rows = tickerRows()
+    .map((feeds, i) => {
+      const cards = feeds
+        .map(
+          (f) =>
+            `<li class="lp-tick" data-cat="${f.category}"><span class="lp-tick-dot" aria-hidden="true"></span><span class="lp-tick-name">${escapeHtml(f.name)}</span><span class="lp-tick-cadence">${escapeHtml(f.cadence)}</span><span class="lp-tick-cat">${TICKER_CATEGORY_LABELS[f.category]}</span></li>`
+        )
+        .join('');
+      const dur = BELT_DURATIONS[i % BELT_DURATIONS.length] as number;
+      return (
+        `<div class="lp-belt-row" data-dir="${i % 2 ? 'rtl' : 'ltr'}" style="--belt-dur:${dur}s">`
+        + `<ul class="lp-ticker-strip">${cards}</ul>`
+        + `<ul class="lp-ticker-strip" aria-hidden="true">${cards}</ul>`
+        + `</div>`
+      );
+    })
+    .join('');
+  belt.innerHTML = rows;
 }
 
 export function initLiveWidgets(): void {

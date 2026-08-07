@@ -2,6 +2,7 @@
 export const config = { runtime: 'edge' };
 
 const RELEASES_URL = 'https://api.github.com/repos/koala73/worldmonitor/releases/latest';
+const RELEASES_LIST_URL = 'https://api.github.com/repos/koala73/worldmonitor/releases?per_page=30';
 const RELEASES_PAGE = 'https://github.com/koala73/worldmonitor/releases/latest';
 
 const PLATFORM_PATTERNS = {
@@ -13,11 +14,23 @@ const PLATFORM_PATTERNS = {
   'linux-appimage-arm64': (name) => name.endsWith('_aarch64.AppImage'),
 };
 
+// Asset names come from each tauri.*.conf.json productName. 'worldmonitor' is
+// kept so links still resolve against releases published before the EdgePannel
+// rename.
 const VARIANT_IDENTIFIERS = {
-  full: ['worldmonitor'],
-  world: ['worldmonitor'],
+  full: ['edgepannel', 'worldmonitor'],
+  world: ['edgepannel', 'worldmonitor'],
   tech: ['techmonitor'],
   finance: ['financemonitor'],
+  conflicts: ['conflictsmonitor'],
+};
+
+// Non-default editions publish to their own tag (v1.2.3-tech), which is rarely
+// the repo's "latest" release — so they are resolved from the release list.
+const VARIANT_TAG_SUFFIX = {
+  tech: '-tech',
+  finance: '-finance',
+  conflicts: '-conflicts',
 };
 
 function canonicalAssetName(name) {
@@ -38,6 +51,21 @@ function findAssetForVariant(assets, variant, platformMatcher) {
   }) ?? null;
 }
 
+const GITHUB_HEADERS = {
+  'Accept': 'application/vnd.github+json',
+  'User-Agent': 'EdgePannel-Download-Redirect',
+};
+
+/** Newest release carrying this variant's tag suffix, or null. */
+async function fetchVariantRelease(suffix) {
+  const res = await fetch(RELEASES_LIST_URL, { headers: GITHUB_HEADERS });
+  if (!res.ok) return null;
+  const releases = await res.json();
+  if (!Array.isArray(releases)) return null;
+  // GitHub returns newest first; skip drafts so an in-progress build is never served.
+  return releases.find((r) => !r?.draft && String(r?.tag_name || '').endsWith(suffix)) ?? null;
+}
+
 export default async function handler(req) {
   const url = new URL(req.url);
   const platform = url.searchParams.get('platform');
@@ -48,18 +76,18 @@ export default async function handler(req) {
   }
 
   try {
-    const res = await fetch(RELEASES_URL, {
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'User-Agent': 'EdgePannel-Download-Redirect',
-      },
-    });
+    const suffix = VARIANT_TAG_SUFFIX[variant];
+    const release = suffix
+      ? await fetchVariantRelease(suffix)
+      : await (async () => {
+          const res = await fetch(RELEASES_URL, { headers: GITHUB_HEADERS });
+          return res.ok ? res.json() : null;
+        })();
 
-    if (!res.ok) {
+    if (!release) {
       return Response.redirect(RELEASES_PAGE, 302);
     }
 
-    const release = await res.json();
     const matcher = PLATFORM_PATTERNS[platform];
     const assets = Array.isArray(release.assets) ? release.assets : [];
     const asset = variant

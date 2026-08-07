@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EdgePannel — Real-Time Global Intelligence Dashboard</title>
-    <meta name="description" content="Free real-time global intelligence dashboard. 60 map layers, 680+ live feeds — ships, flights, markets, earthquakes, outages and conflict signals on one live map, with AI briefs. No signup." />
+    <meta name="description" content="Free real-time global intelligence dashboard. 60 map layers, 572 live feeds — ships, flights, markets, earthquakes, outages and conflict signals on one live map, with AI briefs. No signup." />
     <link rel="canonical" href="https://edgepannel.com/" />
     <meta name="theme-color" content="#04080a" />
 
@@ -12,11 +12,11 @@
     <meta property="og:url" content="https://edgepannel.com/" />
     <meta property="og:site_name" content="EdgePannel" />
     <meta property="og:title" content="EdgePannel — Real-Time Global Intelligence Dashboard" />
-    <meta property="og:description" content="Free live map of the world's signals: ships, flights, markets, earthquakes, outages, conflicts. 60 layers, 680+ feeds, AI briefs. No signup." />
+    <meta property="og:description" content="Free live map of the world's signals: ships, flights, markets, earthquakes, outages, conflicts. 60 layers, 572 feeds, AI briefs. No signup." />
     <meta property="og:image" content="https://edgepannel.com/favico/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="EdgePannel — Real-Time Global Intelligence Dashboard" />
-    <meta name="twitter:description" content="Free live map of the world's signals: ships, flights, markets, earthquakes, outages, conflicts. 60 layers, 680+ feeds, AI briefs. No signup." />
+    <meta name="twitter:description" content="Free live map of the world's signals: ships, flights, markets, earthquakes, outages, conflicts. 60 layers, 572 feeds, AI briefs. No signup." />
     <meta name="twitter:image" content="https://edgepannel.com/favico/og-image.png" />
 
     <link rel="icon" href="/favico/favicon.ico" sizes="any" />
@@ -41,72 +41,8 @@
       "url": "https://edgepannel.com/",
       "applicationCategory": "NewsApplication",
       "operatingSystem": "Web",
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "USD",
-        "lowPrice": "0",
-        "highPrice": "99.97",
-        "offerCount": "5",
-        "url": "https://edgepannel.com/pricing"
-      },
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "description": "Real-time global intelligence dashboard with live news, markets, military tracking, infrastructure monitoring, and geopolitical data."
-    }
-    </script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "Is EdgePannel really free?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "The data is. Every map layer, every feed, every lens — free forever, with no signup and no trial clock. No ads either, and with no account there's no user data to sell. Paid tiers never gate the raw data; they add the things computed on top of it — AI analysis, alerting, and tracking & history. See what's paid."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Where does the data come from?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "680+ curated public feeds and institutional sources: USGS, NOAA, GDACS, ECB, FRED, World Bank, OpenSky, AIS vessel streams, Cloudflare Radar, official government channels and major wire services. Every panel cites its sources."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Do I need an account?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "No. The dashboard is fully usable anonymously. An optional sign-in exists only to sync your panel layout and watchlists across devices."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "What are the six lenses?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "World, Tech, Finance, Commodity, Conflicts and Happy — the same live engine with layers, feeds and panels retuned per focus. Each lens lives on its own subdomain and is one click away."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Can I self-host it?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Not currently. EdgePannel is proprietary software offered as a hosted service. The methodology behind every score is published in full, so you can audit how the numbers are produced even though the source is not distributed."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Does it work on mobile?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. It's an installable PWA that works offline-first, translated into 21 languages including right-to-left scripts."
-          }
-        }
-      ]
     }
     </script>
   </head>
@@ -127,19 +63,13 @@
               <a role="menuitem" href="/lenses">Six lenses</a>
               <a role="menuitem" href="/dossiers">Country dossiers</a>
               <a role="menuitem" href="/commander">⌘K Commander</a>
+              <a role="menuitem" href="/data-sources">Data sources</a>
+              <a role="menuitem" href="/resources">OSINT resources</a>
+              <a role="menuitem" href="/downloads">Downloads</a>
             </div>
           </div>
           <a href="#who">Who it's for</a>
           <a href="/pricing">Pricing</a>
-          <div class="lp-nav-drop">
-            <button type="button" class="lp-nav-drop-btn" aria-expanded="false" aria-haspopup="true">Docs <span aria-hidden="true">▾</span></button>
-            <div class="lp-nav-drop-menu" role="menu">
-              <a role="menuitem" href="/docs/">Documentation</a>
-              <a role="menuitem" href="/docs/api-reference/">API reference</a>
-              <a role="menuitem" href="/resources">OSINT resources</a>
-              <a role="menuitem" href="/docs/changelog/">Changelog</a>
-            </div>
-          </div>
           <a href="#faq">FAQ</a>
         </nav>
         <a class="lp-btn lp-btn-primary lp-nav-cta" href="/app">Launch dashboard <span aria-hidden="true">→</span></a>
@@ -153,9 +83,8 @@
         <a href="/lenses">Six lenses</a>
         <a href="/dossiers">Country dossiers</a>
         <a href="/commander">⌘K Commander</a>
+        <a href="/data-sources">Data sources</a><a href="/resources">OSINT resources</a><a href="/downloads">Downloads</a>
         <a href="/pricing">Pricing</a>
-        <a href="/docs/">Docs</a>
-        <a href="/resources">OSINT resources</a>
         <a href="#who">Who it's for</a>
         <a href="#faq">FAQ</a>
       </nav>
@@ -174,19 +103,66 @@
             <span class="lp-h1-accent">The map doesn't.</span>
           </h1>
           <p class="lp-hero-sub">
-            EdgePannel streams ships, flights, markets, earthquakes, outages and conflict
-            signals onto one live map — with AI briefs that tell you why they matter.
+            Live geopolitical and market intelligence, mapped as it happens —
+            572 feeds, country briefs and alerts. Free, no account, runs in your browser.
           </p>
           <div class="lp-hero-ctas">
             <a class="lp-btn lp-btn-primary lp-btn-lg" href="/app">Launch the dashboard <span aria-hidden="true">→</span></a>
-            <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#live">See what's live <span aria-hidden="true">↓</span></a>
           </div>
-          <p class="lp-micro">Free · No signup · Runs in your browser</p>
+          <p class="lp-micro">Free · No signup · Runs in your browser · <a class="lp-textlink" href="#live">See what's live ↓</a></p>
+
+          <div class="lp-hero-proof" id="hero-proof" aria-label="Live data sample from the dashboard APIs">
+            <div class="lp-hero-proof-item lp-hero-proof-pulse" data-widget="hero-pulse">
+              <span class="lp-hero-proof-label">Instability</span>
+              <span class="lp-hero-proof-value"><span data-slot="score">–</span><span class="lp-hero-proof-denom">/100</span></span>
+              <span class="lp-hero-proof-meta" data-slot="level">connecting…</span>
+            </div>
+            <div class="lp-hero-proof-item" data-widget="hero-spx">
+              <span class="lp-hero-proof-label">S&amp;P 500</span>
+              <span class="lp-hero-proof-value" data-slot="price">–</span>
+              <span class="lp-hero-proof-meta" data-slot="change">–</span>
+            </div>
+            <div class="lp-hero-proof-item" data-widget="hero-ndx">
+              <span class="lp-hero-proof-label">Nasdaq</span>
+              <span class="lp-hero-proof-value" data-slot="price">–</span>
+              <span class="lp-hero-proof-meta" data-slot="change">–</span>
+            </div>
+            <div class="lp-hero-proof-item lp-hero-proof-fresh">
+              <span class="lp-hero-proof-label">Status</span>
+              <span class="lp-hero-proof-value lp-hero-proof-live">live</span>
+              <span class="lp-hero-proof-meta" data-slot="updated">updating…</span>
+            </div>
+          </div>
+
+          <a class="lp-frame lp-hero-frame" href="/app" aria-label="Open the live dashboard">
+            <span class="lp-frame-bar" aria-hidden="true">
+              <span class="lp-frame-dots"><i></i><i></i><i></i></span>
+              <span class="lp-frame-title">edgepannel.app — global situation</span>
+              <span class="lp-frame-open">click to open live →</span>
+            </span>
+            <span class="lp-frame-shots lp-shot">
+              <img
+                src="/landing/dashboard.jpg"
+                alt="EdgePannel dashboard: dark world map with live signal layers, news feeds and market panels"
+                width="1440" height="810" fetchpriority="high" decoding="async"
+              />
+              <img
+                src="/landing/dashboard-region.jpg"
+                alt="Zoomed regional view with conflict zones and threat clusters"
+                width="1440" height="810" loading="lazy" decoding="async" aria-hidden="true"
+              />
+              <img
+                src="/landing/dashboard-brief.jpg"
+                alt="Incident brief popup for a maritime chokepoint crisis"
+                width="1440" height="810" loading="lazy" decoding="async" aria-hidden="true"
+              />
+            </span>
+          </a>
+
           <dl class="lp-hero-stats">
+            <div><dt data-count="572">572</dt><dd>live feeds</dd></div>
             <div><dt data-count="60">60</dt><dd>map layers</dd></div>
-            <div><dt data-count="680" data-suffix="+">680+</dt><dd>live feeds</dd></div>
             <div><dt data-count="6">6</dt><dd>focused lenses</dd></div>
-            <div><dt data-count="21">21</dt><dd>languages</dd></div>
           </dl>
         </div>
         <div class="lp-hero-fade" aria-hidden="true"></div>
@@ -198,10 +174,8 @@
           <p class="lp-label lp-reveal">Live right now</p>
           <h2 class="lp-h2 lp-reveal">This page is wired to the same APIs as the dashboard.</h2>
           <p class="lp-section-sub lp-reveal">
-            The numbers below are fetched live while you read — a small sample of what
-            the map watches around the clock. Anything we can't reach right now is
-            labelled <span class="lp-inline-sample">sample</span> rather than quietly
-            faked.
+            No mockups. The numbers below are fetched live while you read — a small
+            sample of what the full map watches around the clock.
           </p>
           <article class="lp-pulse lp-reveal" data-widget="pulse">
             <div class="lp-pulse-main">
@@ -252,13 +226,16 @@
               </ul>
             </article>
           </div>
-          <div class="lp-ticker lp-reveal" aria-label="Sample of live data sources">
-            <div class="lp-ticker-track" data-slot="ticker-track"></div>
+          <div class="lp-belt lp-reveal" aria-label="Sample of live data sources">
+            <div class="lp-belt-rows" data-slot="ticker-belt"></div>
+            <p class="lp-belt-foot">
+              <span>A sample of the feeds and layers the map watches.</span>
+              <a href="/data-sources">See all 630+ data sources <span aria-hidden="true">→</span></a>
+            </p>
           </div>
           <p class="lp-footnote lp-reveal">
-            A sample of the 680+ feeds carried across the six lenses. Sources are cited
-            on every panel inside the app — don't take the numbers on faith,
-            <a href="/app">open the map and count</a>.
+            Sources are cited on every panel inside the app — don't take the numbers on
+            faith, <a href="/app">open the map and count</a>.
           </p>
         </div>
       </section>
@@ -274,27 +251,17 @@
             Conflicts, vessels, flights, fires and outages render as the page loads.
             Nothing to configure first — the map is already moving when you arrive.
           </p>
-          <a class="lp-frame lp-reveal" href="/app" aria-label="Open the live dashboard">
+          <a class="lp-frame lp-frame-static lp-reveal" href="/app" aria-label="Open the live dashboard">
             <span class="lp-frame-bar" aria-hidden="true">
               <span class="lp-frame-dots"><i></i><i></i><i></i></span>
-              <span class="lp-frame-title">edgepannel.com — global situation</span>
+              <span class="lp-frame-title">edgepannel.app — global situation</span>
               <span class="lp-frame-open">click to open live →</span>
             </span>
-            <span class="lp-frame-shots lp-shot">
+            <span class="lp-frame-shots">
               <img
                 src="/landing/dashboard.jpg"
                 alt="EdgePannel dashboard: dark world map with live signal layers, news feeds and market panels"
                 width="1440" height="810" loading="lazy" decoding="async"
-              />
-              <img
-                src="/landing/dashboard-region.jpg"
-                alt="Zoomed regional view with conflict zones and threat clusters"
-                width="1440" height="810" loading="lazy" decoding="async" aria-hidden="true"
-              />
-              <img
-                src="/landing/dashboard-brief.jpg"
-                alt="Incident brief popup for a maritime chokepoint crisis"
-                width="1440" height="810" loading="lazy" decoding="async" aria-hidden="true"
               />
             </span>
           </a>
@@ -352,7 +319,7 @@
               <span class="lp-card-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 4.4L18 9l-4.1 1.6L12 15l-1.9-4.4L6 9l4.1-1.6L12 3Z"/><path d="M18.5 15v3M20 16.5h-3"/><path d="M5.5 16v2M6.5 17h-2"/></svg>
               </span>
-              <h3>Situation reports <span class="lp-card-tier">Paid</span></h3>
+              <h3>Situation reports</h3>
               <p>AI briefs on any region, with the model, the prompt window and the source headlines shown alongside the output.</p>
               <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
             </a>
@@ -360,7 +327,7 @@
               <span class="lp-card-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15V10a6 6 0 1 0-12 0v5l-1.5 3h15L18 15Z"/><path d="M10 21h4"/></svg>
               </span>
-              <h3>Geofenced alerts <span class="lp-card-tier">Paid</span></h3>
+              <h3>Geofenced alerts</h3>
               <p>Draw an area, pick the signals that matter inside it, and get told the moment one of them fires.</p>
               <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
             </a>
@@ -371,6 +338,46 @@
               <h3>Workspaces</h3>
               <p>Save named panel layouts — morning brief, market open, one crisis — and switch the whole dashboard in a click.</p>
               <span class="lp-card-open">Open <span aria-hidden="true">→</span></span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <div class="lp-divider" aria-hidden="true"><span></span></div>
+
+      <!-- ============ WORKFLOWS ============ -->
+      <section class="lp-section" id="workflows">
+        <div class="lp-container">
+          <p class="lp-label lp-reveal">Workflows</p>
+          <h2 class="lp-h2 lp-reveal">One firehose. <span class="lp-h1-accent">Four ways to work it.</span></h2>
+          <p class="lp-section-sub lp-reveal">
+            The same live data, pointed wherever your morning starts. Every tile drops
+            you straight into the tool — no setup, no account.
+          </p>
+          <div class="lp-flow-grid lp-reveal">
+            <a class="lp-flow" href="/app">
+              <span class="lp-flow-step" aria-hidden="true">01</span>
+              <h3>See the world move</h3>
+              <p>Ships, flights, fires, outages and conflicts render on one live globe the moment the page loads.</p>
+              <span class="lp-flow-open">Open the map →</span>
+            </a>
+            <a class="lp-flow" href="/dossiers">
+              <span class="lp-flow-step" aria-hidden="true">02</span>
+              <h3>Understand what matters</h3>
+              <p>Click any country for its live instability score, active signals and an AI brief with cited headlines.</p>
+              <span class="lp-flow-open">Open dossiers →</span>
+            </a>
+            <a class="lp-flow" href="/lenses">
+              <span class="lp-flow-step" aria-hidden="true">03</span>
+              <h3>Build your morning monitor</h3>
+              <p>Six tuned lenses and saved workspaces swap layers, feeds and panels to match exactly what you watch.</p>
+              <span class="lp-flow-open">Pick a lens →</span>
+            </a>
+            <a class="lp-flow" href="/app">
+              <span class="lp-flow-step" aria-hidden="true">04</span>
+              <h3>Act on change</h3>
+              <p>Draw a geofence, pick the signals that matter inside it, and get told the moment one fires.</p>
+              <span class="lp-flow-open">Set an alert →</span>
             </a>
           </div>
         </div>
@@ -399,7 +406,7 @@
             </article>
             <article class="lp-who" data-who="journalists">
               <h3>Journalists</h3>
-              <p>Wire speed without the wire cost: 680+ feeds deduplicated, clustered and pinned to the map as stories break.</p>
+              <p>Wire speed without the wire cost: 572 feeds deduplicated, clustered and pinned to the map as stories break.</p>
               <span class="lp-who-tags">feeds · clusters · webcams</span>
             </article>
             <article class="lp-who" data-who="osint">
@@ -426,29 +433,29 @@
             <a class="lp-lens" href="/app" data-lens="world">
               <h3>World</h3>
               <p>The full picture: geopolitics, markets, infrastructure and conflict on one map.</p>
-              <span class="lp-lens-open">edgepannel.com →</span>
+              <span class="lp-lens-open">edgepannel.app →</span>
             </a>
-            <a class="lp-lens" href="https://tech.edgepannel.com" data-lens="tech">
+            <a class="lp-lens" href="https://tech.edgepannel.app" data-lens="tech">
               <h3>Tech</h3>
               <p>AI labs, tech giants, startup ecosystems, funding rounds and datacenter buildout.</p>
               <span class="lp-lens-open">tech. →</span>
             </a>
-            <a class="lp-lens" href="https://finance.edgepannel.com" data-lens="finance">
+            <a class="lp-lens" href="https://finance.edgepannel.app" data-lens="finance">
               <h3>Finance</h3>
               <p>Global markets, exchanges, central banks, forex, crypto and economic indicators.</p>
               <span class="lp-lens-open">finance. →</span>
             </a>
-            <a class="lp-lens" href="https://commodity.edgepannel.com" data-lens="commodity">
+            <a class="lp-lens" href="https://commodity.edgepannel.app" data-lens="commodity">
               <h3>Commodity</h3>
               <p>Mines, processing plants, commodity ports, supply chains and trade flows.</p>
               <span class="lp-lens-open">commodity. →</span>
             </a>
-            <a class="lp-lens" href="https://conflicts.edgepannel.com" data-lens="conflicts">
+            <a class="lp-lens" href="https://conflicts.edgepannel.app" data-lens="conflicts">
               <h3>Conflicts</h3>
               <p>Wars, military activity, displacement and escalation signals in real time.</p>
               <span class="lp-lens-open">conflicts. →</span>
             </a>
-            <a class="lp-lens" href="https://happy.edgepannel.com" data-lens="happy">
+            <a class="lp-lens" href="https://happy.edgepannel.app" data-lens="happy">
               <h3>Happy</h3>
               <p>The antidote: curated good news, progress data and uplifting stories.</p>
               <span class="lp-lens-open">happy. →</span>
@@ -468,17 +475,15 @@
             <details open>
               <summary>Is EdgePannel really free?</summary>
               <p>
-                The data is. Every map layer, every feed, every lens — free forever, with
-                no signup and no trial clock. No ads either, and with no account there's
-                no user data to sell. Paid tiers never gate the raw data; they add the
-                things computed <em>on top</em> of it — AI analysis, alerting, and
-                tracking &amp; history. <a href="/pricing">See what's paid</a>.
+                Yes. Every map layer, every feed, every lens — free, with no signup and
+                no trial clock. No ads either, and since there's no account, there's no
+                user data to sell.
               </p>
             </details>
             <details>
               <summary>Where does the data come from?</summary>
               <p>
-                680+ curated public feeds and institutional sources: USGS, NOAA, GDACS,
+                572 curated public feeds and institutional sources: USGS, NOAA, GDACS,
                 ECB, FRED, World Bank, OpenSky, AIS vessel streams, Cloudflare Radar,
                 official government channels and major wire services. Every panel cites
                 its sources.
@@ -500,13 +505,10 @@
               </p>
             </details>
             <details>
-              <summary>Can I self-host it?</summary>
+              <summary>Is it open source?</summary>
               <p>
-                Not currently — EdgePannel is proprietary software offered as a
-                hosted service. The <a href="/resources#methodology">methodology</a>
-                behind every score is published in full, so you can audit how the
-                numbers are produced even though the source isn't distributed. See
-                the <a href="/terms">terms</a> for what your use covers.
+                Yes — AGPL-3.0, developed in the open.
+                Run it yourself, audit it, or contribute.
               </p>
             </details>
             <details>
@@ -541,30 +543,20 @@
         <a class="lp-brand" href="/">
           <img class="lp-brand-logo" src="/src/assets/edgepannel-logo.png" alt="EdgePannel" width="149" height="30" />
         </a>
-        <div class="lp-footer-cols">
-          <nav class="lp-footer-col" aria-labelledby="foot-product">
-            <p class="lp-footer-col-title" id="foot-product">Product</p>
-            <a href="/app">Dashboard</a>
-            <a href="/lenses">Six lenses</a>
-            <a href="/dossiers">Country dossiers</a>
-            <a href="/commander">⌘K Commander</a>
-            <a href="/pricing">Pricing</a>
-          </nav>
-          <nav class="lp-footer-col" aria-labelledby="foot-resources">
-            <p class="lp-footer-col-title" id="foot-resources">Resources</p>
-            <a href="/docs/">Documentation</a>
-            <a href="/docs/api-reference/">API reference</a>
-            <a href="/resources">OSINT resources</a>
-            <a href="/docs/changelog/">Changelog</a>
-          </nav>
-          <nav class="lp-footer-col" aria-labelledby="foot-company">
-            <p class="lp-footer-col-title" id="foot-company">Company</p>
-            <a href="/contact">Contact</a>
-            <a href="/privacy">Privacy</a>
-            <a href="/terms">Terms</a>
-          </nav>
-        </div>
-        <p class="lp-footer-legal">© 2026 EdgePannel · All rights reserved</p>
+        <nav class="lp-footer-links" aria-label="Footer">
+          <a href="/app">Dashboard</a>
+          <a href="/downloads">Downloads</a>
+          <a href="/data-sources">Data sources</a>
+          <a href="/lenses">Six lenses</a>
+          <a href="/dossiers">Country dossiers</a>
+          <a href="/commander">⌘K Commander</a>
+          <a href="/resources">Resources</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/roadmap">Roadmap</a>
+          <a href="/feature-request">Feature request</a>
+          <a href="/terms">Terms of Service</a>
+        </nav>
+        <p class="lp-footer-legal">© 2026 EdgePannel · AGPL-3.0</p>
       </div>
     </footer>
   </body>

@@ -765,6 +765,28 @@ export class UnifiedSettings {
     }).join('');
   }
 
+  private renderProfileResources(): string {
+    const links = [
+      { href: 'https://edgepannel.app/roadmap', label: 'Roadmap', description: 'See what is shipped, next, and being explored' },
+      { href: 'https://edgepannel.app/feature-request', label: 'Feature Request', description: 'Propose an improvement or new capability' },
+      { href: 'https://edgepannel.app/terms', label: 'Terms of Service', description: 'Review the terms that govern EdgePannel' },
+    ];
+
+    return `
+      <div class="profile-section">
+        <h4>Resources</h4>
+        <nav class="profile-resource-links" aria-label="EdgePannel resources">
+          ${links.map(link => `
+            <a class="profile-resource-link" href="${link.href}" target="_blank" rel="noopener">
+              <span><strong>${link.label}</strong><small>${link.description}</small></span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+            </a>
+          `).join('')}
+        </nav>
+      </div>
+    `;
+  }
+
   private async renderProfileTab(): Promise<void> {
     const container = this.overlay.querySelector('#usProfileTab');
     log.debug('[Settings] Profile container:', container);
@@ -801,6 +823,7 @@ export class UnifiedSettings {
             ${FEATURES.filter(f => f.tier === 'logged_in').map(f => `<li>🔒 ${f.name}</li>`).join('')}
           </ul>
         </div>
+        ${this.renderProfileResources()}
       `;
       container.querySelector('#profileLoginBtn')?.addEventListener('click', () => this.handleLogin());
       return;
@@ -824,6 +847,7 @@ export class UnifiedSettings {
             ${FEATURES.filter(f => f.tier === 'logged_in').map(f => `<li>🔒 ${f.name}</li>`).join('')}
           </ul>
         </div>
+        ${this.renderProfileResources()}
       `;
       container.querySelector('#profileLoginBtn')?.addEventListener('click', () => this.handleLogin());
       return;
@@ -936,6 +960,8 @@ export class UnifiedSettings {
           <button class="profile-action-btn danger" id="profileDeleteBtn">Delete Account</button>
         </div>
       </div>
+
+      ${this.renderProfileResources()}
       
       <div class="profile-section">
         <h4>Account Info</h4>

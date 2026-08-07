@@ -49,6 +49,30 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://edgepannel.com/downloads</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://edgepannel.com/data-sources</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://edgepannel.com/roadmap</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://edgepannel.com/feature-request</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://tech.edgepannel.com/</loc>
     <lastmod>2026-07-13</lastmod>
     <changefreq>daily</changefreq>

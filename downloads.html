@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" data-page="landing">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Download EdgePannel | Desktop &amp; Mobile</title>
+    <meta name="description" content="Download the EdgePannel desktop app for macOS (Apple silicon), Windows and Linux. Mobile apps for iOS and Android are in development — the web app installs to your home screen today." />
+    <link rel="canonical" href="https://edgepannel.app/downloads" />
+    <meta name="theme-color" content="#04080a" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://edgepannel.app/downloads" />
+    <meta property="og:site_name" content="EdgePannel" />
+    <meta property="og:title" content="Download EdgePannel | Desktop &amp; Mobile" />
+    <meta property="og:description" content="The full live map on your own machine: macOS, Windows and Linux builds, with local API keys and an offline-capable sidecar." />
+    <meta property="og:image" content="https://edgepannel.app/favico/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favico/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favico/favicon-32x32.png" />
+    <link rel="apple-touch-icon" href="/favico/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/landing/landing.css" />
+    <script type="module" src="/src/landing/landing.ts"></script>
+  </head>
+  <body>
+    <a class="lp-skip" href="#main">Skip to content</a>
+    <header class="lp-nav" id="nav">
+      <div class="lp-nav-inner">
+        <a class="lp-brand" href="/"><img class="lp-brand-logo" src="/src/assets/edgepannel-logo.png" alt="EdgePannel" width="149" height="30" /></a>
+        <nav class="lp-nav-links" aria-label="Site">
+          <a href="/#live">Live now</a>
+          <div class="lp-nav-drop">
+            <button type="button" class="lp-nav-drop-btn" aria-expanded="false" aria-haspopup="true">Product <span aria-hidden="true">▾</span></button>
+            <div class="lp-nav-drop-menu" role="menu">
+              <a role="menuitem" href="/#product">Overview</a>
+              <a role="menuitem" href="/lenses">Six lenses</a>
+              <a role="menuitem" href="/dossiers">Country dossiers</a>
+              <a role="menuitem" href="/commander">⌘K Commander</a>
+              <a role="menuitem" href="/data-sources">Data sources</a>
+              <a role="menuitem" href="/resources">OSINT resources</a>
+            </div>
+          </div>
+          <a href="/downloads" aria-current="page">Downloads</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/roadmap">Roadmap</a>
+        </nav>
+        <a class="lp-btn lp-btn-primary lp-nav-cta" href="/app">Launch dashboard <span aria-hidden="true">→</span></a>
+        <button class="lp-nav-burger" id="nav-burger" aria-label="Menu" aria-expanded="false" aria-controls="nav-menu"><span></span><span></span><span></span></button>
+      </div>
+      <nav class="lp-nav-menu" id="nav-menu" aria-label="Site">
+        <a href="/#live">Live now</a><a href="/#product">Product</a><a href="/lenses">Six lenses</a><a href="/dossiers">Country dossiers</a><a href="/commander">⌘K Commander</a><a href="/data-sources">Data sources</a><a href="/resources">OSINT resources</a><a href="/downloads" aria-current="page">Downloads</a><a href="/roadmap">Roadmap</a><a href="/pricing">Pricing</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <div id="downloads">
+        <section class="lp-subhero" style="--lp-subhero-glow: rgba(122, 168, 255, 0.1)">
+          <div class="lp-container">
+            <nav class="lp-breadcrumb" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">›</span><span class="lp-crumb-here">Downloads</span></nav>
+            <p class="lp-label lp-reveal lp-in">Get the app</p>
+            <h1 class="lp-h1 lp-reveal lp-in">Run the map<br /><span class="lp-h1-accent">on your own machine.</span></h1>
+            <p class="lp-hero-sub lp-reveal lp-in">
+              The desktop build is the same dashboard with the browser's limits removed:
+              your API keys live in the OS keychain, a local sidecar fetches data
+              directly, and updates arrive in-app.
+            </p>
+            <div class="lp-hero-ctas lp-reveal lp-in">
+              <!-- Revealed by JS once the platform is known; the picker below is the no-JS path. -->
+              <a class="lp-btn lp-btn-primary lp-btn-lg" data-slot="primary-cta" href="#desktop" hidden>
+                <span data-slot="primary-label">Download</span> <span aria-hidden="true">↓</span>
+              </a>
+              <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#desktop">See all builds</a>
+              <a class="lp-btn lp-btn-ghost lp-btn-lg" href="/app">Or just use the web app</a>
+            </div>
+            <p class="lp-dl-version" data-slot="version" hidden>
+              <a data-slot="version-link" href="https://github.com/koala73/worldmonitor/releases/latest" target="_blank" rel="noopener">Latest release</a>
+              · <a href="https://github.com/koala73/worldmonitor/releases" target="_blank" rel="noopener">release notes</a>
+            </p>
+          </div>
+        </section>
+
+        <section class="lp-section" id="desktop" style="padding-top: 20px">
+          <div class="lp-container">
+            <p class="lp-label lp-reveal">Desktop</p>
+            <h2 class="lp-h2 lp-reveal">macOS, Windows, Linux.</h2>
+            <p class="lp-section-sub lp-reveal">
+              Every build is produced by the public release workflow and served straight
+              from the GitHub release — no installer bundles, no telemetry wrapper.
+            </p>
+
+            <div class="lp-src-chips lp-reveal" data-slot="editions" role="group" aria-label="Choose an edition">
+              <button type="button" class="lp-chip lp-chip-on" data-edition="full" aria-pressed="true">World <span>all layers</span></button>
+              <button type="button" class="lp-chip" data-edition="tech" aria-pressed="false">Tech <span>startups &amp; AI</span></button>
+              <button type="button" class="lp-chip" data-edition="finance" aria-pressed="false">Finance <span>markets &amp; macro</span></button>
+              <button type="button" class="lp-chip" data-edition="conflicts" aria-pressed="false">Conflicts <span>war &amp; security</span></button>
+            </div>
+
+            <div class="lp-dl-grid lp-reveal">
+              <article class="lp-dl-card" data-os="macos">
+                <header>
+                  <h3>macOS</h3>
+                  <span class="lp-dl-yours" data-slot="yours" hidden>Your system</span>
+                </header>
+                <p class="lp-dl-req">Apple silicon · macOS 12 Monterey or newer · .dmg</p>
+                <a class="lp-btn lp-btn-primary lp-dl-btn" data-platform="macos-arm64" href="/api/download?platform=macos-arm64&amp;variant=full">Apple silicon <span class="lp-dl-ext">.dmg</span></a>
+                <p class="lp-dl-note">M1 or later only — there is no Intel Mac build. Apple menu → About This Mac shows your chip.</p>
+              </article>
+
+              <article class="lp-dl-card" data-os="windows">
+                <header>
+                  <h3>Windows</h3>
+                  <span class="lp-dl-yours" data-slot="yours" hidden>Your system</span>
+                </header>
+                <p class="lp-dl-req">Windows 10 or 11 · 64-bit</p>
+                <a class="lp-btn lp-btn-primary lp-dl-btn" data-platform="windows-exe" href="/api/download?platform=windows-exe&amp;variant=full">Installer <span class="lp-dl-ext">.exe</span></a>
+                <a class="lp-btn lp-btn-ghost lp-dl-btn" data-platform="windows-msi" href="/api/download?platform=windows-msi&amp;variant=full">MSI package <span class="lp-dl-ext">.msi</span></a>
+                <p class="lp-dl-note">The MSI is the one to grab for managed or silent deployment.</p>
+              </article>
+
+              <article class="lp-dl-card" data-os="linux">
+                <header>
+                  <h3>Linux</h3>
+                  <span class="lp-dl-yours" data-slot="yours" hidden>Your system</span>
+                </header>
+                <p class="lp-dl-req">glibc 2.35+ (Ubuntu 22.04 and newer) · AppImage</p>
+                <a class="lp-btn lp-btn-primary lp-dl-btn" data-platform="linux-appimage" href="/api/download?platform=linux-appimage&amp;variant=full">x86_64 <span class="lp-dl-ext">.AppImage</span></a>
+                <a class="lp-btn lp-btn-ghost lp-dl-btn" data-platform="linux-appimage-arm64" href="/api/download?platform=linux-appimage-arm64&amp;variant=full">ARM64 <span class="lp-dl-ext">.AppImage</span></a>
+                <p class="lp-dl-note">Mark it executable after downloading: <code>chmod +x EdgePannel*.AppImage</code></p>
+              </article>
+            </div>
+
+            <div class="lp-dl-firstrun lp-reveal">
+              <h3>Opening it the first time</h3>
+              <p>
+                Releases are not always code-signed, so the OS may not recognise the
+                publisher. That warning is expected — here is how to get past it, and
+                how to confirm you have the right file first.
+              </p>
+              <ul>
+                <li><strong>macOS:</strong> if you see “cannot be opened because it is from an unidentified developer”, right-click the app in Applications and choose <em>Open</em>, then confirm once.</li>
+                <li><strong>Windows:</strong> SmartScreen may show “Windows protected your PC” — choose <em>More info</em> → <em>Run anyway</em>.</li>
+                <li><strong>Verify first:</strong> each release lists the SHA-256 of every asset in its <a href="https://github.com/koala73/worldmonitor/releases/latest" target="_blank" rel="noopener">release notes</a>. Compare it against <code>shasum -a 256 &lt;file&gt;</code> before you open anything.</li>
+              </ul>
+            </div>
+            <p class="lp-footnote lp-reveal" style="margin-top: 22px">
+              Links always resolve to the newest published asset for the selected
+              edition. If a build is still uploading you land on the releases page instead.
+            </p>
+          </div>
+        </section>
+
+        <div class="lp-divider" aria-hidden="true"><span></span></div>
+
+        <section class="lp-section" id="mobile">
+          <div class="lp-container">
+            <p class="lp-label lp-reveal" style="color: #7aa8ff">Mobile</p>
+            <h2 class="lp-h2 lp-reveal">iOS and Android are in build.</h2>
+            <p class="lp-section-sub lp-reveal">
+              Native store releases are on the roadmap and not submitted yet — so there
+              is nothing here pretending to be a store link. In the meantime the web app
+              installs to your home screen and runs full screen, offline shell included.
+            </p>
+            <div class="lp-dl-grid lp-dl-grid-2 lp-reveal" data-os="mobile">
+              <article class="lp-dl-card lp-dl-soon">
+                <header>
+                  <h3>iOS · App Store</h3>
+                  <span class="lp-status" data-status="next">In development</span>
+                </header>
+                <p class="lp-dl-req">iPhone and iPad</p>
+                <p class="lp-dl-note">Follow the roadmap for the TestFlight announcement.</p>
+                <a class="lp-btn lp-btn-ghost lp-dl-btn" href="/roadmap">Track progress</a>
+              </article>
+              <article class="lp-dl-card lp-dl-soon">
+                <header>
+                  <h3>Android · Google Play</h3>
+                  <span class="lp-status" data-status="next">In development</span>
+                </header>
+                <p class="lp-dl-req">Phones and tablets</p>
+                <p class="lp-dl-note">Follow the roadmap for the open-testing announcement.</p>
+                <a class="lp-btn lp-btn-ghost lp-dl-btn" href="/roadmap">Track progress</a>
+              </article>
+            </div>
+            <div class="lp-dl-pwa lp-reveal">
+              <h3>Install it today, no store required</h3>
+              <ol>
+                <li><strong>iOS:</strong> open <a href="/app">edgepannel.app</a> in Safari → Share → <em>Add to Home Screen</em>.</li>
+                <li><strong>Android:</strong> open it in Chrome → menu → <em>Install app</em>.</li>
+              </ol>
+              <p>You get a full-screen icon, cached shell and the same live layers as the browser.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="lp-divider" aria-hidden="true"><span></span></div>
+
+        <section class="lp-section">
+          <div class="lp-container">
+            <p class="lp-label lp-reveal">Why install</p>
+            <h2 class="lp-h2 lp-reveal">What the desktop build adds.</h2>
+            <div class="lp-info-grid lp-reveal">
+              <article class="lp-info-card"><h3>Keys in the OS keychain</h3><p>Bring your own AI and data provider keys. They are stored by the operating system's keychain, never in browser storage and never on our servers.</p></article>
+              <article class="lp-info-card"><h3>Local model support</h3><p>Point the summarisation chain at Ollama on your own machine. The provider and model pickers are desktop-only.</p></article>
+              <article class="lp-info-card"><h3>A local data sidecar</h3><p>A bundled Rust service fetches feeds directly instead of routing through the web proxy — fewer hops, fewer blocked sources.</p></article>
+              <article class="lp-info-card"><h3>In-app updates</h3><p>The app checks for new releases and offers the matching build for your platform and edition.</p></article>
+            </div>
+            <p class="lp-footnote lp-reveal" style="margin-top: 28px">
+              Source is AGPL-3.0. You can build any of these yourself:
+              <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">github.com/koala73/worldmonitor</a>.
+            </p>
+          </div>
+        </section>
+      </div>
+
+      <section class="lp-final">
+        <div class="lp-container">
+          <h2 class="lp-h2 lp-reveal">Not sure yet?</h2>
+          <p class="lp-section-sub lp-reveal">The web app is the whole product, free and without an account. Install later if you want the local extras.</p>
+          <div class="lp-final-cta lp-reveal">
+            <a class="lp-btn lp-btn-primary lp-btn-lg" href="/app">Open the dashboard <span aria-hidden="true">→</span></a>
+            <a class="lp-btn lp-btn-ghost lp-btn-lg" href="/data-sources">See the data sources</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="lp-footer">
+      <div class="lp-container lp-footer-inner">
+        <a class="lp-brand" href="/"><img class="lp-brand-logo" src="/src/assets/edgepannel-logo.png" alt="EdgePannel" width="149" height="30" /></a>
+        <nav class="lp-footer-links" aria-label="Footer"><a href="/app">Dashboard</a><a href="/downloads">Downloads</a><a href="/data-sources">Data sources</a><a href="/resources">Resources</a><a href="/pricing">Pricing</a><a href="/roadmap">Roadmap</a><a href="/feature-request">Feature request</a><a href="/terms">Terms of Service</a></nav>
+        <p class="lp-footer-legal">© 2026 EdgePannel · AGPL-3.0</p>
+      </div>
+    </footer>
+  </body>
+</html>

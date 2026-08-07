@@ -12,6 +12,7 @@ on:
           - full
           - tech
           - finance
+          - conflicts
       draft:
         description: 'Create as draft release'
         required: false
@@ -40,11 +41,6 @@ jobs:
             args: '--target aarch64-apple-darwin'
             node_target: 'aarch64-apple-darwin'
             label: 'macOS-ARM64'
-            timeout: 180
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-            node_target: 'x86_64-apple-darwin'
-            label: 'macOS-x64'
             timeout: 180
           - platform: 'windows-latest'
             args: ''
@@ -83,7 +79,7 @@ jobs:
         uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7
         with:
           toolchain: stable
-          targets: ${{ contains(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || (matrix.label == 'Linux-ARM64' && 'aarch64-unknown-linux-gnu' || '') }}
+          targets: ${{ contains(matrix.platform, 'macos') && 'aarch64-apple-darwin' || (matrix.label == 'Linux-ARM64' && 'aarch64-unknown-linux-gnu' || '') }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@ad397744b0d591a723ab90405b7247fac0e6b8db
@@ -336,6 +332,52 @@ jobs:
           args: --config src-tauri/tauri.finance.conf.json ${{ matrix.args }}
           retryAttempts: 1
 
+      # —— Build: Conflicts variant (signed) ——
+      - name: Build Tauri app (conflicts, signed)
+        if: env.BUILD_VARIANT == 'conflicts' && steps.apple-signing.outputs.available == 'true' && env.SKIP_SIGNING != 'true'
+        uses: tauri-apps/tauri-action@79c624843491f12ae9d63592534ed49df3bc4adb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_VARIANT: conflicts
+          VITE_DESKTOP_RUNTIME: '1'
+          VITE_WS_API_URL: https://edgepannel.app
+          CONVEX_URL: ${{ secrets.CONVEX_URL }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: v__VERSION__-conflicts
+          releaseName: 'Conflicts Monitor v__VERSION__'
+          releaseBody: 'See changelog below.'
+          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.draft) }}
+          prerelease: false
+          tauriScript: npx tauri
+          args: --config src-tauri/tauri.conflicts.conf.json ${{ matrix.args }}
+          retryAttempts: 1
+
+      # —— Build: Conflicts variant (unsigned — no Apple certs) ——
+      - name: Build Tauri app (conflicts, unsigned)
+        if: env.BUILD_VARIANT == 'conflicts' && (steps.apple-signing.outputs.available != 'true' || env.SKIP_SIGNING == 'true')
+        uses: tauri-apps/tauri-action@79c624843491f12ae9d63592534ed49df3bc4adb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_VARIANT: conflicts
+          VITE_DESKTOP_RUNTIME: '1'
+          VITE_WS_API_URL: https://edgepannel.app
+          CONVEX_URL: ${{ secrets.CONVEX_URL }}
+        with:
+          tagName: v__VERSION__-conflicts
+          releaseName: 'Conflicts Monitor v__VERSION__'
+          releaseBody: 'See changelog below.'
+          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.draft) }}
+          prerelease: false
+          tauriScript: npx tauri
+          args: --config src-tauri/tauri.conflicts.conf.json ${{ matrix.args }}
+          retryAttempts: 1
+
       - name: Verify signed macOS bundle + embedded runtime
         if: contains(matrix.platform, 'macos') && steps.apple-signing.outputs.available == 'true' && env.SKIP_SIGNING != 'true'
         shell: bash
@@ -457,12 +499,10 @@ jobs:
 
           # --- Re-upload stripped AppImage to GitHub Release ---
           VERSION=$(node -p "require('./package.json').version")
-          if [ "$BUILD_VARIANT" = "tech" ]; then
-            TAG_NAME="v${VERSION}-tech"
-          elif [ "$BUILD_VARIANT" = "finance" ]; then
-            TAG_NAME="v${VERSION}-finance"
-          else
+          if [ "$BUILD_VARIANT" = "full" ]; then
             TAG_NAME="v${VERSION}"
+          else
+            TAG_NAME="v${VERSION}-${BUILD_VARIANT}"
           fi
           echo "Computed release tag: $TAG_NAME"
           if gh release view "$TAG_NAME" &>/dev/null; then
@@ -554,12 +594,10 @@ jobs:
         shell: bash
         run: |
           VERSION=$(jq -r .version src-tauri/tauri.conf.json)
-          if [ "$BUILD_VARIANT" = "tech" ]; then
-            TAG="v${VERSION}-tech"
-          elif [ "$BUILD_VARIANT" = "finance" ]; then
-            TAG="v${VERSION}-finance"
-          else
+          if [ "$BUILD_VARIANT" = "full" ]; then
             TAG="v${VERSION}"
+          else
+            TAG="v${VERSION}-${BUILD_VARIANT}"
           fi
           PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
 
@@ -569,14 +607,39 @@ jobs:
             COMMITS=$(git log "${PREV_TAG}..${TAG}" --oneline --no-merges | sed 's/^[a-f0-9]*//' | sed 's/^ /- /')
           fi
 
-          BODY=$(cat <<NOTES
-          ## What's Changed
+          # --- SHA-256 for every published asset, so downloads are verifiable ---
+          # The downloads page tells people to check these; if hashing fails the
+          # notes still publish, just without the table.
+          CHECKSUMS=""
+          WORK=$(mktemp -d)
+          if gh release download "$TAG" --dir "$WORK" --pattern '*' --clobber 2>/dev/null; then
+            while IFS= read -r file; do
+              case "$file" in *.sig) continue;; esac
+              SUM=$(sha256sum "$file" | cut -d' ' -f1)
+              CHECKSUMS="${CHECKSUMS}| \`$(basename "$file")\` | \`${SUM}\` |"$'\n'
+            done < <(find "$WORK" -type f | sort)
+          else
+            echo "::warning::Could not download release assets — skipping checksum table"
+          fi
+          rm -rf "$WORK"
 
-          ${COMMITS}
+          if [ -n "$CHECKSUMS" ]; then
+            CHECKSUM_SECTION=$'\n## SHA-256 checksums\n\n| File | SHA-256 |\n| --- | --- |\n'"${CHECKSUMS}"
+          else
+            CHECKSUM_SECTION=""
+          fi
 
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG:-initial}...${TAG}
-          NOTES
-          )
+          # Written to a file rather than an indented heredoc: leading spaces would
+          # make GitHub render the whole body as a code block.
+          NOTES_FILE=$(mktemp)
+          {
+            printf '## What'"'"'s Changed\n\n'
+            printf '%s\n' "$COMMITS"
+            printf '%s' "$CHECKSUM_SECTION"
+            printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
+              "${{ github.repository }}" "${PREV_TAG:-initial}" "$TAG"
+          } > "$NOTES_FILE"
 
-          gh release edit "$TAG" --notes "$BODY"
+          gh release edit "$TAG" --notes-file "$NOTES_FILE"
+          rm -f "$NOTES_FILE"
           echo "Updated release notes for $TAG"

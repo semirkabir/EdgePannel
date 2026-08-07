@@ -5879,7 +5879,11 @@ export class DeckGLMap implements MapEngine {
       <div class="zoom-controls">
         <button class="map-btn zoom-in" aria-label="${t('components.deckgl.zoomIn')}">+</button>
         <button class="map-btn zoom-out" aria-label="${t('components.deckgl.zoomOut')}">-</button>
-        <button class="map-btn zoom-reset" aria-label="${t('components.deckgl.resetView')}">&#8962;</button>
+        <button class="map-btn zoom-reset" aria-label="${t('components.deckgl.resetView')}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 3 3 11v10h6v-6h6v6h6V11z"/>
+          </svg>
+        </button>
         <div class="map-theme-picker">
           <button class="map-btn map-theme-picker-btn" aria-label="Change map style" title="Map Style">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -5917,7 +5921,8 @@ export class DeckGLMap implements MapEngine {
 
     // Zoom + reset buttons
     controls.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
+      const target = (e.target as HTMLElement).closest<HTMLButtonElement>('.map-btn');
+      if (!target) return;
       if (target.classList.contains('zoom-in')) { this.zoomIn(); return; }
       if (target.classList.contains('zoom-out')) { this.zoomOut(); return; }
       if (target.classList.contains('zoom-reset')) { this.resetView(); return; }

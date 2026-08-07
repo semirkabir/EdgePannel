@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const vercelConfig = JSON.parse(readFileSync(resolve(__dirname, '../vercel.json'), 'utf-8'));
 const viteConfigSource = readFileSync(resolve(__dirname, '../vite.config.ts'), 'utf-8');
+const htmlVariantSource = readFileSync(resolve(__dirname, '../scripts/vite-plugins/html-variant.ts'), 'utf-8');
 
 const getCacheHeaderValue = (sourcePath) => {
   const rule = vercelConfig.headers.find((entry) => entry.source === sourcePath);
@@ -66,13 +67,24 @@ describe('deploy/cache configuration guardrails', () => {
     assert.match(variantMetaSource, /classification:\s*'/);
     assert.match(variantMetaSource, /categories:\s*\[/);
     assert.match(
-      viteConfigSource,
+      htmlVariantSource,
       /\.replace\(\/<meta name="subject" content="\.\*\?" \\\/>\/,\s*`<meta name="subject"/
     );
     assert.match(
-      viteConfigSource,
+      htmlVariantSource,
       /\.replace\(\/<meta name="classification" content="\.\*\?" \\\/>\/,\s*`<meta name="classification"/
     );
+  });
+
+  it('registers public resource pages across development and production routing', () => {
+    const pages = ['roadmap', 'feature-request', 'terms', 'data-sources', 'downloads'];
+    for (const page of pages) {
+      const rewrite = vercelConfig.rewrites.find((entry) => entry.source === `/${page}`);
+      assert.equal(rewrite?.destination, `/${page}.html`);
+      assert.ok(viteConfigSource.includes(`'/${page}': '/${page}.html'`));
+      assert.ok(viteConfigSource.includes(`'${page}.html'`));
+      assert.ok(htmlVariantSource.includes(`'${page}.html'`));
+    }
   });
 });
 

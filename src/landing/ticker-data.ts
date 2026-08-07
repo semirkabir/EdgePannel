@@ -33,7 +33,7 @@ export const TICKER_CATEGORY_LABELS: Record<TickerCategory, string> = {
 
 export const TICKER_FEEDS: TickerFeed[] = [
   // Wire services & major outlets
-  { name: 'Reuters', category: 'wire', cadence: '5m' },
+  { name: 'Reuters World', category: 'wire', cadence: '5m' },
   { name: 'AP News', category: 'wire', cadence: '5m' },
   { name: 'AFP', category: 'wire', cadence: '5m' },
   { name: 'Bloomberg', category: 'wire', cadence: '5m' },
@@ -104,4 +104,63 @@ export const TICKER_FEEDS: TickerFeed[] = [
   { name: 'Live Webcams', category: 'osint', cadence: 'live' },
   { name: 'Wikipedia Trending', category: 'osint', cadence: '1h' },
   { name: 'Travel Advisories', category: 'osint', cadence: '6h' },
+
+  // --- Second pass: more real names so the multi-row belt never repeats
+  // itself on a wide screen. Cadences match the category peers above.
+  { name: 'Guardian World', category: 'wire', cadence: '5m' },
+  { name: 'DW News', category: 'wire', cadence: '10m' },
+  { name: 'France 24', category: 'wire', cadence: '10m' },
+  { name: 'Tagesschau', category: 'wire', cadence: '10m' },
+  { name: 'South China Morning Post', category: 'wire', cadence: '10m' },
+  { name: 'The Hindu', category: 'wire', cadence: '10m' },
+  { name: 'Yonhap News', category: 'wire', cadence: '10m' },
+  { name: 'Premium Times', category: 'wire', cadence: '10m' },
+
+  { name: 'CISA', category: 'official', cadence: '30m' },
+  { name: 'UK MOD', category: 'official', cadence: '30m' },
+  { name: 'Council EU Press', category: 'official', cadence: '30m' },
+  { name: 'WTO Latest News', category: 'official', cadence: '1h' },
+  { name: 'OFAC Recent Actions', category: 'official', cadence: '1h' },
+
+  { name: 'Carbon Brief', category: 'hazards', cadence: '1h' },
+  { name: 'Global Forest Watch', category: 'hazards', cadence: '1h' },
+  { name: 'Weather Alerts', category: 'hazards', cadence: '30m' },
+
+  { name: 'CNBC', category: 'markets', cadence: '5m' },
+  { name: 'MarketWatch', category: 'markets', cadence: '5m' },
+  { name: 'SEC 13F Filings', category: 'markets', cadence: '1h' },
+  { name: 'BIS Press Releases', category: 'markets', cadence: '1h' },
+
+  { name: 'ISW', category: 'military', cadence: '1h' },
+  { name: 'Janes', category: 'military', cadence: '1h' },
+  { name: 'Breaking Defense', category: 'military', cadence: '30m' },
+  { name: 'The War Zone', category: 'military', cadence: '30m' },
+  { name: 'SIPRI', category: 'military', cadence: '1d' },
+
+  { name: 'BleepingComputer', category: 'infra', cadence: '30m' },
+  { name: 'Ransomware.live', category: 'infra', cadence: '30m' },
+  { name: 'SANS ISC', category: 'infra', cadence: '30m' },
+  { name: 'AWS Status', category: 'infra', cadence: '10m' },
+  { name: 'AI Data Centers', category: 'infra', cadence: '1d' },
+
+  { name: 'Bellingcat', category: 'osint', cadence: '1h' },
+  { name: 'OCCRP', category: 'osint', cadence: '1h' },
+  { name: 'DFRLab', category: 'osint', cadence: '1h' },
+  { name: 'GPS Jamming', category: 'osint', cadence: '30m' },
+  { name: 'Nav Warnings', category: 'osint', cadence: '1h' },
 ];
+
+/**
+ * How many belt rows the landing page renders. The feeds are dealt out
+ * round-robin, so every row mixes categories instead of showing one block.
+ */
+export const TICKER_ROW_COUNT = 5;
+
+/** Deal TICKER_FEEDS into `TICKER_ROW_COUNT` interleaved rows. */
+export function tickerRows(): TickerFeed[][] {
+  const rows: TickerFeed[][] = Array.from({ length: TICKER_ROW_COUNT }, () => []);
+  TICKER_FEEDS.forEach((feed, i) => {
+    (rows[i % TICKER_ROW_COUNT] as TickerFeed[]).push(feed);
+  });
+  return rows;
+}

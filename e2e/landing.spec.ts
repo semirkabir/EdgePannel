@@ -12,7 +12,29 @@ test.describe('landing page', () => {
   test('renders hero with headline, CTAs and stats', async ({ page }) => {
     await expect(page.locator('.lp-h1')).toContainText('Headlines run hours late.');
     await expect(page.locator('.lp-hero-ctas a[href="/app"]')).toBeVisible();
-    await expect(page.locator('.lp-hero-stats div')).toHaveCount(4);
+    await expect(page.locator('.lp-hero-stats div')).toHaveCount(3);
+  });
+
+  test('renders hero live-proof strip and dashboard frame', async ({ page }) => {
+    await expect(page.locator('.lp-hero-frame')).toBeVisible();
+    // The strip either resolves to real numbers or hides itself entirely —
+    // it never stays stuck on placeholders.
+    const strip = page.locator('#hero-proof');
+    await expect
+      .poll(async () => {
+        if (await strip.isHidden()) return 'hidden';
+        const score = await page
+          .locator('[data-widget="hero-pulse"] [data-slot="score"]')
+          .innerText();
+        return score !== '–' ? 'resolved' : 'pending';
+      }, { timeout: 20000 })
+      .not.toBe('pending');
+  });
+
+  test('renders workflows section with four jobs', async ({ page }) => {
+    await expect(page.locator('#workflows')).toBeAttached();
+    await expect(page.locator('.lp-flow')).toHaveCount(4);
+    await expect(page.locator('.lp-flow').first()).toContainText('See the world move');
   });
 
   test('renders all six sections and footer', async ({ page }) => {
@@ -20,6 +42,23 @@ test.describe('landing page', () => {
       await expect(page.locator(`#${id}`)).toBeAttached();
     }
     await expect(page.locator('.lp-footer')).toBeVisible();
+    for (const href of ['/roadmap', '/feature-request', '/terms']) {
+      await expect(page.locator(`.lp-footer a[href="${href}"]`)).toBeVisible();
+    }
+  });
+
+  test('public resource pages render their own content', async ({ page }) => {
+    for (const resource of [
+      { path: '/roadmap.html', heading: 'Build the signal.' },
+      { path: '/feature-request.html', heading: 'Start with the problem.' },
+      { path: '/terms.html', heading: 'Terms of Service' },
+      { path: '/data-sources.html', heading: 'Every source,' },
+      { path: '/downloads.html', heading: 'Run the map' },
+    ]) {
+      await page.goto(resource.path);
+      await expect(page.locator('h1')).toContainText(resource.heading);
+      await expect(page.locator('.lp-footer a[href="/app"]')).toBeVisible();
+    }
   });
 
   test('lens cards link to the variant subdomains', async ({ page }) => {
@@ -41,6 +80,17 @@ test.describe('landing page', () => {
     }
   });
 
+  test('source belt renders counter-moving rows', async ({ page }) => {
+    await page.locator('#live').scrollIntoViewIfNeeded();
+    const rows = page.locator('.lp-belt-row');
+    await expect(rows).toHaveCount(5);
+    // Odd rows are flagged to run the opposite way; both directions must exist.
+    await expect(page.locator('.lp-belt-row[data-dir="ltr"]').first()).toBeAttached();
+    await expect(page.locator('.lp-belt-row[data-dir="rtl"]').first()).toBeAttached();
+    await expect(page.locator('.lp-tick').first()).toBeVisible();
+    await expect(page.locator('.lp-belt a[href="/data-sources"]')).toBeVisible();
+  });
+
   test('globe hero canvas initializes', async ({ page }) => {
     const canvas = page.locator('#globe-canvas');
     await expect(canvas).toBeVisible();
@@ -58,5 +108,80 @@ test.describe('landing page', () => {
       scroll: document.documentElement.scrollWidth,
     }));
     expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+  });
+});
+
+test.describe('data sources catalog', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/data-sources.html');
+  });
+
+  test('renders the generated catalog with counts and category groups', async ({ page }) => {
+    await expect(page.locator('[data-stat="total"]')).not.toHaveText('—');
+    const total = Number(await page.locator('[data-stat="total"]').innerText());
+    expect(total).toBeGreaterThan(400);
+    await expect(page.locator('.lp-src')).toHaveCount(total);
+    await expect(page.locator('.lp-src-group').first()).toBeVisible();
+  });
+
+  test('search and category chips narrow the list', async ({ page }) => {
+    await page.locator('[data-slot="search"]').fill('reuters');
+    await expect(page.locator('.lp-src')).not.toHaveCount(0);
+    await expect(page.locator('.lp-src-name').first()).toContainText(/reuters/i);
+
+    await page.locator('[data-slot="search"]').fill('');
+    await page.locator('.lp-chip[data-group="hazards"]').click();
+    await expect(page.locator('.lp-src-group')).toHaveCount(1);
+    await expect(page.locator('.lp-src-group')).toHaveAttribute('data-cat', 'hazards');
+
+    await page.locator('[data-slot="search"]').fill('zzzzzz-no-such-source');
+    await expect(page.locator('[data-slot="empty"]')).toBeVisible();
+  });
+});
+
+test.describe('downloads page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/downloads.html');
+  });
+
+  test('offers every desktop build through the release redirect', async ({ page }) => {
+    // Apple silicon only — there is no Intel macOS build.
+    for (const platform of [
+      'macos-arm64',
+      'windows-exe',
+      'windows-msi',
+      'linux-appimage',
+      'linux-appimage-arm64',
+    ]) {
+      await expect(page.locator(`.lp-dl-grid a[data-platform="${platform}"]`)).toHaveAttribute(
+        'href',
+        `/api/download?platform=${platform}&variant=full`
+      );
+    }
+    await expect(page.locator('.lp-dl-grid a[data-platform="macos-x64"]')).toHaveCount(0);
+  });
+
+  test('edition switch repoints every download link', async ({ page }) => {
+    await page.locator('[data-edition="tech"]').click();
+    await expect(page.locator('.lp-dl-grid a[data-platform="macos-arm64"]')).toHaveAttribute(
+      'href',
+      '/api/download?platform=macos-arm64&variant=tech'
+    );
+    await expect(page.locator('.lp-dl-grid a[data-platform="linux-appimage"]')).toHaveAttribute(
+      'href',
+      '/api/download?platform=linux-appimage&variant=tech'
+    );
+
+    await page.locator('[data-edition="conflicts"]').click();
+    await expect(page.locator('.lp-dl-grid a[data-platform="windows-msi"]')).toHaveAttribute(
+      'href',
+      '/api/download?platform=windows-msi&variant=conflicts'
+    );
+  });
+
+  test('mobile section promises no store link it cannot honour', async ({ page }) => {
+    await expect(page.locator('#mobile .lp-status').first()).toContainText('In development');
+    await expect(page.locator('a[href*="apps.apple.com"]')).toHaveCount(0);
+    await expect(page.locator('a[href*="play.google.com"]')).toHaveCount(0);
   });
 });

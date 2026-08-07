@@ -31,6 +31,7 @@
     "build:happy": "cross-env-shell VITE_VARIANT=happy \"npm run docs:build && tsc && vite build\"",
     "build:commodity": "cross-env-shell VITE_VARIANT=commodity \"npm run docs:build && tsc && vite build\"",
     "build:conflicts": "cross-env-shell VITE_VARIANT=conflicts \"npm run docs:build && tsc && vite build\"",
+    "gen:sources": "node scripts/generate-source-catalog.mjs",
     "typecheck": "tsc --noEmit",
     "typecheck:api": "tsc --noEmit -p tsconfig.api.json",
     "typecheck:all": "tsc --noEmit && tsc --noEmit -p tsconfig.api.json",
