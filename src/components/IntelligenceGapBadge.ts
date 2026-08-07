@@ -8,6 +8,7 @@ import { escapeHtml } from '@/utils/sanitize';
 import { trackFindingClicked } from '@/services/analytics';
 import { isLoggedIn } from '@/services/user-auth';
 import { notificationSeverityFromConfidence } from '@/services/notifications';
+import { mountThinkingOrb, type MountedOrb } from './ThinkingOrbMount';
 
 const LOW_COUNT_THRESHOLD = 3;
 const MAX_VISIBLE_FINDINGS = 10;
@@ -38,8 +39,19 @@ const FILTER_TYPE_MAP: Record<AlertFilter, string[]> = {
   civil: ['protest', 'convergence', 'triangulation', 'internet_outage', 'satellite_fire'],
 };
 
-// Intelligence icon: human head with gear (from Flaticon)
+/**
+ * Static icon, still used by the notification popup and the detail-panel title.
+ * Those are built as innerHTML strings and churn constantly, so each one would
+ * need its own mounted canvas and matching teardown — not worth it for a
+ * decorative glyph next to a label. Only the badge itself gets the live orb.
+ */
 const INTELLIGENCE_ICON = `<img src="/intelligence-icon.png" width="16" height="16" alt="Intelligence" style="vertical-align:middle;filter:invert(1)" />`;
+
+/** Baseline drift for the badge orb, and the rate it kicks up to on interaction. */
+const ORB_SPEED_IDLE = 0.8;
+const ORB_SPEED_ACTIVE = ORB_SPEED_IDLE * 2;
+/** A click has no hover state on touch, so the kick is held briefly instead. */
+const ORB_CLICK_KICK_MS = 1400;
 
 export type NotificationSound = 'beep' | 'bell' | 'chime' | 'ding' | 'none';
 
@@ -168,6 +180,9 @@ export class IntelligenceFindingsBadge {
   private contextMenu: HTMLElement | null = null;
   private popupContainer: HTMLElement | null = null;
   private activePopups: HTMLElement[] = [];
+  private orb: MountedOrb | null = null;
+  private orbHovered = false;
+  private orbKickTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.enabled = IntelligenceFindingsBadge.getStoredEnabledState();
@@ -183,10 +198,13 @@ export class IntelligenceFindingsBadge {
     this.badge.setAttribute('aria-label', t('components.intelligenceFindings.badgeTitle'));
     this.badge.setAttribute('aria-haspopup', 'menu');
     this.badge.setAttribute('aria-expanded', 'false');
-    this.badge.innerHTML = `<span class="findings-icon">${INTELLIGENCE_ICON}</span><span class="findings-count">0</span>`;
+    this.badge.innerHTML = `<span class="findings-icon"></span><span class="findings-count">0</span>`;
+    this.mountOrb();
 
     this.dropdown = document.createElement('div');
     this.dropdown.className = 'intel-findings-dropdown';
+
+    this.badge.addEventListener('click', () => this.kickOrb());
 
     this.badge.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1038,7 +1056,64 @@ export class IntelligenceFindingsBadge {
     requestAnimationFrame(() => panel.classList.add('active'));
   }
 
+  /**
+   * Swap the static icon for a live orb. `composing` reads as the badge
+   * actively assembling findings, which is what it is counting.
+   */
+  private mountOrb(): void {
+    const slot = this.badge.querySelector('.findings-icon');
+    if (!slot) return;
+
+    this.orb = mountThinkingOrb({
+      state: 'composing',
+      size: 20,
+      speed: ORB_SPEED_IDLE,
+      label: t('components.intelligenceFindings.badgeTitle'),
+    });
+    slot.appendChild(this.orb.element);
+
+    // Pointer events, not mouseenter/leave: this also covers pen and gives
+    // touch a defined path (no hover, so the click kick below carries it).
+    this.badge.addEventListener('pointerenter', () => this.setOrbHovered(true));
+    this.badge.addEventListener('pointerleave', () => this.setOrbHovered(false));
+    // Keyboard users get the same feedback as the mouse.
+    this.badge.addEventListener('focus', () => this.setOrbHovered(true));
+    this.badge.addEventListener('blur', () => this.setOrbHovered(false));
+  }
+
+  private setOrbHovered(hovered: boolean): void {
+    if (this.orbHovered === hovered) return;
+    this.orbHovered = hovered;
+    // A held click kick outranks leaving, so the burst always plays in full.
+    if (!hovered && this.orbKickTimer) return;
+    this.applyOrbSpeed(hovered ? ORB_SPEED_ACTIVE : ORB_SPEED_IDLE);
+  }
+
+  private kickOrb(): void {
+    this.applyOrbSpeed(ORB_SPEED_ACTIVE);
+    if (this.orbKickTimer) clearTimeout(this.orbKickTimer);
+    this.orbKickTimer = setTimeout(() => {
+      this.orbKickTimer = null;
+      if (!this.orbHovered) this.applyOrbSpeed(ORB_SPEED_IDLE);
+    }, ORB_CLICK_KICK_MS);
+  }
+
+  private applyOrbSpeed(speed: number): void {
+    this.orb?.update({
+      state: 'composing',
+      size: 20,
+      speed,
+      label: t('components.intelligenceFindings.badgeTitle'),
+    });
+  }
+
   public destroy(): void {
+    if (this.orbKickTimer) {
+      clearTimeout(this.orbKickTimer);
+      this.orbKickTimer = null;
+    }
+    this.orb?.unmount();
+    this.orb = null;
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }

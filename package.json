@@ -155,6 +155,7 @@
     "satellite.js": "^6.0.2",
     "supercluster": "^8.0.1",
     "telegram": "^2.26.22",
+    "thinking-orbs": "^0.2.0",
     "topojson-client": "^3.1.0",
     "ws": "^8.21.0"
   },

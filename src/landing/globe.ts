@@ -73,8 +73,13 @@ class GlobeRenderer {
   private readonly dotLon: Float32Array;
   private readonly dotCosLat: Float32Array;
   private readonly dotSinLat: Float32Array;
-  private readonly sinTilt = Math.sin((TILT_DEG * Math.PI) / 180);
-  private readonly cosTilt = Math.cos((TILT_DEG * Math.PI) / 180);
+  private sinTilt = Math.sin((TILT_DEG * Math.PI) / 180);
+  private cosTilt = Math.cos((TILT_DEG * Math.PI) / 180);
+  /** Camera dolly: radius multiplier. 1 = the framed orbital view. */
+  private zoom = 1;
+  /** Globe centre as a fraction of canvas height. Pushed past 1 to drop the
+   *  planet below the frame so only the upper limb reads as a horizon. */
+  private centerYFrac = 0.5;
   private arcs: Arc[] = [];
   private raf = 0;
   private lastFrame = 0;
@@ -134,6 +139,37 @@ class GlobeRenderer {
     cancelAnimationFrame(this.raf);
   }
 
+  /**
+   * Drive the descent from orbit. `t` is scroll progress through the hero,
+   * 0 (framed orbital view) to 1 (down at the horizon, planet filling frame).
+   *
+   * Three things move together, which is what sells it as a camera rather than
+   * a CSS scale: the globe grows, its centre drops below the frame so only the
+   * upper limb reads as a horizon, and the tilt flattens toward level as if the
+   * viewer were losing altitude. Scroll supplies the pacing, so the easing here
+   * is gentle — a strong ease would fight the wheel.
+   */
+  setCamera(t: number): void {
+    const p = Math.min(1, Math.max(0, t));
+    // easeInOutCubic — soft at both ends so the top of the page is calm and
+    // the hand-off to the dashboard settles instead of slamming.
+    const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+
+    this.zoom = 1 + e * 1.6;
+    // Lands at 1.05, not further: the planet needs to stay just below the frame
+    // so a sliver of limb still curves behind the dashboard at the bottom of the
+    // descent. Pushing it to 1.22 dropped the horizon out of shot entirely and
+    // the landing read as empty space rather than as having arrived somewhere.
+    this.centerYFrac = 0.5 + e * 0.55;
+    const tilt = TILT_DEG * (1 - e * 0.85);
+    this.sinTilt = Math.sin((tilt * Math.PI) / 180);
+    this.cosTilt = Math.cos((tilt * Math.PI) / 180);
+
+    // Paused (offscreen/hidden) renderers still need the new framing drawn,
+    // otherwise scrubbing back up leaves a stale frame behind the content.
+    if (!this.running) this.draw(performance.now());
+  }
+
   /** Render one frame without animation (reduced-motion fallback). */
   renderStatic(): void {
     this.rotation = (-20 * Math.PI) / 180;
@@ -187,8 +223,8 @@ class GlobeRenderer {
     const w = canvas.width;
     const h = canvas.height;
     const cx = w / 2;
-    const cy = h / 2;
-    const r = Math.min(w, h) * 0.36;
+    const cy = h * this.centerYFrac;
+    const r = Math.min(w, h) * 0.36 * this.zoom;
 
     ctx.clearRect(0, 0, w, h);
 
@@ -293,7 +329,12 @@ class GlobeRenderer {
   }
 }
 
-export function startGlobe(canvas: HTMLCanvasElement): void {
+/** Handle returned to the page so scroll can drive the camera. */
+export interface GlobeHandle {
+  setCamera(t: number): void;
+}
+
+export function startGlobe(canvas: HTMLCanvasElement): GlobeHandle {
   const globe = new GlobeRenderer(canvas);
 
   const onResize = (): void => globe.resize();
@@ -314,6 +355,8 @@ export function startGlobe(canvas: HTMLCanvasElement): void {
   } else {
     globe.start();
   }
+
+  return { setCamera: (t) => globe.setCamera(t) };
 }
 
 export function drawStaticGlobe(canvas: HTMLCanvasElement): void {

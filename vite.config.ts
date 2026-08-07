@@ -1400,6 +1400,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      // thinking-orbs ships a React component; route React at preact/compat so
+      // it renders on the Preact already in the bundle. Order matters — the
+      // more specific jsx-runtime entry must precede the bare 'react' alias.
+      'react/jsx-runtime': resolve(__dirname, 'node_modules/preact/jsx-runtime'),
+      'react-dom/client': resolve(__dirname, 'node_modules/preact/compat'),
+      'react-dom': resolve(__dirname, 'node_modules/preact/compat'),
+      react: resolve(__dirname, 'node_modules/preact/compat'),
       child_process: resolve(__dirname, 'src/shims/child-process.ts'),
       'node:child_process': resolve(__dirname, 'src/shims/child-process.ts'),
       '@loaders.gl/worker-utils/dist/lib/process-utils/child-process-proxy.js': resolve(

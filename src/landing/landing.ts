@@ -188,14 +188,76 @@ if (billingToggle) {
   });
 }
 
+// --- Lazy: hero proof strip (above the fold — fire immediately)
+void import('./hero-proof').then((m) => m.initHeroProof());
+
 // --- Lazy: globe hero (skip on reduced motion; CSS glow remains as fallback) ---
 const globeCanvas = document.getElementById('globe-canvas') as HTMLCanvasElement | null;
 if (globeCanvas) {
   if (reducedMotion) {
     void import('./globe').then((m) => m.drawStaticGlobe(globeCanvas));
   } else {
-    void import('./globe').then((m) => m.startGlobe(globeCanvas));
+    void import('./globe').then((m) => {
+      const globe = m.startGlobe(globeCanvas);
+      driveHeroDescent(globe);
+    });
   }
+}
+
+/**
+ * Scroll-linked descent from orbit.
+ *
+ * Scrubbed rather than triggered: progress is read from scroll position every
+ * frame, so the wheel is never captured and scrolling back up runs the camera
+ * in reverse. A triggered, timed cutscene here would fight the user for the
+ * ~1.5s it played, which is what makes this pattern feel broken on most sites.
+ */
+function driveHeroDescent(globe: { setCamera(t: number): void }): void {
+  const heroSection = document.getElementById('hero');
+  if (!heroSection) return;
+
+  // Must match the CSS collapse breakpoint below, or the JS would keep driving
+  // --hero-t against a stage that is no longer pinned.
+  const collapsed = window.matchMedia('(max-width: 720px)');
+
+  let ticking = false;
+  let lastT = -1;
+
+  const apply = (): void => {
+    ticking = false;
+    if (collapsed.matches) {
+      if (lastT !== 0) {
+        lastT = 0;
+        heroSection.style.setProperty('--hero-t', '0');
+        globe.setCamera(0);
+      }
+      return;
+    }
+    // Runway length = the hero's height beyond the one viewport the stage pins for.
+    const travel = heroSection.offsetHeight - window.innerHeight;
+    if (travel <= 0) return;
+    const t = Math.min(1, Math.max(0, -heroSection.getBoundingClientRect().top / travel));
+    if (Math.abs(t - lastT) < 0.001) return;
+    lastT = t;
+
+    heroSection.style.setProperty('--hero-t', t.toFixed(4));
+    globe.setCamera(t);
+
+    // Hand pointer events over at the crossover so whichever element is
+    // actually visible is the one that can be clicked.
+    heroSection.style.setProperty('--hero-content-events', t > 0.55 ? 'none' : 'auto');
+    heroSection.style.setProperty('--hero-reveal-events', t > 0.6 ? 'auto' : 'none');
+  };
+
+  const onScroll = (): void => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(apply);
+  };
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  apply();
 }
 
 // --- Mouse parallax: tilt the globe a few degrees toward the cursor ---
@@ -220,9 +282,9 @@ if (hero && globeCanvas && !reducedMotion && window.matchMedia('(pointer: fine)'
   });
 }
 
-// --- Lazy: style showcase belt, when the product section approaches ---
-const productSection = document.getElementById('product');
-if (productSection) {
+// --- Lazy: style showcase belt, when its section approaches ---
+const showcaseSection = document.querySelector('[data-slot="style-showcase"]')?.closest('section');
+if (showcaseSection) {
   const loadShowcase = (): void => {
     void import('./showcase').then((m) => m.initShowcase());
   };
@@ -236,7 +298,7 @@ if (productSection) {
       },
       { rootMargin: '600px 0px' }
     );
-    io.observe(productSection);
+    io.observe(showcaseSection);
   } else {
     loadShowcase();
   }

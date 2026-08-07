@@ -9,12 +9,12 @@
  */
 
 export const SHOWCASE_SHOTS: string[] = [
-  '/landing/showcase/style-01.png',
-  '/landing/showcase/style-02.png',
-  '/landing/showcase/style-03.png',
-  '/landing/showcase/style-04.png',
-  '/landing/showcase/style-05.png',
-  '/landing/showcase/style-06.png',
+  '/landing/showcase/style-01.jpg',
+  '/landing/showcase/style-02.jpg',
+  '/landing/showcase/style-03.jpg',
+  '/landing/showcase/style-04.jpg',
+  '/landing/showcase/style-05.jpg',
+  '/landing/showcase/style-06.jpg',
   // Already in the repo — keeps the belt populated regardless of whether the
   // captures above have landed yet.
   '/landing/dashboard.jpg',

@@ -10811,6 +10811,13 @@ a.prediction-link:hover {
   min-height: 120px;
 }
 
+/* Sized by its own canvas (64px preset); this just holds the old radar's
+   spacing so the loading block keeps its rhythm. */
+.panel-loading-orb {
+  margin-bottom: 16px;
+  line-height: 0;
+}
+
 .panel-loading-radar {
   width: 64px;
   height: 64px;
@@ -19231,14 +19238,13 @@ button.cluster-flight-item:focus-visible {
 }
 
 /* In light mode the icon has filter:invert(1) inline making it white — re-invert to black */
-[data-theme="light"] .intel-findings-badge .findings-icon img {
-  filter: invert(0) !important;
-}
-
+/* No per-theme filter here: the icon is a ThinkingOrb canvas that picks its
+   own ink from data-theme, so inverting it would fight that. */
 .intel-findings-badge .findings-icon {
   font-size: 12px;
   line-height: 1;
   display: inline-flex;
+  align-items: center;
   transition: transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
@@ -23198,9 +23204,20 @@ button.cluster-flight-item:focus-visible {
 
 .insights-progress-info {
   display: flex;
-  justify-content: space-between;
+  /* Orb and step counter group at the left; the message keeps its old
+     right-hand position via margin-left:auto below. */
+  justify-content: flex-start;
   align-items: center;
+  gap: 7px;
   font-size: 11px;
+}
+
+/* Sized by the canvas itself (20px preset) — this only stops the inline box
+   from adding a descender gap and keeps the orb from being squeezed. */
+.insights-progress-orb {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
 }
 
 .insights-progress-step {
@@ -23209,6 +23226,7 @@ button.cluster-flight-item:focus-visible {
 }
 
 .insights-progress-message {
+  margin-left: auto;
   color: var(--text-dim);
   animation: pulse 1.5s ease-in-out infinite;
 }

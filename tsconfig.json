@@ -18,9 +18,18 @@
     "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      // thinking-orbs is published as a React component and its .d.ts imports
+      // from 'react'. Mapping React onto preact/compat lets it typecheck and
+      // bundle against the Preact already here, rather than pulling a second
+      // renderer into the app.
+      "react": ["node_modules/preact/compat"],
+      "react-dom": ["node_modules/preact/compat"],
+      "react/jsx-runtime": ["node_modules/preact/jsx-runtime"]
     }
   },
   "include": ["src"],

@@ -19,6 +19,7 @@ import { getServerInsights, type ServerInsights, type ServerInsightStory } from 
 import type { ClusteredEvent, FocalPoint, MilitaryFlight } from '@/types';
 import { triggerUrgencyMode } from '@/services/urgency-mode';
 import { buildArticleLinkAttributes } from '@/services/article-open';
+import { mountThinkingOrb, type MountedOrb, type OrbState } from './ThinkingOrbMount';
 
 export class InsightsPanel extends Panel {
   private lastBriefUpdate = 0;
@@ -28,6 +29,7 @@ export class InsightsPanel extends Panel {
   private lastFocalPoints: FocalPoint[] = [];
   private lastMilitaryFlights: MilitaryFlight[] = [];
   private lastClusters: ClusteredEvent[] = [];
+  private progressOrb: MountedOrb | null = null;
   private aiFlowUnsubscribe: (() => void) | null = null;
   private insightSeverityUnsubscribe: (() => void) | null = null;
   private updateGeneration = 0;
@@ -341,19 +343,51 @@ export class InsightsPanel extends Panel {
     return selected;
   }
 
+  /**
+   * Which orb reads as "this is the work happening now". The pipeline runs
+   * fetch → analyse → write → cross-check, so the orb tracks that arc rather
+   * than spinning the same shape for every step.
+   */
+  private static orbStateForStep(step: number): OrbState {
+    switch (step) {
+      case 1:
+        return 'searching';
+      case 2:
+        return 'solving';
+      case 3:
+        return 'composing';
+      default:
+        return 'connecting';
+    }
+  }
+
   private setProgress(step: number, total: number, message: string): void {
     const percent = Math.round((step / total) * 100);
-    this.setContent(`
+    const orbState = InsightsPanel.orbStateForStep(step);
+    // setContentNow, not setContent: the debounced path lands asynchronously,
+    // so the orb slot would not exist yet when we go to mount into it.
+    this.setContentNow(`
       <div class="insights-progress">
         <div class="insights-progress-bar">
           <div class="insights-progress-fill" style="width: ${percent}%"></div>
         </div>
         <div class="insights-progress-info">
+          <span class="insights-progress-orb" data-slot="orb"></span>
           <span class="insights-progress-step">${t('components.insights.step', { step: String(step), total: String(total) })}</span>
           <span class="insights-progress-message">${message}</span>
         </div>
       </div>
     `);
+
+    // One mount for the whole run — setContentNow wipes the DOM each step, but
+    // the host span survives detachment, so it is re-attached rather than
+    // remounted (a remount would restart the animation on every step).
+    if (!this.progressOrb) {
+      this.progressOrb = mountThinkingOrb({ state: orbState, size: 20, label: message });
+    } else {
+      this.progressOrb.update({ state: orbState, size: 20, label: message });
+    }
+    this.content.querySelector('[data-slot="orb"]')?.appendChild(this.progressOrb.element);
   }
 
   public async updateInsights(clusters: ClusteredEvent[]): Promise<void> {
@@ -1032,6 +1066,8 @@ export class InsightsPanel extends Panel {
   public override destroy(): void {
     this.aiFlowUnsubscribe?.();
     this.insightSeverityUnsubscribe?.();
+    this.progressOrb?.unmount();
+    this.progressOrb = null;
     super.destroy();
   }
 }

@@ -1,7 +1,7 @@
 import { isDesktopRuntime } from '../services/runtime';
 import { invokeTauri } from '../services/tauri-bridge';
 import { t } from '../services/i18n';
-import { h, replaceChildren, safeHtml as sanitizeHtmlFragment } from '../utils/dom-utils';
+import { h, replaceChildren, safeHtml as sanitizeHtmlFragment, type DomChild } from '../utils/dom-utils';
 import { safeHtmlToString, type SafeHtml } from '@/utils/sanitize';
 import { trackPanelResized } from '@/services/analytics';
 import { getAiFlowSettings } from '@/services/ai-flow-settings';
@@ -9,6 +9,7 @@ import { getSecretState } from '@/services/runtime-config';
 import { dataFreshness, type FreshnessStatus } from '@/services/data-freshness';
 import { isLoggedIn, getCurrentAuthState, subscribeToAuth } from '@/services/user-auth';
 import { buildPanelEmptyState, buildPanelErrorState, buildPanelLoadingState, type PanelEmptyKind } from './panel-state';
+import type { MountedOrb } from './ThinkingOrbMount';
 import { showShellNotification } from '@/app/shell-notifications';
 
 
@@ -278,6 +279,8 @@ export class Panel {
   private readonly contentDebounceMs = 150;
   private pendingContentHtml: string | null = null;
   private contentDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Live only while the loading state is on screen; see `swapContent`. */
+  private loadingOrb: MountedOrb | null = null;
   private retryCallback: (() => void) | null = null;
   private retryCountdownTimer: ReturnType<typeof setInterval> | null = null;
   private retryAttempt = 0;
@@ -1051,11 +1054,31 @@ export class Panel {
     return this.element;
   }
 
+  /**
+   * Replace panel content, disposing the loading orb first.
+   *
+   * Every content swap goes through here (or `setContentImmediate`) so the
+   * orb's canvas, theme listener and observer are released the moment the
+   * loading state leaves the DOM — panels re-enter showLoading on every
+   * refresh, so a leak here would accumulate for the life of the session.
+   */
+  private swapContent(...children: DomChild[]): void {
+    this.disposeLoadingOrb();
+    replaceChildren(this.content, ...children);
+  }
+
+  private disposeLoadingOrb(): void {
+    this.loadingOrb?.unmount();
+    this.loadingOrb = null;
+  }
+
   public showLoading(message = t('common.loading')): void {
     if (this._locked) return;
     this.setErrorState(false);
     this.clearRetryCountdown();
-    replaceChildren(this.content, buildPanelLoadingState(message));
+    const { element, orb } = buildPanelLoadingState(message);
+    this.swapContent(element);
+    this.loadingOrb = orb;
   }
 
   public showError(message?: string, onRetry?: () => void, autoRetrySeconds?: number): void {
@@ -1083,14 +1106,14 @@ export class Panel {
         countdownEl.textContent = `${t('common.retrying')} (${remaining}s)`;
       }, 1000);
     }
-    replaceChildren(this.content, buildPanelErrorState(message || t('common.failedToLoad'), ...children));
+    this.swapContent(buildPanelErrorState(message || t('common.failedToLoad'), ...children));
   }
 
   public showEmptyState(message: string, kind: PanelEmptyKind = 'empty', detail?: string): void {
     if (this._locked) return;
     this.setErrorState(false);
     this.clearRetryCountdown();
-    replaceChildren(this.content, buildPanelEmptyState(message, kind, detail));
+    this.swapContent(buildPanelEmptyState(message, kind, detail));
   }
 
   public resetRetryBackoff(): void {
@@ -1131,7 +1154,7 @@ export class Panel {
     }
     lockedChildren.push(ctaBtn);
 
-    replaceChildren(this.content, h('div', { className: 'panel-locked-state' }, ...lockedChildren));
+    this.swapContent(h('div', { className: 'panel-locked-state' }, ...lockedChildren));
   }
 
   public showRetrying(message?: string, countdownSeconds?: number): void {
@@ -1164,9 +1187,7 @@ export class Panel {
       }, 1000);
     }
 
-    replaceChildren(this.content,
-      h('div', { className: 'panel-error-state' }, ...children),
-    );
+    this.swapContent(h('div', { className: 'panel-error-state' }, ...children));
   }
 
   private clearRetryCountdown(): void {
@@ -1201,7 +1222,7 @@ export class Panel {
         }, t('components.panel.openSettings')),
       );
     }
-    replaceChildren(this.content, msgEl);
+    this.swapContent(msgEl);
   }
 
   public setCount(count: number): void {
@@ -1270,6 +1291,9 @@ export class Panel {
 
     this.pendingContentHtml = null;
     if (this.content.innerHTML !== html) {
+      // innerHTML drops the loading state's canvas without notice — release
+      // the orb behind it before the node goes.
+      this.disposeLoadingOrb();
       this.content.innerHTML = html;
     }
   }
@@ -1424,6 +1448,7 @@ export class Panel {
 
   public destroy(): void {
     this.abortController.abort();
+    this.disposeLoadingOrb();
     this.clearRetryCountdown();
     this.unobserveViewport();
     this.clearNextUpdateCountdown();

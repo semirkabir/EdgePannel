@@ -36,7 +36,21 @@
       "Bash(git rev-list *)",
       "Bash(grep -v \"= \\\\`\\\\`\")",
       "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")",
-      "Bash(npm audit *)"
+      "Bash(npm audit *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(echo \"conflict markers: $?\")",
+      "Bash(sips -c 1793 3325 --cropOffset 254 95 \"/Users/mir/EdgePannel final/public/landing/showcase/Screenshot 2026-08-07 at 4.57.42 AM.png\" --out croptest.jpg -s format jpeg -s formatOptions 85)",
+      "Bash(sips -g pixelWidth -g pixelHeight croptest.jpg)",
+      "Bash(sips -c 1793 3325 --cropOffset 254 95 /private/tmp/claude-501/-Users-mir-EdgePannel-final/5714e671-8cec-46c5-bcdd-fedc6e283216/scratchpad/src.png --out /private/tmp/claude-501/-Users-mir-EdgePannel-final/5714e671-8cec-46c5-bcdd-fedc6e283216/scratchpad/crop.png)",
+      "Bash(sips -Z 1440 -s format jpeg -s formatOptions 85 /private/tmp/claude-501/-Users-mir-EdgePannel-final/5714e671-8cec-46c5-bcdd-fedc6e283216/scratchpad/crop.png --out /private/tmp/claude-501/-Users-mir-EdgePannel-final/5714e671-8cec-46c5-bcdd-fedc6e283216/scratchpad/croptest.jpg)",
+      "Bash(sips -g pixelWidth -g pixelHeight /private/tmp/claude-501/-Users-mir-EdgePannel-final/5714e671-8cec-46c5-bcdd-fedc6e283216/scratchpad/croptest.jpg)",
+      "Bash(mkdir -p /private/tmp/claude-501/-Users-mir-EdgePannel-final/5714e671-8cec-46c5-bcdd-fedc6e283216/scratchpad/orbs)",
+      "Bash(curl -sSL https://github.com/Jakubantalik/thinking-orbs/archive/refs/heads/main.tar.gz -o /private/tmp/claude-501/-Users-mir-EdgePannel-final/5714e671-8cec-46c5-bcdd-fedc6e283216/scratchpad/orbs.tgz)",
+      "Bash(tar xzf *)",
+      "Bash(cp __TRACKED_VAR__/src/engine/*.ts src/utils/thinking-orb/engine/)",
+      "Bash(cp __TRACKED_VAR__/src/presets.ts src/utils/thinking-orb/)",
+      "Bash(cp __TRACKED_VAR__/LICENSE src/utils/thinking-orb/LICENSE)"
     ]
   }
 }

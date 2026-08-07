@@ -348,15 +348,131 @@ a { color: inherit; }
 
 /* ---------- hero ---------- */
 
+/* Scroll runway. Its extra height is the distance the camera travels; the
+   stage inside pins for that length. --hero-t is written by landing.ts as
+   scroll progress 0→1 and drives everything that crosses over below. */
 .lp-hero {
   position: relative;
-  min-height: 100svh;
+  min-height: 240svh;
+  --hero-t: 0;
+}
+
+.lp-hero-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
   display: flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
+  /* Left, not centred: the hero art carries its figures in the lower right and
+     opens a well on the left, so the copy sits in the well rather than on top
+     of the painting. */
+  justify-content: flex-start;
+  text-align: left;
   overflow: hidden;
-  padding: 120px 24px 80px;
+  padding: 120px clamp(24px, 6vw, 92px) 80px;
+}
+
+/* The painting. Anchored bottom-right so its figures stay in the corner the
+   composition puts them in, and masked back into the page's black on the left
+   so it reads as one surface with the globe rather than as a pasted-in photo. */
+.lp-hero-art {
+  position: absolute;
+  inset: 0;
+  background-image: url('/landing/hero-socrates.jpg');
+  background-size: cover;
+  background-position: right bottom;
+  background-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(100deg, transparent 14%, #000 46%);
+  mask-image: linear-gradient(100deg, transparent 14%, #000 46%);
+  /* Hands the frame to the globe as the descent begins — the two never
+     compete for the same screen. */
+  opacity: clamp(0, calc(1 - var(--hero-t) / 0.34), 1);
+  pointer-events: none;
+}
+
+/* Hero copy lifts and dissolves over the first ~55% of the descent. */
+.lp-hero-content {
+  opacity: clamp(0, calc(1 - var(--hero-t) / 0.55), 1);
+  transform: translateY(calc(var(--hero-t) * -60px));
+  /* Once faded it must not swallow clicks meant for the dashboard beneath. */
+  pointer-events: var(--hero-content-events, auto);
+}
+
+/* The dashboard arrives in the back half, rising as the planet fills the frame. */
+.lp-hero-reveal {
+  position: absolute;
+  left: 50%;
+  bottom: max(6vh, 48px);
+  width: min(960px, calc(100% - 48px));
+  translate: -50% 0;
+  opacity: clamp(0, calc((var(--hero-t) - 0.45) / 0.4), 1);
+  transform: translateY(calc((1 - clamp(0, calc((var(--hero-t) - 0.45) / 0.4), 1)) * 70px))
+             scale(calc(0.965 + clamp(0, calc((var(--hero-t) - 0.45) / 0.4), 1) * 0.035));
+  pointer-events: var(--hero-reveal-events, none);
+}
+
+/* The belt is a counter-scrolling strip, not a framed screenshot — it reads
+   right only running edge to edge, so it overrides the column width above. */
+.lp-hero-reveal.lp-showcase {
+  width: 100vw;
+  margin-inline: 0;
+}
+
+/* Collapse the descent to a plain stacked hero when it can't work:
+   reduced-motion, and small screens — where the copy is taller than the pinned
+   stage, so pinning would clip the stats row with no way to scroll to it, and
+   where spending a screen-height of scroll on a camera move is a bad trade. */
+/* Short desktop viewports (laptops once browser chrome is accounted for).
+   The stage is pinned and clips, so copy that outgrows it is unreachable
+   rather than merely cramped — tighten the rhythm and drop the stats, which
+   restate the "572 feeds" the sub-heading already gives. Scoped above the
+   mobile breakpoint, where the stage is static and can be any height. */
+@media (min-width: 721px) and (max-height: 800px) {
+  .lp-hero-stage { padding-top: 92px; padding-bottom: 52px; }
+  .lp-hero-content .lp-h1 { font-size: clamp(34px, 4.4vw, 54px); }
+  .lp-hero-content .lp-eyebrow { margin-bottom: 16px; }
+  .lp-hero-content .lp-h1 { margin-bottom: 16px; }
+  .lp-hero-content .lp-hero-sub { margin-bottom: 22px; }
+  .lp-hero-content .lp-hero-proof { margin-top: 20px; }
+  .lp-hero-content .lp-hero-stats { display: none; }
+}
+
+@media (max-width: 720px) {
+  /* No room for a side-by-side: the well collapses, so the copy re-centres and
+     the painting drops to a faint full-width wash behind it rather than sitting
+     under the text at full strength. */
+  .lp-hero-stage {
+    justify-content: center;
+    text-align: center;
+  }
+  .lp-hero-content { max-width: 100%; }
+  .lp-hero-content .lp-hero-proof {
+    grid-template-columns: repeat(2, auto);
+    justify-content: center;
+  }
+  .lp-hero-content .lp-hero-ctas,
+  .lp-hero-content .lp-hero-stats { justify-content: center; }
+  .lp-hero-art {
+    background-position: center bottom;
+    opacity: 0.28;
+    -webkit-mask-image: linear-gradient(#000 0%, #000 55%, transparent 92%);
+    mask-image: linear-gradient(#000 0%, #000 55%, transparent 92%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce), (max-width: 720px) {
+  .lp-hero { min-height: auto; }
+  .lp-hero-stage { position: static; height: auto; overflow: visible; }
+  .lp-hero-content { opacity: 1; transform: none; pointer-events: auto; }
+  .lp-hero-reveal {
+    position: static;
+    width: min(960px, 100%);
+    margin: 44px auto 0;
+    translate: none;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .lp-hero-globe {
@@ -370,7 +486,10 @@ a { color: inherit; }
 .lp-hero-globe canvas {
   width: min(135vmin, 1150px);
   height: min(135vmin, 1150px);
-  opacity: 0.75;
+  /* Held back while the painting owns the first screen, then up to its normal
+     weight as the descent starts. The crossover is the point of the sequence:
+     the argument gives way to the world it applies to. */
+  opacity: calc(0.16 + clamp(0, var(--hero-t) / 0.45, 1) * 0.59);
   /* JS mouse parallax sets --tiltX/--tiltY (pointer: fine only) */
   transform: rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
   transition: transform 0.25s ease-out;
@@ -392,7 +511,23 @@ a { color: inherit; }
 .lp-hero-content {
   position: relative;
   z-index: 2;
-  max-width: 860px;
+  /* Narrower than the old centred block so the lines break inside the well and
+     never run over the figures. */
+  max-width: min(620px, 52vw);
+}
+
+/* Rows that were centred for a centred hero now align to the same left edge.
+   The proof row stays four-across: stacking it 2×2 fits the narrower column but
+   costs ~90px of height, which overflowed the pinned stage and clipped the
+   stats beneath it. */
+.lp-hero-content .lp-hero-proof {
+  justify-content: start;
+  margin-inline: 0;
+  gap: 8px;
+}
+.lp-hero-content .lp-hero-ctas,
+.lp-hero-content .lp-hero-stats {
+  justify-content: flex-start;
 }
 
 /* Inline text link inside microcopy — quiet, underlined on hover. */
@@ -2020,14 +2155,21 @@ a { color: inherit; }
 .lp-shot-strip {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   margin: 0;
   padding: 0 8px 0 0;
   list-style: none;
 }
 .lp-shot {
   flex: none;
-  width: clamp(240px, 26vw, 400px);
+  /* Sized so the panel chrome inside each shot is actually legible as it
+     passes — at the old 26vw the dashboards read as texture rather than as
+     distinguishable styles.
+     The vh term is load-bearing, not belt-and-braces: the belt is two rows
+     deep, so width alone decides its height. On a short viewport a purely
+     vw-based card pushed the strip up under the nav and left no sky for the
+     globe to land against. */
+  width: clamp(260px, min(36vw, 44vh), 560px);
   border: 1px solid var(--lp-border);
   border-radius: 10px;
   overflow: hidden;

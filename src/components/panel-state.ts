@@ -1,15 +1,27 @@
 import { h } from '@/utils/dom-utils';
+import { mountThinkingOrb, type MountedOrb } from './ThinkingOrbMount';
 
 export type PanelEmptyKind = 'empty' | 'filtered' | 'disabled' | 'unavailable';
 
-export function buildPanelLoadingState(message: string): HTMLElement {
-  return h('div', { className: 'panel-loading' },
-    h('div', { className: 'panel-loading-radar' },
-      h('div', { className: 'panel-radar-sweep' }),
-      h('div', { className: 'panel-radar-dot' }),
-    ),
+/**
+ * The loading state mounts a live component, so the caller gets the handle back
+ * and is responsible for `unmount()`ing it when the content is replaced —
+ * otherwise its rAF loop and observers outlive the DOM node.
+ */
+export interface PanelLoadingState {
+  element: HTMLElement;
+  orb: MountedOrb;
+}
+
+export function buildPanelLoadingState(message: string): PanelLoadingState {
+  // 'searching' at 64 — a panel in this state is out fetching its feed, and the
+  // scanning globe reads as that rather than as idle waiting.
+  const orb = mountThinkingOrb({ state: 'searching', size: 64, label: message });
+  const element = h('div', { className: 'panel-loading' },
+    h('div', { className: 'panel-loading-orb' }, orb.element),
     h('div', { className: 'panel-loading-text' }, message),
   );
+  return { element, orb };
 }
 
 export function buildPanelErrorState(message: string, ...children: HTMLElement[]): HTMLElement {
