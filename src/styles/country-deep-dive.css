@@ -463,7 +463,11 @@
   font-weight: 700;
 }
 
-.cdp-score-value.cii-stable {
+.cdp-score-value.cii-low {
+  color: var(--semantic-low);
+}
+
+.cdp-score-value.cii-normal {
   color: var(--semantic-normal);
 }
 

@@ -1037,7 +1037,16 @@ function calcEconomicScore(countryCode: string): number {
   return 15;
 }
 
-function getLevel(score: number): CountryScore['level'] {
+/**
+ * The single source of truth for CII severity banding. Two other copies of
+ * this scale used to exist — CountryDeepDivePanel.ciiBand (25/50/75, 4 bands
+ * that don't even exist in CountryScore['level']) and a duplicate 81/66/51/31
+ * copy in cii-country.ts — and they disagreed for 6 of 8 sample scores tried
+ * (e.g. 78 read "critical" in one panel, "high" in the other). This is now
+ * the only place these thresholds are allowed to live; both other sites
+ * import this instead of hand-copying the numbers.
+ */
+export function getCiiBand(score: number): CountryScore['level'] {
   if (score >= 81) return 'critical';
   if (score >= 66) return 'high';
   if (score >= 51) return 'elevated';
@@ -1054,6 +1063,98 @@ function getTrend(code: string, current: number): CountryScore['trend'] {
   return 'stable';
 }
 
+/**
+ * The full CII blend, in one place.
+ *
+ * This used to be two independent copies — one in `calculateCII`, one in
+ * `getCountryScore` — that had already drifted: one rounded each component
+ * before applying weights, the other rounded once at the very end. A golden
+ * test (tests/country-instability-cii.test.mts) plus a ~9,500-combination
+ * sweep across every curated country found no case where that difference
+ * actually flips the final integer, so there's no known live bug being fixed
+ * here — but two hand-kept-in-sync implementations of an 11-term formula is
+ * exactly how that kind of divergence happens, and it already had. This is
+ * the single source of truth going forward; both callers below just supply
+ * `data` and `focalUrgency` and take the rounded (`calculateCII`-shaped)
+ * result, since that's the behavior users actually see today.
+ *
+ * `boosts` and `imputations` are returned as labelled terms rather than
+ * folded into the total — this is what upcoming provenance work reads to
+ * show "why" a score is what it is, without needing to touch this function
+ * again.
+ */
+export interface CiiComputation {
+  score: number;
+  components: ComponentScores;
+  baselineRisk: number;
+  eventScore: number;
+  boosts: Record<string, number>;
+  floor: number;
+}
+
+function computeCountryCII(
+  code: string,
+  data: CountryData,
+  focalUrgency: 'watch' | 'elevated' | 'critical' | null | undefined,
+): CiiComputation {
+  // Use curated baseline for hand-tuned countries, WB governance baseline for others, default fallback
+  const curated = CURATED_COUNTRIES[code];
+  const wgiBaseline = curated?.baselineRiskSource === 'curated'
+    ? curated.baselineRisk
+    : (wbBaselines.get(code) ?? DEFAULT_BASELINE_RISK);
+  // Enhanced governance: blend WGI 50% + V-Dem 30% + Polity 20%
+  // Falls back to pure WGI when Data360 (V-Dem/Polity) data is unavailable
+  const baselineRisk = computeGovernanceBaseline(code, wgiBaseline);
+
+  const components: ComponentScores = {
+    unrest: Math.round(calcUnrestScore(data, code)),
+    conflict: Math.round(calcConflictScore(data, code)),
+    security: Math.round(calcSecurityScore(data)),
+    information: Math.round(calcInformationScore(data, code)),
+    economic: Math.round(calcEconomicScore(code)),
+  };
+
+  const eventScore = components.unrest * 0.20 + components.conflict * 0.25 + components.security * 0.15 + components.information * 0.20 + components.economic * 0.20;
+
+  const hotspotBoost = getHotspotBoost(code);
+  const newsUrgencyBoost = components.information >= 70 ? 5
+    : components.information >= 50 ? 3
+    : 0;
+  const focalBoost = focalUrgency === 'critical' ? 8
+    : focalUrgency === 'elevated' ? 4
+    : 0;
+
+  const displacementBoost = data.displacementOutflow >= 1_000_000 ? 8
+    : data.displacementOutflow >= 100_000 ? 4
+    : 0;
+  const climateBoost = data.climateStress;
+
+  const advisoryBoost = getAdvisoryBoost(data);
+  const supplementalSignalBoost = getSupplementalSignalBoost(data);
+  const busBoost = supplementalBus.getCountryCIIBoost(code);
+  const orefBlendBoost = getOrefBlendBoost(code, data);
+
+  const boosts: Record<string, number> = {
+    hotspot: hotspotBoost,
+    newsUrgency: newsUrgencyBoost,
+    focal: focalBoost,
+    displacement: displacementBoost,
+    climate: climateBoost,
+    orefBlend: orefBlendBoost,
+    advisory: advisoryBoost,
+    supplementalSignal: supplementalSignalBoost,
+    bus: busBoost,
+  };
+  const boostTotal = Object.values(boosts).reduce((sum, v) => sum + v, 0);
+
+  const blendedScore = baselineRisk * 0.4 + eventScore * 0.6 + boostTotal;
+
+  const floor = Math.max(getUcdpFloor(data), getAdvisoryFloor(data));
+  const score = Math.round(Math.min(100, Math.max(floor, blendedScore)));
+
+  return { score, components, baselineRisk, eventScore, boosts, floor };
+}
+
 export function calculateCII(): CountryScore[] {
   const scores: CountryScore[] = [];
   const focalUrgencies = focalPointDetector.getCountryUrgencyMap();
@@ -1065,56 +1166,20 @@ export function calculateCII(): CountryScore[] {
 
   for (const code of countryCodes) {
     const name = CURATED_COUNTRIES[code]?.name || getCountryNameByCode(code) || code;
+    // calculateCII always scores every curated country, even with no live
+    // ingest yet — getCountryScore below deliberately does NOT do this (see
+    // its own comment). Keep that difference at the caller, not inside
+    // computeCountryCII, so it can't accidentally get lost in a future edit.
     const data = countryDataMap.get(code) || initCountryData();
 
-    // Use curated baseline for hand-tuned countries, WB governance baseline for others, default fallback
-    const curated = CURATED_COUNTRIES[code];
-    const wgiBaseline = curated?.baselineRiskSource === 'curated'
-      ? curated.baselineRisk
-      : (wbBaselines.get(code) ?? DEFAULT_BASELINE_RISK);
-    // Enhanced governance: blend WGI 50% + V-Dem 30% + Polity 20%
-    // Falls back to pure WGI when Data360 (V-Dem/Polity) data is unavailable
-    const baselineRisk = computeGovernanceBaseline(code, wgiBaseline);
-
-    const components: ComponentScores = {
-      unrest: Math.round(calcUnrestScore(data, code)),
-      conflict: Math.round(calcConflictScore(data, code)),
-      security: Math.round(calcSecurityScore(data)),
-      information: Math.round(calcInformationScore(data, code)),
-      economic: Math.round(calcEconomicScore(code)),
-    };
-
-    const eventScore = components.unrest * 0.20 + components.conflict * 0.25 + components.security * 0.15 + components.information * 0.20 + components.economic * 0.20;
-
-    const hotspotBoost = getHotspotBoost(code);
-    const newsUrgencyBoost = components.information >= 70 ? 5
-      : components.information >= 50 ? 3
-      : 0;
-    const focalUrgency = focalUrgencies.get(code);
-    const focalBoost = focalUrgency === 'critical' ? 8
-      : focalUrgency === 'elevated' ? 4
-      : 0;
-
-    const displacementBoost = data.displacementOutflow >= 1_000_000 ? 8
-      : data.displacementOutflow >= 100_000 ? 4
-      : 0;
-    const climateBoost = data.climateStress;
-
-    const advisoryBoost = getAdvisoryBoost(data);
-    const supplementalSignalBoost = getSupplementalSignalBoost(data);
-    const busBoost = supplementalBus.getCountryCIIBoost(code);
-    const blendedScore = baselineRisk * 0.4 + eventScore * 0.6 + hotspotBoost + newsUrgencyBoost + focalBoost + displacementBoost + climateBoost + getOrefBlendBoost(code, data) + advisoryBoost + supplementalSignalBoost + busBoost;
-
-    const floor = Math.max(getUcdpFloor(data), getAdvisoryFloor(data));
-    const score = Math.round(Math.min(100, Math.max(floor, blendedScore)));
-
+    const { score, components } = computeCountryCII(code, data, focalUrgencies.get(code));
     const prev = previousScores.get(code) ?? score;
 
     scores.push({
       code,
       name,
       score,
-      level: getLevel(score),
+      level: getCiiBand(score),
       trend: getTrend(code, score),
       change24h: score - prev,
       components,
@@ -1133,40 +1198,12 @@ export function getTopUnstableCountries(limit = 10): CountryScore[] {
 
 export function getCountryScore(code: string): number | null {
   const data = countryDataMap.get(code);
+  // Unlike calculateCII, this does not fall back to initCountryData() for a
+  // country it has never ingested anything for — it reports "unknown", not a
+  // fabricated baseline-only score. hotspot-escalation.ts's ciiGetter (wired
+  // via setCIIGetter in DeckGLMap.ts / Map.ts) depends on that null meaning
+  // "no data", not "score of zero".
   if (!data) return null;
 
-  const curated = CURATED_COUNTRIES[code];
-  const wgiBaseline = curated?.baselineRiskSource === 'curated'
-    ? curated.baselineRisk
-    : (wbBaselines.get(code) ?? DEFAULT_BASELINE_RISK);
-  // Enhanced governance: blend WGI 50% + V-Dem 30% + Polity 20%
-  const baselineRisk = computeGovernanceBaseline(code, wgiBaseline);
-  const components: ComponentScores = {
-    unrest: calcUnrestScore(data, code),
-    conflict: calcConflictScore(data, code),
-    security: calcSecurityScore(data),
-    information: calcInformationScore(data, code),
-    economic: calcEconomicScore(code),
-  };
-
-  const eventScore = components.unrest * 0.20 + components.conflict * 0.25 + components.security * 0.15 + components.information * 0.20 + components.economic * 0.20;
-  const hotspotBoost = getHotspotBoost(code);
-  const newsUrgencyBoost = components.information >= 70 ? 5
-    : components.information >= 50 ? 3
-    : 0;
-  const focalUrgency = focalPointDetector.getCountryUrgency(code);
-  const focalBoost = focalUrgency === 'critical' ? 8
-    : focalUrgency === 'elevated' ? 4
-    : 0;
-  const displacementBoost = data.displacementOutflow >= 1_000_000 ? 8
-    : data.displacementOutflow >= 100_000 ? 4
-    : 0;
-  const climateBoost = data.climateStress;
-  const advisoryBoost = getAdvisoryBoost(data);
-  const supplementalSignalBoost = getSupplementalSignalBoost(data);
-  const busBoost = supplementalBus.getCountryCIIBoost(code);
-  const blendedScore = baselineRisk * 0.4 + eventScore * 0.6 + hotspotBoost + newsUrgencyBoost + focalBoost + displacementBoost + climateBoost + getOrefBlendBoost(code, data) + advisoryBoost + supplementalSignalBoost + busBoost;
-
-  const floor = Math.max(getUcdpFloor(data), getAdvisoryFloor(data));
-  return Math.round(Math.min(100, Math.max(floor, blendedScore)));
+  return computeCountryCII(code, data, focalPointDetector.getCountryUrgency(code)).score;
 }

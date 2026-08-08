@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   calculateCII,
   clearCountryData,
+  getCountryScore,
   getPreviousScores,
   getTopUnstableCountries,
   ingestProtestsForCII,
@@ -138,6 +139,65 @@ describe('calculateCII', () => {
     const second = entryOf('Ukraine');
     assert.equal(second.change24h, second.score - firstScore, 'change24h tracks the prior score');
     assert.ok(second.change24h > 0, 'ingesting events should produce a positive 24h change');
+  });
+});
+
+describe('getCountryScore vs calculateCII (golden: single source of truth)', () => {
+  beforeEach(() => {
+    clearCountryData();
+    resetHotspotActivity();
+    getPreviousScores().clear();
+  });
+
+  // getCountryScore() and calculateCII() are two independent reimplementations
+  // of the same 11-term blend (see country-instability.ts ~L1106 and ~L1168).
+  // getCountryScore() is what src/services/hotspot-escalation.ts consumes via
+  // setCIIGetter(), so any divergence here silently propagates into Hotspot
+  // Escalation and Strategic Risk. They MUST agree for every country that has
+  // live ingested data (getCountryScore returns null, not a guess, for
+  // curated-only countries with no ingest yet — that null/skip behavior is
+  // intentional and is asserted separately below, not treated as a mismatch).
+  it('agrees with calculateCII for every country with live ingested data', () => {
+    // United States: eventMultiplier 0.3 takes the log2-compressed high-volume
+    // path in calcUnrestScore, which produces fractional sub-scores — the
+    // conditions under which calculateCII's Math.round-per-component and
+    // getCountryScore's round-once-at-the-end can disagree.
+    ingestProtestsForCII([
+      protest('United States', 0, { fatalities: 3 }),
+      protest('United States', 1, { fatalities: 1, severity: 'high' }),
+      protest('United States', 2, { fatalities: 0, severity: 'low' }),
+    ]);
+    ingestConflictsForCII([
+      conflict('Ukraine', 0, { fatalities: 7 }),
+      conflict('Ukraine', 1, { fatalities: 13 }),
+    ]);
+
+    const mismatches: string[] = [];
+    let checked = 0;
+    for (const entry of calculateCII()) {
+      const viaGetter = getCountryScore(entry.code);
+      if (viaGetter === null) continue; // no live ingest for this code — expected, see comment above
+      checked++;
+      if (viaGetter !== entry.score) {
+        mismatches.push(`${entry.name} (${entry.code}): calculateCII=${entry.score} getCountryScore=${viaGetter}`);
+      }
+    }
+
+    assert.ok(checked > 0, 'sanity: at least one country should have live ingested data to compare');
+    assert.deepEqual(
+      mismatches,
+      [],
+      `getCountryScore() must equal calculateCII()'s score for every live-ingested country, but diverged for:\n${mismatches.join('\n')}`,
+    );
+  });
+
+  it('returns null for a curated country with no live ingest, while calculateCII still reports a baseline entry', () => {
+    // Documents the intentional caller-side null-guard divergence: calculateCII
+    // falls back to initCountryData() so every curated country always scores;
+    // getCountryScore does not synthesize data for a country it has never seen.
+    const entry = entryOf('China');
+    assert.ok(entry, 'calculateCII should report a baseline entry for a curated country');
+    assert.equal(getCountryScore(entry.code), null, 'getCountryScore should not fabricate a score with no ingested data');
   });
 });
 

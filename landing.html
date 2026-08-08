@@ -108,7 +108,7 @@
             <span class="lp-h1-accent">Move first.</span>
           </h1>
           <p class="lp-hero-sub">
-            The world moves fast. EdgePanel gives you the intelligence to understand what's happening, connect the dots, and stay ahead of what comes next.
+            The world moves fast. EdgePannel gives you the intelligence to understand what's happening, connect the dots, and stay ahead of what comes next.
           </p>
           <div class="lp-hero-ctas">
             <a class="lp-btn lp-btn-primary lp-btn-lg" href="/app">Launch the dashboard <span aria-hidden="true">→</span></a>
@@ -254,27 +254,43 @@
               <span class="lp-frame-open">click to open live →</span>
             </span>
             <span class="lp-frame-shots">
-              <img
-                src="/landing/dashboard-finance.jpg"
-                alt="EdgePannel dashboard: dark world map with live signal layers, news feeds and market panels"
-                width="1440" height="762" loading="lazy" decoding="async"
-              />
-              <img
-                src="/landing/dashboard-aviation.jpg"
-                alt="Aviation and space view tracking a live flight against instability scores and infrastructure cascades"
-                width="1440" height="762" loading="lazy" decoding="async" aria-hidden="true"
-              />
-              <img
-                src="/landing/dashboard-tech.jpg"
-                alt="Tech view with global network arcs, AI news stream and an earnings calendar broadcast"
-                width="1440" height="762" loading="lazy" decoding="async" aria-hidden="true"
-              />
+              <span class="lp-frame-cycle">
+                <img
+                  src="/landing/dashboard-finance.jpg"
+                  alt="EdgePannel dashboard: dark world map with live signal layers, news feeds and market panels"
+                  width="1440" height="762" loading="lazy" decoding="async"
+                />
+                <img
+                  src="/landing/dashboard-aviation.jpg"
+                  alt="Aviation and space view tracking a live flight against instability scores and infrastructure cascades"
+                  width="1440" height="762" loading="lazy" decoding="async" aria-hidden="true"
+                />
+                <img
+                  src="/landing/dashboard-tech.jpg"
+                  alt="Tech view with global network arcs, AI news stream and an earnings calendar broadcast"
+                  width="1440" height="762" loading="lazy" decoding="async" aria-hidden="true"
+                />
+              </span>
+              <span class="lp-frame-pins" aria-hidden="true">
+                <img
+                  src="/landing/product-commander.jpg"
+                  alt="" width="1440" height="845" loading="lazy" decoding="async" data-shot="commander"
+                />
+                <img
+                  src="/landing/product-dossiers.jpg"
+                  alt="" width="1440" height="845" loading="lazy" decoding="async" data-shot="dossiers"
+                />
+                <img
+                  src="/landing/product-offline.jpg"
+                  alt="" width="1440" height="845" loading="lazy" decoding="async" data-shot="offline"
+                />
+              </span>
             </span>
           </a>
           <ul class="lp-product-points lp-reveal">
-            <li><strong aria-label="Cmd+K or Ctrl+K commander"><span class="lp-shortcut"><span class="lp-shortcut-inner" id="shortcut-swap" aria-hidden="true">⌘K</span></span> commander.</strong> Jump to any layer, panel or country without learning the UI.</li>
-            <li><strong>Country dossiers.</strong> Click any country for instability scores, active signals and an AI brief with cited headlines.</li>
-            <li><strong>Works offline-first.</strong> Installable PWA in 21 languages, RTL included.</li>
+            <li tabindex="0" data-shot="commander"><strong aria-label="Cmd+K or Ctrl+K commander"><span class="lp-shortcut"><span class="lp-shortcut-inner" id="shortcut-swap" aria-hidden="true">⌘K</span></span> commander.</strong> Jump to any layer, panel or country without learning the UI.</li>
+            <li tabindex="0" data-shot="dossiers"><strong>Country dossiers.</strong> Click any country for instability scores, active signals and an AI brief with cited headlines.</li>
+            <li tabindex="0" data-shot="offline"><strong>Works offline-first.</strong> Installable PWA in 21 languages, RTL included.</li>
           </ul>
         </div>
       </section>
@@ -459,8 +475,9 @@
             <details>
               <summary>Is it open source?</summary>
               <p>
-                Yes — AGPL-3.0, developed in the open.
-                Run it yourself, audit it, or contribute.
+                No — EdgePannel is proprietary software offered as a hosted service.
+                The <a href="/resources#methodology">scoring methodology</a> is published
+                in full, so the numbers stay auditable even though the code is not.
               </p>
             </details>
             <details>

@@ -1,4 +1,4 @@
-import { calculateCII, type CountryScore } from '@/services/country-instability';
+import { calculateCII, getCiiBand, type CountryScore } from '@/services/country-instability';
 import type { EntityRenderer, EntityRenderContext } from '../types';
 
 const LEVEL_CLASS: Record<string, string> = {
@@ -22,22 +22,6 @@ const TREND_LABEL: Record<string, string> = {
   stable: '\u2192 Stable',
   falling: '\u2193 Falling',
 };
-
-function getLevel(score: number): string {
-  if (score >= 81) return 'critical';
-  if (score >= 66) return 'high';
-  if (score >= 51) return 'elevated';
-  if (score >= 31) return 'normal';
-  return 'low';
-}
-
-function getScoreTone(score: number): string {
-  if (score >= 81) return 'critical';
-  if (score >= 66) return 'high';
-  if (score >= 51) return 'elevated';
-  if (score >= 31) return 'normal';
-  return 'low';
-}
 
 interface CiiChoroplethFeature {
   properties?: Record<string, unknown>;
@@ -63,7 +47,7 @@ export class CiiCountryRenderer implements EntityRenderer {
     const code = String(props['ISO3166-1-Alpha-2'] ?? '');
     const scoreEntry = code ? this.getScores().get(code) : undefined;
     const score = scoreEntry?.score ?? 0;
-    const level = scoreEntry?.level ?? getLevel(score);
+    const level = scoreEntry?.level ?? getCiiBand(score);
     const trend = scoreEntry?.trend ?? 'stable';
     const change24h = scoreEntry?.change24h ?? 0;
     const components = scoreEntry?.components;
@@ -75,7 +59,7 @@ export class CiiCountryRenderer implements EntityRenderer {
 
     const badgeRow = ctx.el('div', 'edp-badge-row');
     badgeRow.append(ctx.badge(LEVEL_LABEL[level] ?? level.toUpperCase(), LEVEL_CLASS[level] ?? 'edp-badge'));
-    badgeRow.append(ctx.badge(`CII ${score}`, `edp-badge edp-hotspot-score-${getScoreTone(score)}`));
+    badgeRow.append(ctx.badge(`CII ${score}`, `edp-badge edp-hotspot-score-${getCiiBand(score)}`));
     header.append(badgeRow);
     container.append(header);
 
@@ -83,7 +67,7 @@ export class CiiCountryRenderer implements EntityRenderer {
     scoreCard.classList.add('edp-hotspot-score-card');
 
     const scoreTop = ctx.el('div', 'edp-hotspot-score-top');
-    const scoreTile = ctx.el('div', `edp-hotspot-score-tile edp-hotspot-score-${getScoreTone(score)}`);
+    const scoreTile = ctx.el('div', `edp-hotspot-score-tile edp-hotspot-score-${getCiiBand(score)}`);
     scoreTile.append(ctx.el('div', 'edp-hotspot-score-value', `${score}/100`));
     scoreTile.append(ctx.el('div', 'edp-hotspot-score-label', LEVEL_LABEL[level] ?? level));
     scoreTop.append(scoreTile);

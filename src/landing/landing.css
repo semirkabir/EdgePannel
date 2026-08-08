@@ -2100,7 +2100,7 @@ a { color: inherit; }
 }
 .lp-frame-title { flex: 1; text-align: center; }
 .lp-frame-open { color: var(--lp-accent); }
-.lp-frame img {
+.lp-frame-cycle img {
   display: block;
   width: 100%;
   height: auto;
@@ -2112,13 +2112,13 @@ a { color: inherit; }
   position: relative;
   display: block;
 }
-.lp-frame-shots img + img {
+.lp-frame-cycle img + img {
   position: absolute;
   inset: 0;
   opacity: 0;
   animation: lp-xfade 18s ease-in-out infinite;
 }
-.lp-frame-shots img:nth-child(3) {
+.lp-frame-cycle img:nth-child(3) {
   animation-delay: 6s;
 }
 @keyframes lp-xfade {
@@ -2127,7 +2127,33 @@ a { color: inherit; }
   66%, 100% { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lp-frame-shots img + img { animation: none; }
+  .lp-frame-cycle img + img { animation: none; }
+}
+
+/* Feature screenshots pinned on hover/focus: an overlay layer sitting over
+   the cycle, hidden until a product point pins one. The captures are taller
+   than the frame's box, so object-fit: cover crops the app's top and bottom
+   padding — checked against the capture layout, no content is lost. */
+.lp-frame-pins {
+  position: absolute;
+  inset: 0;
+}
+.lp-frame-pins img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.lp-frame-shots.lp-frame-pinned .lp-frame-cycle img {
+  animation: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.lp-frame-shots.lp-frame-pinned .lp-frame-pins img.lp-shot-active {
+  opacity: 1;
 }
 
 /* ---------- style showcase (counter-scrolling screenshot belt) ---------- */
@@ -2234,6 +2260,24 @@ a { color: inherit; }
 }
 .lp-product-points strong { color: var(--lp-text); display: block; margin-bottom: 4px; }
 @media (max-width: 860px) { .lp-product-points { grid-template-columns: 1fr; } }
+
+/* Each point is a hover target that previews its screenshot in the frame
+   above (see .lp-frame-pinned). Negative margins widen the hit area into the
+   grid gap, which is 20px, so a 14px overhang never touches a neighbour. */
+.lp-product-points li {
+  padding: 10px 14px;
+  margin: -10px -14px;
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+.lp-product-points li:hover,
+.lp-product-points li:focus-visible {
+  background: var(--lp-accent-soft);
+}
+.lp-product-points li:hover strong,
+.lp-product-points li:focus-visible strong {
+  color: var(--lp-accent);
+}
 
 /* Fixed-width flip container: width is sized for the longer "Ctrl+K" label so
    "commander." never shifts when the shortcut swaps. */

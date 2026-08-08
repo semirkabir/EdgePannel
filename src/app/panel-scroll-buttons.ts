@@ -31,8 +31,17 @@ export function createPanelScrollButtons(
   const positionBtns = (): void => {
     const rect = container.getBoundingClientRect();
     const targetRect = currentTarget.getBoundingClientRect();
-    const visibleTop = Math.max(rect.top, targetRect.top, 0);
-    const visibleBottom = Math.min(rect.bottom, targetRect.bottom, window.innerHeight);
+    // Vertical clamp uses only the scrollable target's own rect, not the
+    // container's. When container !== target (the panelsGrid/mainContent
+    // pairing), container is merely a start-anchor for a scroll range that
+    // spans the whole target — container's own box can be many times shorter
+    // than the true scrollable area, and once it has mostly scrolled past,
+    // its rect.bottom collapses to a thin sliver near the top. Clamping to it
+    // used to crush the bottom button up next to the top one instead of
+    // leaving it pinned near the bottom of the viewport. When container ===
+    // target (the bottomGrid pairing) this is a no-op — same rect either way.
+    const visibleTop = Math.max(targetRect.top, 0);
+    const visibleBottom = Math.min(targetRect.bottom, window.innerHeight);
     const btnLeft = rect.left + rect.width / 2;
     topBtn.style.left = `${btnLeft}px`;
     topBtn.style.top = `${visibleTop + 12}px`;

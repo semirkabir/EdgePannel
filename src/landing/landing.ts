@@ -126,6 +126,44 @@ if (shortcutSwap) {
   }, 2000);
 }
 
+// --- Product points pin their screenshot in the frame on hover/focus ---
+// Each point carries data-shot matching one frame image. Hovering (or keyboard-
+// focusing) a point pauses the auto-crossfade and shows that screenshot;
+// leaving restores the cycle. Focus mirrors hover so the preview works for
+// keyboard users too.
+const productShots = document.querySelector<HTMLElement>('.lp-frame-shots');
+// Scope to the points only — the frame images also carry data-shot, and
+// wiring hover handlers on them would pin an arbitrary shot while the user
+// is just moving the cursor across the frame.
+const productPoints = document.querySelectorAll<HTMLElement>('.lp-product-points [data-shot]');
+if (productShots && productPoints.length) {
+  const shotImgs = Array.from(
+    productShots.querySelectorAll<HTMLImageElement>('img[data-shot]')
+  );
+  const pin = (shot: string): void => {
+    productShots.classList.add('lp-frame-pinned');
+    for (const img of shotImgs) {
+      img.classList.toggle('lp-shot-active', img.dataset.shot === shot);
+    }
+  };
+  const unpin = (): void => {
+    productShots.classList.remove('lp-frame-pinned');
+    for (const img of shotImgs) img.classList.remove('lp-shot-active');
+  };
+  for (const point of productPoints) {
+    point.addEventListener('mouseenter', () => {
+      const shot = point.dataset.shot;
+      if (shot) pin(shot);
+    });
+    point.addEventListener('mouseleave', unpin);
+    point.addEventListener('focusin', () => {
+      const shot = point.dataset.shot;
+      if (shot) pin(shot);
+    });
+    point.addEventListener('focusout', unpin);
+  }
+}
+
 // --- Nav dropdowns (desktop) ---
 // querySelectorAll, not querySelector: this used to wire only the first
 // .lp-nav-drop, so adding a second one left it inert with no visible error.
