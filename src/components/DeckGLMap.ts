@@ -309,12 +309,7 @@ const GLOBE_AIRCRAFT_MAX_ALTITUDE_M = 8 * METERS_PER_MILE;
 const GLOBE_LEO_MIN_ALTITUDE_M = 160_000;
 const GLOBE_LEO_MAX_ALTITUDE_M = 2_000_000;
 const GLOBE_LEO_FALLBACK_ALTITUDE_M = 550_000;
-const AIRCRAFT_LABEL_MIN_ZOOM = 4;
-const AIRCRAFT_MIN_RENDER_ZOOM = 2;
-const AIRCRAFT_FULL_RENDER_ZOOM = 6.5;
-const AIRCRAFT_MIN_ZOOM_DENSITY = 0.12;
 const AIRCRAFT_ZOOM_FADE_BAND = 0.08;
-const AIRCRAFT_LABEL_FADE_ZOOM_RANGE = 0.65;
 /** ~30fps for the ambient aircraft glide; 15fps read as a stutter, not motion. */
 const AIRCRAFT_MOTION_FRAME_MS = 33;
 /**
@@ -431,6 +426,12 @@ export class DeckGLMap implements MapEngine {
   private selectedAircraftIcao: string | null = null;
   private selectedAircraftType: 'commercial' | 'military' | null = null;
   private followedAircraftIcao: string | null = null;
+  /**
+   * Position the camera pinned to this frame, shared with the icon/arc/trail
+   * accessors so the aircraft and its path render at the exact same world
+   * point the camera is centred on — a lock with zero divergence.
+   */
+  private followResolvedPosition: PositionSample | null = null;
   private aircraftFollowCallback: ((positions: PositionSample[]) => void) | null = null;
   private followHudEl: HTMLElement | null = null;
   private followPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -599,6 +600,8 @@ export class DeckGLMap implements MapEngine {
   private aircraftFetchSeq = 0;
   private satelliteVisiblePositionCache: { bucket: number; signature: string; positions: SatellitePositionRecord[] } | null = null;
   private satellitePositionSampleCache: SatellitePositionSampleCache | null = null;
+  /** Last visibility applied to `wm-buildings-3d` — avoids setLayoutProperty spam every rAF. */
+  private lastBuildingsVisibility: 'visible' | 'none' | null = null;
   private lastSatelliteAnimationFrameMs = 0;
   private lastAircraftAnimationFrameMs = 0;
 
@@ -618,6 +621,7 @@ export class DeckGLMap implements MapEngine {
       this.maplibreMap.resize();
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
       this.syncGlobeNativeLayers();
+      this.syncBuildingsLayer();
       this.updateAircraftStatusControl();
       this.maplibreMap?.triggerRepaint();
     }, 150);
@@ -627,6 +631,7 @@ export class DeckGLMap implements MapEngine {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
       this.syncGlobeNativeLayers();
+      this.syncBuildingsLayer();
       this.updateAircraftStatusControl();
       this.maplibreMap?.triggerRepaint();
     });
@@ -1659,7 +1664,6 @@ export class DeckGLMap implements MapEngine {
     // Aircraft positions layer (live tracking, under flights toggle)
     if (mapLayers.flights && !useGlobeNative && this.aircraftPositions.length > 0) {
       layers.push(this.createAircraftPositionsLayer());
-      layers.push(this.createAircraftLabelsLayer());
     }
 
     // Satellite orbit tracker
@@ -1984,6 +1988,68 @@ export class DeckGLMap implements MapEngine {
     for (const id of GLOBE_NATIVE_SOURCES) {
       if (map.getSource(id)) map.removeSource(id);
     }
+  }
+
+  /**
+   * Global 3D building footprints from OpenFreeMap's openmaptiles schema
+   * (OSM `render_height`/`render_min_height`), rendered as fill-extrusion.
+   * Uses its OWN vector source so it works under any basemap theme (Carto,
+   * custom toner, satellite) — those styles don't carry an `openmaptiles` source.
+   */
+  private syncBuildingsLayer(): void {
+    const map = this.maplibreMap;
+    if (!map || !map.isStyleLoaded()) return;
+    if (this._globeProjection) {
+      this.removeBuildingsLayer();
+      return;
+    }
+    if (!map.getSource('wm-buildings')) {
+      map.addSource('wm-buildings', { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
+    }
+    if (!map.getLayer('wm-buildings-3d')) {
+      // Insert at the BOTTOM of the style stack: the deck.gl overlay is interleaved
+      // into maplibre (MapboxOverlay interleaved:true), so a top-of-stack
+      // fill-extrusion would render OVER the aircraft icons/labels and depth-occlude
+      // them (they'd collapse to the fallback dots). Buildings belong under data layers.
+      const firstLayerId = map.getStyle().layers?.[0]?.id;
+      map.addLayer({
+        id: 'wm-buildings-3d',
+        type: 'fill-extrusion',
+        source: 'wm-buildings',
+        'source-layer': 'building',
+        minzoom: 13,
+        filter: ['all', ['!=', ['get', 'hide_3d'], true]],
+        paint: {
+          'fill-extrusion-color': [
+            'interpolate', ['linear'], ['get', 'render_height'],
+            0, '#3b4a5a', 15, '#4b5f75', 35, '#5f7a96', 70, '#7a9cbb', 120, '#9fc0dd',
+          ],
+          'fill-extrusion-height': ['get', 'render_height'],
+          'fill-extrusion-base': ['get', 'render_min_height'],
+          'fill-extrusion-opacity': 0.85,
+        },
+      } as maplibregl.LayerSpecification, firstLayerId);
+    }
+    const visible = !!this.state.layers.buildings && this.isLayerVisible('buildings');
+    const next = visible ? 'visible' : 'none';
+    // Only touch the style when the value actually flips — syncBuildingsLayer runs
+    // inside rafUpdateLayers (every frame); unconditional setLayoutProperty forces a
+    // style relayout each rAF, which makes symbol layers (aircraft callsign labels)
+    // flicker as MapLibre recomputes collisions.
+    if (next !== this.lastBuildingsVisibility) {
+      map.setLayoutProperty('wm-buildings-3d', 'visibility', next);
+      this.lastBuildingsVisibility = next;
+    }
+  }
+
+  private removeBuildingsLayer(): void {
+    const map = this.maplibreMap;
+    if (!map) return;
+    if (map.getLayer('wm-buildings-3d')) map.removeLayer('wm-buildings-3d');
+    if (map.getSource('wm-buildings')) map.removeSource('wm-buildings');
+    // Re-adding later starts with the layer's default visibility ('visible'); reset the
+    // cache so the next sync actually applies the correct state instead of skipping it.
+    this.lastBuildingsVisibility = null;
   }
 
   private lineFeature(id: string, name: string, coordinates: [number, number][], color: string, width: number, kind: string, sourceId?: string): GlobeLineFeature | null {
@@ -3032,6 +3098,12 @@ export class DeckGLMap implements MapEngine {
    * is the hot path once the loop runs at 60fps.
    */
   private getAircraftRenderPosition(position: PositionSample): PositionSample {
+    // While following, render the aircraft at the exact position the camera
+    // pinned this frame — never a recomputed value from a slightly different
+    // clock, which is what made the icon drift off the lock.
+    if (this.followedAircraftIcao === position.icao24 && this.followResolvedPosition) {
+      return this.followResolvedPosition;
+    }
     const motion = this.aircraftMotion.get(position.icao24);
     if (!motion) return position;
 
@@ -3064,11 +3136,10 @@ export class DeckGLMap implements MapEngine {
   }
 
   private getEffectiveAircraftDensity(): number {
-    const userDensity = clampNumber(this.aircraftDensity, 5, 100) / 100;
-    const zoom = this.maplibreMap?.getZoom() ?? this.state.zoom ?? AIRCRAFT_MIN_RENDER_ZOOM;
-    const zoomDensity = AIRCRAFT_MIN_ZOOM_DENSITY
-      + (1 - AIRCRAFT_MIN_ZOOM_DENSITY) * smoothstep(AIRCRAFT_MIN_RENDER_ZOOM, AIRCRAFT_FULL_RENDER_ZOOM, zoom);
-    return clampNumber(userDensity * zoomDensity, 0.01, 1);
+    // Density is purely a user choice — zoom no longer throttles how many
+    // planes render, so the map shows all aircraft at every zoom level
+    // (slider at 100% => every plane visible).
+    return clampNumber(this.aircraftDensity, 5, 100) / 100;
   }
 
   private getAircraftVisibilityScore(position: PositionSample): number {
@@ -3077,11 +3148,16 @@ export class DeckGLMap implements MapEngine {
   }
 
   private getAircraftZoomAlpha(position: PositionSample): number {
+    // Zoom no longer fades planes out. Alpha is governed purely by the
+    // density slider: shown planes render at full opacity (selected/followed
+    // always), and only the deliberate density fade-band dims the tail.
     if (this.aircraftPositions.length <= 1) return 1;
     if (position.icao24 === this.followedAircraftIcao) return 1;
     if (this.selectedAircraftType === 'commercial' && position.icao24 === this.selectedAircraftIcao) return 1;
 
     const density = this.getEffectiveAircraftDensity();
+    if (density >= 0.999) return 1;
+
     const score = this.getAircraftVisibilityScore(position);
     if (score <= density) return 1;
 
@@ -3102,29 +3178,6 @@ export class DeckGLMap implements MapEngine {
 
   private getAircraftColor(position: PositionSample, alpha = 235): [number, number, number, number] {
     return this.getAircraftColorAtAlpha(position, Math.round(alpha * this.getAircraftZoomAlpha(position)));
-  }
-
-  private getAircraftLabelAlpha(position: PositionSample): number {
-    if (position.icao24 === this.followedAircraftIcao) return 1;
-    if (this.selectedAircraftIcao === position.icao24 && this.selectedAircraftType === 'commercial') return 1;
-    if (position.stale || !(position.callsign || position.icao24)) return 0;
-
-    const zoom = this.maplibreMap?.getZoom() ?? this.state.zoom ?? 0;
-    const zoomAlpha = smoothstep(
-      AIRCRAFT_LABEL_MIN_ZOOM - AIRCRAFT_LABEL_FADE_ZOOM_RANGE,
-      AIRCRAFT_LABEL_MIN_ZOOM + AIRCRAFT_LABEL_FADE_ZOOM_RANGE,
-      zoom,
-    );
-    return zoomAlpha * this.getAircraftZoomAlpha(position);
-  }
-
-  private getAircraftLabelColor(position: PositionSample): [number, number, number, number] {
-    const alpha = position.icao24 === this.selectedAircraftIcao ? 245 : 205;
-    return this.getAircraftColorAtAlpha(position, Math.round(alpha * this.getAircraftLabelAlpha(position)));
-  }
-
-  private getAircraftLabelBackgroundColor(position: PositionSample): [number, number, number, number] {
-    return [5, 12, 22, Math.round(178 * this.getAircraftLabelAlpha(position))];
   }
 
   private getGlobeAircraftColor(position: PositionSample): string {
@@ -3155,39 +3208,6 @@ export class DeckGLMap implements MapEngine {
       pickable: true,
       getAngle: (d) => -this.getAircraftRenderPosition(d).trackDeg,
       billboard: true,
-    });
-  }
-
-  private createAircraftLabelsLayer(): TextLayer<PositionSample> {
-    const data = this.getDisplayedAircraftPositions().filter((aircraft) => (
-      aircraft.icao24 === this.selectedAircraftIcao
-      || this.getAircraftLabelAlpha(aircraft) > 0.04
-    ));
-    return new TextLayer<PositionSample>({
-      id: 'aircraft-labels-layer',
-      data,
-      getPosition: (d) => {
-        const visual = this.getAircraftRenderPosition(d);
-        return [visual.lon, visual.lat, (visual.altitudeFt ?? 0) * 0.3048];
-      },
-      getText: (d) => d.callsign || d.icao24.toUpperCase(),
-      getSize: (d) => d.icao24 === this.selectedAircraftIcao ? 12 : 10,
-      getColor: (d) => this.getAircraftLabelColor(d),
-      getAngle: 0,
-      getTextAnchor: 'middle',
-      getAlignmentBaseline: 'bottom',
-      getPixelOffset: [0, -16],
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontWeight: 700,
-      background: true,
-      getBackgroundColor: (d) => this.getAircraftLabelBackgroundColor(d),
-      backgroundPadding: [3, 2],
-      billboard: true,
-      pickable: false,
-      transitions: {
-        getColor: 180,
-        getBackgroundColor: 180,
-      },
     });
   }
 
@@ -5654,18 +5674,13 @@ export class DeckGLMap implements MapEngine {
     // Toggle trajectory on aircraft/military-flight click
     if (layerId === 'aircraft-positions-layer') {
       const aircraft = data as PositionSample;
-      if (
-        this.selectedAircraftIcao === aircraft.icao24
-        && this.selectedAircraftType === 'commercial'
-        // Follow mode owns the selection — clicking the tracked aircraft must
-        // not strip its trail out from under the camera lock.
-        && aircraft.icao24 !== this.followedAircraftIcao
-      ) {
-        this.selectedAircraftIcao = null;
-        this.selectedAircraftType = null;
+      // Clicking a plane locks the camera onto it: the map re-pins to the
+      // aircraft every frame, so the icon stays centered and the world moves
+      // around it. Clicking the already-locked aircraft releases the lock.
+      if (this.followedAircraftIcao === aircraft.icao24) {
+        this.unfollowAircraft();
       } else {
-        this.selectedAircraftIcao = aircraft.icao24;
-        this.selectedAircraftType = 'commercial';
+        this.followAircraft(aircraft.icao24);
       }
       this.render();
     } else if (layerId === 'military-flights-layer') {
@@ -5704,6 +5719,10 @@ export class DeckGLMap implements MapEngine {
 
   private zoomToEntity(info: PickingInfo, layerId: string): void {
     if (!this.maplibreMap) return;
+
+    // Aircraft clicks start follow mode, whose intro flight owns the camera —
+    // a second flyTo here would cancel it mid-flight and break the lock-in.
+    if (layerId === 'aircraft-positions-layer') return;
 
     if (layerId === 'cables-layer' || layerId === 'pipelines-layer') {
       const points = info.object?.points as [number, number][] | undefined;
@@ -7173,6 +7192,7 @@ export class DeckGLMap implements MapEngine {
       this.deckOverlay?.setProps({ layers: this.buildLayers(dirty) });
     } catch { /* map may be mid-teardown (null.getProjection) */ }
     this.syncGlobeNativeLayers();
+    this.syncBuildingsLayer();
     this.updateAircraftStatusControl(true);
     this.maplibreMap?.triggerRepaint();
     const elapsed = performance.now() - startTime;
@@ -7770,6 +7790,7 @@ export class DeckGLMap implements MapEngine {
     if (!wasFollowing && !this.aircraftFollowCallback) return;
 
     this.followedAircraftIcao = null;
+    this.followResolvedPosition = null;
     if (this.aircraftFollowCallback) {
       unregisterAircraftCallback(this.aircraftFollowCallback);
       this.aircraftFollowCallback = null;
@@ -7888,6 +7909,10 @@ export class DeckGLMap implements MapEngine {
 
     const current = resolveMotionPosition(motion, nowMs);
     if (!Number.isFinite(current.lat) || !Number.isFinite(current.lon)) return;
+
+    // Share this frame's pinned position with the icon/arc/trail accessors so
+    // the aircraft renders at the exact world point the camera is centred on.
+    this.followResolvedPosition = current;
 
     this.followCameraDriving = true;
     try {
@@ -9425,6 +9450,7 @@ export class DeckGLMap implements MapEngine {
     this.manageCableFlowAnimation(false);
     this.manageSatelliteAnimation(false);
     this.removeGlobeNativeLayers();
+    this.removeBuildingsLayer();
     if (this.aircraftFetchTimer) {
       clearInterval(this.aircraftFetchTimer);
       this.aircraftFetchTimer = null;

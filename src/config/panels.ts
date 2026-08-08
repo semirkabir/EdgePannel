@@ -35,6 +35,7 @@ const BASE_LAYERS: MapLayers = {
   gemRisk: false, democracy: false, elections: false,
   earthquakes: false, navWarnings: false, marketPerf: false, tariffBarriers: false,
   gdeltEvents: false, satellite: false,
+  buildings: true,
 };
 
 // ============================================

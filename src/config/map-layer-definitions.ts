@@ -20,6 +20,7 @@ export type LayerCategory =
   | 'environment'
   | 'governance'
   | 'technology'
+  | 'urban'
   | 'positive'
   | 'commodities';
 
@@ -34,6 +35,7 @@ export const LAYER_CATEGORY_ORDER: LayerCategory[] = [
   'environment',
   'governance',
   'technology',
+  'urban',
   'positive',
   'commodities',
 ];
@@ -49,6 +51,7 @@ export const LAYER_CATEGORY_LABELS: Record<LayerCategory, string> = {
   environment:  'Environment & Climate',
   governance:   'Governance & Society',
   technology:   'Technology',
+  urban:        'Urban & Infrastructure',
   positive:     'Positive Signals',
   commodities:  'Commodities',
 };
@@ -317,6 +320,11 @@ export const LAYER_REGISTRY = {
     { light: '#525252', dark: '#d4d4d8' }, ['full', 'commodity'], { renderers: ['flat', 'globe', 'svg'] }),
   commodityPorts: def('commodityPorts', ICONS.anchor, 'commodityPorts', 'Commodity Ports', 'commodities',
     { light: '#0f766e', dark: '#5eead4' }, ['full', 'commodity'], { renderers: ['flat', 'globe', 'svg'] }),
+
+  // Urban & Infrastructure
+  buildings: def('buildings', ICONS.building, 'buildings3d', '3D Buildings', 'urban',
+    { light: '#64748b', dark: '#94a3b8' }, ['full', 'tech', 'finance', 'commodity', 'conflicts', 'happy'],
+    { renderers: ['flat'], minZoom: 13 }),
 } satisfies Record<keyof MapLayers, LayerDefinition>;
 
 export function getLayerCategory(key: keyof MapLayers): LayerCategory {
@@ -424,24 +432,29 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'positiveEvents', 'kindness', 'happiness', 'speciesRecovery', 'renewableInstallations',
     'miningSites', 'processingPlants', 'commodityPorts',
     'iranAttacks', 'sanctions', 'tariffBarriers', 'democracy', 'gemRisk', 'elections',
+    'buildings',
   ],
   tech: [
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions',
     'datacenters', 'cables', 'outages', 'cyberThreats',
     'techEvents',
+    'buildings',
   ],
   finance: [
     'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs',
     'gulfInvestments', 'tradeRoutes', 'economic', 'marketPerf', 'tariffBarriers', 'governanceChoropleth',
+    'buildings',
   ],
   happy: [
     'positiveEvents', 'kindness', 'happiness',
     'speciesRecovery', 'renewableInstallations',
+    'buildings',
   ],
   commodity: [
     'miningSites', 'processingPlants', 'commodityPorts', 'commodityHubs',
     'minerals', 'pipelines', 'waterways', 'tradeRoutes',
     'natural', 'earthquakes', 'tariffBarriers', 'weather',
+    'buildings',
   ],
   conflicts: [
     'hotspots', 'conflicts',
@@ -450,6 +463,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'ucdpEvents', 'gdeltEvents', 'displacement', 'ciiChoropleth', 'governanceChoropleth',
     'cables', 'pipelines',
     'cyberThreats', 'aptGroups', 'outages', 'minerals', 'sanctions', 'tariffBarriers', 'elections',
+    'buildings',
   ],
 };
 

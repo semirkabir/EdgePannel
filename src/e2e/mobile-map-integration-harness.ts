@@ -145,6 +145,7 @@ const layers = {
   tariffBarriers: false,
   gdeltEvents: false,
   satellite: false,
+  buildings: false,
 };
 
 await initI18n();

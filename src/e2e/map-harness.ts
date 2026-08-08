@@ -219,6 +219,7 @@ const allLayersEnabled: MapLayers = {
   tariffBarriers: false,
   gdeltEvents: false,
   satellite: true,
+  buildings: true,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -282,6 +283,7 @@ const allLayersDisabled: MapLayers = {
   tariffBarriers: false,
   gdeltEvents: false,
   satellite: false,
+  buildings: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: Array<{

@@ -685,6 +685,8 @@ export interface MapLayers {
   tariffBarriers: boolean;
   // GDELT 2.0 Event Database — structured CAMEO events
   gdeltEvents: boolean;
+  // Global 3D building footprints (OSM heights via OpenFreeMap)
+  buildings: boolean;
 }
 
 export interface AIDataCenter {
