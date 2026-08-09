@@ -975,6 +975,7 @@ export class SignalPublisher {
 
       if (governanceScores.status === 'fulfilled' && governanceScores.value?.length) {
         ingestGovernanceBaselines(governanceScores.value);
+        dataFreshness.recordUpdate('wgi', governanceScores.value.length);
         log.debug('[DataLoader] Governance baselines loaded:', governanceScores.value.length, 'countries');
 
         const { iso3ToIso2Code } = await import('@/services/country-geometry');
@@ -988,6 +989,8 @@ export class SignalPublisher {
           })
           .filter((s): s is NonNullable<typeof s> => s != null);
         this.ctx.mapStore.map?.setGovernanceScores(govMapScores);
+      } else {
+        dataFreshness.recordError('wgi', governanceScores.status === 'rejected' ? String(governanceScores.reason) : 'no data returned');
       }
       if (vulnerabilityData.status === 'fulfilled' && vulnerabilityData.value?.length) {
         ingestEconomicVulnerability(vulnerabilityData.value);
@@ -1002,14 +1005,18 @@ export class SignalPublisher {
 
       if (vdemResult.status === 'fulfilled' && vdemResult.value?.length) {
         ingestVDemForCII(vdemResult.value);
+        dataFreshness.recordUpdate('vdem', vdemResult.value.length);
         log.debug('[DataLoader] V-Dem electoral democracy loaded:', vdemResult.value.length, 'countries');
       } else {
+        dataFreshness.recordError('vdem', vdemResult.status === 'rejected' ? String(vdemResult.reason) : 'no data returned');
         log.debug('[DataLoader] V-Dem data unavailable; CII will use WGI+Polity only or pure WGI fallback');
       }
       if (polityResult.status === 'fulfilled' && polityResult.value?.length) {
         ingestPolityForCII(polityResult.value);
+        dataFreshness.recordUpdate('polity', polityResult.value.length);
         log.debug('[DataLoader] Polity scores loaded:', polityResult.value.length, 'countries');
       } else {
+        dataFreshness.recordError('polity', polityResult.status === 'rejected' ? String(polityResult.reason) : 'no data returned');
         log.debug('[DataLoader] Polity data unavailable; CII will use WGI+V-Dem only or pure WGI fallback');
       }
 

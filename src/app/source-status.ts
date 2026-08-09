@@ -97,6 +97,9 @@ export const SOURCE_CATALOG: Partial<Record<DataSourceId, SourceCatalogEntry>> =
   supply_chain:      { category: 'Economy & Trade', provider: 'Supply chain composite' },
   sanctions:         { category: 'Economy & Trade', provider: 'Sanctions composite' },
   opensanctions:     { category: 'Economy & Trade', provider: 'OpenSanctions', url: 'https://www.opensanctions.org' },
+  wgi:               { category: 'Economy & Trade', provider: 'World Bank (WGI)', url: 'https://info.worldbank.org/governance/wgi' },
+  vdem:              { category: 'Economy & Trade', provider: 'V-Dem Institute', url: 'https://www.v-dem.net' },
+  polity:            { category: 'Economy & Trade', provider: 'Center for Systemic Peace (Polity5)', url: 'https://www.systemicpeace.org/polityproject.html' },
 
   // Energy
   oil:               { category: 'Energy', provider: 'US Energy Information Admin.', url: 'https://www.eia.gov' },

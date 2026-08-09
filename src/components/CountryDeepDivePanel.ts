@@ -1,7 +1,7 @@
 import type { CountryBriefSignals } from '@/app/app-context';
 import { getSourcePropagandaRisk, getSourceTier } from '@/config/feeds';
 import { getCountryCentroid, ME_STRIKE_BOUNDS } from '@/services/country-geometry';
-import type { CountryScore } from '@/services/country-instability';
+import { getCiiMethodologySummary, type CountryScore } from '@/services/country-instability';
 import { t } from '@/services/i18n';
 import { getCountryInfrastructure, getNearbyInfrastructure } from '@/services/related-assets';
 import type { PredictionMarket } from '@/services/prediction';
@@ -523,10 +523,12 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
       if (updatedEl) updatedEl.textContent = updatedLabel;
     }
     if (score) {
-      const band = this.ciiBand(score.score);
-      const scoreRow = this.el('div', 'cdp-score-row');
-      const value = this.el('div', `cdp-score-value cii-${band}`, `${score.score}/100`);
+      // score.level is the canonical band (country-instability.ts getCiiBand) —
+      // this used to be a locally re-derived 4-band scale (25/50/75) that
+      // disagreed with the 5-band scale everywhere else in the product.
+      const value = this.el('div', `cdp-score-value cii-${score.level}`, `${score.score}/100`);
       const trend = this.el('div', 'cdp-trend', `${this.trendArrow(score.trend)} ${score.trend}`);
+      const scoreRow = this.el('div', 'cdp-score-row');
       scoreRow.append(value, trend);
       this.scoreCard.append(scoreRow);
       this.scoreCard.append(this.renderComponentBars(score.components));
@@ -721,16 +723,18 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     this.scoreCard = scoreCard;
     const top = this.el('div', 'cdp-score-top');
     const label = this.el('span', 'cdp-score-label', t('countryBrief.instabilityIndex'));
-    label.setAttribute('title', '40% baseline risk + 60% live signals. Live signals blend unrest (25%), conflict (30%), security (20%), and information (25%), with event floors and regional boosts.');
+    label.setAttribute('title', getCiiMethodologySummary());
     const updated = this.el('span', 'cdp-updated', `Updated ${this.shortDate(score?.lastUpdated ?? new Date())}`);
     top.append(label, updated);
     scoreCard.append(top);
 
     if (score) {
-      const band = this.ciiBand(score.score);
-      const scoreRow = this.el('div', 'cdp-score-row');
-      const value = this.el('div', `cdp-score-value cii-${band}`, `${score.score}/100`);
+      // score.level is the canonical band (country-instability.ts getCiiBand) —
+      // this used to be a locally re-derived 4-band scale (25/50/75) that
+      // disagreed with the 5-band scale everywhere else in the product.
+      const value = this.el('div', `cdp-score-value cii-${score.level}`, `${score.score}/100`);
       const trend = this.el('div', 'cdp-trend', `${this.trendArrow(score.trend)} ${score.trend}`);
+      const scoreRow = this.el('div', 'cdp-score-row');
       scoreRow.append(value, trend);
       scoreCard.append(scoreRow);
       scoreCard.append(this.renderComponentBars(score.components));
@@ -1570,13 +1574,6 @@ export class CountryDeepDivePanel implements CountryBriefPanel {
     if (trend === 'rising') return '↑';
     if (trend === 'falling') return '↓';
     return '→';
-  }
-
-  private ciiBand(score: number): 'stable' | 'elevated' | 'high' | 'critical' {
-    if (score <= 25) return 'stable';
-    if (score <= 50) return 'elevated';
-    if (score <= 75) return 'high';
-    return 'critical';
   }
 
   private decodeEntities(text: string): string {

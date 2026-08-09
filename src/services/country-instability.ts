@@ -1092,6 +1092,35 @@ export interface CiiComputation {
   floor: number;
 }
 
+/**
+ * The blend's weights, named. Previously these were bare literals inline in
+ * the formula below, and the only place they were ever written down for a
+ * human was a `title=` tooltip in CountryDeepDivePanel — hand-typed
+ * separately, and wrong (it claimed unrest 25% / conflict 30% / security 20%
+ * / information 25%, omitted `economic` entirely, and never updated when the
+ * real weights changed). Naming them here and generating the tooltip from
+ * these values (getCiiMethodologySummary, below) is what makes that
+ * divergence structurally impossible instead of just currently fixed.
+ */
+const CII_WEIGHTS = {
+  baseline: 0.4,
+  event: 0.6,
+  unrest: 0.20,
+  conflict: 0.25,
+  security: 0.15,
+  information: 0.20,
+  economic: 0.20,
+} as const;
+
+/** Human-readable methodology string, generated from CII_WEIGHTS so it can't drift from the formula again. */
+export function getCiiMethodologySummary(): string {
+  const pct = (w: number): string => `${Math.round(w * 100)}%`;
+  return `${pct(CII_WEIGHTS.baseline)} baseline governance risk + ${pct(CII_WEIGHTS.event)} live signals. `
+    + `Live signals blend unrest (${pct(CII_WEIGHTS.unrest)}), conflict (${pct(CII_WEIGHTS.conflict)}), `
+    + `security (${pct(CII_WEIGHTS.security)}), information (${pct(CII_WEIGHTS.information)}), `
+    + `and economic (${pct(CII_WEIGHTS.economic)}), plus event floors and regional boosts.`;
+}
+
 function computeCountryCII(
   code: string,
   data: CountryData,
@@ -1114,7 +1143,9 @@ function computeCountryCII(
     economic: Math.round(calcEconomicScore(code)),
   };
 
-  const eventScore = components.unrest * 0.20 + components.conflict * 0.25 + components.security * 0.15 + components.information * 0.20 + components.economic * 0.20;
+  const eventScore = components.unrest * CII_WEIGHTS.unrest + components.conflict * CII_WEIGHTS.conflict
+    + components.security * CII_WEIGHTS.security + components.information * CII_WEIGHTS.information
+    + components.economic * CII_WEIGHTS.economic;
 
   const hotspotBoost = getHotspotBoost(code);
   const newsUrgencyBoost = components.information >= 70 ? 5
@@ -1147,7 +1178,7 @@ function computeCountryCII(
   };
   const boostTotal = Object.values(boosts).reduce((sum, v) => sum + v, 0);
 
-  const blendedScore = baselineRisk * 0.4 + eventScore * 0.6 + boostTotal;
+  const blendedScore = baselineRisk * CII_WEIGHTS.baseline + eventScore * CII_WEIGHTS.event + boostTotal;
 
   const floor = Math.max(getUcdpFloor(data), getAdvisoryFloor(data));
   const score = Math.round(Math.min(100, Math.max(floor, blendedScore)));

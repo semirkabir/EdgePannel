@@ -50,7 +50,7 @@ export interface MountedOrb {
  * app whenever the in-app theme differs from the OS one. Panels are re-created
  * on theme change, so pinning is both correct and cheaper.
  */
-function orbElement({ state = 'searching', size = 64, speed = 1, label }: OrbOptions) {
+function orbElement({ state = 'working', size = 64, speed = 1.60, label }: OrbOptions) {
   const dark = document.documentElement.dataset.theme !== 'light';
   return (
     <ThinkingOrb

@@ -68,7 +68,10 @@ export type DataSourceId =
   | 'manifold'           // Manifold prediction markets
   | 'opensanctions'      // OpenSanctions dataset merge
   | 'threatfox'          // ThreatFox cyber IOC merge
-  | 'place_search';      // Nominatim + Wikidata search
+  | 'place_search'       // Nominatim + Wikidata search
+  | 'wgi'                // World Bank Worldwide Governance Indicators (CII baseline, 50% of the governance blend)
+  | 'vdem'                // V-Dem electoral democracy index (CII baseline, 30%)
+  | 'polity';             // Polity5 Polity2 score (CII baseline, 20%)
 
 export type FreshnessStatus = 'fresh' | 'stale' | 'very_stale' | 'no_data' | 'disabled' | 'error';
 
@@ -156,6 +159,13 @@ export const DATA_SOURCE_METADATA: Record<DataSourceId, { name: string; required
   opensanctions: { name: 'OpenSanctions', requiredForRisk: false, panelId: 'sanctions-tracker' },
   threatfox: { name: 'ThreatFox', requiredForRisk: false, panelId: 'map' },
   place_search: { name: 'Place Search', requiredForRisk: false, panelId: 'search' },
+  // These three feed the CII governance baseline, which is 40% of the final
+  // score — the single largest weighted term — and had no DataSourceId at
+  // all before this, so they never appeared in source status or intelligence
+  // gap messages despite being that significant.
+  wgi: { name: 'World Bank Governance Indicators', requiredForRisk: true },
+  vdem: { name: 'V-Dem Electoral Democracy Index', requiredForRisk: true },
+  polity: { name: 'Polity5 Regime Score', requiredForRisk: true },
 };
 
 import type { ManagedService } from './managed-service';
@@ -525,6 +535,9 @@ const INTELLIGENCE_GAP_MESSAGES: Record<DataSourceId, string> = {
   opensanctions: 'OpenSanctions datasets unavailable—sanctions coverage limited to OFAC',
   threatfox: 'ThreatFox IOC enrichment unavailable—cyber threat map coverage reduced',
   place_search: 'Place search unavailable—Nominatim/Wikidata geocoding disabled',
+  wgi: 'Governance baseline degraded—World Bank WGI unavailable, CII falls back to a stale or default baseline risk',
+  vdem: 'Governance baseline degraded—V-Dem data unavailable, CII baseline collapses to pure WGI (no electoral democracy signal)',
+  polity: 'Governance baseline degraded—Polity data unavailable, CII baseline collapses to pure WGI (no regime-type signal)',
 };
 
 /**

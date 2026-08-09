@@ -29110,6 +29110,7 @@ body.live-news-fullscreen-active .panel-scroll-btn {
 .local-dev-api-notice {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 9px 16px;
   border-bottom: 1px solid var(--border);

@@ -14,9 +14,9 @@ export interface PanelLoadingState {
 }
 
 export function buildPanelLoadingState(message: string): PanelLoadingState {
-  // 'searching' at 64 — a panel in this state is out fetching its feed, and the
-  // scanning globe reads as that rather than as idle waiting.
-  const orb = mountThinkingOrb({ state: 'searching', size: 64, label: message });
+  // 'working' at 64, sped up 1.6x — a panel in this state is actively doing
+  // something on the user's behalf, not idly waiting on a feed.
+  const orb = mountThinkingOrb({ state: 'working', size: 64, speed: 1.60, label: message });
   const element = h('div', { className: 'panel-loading' },
     h('div', { className: 'panel-loading-orb' }, orb.element),
     h('div', { className: 'panel-loading-text' }, message),

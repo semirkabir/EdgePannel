@@ -2131,9 +2131,14 @@ a { color: inherit; }
 }
 
 /* Feature screenshots pinned on hover/focus: an overlay layer sitting over
-   the cycle, hidden until a product point pins one. The captures are taller
-   than the frame's box, so object-fit: cover crops the app's top and bottom
-   padding — checked against the capture layout, no content is lost. */
+   the cycle, hidden until a product point pins one. The captures (1440x845)
+   are taller than the frame's box (set by the 1440x762 cycle images), so
+   object-fit: cover crops 83px out. Default object-position is center,
+   which only trims ~41px off each edge — not enough to clear the ~75px
+   macOS Dock visible along the bottom of every capture, so it showed
+   through. object-position: top puts the full 83px of cropping at the
+   bottom instead, which is exactly enough to clear the Dock while keeping
+   every pixel of real app content. */
 .lp-frame-pins {
   position: absolute;
   inset: 0;
@@ -2144,6 +2149,7 @@ a { color: inherit; }
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: top;
   opacity: 0;
   transition: opacity 0.25s ease;
 }
