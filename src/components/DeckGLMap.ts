@@ -8119,19 +8119,9 @@ export class DeckGLMap implements MapEngine {
   private fetchViewportAircraft(): void {
     if (!this.maplibreMap) return;
     if (!this.state.layers.flights) return;
-    const zoom = this.maplibreMap.getZoom();
-    if (zoom < 2) {
-      if (this.aircraftPositions.length > 0) {
-        this.unfollowAircraft();
-        this.aircraftPositions = [];
-        this.aircraftMotion.clear();
-        this.renderPositionCache.clear();
-        this.updateAircraftStatusControl();
-        this.manageAircraftMotionAnimation(false);
-        this.render('flights');
-      }
-      return;
-    }
+    // No zoom floor: at world zoom getBounds() spans the whole planet, so the
+    // fetch returns the global fleet and the density slider throttles render
+    // count. Planes used to be wiped below zoom 2 — world view was always empty.
     if (!this.hasAircraftViewportChanged()) return;
     const bounds = this.maplibreMap.getBounds();
     const sw = bounds.getSouthWest();
