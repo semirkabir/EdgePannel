@@ -1,12 +1,461 @@
 {
-  "iranAttacks": {
-    "category": "conflict",
+  "accelerators": {
+    "category": "technology",
     "color": {
-      "light": "#b91c1c",
-      "dark": "#fb7185"
+      "light": "#b45309",
+      "dark": "#fbbf24"
+    },
+    "variants": [
+      "full",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "ais": {
+    "category": "aviation",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": [
+      "ais"
+    ],
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "aptGroups": {
+    "category": "cyber",
+    "color": {
+      "light": "#991b1b",
+      "dark": "#f87171"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "bases": {
+    "category": "military",
+    "color": {
+      "light": "#1d4ed8",
+      "dark": "#93c5fd"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": 1,
+    "labelZoom": 5,
+    "wasGreyFallback": false
+  },
+  "buildings": {
+    "category": "urban",
+    "color": {
+      "light": "#b09d82",
+      "dark": "#94a3b8"
+    },
+    "variants": [
+      "commodity",
+      "conflicts",
+      "finance",
+      "full",
+      "happy",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": 11,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "cables": {
+    "category": "cyber",
+    "color": {
+      "light": "#0369a1",
+      "dark": "#38bdf8"
+    },
+    "variants": [
+      "conflicts",
+      "full",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "centralBanks": {
+    "category": "economy",
+    "color": {
+      "light": "#92400e",
+      "dark": "#fde68a"
+    },
+    "variants": [
+      "finance",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "ciiChoropleth": {
+    "category": "governance",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "climate": {
+    "category": "environment",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
     },
     "variants": [
       "full"
+    ],
+    "sources": [
+      "climate"
+    ],
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "cloudRegions": {
+    "category": "technology",
+    "color": {
+      "light": "#6d28d9",
+      "dark": "#a78bfa"
+    },
+    "variants": [
+      "full",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "commodityHubs": {
+    "category": "economy",
+    "color": {
+      "light": "#9a3412",
+      "dark": "#fdba74"
+    },
+    "variants": [
+      "commodity",
+      "finance",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "commodityPorts": {
+    "category": "commodities",
+    "color": {
+      "light": "#0f766e",
+      "dark": "#5eead4"
+    },
+    "variants": [
+      "commodity",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "conflicts": {
+    "category": "conflict",
+    "color": {
+      "light": "#b91c1c",
+      "dark": "#f87171"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": 1,
+    "labelZoom": 3,
+    "wasGreyFallback": false
+  },
+  "cyberThreats": {
+    "category": "cyber",
+    "color": {
+      "light": "#991b1b",
+      "dark": "#f87171"
+    },
+    "variants": [
+      "conflicts",
+      "full",
+      "tech"
+    ],
+    "sources": [
+      "cyber_threats"
+    ],
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "datacenters": {
+    "category": "cyber",
+    "color": {
+      "light": "#0f766e",
+      "dark": "#22d3ee"
+    },
+    "variants": [
+      "full",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "dayNight": {
+    "category": "environment",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "democracy": {
+    "category": "governance",
+    "color": {
+      "light": "#1d4ed8",
+      "dark": "#93c5fd"
+    },
+    "variants": [
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "displacement": {
+    "category": "conflict",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": [
+      "unhcr"
+    ],
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "earthquakes": {
+    "category": "environment",
+    "color": {
+      "light": "#c2410c",
+      "dark": "#fb923c"
+    },
+    "variants": [
+      "commodity",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "economic": {
+    "category": "economy",
+    "color": {
+      "light": "#475569",
+      "dark": "#cbd5e1"
+    },
+    "variants": [
+      "finance",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "elections": {
+    "category": "governance",
+    "color": {
+      "light": "#7c3aed",
+      "dark": "#c4b5fd"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "financialCenters": {
+    "category": "economy",
+    "color": {
+      "light": "#047857",
+      "dark": "#34d399"
+    },
+    "variants": [
+      "finance",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "fires": {
+    "category": "environment",
+    "color": {
+      "light": "#c2410c",
+      "dark": "#fb923c"
+    },
+    "variants": [
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "flights": {
+    "category": "aviation",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "gdeltEvents": {
+    "category": "conflict",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": [
+      "gdelt_events"
+    ],
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "gemRisk": {
+    "category": "environment",
+    "color": {
+      "light": "#c2410c",
+      "dark": "#fb923c"
+    },
+    "variants": [
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "governanceChoropleth": {
+    "category": "governance",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "conflicts",
+      "finance",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "gpsJamming": {
+    "category": "cyber",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "gulfInvestments": {
+    "category": "economy",
+    "color": {
+      "light": "#0f766e",
+      "dark": "#5eead4"
+    },
+    "variants": [
+      "finance",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": 1,
+    "labelZoom": 5,
+    "wasGreyFallback": false
+  },
+  "happiness": {
+    "category": "positive",
+    "color": {
+      "light": "#ca8a04",
+      "dark": "#fde047"
+    },
+    "variants": [
+      "full",
+      "happy"
     ],
     "sources": null,
     "minZoom": null,
@@ -28,130 +477,13 @@
     "labelZoom": null,
     "wasGreyFallback": true
   },
-  "conflicts": {
+  "iranAttacks": {
     "category": "conflict",
     "color": {
       "light": "#b91c1c",
-      "dark": "#f87171"
+      "dark": "#fb7185"
     },
     "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": 1,
-    "labelZoom": 3,
-    "wasGreyFallback": false
-  },
-  "ucdpEvents": {
-    "category": "conflict",
-    "color": {
-      "light": "#b91c1c",
-      "dark": "#f87171"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": [
-      "ucdp_events"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "protests": {
-    "category": "conflict",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": [
-      "acled",
-      "gdelt_doc"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "displacement": {
-    "category": "conflict",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": [
-      "unhcr"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "sanctions": {
-    "category": "conflict",
-    "color": {
-      "light": "#dc2626",
-      "dark": "#fca5a5"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": [
-      "sanctions"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "gdeltEvents": {
-    "category": "conflict",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": [
-      "gdelt_events"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "bases": {
-    "category": "military",
-    "color": {
-      "light": "#1d4ed8",
-      "dark": "#93c5fd"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": 1,
-    "labelZoom": 5,
-    "wasGreyFallback": false
-  },
-  "nuclear": {
-    "category": "military",
-    "color": {
-      "light": "#a16207",
-      "dark": "#fde68a"
-    },
-    "variants": [
-      "conflicts",
       "full"
     ],
     "sources": null,
@@ -167,6 +499,55 @@
     },
     "variants": [
       "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "jobsDots": {
+    "category": "economy",
+    "color": {
+      "light": "#2E5A88",
+      "dark": "#6BAED6"
+    },
+    "variants": [
+      "commodity",
+      "conflicts",
+      "finance",
+      "full",
+      "happy",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": 4,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "kindness": {
+    "category": "positive",
+    "color": {
+      "light": "#db2777",
+      "dark": "#f9a8d4"
+    },
+    "variants": [
+      "full",
+      "happy"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "marketPerf": {
+    "category": "economy",
+    "color": {
+      "light": "#15803d",
+      "dark": "#4ade80"
+    },
+    "variants": [
+      "finance",
       "full"
     ],
     "sources": null,
@@ -192,362 +573,6 @@
     "labelZoom": null,
     "wasGreyFallback": false
   },
-  "cables": {
-    "category": "cyber",
-    "color": {
-      "light": "#0369a1",
-      "dark": "#38bdf8"
-    },
-    "variants": [
-      "conflicts",
-      "full",
-      "tech"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "pipelines": {
-    "category": "cyber",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "commodity",
-      "conflicts",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "datacenters": {
-    "category": "cyber",
-    "color": {
-      "light": "#0f766e",
-      "dark": "#22d3ee"
-    },
-    "variants": [
-      "full",
-      "tech"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "outages": {
-    "category": "cyber",
-    "color": {
-      "light": "#b91c1c",
-      "dark": "#fb7185"
-    },
-    "variants": [
-      "conflicts",
-      "full",
-      "tech"
-    ],
-    "sources": [
-      "outages"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "cyberThreats": {
-    "category": "cyber",
-    "color": {
-      "light": "#991b1b",
-      "dark": "#f87171"
-    },
-    "variants": [
-      "conflicts",
-      "full",
-      "tech"
-    ],
-    "sources": [
-      "cyber_threats"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "aptGroups": {
-    "category": "cyber",
-    "color": {
-      "light": "#991b1b",
-      "dark": "#f87171"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "gpsJamming": {
-    "category": "cyber",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "ais": {
-    "category": "aviation",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": [
-      "ais"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "flights": {
-    "category": "aviation",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "tradeRoutes": {
-    "category": "aviation",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "commodity",
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "waterways": {
-    "category": "aviation",
-    "color": {
-      "light": "#0369a1",
-      "dark": "#60a5fa"
-    },
-    "variants": [
-      "commodity",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "navWarnings": {
-    "category": "aviation",
-    "color": {
-      "light": "#0369a1",
-      "dark": "#38bdf8"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "spaceports": {
-    "category": "space",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "satellite": {
-    "category": "space",
-    "color": {
-      "light": "#06b6d4",
-      "dark": "#22d3ee"
-    },
-    "variants": [
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "economic": {
-    "category": "economy",
-    "color": {
-      "light": "#475569",
-      "dark": "#cbd5e1"
-    },
-    "variants": [
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "marketPerf": {
-    "category": "economy",
-    "color": {
-      "light": "#15803d",
-      "dark": "#4ade80"
-    },
-    "variants": [
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "polymarketMarkets": {
-    "category": "economy",
-    "color": {
-      "light": "#15803d",
-      "dark": "#86efac"
-    },
-    "variants": [
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "stockExchanges": {
-    "category": "economy",
-    "color": {
-      "light": "#92400e",
-      "dark": "#fbbf24"
-    },
-    "variants": [
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "financialCenters": {
-    "category": "economy",
-    "color": {
-      "light": "#047857",
-      "dark": "#34d399"
-    },
-    "variants": [
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "centralBanks": {
-    "category": "economy",
-    "color": {
-      "light": "#92400e",
-      "dark": "#fde68a"
-    },
-    "variants": [
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "commodityHubs": {
-    "category": "economy",
-    "color": {
-      "light": "#9a3412",
-      "dark": "#fdba74"
-    },
-    "variants": [
-      "commodity",
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "gulfInvestments": {
-    "category": "economy",
-    "color": {
-      "light": "#0f766e",
-      "dark": "#5eead4"
-    },
-    "variants": [
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": 1,
-    "labelZoom": 5,
-    "wasGreyFallback": false
-  },
-  "tariffBarriers": {
-    "category": "economy",
-    "color": {
-      "light": "#b45309",
-      "dark": "#fbbf24"
-    },
-    "variants": [
-      "commodity",
-      "conflicts",
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
   "minerals": {
     "category": "economy",
     "color": {
@@ -558,323 +583,6 @@
       "commodity",
       "conflicts",
       "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "climate": {
-    "category": "environment",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "full"
-    ],
-    "sources": [
-      "climate"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "weather": {
-    "category": "environment",
-    "color": {
-      "light": "#2563eb",
-      "dark": "#93c5fd"
-    },
-    "variants": [
-      "commodity",
-      "full"
-    ],
-    "sources": [
-      "weather"
-    ],
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "natural": {
-    "category": "environment",
-    "color": {
-      "light": "#dc2626",
-      "dark": "#fca5a5"
-    },
-    "variants": [
-      "commodity",
-      "full"
-    ],
-    "sources": [
-      "usgs"
-    ],
-    "minZoom": 1,
-    "labelZoom": 2,
-    "wasGreyFallback": false
-  },
-  "earthquakes": {
-    "category": "environment",
-    "color": {
-      "light": "#c2410c",
-      "dark": "#fb923c"
-    },
-    "variants": [
-      "commodity",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "fires": {
-    "category": "environment",
-    "color": {
-      "light": "#c2410c",
-      "dark": "#fb923c"
-    },
-    "variants": [
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "gemRisk": {
-    "category": "environment",
-    "color": {
-      "light": "#c2410c",
-      "dark": "#fb923c"
-    },
-    "variants": [
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "dayNight": {
-    "category": "environment",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "ciiChoropleth": {
-    "category": "governance",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "governanceChoropleth": {
-    "category": "governance",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "conflicts",
-      "finance",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "democracy": {
-    "category": "governance",
-    "color": {
-      "light": "#1d4ed8",
-      "dark": "#93c5fd"
-    },
-    "variants": [
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "elections": {
-    "category": "governance",
-    "color": {
-      "light": "#7c3aed",
-      "dark": "#c4b5fd"
-    },
-    "variants": [
-      "conflicts",
-      "full"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "startupHubs": {
-    "category": "technology",
-    "color": {
-      "light": "#15803d",
-      "dark": "#4ade80"
-    },
-    "variants": [
-      "full",
-      "tech"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "techHQs": {
-    "category": "technology",
-    "color": {
-      "light": "#0f766e",
-      "dark": "#67e8f9"
-    },
-    "variants": [
-      "full",
-      "tech"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "accelerators": {
-    "category": "technology",
-    "color": {
-      "light": "#b45309",
-      "dark": "#fbbf24"
-    },
-    "variants": [
-      "full",
-      "tech"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "cloudRegions": {
-    "category": "technology",
-    "color": {
-      "light": "#6d28d9",
-      "dark": "#a78bfa"
-    },
-    "variants": [
-      "full",
-      "tech"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "techEvents": {
-    "category": "technology",
-    "color": {
-      "light": "#475569",
-      "dark": "#a1a1aa"
-    },
-    "variants": [
-      "full",
-      "tech"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": true
-  },
-  "positiveEvents": {
-    "category": "positive",
-    "color": {
-      "light": "#16a34a",
-      "dark": "#86efac"
-    },
-    "variants": [
-      "full",
-      "happy"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "kindness": {
-    "category": "positive",
-    "color": {
-      "light": "#db2777",
-      "dark": "#f9a8d4"
-    },
-    "variants": [
-      "full",
-      "happy"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "happiness": {
-    "category": "positive",
-    "color": {
-      "light": "#ca8a04",
-      "dark": "#fde047"
-    },
-    "variants": [
-      "full",
-      "happy"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "speciesRecovery": {
-    "category": "positive",
-    "color": {
-      "light": "#15803d",
-      "dark": "#86efac"
-    },
-    "variants": [
-      "full",
-      "happy"
-    ],
-    "sources": null,
-    "minZoom": null,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "renewableInstallations": {
-    "category": "positive",
-    "color": {
-      "light": "#65a30d",
-      "dark": "#bef264"
-    },
-    "variants": [
-      "full",
-      "happy"
     ],
     "sources": null,
     "minZoom": null,
@@ -896,6 +604,135 @@
     "labelZoom": null,
     "wasGreyFallback": false
   },
+  "natural": {
+    "category": "environment",
+    "color": {
+      "light": "#dc2626",
+      "dark": "#fca5a5"
+    },
+    "variants": [
+      "commodity",
+      "full"
+    ],
+    "sources": [
+      "usgs"
+    ],
+    "minZoom": 1,
+    "labelZoom": 2,
+    "wasGreyFallback": false
+  },
+  "navWarnings": {
+    "category": "aviation",
+    "color": {
+      "light": "#0369a1",
+      "dark": "#38bdf8"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "nuclear": {
+    "category": "military",
+    "color": {
+      "light": "#a16207",
+      "dark": "#fde68a"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "obmOccupancy": {
+    "category": "urban",
+    "color": {
+      "light": "#64748b",
+      "dark": "#94a3b8"
+    },
+    "variants": [
+      "commodity",
+      "conflicts",
+      "finance",
+      "full",
+      "happy",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": 12,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "outages": {
+    "category": "cyber",
+    "color": {
+      "light": "#b91c1c",
+      "dark": "#fb7185"
+    },
+    "variants": [
+      "conflicts",
+      "full",
+      "tech"
+    ],
+    "sources": [
+      "outages"
+    ],
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "pipelines": {
+    "category": "cyber",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "commodity",
+      "conflicts",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "polymarketMarkets": {
+    "category": "economy",
+    "color": {
+      "light": "#15803d",
+      "dark": "#86efac"
+    },
+    "variants": [
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "positiveEvents": {
+    "category": "positive",
+    "color": {
+      "light": "#16a34a",
+      "dark": "#86efac"
+    },
+    "variants": [
+      "full",
+      "happy"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
   "processingPlants": {
     "category": "commodities",
     "color": {
@@ -911,11 +748,214 @@
     "labelZoom": null,
     "wasGreyFallback": false
   },
-  "commodityPorts": {
-    "category": "commodities",
+  "protests": {
+    "category": "conflict",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": [
+      "acled",
+      "gdelt_doc"
+    ],
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "renewableInstallations": {
+    "category": "positive",
+    "color": {
+      "light": "#65a30d",
+      "dark": "#bef264"
+    },
+    "variants": [
+      "full",
+      "happy"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "sanctions": {
+    "category": "conflict",
+    "color": {
+      "light": "#dc2626",
+      "dark": "#fca5a5"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": [
+      "sanctions"
+    ],
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "satellite": {
+    "category": "space",
+    "color": {
+      "light": "#06b6d4",
+      "dark": "#22d3ee"
+    },
+    "variants": [
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "spaceports": {
+    "category": "space",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "speciesRecovery": {
+    "category": "positive",
+    "color": {
+      "light": "#15803d",
+      "dark": "#86efac"
+    },
+    "variants": [
+      "full",
+      "happy"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "startupHubs": {
+    "category": "technology",
+    "color": {
+      "light": "#15803d",
+      "dark": "#4ade80"
+    },
+    "variants": [
+      "full",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "stockExchanges": {
+    "category": "economy",
+    "color": {
+      "light": "#92400e",
+      "dark": "#fbbf24"
+    },
+    "variants": [
+      "finance",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "tariffBarriers": {
+    "category": "economy",
+    "color": {
+      "light": "#b45309",
+      "dark": "#fbbf24"
+    },
+    "variants": [
+      "commodity",
+      "conflicts",
+      "finance",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "techEvents": {
+    "category": "technology",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "full",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "techHQs": {
+    "category": "technology",
     "color": {
       "light": "#0f766e",
-      "dark": "#5eead4"
+      "dark": "#67e8f9"
+    },
+    "variants": [
+      "full",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "tradeRoutes": {
+    "category": "aviation",
+    "color": {
+      "light": "#475569",
+      "dark": "#a1a1aa"
+    },
+    "variants": [
+      "commodity",
+      "finance",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": true
+  },
+  "ucdpEvents": {
+    "category": "conflict",
+    "color": {
+      "light": "#b91c1c",
+      "dark": "#f87171"
+    },
+    "variants": [
+      "conflicts",
+      "full"
+    ],
+    "sources": [
+      "ucdp_events"
+    ],
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "waterways": {
+    "category": "aviation",
+    "color": {
+      "light": "#0369a1",
+      "dark": "#60a5fa"
     },
     "variants": [
       "commodity",
@@ -926,41 +966,20 @@
     "labelZoom": null,
     "wasGreyFallback": false
   },
-  "buildings": {
-    "category": "urban",
+  "weather": {
+    "category": "environment",
     "color": {
-      "light": "#64748b",
-      "dark": "#94a3b8"
+      "light": "#2563eb",
+      "dark": "#93c5fd"
     },
     "variants": [
       "commodity",
-      "conflicts",
-      "finance",
-      "full",
-      "happy",
-      "tech"
+      "full"
     ],
-    "sources": null,
-    "minZoom": 13,
-    "labelZoom": null,
-    "wasGreyFallback": false
-  },
-  "jobsDots": {
-    "category": "economy",
-    "color": {
-      "light": "#2E5A88",
-      "dark": "#6BAED6"
-    },
-    "variants": [
-      "commodity",
-      "conflicts",
-      "finance",
-      "full",
-      "happy",
-      "tech"
+    "sources": [
+      "weather"
     ],
-    "sources": null,
-    "minZoom": 4,
+    "minZoom": null,
     "labelZoom": null,
     "wasGreyFallback": false
   }

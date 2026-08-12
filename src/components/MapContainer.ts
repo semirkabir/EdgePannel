@@ -246,10 +246,13 @@ export class MapContainer {
     this.useGlobe = true;
     // Prefer MapLibre globe projection so all themes and deck.gl layers stay intact.
     if (this.deckGLMap) {
-      this.useGlobe = this.deckGLMap.setGlobeProjection(true);
+      // Reworked transition path: pauses animations, runs the projection morph
+      // + layer handoff under a short loading overlay, reveals on settle.
+      this.useGlobe = this.deckGLMap.transitionGlobe(true);
       this.notifyModeChange();
     } else {
-      // Fallback: SVG mode can't do globe, create a DeckGLMap for it
+      // Fallback: SVG mode can't do globe, create a DeckGLMap for it. Show a
+      // brief loading overlay while the new map constructs + boots into globe.
       const snapshot = this.getState();
       const center = this.getCenter();
       this.resizeObserver?.disconnect();
@@ -260,10 +263,18 @@ export class MapContainer {
       this.container.classList.remove('svg-mode');
       this.useDeckGL = true;
       this.init();
+      // Veil goes in AFTER the wipe + init so nothing clears it; it sits above
+      // the fresh map (last child, same z-index → paints last) until the
+      // deferred globe switch has had time to apply.
+      const veil = document.createElement('div');
+      veil.className = 'map-mode-transition active';
+      veil.innerHTML = '<div class="map-mode-transition-spinner"></div><div class="map-mode-transition-label">Building 3D scene…</div>';
+      this.container.appendChild(veil);
       // init() defers setGlobeProjection via setTimeout when useGlobe is true
       this.restoreViewport(snapshot, center);
       this.rehydrateActiveMap();
       this.notifyModeChange();
+      setTimeout(() => veil.remove(), 1200);
     }
   }
 
@@ -277,7 +288,7 @@ export class MapContainer {
     if (!this.useGlobe && !this.isGlobeMode()) return;
     this.useGlobe = false;
     if (this.deckGLMap) {
-      this.deckGLMap.setGlobeProjection(false);
+      this.deckGLMap.transitionGlobe(false);
     }
     this.notifyModeChange();
   }

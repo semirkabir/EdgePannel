@@ -4,7 +4,15 @@ import { h } from '@/utils/dom-utils';
 const DISMISS_KEY = 'wm-layer-warning-dismissed';
 let activeDialog: HTMLElement | null = null;
 
+// Boot grace: variants boot with 10+ layers enabled via URL-state presets,
+// which would otherwise pop the performance modal over the map the moment the
+// controls become clickable (and swallow the first clicks — e.g. the 2D/3D
+// toggle). Only warn once the user is actually interacting with layers.
+const BOOT_GRACE_MS = 6000;
+const bootStartedAt = typeof performance !== 'undefined' ? performance.now() : 0;
+
 export function showLayerWarning(threshold: number): void {
+  if (performance.now() - bootStartedAt < BOOT_GRACE_MS) return;
   if (localStorage.getItem(DISMISS_KEY) === '1') return;
   if (activeDialog) return;
 

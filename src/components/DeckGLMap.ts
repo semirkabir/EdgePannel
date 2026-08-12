@@ -303,6 +303,59 @@ const HAPPY_DARK_STYLE = '/map-styles/happy-dark.json';
 const HAPPY_LIGHT_STYLE = '/map-styles/happy-light.json';
 const isHappyVariant = SITE_VARIANT === 'happy';
 
+/**
+ * Theme-aware paint for the 3D buildings layer (`wm-buildings-3d`).
+ *
+ * Light theme mirrors the osmbuildings.org architectural-model look: warm
+ * ivory/beige low-rise ramping through taupe to dark warm-brown towers (their
+ * height palette), with vertical-gradient side shading for the "sunlit from
+ * above" feel. Dark theme keeps the original cool slate ramp so the skyline
+ * stays legible against near-black basemaps.
+ */
+const BUILDINGS_PAINT: Record<'light' | 'dark', NonNullable<maplibregl.FillExtrusionLayerSpecification['paint']>> = {
+  light: {
+    // osmbuildings.org look: per-building OSM `colour` tag when present (the
+    // black/white/brown landmark towers in their demo), else the warm
+    // ivory/beige → taupe → brown height ramp. `to-color` guards against
+    // unparseable tag values (e.g. "brick") falling through to the ramp.
+    'fill-extrusion-color': [
+      'coalesce',
+      ['to-color', ['get', 'colour']],
+      ['interpolate', ['linear'], ['get', 'render_height'],
+        0, '#ece3d2', 12, '#dfd3bc', 25, '#cdbda1', 45, '#b09d82', 80, '#897560', 130, '#5e5043', 220, '#3a352f'],
+    ],
+    // Exaggerate heights 1.4x so the skyline reads dramatically, with a
+    // 3m floor so no building renders paper-flat (SimCity look).
+    'fill-extrusion-height': ['max', ['*', ['get', 'render_height'], 1.4], 3],
+    'fill-extrusion-base': ['get', 'render_min_height'],
+    // Slightly translucent so basemap streets peek through, like the reference.
+    'fill-extrusion-opacity': 0.92,
+    // Shades the sides darker than the tops so extrusion reads from an angle —
+    // the closest v5 gets to directional sunlight without the removed
+    // flood-light/AO pipeline.
+    'fill-extrusion-vertical-gradient': true,
+  },
+  dark: {
+    // Same colour-tag override. Fallback ramp is BRIGHTENED vs the original:
+    // short buildings used to sit at #2a3542 against the basemap's own #1e1e1e
+    // fills, so low-rise blocks vanished into the ground and only towers
+    // popped. Every stop now clears the basemap by a wide margin so ALL
+    // heights read as volumes in dark mode. Tagged landmarks (Empire State,
+    // One WTC...) still pop in their real hues.
+    'fill-extrusion-color': [
+      'coalesce',
+      ['to-color', ['get', 'colour']],
+      ['interpolate', ['linear'], ['get', 'render_height'],
+        0, '#36455a', 15, '#4a5d75', 35, '#61778f', 70, '#7e93ad', 120, '#9cb1cb', 220, '#bccfe4'],
+    ],
+    'fill-extrusion-height': ['max', ['*', ['get', 'render_height'], 1.4], 3],
+    'fill-extrusion-base': ['get', 'render_min_height'],
+    // Near-solid on dark so the basemap doesn't wash the extrusions out.
+    'fill-extrusion-opacity': 0.98,
+    'fill-extrusion-vertical-gradient': true,
+  },
+};
+
 const METERS_PER_MILE = 1609.344;
 const GLOBE_AIRCRAFT_MIN_ALTITUDE_M = 6 * METERS_PER_MILE;
 const GLOBE_AIRCRAFT_MAX_ALTITUDE_M = 8 * METERS_PER_MILE;
@@ -329,6 +382,13 @@ const AIRCRAFT_FOLLOW_RETENTION_MS = 5 * 60 * 1000;
 const AIRCRAFT_FOLLOW_TIMEOUT_MS = 8 * 60 * 1000;
 /** Trail sampling cadence for the followed aircraft's interpolated path. */
 const AIRCRAFT_FOLLOW_TRAIL_SAMPLE_MS = 2000;
+
+/** SimCity-style default camera tilt applied when entering 3D globe mode. */
+const GLOBE_TILT_PITCH = 55;
+/** Only auto-tilt when zoomed into terrain; below this the globe stays straight-on. */
+const GLOBE_TILT_MIN_ZOOM = 4;
+/** Below this zoom the globe is at world view — flatten pitch so it centers like Google Earth. */
+const GLOBE_SETTLE_ZOOM = 3;
 
 // Pure geo/aircraft math helpers now live in ./deckgl-geo-math (imported above).
 
@@ -357,6 +417,18 @@ const GLOBE_NATIVE_LAYERS = [
   'wm-globe-aircraft-altitude',
   'wm-globe-satellites-altitude',
 ] as const;
+
+// 2D↔3D mode transition pipeline (transitionGlobe): the projection morph, the
+// layer handoff, and the camera tilt all run under a short loading overlay.
+// MIN keeps fast switches from strobe-flashing; MAX is the fail-safe that
+// force-lifts the overlay even if the map's 'idle' never fires (network hiccup).
+const MODE_TRANSITION_MIN_MS = 260;
+const MODE_TRANSITION_MAX_MS = 1500;
+// Globe aircraft ground-circles re-sync at this cadence: their positions are
+// interpolated per-frame (getAircraftRenderPosition), so the collection
+// legitimately changes while planes move — throttled instead of hard-cached,
+// because rebuilding 4k+ features at 60fps was the 3D-mode lag source.
+const GLOBE_AIRCRAFT_SYNC_MS = 260;
 
 const EMPTY_GLOBE_LINE_COLLECTION: GlobeLineCollection = { type: 'FeatureCollection', features: [] };
 const EMPTY_GLOBE_POINT_COLLECTION: GlobePointCollection = { type: 'FeatureCollection', features: [] };
@@ -548,6 +620,17 @@ export class DeckGLMap implements MapEngine {
   private customCategories: CustomCategory[] = loadCustomCategories();
   private usedFallbackStyle = false;
   private _globeProjection = false;
+  /** Projection switch queued while the style is still loading (see setGlobeProjection). */
+  private _pendingGlobeProjection: boolean | null = null;
+  /** True while a 2D↔3D mode transition is running (overlay up, render paused). */
+  private _modeTransitionActive = false;
+  private _modeTransitionTimer: ReturnType<typeof setTimeout> | null = null;
+  private _modeTransitionStart = 0;
+  private _modeTransitionEl: HTMLDivElement | null = null;
+  /** Last rAF timestamp the globe aircraft ground-circles were re-synced. */
+  private _lastGlobeAircraftSync = 0;
+  /** Reference-identity cache for globe-native collection rebuilds (perf). */
+  private _globeDataVersions = new Map<string, { refs: unknown[]; stamp: string }>();
   private styleLoadTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private tileMonitorGeneration = 0;
   private lastHoveredKey: string | null = null;
@@ -602,6 +685,12 @@ export class DeckGLMap implements MapEngine {
   private satellitePositionSampleCache: SatellitePositionSampleCache | null = null;
   /** Last visibility applied to `wm-buildings-3d` — avoids setLayoutProperty spam every rAF. */
   private lastBuildingsVisibility: 'visible' | 'none' | null = null;
+  /** Last theme the `wm-buildings-3d` paint was built for — recolors only on theme flips. */
+  private lastBuildingsPaintTheme: 'light' | 'dark' | null = null;
+  /** Last visibility applied to `wm-jobs-dots` — same spam guard. */
+  private lastJobsDotsVisibility: 'visible' | 'none' | null = null;
+  /** Last visibility applied to `wm-obm-occupancy` — same spam guard. */
+  private lastObmOccupancyVisibility: 'visible' | 'none' | null = null;
   private lastSatelliteAnimationFrameMs = 0;
   private lastAircraftAnimationFrameMs = 0;
 
@@ -620,8 +709,10 @@ export class DeckGLMap implements MapEngine {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
       this.maplibreMap.resize();
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
-      this.syncGlobeNativeLayers();
+      try { this.syncGlobeNativeLayers(); } catch { /* isolate: buildings/jobs/obm syncs must still run */ }
       this.syncBuildingsLayer();
+      this.syncJobsDotsLayer();
+      this.syncObmOccupancyLayer();
       this.updateAircraftStatusControl();
       this.maplibreMap?.triggerRepaint();
     }, 150);
@@ -630,8 +721,10 @@ export class DeckGLMap implements MapEngine {
     this.rafUpdateLayers = rafSchedule(() => {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
-      this.syncGlobeNativeLayers();
+      try { this.syncGlobeNativeLayers(); } catch { /* isolate: buildings/jobs/obm syncs must still run */ }
       this.syncBuildingsLayer();
+      this.syncJobsDotsLayer();
+      this.syncObmOccupancyLayer();
       this.updateAircraftStatusControl();
       this.maplibreMap?.triggerRepaint();
     });
@@ -680,6 +773,9 @@ export class DeckGLMap implements MapEngine {
       this.loadCountryBoundaries();
       this.fetchServerBases();
       this.syncMapSizeAfterLayout();
+      // Kick the sync chain so wm-buildings/jobs-dots/obm layers exist even
+      // with a static camera (no moveend/zoom event fires on a fresh boot).
+      this.rafUpdateLayers();
     });
 
     this.createControls();
@@ -724,6 +820,16 @@ export class DeckGLMap implements MapEngine {
     wrapper.appendChild(mapContainer);
 
     this.container.appendChild(wrapper);
+
+    // 2D↔3D transition overlay (see transitionGlobe). Covers the projection
+    // morph + layer handoff so the user never sees a half-built scene.
+    this._modeTransitionEl = document.createElement('div');
+    this._modeTransitionEl.className = 'map-mode-transition';
+    this._modeTransitionEl.setAttribute('aria-hidden', 'true');
+    this._modeTransitionEl.innerHTML =
+      '<div class="map-mode-transition-spinner"></div>' +
+      '<div class="map-mode-transition-label">Building 3D scene…</div>';
+    this.container.appendChild(this._modeTransitionEl);
   }
 
   private initMapLibre(): void {
@@ -767,6 +873,7 @@ export class DeckGLMap implements MapEngine {
         }
         : {}),
     });
+    (window as any).__wmMap = this.maplibreMap; // TEMP HOOK — remove after verify
 
     const recreateWithFallback = () => {
       if (this.usedFallbackStyle) return;
@@ -802,6 +909,10 @@ export class DeckGLMap implements MapEngine {
         this.loadCountryBoundaries();
         this.fetchServerBases();
         this.syncMapSizeAfterLayout();
+        // Kick the sync chain on the fallback map too: it has NO moveend/zoom
+        // wiring (only the primary gets those in the constructor), so without
+        // this the buildings/jobs/obm layers would never be added.
+        this.rafUpdateLayers();
       });
     };
 
@@ -964,6 +1075,13 @@ export class DeckGLMap implements MapEngine {
       if (thresholdCrossed) {
         this.lastZoomThreshold = currentZoom;
         this.debouncedRebuildLayers();
+      }
+      // Google Earth-style camera governor: at world zoom the globe must sit
+      // dead-center and straight-on. If the user zoomed all the way out while
+      // pitched (SimCity tilt or a manual drag), flatten the camera so the
+      // globe settles centered instead of hanging at a locked, off-center angle.
+      if (this._globeProjection && currentZoom < GLOBE_SETTLE_ZOOM && (this.maplibreMap?.getPitch() ?? 0) > 0.5) {
+        this.maplibreMap?.easeTo({ pitch: 0, duration: 600 });
       }
       this.state.zoom = this.maplibreMap?.getZoom() ?? this.state.zoom;
       this.onStateChange?.(this.state);
@@ -1474,7 +1592,9 @@ export class DeckGLMap implements MapEngine {
     const threshold = getLayerZoomThreshold(layerKey);
     if (!threshold) return true;
     const zoom = this.maplibreMap?.getZoom() || 2;
-    return zoom >= threshold.minZoom;
+    if (zoom < threshold.minZoom) return false;
+    if (threshold.maxZoom !== undefined && zoom > threshold.maxZoom) return false;
+    return true;
   }
 
   private buildLayers(dirtyLayers?: Set<string>): LayersList {
@@ -1892,17 +2012,79 @@ export class DeckGLMap implements MapEngine {
     }
     if (!map.isStyleLoaded()) return;
 
-    this.upsertGlobeSource('wm-globe-cables', this.state.layers.cables ? this.buildGlobeCableCollection() : EMPTY_GLOBE_LINE_COLLECTION);
-    this.upsertGlobeSource('wm-globe-cable-advisories', this.state.layers.cables ? this.buildGlobeCableAdvisoryCollection() : EMPTY_GLOBE_POINT_COLLECTION);
-    this.upsertGlobeSource('wm-globe-repair-ships', this.state.layers.cables ? this.buildGlobeRepairShipCollection() : EMPTY_GLOBE_POINT_COLLECTION);
-    this.upsertGlobeSource('wm-globe-pipelines', this.state.layers.pipelines ? this.buildGlobePipelineCollection() : EMPTY_GLOBE_LINE_COLLECTION);
-    this.upsertGlobeSource('wm-globe-trade-routes', this.state.layers.tradeRoutes ? this.buildGlobeTradeRouteCollection() : EMPTY_GLOBE_LINE_COLLECTION);
-    this.upsertGlobeSource('wm-globe-trade-chokepoints', this.state.layers.tradeRoutes ? this.buildGlobeTradeChokepointCollection() : EMPTY_GLOBE_POINT_COLLECTION);
-    this.upsertGlobeSource('wm-globe-flight-delays', this.state.layers.flights ? this.buildGlobeFlightDelayCollection() : EMPTY_GLOBE_POINT_COLLECTION);
-    this.upsertGlobeSource('wm-globe-aircraft', this.state.layers.flights ? this.buildGlobeAircraftCollection() : EMPTY_GLOBE_POINT_COLLECTION);
-    this.upsertGlobeSource('wm-globe-satellites', this.state.layers.satellite ? this.buildGlobeSatelliteCollection() : EMPTY_GLOBE_POINT_COLLECTION);
+    // Layer handoff is seamless by construction: the deck.gl layer set and the
+    // globe-native mirrors both key off `state.layers` — same toggles, same
+    // data. Collection rebuilds are reference-identity cached (the data arrays
+    // are replaced wholesale on fetch), so this sync is near-free on every
+    // frame/event instead of rebuilding 9 GeoJSON collections per rAF.
+    this.maybeUpsertGlobeSource('wm-globe-cables', this.state.layers.cables, this.state.layers.cables ? this.buildGlobeCableCollection() : EMPTY_GLOBE_LINE_COLLECTION,
+      [this.healthByCableId],
+      `${this.getSetSignature(this.highlightedAssets.cable)}|${this.getInfrastructureSelectionSignature()}`);
+    this.maybeUpsertGlobeSource('wm-globe-cable-advisories', this.state.layers.cables, this.state.layers.cables ? this.buildGlobeCableAdvisoryCollection() : EMPTY_GLOBE_POINT_COLLECTION,
+      [this.cableAdvisories], `${this.state.timeRange}`);
+    this.maybeUpsertGlobeSource('wm-globe-repair-ships', this.state.layers.cables, this.state.layers.cables ? this.buildGlobeRepairShipCollection() : EMPTY_GLOBE_POINT_COLLECTION,
+      [this.repairShips]);
+    this.maybeUpsertGlobeSource('wm-globe-pipelines', this.state.layers.pipelines, this.state.layers.pipelines ? this.buildGlobePipelineCollection() : EMPTY_GLOBE_LINE_COLLECTION,
+      [this.highlightedAssets.pipeline, this.selectedInfrastructureLine],
+      `${this.getSetSignature(this.highlightedAssets.pipeline)}|${this.getInfrastructureSelectionSignature()}`);
+    this.maybeUpsertGlobeSource('wm-globe-trade-routes', this.state.layers.tradeRoutes, this.state.layers.tradeRoutes ? this.buildGlobeTradeRouteCollection() : EMPTY_GLOBE_LINE_COLLECTION,
+      [this.tradeRouteSegments]);
+    this.maybeUpsertGlobeSource('wm-globe-trade-chokepoints', this.state.layers.tradeRoutes, this.state.layers.tradeRoutes ? this.buildGlobeTradeChokepointCollection() : EMPTY_GLOBE_POINT_COLLECTION,
+      [this.tradeRouteSegments]);
+    this.maybeUpsertGlobeSource('wm-globe-flight-delays', this.state.layers.flights, this.state.layers.flights ? this.buildGlobeFlightDelayCollection() : EMPTY_GLOBE_POINT_COLLECTION,
+      [this.flightDelays], `${this.state.timeRange}`);
+    // Aircraft ground circles re-sync on a throttle (see GLOBE_AIRCRAFT_SYNC_MS):
+    // rebuild immediately on a data swap, otherwise at the throttle cadence.
+    const aircraftNow = performance.now();
+    if (!this.state.layers.flights) {
+      this.commitGlobeSource('wm-globe-aircraft', [this.aircraftPositions, this.followedAircraftIcao]);
+      this.upsertGlobeSource('wm-globe-aircraft', EMPTY_GLOBE_POINT_COLLECTION);
+    } else if (this.globeDataChanged('wm-globe-aircraft', [this.aircraftPositions, this.followedAircraftIcao])
+      || aircraftNow - this._lastGlobeAircraftSync >= GLOBE_AIRCRAFT_SYNC_MS) {
+      this.upsertGlobeSource('wm-globe-aircraft', this.buildGlobeAircraftCollection());
+      this.commitGlobeSource('wm-globe-aircraft', [this.aircraftPositions, this.followedAircraftIcao]);
+      this._lastGlobeAircraftSync = aircraftNow;
+    }
+    // Satellites are already bucketed per SATELLITE_ANIMATION_FRAME_MS — only
+    // rebuild when the bucket flips (positions array ref changes with it).
+    this.maybeUpsertGlobeSource('wm-globe-satellites', this.state.layers.satellite, this.state.layers.satellite ? this.buildGlobeSatelliteCollection() : EMPTY_GLOBE_POINT_COLLECTION,
+      [this.satelliteVisiblePositionCache?.positions ?? null],
+      `${this.satelliteVisiblePositionCache?.bucket ?? -1}`);
     this.ensureGlobeNativeLayerStyles();
     if (!this.countryHoverSetup) this.setupCountryHover();
+  }
+
+  /** True when the given globe source's inputs changed since the last commit. */
+  private globeDataChanged(sourceId: string, refs: unknown[], stamp = ''): boolean {
+    const prev = this._globeDataVersions.get(sourceId);
+    if (!prev) return true;
+    if (prev.stamp !== stamp) return true;
+    if (prev.refs.length !== refs.length) return true;
+    for (let i = 0; i < refs.length; i++) if (prev.refs[i] !== refs[i]) return true;
+    return false;
+  }
+
+  /** Record the input refs the last rebuild of `sourceId` used. */
+  private commitGlobeSource(sourceId: string, refs: unknown[], stamp = ''): void {
+    this._globeDataVersions.set(sourceId, { refs: refs.slice(), stamp });
+  }
+
+  /**
+   * Cache-aware upsert: skips the collection build + setData entirely when
+   * nothing changed. `enabled` is folded into the stamp so toggling a layer
+   * off forces the empty collection through, and staying off stays cheap.
+   */
+  private maybeUpsertGlobeSource(
+    id: typeof GLOBE_NATIVE_SOURCES[number],
+    enabled: boolean,
+    data: GlobeLineCollection | GlobePointCollection,
+    refs: unknown[],
+    stamp = '',
+  ): void {
+    const fullStamp = `${enabled ? 'on' : 'off'}|${stamp}`;
+    if (!this.globeDataChanged(id, refs, fullStamp)) return;
+    this.upsertGlobeSource(id, data);
+    this.commitGlobeSource(id, refs, fullStamp);
   }
 
   private upsertGlobeSource(id: typeof GLOBE_NATIVE_SOURCES[number], data: GlobeLineCollection | GlobePointCollection): void {
@@ -1995,43 +2177,59 @@ export class DeckGLMap implements MapEngine {
    * (OSM `render_height`/`render_min_height`), rendered as fill-extrusion.
    * Uses its OWN vector source so it works under any basemap theme (Carto,
    * custom toner, satellite) — those styles don't carry an `openmaptiles` source.
+   *
+   * Paint is THEME-AWARE: light themes get the osmbuildings.org architectural-model
+   * look — warm ivory low-rise ramping to dark warm-brown towers (their palette,
+   * from the reference at osmbuildings.org) — while dark themes keep a cool slate
+   * ramp. maplibre-gl v5 removed the flood-light/ambient-occlusion pipeline, so
+   * sun-directional cast shadows aren't available; the vertical gradient + warm
+   * highlight color is the closest v5 approximation (sunlit tops, shaded walls).
    */
   private syncBuildingsLayer(): void {
     const map = this.maplibreMap;
     if (!map || !map.isStyleLoaded()) return;
-    if (this._globeProjection) {
-      this.removeBuildingsLayer();
-      return;
-    }
     if (!map.getSource('wm-buildings')) {
       map.addSource('wm-buildings', { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
     }
+    const { theme: mapTheme } = resolveUnifiedTheme(getUnifiedTheme());
+    const paintTheme = isLightMapTheme(mapTheme) ? 'light' as const : 'dark' as const;
     if (!map.getLayer('wm-buildings-3d')) {
-      // Insert at the BOTTOM of the style stack: the deck.gl overlay is interleaved
-      // into maplibre (MapboxOverlay interleaved:true), so a top-of-stack
-      // fill-extrusion would render OVER the aircraft icons/labels and depth-occlude
-      // them (they'd collapse to the fallback dots). Buildings belong under data layers.
-      const firstLayerId = map.getStyle().layers?.[0]?.id;
+      // Insert ABOVE the basemap's own building fills (they'd otherwise paint flat
+      // footprints over the extrusion) but keep it BELOW the interleaved deck data
+      // layers (MapboxOverlay interleaved:true) so aircraft icons/labels never get
+      // depth-occluded (the original top-of-stack bug). Falls back to bottom-of-stack
+      // when the theme has no building layers.
+      const styleLayers = map.getStyle().layers ?? [];
+      const lastBasemapBuildingIdx = styleLayers.reduce((acc, l, idx) => (/building/i.test(l.id) ? idx : acc), -1);
+      const firstLayerId = lastBasemapBuildingIdx >= 0 && lastBasemapBuildingIdx + 1 < styleLayers.length
+        ? styleLayers[lastBasemapBuildingIdx + 1]!.id
+        : styleLayers[0]?.id;
       map.addLayer({
         id: 'wm-buildings-3d',
         type: 'fill-extrusion',
         source: 'wm-buildings',
         'source-layer': 'building',
-        minzoom: 13,
+        minzoom: 11,
         filter: ['all', ['!=', ['get', 'hide_3d'], true]],
-        paint: {
-          'fill-extrusion-color': [
-            'interpolate', ['linear'], ['get', 'render_height'],
-            0, '#3b4a5a', 15, '#4b5f75', 35, '#5f7a96', 70, '#7a9cbb', 120, '#9fc0dd',
-          ],
-          'fill-extrusion-height': ['get', 'render_height'],
-          'fill-extrusion-base': ['get', 'render_min_height'],
-          'fill-extrusion-opacity': 0.85,
-        },
+        paint: BUILDINGS_PAINT[paintTheme],
       } as maplibregl.LayerSpecification, firstLayerId);
+      this.lastBuildingsPaintTheme = paintTheme;
+    } else if (paintTheme !== this.lastBuildingsPaintTheme) {
+      // Theme flipped while the layer was alive — recolor in place. Runs once per
+      // flip, NOT per rAF: setPaintProperty diff is cheap, but syncBuildingsLayer
+      // fires every frame via rafUpdateLayers and unconditional calls would churn.
+      for (const [key, value] of Object.entries(BUILDINGS_PAINT[paintTheme])) {
+        map.setPaintProperty('wm-buildings-3d', key, value);
+      }
+      this.lastBuildingsPaintTheme = paintTheme;
     }
-    const visible = !!this.state.layers.buildings && this.isLayerVisible('buildings');
-    const next = visible ? 'visible' : 'none';
+    // Visibility follows the user's layer toggle ONLY. Zoom gating is handled
+    // natively by the layer's `minzoom: 11` above — computing it here couples
+    // the flip to the rAF loop (it must re-run exactly when zoom crosses 13),
+    // which can leave the layer stuck at 'none' even at z15+ with buildings
+    // enabled (observed in testing). MapLibre enforces minzoom per frame, so
+    // toggle-only visibility + native minzoom is correct and can't get stuck.
+    const next = this.state.layers.buildings ? 'visible' : 'none';
     // Only touch the style when the value actually flips — syncBuildingsLayer runs
     // inside rafUpdateLayers (every frame); unconditional setLayoutProperty forces a
     // style relayout each rAF, which makes symbol layers (aircraft callsign labels)
@@ -2050,6 +2248,119 @@ export class DeckGLMap implements MapEngine {
     // Re-adding later starts with the layer's default visibility ('visible'); reset the
     // cache so the next sync actually applies the correct state instead of skipping it.
     this.lastBuildingsVisibility = null;
+  }
+
+  /**
+   * US jobs dot density (146M jobs by NAICS sector) from walker-data's
+   * freestiler PMTiles tileset (Census LODES v8). Same paint recipe as the
+   * freestiler "146M US Jobs by Sector" app: blurred glowing circles, colored
+   * by sector, radius grows with zoom, and at low zoom each dot represents
+   * ~thousands of jobs (drop_rate 2.5, base_zoom 14). Unlike the buildings
+   * layer this one survives globe projection — circle layers render on the
+   * globe, which is exactly the 3D "data terrain" look from the demo video.
+   */
+  private syncJobsDotsLayer(): void {
+    const map = this.maplibreMap;
+    if (!map || !map.isStyleLoaded()) return;
+    if (!map.getSource('wm-jobs-dots')) {
+      map.addSource('wm-jobs-dots', { type: 'vector', url: 'https://jobs.walker-tiles.com/us_jobs_dots.json' });
+    }
+    if (!map.getLayer('wm-jobs-dots')) {
+      // Insert BELOW the first label layer so place names stay readable on top
+      // of the dot cloud (same stacking as the freestiler app's before_id
+      // "City labels"); fall back to top-of-stack when the style has no symbols.
+      const style = map.getStyle();
+      const firstSymbolId = style?.layers?.find(l => l.type === 'symbol')?.id;
+      const jobsLayer: maplibregl.LayerSpecification = {
+        id: 'wm-jobs-dots',
+        type: 'circle',
+        source: 'wm-jobs-dots',
+        'source-layer': 'jobs',
+        minzoom: 4,
+        paint: {
+          'circle-blur': 0.1,
+          'circle-opacity': 0.8,
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 1, 6, 1.5, 10, 2, 14, 3],
+          'circle-color': ['match', ['get', 'naics'],
+            'CNS01', '#8B4513', 'CNS02', '#CD853F', 'CNS03', '#FF6B35', 'CNS04', '#FF8C00',
+            'CNS05', '#E31C3D', 'CNS06', '#008B8B', 'CNS07', '#20B2AA', 'CNS08', '#5F9EA0',
+            'CNS09', '#1E3A5F', 'CNS10', '#2E5A88', 'CNS11', '#4682B4', 'CNS12', '#5B9BD5',
+            'CNS13', '#6BAED6', 'CNS14', '#9ECAE1', 'CNS15', '#2E7D32', 'CNS16', '#4CAF50',
+            'CNS17', '#7B1FA2', 'CNS18', '#AB47BC', 'CNS19', '#CE93D8', 'CNS20', '#81C784',
+            '#CCCCCC'],
+          'circle-translate-anchor': 'map',
+        },
+      };
+      map.addLayer(jobsLayer, firstSymbolId);
+    }
+    const visible = !!this.state.layers.jobsDots && this.isLayerVisible('jobsDots');
+    const next = visible ? 'visible' : 'none';
+    // Same relayout-spam guard as the buildings layer — syncJobsDotsLayer runs
+    // inside rafUpdateLayers (every frame).
+    if (next !== this.lastJobsDotsVisibility) {
+      map.setLayoutProperty('wm-jobs-dots', 'visibility', next);
+      this.lastJobsDotsVisibility = next;
+    }
+  }
+
+  /**
+   * Global building occupancy — every building on Earth (OSM + Google +
+   * Microsoft footprints merged) colored by GEM Building Taxonomy v2.0 class,
+   * from GFZ OpenBuildingMap's public vector tiles (ODbL v1.0). Source-layer
+   * `buildings_occupancy` carries per-building `occupancy` codes (RES1, COM3,
+   * IND, ASS1...). Survives globe projection like the jobs dots layer.
+   */
+  private syncObmOccupancyLayer(): void {
+    const map = this.maplibreMap;
+    if (!map || !map.isStyleLoaded()) return;
+    if (!map.getSource('wm-obm-occupancy')) {
+      map.addSource('wm-obm-occupancy', {
+        type: 'vector',
+        tiles: ['https://vectortiles.openbuildingmap.org/occupancy/{z}/{x}/{y}.pbf'],
+        minzoom: 12,
+        attribution: '© <a href="https://openbuildingmap.org/" target="_blank" rel="noopener">OpenBuildingMap</a> (GFZ, ODbL)',
+      });
+    }
+    if (!map.getLayer('wm-obm-occupancy')) {
+      // Stack UNDER the 3D buildings layer: the colored occupancy carpet
+      // grounds the city while the extruded towers rise above it (SimCity
+      // look). Falls back to below-first-symbol when buildings aren't added.
+      const style = map.getStyle();
+      const buildingsLayerId = map.getLayer('wm-buildings-3d') ? 'wm-buildings-3d' : undefined;
+      const beforeId = buildingsLayerId ?? style?.layers?.find(l => l.type === 'symbol')?.id;
+      const obmLayer: maplibregl.LayerSpecification = {
+        id: 'wm-obm-occupancy',
+        type: 'fill',
+        source: 'wm-obm-occupancy',
+        'source-layer': 'buildings_occupancy',
+        minzoom: 12,
+        paint: {
+          'fill-color': [
+            'match', ['get', 'occupancy'],
+            // GEM Building Taxonomy v2.0 — top-level classes (their sub-class
+            // codes like RES1/COM3 inherit the parent hue, same as the OBM map).
+            'RES', '#dc2300', // Residential
+            'COM', '#0047ff', // Commercial
+            'MIX', '#940065', // Mixed use
+            'IND', '#804c19', // Industrial
+            'AGR', '#355e00', // Agriculture
+            'GOV', '#cc6633', // Government
+            'EDU', '#cccc00', // Education
+            'ASS', '#00cccc', // Assembly
+            '#666666',        // Unknown / unmatched
+          ],
+          'fill-opacity': 0.45,
+          'fill-outline-color': 'rgba(0, 0, 0, 0.3)',
+        },
+      };
+      map.addLayer(obmLayer, beforeId);
+    }
+    const visible = !!this.state.layers.obmOccupancy && this.isLayerVisible('obmOccupancy');
+    const next = visible ? 'visible' : 'none';
+    if (next !== this.lastObmOccupancyVisibility) {
+      map.setLayoutProperty('wm-obm-occupancy', 'visibility', next);
+      this.lastObmOccupancyVisibility = next;
+    }
   }
 
   private lineFeature(id: string, name: string, coordinates: [number, number][], color: string, width: number, kind: string, sourceId?: string): GlobeLineFeature | null {
@@ -7193,6 +7504,8 @@ export class DeckGLMap implements MapEngine {
     } catch { /* map may be mid-teardown (null.getProjection) */ }
     this.syncGlobeNativeLayers();
     this.syncBuildingsLayer();
+    this.syncJobsDotsLayer();
+    this.syncObmOccupancyLayer();
     this.updateAircraftStatusControl(true);
     this.maplibreMap?.triggerRepaint();
     const elapsed = performance.now() - startTime;
@@ -9378,7 +9691,24 @@ export class DeckGLMap implements MapEngine {
   /** Toggle between globe and mercator projection. All themes and layers stay intact. */
   public setGlobeProjection(enabled: boolean): boolean {
     if (!this.maplibreMap) return this._globeProjection;
-    if (this._globeProjection === enabled) return this._globeProjection;
+    if (this._globeProjection === enabled && this._pendingGlobeProjection === null) return this._globeProjection;
+
+    // Projection switches require a loaded style. If the style is still
+    // fetching (MapContainer's init path calls this only ~100ms after
+    // construction, which races a slow style fetch), queue the switch and
+    // apply it on 'style.load' — otherwise maplibre throws "Style is not
+    // done loading" and the globe silently never activates.
+    if (!this.maplibreMap.isStyleLoaded()) {
+      if (this._pendingGlobeProjection !== enabled) {
+        this._pendingGlobeProjection = enabled;
+        this.maplibreMap.once('style.load', () => {
+          const pending = this._pendingGlobeProjection;
+          this._pendingGlobeProjection = null;
+          if (pending !== null) this.setGlobeProjection(pending);
+        });
+      }
+      return this._globeProjection;
+    }
 
     try {
       this.maplibreMap.setProjection({ type: enabled ? 'globe' : 'mercator' });
@@ -9396,22 +9726,114 @@ export class DeckGLMap implements MapEngine {
       (this.maplibreMap as any).dragRotate?.enable();
       (this.maplibreMap as any).touchPitch?.enable();
       this.container.classList.add('globe-projection');
+      // SimCity-style default camera angle: tilt down ~55° so extruded layers
+      // (3D buildings, job-dot density) read as rising terrain, like the
+      // freestiler LODES app — top-down, but at an angle. Only applies when
+      // zoomed into terrain (z >= 4): at world zoom the globe must stay
+      // straight-on so it settles centered, Google Earth style.
+      const currentPitch = this.maplibreMap.getPitch();
+      if (currentPitch < 30 && this.maplibreMap.getZoom() >= GLOBE_TILT_MIN_ZOOM) {
+        this.maplibreMap.easeTo({ pitch: GLOBE_TILT_PITCH, duration: 900 });
+      }
     } else {
       this.container.classList.remove('globe-projection');
-      if (MAP_INTERACTION_MODE === 'flat') {
-        // Restore flat-mode constraints
-        this.maplibreMap.setMaxPitch(0);
-        this.maplibreMap.setPitch(0);
-        this.maplibreMap.setBearing(0);
-        (this.maplibreMap as any).dragRotate?.disable();
-        (this.maplibreMap as any).touchPitch?.disable();
-      }
+      // ALWAYS restore the flat-plane camera when leaving 3D. The old
+      // `MAP_INTERACTION_MODE === 'flat'` guard meant the default '3d' build
+      // kept the SimCity tilt (55°) after switching back to 2D — the flat map
+      // stayed at an angle. 2D is a flat, north-up plane: zero pitch, zero
+      // bearing, tilt/rotate disabled.
+      this.maplibreMap.setMaxPitch(0);
+      this.maplibreMap.setPitch(0);
+      this.maplibreMap.setBearing(0);
+      (this.maplibreMap as any).dragRotate?.disable();
+      (this.maplibreMap as any).touchPitch?.disable();
     }
 
     this.syncGlobeNativeLayers();
     this.maplibreMap.resize();
-    this.render();
+    // Synchronous layer push (not the rAF-deferred render()): buildLayers reads
+    // _globeProjection, so the deck set swaps to the globe-native mirrors in the
+    // SAME frame as the projection — no frame ever renders both (double-draw)
+    // or neither (missing layer), and transitionGlobe's overlay can reveal a
+    // fully composed scene. updateLayers(true) also runs while render is paused.
+    this.updateLayers(true);
     return this._globeProjection;
+  }
+
+  /**
+   * Reworked 2D↔3D mode switch (the globe engine's layer handoff): the deck.gl
+   * layer set and the globe-native mirror layers both key off `state.layers` —
+   * the same toggles, the same data — so the scene content is identical in both
+   * modes. The switch itself runs under a short loading overlay: animations are
+   * paused, the projection morph + camera tilt happen hidden, the layer set
+   * swaps synchronously (no pop-in, no double-render frame), and the overlay
+   * lifts once the map settles ('idle') or the fail-safe timeout hits.
+   */
+  public transitionGlobe(enabled: boolean): boolean {
+    if (!this.maplibreMap) return this._globeProjection;
+    if (this._modeTransitionActive) return this._globeProjection;
+    if (this._globeProjection === enabled) return this._globeProjection;
+
+    // Style not loaded yet (boot race or network hiccup): setGlobeProjection
+    // queues the switch and applies it on 'style.load'. Keep the overlay up —
+    // the projection WILL land (idle then fires, or the fail-safe lifts it) —
+    // so the click gives feedback instead of appearing dead.
+    this._modeTransitionActive = true;
+    this.setRenderPaused(true);
+    this.showModeTransitionOverlay(enabled);
+    const result = this.setGlobeProjection(enabled);
+    // A queued switch (`_pendingGlobeProjection`) counts as "will apply".
+    const willApply = result === enabled || this._pendingGlobeProjection === enabled;
+    if (!willApply) {
+      // Projection failed outright (shouldn't happen): resume immediately so
+      // the map never stays frozen behind an overlay.
+      this.finishModeTransition();
+      return false;
+    }
+    this.waitForMapSettle(() => this.finishModeTransition());
+    return result;
+  }
+
+  private showModeTransitionOverlay(enabled: boolean): void {
+    const el = this._modeTransitionEl;
+    if (!el) return;
+    const label = el.querySelector('.map-mode-transition-label');
+    if (label) label.textContent = enabled ? 'Building 3D scene…' : 'Returning to flat map…';
+    el.classList.add('active');
+    el.setAttribute('aria-hidden', 'false');
+    this._modeTransitionStart = performance.now();
+  }
+
+  private waitForMapSettle(onSettled: () => void): void {
+    const map = this.maplibreMap;
+    if (!map) { onSettled(); return; }
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      map.off('idle', finish);
+      if (this._modeTransitionTimer) { clearTimeout(this._modeTransitionTimer); this._modeTransitionTimer = null; }
+      onSettled();
+    };
+    map.once('idle', finish);
+    this._modeTransitionTimer = setTimeout(finish, MODE_TRANSITION_MAX_MS);
+  }
+
+  private finishModeTransition(): void {
+    if (!this._modeTransitionActive) return;
+    // Enforce a minimum overlay time so quick switches don't strobe-flash.
+    const remaining = MODE_TRANSITION_MIN_MS - (performance.now() - this._modeTransitionStart);
+    if (remaining > 0) {
+      this._modeTransitionTimer = setTimeout(() => this.finishModeTransition(), remaining);
+      return;
+    }
+    this._modeTransitionTimer = null;
+    this._modeTransitionActive = false;
+    this.setRenderPaused(false);
+    if (this._modeTransitionEl) {
+      this._modeTransitionEl.classList.remove('active');
+      this._modeTransitionEl.setAttribute('aria-hidden', 'true');
+    }
   }
 
   public destroy(): void {
@@ -9425,6 +9847,11 @@ export class DeckGLMap implements MapEngine {
     if (this.moveTimeoutId) {
       clearTimeout(this.moveTimeoutId);
       this.moveTimeoutId = null;
+    }
+
+    if (this._modeTransitionTimer) {
+      clearTimeout(this._modeTransitionTimer);
+      this._modeTransitionTimer = null;
     }
 
     if (this.styleLoadTimeoutId) {
