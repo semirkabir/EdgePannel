@@ -146,6 +146,8 @@ const layers = {
   gdeltEvents: false,
   satellite: false,
   buildings: false,
+  jobsDots: false,
+  obmOccupancy: false,
 };
 
 await initI18n();

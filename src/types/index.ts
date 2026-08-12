@@ -687,6 +687,10 @@ export interface MapLayers {
   gdeltEvents: boolean;
   // Global 3D building footprints (OSM heights via OpenFreeMap)
   buildings: boolean;
+  // US jobs dot density (Census LODES via walker-data PMTiles)
+  jobsDots: boolean;
+  // Global building occupancy (GEM taxonomy via OpenBuildingMap)
+  obmOccupancy: boolean;
 }
 
 export interface AIDataCenter {

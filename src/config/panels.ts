@@ -36,6 +36,8 @@ const BASE_LAYERS: MapLayers = {
   earthquakes: false, navWarnings: false, marketPerf: false, tariffBarriers: false,
   gdeltEvents: false, satellite: false,
   buildings: true,
+  jobsDots: true,
+  obmOccupancy: true,
 };
 
 // ============================================

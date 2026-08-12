@@ -1135,6 +1135,8 @@
         "gemRisk": "Seismic Risk",
         "dayNight": "Day/Night",
         "buildings3d": "3D Buildings",
+        "jobsDots": "Jobs Dot Density",
+        "obmOccupancy": "Building Occupancy",
         "positiveEvents": "Positive Events",
         "kindness": "Acts of Kindness",
         "happiness": "World Happiness",

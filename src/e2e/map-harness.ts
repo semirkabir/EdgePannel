@@ -220,6 +220,8 @@ const allLayersEnabled: MapLayers = {
   gdeltEvents: false,
   satellite: true,
   buildings: true,
+  jobsDots: true,
+  obmOccupancy: true,
 };
 
 const allLayersDisabled: MapLayers = {
@@ -284,6 +286,8 @@ const allLayersDisabled: MapLayers = {
   gdeltEvents: false,
   satellite: false,
   buildings: false,
+  jobsDots: false,
+  obmOccupancy: false,
 };
 
 const SEEDED_NEWS_LOCATIONS: Array<{

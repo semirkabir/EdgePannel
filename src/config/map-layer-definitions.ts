@@ -86,6 +86,8 @@ export interface LayerDefinition {
   minZoom?: number;
   /** Below this zoom, points render but text labels are suppressed. */
   labelZoom?: number;
+  /** Above this zoom the toggle auto-dims (source data zoom cap; layer keeps overzooming). */
+  maxZoom?: number;
   premium?: 'locked' | 'enhanced';
 }
 
@@ -121,6 +123,7 @@ const ICONS = {
   building: svgIcon('<path d="M5 20h14"/>', '<path d="M7 20V6h10v14"/>', '<path d="M10 9h1M13 9h1M10 12h1M13 12h1"/>'),
   calendar: svgIcon('<rect x="4" y="6" width="16" height="14" rx="2"/>', '<path d="M8 4v4M16 4v4M4 10h16"/>'),
   coins: svgIcon('<ellipse cx="12" cy="7" rx="5" ry="2.5"/>', '<path d="M7 7v5c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5V7"/>', '<path d="M9 17c.8.6 1.9 1 3 1 2.8 0 5-1.1 5-2.5v-2"/>'),
+  dots: svgIcon('<circle cx="5" cy="12" r="2.5"/>', '<circle cx="12" cy="12" r="2.5"/>', '<circle cx="19" cy="12" r="2.5"/>'),
   star: svgIcon('<path d="m12 3 2.4 5 5.6.8-4 3.9.9 5.5L12 15.8 7.1 18.2 8 12.7 4 8.8l5.6-.8L12 3Z"/>'),
   heart: svgIcon('<path d="M12 20s-7-4.2-7-9.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7 3.5C19 15.8 12 20 12 20Z"/>'),
   smile: svgIcon('<circle cx="12" cy="12" r="9"/>', '<path d="M9 10h.01M15 10h.01"/>', '<path d="M8.5 14c1 1.3 2.1 2 3.5 2s2.5-.7 3.5-2"/>'),
@@ -150,6 +153,7 @@ interface DefOptions {
   sources?: DataSourceId[];
   minZoom?: number;
   labelZoom?: number;
+  maxZoom?: number;
 }
 
 const def = (
@@ -168,6 +172,7 @@ const def = (
   ...(opts.sources !== undefined && { sources: opts.sources }),
   ...(opts.minZoom !== undefined && { minZoom: opts.minZoom }),
   ...(opts.labelZoom !== undefined && { labelZoom: opts.labelZoom }),
+  ...(opts.maxZoom !== undefined && { maxZoom: opts.maxZoom }),
 });
 
 // Every layer belongs to 'full' — the unrestricted variant — plus whichever
@@ -323,8 +328,22 @@ export const LAYER_REGISTRY = {
 
   // Urban & Infrastructure
   buildings: def('buildings', ICONS.building, 'buildings3d', '3D Buildings', 'urban',
+    { light: '#b09d82', dark: '#94a3b8' }, ['full', 'tech', 'finance', 'commodity', 'conflicts', 'happy'],
+    { renderers: ['flat'], minZoom: 11, maxZoom: 16 }),
+
+  // Jobs dot density — 146M US jobs by sector (Census LODES v8 via walker-data PMTiles)
+  jobsDots: def('jobsDots', ICONS.dots, 'jobsDots', 'Jobs Dot Density', 'economy',
+    { light: '#2E5A88', dark: '#6BAED6' }, ['full', 'tech', 'finance', 'happy', 'commodity', 'conflicts'],
+    { renderers: ['flat', 'globe'], minZoom: 4 }),
+
+  // Global building occupancy — every building on Earth (OSM + Google + Microsoft
+  // footprints) colored by GEM Building Taxonomy v2.0 occupancy class, via
+  // GFZ OpenBuildingMap public vector tiles (ODbL). The "SimCity" layer: tilt
+  // the camera and the whole city reads by function — offices blue, housing red,
+  // industry brown, schools yellow.
+  obmOccupancy: def('obmOccupancy', ICONS.building, 'obmOccupancy', 'Building Occupancy', 'urban',
     { light: '#64748b', dark: '#94a3b8' }, ['full', 'tech', 'finance', 'commodity', 'conflicts', 'happy'],
-    { renderers: ['flat'], minZoom: 13 }),
+    { renderers: ['flat', 'globe'], minZoom: 12 }),
 } satisfies Record<keyof MapLayers, LayerDefinition>;
 
 export function getLayerCategory(key: keyof MapLayers): LayerCategory {
@@ -344,11 +363,12 @@ export function getLayerSourceEntries(): Array<[keyof MapLayers, DataSourceId[]]
 }
 
 /** Zoom gating for a layer, or undefined if it has none (always visible). */
-export function getLayerZoomThreshold(key: keyof MapLayers): { minZoom: number; labelZoom?: number } | undefined {
+export function getLayerZoomThreshold(key: keyof MapLayers): { minZoom: number; labelZoom?: number; maxZoom?: number } | undefined {
   const minZoom = LAYER_REGISTRY[key]?.minZoom;
   if (minZoom === undefined) return undefined;
   const labelZoom = LAYER_REGISTRY[key].labelZoom;
-  return labelZoom !== undefined ? { minZoom, labelZoom } : { minZoom };
+  const maxZoom = LAYER_REGISTRY[key].maxZoom;
+  return { minZoom, ...(labelZoom !== undefined && { labelZoom }), ...(maxZoom !== undefined && { maxZoom }) };
 }
 
 /** Every layer key that has a zoom threshold defined. */
@@ -433,28 +453,38 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'miningSites', 'processingPlants', 'commodityPorts',
     'iranAttacks', 'sanctions', 'tariffBarriers', 'democracy', 'gemRisk', 'elections',
     'buildings',
+    'jobsDots',
+    'obmOccupancy',
   ],
   tech: [
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions',
     'datacenters', 'cables', 'outages', 'cyberThreats',
     'techEvents',
     'buildings',
+    'jobsDots',
+    'obmOccupancy',
   ],
   finance: [
     'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs',
     'gulfInvestments', 'tradeRoutes', 'economic', 'marketPerf', 'tariffBarriers', 'governanceChoropleth',
     'buildings',
+    'jobsDots',
+    'obmOccupancy',
   ],
   happy: [
     'positiveEvents', 'kindness', 'happiness',
     'speciesRecovery', 'renewableInstallations',
     'buildings',
+    'jobsDots',
+    'obmOccupancy',
   ],
   commodity: [
     'miningSites', 'processingPlants', 'commodityPorts', 'commodityHubs',
     'minerals', 'pipelines', 'waterways', 'tradeRoutes',
     'natural', 'earthquakes', 'tariffBarriers', 'weather',
     'buildings',
+    'jobsDots',
+    'obmOccupancy',
   ],
   conflicts: [
     'hotspots', 'conflicts',
@@ -464,6 +494,8 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'cables', 'pipelines',
     'cyberThreats', 'aptGroups', 'outages', 'minerals', 'sanctions', 'tariffBarriers', 'elections',
     'buildings',
+    'jobsDots',
+    'obmOccupancy',
   ],
 };
 

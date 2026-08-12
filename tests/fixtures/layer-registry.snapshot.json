@@ -925,5 +925,43 @@
     "minZoom": null,
     "labelZoom": null,
     "wasGreyFallback": false
+  },
+  "buildings": {
+    "category": "urban",
+    "color": {
+      "light": "#64748b",
+      "dark": "#94a3b8"
+    },
+    "variants": [
+      "commodity",
+      "conflicts",
+      "finance",
+      "full",
+      "happy",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": 13,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
+  "jobsDots": {
+    "category": "economy",
+    "color": {
+      "light": "#2E5A88",
+      "dark": "#6BAED6"
+    },
+    "variants": [
+      "commodity",
+      "conflicts",
+      "finance",
+      "full",
+      "happy",
+      "tech"
+    ],
+    "sources": null,
+    "minZoom": 4,
+    "labelZoom": null,
+    "wasGreyFallback": false
   }
 }

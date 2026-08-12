@@ -64,6 +64,7 @@ export const COMMANDS: Command[] = [
   { id: 'layer:outages', keywords: ['outages', 'internet outages'], label: 'Toggle internet outages', icon: '\u{1F4E1}', category: 'layers' },
   { id: 'layer:tradeRoutes', keywords: ['trade routes', 'shipping lanes', 'trade'], label: 'Toggle trade routes', icon: '\u{1F6A2}', category: 'layers' },
   { id: 'layer:buildings', keywords: ['buildings', '3d', 'city', 'urban', 'extrusion'], label: 'Toggle 3D buildings', icon: '\u{1F3D9}\uFE0F', category: 'layers' },
+  { id: 'layer:jobsDots', keywords: ['jobs', 'dot density', 'labor', 'employment', 'lodes', 'job market'], label: 'Toggle jobs dot density', icon: '\u{1F4BC}', category: 'layers' },
 
   // Panel navigation (matching actual DEFAULT_PANELS keys)
   { id: 'panel:live-news', keywords: ['news', 'live news', 'headlines'], label: 'Panel: Live News', icon: '\u{1F4F0}', category: 'panels' },
