@@ -9,6 +9,7 @@ import type { Layer, LayersList, PickingInfo } from '@deck.gl/core';
 import { GeoJsonLayer, ScatterplotLayer, PathLayer, IconLayer, TextLayer, PolygonLayer } from '@deck.gl/layers';
 import maplibregl from 'maplibre-gl';
 import { PathStyleExtension } from '@deck.gl/extensions';
+import { registerBuildingsProtocol } from '@/utils/buildings-tiles';
 import { registerPMTilesProtocol, FALLBACK_DARK_STYLE, FALLBACK_LIGHT_STYLE, getUnifiedTheme, setUnifiedTheme, resolveUnifiedTheme, UNIFIED_THEME_OPTIONS, THEME_LAYER_OVERRIDES, getStyleForProvider, isLightMapTheme, CUSTOM_THEME_FILTERS } from '@/config/basemap';
 import { resolvePreciseUserCoordinates } from '@/utils/user-location';
 import { searchPlaces } from '@/services/place-search';
@@ -309,8 +310,10 @@ const isHappyVariant = SITE_VARIANT === 'happy';
  * Light theme mirrors the osmbuildings.org architectural-model look: warm
  * ivory/beige low-rise ramping through taupe to dark warm-brown towers (their
  * height palette), with vertical-gradient side shading for the "sunlit from
- * above" feel. Dark theme keeps the original cool slate ramp so the skyline
- * stays legible against near-black basemaps.
+ * above" feel. Dark theme uses a DUSK version of the same material palette —
+ * warm stone/brick/brown instead of cool slate — so buildings keep their
+ * real-world material hues (beige low-rise, brick mid-rise, umber towers)
+ * while staying bright enough to read against near-black basemaps.
  */
 const BUILDINGS_PAINT: Record<'light' | 'dark', NonNullable<maplibregl.FillExtrusionLayerSpecification['paint']>> = {
   light: {
@@ -336,17 +339,16 @@ const BUILDINGS_PAINT: Record<'light' | 'dark', NonNullable<maplibregl.FillExtru
     'fill-extrusion-vertical-gradient': true,
   },
   dark: {
-    // Same colour-tag override. Fallback ramp is BRIGHTENED vs the original:
-    // short buildings used to sit at #2a3542 against the basemap's own #1e1e1e
-    // fills, so low-rise blocks vanished into the ground and only towers
-    // popped. Every stop now clears the basemap by a wide margin so ALL
-    // heights read as volumes in dark mode. Tagged landmarks (Empire State,
-    // One WTC...) still pop in their real hues.
+    // Same colour-tag override. Fallback ramp is the light theme's material
+    // palette (ivory stone -> taupe -> brick brown -> umber towers) darkened
+    // for dusk: warm, realistic hues that still clear the near-black basemap
+    // by a wide margin so all heights read as volumes. Tagged landmarks
+    // (Empire State, One WTC...) still pop in their real OSM hues.
     'fill-extrusion-color': [
       'coalesce',
       ['to-color', ['get', 'colour']],
       ['interpolate', ['linear'], ['get', 'render_height'],
-        0, '#36455a', 15, '#4a5d75', 35, '#61778f', 70, '#7e93ad', 120, '#9cb1cb', 220, '#bccfe4'],
+        0, '#8a7e6b', 12, '#7d715c', 25, '#6d5e49', 45, '#5d4c38', 80, '#4e3f2e', 130, '#423529', 220, '#352b22'],
     ],
     'fill-extrusion-height': ['max', ['*', ['get', 'render_height'], 1.4], 3],
     'fill-extrusion-base': ['get', 'render_min_height'],
@@ -844,6 +846,7 @@ export class DeckGLMap implements MapEngine {
     const { provider: initialProvider, theme: initialMapTheme } = isHappyVariant
       ? { provider: 'openfreemap' as const, theme: 'positron' }
       : resolveUnifiedTheme(initialUnified);
+    registerBuildingsProtocol();
     if (initialProvider === 'pmtiles' || initialProvider === 'auto') registerPMTilesProtocol();
 
     const preset = VIEW_PRESETS[this.state.view];
@@ -873,7 +876,6 @@ export class DeckGLMap implements MapEngine {
         }
         : {}),
     });
-    (window as any).__wmMap = this.maplibreMap; // TEMP HOOK — remove after verify
 
     const recreateWithFallback = () => {
       if (this.usedFallbackStyle) return;
@@ -2189,7 +2191,17 @@ export class DeckGLMap implements MapEngine {
     const map = this.maplibreMap;
     if (!map || !map.isStyleLoaded()) return;
     if (!map.getSource('wm-buildings')) {
-      map.addSource('wm-buildings', { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
+      // Custom `buildings://planet` protocol: native z14+ tiles pass through,
+      // z13 requests are answered with a merged tile of the four z14 children
+      // (real overzoom-down), and zooms < 13 serve empty — see
+      // src/utils/buildings-tiles.ts. Declared maxzoom 14 lets MapLibre
+      // overzoom the z14 data natively at z15+.
+      map.addSource('wm-buildings', {
+        type: 'vector',
+        tiles: ['buildings://planet/{z}/{x}/{y}.pbf'],
+        minzoom: 13,
+        maxzoom: 14,
+      });
     }
     const { theme: mapTheme } = resolveUnifiedTheme(getUnifiedTheme());
     const paintTheme = isLightMapTheme(mapTheme) ? 'light' as const : 'dark' as const;
@@ -2209,7 +2221,7 @@ export class DeckGLMap implements MapEngine {
         type: 'fill-extrusion',
         source: 'wm-buildings',
         'source-layer': 'building',
-        minzoom: 11,
+        minzoom: 13,
         filter: ['all', ['!=', ['get', 'hide_3d'], true]],
         paint: BUILDINGS_PAINT[paintTheme],
       } as maplibregl.LayerSpecification, firstLayerId);
@@ -2224,10 +2236,12 @@ export class DeckGLMap implements MapEngine {
       this.lastBuildingsPaintTheme = paintTheme;
     }
     // Visibility follows the user's layer toggle ONLY. Zoom gating is handled
-    // natively by the layer's `minzoom: 11` above — computing it here couples
-    // the flip to the rAF loop (it must re-run exactly when zoom crosses 13),
-    // which can leave the layer stuck at 'none' even at z15+ with buildings
-    // enabled (observed in testing). MapLibre enforces minzoom per frame, so
+    // natively by the layer's `minzoom: 13` above (13 is also the lowest zoom
+    // the merge protocol can serve — below that the planet tiles carry no
+    // building features). Computing it here couples the flip to the rAF loop
+    // (it must re-run exactly when zoom crosses the threshold), which can
+    // leave the layer stuck at 'none' even at z15+ with buildings enabled
+    // (observed in testing). MapLibre enforces minzoom per frame, so
     // toggle-only visibility + native minzoom is correct and can't get stuck.
     const next = this.state.layers.buildings ? 'visible' : 'none';
     // Only touch the style when the value actually flips — syncBuildingsLayer runs
@@ -9574,6 +9588,33 @@ export class DeckGLMap implements MapEngine {
     } catch { /* style may not be fully ready */ }
   }
 
+  /**
+   * setStyle() WIPES every custom source/layer (wm-buildings source + layer,
+   * jobs dots, OBM occupancy). Re-add them after any style swap so 3D content
+   * survives theme changes and tile-failure fallbacks. Reset the
+   * visibility/paint caches first: a freshly re-added layer defaults to
+   * 'visible', so a stale cache would skip re-applying the user's toggle state.
+   */
+  private reapplyNativeLayers(): void {
+    this.lastBuildingsVisibility = null;
+    this.lastBuildingsPaintTheme = null;
+    this.lastJobsDotsVisibility = null;
+    this.lastObmOccupancyVisibility = null;
+    // The syncs gate on map.isStyleLoaded(), which can read FALSE right after a
+    // 'style.load' event (the style's loaded flag flips a few frames later) —
+    // retry every frame until the style is actually ready, then re-add.
+    const trySync = (attempt: number): void => {
+      if (this.maplibreMap?.isStyleLoaded()) {
+        this.syncBuildingsLayer();
+        this.syncJobsDotsLayer();
+        this.syncObmOccupancyLayer();
+        return;
+      }
+      if (attempt < 60) requestAnimationFrame(() => trySync(attempt + 1));
+    };
+    requestAnimationFrame(() => trySync(0));
+  }
+
   private switchBasemap(): void {
     if (!this.maplibreMap) return;
     const { provider, theme: mapTheme } = resolveUnifiedTheme(getUnifiedTheme());
@@ -9596,6 +9637,7 @@ export class DeckGLMap implements MapEngine {
         this.maplibreMap?.setProjection({ type: 'globe' });
         this.syncGlobeNativeLayers();
       }
+      this.reapplyNativeLayers();
       this.render();
     });
     if (!isHappyVariant && provider !== 'openfreemap' && !this.usedFallbackStyle) {
@@ -9661,6 +9703,7 @@ export class DeckGLMap implements MapEngine {
         this.maplibreMap?.setProjection({ type: 'globe' });
         this.syncGlobeNativeLayers();
       }
+      this.reapplyNativeLayers();
       this.render();
     });
   }
