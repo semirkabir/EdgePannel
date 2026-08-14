@@ -1622,8 +1622,9 @@ export class EventHandlerManager implements AppModule {
   }
 
   private setupMapDimensionToggle(): void {
-    const toggle = document.getElementById('mapDimensionToggle');
-    if (!toggle) return;
+    const bind = (): boolean => {
+      const toggle = document.getElementById('mapDimensionToggle');
+      if (!toggle) return false;
 
     const syncButtons = (mode = this.ctx.map?.isGlobeMode() ? 'globe' : 'flat') => {
       toggle.querySelectorAll<HTMLButtonElement>('.map-dim-btn').forEach(button => {
@@ -1658,6 +1659,16 @@ export class EventHandlerManager implements AppModule {
         syncButtons();
       });
     });
+      return true;
+    };
+    if (bind()) return;
+    // The header (and its dimension toggle) can mount AFTER init on slow
+    // boots, leaving the 2D/3D buttons permanently dead. Retry until it
+    // exists (bounded), then bind once.
+    const timer = window.setInterval(() => {
+      if (bind()) window.clearInterval(timer);
+    }, 200);
+    window.setTimeout(() => window.clearInterval(timer), 15000);
   }
 
   private setupMapFullscreen(mapSection: HTMLElement): void {
