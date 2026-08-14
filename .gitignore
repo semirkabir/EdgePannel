@@ -66,3 +66,7 @@ ds-bundle/
 # Generated docs portal — rebuilt from docs/*.md, docs/api/*.json and CHANGELOG.md
 # on every build (npm run docs:build), so it must never be committed.
 public/docs/
+
+# Local agent session state + scratch experiments
+.hermes/
+/spikes/
