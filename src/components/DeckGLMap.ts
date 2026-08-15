@@ -117,6 +117,7 @@ import { resolveTradeRouteSegments, TRADE_ROUTES as TRADE_ROUTES_LIST, type Trad
 import { getLayersForVariant, getCategorizedLayersForVariant, getLayerCategory, getLayerZoomThreshold, resolveLayerLabel, resolveLayerAccentColor, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
 import { getSecretState } from '@/services/runtime-config';
 import { MapPopup, type PopupType } from './MapPopup';
+import { mountThinkingOrb, type MountedOrb } from './ThinkingOrbMount';
 import {
   DEFAULT_DECK_CONTROL_SETTINGS,
   loadDeckControlSettings,
@@ -311,8 +312,8 @@ const isHappyVariant = SITE_VARIANT === 'happy';
  * family instead of painting over it. Light themes (Carto positron/voyager,
  * OpenFreeMap positron) get a warm light-grey ramp — the tallest towers stay
  * mid-tone, never near-black, so the skyline reads as volumes without
- * darkening the view. Dark themes (Carto dark-matter) get a cool slate ramp
- * that sits above the near-black basemap just enough to read as extrusion.
+ * darkening the view. Dark themes (Carto dark-matter) get a neutral grey
+ * ramp that sits above the near-black basemap just enough to read as extrusion.
  *
  * No per-building OSM `colour` tag override: landmark-tag colors made city
  * blocks look patchwork (a black tower next to ivory low-rise) and read as
@@ -340,13 +341,12 @@ const BUILDINGS_PAINT: Record<'light' | 'dark', NonNullable<maplibregl.FillExtru
     'fill-extrusion-vertical-gradient': true,
   },
   dark: {
-    // Cool slate ramp harmonized with dark-matter's blue-grey family: just
-    // bright enough above the near-black basemap for every height to read as
-    // a volume, never glowing. No warm hues — the basemap is cool, so warm
-    // buildings looked detached from the scene.
+    // Neutral grey ramp: sits just bright enough above the near-black basemap
+    // for every height to read as a volume, never glowing, and never tinted
+    // blue. Monochrome grey reads as architecture, not as a colored overlay.
     'fill-extrusion-color': [
       'interpolate', ['linear'], ['get', 'render_height'],
-      0, '#434c58', 12, '#3b4450', 25, '#323a46', 45, '#2b333e', 80, '#252c36', 130, '#20262f', 220, '#1b2129',
+      0, '#4b4b4b', 12, '#434343', 25, '#393939', 45, '#323232', 80, '#2b2b2b', 130, '#252525', 220, '#202020',
     ],
     'fill-extrusion-height': ['max', ['*', ['get', 'render_height'], 1.4], 3],
     'fill-extrusion-base': ['get', 'render_min_height'],
@@ -627,6 +627,8 @@ export class DeckGLMap implements MapEngine {
   private _modeTransitionTimer: ReturnType<typeof setTimeout> | null = null;
   private _modeTransitionStart = 0;
   private _modeTransitionEl: HTMLDivElement | null = null;
+  /** ThinkingOrb shown inside the 2D↔3D overlay (replaces the CSS spinner). */
+  private _modeTransitionOrb: MountedOrb | null = null;
   /** Last rAF timestamp the globe aircraft ground-circles were re-synced. */
   private _lastGlobeAircraftSync = 0;
   /** Reference-identity cache for globe-native collection rebuilds (perf). */
@@ -826,9 +828,18 @@ export class DeckGLMap implements MapEngine {
     this._modeTransitionEl = document.createElement('div');
     this._modeTransitionEl.className = 'map-mode-transition';
     this._modeTransitionEl.setAttribute('aria-hidden', 'true');
-    this._modeTransitionEl.innerHTML =
-      '<div class="map-mode-transition-spinner"></div>' +
-      '<div class="map-mode-transition-label">Building 3D scene…</div>';
+    this._modeTransitionOrb = mountThinkingOrb({
+      state: 'connecting',
+      size: 64,
+      speed: 1.65,
+      paused: true,
+      label: 'Building 3D scene',
+    });
+    this._modeTransitionEl.appendChild(this._modeTransitionOrb.element);
+    const modeLabel = document.createElement('div');
+    modeLabel.className = 'map-mode-transition-label';
+    modeLabel.textContent = 'Building 3D scene…';
+    this._modeTransitionEl.appendChild(modeLabel);
     this.container.appendChild(this._modeTransitionEl);
   }
 
@@ -2236,15 +2247,15 @@ export class DeckGLMap implements MapEngine {
       }
       this.lastBuildingsPaintTheme = paintTheme;
     }
-    // Visibility follows the user's layer toggle ONLY. Zoom gating is handled
+    // 3D buildings are always-on (no picker toggle). Zoom gating is handled
     // natively by the layer's `minzoom: 13` above (13 is also the lowest zoom
     // the merge protocol can serve — below that the planet tiles carry no
     // building features). Computing it here couples the flip to the rAF loop
     // (it must re-run exactly when zoom crosses the threshold), which can
-    // leave the layer stuck at 'none' even at z15+ with buildings enabled
-    // (observed in testing). MapLibre enforces minzoom per frame, so
-    // toggle-only visibility + native minzoom is correct and can't get stuck.
-    const next = this.state.layers.buildings ? 'visible' : 'none';
+    // leave the layer stuck at 'none' even at z15+ (observed in testing).
+    // MapLibre enforces minzoom per frame, so always-visible + native minzoom
+    // is correct and can't get stuck.
+    const next: 'visible' | 'none' = 'visible';
     // Only touch the style when the value actually flips — syncBuildingsLayer runs
     // inside rafUpdateLayers (every frame); unconditional setLayoutProperty forces a
     // style relayout each rAF, which makes symbol layers (aircraft callsign labels)
@@ -9843,6 +9854,8 @@ export class DeckGLMap implements MapEngine {
     if (!el) return;
     const label = el.querySelector('.map-mode-transition-label');
     if (label) label.textContent = enabled ? 'Building 3D scene…' : 'Returning to flat map…';
+    // Unpause the orb so it animates while the overlay is visible.
+    this._modeTransitionOrb?.update({ state: 'connecting', size: 64, speed: 1.65, paused: false });
     el.classList.add('active');
     el.setAttribute('aria-hidden', 'false');
     this._modeTransitionStart = performance.now();
@@ -9874,6 +9887,8 @@ export class DeckGLMap implements MapEngine {
     this._modeTransitionTimer = null;
     this._modeTransitionActive = false;
     this.setRenderPaused(false);
+    // Freeze the orb again so its rAF loop doesn't keep running off-screen.
+    this._modeTransitionOrb?.update({ paused: true });
     if (this._modeTransitionEl) {
       this._modeTransitionEl.classList.remove('active');
       this._modeTransitionEl.setAttribute('aria-hidden', 'true');
@@ -9897,6 +9912,10 @@ export class DeckGLMap implements MapEngine {
       clearTimeout(this._modeTransitionTimer);
       this._modeTransitionTimer = null;
     }
+
+    // Release the orb's rAF loop + observers before the container is wiped.
+    this._modeTransitionOrb?.unmount();
+    this._modeTransitionOrb = null;
 
     if (this.styleLoadTimeoutId) {
       clearTimeout(this.styleLoadTimeoutId);

@@ -10,6 +10,7 @@ import { log } from '@/utils/logger';
 import { isMobileDevice } from '@/utils';
 import { MapComponent } from './Map';
 import { DeckGLMap, type DeckMapView, type CountryClickPayload } from './DeckGLMap';
+import { mountThinkingOrb } from './ThinkingOrbMount';
 import type { TimeRange } from '@/utils/time-range';
 import type {
   MapLayers,
@@ -268,13 +269,26 @@ export class MapContainer {
       // deferred globe switch has had time to apply.
       const veil = document.createElement('div');
       veil.className = 'map-mode-transition active';
-      veil.innerHTML = '<div class="map-mode-transition-spinner"></div><div class="map-mode-transition-label">Building 3D scene…</div>';
+      const veilOrb = mountThinkingOrb({
+        state: 'connecting',
+        size: 64,
+        speed: 1.65,
+        label: 'Building 3D scene',
+      });
+      veil.appendChild(veilOrb.element);
+      const veilLabel = document.createElement('div');
+      veilLabel.className = 'map-mode-transition-label';
+      veilLabel.textContent = 'Building 3D scene…';
+      veil.appendChild(veilLabel);
       this.container.appendChild(veil);
       // init() defers setGlobeProjection via setTimeout when useGlobe is true
       this.restoreViewport(snapshot, center);
       this.rehydrateActiveMap();
       this.notifyModeChange();
-      setTimeout(() => veil.remove(), 1200);
+      setTimeout(() => {
+        veilOrb.unmount();
+        veil.remove();
+      }, 1200);
     }
   }
 

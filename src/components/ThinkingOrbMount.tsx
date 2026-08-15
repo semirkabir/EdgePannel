@@ -30,6 +30,8 @@ export interface OrbOptions {
    * kick on hover; don't animate this value.
    */
   speed?: number;
+  /** Freeze the animation on a single frame (stops the rAF loop). */
+  paused?: boolean;
   /** Screen-reader label; falls back to the package's per-state default. */
   label?: string;
 }
@@ -50,13 +52,14 @@ export interface MountedOrb {
  * app whenever the in-app theme differs from the OS one. Panels are re-created
  * on theme change, so pinning is both correct and cheaper.
  */
-function orbElement({ state = 'working', size = 64, speed = 1.60, label }: OrbOptions) {
+function orbElement({ state = 'working', size = 64, speed = 1.60, paused = false, label }: OrbOptions) {
   const dark = document.documentElement.dataset.theme !== 'light';
   return (
     <ThinkingOrb
       state={state}
       size={size}
       speed={speed}
+      paused={paused}
       theme={dark ? 'dark' : 'light'}
       aria-label={label}
     />

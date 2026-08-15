@@ -89,6 +89,8 @@ export interface LayerDefinition {
   /** Above this zoom the toggle auto-dims (source data zoom cap; layer keeps overzooming). */
   maxZoom?: number;
   premium?: 'locked' | 'enhanced';
+  /** Always-on basemap layers (e.g. 3D buildings) have no toggle in the picker. */
+  alwaysOn?: boolean;
 }
 
 const svgIcon = (...content: string[]): string =>
@@ -154,6 +156,7 @@ interface DefOptions {
   minZoom?: number;
   labelZoom?: number;
   maxZoom?: number;
+  alwaysOn?: boolean;
 }
 
 const def = (
@@ -173,6 +176,7 @@ const def = (
   ...(opts.minZoom !== undefined && { minZoom: opts.minZoom }),
   ...(opts.labelZoom !== undefined && { labelZoom: opts.labelZoom }),
   ...(opts.maxZoom !== undefined && { maxZoom: opts.maxZoom }),
+  ...(opts.alwaysOn !== undefined && { alwaysOn: opts.alwaysOn }),
 });
 
 // Every layer belongs to 'full' — the unrestricted variant — plus whichever
@@ -329,7 +333,7 @@ export const LAYER_REGISTRY = {
   // Urban & Infrastructure
   buildings: def('buildings', ICONS.building, 'buildings3d', '3D Buildings', 'urban',
     { light: '#b09d82', dark: '#94a3b8' }, ['full', 'tech', 'finance', 'commodity', 'conflicts', 'happy'],
-    { renderers: ['flat'], minZoom: 11, maxZoom: 16 }),
+    { renderers: ['flat'], minZoom: 11, maxZoom: 16, alwaysOn: true }),
 
   // Jobs dot density — 146M US jobs by sector (Census LODES v8 via walker-data PMTiles)
   jobsDots: def('jobsDots', ICONS.dots, 'jobsDots', 'Jobs Dot Density', 'economy',
@@ -505,7 +509,7 @@ export function getLayersForVariant(variant: MapVariant, renderer: MapRenderer):
   const keys = VARIANT_LAYER_ORDER[variant] ?? VARIANT_LAYER_ORDER.full;
   return keys
     .map(k => LAYER_REGISTRY[k])
-    .filter(d => d.renderers.includes(renderer));
+    .filter(d => d.renderers.includes(renderer) && !d.alwaysOn);
 }
 
 /**

@@ -260,6 +260,20 @@ function driveHeroDescent(globe: { setCamera(t: number): void }): void {
 
   let ticking = false;
   let lastT = -1;
+  let smoothed = 0;
+  let haveSmoothed = false;
+
+  // Damping: exponential smoothing (~0.1s time constant at 60fps). Fast wheel
+  // flicks glide instead of snapping, but the input still owns progress — the
+  // camera never runs on its own, and scrubbing back up tracks in reverse.
+  const DAMP = 0.16;
+  // Eased once, for the canvas AND the CSS layers: easeInOutQuad starts moving
+  // with the wheel (~5x the early response of the old easeInOutCubic) yet still
+  // settles softly into the dashboard hand-off. The eased value goes into
+  // --hero-t so the headline fade, showcase reveal and glow sit on the exact
+  // same timeline as the camera instead of racing it.
+  const ease = (p: number): number =>
+    p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
 
   const apply = (): void => {
     ticking = false;
@@ -274,9 +288,17 @@ function driveHeroDescent(globe: { setCamera(t: number): void }): void {
     // Runway length = the hero's height beyond the one viewport the stage pins for.
     const travel = heroSection.offsetHeight - window.innerHeight;
     if (travel <= 0) return;
-    const t = Math.min(1, Math.max(0, -heroSection.getBoundingClientRect().top / travel));
-    if (Math.abs(t - lastT) < 0.001) return;
-    lastT = t;
+    const p = Math.min(1, Math.max(0, -heroSection.getBoundingClientRect().top / travel));
+    if (!haveSmoothed) {
+      // First frame: snap to the current position so the page never slides in.
+      smoothed = p;
+      haveSmoothed = true;
+    } else {
+      smoothed += (p - smoothed) * DAMP;
+    }
+    if (Math.abs(smoothed - lastT) < 0.0004) return;
+    lastT = smoothed;
+    const t = ease(smoothed);
 
     heroSection.style.setProperty('--hero-t', t.toFixed(4));
     globe.setCamera(t);

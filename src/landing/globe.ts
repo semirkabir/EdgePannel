@@ -151,17 +151,18 @@ class GlobeRenderer {
    */
   setCamera(t: number): void {
     const p = Math.min(1, Math.max(0, t));
-    // easeInOutCubic — soft at both ends so the top of the page is calm and
-    // the hand-off to the dashboard settles instead of slamming.
-    const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-
-    this.zoom = 1 + e * 1.6;
+    // `t` arrives already eased from the page driver (landing.ts). The curve is
+    // applied once, in one place, so the canvas and the CSS layers share a
+    // single timeline — previously the camera eased on its own while the
+    // headline and reveal interpolated raw scroll progress, so the text faded
+    // out well before the descent had visibly begun.
+    this.zoom = 1 + p * 1.6;
     // Lands at 1.05, not further: the planet needs to stay just below the frame
     // so a sliver of limb still curves behind the dashboard at the bottom of the
     // descent. Pushing it to 1.22 dropped the horizon out of shot entirely and
     // the landing read as empty space rather than as having arrived somewhere.
-    this.centerYFrac = 0.5 + e * 0.55;
-    const tilt = TILT_DEG * (1 - e * 0.85);
+    this.centerYFrac = 0.5 + p * 0.55;
+    const tilt = TILT_DEG * (1 - p * 0.85);
     this.sinTilt = Math.sin((tilt * Math.PI) / 180);
     this.cosTilt = Math.cos((tilt * Math.PI) / 180);
 

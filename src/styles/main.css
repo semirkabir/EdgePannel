@@ -32517,17 +32517,6 @@ body[data-panel-density="comfortable"] .panel-tabs {
   opacity: 1;
   pointer-events: auto;
 }
-.map-mode-transition-spinner {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 3px solid rgba(124, 140, 255, 0.22);
-  border-top-color: rgba(124, 140, 255, 0.95);
-  animation: map-mode-spin 0.75s linear infinite;
-}
-@keyframes map-mode-spin {
-  to { transform: rotate(360deg); }
-}
 .map-mode-transition-label {
   font-family: var(--font-body, inherit);
   font-size: 12px;
@@ -32535,7 +32524,4 @@ body[data-panel-density="comfortable"] .panel-tabs {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(230, 234, 250, 0.92);
-}
-@media (prefers-reduced-motion: reduce) {
-  .map-mode-transition-spinner { animation: none; }
 }

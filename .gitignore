@@ -70,3 +70,10 @@ public/docs/
 # Local agent session state + scratch experiments
 .hermes/
 /spikes/
+
+# Local spike/experiment scripts
+mapdiag.mjs
+mapdriver.mjs
+mapsteps*.json
+pngstats.mjs
+probe-yahoo.mjs
