@@ -8,10 +8,11 @@
  *
  * This protocol fixes the gap the cheap way: a z13 request is answered by
  * fetching the FOUR z14 child tiles that cover it, decoding each MVT,
- * translating every ring by the child's offset (2048, 4096 extent), and
- * re-encoding a single merged z13 tile. Decode→translate→re-encode is a
- * pass-through of the original MVT rings (no GeoJSON round-trip), so ring
- * ordering, winding, property types and feature ids are preserved exactly.
+ * scaling every ring by 0.5 and translating by the child's offset (2048,
+ * 4096 extent), and re-encoding a single merged z13 tile. Decode→scale→
+ * translate→re-encode is a pass-through of the original MVT rings (no
+ * GeoJSON round-trip), so ring ordering, winding, property types and feature
+ * ids are preserved exactly.
  *
  * Registered once via maplibregl.addProtocol('buildings', ...) — the handler
  * runs on the main thread and the merged buffer is transferred to the worker.
@@ -118,6 +119,13 @@ function mergeChildren(children: (Uint8Array | null)[]): Uint8Array {
     for (const name of Object.keys(tile.layers)) {
       const layer = tile.layers[name];
       if (!layer) continue;
+      // A z14 child's coordinate space spans the same full [0, extent] as the
+      // parent's, but the child covers only a QUARTER of the parent's area — so
+      // child coordinates must be halved before the quadrant offset. Without
+      // the scale, each quadrant's geometry overflows the parent tile by up to
+      // half a tile width, so buildings at z13 render misaligned with the
+      // basemap (snapping correct at z14+ where native tiles take over).
+      const scale = 4096 / (2 * (layer.extent ?? 4096));
       let bucket = layerBuckets.get(name);
       if (!bucket) {
         bucket = [];
@@ -126,7 +134,7 @@ function mergeChildren(children: (Uint8Array | null)[]): Uint8Array {
       for (let i = 0; i < layer.length; i++) {
         const f = layer.feature(i);
         const rings = f.loadGeometry().map((ring) =>
-          ring.map((p) => ({ x: p.x + ox, y: p.y + oy })),
+          ring.map((p) => ({ x: p.x * scale + ox, y: p.y * scale + oy })),
         );
         bucket.push({
           id: typeof f.id === 'number' ? f.id : undefined,
@@ -146,6 +154,16 @@ function mergeChildren(children: (Uint8Array | null)[]): Uint8Array {
 
 const EMPTY = new ArrayBuffer(0);
 
+/**
+ * Cache of merged z13 tiles keyed by "x/y". While panning/zooming through the
+ * z13 band MapLibre re-requests the same tiles constantly, and every request
+ * costs 4 network fetches + a full decode/scale/re-encode on the main thread —
+ * without this the 3D buildings visibly lag the basemap (they "don't track"
+ * during zoom-out) while each tile is rebuilt.
+ */
+const mergedCache = new Map<string, ArrayBuffer>();
+const MERGED_CACHE_MAX = 256;
+
 const handler = async (params: { url: string }): Promise<{ data: ArrayBuffer }> => {
   const m = params.url.match(/^buildings:\/\/planet\/(\d+)\/(\d+)\/(\d+)\.pbf$/);
   if (!m) return { data: EMPTY };
@@ -164,6 +182,9 @@ const handler = async (params: { url: string }): Promise<{ data: ArrayBuffer }> 
 
   if (z === 13) {
     // Overzoom DOWN: merge the four z14 children covering this z13 tile.
+    const cacheKey = `${x}/${y}`;
+    const cached = mergedCache.get(cacheKey);
+    if (cached) return { data: cached };
     const children = await Promise.all([
       fetchTileBytes(tileUrl(template, 14, x * 2, y * 2)),
       fetchTileBytes(tileUrl(template, 14, x * 2 + 1, y * 2)),
@@ -171,7 +192,14 @@ const handler = async (params: { url: string }): Promise<{ data: ArrayBuffer }> 
       fetchTileBytes(tileUrl(template, 14, x * 2 + 1, y * 2 + 1)),
     ]);
     const merged = mergeChildren(children);
-    return { data: merged.buffer as ArrayBuffer };
+    const buf = merged.buffer as ArrayBuffer;
+    mergedCache.set(cacheKey, buf);
+    if (mergedCache.size > MERGED_CACHE_MAX) {
+      // Drop the oldest entry (Map insertion order) to bound memory.
+      const oldest = mergedCache.keys().next().value;
+      if (oldest !== undefined) mergedCache.delete(oldest);
+    }
+    return { data: buf };
   }
 
   // z < 13: no building data at those zooms — serve an empty tile.

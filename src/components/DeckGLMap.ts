@@ -307,25 +307,26 @@ const isHappyVariant = SITE_VARIANT === 'happy';
 /**
  * Theme-aware paint for the 3D buildings layer (`wm-buildings-3d`).
  *
- * Light theme mirrors the osmbuildings.org architectural-model look: warm
- * ivory/beige low-rise ramping through taupe to dark warm-brown towers (their
- * height palette), with vertical-gradient side shading for the "sunlit from
- * above" feel. Dark theme uses a DUSK version of the same material palette —
- * warm stone/brick/brown instead of cool slate — so buildings keep their
- * real-world material hues (beige low-rise, brick mid-rise, umber towers)
- * while staying bright enough to read against near-black basemaps.
+ * Monochrome and theme-matched: buildings pick up the basemap's own tonal
+ * family instead of painting over it. Light themes (Carto positron/voyager,
+ * OpenFreeMap positron) get a warm light-grey ramp — the tallest towers stay
+ * mid-tone, never near-black, so the skyline reads as volumes without
+ * darkening the view. Dark themes (Carto dark-matter) get a cool slate ramp
+ * that sits above the near-black basemap just enough to read as extrusion.
+ *
+ * No per-building OSM `colour` tag override: landmark-tag colors made city
+ * blocks look patchwork (a black tower next to ivory low-rise) and read as
+ * noise rather than meaning. The vertical gradient shades walls vs. tops, so
+ * depth comes from lighting, not from a rainbow.
  */
 const BUILDINGS_PAINT: Record<'light' | 'dark', NonNullable<maplibregl.FillExtrusionLayerSpecification['paint']>> = {
   light: {
-    // osmbuildings.org look: per-building OSM `colour` tag when present (the
-    // black/white/brown landmark towers in their demo), else the warm
-    // ivory/beige → taupe → brown height ramp. `to-color` guards against
-    // unparseable tag values (e.g. "brick") falling through to the ramp.
+    // Warm light-grey ramp: low-rise ivory → tall towers mid-grey. Stays
+    // inside the light basemap's tonal range (positron/voyager are soft
+    // warm greys), so extrusions harmonize instead of punching black holes.
     'fill-extrusion-color': [
-      'coalesce',
-      ['to-color', ['get', 'colour']],
-      ['interpolate', ['linear'], ['get', 'render_height'],
-        0, '#ece3d2', 12, '#dfd3bc', 25, '#cdbda1', 45, '#b09d82', 80, '#897560', 130, '#5e5043', 220, '#3a352f'],
+      'interpolate', ['linear'], ['get', 'render_height'],
+      0, '#f1ede6', 12, '#e7e2d9', 25, '#d9d3c7', 45, '#c9c1b2', 80, '#b5ac9c', 130, '#9f9686', 220, '#88806f',
     ],
     // Exaggerate heights 1.4x so the skyline reads dramatically, with a
     // 3m floor so no building renders paper-flat (SimCity look).
@@ -339,16 +340,13 @@ const BUILDINGS_PAINT: Record<'light' | 'dark', NonNullable<maplibregl.FillExtru
     'fill-extrusion-vertical-gradient': true,
   },
   dark: {
-    // Same colour-tag override. Fallback ramp is the light theme's material
-    // palette (ivory stone -> taupe -> brick brown -> umber towers) darkened
-    // for dusk: warm, realistic hues that still clear the near-black basemap
-    // by a wide margin so all heights read as volumes. Tagged landmarks
-    // (Empire State, One WTC...) still pop in their real OSM hues.
+    // Cool slate ramp harmonized with dark-matter's blue-grey family: just
+    // bright enough above the near-black basemap for every height to read as
+    // a volume, never glowing. No warm hues — the basemap is cool, so warm
+    // buildings looked detached from the scene.
     'fill-extrusion-color': [
-      'coalesce',
-      ['to-color', ['get', 'colour']],
-      ['interpolate', ['linear'], ['get', 'render_height'],
-        0, '#8a7e6b', 12, '#7d715c', 25, '#6d5e49', 45, '#5d4c38', 80, '#4e3f2e', 130, '#423529', 220, '#352b22'],
+      'interpolate', ['linear'], ['get', 'render_height'],
+      0, '#434c58', 12, '#3b4450', 25, '#323a46', 45, '#2b333e', 80, '#252c36', 130, '#20262f', 220, '#1b2129',
     ],
     'fill-extrusion-height': ['max', ['*', ['get', 'render_height'], 1.4], 3],
     'fill-extrusion-base': ['get', 'render_min_height'],
@@ -1620,8 +1618,11 @@ export class DeckGLMap implements MapEngine {
     const filteredMilitaryVesselClusters = mapLayers.military && isDirty('military') ? this.filterMilitaryVesselClustersByTime(this.militaryVesselClusters) : this.filterMilitaryVesselClustersByTime(this.militaryVesselClusters);
     const filteredUcdpEvents = mapLayers.ucdpEvents ? this.ucdpEvents : [];
 
-    // Day/night overlay (rendered first as background)
-    if (mapLayers.dayNight) {
+    // Day/night overlay (rendered first as background). Flat-only: the night
+    // terminator polygon is computed in Mercator space and cannot align on the
+    // globe projection (registry declares renderers: ['flat']), so skip it in
+    // globe mode rather than draw a misprojected terminator.
+    if (mapLayers.dayNight && !useGlobeNative) {
       if (!this.dayNightIntervalId) this.startDayNightTimer();
       layers.push(this.createDayNightLayer());
     } else {
