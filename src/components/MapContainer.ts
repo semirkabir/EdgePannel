@@ -247,9 +247,9 @@ export class MapContainer {
     this.useGlobe = true;
     // Prefer MapLibre globe projection so all themes and deck.gl layers stay intact.
     if (this.deckGLMap) {
-      // Reworked transition path: pauses animations, runs the projection morph
-      // + layer handoff under a short loading overlay, reveals on settle.
-      this.useGlobe = this.deckGLMap.transitionGlobe(true);
+      // Vercel-style GPU morph is the primary visual; transitionGlobeMorph
+      // falls back to the overlay path internally when it can't run.
+      this.useGlobe = this.deckGLMap.transitionGlobeMorph(true);
       this.notifyModeChange();
     } else {
       // Fallback: SVG mode can't do globe, create a DeckGLMap for it. Show a
@@ -302,7 +302,7 @@ export class MapContainer {
     if (!this.useGlobe && !this.isGlobeMode()) return;
     this.useGlobe = false;
     if (this.deckGLMap) {
-      this.deckGLMap.transitionGlobe(false);
+      this.deckGLMap.transitionGlobeMorph(false);
     }
     this.notifyModeChange();
   }

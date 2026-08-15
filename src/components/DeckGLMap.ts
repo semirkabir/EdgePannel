@@ -629,6 +629,16 @@ export class DeckGLMap implements MapEngine {
   private _modeTransitionEl: HTMLDivElement | null = null;
   /** ThinkingOrb shown inside the 2D↔3D overlay (replaces the CSS spinner). */
   private _modeTransitionOrb: MountedOrb | null = null;
+  // ── Projection morph state (Vercel-style flat↔globe GPU morph) ──────────
+  // The engine re-reads style.projection.transitionState every frame and feeds
+  // it to transform._globeness → u_projection_transition (the vertex-shader
+  // morph). We override that getter on the live GLOBE projection and drive it
+  // 0→1 / 1→0 under a rAF. The morph engine only exists on the GlobeTransform,
+  // so the morph always runs on the globe projection held at an intermediate t.
+  private _morphRaf: number | null = null;
+  private _morphT = 1;
+  private _morphPatchedProj: object | null = null;
+  private _morphPollTimer: ReturnType<typeof setTimeout> | null = null;
   /** Last rAF timestamp the globe aircraft ground-circles were re-synced. */
   private _lastGlobeAircraftSync = 0;
   /** Reference-identity cache for globe-native collection rebuilds (perf). */
@@ -9815,6 +9825,99 @@ export class DeckGLMap implements MapEngine {
     return this._globeProjection;
   }
 
+  // ── Projection morph (Vercel-style) ─────────────────────────────────────
+  // Duration of the flat↔globe GPU morph. Kept separate from the overlay
+  // timings: the morph IS the visual, the overlay is only the fallback veil.
+  private static readonly MORPH_MS = 900;
+
+  private morphEase(x: number): number {
+    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  }
+
+  /** Override transitionState on the live globe projection so the engine's
+   * per-frame setTransitionState() feeds OUR value into transform._globeness.
+   * Returns false when there is no patchable globe projection (fallback path). */
+  private morphPatchProjection(): boolean {
+    const map = this.maplibreMap as any;
+    const proj = map?.style?.projection;
+    if (!proj || proj.name !== 'globe') return false;
+    if (this._morphPatchedProj === proj) return true;
+    const proto = Object.getPrototypeOf(proj);
+    const d = Object.getOwnPropertyDescriptor(proto, 'transitionState');
+    if (!d || typeof d.get !== 'function') return false;
+    try {
+      Object.defineProperty(proj, 'transitionState', { configurable: true, get: () => this._morphT });
+      this._morphPatchedProj = proj;
+      return true;
+    } catch { return false; }
+  }
+
+  /** Restore the projection's native transitionState getter. */
+  private morphUnpatch(): void {
+    if (this._morphPatchedProj) {
+      try { delete (this._morphPatchedProj as any).transitionState; } catch { /* noop */ }
+      this._morphPatchedProj = null;
+    }
+  }
+
+  private morphAnimateTo(target: number, durMs: number, onDone: () => void): void {
+    if (this._morphRaf) cancelAnimationFrame(this._morphRaf);
+    const from = this._morphT, t0 = performance.now();
+    const frame = (now: number) => {
+      const p = Math.min((now - t0) / durMs, 1);
+      this._morphT = from + (target - from) * this.morphEase(p);
+      this.maplibreMap?.triggerRepaint();
+      if (p < 1) { this._morphRaf = requestAnimationFrame(frame); }
+      else { this._morphT = target; this._morphRaf = null; onDone(); }
+    };
+    this._morphRaf = requestAnimationFrame(frame);
+  }
+
+  /**
+   * The visible path. Morphs flat→globe (or globe→flat) on the GPU by driving
+   * the globe projection's transitionState getter. The morph engine only lives
+   * on the GlobeTransform, so both directions run on the globe projection held
+   * at an intermediate t; the reverse morph lands on true mercator at the end.
+   * The existing overlay + layer-handoff logic is untouched — this only decides
+   * whether the veil shows (fallback) or the morph shows (primary).
+   */
+  public transitionGlobeMorph(enabled: boolean): boolean {
+    if (!this.maplibreMap) return this._globeProjection;
+    if (this._modeTransitionActive) return this._globeProjection;
+    if (this._globeProjection === enabled) return this._globeProjection;
+    // Fall back to the overlay path when the style isn't ready or the morph
+    // can't be driven (boot race, unexpected internals, older maplibre).
+    if (!this.maplibreMap.isStyleLoaded()) return this.transitionGlobe(enabled);
+
+    this._modeTransitionActive = true;
+    this.setRenderPaused(true);
+
+    if (enabled) {
+      // Ensure the globe transform exists (the morph engine), then hold it flat
+      // (t=0) and animate up to a full globe.
+      try { this.maplibreMap.setProjection({ type: 'globe' }); } catch { this.finishModeTransition(); return this.transitionGlobe(true); }
+      if (!this.morphPatchProjection()) { this.finishModeTransition(); return this.transitionGlobe(true); }
+      this._morphT = 0;
+      this._globeProjection = true;
+      this.syncGlobeNativeLayers();
+      this.updateLayers(true);
+      this.morphAnimateTo(1, DeckGLMap.MORPH_MS, () => this.finishModeTransition());
+      return true;
+    }
+
+    // Reverse: animate down on the globe engine, then hard-switch to mercator.
+    if (!this.morphPatchProjection()) { this.finishModeTransition(); return this.transitionGlobe(false); }
+    this.morphAnimateTo(0, DeckGLMap.MORPH_MS, () => {
+      this.morphUnpatch();
+      try { this.maplibreMap?.setProjection({ type: 'mercator' }); } catch { /* noop */ }
+      this._globeProjection = false;
+      this.syncGlobeNativeLayers();
+      this.updateLayers(true);
+      this.finishModeTransition();
+    });
+    return false;
+  }
+
   /**
    * Reworked 2D↔3D mode switch (the globe engine's layer handoff): the deck.gl
    * layer set and the globe-native mirror layers both key off `state.layers` —
@@ -9823,6 +9926,7 @@ export class DeckGLMap implements MapEngine {
    * paused, the projection morph + camera tilt happen hidden, the layer set
    * swaps synchronously (no pop-in, no double-render frame), and the overlay
    * lifts once the map settles ('idle') or the fail-safe timeout hits.
+   * This is the FALLBACK path; transitionGlobeMorph is the primary visual.
    */
   public transitionGlobe(enabled: boolean): boolean {
     if (!this.maplibreMap) return this._globeProjection;
@@ -9916,6 +10020,10 @@ export class DeckGLMap implements MapEngine {
     // Release the orb's rAF loop + observers before the container is wiped.
     this._modeTransitionOrb?.unmount();
     this._modeTransitionOrb = null;
+    // Cancel any in-flight projection morph + restore the projection getter.
+    if (this._morphRaf) { cancelAnimationFrame(this._morphRaf); this._morphRaf = null; }
+    if (this._morphPollTimer) { clearTimeout(this._morphPollTimer); this._morphPollTimer = null; }
+    this.morphUnpatch();
 
     if (this.styleLoadTimeoutId) {
       clearTimeout(this.styleLoadTimeoutId);
