@@ -101,7 +101,7 @@ export class PredictionMarketRenderer implements EntityRenderer {
   renderSkeleton(data: unknown, ctx: EntityRenderContext): HTMLElement {
     const m = data as PredictionMarketPanelData;
     const container = ctx.el('div', 'edp-generic');
-    const header = ctx.el('div', 'edp-header');
+    const header = ctx.el('div', 'edp-header edp-header-question');
     header.append(ctx.el('h2', 'edp-title', m.title));
     if (m.category) header.append(ctx.el('div', 'edp-subtitle', m.category));
     header.append(ctx.badge('Polymarket', 'edp-badge'));
@@ -232,7 +232,7 @@ export class PredictionMarketRenderer implements EntityRenderer {
 
     const leadMarket = [...data.markets].sort((a, b) => (b.volume || 0) - (a.volume || 0))[0] ?? null;
 
-    const header = ctx.el('div', 'edp-header');
+    const header = ctx.el('div', 'edp-header edp-header-question');
     header.append(ctx.el('h2', 'edp-title', data.title));
     if (data.category) header.append(ctx.el('div', 'edp-subtitle', data.category));
     const badgeRow = ctx.el('div', 'edp-badge-row');
@@ -278,7 +278,14 @@ export class PredictionMarketRenderer implements EntityRenderer {
 
 function buildPredictionHero(ctx: EntityRenderContext, data: PredictionMarketPanelData, leadMarket: PredictionMarketSubMarket): HTMLElement {
   const hero = ctx.el('section', 'edp-prediction-hero');
-  hero.append(ctx.el('div', 'edp-prediction-market-title', leadMarket.question));
+  // Single-market events repeat the event title verbatim as the lead market's
+  // question, so showing both burns the top third of the panel on one sentence
+  // printed twice. Only worth showing when the event groups several markets and
+  // the question actually narrows it. (Same guard the description block uses.)
+  const question = leadMarket.question?.trim() || '';
+  if (question && question !== (data.title?.trim() || '')) {
+    hero.append(ctx.el('div', 'edp-prediction-market-title', question));
+  }
   const top = ctx.el('div', 'edp-prediction-hero-top');
   const score = ctx.el('div', 'edp-prediction-hero-score');
   score.append(
@@ -767,27 +774,61 @@ function createInteractivePriceChart(history: PricePoint[], currentPrice: number
   let timeframe = loadStoredTimeframe();
   const options: PredictionTimeframe[] = ['1h', '6h', '24h', '48h', '7d', 'all'];
 
+  const priceEl = document.createElement('span');
+  priceEl.className = 'edp-chart-tip-price';
+  const dateEl = document.createElement('span');
+  dateEl.className = 'edp-chart-tip-date';
+  tooltip.replaceChildren(priceEl, dateEl);
+
   const render = (): void => {
     const filteredHistory = filterHistoryByTimeframe(history, timeframe);
-    const svg = createPriceChart(filteredHistory, currentPrice);
+    const { svg, points, samples } = createPriceChart(filteredHistory, currentPrice);
+    const crosshair = svg.querySelector<SVGLineElement>('.edp-poly-chart-crosshair');
+    const marker = svg.querySelector<SVGCircleElement>('.edp-poly-chart-marker');
 
-    svg.addEventListener('mouseleave', () => {
+    const hide = (): void => {
       tooltip.hidden = true;
-    });
+      crosshair?.setAttribute('visibility', 'hidden');
+      marker?.setAttribute('visibility', 'hidden');
+    };
 
-    svg.addEventListener('mousemove', (event) => {
+    svg.addEventListener('pointerleave', hide);
+
+    svg.addEventListener('pointermove', (event) => {
       const rect = svg.getBoundingClientRect();
-      const ratio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0;
-      const index = Math.max(0, Math.min(filteredHistory.length - 1, Math.round(ratio * (filteredHistory.length - 1))));
-      const point = filteredHistory[index];
-      if (!point) return;
+      if (rect.width === 0 || points.length === 0) return;
+
+      // Snap to the nearest drawn point so the marker sits on the curve rather
+      // than floating beside it.
+      const ratio = (event.clientX - rect.left) / rect.width;
+      const index = Math.max(0, Math.min(points.length - 1, Math.round(ratio * (points.length - 1))));
+      const point = points[index];
+      const sample = samples[index];
+      if (!point || !sample) return;
+
+      crosshair?.setAttribute('x1', String(point.x));
+      crosshair?.setAttribute('x2', String(point.x));
+      crosshair?.setAttribute('visibility', 'visible');
+      marker?.setAttribute('cx', String(point.x));
+      marker?.setAttribute('cy', String(point.y));
+      marker?.setAttribute('visibility', 'visible');
+
+      priceEl.textContent = formatPriceDisplay(sample.price);
+      dateEl.textContent = formatChartTime(sample.timestamp, timeframe);
       tooltip.hidden = false;
-      tooltip.textContent = `${formatPriceDisplay(point.price)} • ${formatChartTime(point.timestamp, timeframe)}`;
-      tooltip.style.left = `${Math.max(8, Math.min(rect.width - 8, event.clientX - rect.left))}px`;
-      tooltip.style.top = '10px';
+
+      // viewBox units → CSS px (the viewBox is stretched to the host width).
+      const cssX = (point.x / CHART_W) * rect.width;
+      const cssY = (point.y / CHART_H) * rect.height;
+      const half = tooltip.offsetWidth / 2;
+      tooltip.style.left = `${Math.max(half + 2, Math.min(rect.width - half - 2, cssX))}px`;
+      // Sit above the point, and flip below when there is no room up there.
+      const above = cssY - tooltip.offsetHeight - 10;
+      tooltip.style.top = `${above < 2 ? cssY + 12 : above}px`;
     });
 
     chartHost.replaceChildren(svg, tooltip);
+    hide();
   };
 
   for (const option of options) {
@@ -821,63 +862,238 @@ function createInteractivePriceChart(history: PricePoint[], currentPrice: number
   return container;
 }
 
-function createPriceChart(history: PricePoint[], currentPrice: number): SVGElement {
-  const width = 360, height = 100, pad = 4;
-  const prices = history.map(p => p.price);
-  const minP = Math.max(0, Math.min(...prices) - 5);
-  const maxP = Math.min(100, Math.max(...prices) + 5);
-  const range = maxP - minP || 1;
-  const points = history.map((p, i) => {
-    const x = pad + (i / (history.length - 1)) * (width - pad * 2);
-    const y = height - pad - ((p.price - minP) / range) * (height - pad * 2);
-    return `${x},${y}`;
-  }).join(' ');
-  const areaPoints = `${pad},${height - pad} ${points} ${width - pad},${height - pad}`;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const CHART_W = 360, CHART_H = 100, CHART_PAD = 4;
 
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+/** What the chart drew, so hover can land on the curve rather than re-deriving it. */
+interface ChartGeometry {
+  svg: SVGElement;
+  /** Drawn points, in viewBox coordinates. */
+  points: Array<{ x: number; y: number }>;
+  /** The raw sample behind each drawn point. Reported by the tooltip so the
+   *  readout never shows a bucket average the market never actually traded at. */
+  samples: PricePoint[];
+}
+
+/** Two decimals is well under a device pixel here, and keeps the path
+ *  attribute from running to tens of thousands of characters. */
+function r2(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
+/**
+ * Collapse the series to at most `target` points by averaging within buckets.
+ *
+ * A 7d window arrives with thousands of samples for a ~350px wide chart — four
+ * or more per pixel. They cannot be drawn distinctly, so they only pile up as
+ * vertical noise on shared columns, which is most of why the line looked
+ * jagged. Averaging per bucket is what actually smooths the shape; the curve
+ * fitting below only removes the corners between whatever survives here.
+ */
+function downsampleHistory(history: PricePoint[], target: number): { smoothed: PricePoint[]; raw: PricePoint[] } {
+  if (history.length <= target) return { smoothed: history, raw: history };
+  const bucketSize = history.length / target;
+  const smoothed: PricePoint[] = [];
+  const raw: PricePoint[] = [];
+  for (let i = 0; i < target; i++) {
+    const start = Math.floor(i * bucketSize);
+    const end = Math.min(history.length, Math.floor((i + 1) * bucketSize));
+    let sum = 0;
+    for (let j = start; j < end; j++) sum += history[j]!.price;
+    const count = end - start;
+    if (count === 0) continue;
+    const representative = history[end - 1]!;
+    smoothed.push({ ...representative, price: sum / count });
+    // Kept unaveraged: the hover readout quotes this, so it always names a
+    // price the market genuinely traded at.
+    raw.push(representative);
+  }
+  // Always land on the true latest sample so the end dot sits on real data.
+  const last = history[history.length - 1]!;
+  if (smoothed.length > 0 && smoothed[smoothed.length - 1]!.timestamp !== last.timestamp) {
+    smoothed[smoothed.length - 1] = last;
+    raw[raw.length - 1] = last;
+  }
+  return { smoothed, raw };
+}
+
+/**
+ * Build a smooth path through the points using monotone cubic interpolation
+ * (Fritsch–Carlson).
+ *
+ * Deliberately not Catmull-Rom: that overshoots around sharp moves, and on a
+ * probability series an overshoot draws the curve above 100% or below 0% —
+ * inventing price action that never happened. Monotone interpolation is
+ * guaranteed to stay within the samples it connects.
+ */
+function buildSmoothPath(pts: Array<{ x: number; y: number }>): string {
+  const n = pts.length;
+  if (n === 0) return '';
+  if (n === 1) return `M ${r2(pts[0]!.x)} ${r2(pts[0]!.y)}`;
+  if (n === 2) return `M ${r2(pts[0]!.x)} ${r2(pts[0]!.y)} L ${r2(pts[1]!.x)} ${r2(pts[1]!.y)}`;
+
+  const dx: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const h = pts[i + 1]!.x - pts[i]!.x;
+    dx.push(h);
+    slope.push(h === 0 ? 0 : (pts[i + 1]!.y - pts[i]!.y) / h);
+  }
+
+  // Tangent at each point: average of the two adjacent secants, flattened at
+  // local extrema so the curve turns without bulging past the sample.
+  const m: number[] = new Array(n);
+  m[0] = slope[0]!;
+  m[n - 1] = slope[n - 2]!;
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = slope[i - 1]! * slope[i]! <= 0 ? 0 : (slope[i - 1]! + slope[i]!) / 2;
+  }
+
+  // Fritsch–Carlson limiter — clamps tangents onto the circle of radius 3 that
+  // guarantees each segment stays monotone.
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+      continue;
+    }
+    const a = m[i]! / slope[i]!;
+    const b = m[i + 1]! / slope[i]!;
+    const s = a * a + b * b;
+    if (s > 9) {
+      const t = 3 / Math.sqrt(s);
+      m[i] = t * a * slope[i]!;
+      m[i + 1] = t * b * slope[i]!;
+    }
+  }
+
+  let d = `M ${r2(pts[0]!.x)} ${r2(pts[0]!.y)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const third = dx[i]! / 3;
+    d += ` C ${r2(pts[i]!.x + third)} ${r2(pts[i]!.y + m[i]! * third)},`
+      + ` ${r2(pts[i + 1]!.x - third)} ${r2(pts[i + 1]!.y - m[i + 1]! * third)},`
+      + ` ${r2(pts[i + 1]!.x)} ${r2(pts[i + 1]!.y)}`;
+  }
+  return d;
+}
+
+function createPriceChart(history: PricePoint[], currentPrice: number): ChartGeometry {
+  const width = CHART_W, height = CHART_H, pad = CHART_PAD;
+  const up = currentPrice >= 50;
+  const stroke = up ? '#22C55E' : '#EF4444';
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.setAttribute('class', 'edp-poly-chart-svg');
   svg.setAttribute('preserveAspectRatio', 'none');
 
-  [25, 50, 75].forEach(pct => {
-    const y = height - pad - ((pct - minP) / range) * (height - pad * 2);
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  if (history.length < 2) return { svg, points: [], samples: [] };
+
+  // One sample per ~2px is the most the chart can actually resolve.
+  const { smoothed: series, raw: samples } = downsampleHistory(history, Math.floor((width - pad * 2) / 2));
+
+  const prices = series.map(p => p.price);
+  const minP = Math.max(0, Math.min(...prices) - 5);
+  const maxP = Math.min(100, Math.max(...prices) + 5);
+  const range = maxP - minP || 1;
+  const toY = (price: number): number => height - pad - ((price - minP) / range) * (height - pad * 2);
+  const pts = series.map((p, i) => ({
+    x: pad + (i / (series.length - 1)) * (width - pad * 2),
+    y: toY(p.price),
+  }));
+
+  // Gridlines sit at fractions of the visible range, not at fixed 25/50/75%
+  // prices. The axis auto-scales to the data (a market flat at 8% spans roughly
+  // 3–13%), so fixed price levels resolved far outside the viewBox and every
+  // line was drawn off-canvas at a negative y — invisible on most markets.
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const y = height - pad - frac * (height - pad * 2);
+    const line = document.createElementNS(SVG_NS, 'line');
     line.setAttribute('x1', String(pad));
     line.setAttribute('x2', String(width - pad));
-    line.setAttribute('y1', String(y));
-    line.setAttribute('y2', String(y));
-    line.setAttribute('stroke', 'var(--border-subtle)');
-    line.setAttribute('stroke-width', '0.5');
-    line.setAttribute('stroke-dasharray', '2,3');
+    line.setAttribute('y1', String(r2(y)));
+    line.setAttribute('y2', String(r2(y)));
+    // --border-subtle was invisible against the chart background; it went
+    // unnoticed because these lines never landed on canvas to begin with.
+    line.setAttribute('stroke', 'var(--border)');
+    line.setAttribute('stroke-width', '1');
+    line.setAttribute('stroke-dasharray', '2,4');
+    line.setAttribute('vector-effect', 'non-scaling-stroke');
     svg.appendChild(line);
-  });
+  }
 
-  const area = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-  area.setAttribute('points', areaPoints);
-  area.setAttribute('fill', currentPrice >= 50 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)');
+  const linePath = buildSmoothPath(pts);
+
+  const gradientId = `edp-poly-fade-${up ? 'up' : 'down'}`;
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  const gradient = document.createElementNS(SVG_NS, 'linearGradient');
+  gradient.setAttribute('id', gradientId);
+  gradient.setAttribute('x1', '0');
+  gradient.setAttribute('y1', '0');
+  gradient.setAttribute('x2', '0');
+  gradient.setAttribute('y2', '1');
+  for (const [offset, opacity] of [['0', '0.22'], ['1', '0']] as const) {
+    const stop = document.createElementNS(SVG_NS, 'stop');
+    stop.setAttribute('offset', offset);
+    stop.setAttribute('stop-color', stroke);
+    stop.setAttribute('stop-opacity', opacity);
+    gradient.appendChild(stop);
+  }
+  defs.appendChild(gradient);
+  svg.appendChild(defs);
+
+  // Area reuses the same curve, then drops to the baseline and closes — so the
+  // fill edge matches the stroke exactly instead of tracing its own polygon.
+  const area = document.createElementNS(SVG_NS, 'path');
+  area.setAttribute('d', `${linePath} L ${r2(width - pad)} ${height - pad} L ${pad} ${height - pad} Z`);
+  area.setAttribute('fill', `url(#${gradientId})`);
   svg.appendChild(area);
 
-  const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  polyline.setAttribute('points', points);
-  polyline.setAttribute('fill', 'none');
-  polyline.setAttribute('stroke', currentPrice >= 50 ? '#22C55E' : '#EF4444');
-  polyline.setAttribute('stroke-width', '2');
-  polyline.setAttribute('stroke-linejoin', 'round');
-  svg.appendChild(polyline);
+  const line = document.createElementNS(SVG_NS, 'path');
+  line.setAttribute('d', linePath);
+  line.setAttribute('fill', 'none');
+  line.setAttribute('stroke', stroke);
+  line.setAttribute('stroke-width', '1.75');
+  line.setAttribute('stroke-linecap', 'round');
+  line.setAttribute('stroke-linejoin', 'round');
+  // The viewBox is stretched to the host width, which would otherwise thin the
+  // stroke horizontally and leave the line looking uneven.
+  line.setAttribute('vector-effect', 'non-scaling-stroke');
+  svg.appendChild(line);
 
-  const lastPoint = history[history.length - 1];
+  const lastPoint = series[series.length - 1];
   if (lastPoint) {
-    const cx = width - pad;
-    const cy = height - pad - ((lastPoint.price - minP) / range) * (height - pad * 2);
-    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    dot.setAttribute('cx', String(cx));
-    dot.setAttribute('cy', String(cy));
-    dot.setAttribute('r', '3');
-    dot.setAttribute('fill', currentPrice >= 50 ? '#22C55E' : '#EF4444');
+    const dot = document.createElementNS(SVG_NS, 'circle');
+    dot.setAttribute('cx', String(width - pad));
+    dot.setAttribute('cy', String(r2(toY(lastPoint.price))));
+    dot.setAttribute('r', '2.5');
+    dot.setAttribute('fill', stroke);
     svg.appendChild(dot);
   }
 
-  return svg;
+  // Hover furniture, parked off-canvas until a pointer arrives.
+  const crosshair = document.createElementNS(SVG_NS, 'line');
+  crosshair.setAttribute('class', 'edp-poly-chart-crosshair');
+  crosshair.setAttribute('y1', String(pad));
+  crosshair.setAttribute('y2', String(height - pad));
+  crosshair.setAttribute('stroke', 'currentColor');
+  crosshair.setAttribute('stroke-width', '1');
+  crosshair.setAttribute('stroke-dasharray', '3,3');
+  crosshair.setAttribute('vector-effect', 'non-scaling-stroke');
+  crosshair.setAttribute('visibility', 'hidden');
+  svg.appendChild(crosshair);
+
+  const marker = document.createElementNS(SVG_NS, 'circle');
+  marker.setAttribute('class', 'edp-poly-chart-marker');
+  marker.setAttribute('r', '3');
+  marker.setAttribute('fill', stroke);
+  marker.setAttribute('stroke', 'var(--surface)');
+  marker.setAttribute('stroke-width', '1.5');
+  marker.setAttribute('vector-effect', 'non-scaling-stroke');
+  marker.setAttribute('visibility', 'hidden');
+  svg.appendChild(marker);
+
+  return { svg, points: pts, samples };
 }
 
 function formatVolume(v: number): string {
@@ -914,12 +1130,18 @@ function formatTime(timestamp: number): string {
   try { return new Date(timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); } catch { return '—'; }
 }
 
+/** Always carries the date — a bare "7:22 AM" on the 24h range is ambiguous the
+ *  moment the window straddles midnight. Sub-day ranges keep the minute. */
 function formatChartTime(timestamp: number, timeframe: PredictionTimeframe): string {
   if (!timestamp || !Number.isFinite(timestamp)) return '—';
+  const withMinutes = timeframe === '1h' || timeframe === '6h' || timeframe === '24h' || timeframe === '48h';
   try {
-    return new Date(timestamp).toLocaleString('en-US', timeframe === '24h'
-      ? { hour: 'numeric', minute: '2-digit' }
-      : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return new Date(timestamp).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      ...(withMinutes ? { minute: '2-digit' as const } : {}),
+    });
   } catch {
     return '—';
   }

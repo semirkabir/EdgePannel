@@ -52,6 +52,7 @@ import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { SituationReportPanel } from '@/components/SituationReportPanel';
 import { DataSourcesPanel } from '@/components/DataSourcesPanel';
 import { switchToVariant, canSwitchVariantInPlace, SITE_VARIANTS } from '@/app/panel-layout-helpers';
+import { refineDesktopDownloadUrl } from '@/utils/desktop-download';
 import { VisitorCounter } from '@/components/VisitorCounter';
 import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -398,6 +399,18 @@ export class EventHandlerManager implements AppModule {
       this.whatsNewPanel.show();
       document.getElementById('headerOverflowMenu')?.removeAttribute('open');
     });
+
+    const downloadAppBtn = document.getElementById('downloadAppBtn');
+    if (downloadAppBtn) {
+      downloadAppBtn.addEventListener('click', () => {
+        document.getElementById('headerOverflowMenu')?.removeAttribute('open');
+      });
+      // The link already carries a usable href; this only narrows it to the
+      // right CPU architecture when the browser will tell us (Chromium only).
+      void refineDesktopDownloadUrl(SITE_VARIANT).then((url) => {
+        if (url) downloadAppBtn.setAttribute('href', url);
+      });
+    }
 
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     if (!this.ctx.isDesktopApp && fullscreenBtn) {

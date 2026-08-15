@@ -2174,10 +2174,19 @@ canvas,
   position: relative;
 }
 
-/* New deck button */
+/* New deck button — must render identically to the variant <a> tabs it sits
+   next to: browsers force line-height: normal on <button> and the dashed
+   border eats the padding, so both are neutralised here. */
 .variant-option.new-category {
   border: 1px dashed var(--border-strong);
   background: transparent;
+  line-height: inherit;
+  font-family: var(--font-body);
+  font-size: 9px;
+  cursor: pointer;
+  /* The 1px dashed border adds 2px to the box vs the borderless variant
+     tabs — subtract it from vertical padding so heights match exactly. */
+  padding: 1px 6px;
 }
 
 .variant-option.new-category:hover {
@@ -2728,6 +2737,73 @@ canvas,
 }
 .notif-mark-all:hover { color: var(--text); border-color: var(--text-dim); }
 
+.notif-dropdown-actions { display: flex; align-items: center; gap: 6px; }
+
+.notif-prefs-btn {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-dim); cursor: var(--wm-cursor-pointer); font-size: 12px;
+  padding: 2px 8px; line-height: 1.4;
+  transition: color 0.2s, border-color 0.2s;
+}
+.notif-prefs-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+/* Filter chips. Seven tabs in a 360px dropdown, so they wrap onto a second
+   row — a horizontal scroll strip would hide tabs behind an edge with no
+   affordance pointing at them. */
+.notif-filters {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.notif-filter-tab {
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  line-height: 1.5; white-space: nowrap;
+  cursor: var(--wm-cursor-pointer);
+  transition: color var(--motion-fast) var(--ease-standard),
+              background var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard);
+}
+.notif-filter-tab:hover { color: var(--text); background: var(--ctrl-bg-hover); }
+/* Tinted rather than filled: --accent is #fff in some variants, so accent-on-accent
+   text would vanish. */
+.notif-filter-tab.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--text);
+}
+
+/* Active / Dismissed segmented control */
+.notif-view-toggle {
+  display: flex; gap: 2px;
+  margin: 8px 14px;
+  padding: 2px;
+  background: var(--ui-surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+.notif-view-btn {
+  flex: 1;
+  padding: 4px 8px;
+  background: transparent; border: 0; border-radius: 4px;
+  color: var(--text-dim);
+  font-family: inherit; font-size: 11px; font-weight: 600;
+  cursor: var(--wm-cursor-pointer);
+  transition: color var(--motion-fast) var(--ease-standard),
+              background var(--motion-fast) var(--ease-standard);
+}
+.notif-view-btn:hover { color: var(--text); }
+.notif-view-btn.active {
+  background: var(--surface-hover); color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
 .notif-list { overflow-y: auto; flex: 1; max-height: 420px; }
 
 .notif-empty { padding: 32px 16px; text-align: center; color: var(--text-dim); font-size: 13px; }
@@ -2760,6 +2836,30 @@ canvas,
 .notif-detail { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 
 .notif-time { flex-shrink: 0; font-size: 10px; color: var(--text-muted); white-space: nowrap; line-height: 20px; }
+
+/* Per-item dismiss (× / ↺). Stays out of the way until the row is hovered so
+   twelve of them don't read as a column of buttons. */
+.notif-item-dismiss {
+  flex-shrink: 0;
+  width: 18px; height: 18px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 13px; line-height: 1;
+  cursor: var(--wm-cursor-pointer);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-standard),
+              color var(--motion-fast) var(--ease-standard),
+              background var(--motion-fast) var(--ease-standard);
+}
+.notif-item:hover .notif-item-dismiss { opacity: 1; }
+.notif-item-dismiss:focus-visible { opacity: 1; outline: 1px solid var(--text-dim); outline-offset: 1px; }
+.notif-item-dismiss:hover { background: var(--surface-hover); color: var(--text); }
+
+/* Touch devices never hover, so the control would be unreachable. */
+@media (hover: none) {
+  .notif-item-dismiss { opacity: 1; }
+}
 
 /* Severity left-border accent */
 .notif-item.notif-critical { border-left: 3px solid var(--semantic-critical, #ef4444); }
@@ -7173,14 +7273,41 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 .signal-modal-overlay {
   position: fixed;
   top: 60px;
-  right: 16px;
+  right: var(--signal-toast-inset, var(--signal-toast-gap));
   display: none;
   z-index: 11600;
   pointer-events: none;
+  transition: right 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .signal-modal-overlay.active {
   display: flex;
+}
+
+/* Every detail rail docks to the right edge, exactly where this toast sits, so
+   an open rail would otherwise sit entirely underneath it. Step the toast clear
+   of whichever rail is open. Only above 900px — narrower than that the rails go
+   full-bleed and there is nowhere to step to, so the toast stays put and relies
+   on its opaque surface instead. Maximized rails are excluded for the same
+   reason. Widths mirror the rail rules in entity-detail.css / country-deep-dive.css. */
+:root {
+  --signal-toast-gap: 16px;
+  --detail-rail-width: 430px;
+  --entity-rail-width: 450px;
+}
+
+@media (min-width: 900px) {
+  body:has(.detail-panel.dp-active:not(.dp-maximized)),
+  body:has(.country-deep-dive.active:not(.maximized)),
+  body:has(.findings-detail-panel.active) {
+    --signal-toast-inset: calc(var(--detail-rail-width) + var(--signal-toast-gap));
+  }
+
+  /* Last so it wins when a narrower rail is open alongside it — the wider
+     offset clears both. */
+  body:has(.entity-detail-panel.edp-active:not(.edp-maximized)) {
+    --signal-toast-inset: calc(var(--entity-rail-width) + var(--signal-toast-gap));
+  }
 }
 
 .signal-modal {
@@ -7188,9 +7315,12 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   max-height: min(70vh, 640px);
   display: flex;
   flex-direction: column;
-  background: var(--panel-bg);
-  backdrop-filter: var(--panel-glass-blur);
-  -webkit-backdrop-filter: var(--panel-glass-blur);
+  /* Opaque, not glass: this toast is the topmost layer in the app and can land
+     over a rail or a maximized panel, where a 48%-alpha backdrop-filter smears
+     the sharp text underneath into unreadable ghosting. The tint keeps the
+     panel hue over an opaque base. */
+  background-color: var(--surface, #141414);
+  background-image: linear-gradient(var(--panel-bg), var(--panel-bg));
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
@@ -31630,6 +31760,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .header-overflow-panel .agent-chat-open-btn,
 .header-overflow-panel .theme-toggle-btn,
 .header-overflow-panel .fullscreen-btn,
+.header-overflow-panel .download-app-btn,
 .header-overflow-panel .whats-new-btn,
 .header-overflow-panel .tv-mode-btn,
 .header-overflow-panel .copy-link-btn,
@@ -31642,6 +31773,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
    ─────────────────────────────────────────────────────────────── */
 .header-overflow-panel .theme-toggle-btn,
 .header-overflow-panel .fullscreen-btn,
+.header-overflow-panel .download-app-btn,
 .header-overflow-panel .whats-new-btn,
 .header-overflow-panel .tv-mode-btn,
 .header-overflow-panel .unified-settings-btn,
@@ -31672,6 +31804,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
 /* Hover state — all rows */
 .header-overflow-panel .theme-toggle-btn:hover,
 .header-overflow-panel .fullscreen-btn:hover,
+.header-overflow-panel .download-app-btn:hover,
 .header-overflow-panel .whats-new-btn:hover,
 .header-overflow-panel .tv-mode-btn:hover,
 .header-overflow-panel .unified-settings-btn:hover,
@@ -31686,6 +31819,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
 /* Focus-visible ring — all rows */
 .header-overflow-panel .theme-toggle-btn:focus-visible,
 .header-overflow-panel .fullscreen-btn:focus-visible,
+.header-overflow-panel .download-app-btn:focus-visible,
 .header-overflow-panel .whats-new-btn:focus-visible,
 .header-overflow-panel .tv-mode-btn:focus-visible,
 .header-overflow-panel .unified-settings-btn:focus-visible,
@@ -31700,6 +31834,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
 /* SVG icon transitions — all rows */
 .header-overflow-panel .theme-toggle-btn svg,
 .header-overflow-panel .fullscreen-btn svg,
+.header-overflow-panel .download-app-btn svg,
 .header-overflow-panel .whats-new-btn svg,
 .header-overflow-panel .tv-mode-btn svg,
 .header-overflow-panel .agent-chat-open-btn svg,
@@ -31723,6 +31858,8 @@ body[data-panel-density="comfortable"] .panel-tabs {
 .header-overflow-panel .agent-chat-open-btn:focus-visible svg,
 .header-overflow-panel .copy-link-btn:hover svg,
 .header-overflow-panel .copy-link-btn:focus-visible svg,
+.header-overflow-panel .download-app-btn:hover svg,
+.header-overflow-panel .download-app-btn:focus-visible svg,
 .header-overflow-panel .save-reset-menu button:hover svg,
 .header-overflow-panel .save-reset-menu button:focus-visible svg {
   transform: scale(1.1);
@@ -31742,6 +31879,13 @@ body[data-panel-density="comfortable"] .panel-tabs {
   color: var(--accent);
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
   animation: whats-new-sparkle 900ms var(--ease-standard) both;
+}
+
+/* The only row that is an <a> rather than a <button>, so it needs the anchor
+   defaults knocked off to match the rest. Kept as a link on purpose: it points
+   at a real download, so middle-click and "copy link address" should work. */
+.header-overflow-panel .download-app-btn {
+  text-decoration: none;
 }
 
 /* Theme toggle specifics */
@@ -31819,6 +31963,7 @@ body[data-panel-density="comfortable"] .panel-tabs {
 
   .header-overflow-panel .theme-toggle-btn:hover svg,
   .header-overflow-panel .fullscreen-btn:hover svg,
+  .header-overflow-panel .download-app-btn:hover svg,
   .header-overflow-panel .tv-mode-btn:hover svg,
   .header-overflow-panel .agent-chat-open-btn:hover svg,
   .header-overflow-panel .copy-link-btn:hover svg,

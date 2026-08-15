@@ -93,6 +93,7 @@ import { checkFeatureAccess } from '@/services/auth-modal';
 import { isLoggedIn } from '@/services/user-auth';
 import { LIMITED_LOCAL_RPC_DEV_MODE } from '@/services/local-dev-stability';
 import { isLocalDevApiNoticeDismissed } from '@/app/ui-preferences';
+import { buildDesktopDownloadUrl, detectDesktopPlatform, hasDesktopBuild } from '@/utils/desktop-download';
 import { saveMapLayoutSnapshot, savePanelLayoutSnapshot } from './layout-snapshot';
 import { createPanelScrollButtons } from './panel-scroll-buttons';
 import {
@@ -252,6 +253,7 @@ export class PanelLayoutManager implements AppModule {
               ${this.ctx.isDesktopApp ? '' : `<button class="fullscreen-btn" id="fullscreenBtn" title="${t('header.fullscreen')}" aria-label="${t('header.fullscreen')}" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg><span class="header-action-label">${t('header.fullscreen')}</span></button>`}
               <button class="whats-new-btn" id="whatsNewBtn" title="${t('header.whatsNew')}" aria-label="${t('header.whatsNew')}" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4M19 17v4M3 5h4M17 19h4"/></svg><span class="header-action-label">${t('header.whatsNew')}</span></button>
               ${SITE_VARIANT === 'happy' ? `<button class="tv-mode-btn" id="tvModeBtn" title="TV Mode (Shift+T)" aria-label="TV Mode" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span class="header-action-label">TV Mode</span></button>` : ''}
+              ${this.ctx.isDesktopApp || !hasDesktopBuild(SITE_VARIANT) ? '' : `<a class="download-app-btn" id="downloadAppBtn" href="${buildDesktopDownloadUrl(SITE_VARIANT, detectDesktopPlatform())}" title="${t('header.downloadApp')}" aria-label="${t('header.downloadApp')}" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="header-action-label">${t('header.downloadApp')}</span></a>`}
               <span id="unifiedSettingsMount"></span>
             </div>
           </details>

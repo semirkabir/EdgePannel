@@ -1194,6 +1194,17 @@
   text-transform: uppercase;
 }
 
+/* Entity names are short, so the default uppercase title works for them. A
+   prediction market's "title" is a full sentence-long question, and 4 lines of
+   all-caps is a wall — set sentence case and normal tracking for those. */
+.edp-header-question .edp-title {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+}
+
 .edp-subtitle {
   font-size: 14px;
   color: var(--text-dim);
@@ -1988,35 +1999,49 @@
 
 .edp-prediction-hero-top {
   display: grid;
-  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
   align-items: stretch;
 }
 
-.edp-prediction-hero-score {
+/* Yes and No are the same kind of fact, so they get the same shape. The old
+   treatment filled Yes with saturated green whatever its value, which meant a
+   market sitting at 8% shouted its losing outcome and whispered the 92% one.
+   Weight is now equal and the colour lives on the numeral. */
+.edp-prediction-hero-score,
+.edp-prediction-hero-meta .edp-hotspot-inline-stat {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
-  padding: 14px 16px;
+  gap: 6px;
+  padding: 12px 14px;
   border-radius: 12px;
-  background: linear-gradient(180deg, rgba(34, 197, 94, 0.9), rgba(22, 163, 74, 0.78));
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 28%, var(--surface) 72%);
 }
 
-.edp-prediction-hero-score-label {
-  font-size: 11px;
+.edp-prediction-hero-score-label,
+.edp-prediction-hero-meta .edp-hotspot-inline-label {
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-dim);
 }
 
-.edp-prediction-hero-score-value {
-  font-size: 34px;
+.edp-prediction-hero-score-value,
+.edp-prediction-hero-meta .edp-hotspot-inline-value {
+  font-size: 30px;
   font-weight: 800;
   line-height: 1;
-  color: white;
+  font-variant-numeric: tabular-nums;
 }
+
+.edp-prediction-hero-score-value { color: #22c55e; }
+.edp-prediction-hero-meta .edp-hotspot-inline-value { color: #ef4444; }
+
+[data-theme="light"] .edp-prediction-hero-score-value { color: #15803d; }
+[data-theme="light"] .edp-prediction-hero-meta .edp-hotspot-inline-value { color: #b91c1c; }
 
 .edp-prediction-hero-meta {
   display: grid;
@@ -2044,12 +2069,15 @@
   gap: 12px;
 }
 
+/* Only rendered when the lead market's question differs from the event title
+   (multi-market events). Sits below the header, so it stays a step quieter than
+   it — otherwise the sub-question out-shouts the thing it belongs to. */
 .edp-prediction-market-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.4;
-  color: var(--text);
+  line-height: 1.45;
+  color: var(--text-dim);
 }
 
 .edp-prediction-market-badges {
@@ -2089,8 +2117,9 @@
 
 .edp-prediction-bar-track {
   display: flex;
+  gap: 2px;
   width: 100%;
-  height: 6px;
+  height: 8px;
   overflow: hidden;
   border-radius: 999px;
   background: color-mix(in srgb, var(--border) 52%, transparent);
@@ -2098,14 +2127,17 @@
 
 .edp-prediction-bar-fill {
   height: 100%;
+  border-radius: 999px;
 }
 
+/* Flat fills, not gradients. The No side ramped green→red→orange across one
+   6px bar, which read as a heat scale rather than a two-way split. */
 .edp-prediction-bar-fill.is-yes {
-  background: linear-gradient(90deg, #22c55e, #4ade80);
+  background: #22c55e;
 }
 
 .edp-prediction-bar-fill.is-no {
-  background: linear-gradient(90deg, #ef4444, #f97316);
+  background: #ef4444;
 }
 
 .edp-prediction-bar-labels {
@@ -2126,6 +2158,9 @@
 .edp-prediction-bar-label.is-no {
   color: #fca5a5;
 }
+
+[data-theme="light"] .edp-prediction-bar-label.is-yes { color: #15803d; }
+[data-theme="light"] .edp-prediction-bar-label.is-no { color: #b91c1c; }
 
 .edp-prediction-chart-wrap {
   border-radius: 12px;
@@ -2203,16 +2238,32 @@
   transform: translateX(-50%);
   pointer-events: none;
   z-index: 2;
-  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   background: color-mix(in srgb, var(--surface) 94%, black 6%);
   color: var(--text);
-  font-size: 11px;
-  font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+}
+
+/* The percentage is what the hover is for, so it leads; the timestamp is the
+   supporting detail. */
+.edp-chart-tip-price {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.edp-chart-tip-date {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-dim);
 }
 
 .edp-poly-chart-svg {
@@ -2220,6 +2271,11 @@
   width: 100%;
   height: 100px;
   cursor: crosshair;
+  /* The crosshair strokes with currentColor so it tracks the theme. */
+  color: var(--text-muted);
+  /* Without this a pointermove that starts on the line can be swallowed by the
+     browser's default touch panning. */
+  touch-action: none;
 }
 
 .edp-prediction-market-foot {
@@ -2268,6 +2324,37 @@
   color: var(--text);
   background: var(--ui-accent-tint-strong);
   border-color: color-mix(in srgb, var(--accent) 48%, var(--frame-border));
+}
+
+/* Two accent-filled buttons saying the same thing — "Open Market" under the
+   chart and "Trade on Polymarket" at the foot of the panel — competed for the
+   same click. Demote the inline one to a quiet link so the panel has one CTA. */
+.edp-prediction-market-link {
+  min-height: 28px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.edp-prediction-market-link:hover {
+  background: none;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The foot CTA is the panel's primary action, so it spans the full width
+   instead of hugging the right edge. */
+.edp-prediction-trade-btn {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  margin-left: 0;
+  margin-top: 4px;
 }
 
 .edp-prediction-tabs-shell {

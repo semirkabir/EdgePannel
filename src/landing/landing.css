@@ -1429,7 +1429,11 @@ a { color: inherit; }
 
 /* ---------- nav dropdown ---------- */
 
-.lp-nav-drop { position: relative; }
+.lp-nav-drop {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 .lp-nav-drop-btn {
   background: none;
   border: 0;
@@ -1438,6 +1442,12 @@ a { color: inherit; }
   font-family: var(--lp-font);
   font-size: 14px;
   font-weight: 500;
+  /* Buttons force line-height: normal by default, which makes the
+     dropdown labels sit off-baseline vs the plain <a> nav links. */
+  line-height: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   cursor: pointer;
   transition: color 0.15s ease;
 }
