@@ -3781,40 +3781,9 @@ canvas,
   height: 13px;
 }
 
-/* Jump + Locate trail the layer/draw controls. Without an explicit order they
-   default to 0 and jump ahead of the LAYERS button. */
-.map-toolbar .map-jump-form { order: 6; display: flex; }
+/* Locate trails the layer/draw controls. Without an explicit order it
+   defaults to 0 and jumps ahead of the LAYERS button. */
 .map-toolbar .map-locate-btn { order: 7; }
-
-/* Match the toolbar's button metrics instead of native form styling. */
-.map-toolbar .map-jump-input {
-  width: 150px;
-  height: 24px;
-  padding: 0 8px;
-  background: transparent;
-  border: 1px solid var(--frame-border);
-  border-radius: 6px;
-  color: var(--text);
-  font: 600 10.5px/1 var(--font-mono, monospace);
-  letter-spacing: 0.04em;
-  transition: width var(--motion-fast) var(--ease-standard),
-              border-color var(--motion-fast) var(--ease-standard);
-}
-
-.map-toolbar .map-jump-input::placeholder {
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-}
-
-.map-toolbar .map-jump-input:hover {
-  border-color: var(--frame-border-strong);
-}
-
-.map-toolbar .map-jump-input:focus {
-  width: 200px;
-  outline: none;
-  border-color: var(--accent);
-}
 
 /* Square, like the other icon-only toolbar controls. */
 .map-toolbar .map-locate-btn {
@@ -21555,6 +21524,12 @@ button.cluster-flight-item:focus-visible {
   transform: translateY(1px);
 }
 
+.deckgl-controls .map-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
 .deckgl-controls .view-selector {
   display: none;
   /* Hidden - region selector moved to header */
@@ -31347,46 +31322,6 @@ body[data-panel-density="comfortable"] .panel-tabs {
   border-color: rgba(0, 0, 0, 0.1);
   color: #1a1a2e;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
-}
-
-/* ============================================================
-   Thematic Panel Header Gradients
-   ============================================================ */
-.panel[data-panel="africa"] .panel-header {
-  background: linear-gradient(90deg, rgba(217, 119, 6, 0.15) 0%, transparent 100%);
-  border-top-color: rgba(217, 119, 6, 0.4);
-}
-.panel[data-panel="asia"] .panel-header {
-  background: linear-gradient(90deg, rgba(236, 72, 153, 0.15) 0%, transparent 100%);
-  border-top-color: rgba(236, 72, 153, 0.4);
-}
-.panel[data-panel="europe"] .panel-header {
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 100%);
-  border-top-color: rgba(59, 130, 246, 0.4);
-}
-.panel[data-panel="middleeast"] .panel-header {
-  background: linear-gradient(90deg, rgba(234, 179, 8, 0.15) 0%, transparent 100%);
-  border-top-color: rgba(234, 179, 8, 0.4);
-}
-.panel[data-panel="latam"] .panel-header {
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, transparent 100%);
-  border-top-color: rgba(16, 185, 129, 0.4);
-}
-.panel[data-panel="us"] .panel-header {
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.15) 0%, transparent 100%);
-  border-top-color: rgba(99, 102, 241, 0.4);
-}
-.panel[data-panel="tech"] .panel-header {
-  background: linear-gradient(90deg, rgba(6, 182, 212, 0.15) 0%, transparent 100%);
-  border-top-color: rgba(6, 182, 212, 0.4);
-}
-.panel[data-panel="finance"] .panel-header {
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.15) 0%, transparent 100%);
-  border-top-color: rgba(34, 197, 94, 0.4);
-}
-.panel[data-panel="politics"] .panel-header {
-  background: linear-gradient(90deg, rgba(139, 92, 246, 0.15) 0%, transparent 100%);
-  border-top-color: rgba(139, 92, 246, 0.4);
 }
 
 /* Marketplace mission packs, unified data manager, onboarding, and incident briefs */

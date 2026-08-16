@@ -12,7 +12,6 @@ import { PathStyleExtension } from '@deck.gl/extensions';
 import { registerBuildingsProtocol } from '@/utils/buildings-tiles';
 import { registerPMTilesProtocol, FALLBACK_DARK_STYLE, FALLBACK_LIGHT_STYLE, getUnifiedTheme, setUnifiedTheme, resolveUnifiedTheme, UNIFIED_THEME_OPTIONS, THEME_LAYER_OVERRIDES, getStyleForProvider, isLightMapTheme, CUSTOM_THEME_FILTERS } from '@/config/basemap';
 import { resolvePreciseUserCoordinates } from '@/utils/user-location';
-import { searchPlaces } from '@/services/place-search';
 import { showShellNotification } from '@/app/shell-notifications';
 import Supercluster from 'supercluster';
 import type {
@@ -516,6 +515,10 @@ export class DeckGLMap implements MapEngine {
   private followKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private airspaceControls: AirspaceControls | null = null;
   private mapDrawController: MapDrawController | null = null;
+  /** True while the 360 look-around (orbit) button is held down. */
+  private lookAroundActive = false;
+  private lookAroundLastX = 0;
+  private lookAroundLastY = 0;
   private aircraftFetchTimer: ReturnType<typeof setInterval> | null = null;
   private news: NewsItem[] = [];
   private newsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }> = [];
@@ -6268,6 +6271,12 @@ export class DeckGLMap implements MapEngine {
             <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
           </svg>
         </button>
+        <button class="map-btn map-orbit-btn" aria-label="Look around 360" title="Hold &amp; drag to look around 360" aria-pressed="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+            <path d="M21 3v6h-6"/>
+          </svg>
+        </button>
       </div>
       <div class="view-selector">
         <select class="view-select">
@@ -6300,6 +6309,46 @@ export class DeckGLMap implements MapEngine {
       e.stopPropagation();
       this.toggleDraw(drawBtn);
     });
+
+    // 360 look-around: hold the orbit button and drag to rotate the camera
+    // (bearing from horizontal drag, pitch from vertical drag). Pointer is
+    // captured on the button so the map's own drag handlers stay quiet.
+    const orbitBtn = controls.querySelector<HTMLButtonElement>('.map-orbit-btn');
+    if (orbitBtn) {
+      const beginOrbit = (e: PointerEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.lookAroundActive = true;
+        this.lookAroundLastX = e.clientX;
+        this.lookAroundLastY = e.clientY;
+        orbitBtn.classList.add('active');
+        orbitBtn.setAttribute('aria-pressed', 'true');
+        orbitBtn.setPointerCapture?.(e.pointerId);
+      };
+      const orbitMove = (e: PointerEvent) => {
+        if (!this.lookAroundActive) return;
+        const dx = e.clientX - this.lookAroundLastX;
+        const dy = e.clientY - this.lookAroundLastY;
+        this.lookAroundLastX = e.clientX;
+        this.lookAroundLastY = e.clientY;
+        const map = this.maplibreMap;
+        if (!map) return;
+        const maxPitch = map.getMaxPitch();
+        const bearing = map.getBearing() + dx * 0.25;
+        const pitch = Math.max(0, Math.min(maxPitch, map.getPitch() - dy * 0.25));
+        map.jumpTo({ bearing, pitch });
+      };
+      const endOrbit = () => {
+        if (!this.lookAroundActive) return;
+        this.lookAroundActive = false;
+        orbitBtn.classList.remove('active');
+        orbitBtn.setAttribute('aria-pressed', 'false');
+      };
+      orbitBtn.addEventListener('pointerdown', beginOrbit);
+      orbitBtn.addEventListener('pointermove', orbitMove);
+      orbitBtn.addEventListener('pointerup', endOrbit);
+      orbitBtn.addEventListener('pointercancel', endOrbit);
+    }
 
     // Theme picker toggle + item selection
     const picker = controls.querySelector('.map-theme-picker') as HTMLElement;
@@ -6334,14 +6383,12 @@ export class DeckGLMap implements MapEngine {
       this.setView(viewSelect.value as DeckMapView);
     });
 
-    // Relocate the map-type picker and draw trigger into the toolbar row
-    // above the canvas (if present) — same elements, same listeners, just a
-    // different parent. Falls back to the floating overlay position above
-    // if the toolbar mounts aren't in the DOM.
+    // Relocate the map-type picker into the toolbar row above the canvas
+    // (if present) — same elements, same listeners, just a different parent.
+    // The draw & measure trigger stays in the floating zoom stack under the
+    // home button.
     const toolbarRight = document.getElementById('mapToolbarRight');
     if (toolbarRight) toolbarRight.prepend(picker);
-    const toolbarLeft = document.getElementById('mapToolbarLeft');
-    if (toolbarLeft && drawBtn) toolbarLeft.appendChild(drawBtn);
   }
 
   private createTimeSlider(): void {
@@ -6691,24 +6738,11 @@ export class DeckGLMap implements MapEngine {
     slider.classList.toggle('deckgl-hide-layer-actions', !settings.showLayerActions);
   }
 
-  /** Jump-to-place (left toolbar group) and Locate-me + Sat Photo toggle (right group). */
+  /** Locate-me control (left toolbar group). */
   private createJumpLocateSatControls(): void {
     const toolbarLeft = document.getElementById('mapToolbarLeft');
-    const toolbarRight = document.getElementById('mapToolbarRight');
 
     if (toolbarLeft) {
-      const jumpForm = document.createElement('form');
-      jumpForm.className = 'map-jump-form';
-      jumpForm.innerHTML = `
-        <input type="text" class="map-jump-input" placeholder="Jump to place or lat,lon…" aria-label="Jump to place or coordinates">
-      `;
-      const jumpInput = jumpForm.querySelector<HTMLInputElement>('.map-jump-input')!;
-      jumpForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        void this.handleJumpQuery(jumpInput);
-      });
-      toolbarLeft.appendChild(jumpForm);
-
       const locateBtn = document.createElement('button');
       locateBtn.type = 'button';
       locateBtn.className = 'map-btn map-locate-btn';
@@ -6722,63 +6756,6 @@ export class DeckGLMap implements MapEngine {
       `;
       locateBtn.addEventListener('click', () => void this.handleLocateMe(locateBtn));
       toolbarLeft.appendChild(locateBtn);
-    }
-
-    if (toolbarRight) {
-      const SATELLITE_THEME = 'satellite:esri';
-      const satBtn = document.createElement('button');
-      satBtn.type = 'button';
-      satBtn.className = 'map-btn map-sat-photo-btn';
-      satBtn.title = 'Sat Photo';
-      satBtn.textContent = 'SAT';
-      satBtn.classList.toggle('active', getUnifiedTheme() === SATELLITE_THEME);
-      satBtn.addEventListener('click', () => {
-        const current = getUnifiedTheme();
-        if (current === SATELLITE_THEME) {
-          const prev = localStorage.getItem('wm-map-pre-satellite-theme') || 'carto:dark-matter';
-          setUnifiedTheme(prev);
-        } else {
-          try { localStorage.setItem('wm-map-pre-satellite-theme', current); } catch { /* best-effort */ }
-          setUnifiedTheme(SATELLITE_THEME);
-        }
-        window.dispatchEvent(new CustomEvent('map-theme-changed'));
-      });
-      window.addEventListener('map-theme-changed', () => {
-        satBtn.classList.toggle('active', getUnifiedTheme() === SATELLITE_THEME);
-      });
-      toolbarRight.prepend(satBtn);
-    }
-  }
-
-  private async handleJumpQuery(input: HTMLInputElement): Promise<void> {
-    const query = input.value.trim();
-    if (!query) return;
-
-    const coordMatch = query.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
-    if (coordMatch) {
-      const lat = parseFloat(coordMatch[1]!);
-      const lon = parseFloat(coordMatch[2]!);
-      if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
-        this.setCenter(lat, lon, 6);
-        input.value = '';
-        return;
-      }
-    }
-
-    input.disabled = true;
-    try {
-      const results = await searchPlaces(query);
-      const place = results.find(r => r.lat != null && r.lon != null);
-      if (place?.lat != null && place?.lon != null) {
-        this.setCenter(place.lat, place.lon, 5);
-        input.value = '';
-      } else {
-        showShellNotification(`No place found for "${query}".`, 'warning');
-      }
-    } catch {
-      showShellNotification('Jump search failed — try again.', 'error');
-    } finally {
-      input.disabled = false;
     }
   }
 

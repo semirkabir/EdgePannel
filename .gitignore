@@ -73,6 +73,7 @@ public/docs/
 
 # Local spike/experiment scripts
 mapdiag.mjs
+scratch-*
 mapdriver.mjs
 mapsteps*.json
 pngstats.mjs
