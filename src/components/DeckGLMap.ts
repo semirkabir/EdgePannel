@@ -519,6 +519,8 @@ export class DeckGLMap implements MapEngine {
   private lookAroundActive = false;
   private lookAroundLastX = 0;
   private lookAroundLastY = 0;
+  /** Last timestamp the deck.gl layer set was rebuilt in the rAF loop. */
+  private lastRafLayerRebuildMs = 0;
   private aircraftFetchTimer: ReturnType<typeof setInterval> | null = null;
   private news: NewsItem[] = [];
   private newsLocations: Array<{ lat: number; lon: number; title: string; threatLevel: string; timestamp?: Date }> = [];
@@ -735,8 +737,19 @@ export class DeckGLMap implements MapEngine {
     this.debouncedFetchAircraft = debounce(() => this.fetchViewportAircraft(), 500);
     this.rafUpdateLayers = rafSchedule(() => {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
-      try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
-      try { this.syncGlobeNativeLayers(); } catch { /* isolate: buildings/jobs/obm syncs must still run */ }
+      // Throttle the expensive deck.gl layer rebuild. The aircraft/cable-flow/
+      // satellite/pulse loops all call this via the rAF-scheduled `render()`
+      // path, so during a deep zoom this can fire every frame. Rebuilding the
+      // full layer array + setProps each frame is what made 3D buildings lag
+      // the basemap at high zoom. Cap it at ~6.6Hz (150ms); the cheap syncs and
+      // triggerRepaint still run every call so MapLibre keeps compositing the
+      // already-built layers smoothly while the rebuild catches up.
+      const now = performance.now();
+      if (now - this.lastRafLayerRebuildMs >= 150) {
+        this.lastRafLayerRebuildMs = now;
+        try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
+        try { this.syncGlobeNativeLayers(); } catch { /* isolate: buildings/jobs/obm syncs must still run */ }
+      }
       this.syncBuildingsLayer();
       this.syncJobsDotsLayer();
       this.syncObmOccupancyLayer();
@@ -9634,6 +9647,7 @@ export class DeckGLMap implements MapEngine {
       // setStyle resets projection to mercator — restore globe if active
       if (this._globeProjection) {
         this.maplibreMap?.setProjection({ type: 'globe' });
+        this.applyGlobeSky();
         this.syncGlobeNativeLayers();
       }
       this.reapplyNativeLayers();
@@ -9700,6 +9714,7 @@ export class DeckGLMap implements MapEngine {
       this.updateCountryLayerPaint(paintTheme);
       if (this._globeProjection) {
         this.maplibreMap?.setProjection({ type: 'globe' });
+        this.applyGlobeSky();
         this.syncGlobeNativeLayers();
       }
       this.reapplyNativeLayers();
@@ -9851,6 +9866,7 @@ export class DeckGLMap implements MapEngine {
       (map as any).dragRotate?.enable();
       (map as any).touchPitch?.enable();
       this.container.classList.add('globe-projection');
+      this.applyGlobeSky();
     } else {
       // 2D is a flat, north-up plane: zero pitch, zero bearing, tilt/rotate off.
       map.setMaxPitch(0);
@@ -9859,7 +9875,44 @@ export class DeckGLMap implements MapEngine {
       (map as any).dragRotate?.disable();
       (map as any).touchPitch?.disable();
       this.container.classList.remove('globe-projection');
+      try { map.setSky(undefined as never); } catch { /* style may not support sky */ }
     }
+  }
+
+  /**
+   * Give the globe a theme-matched sky + horizon blend. Without this, MapLibre
+   * draws the globe against a hard black seam at the horizon — when the camera
+   * tilts into a city that seam reads as "space" flickering behind the 3D
+   * buildings, and distant extrusions pop in/out against it. A blended sky plus
+   * distance fog fades the far ground so buildings settle into the horizon
+   * instead of jittering against a black void.
+   */
+  private applyGlobeSky(): void {
+    const map = this.maplibreMap;
+    if (!map) return;
+    const { theme: mapTheme } = resolveUnifiedTheme(getUnifiedTheme());
+    const light = isLightMapTheme(mapTheme);
+    try {
+      map.setSky(light ? {
+        'sky-color': '#e9eef4',
+        'horizon-color': '#f2f5f9',
+        'fog-color': '#e2e7ee',
+        'fog-ground-blend': 0.7,
+        'horizon-fog-blend': 0.7,
+        'sky-horizon-blend': 0.6,
+        'atmosphere-blend': 0.3,
+      } : {
+        // Near-black space that reads as the night-sky void, not a pitch-black
+        // hard edge; the fog lifts the horizon just enough to blend extrusions.
+        'sky-color': '#04060a',
+        'horizon-color': '#0a0f18',
+        'fog-color': '#0b1018',
+        'fog-ground-blend': 0.85,
+        'horizon-fog-blend': 0.8,
+        'sky-horizon-blend': 0.65,
+        'atmosphere-blend': 0.35,
+      });
+    } catch { /* sky unsupported on this style — keep the CSS starfield fallback */ }
   }
 
   /**
