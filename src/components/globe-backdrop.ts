@@ -412,8 +412,14 @@ export class GlobeBackdrop {
 
     const step = 0.16;
     const rows = 34;
-    // Column pitch as a fraction of the camera height; sets how wide the fan opens.
-    const spread = 0.145;
+    // Column pitch, as a fraction of the camera height. Derived from the globe's
+    // radius rather than fixed: a fixed fraction ties the cell size to the panel
+    // height, so the same grid that reads well in a short wide map goes sparse
+    // enough to disappear in a tall one. Anchoring the nearest row's pitch to
+    // ~30% of the globe radius keeps the plane at a constant apparent density
+    // whatever shape the panel is. The cap stops a very short panel (small u0)
+    // from opening the fan so wide only one column lands on screen.
+    const spread = Math.min(0.22, (sil.radius * 0.30) / u0);
     const halfCols = Math.ceil(w / (u0 * spread)) + 1;
     const rgb = '86,196,220';
 
@@ -426,7 +432,8 @@ export class GlobeBackdrop {
       // edge of the screen doesn't turn into a bright band.
       const rowAlpha = 0.46 * Math.pow(depth, 0.5) * (1 - Math.pow(1 - depth, 8));
       if (rowAlpha < 0.004) continue;
-      const dotR = Math.max(0.55, 1.6 * depth);
+      // Dot size tracks the globe too, for the same reason the pitch does.
+      const dotR = Math.max(0.55, sil.radius * 0.0075 * depth);
       const pitch = u * spread;
       for (let n = -halfCols; n <= halfCols; n++) {
         const x = sil.cx + n * pitch;
