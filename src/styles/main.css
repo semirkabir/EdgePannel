@@ -8137,8 +8137,24 @@ body.playback-mode #shellGuidanceStrip {
   touch-action: none;
 }
 
+/* Deep-space ground for the globe view. The stars, nebula, grid plane and limb
+   glow are painted by the .globe-backdrop canvas on top of this; the gradient is
+   just the base tone, and the fallback if the 2D context is unavailable. */
 .map-container.globe-projection {
-  background: #000 url('/textures/night-sky.png') center / cover no-repeat;
+  background:
+    radial-gradient(126% 96% at 50% 40%, #0b1526 0%, #06090f 52%, #010306 100%),
+    #000;
+}
+
+/* Sits behind the MapLibre canvas — the map's "space" region is transparent, so
+   this is what shows through around the planet. */
+.globe-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  pointer-events: none;
 }
 
 .map-wrapper {

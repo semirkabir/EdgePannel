@@ -62,6 +62,7 @@ Each tile provider offers different visual themes, selectable via **Settings →
 - **Progressive disclosure** — detail layers (bases, nuclear, datacenters) appear only when zoomed in; zoom-adaptive opacity fades markers from 0.2 at world view to 1.0 at street level
 - **Label deconfliction** — overlapping labels (e.g., multiple BREAKING badges) are automatically suppressed by priority, highest-severity first
 - **Day/night overlay** — a terminator line divides the map into sunlit and dark hemispheres based on the current UTC time
+- **Deep-space backdrop** — in globe projection on a dark theme, a 2D canvas behind the map canvas (`globe-backdrop.ts`) fills the transparent "space" region with drifting navy/teal nebula, a three-layer parallax starfield that shifts with the pointer, a perspective dot grid receding beneath the planet, and a blue-cyan Fresnel limb glow. The glow is sized from the globe's measured screen silhouette — two `project()` probes at different great-circle distances solve the perspective camera, which is ~10% tighter than the naive `worldSize / 2π` radius. It fades out as the planet fills the viewport, as the camera pitches away from straight-on, and switches off entirely on light themes and the flat map
 
 **Shared across both engines:**
 

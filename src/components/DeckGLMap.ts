@@ -116,6 +116,7 @@ import { resolveTradeRouteSegments, TRADE_ROUTES as TRADE_ROUTES_LIST, type Trad
 import { getLayersForVariant, getCategorizedLayersForVariant, getLayerCategory, getLayerZoomThreshold, resolveLayerLabel, resolveLayerAccentColor, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
 import { getSecretState } from '@/services/runtime-config';
 import { MapPopup, type PopupType } from './MapPopup';
+import { GlobeBackdrop, type GlobeFraming } from './globe-backdrop';
 import { mountThinkingOrb, type MountedOrb } from './ThinkingOrbMount';
 import {
   DEFAULT_DECK_CONTROL_SETTINGS,
@@ -389,6 +390,38 @@ const GLOBE_TILT_MIN_ZOOM = 4;
 /** Below this zoom the globe is at world view — flatten pitch so it centers like Google Earth. */
 const GLOBE_SETTLE_ZOOM = 3;
 
+/** Great-circle probe angles used to measure the globe's screen silhouette. */
+const GLOBE_PROBE_NEAR_DEG = 12;
+const GLOBE_PROBE_FAR_DEG = 78;
+/**
+ * Pitch (degrees) over which the silhouette-derived layers dissolve. Tilting
+ * walks the sphere's centre off the screen centre — by ~8% of the globe's radius
+ * at 6° and a quarter of it by 18° — so the halo would sit visibly lopsided. The
+ * fade starts before that is perceptible and completes well before it is ugly.
+ */
+const GLOBE_BACKDROP_PITCH_FADE_START = 4;
+const GLOBE_BACKDROP_PITCH_FADE_END = 14;
+/** Past this zoom the planet fills the viewport — no void left worth drawing. */
+const GLOBE_BACKDROP_MAX_ZOOM = 5;
+
+/**
+ * Point at `distDeg` of great-circle arc from (lng, lat) along `bearingDeg`.
+ * Used only to probe the globe's projection, so it assumes a perfect sphere.
+ */
+function greatCircleDestination(lng: number, lat: number, distDeg: number, bearingDeg: number): [number, number] {
+  const rad = Math.PI / 180;
+  const delta = distDeg * rad;
+  const theta = bearingDeg * rad;
+  const phi1 = lat * rad;
+  const sinPhi2 = Math.sin(phi1) * Math.cos(delta) + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta);
+  const phi2 = Math.asin(Math.min(1, Math.max(-1, sinPhi2)));
+  const lambda2 = lng * rad + Math.atan2(
+    Math.sin(theta) * Math.sin(delta) * Math.cos(phi1),
+    Math.cos(delta) - Math.sin(phi1) * sinPhi2,
+  );
+  return [lambda2 / rad, phi2 / rad];
+}
+
 // Pure geo/aircraft math helpers now live in ./deckgl-geo-math (imported above).
 
 const GLOBE_NATIVE_SOURCES = [
@@ -449,6 +482,8 @@ export class DeckGLMap implements MapEngine {
   private container: HTMLElement;
   private deckOverlay: MapboxOverlay | null = null;
   private maplibreMap: maplibregl.Map | null = null;
+  /** Parallax starfield / nebula / grid plane / limb glow drawn behind the globe. */
+  private globeBackdrop: GlobeBackdrop | null = null;
   private state: DeckMapState;
   private popup: MapPopup;
   private isResizing = false;
@@ -759,23 +794,29 @@ export class DeckGLMap implements MapEngine {
 
     this.setupDOM();
     this.popup = new MapPopup(container);
+    this.globeBackdrop = new GlobeBackdrop(container, {
+      getFraming: () => this.globeScreenFraming(),
+    });
 
     this.handleThemeChange = () => {
       if (isHappyVariant) {
         this.refreshLegend();
         this.switchBasemap();
+        this.syncGlobeBackdrop();
         return;
       }
       const { theme: mapTheme } = resolveUnifiedTheme(getUnifiedTheme());
       const paintTheme = isLightMapTheme(mapTheme) ? 'light' as const : 'dark' as const;
       this.updateCountryLayerPaint(paintTheme);
       this.refreshLegend();
+      this.syncGlobeBackdrop();
       this.render();
     };
     window.addEventListener('theme-changed', this.handleThemeChange);
 
     this.handleMapThemeChange = () => {
       this.switchBasemap();
+      this.syncGlobeBackdrop();
     };
     window.addEventListener('map-theme-changed', this.handleMapThemeChange);
 
@@ -9867,6 +9908,7 @@ export class DeckGLMap implements MapEngine {
       (map as any).touchPitch?.enable();
       this.container.classList.add('globe-projection');
       this.applyGlobeSky();
+      this.syncGlobeBackdrop();
     } else {
       // 2D is a flat, north-up plane: zero pitch, zero bearing, tilt/rotate off.
       map.setMaxPitch(0);
@@ -9875,6 +9917,7 @@ export class DeckGLMap implements MapEngine {
       (map as any).dragRotate?.disable();
       (map as any).touchPitch?.disable();
       this.container.classList.remove('globe-projection');
+      this.globeBackdrop?.setActive(false);
       try { map.setSky(undefined as never); } catch { /* style may not support sky */ }
     }
   }
@@ -9912,7 +9955,96 @@ export class DeckGLMap implements MapEngine {
         'sky-horizon-blend': 0.65,
         'atmosphere-blend': 0.35,
       });
-    } catch { /* sky unsupported on this style — keep the CSS starfield fallback */ }
+    } catch { /* sky unsupported on this style — the backdrop canvas still shows */ }
+  }
+
+  /**
+   * Show the deep-space backdrop only where it belongs: behind a globe, on a
+   * dark map theme. On a light theme the globe sits against a pale sky, and a
+   * starfield behind it would read as a mistake.
+   */
+  private syncGlobeBackdrop(): void {
+    // The happy variant pins its own basemap off the app theme rather than the
+    // unified map theme (see switchBasemap), so read the same signal it does.
+    const light = isHappyVariant
+      ? getCurrentTheme() === 'light'
+      : isLightMapTheme(resolveUnifiedTheme(getUnifiedTheme()).theme);
+    this.globeBackdrop?.setActive(this._globeProjection && !light);
+  }
+
+  /**
+   * Where the globe's silhouette lands on screen, in CSS pixels.
+   *
+   * MapLibre projects the sphere through a perspective camera, so the silhouette
+   * comes out measurably smaller than the orthographic `worldSize / 2π` radius
+   * (~10% at world zoom) — a halo drawn at that radius would visibly float off
+   * the limb. Rather than reaching into the transform's camera internals, this
+   * measures the projection that is actually in use: a surface point θ° from the
+   * centre lands at
+   *
+   *     r(θ) = f · sinθ / (d − cosθ),   where d = cameraDistance / sphereRadius
+   *
+   * so two probes at different θ pin down both f and d, and the silhouette (the
+   * tangent point, where cosθ = 1/d) follows as f / √(d²−1). Everything comes
+   * from the public `project()`, so it stays right whatever MapLibre changes
+   * behind it.
+   */
+  private globeScreenFraming(): GlobeFraming | null {
+    const map = this.maplibreMap;
+    if (!map || !this._globeProjection || this.webglLost) return null;
+    if (map.getZoom() > GLOBE_BACKDROP_MAX_ZOOM) return null;
+    // The solve assumes the sphere centre projects to the screen centre, which
+    // only holds while the camera looks straight down at it. Past a slight tilt
+    // the starfield stays but the halo and grid plane fade away.
+    const pitchSpan = GLOBE_BACKDROP_PITCH_FADE_END - GLOBE_BACKDROP_PITCH_FADE_START;
+    const opacity = 1 - Math.min(1, Math.max(0, (map.getPitch() - GLOBE_BACKDROP_PITCH_FADE_START) / pitchSpan));
+    if (opacity <= 0) return { silhouette: null };
+
+    const center = map.getCenter();
+    const screenCenter = map.project(center);
+    if (!Number.isFinite(screenCenter.x) || !Number.isFinite(screenCenter.y)) return { silhouette: null };
+
+    const rNear = this.probeGlobeArc(center.lng, center.lat, screenCenter, GLOBE_PROBE_NEAR_DEG);
+    const rFar = this.probeGlobeArc(center.lng, center.lat, screenCenter, GLOBE_PROBE_FAR_DEG);
+    if (rNear === null || rFar === null || rNear <= 0 || rFar <= 0) return { silhouette: null };
+
+    const rad = Math.PI / 180;
+    const sinNear = Math.sin(GLOBE_PROBE_NEAR_DEG * rad);
+    const cosNear = Math.cos(GLOBE_PROBE_NEAR_DEG * rad);
+    const sinFar = Math.sin(GLOBE_PROBE_FAR_DEG * rad);
+    const cosFar = Math.cos(GLOBE_PROBE_FAR_DEG * rad);
+
+    let radius = Number.NaN;
+    const q = (rNear * sinFar) / (rFar * sinNear);
+    if (q > 1.000001) {
+      const d = (q * cosNear - cosFar) / (q - 1);
+      if (d > 1.001) radius = ((rNear * (d - cosNear)) / sinNear) / Math.sqrt(d * d - 1);
+    }
+    // A near-orthographic framing makes the solve ill-conditioned (q → 1); the
+    // far probe alone is then an accurate enough stand-in.
+    if (!Number.isFinite(radius) || radius <= 0) radius = rFar / sinFar;
+
+    const span = Math.max(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
+    if (!Number.isFinite(radius) || radius <= 0 || radius > span * 40) return { silhouette: null };
+    return { silhouette: { cx: screenCenter.x, cy: screenCenter.y, radius, opacity } };
+  }
+
+  /**
+   * Mean screen distance from the projected map centre to two points `deg` of
+   * arc away, due east and due west. Averaging the pair cancels the first-order
+   * asymmetry a small residual pitch would otherwise introduce.
+   */
+  private probeGlobeArc(lng: number, lat: number, screenCenter: { x: number; y: number }, deg: number): number | null {
+    const map = this.maplibreMap;
+    if (!map) return null;
+    let sum = 0;
+    for (const bearing of [90, 270]) {
+      const [plng, plat] = greatCircleDestination(lng, lat, deg, bearing);
+      const p = map.project([plng, plat]);
+      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
+      sum += Math.hypot(p.x - screenCenter.x, p.y - screenCenter.y);
+    }
+    return sum / 2;
   }
 
   /**
@@ -10085,6 +10217,8 @@ export class DeckGLMap implements MapEngine {
       this.styleLoadTimeoutId = null;
     }
     this.container.classList.remove('globe-projection');
+    this.globeBackdrop?.destroy();
+    this.globeBackdrop = null;
     this.mapDrawController?.destroy();
     this.mapDrawController = null;
     this.stopPulseAnimation();
