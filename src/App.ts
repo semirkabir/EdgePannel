@@ -22,7 +22,7 @@ import { getAiFlowSettings, subscribeAiFlowChange, isHeadlineMemoryEnabled } fro
 import { startLearning } from '@/services/country-instability';
 import { loadFromStorage, parseMapUrlState, saveToStorage, isMobileDevice } from '@/utils';
 import type { ParsedMapUrlState } from '@/utils';
-import { BreakingNewsBanner, SignalModal, IntelligenceGapBadge, PredictionBriefPage } from '@/components';
+import { BreakingNewsBanner, SignalModal, IntelligenceGapBadge, PredictionBriefPage, StatusBar } from '@/components';
 import { IntelligenceFindingPanel } from '@/components/IntelligenceFindingPanel';
 import { initBreakingNewsAlerts, destroyBreakingNewsAlerts } from '@/services/breaking-news-alerts';
 import { initAlertRuleEngine, destroyAlertRuleEngine } from '@/services/alert-rule-engine';
@@ -396,6 +396,7 @@ export class App {
       searchModal: null,
       findingsBadge: null,
       breakingNewsBanner: null,
+      statusBar: null,
       playbackControl: null,
       exportPanel: null,
       unifiedSettings: null,
@@ -647,6 +648,14 @@ export class App {
       });
       this.state.breakingNewsBanner = new BreakingNewsBanner();
       initBreakingNewsAlerts();
+
+      // Bottom status bar — appended after renderLayout() so it survives as the
+      // shell's last flex child (renderLayout replaces the container's markup).
+      this.state.statusBar = new StatusBar(this.state.container, {
+        eventBus: this.state.eventBus,
+        getMapLayers: () => this.state.mapLayers,
+        getNews: () => this.state.allNews,
+      });
     }
 
     // Not gated on desktop like the breaking banner above — alert rules are a
@@ -743,6 +752,7 @@ export class App {
     // Clean up subscriptions, map, AIS, and breaking news
     this.unsubAiFlow?.();
     this.state.notificationCenter?.destroy();
+    this.state.statusBar?.destroy();
     this.state.breakingNewsBanner?.destroy();
     destroyBreakingNewsAlerts();
     destroyAlertRuleEngine();

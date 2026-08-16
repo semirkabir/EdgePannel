@@ -300,6 +300,15 @@ export function hasCountryGeometry(code: string): boolean {
   return countryIndex.has(code.toUpperCase());
 }
 
+/**
+ * True once the boundary set is in memory. Callers that treat a null hit from
+ * {@link getCountryAtCoordinates} as "open ocean" need this to tell that apart
+ * from "boundaries haven't loaded yet".
+ */
+export function isCountryGeometryLoaded(): boolean {
+  return countryList.length > 0;
+}
+
 export function getCountryAtCoordinates(lat: number, lon: number, candidateCodes?: string[]): CountryHit | null {
   if (!loadedGeoJson) return null;
   const candidates = Array.isArray(candidateCodes) && candidateCodes.length > 0

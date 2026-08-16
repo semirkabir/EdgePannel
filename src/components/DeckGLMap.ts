@@ -74,6 +74,7 @@ import { debounce, rafSchedule, getCurrentTheme } from '@/utils/index';
 import { showLayerWarning } from '@/utils/layer-warning';
 import { localizeMapLabels } from '@/utils/map-locale';
 import { resolveInlineCursor } from '@/utils/forced-cursor';
+import { publishMapHoverPosition, clearMapHoverPosition } from '@/services/map-hover-bus';
 import {
   INTEL_HOTSPOTS,
   CONFLICT_ZONES,
@@ -575,6 +576,7 @@ export class DeckGLMap implements MapEngine {
   // Country highlight state
   private countryGeoJsonLoaded = false;
   private countryHoverSetup = false;
+  private hoverBroadcastCleanup: (() => void) | null = null;
   private highlightedCountryCode: string | null = null;
 
   // Callbacks
@@ -780,6 +782,7 @@ export class DeckGLMap implements MapEngine {
     window.addEventListener('map-theme-changed', this.handleMapThemeChange);
 
     this.initMapLibre();
+    this.setupHoverCoordinateBroadcast();
 
     // Registered only once MapLibre exists — MapContainer falls back to the SVG
     // map if construction throws, and a follow backend left pointing at a dead
@@ -9313,6 +9316,33 @@ export class DeckGLMap implements MapEngine {
     }
   }
 
+  /**
+   * Feeds the bottom status bar's coordinate readout.
+   *
+   * Listens on the container rather than on the MapLibre instance: the basemap
+   * is thrown away and rebuilt when the primary style fails to load, and the
+   * readout must survive that. `this.maplibreMap` is resolved per event, so it
+   * always projects against the live camera.
+   */
+  private setupHoverCoordinateBroadcast(): void {
+    const onMove = (e: PointerEvent) => {
+      const map = this.maplibreMap;
+      if (!map) return;
+      const rect = map.getContainer().getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const { lat, lng } = map.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+      publishMapHoverPosition(lat, lng);
+    };
+
+    this.container.addEventListener('pointermove', onMove);
+    this.container.addEventListener('pointerleave', clearMapHoverPosition);
+    this.hoverBroadcastCleanup = () => {
+      this.container.removeEventListener('pointermove', onMove);
+      this.container.removeEventListener('pointerleave', clearMapHoverPosition);
+      clearMapHoverPosition();
+    };
+  }
+
   private setupCountryHover(): void {
     if (!this.maplibreMap || this.countryHoverSetup) return;
     this.countryHoverSetup = true;
@@ -10057,6 +10087,8 @@ export class DeckGLMap implements MapEngine {
   public destroy(): void {
     window.removeEventListener('theme-changed', this.handleThemeChange);
     window.removeEventListener('map-theme-changed', this.handleMapThemeChange);
+    this.hoverBroadcastCleanup?.();
+    this.hoverBroadcastCleanup = null;
     this.debouncedRebuildLayers.cancel();
     this.debouncedFetchBases.cancel();
     this.debouncedFetchAircraft.cancel();

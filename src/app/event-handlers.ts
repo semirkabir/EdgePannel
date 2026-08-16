@@ -1008,6 +1008,9 @@ export class EventHandlerManager implements AppModule {
       trackMapLayerToggle(layer, enabled, source);
       this.ctx.mapLayers[layer] = enabled;
       saveToStorage(STORAGE_KEYS.mapLayers, this.ctx.mapLayers);
+      // Publish through the store so bus subscribers (status bar legend) react
+      // immediately instead of waiting for their own polling tick.
+      this.ctx.uiStore.setMapLayers(this.ctx.mapLayers);
       this.syncUrlState();
 
       for (const sourceId of getLayerSources(layer)) {

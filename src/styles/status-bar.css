@@ -1,0 +1,393 @@
+/* ============================================================
+   Bottom Status Bar — dense terminal-style readout + news ticker
+   Rendered by src/components/StatusBar.ts as the last child of #app,
+   so it participates in the shell's flex column and never overlaps
+   the panels grid.
+   ============================================================ */
+
+.status-bar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  user-select: none;
+  z-index: 30;
+}
+
+/* ── Row 1: readout ─────────────────────────────────────────── */
+
+.status-bar-readout {
+  display: grid;
+  grid-template-columns: minmax(240px, auto) minmax(0, 1fr) minmax(240px, auto);
+  align-items: center;
+  gap: 12px;
+  height: 24px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.status-bar-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.status-bar-meta {
+  justify-content: flex-end;
+}
+
+.sb-key {
+  color: var(--text-muted);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  flex-shrink: 0;
+}
+
+.sb-divider {
+  width: 1px;
+  height: 10px;
+  background: var(--border-strong);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* Position readout — tabular figures + a reserved width stop the
+   surrounding chrome from twitching as the cursor moves. */
+.sb-coord {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 66px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.sb-country {
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sb-country--empty {
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+
+/* Legend — horizontally scrollable so a wide layer stack never
+   pushes the right-hand metadata off screen. */
+.sb-count {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.sb-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, transparent 0, #000 6px, #000 calc(100% - 14px), transparent 100%);
+}
+
+.sb-legend::-webkit-scrollbar {
+  display: none;
+}
+
+.sb-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.sb-legend-label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sb-legend-empty {
+  color: var(--text-muted);
+}
+
+.sb-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px var(--darken-medium) inset;
+}
+
+/* Choropleth layers get a ramp instead of a single swatch. */
+.sb-legend-item--scale {
+  gap: 6px;
+}
+
+.sb-scale {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 84px;
+}
+
+.sb-scale-ramp {
+  height: 6px;
+  border-radius: 2px;
+}
+
+.sb-scale-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+/* Right-hand metadata */
+.sb-sources {
+  color: var(--text-secondary);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+
+.sb-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.sb-fps {
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.sb-fps[data-tone='good'] { color: var(--semantic-normal); }
+.sb-fps[data-tone='fair'] { color: var(--semantic-elevated); }
+.sb-fps[data-tone='poor'] { color: var(--semantic-critical); }
+
+/* ── Row 2: ticker ──────────────────────────────────────────── */
+
+.status-bar-ticker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 10px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.status-bar-ticker.sb-ticker-hidden {
+  display: none;
+}
+
+.sb-ticker-brand {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--status-live);
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
+}
+
+.sb-ticker-viewport {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 24px), transparent 100%);
+}
+
+.sb-ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: max-content;
+  will-change: transform;
+}
+
+.sb-ticker-track--scrolling {
+  animation-name: sb-ticker-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  /* Duration is set from measured track width in StatusBar.ts. */
+  animation-duration: 60s;
+}
+
+/* Reading a headline shouldn't be a race — hovering holds the belt. */
+.sb-ticker-viewport:hover .sb-ticker-track--scrolling,
+.sb-ticker-viewport:focus-within .sb-ticker-track--scrolling {
+  animation-play-state: paused;
+}
+
+@keyframes sb-ticker-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+
+.sb-tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-right: 0;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+a.sb-tick:hover .sb-tick-title {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.sb-tick--idle {
+  color: var(--text-muted);
+}
+
+.sb-tick-time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-tick-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-muted);
+}
+
+.sb-tick-dot[data-tone='critical'] { background: var(--semantic-critical); }
+.sb-tick-dot[data-tone='high']     { background: var(--semantic-high); }
+.sb-tick-dot[data-tone='medium']   { background: var(--semantic-elevated); }
+.sb-tick-dot[data-tone='normal']   { background: var(--semantic-normal); }
+
+.sb-tick-source {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sb-tick-title {
+  color: var(--text-secondary);
+}
+
+.sb-tick-sep {
+  color: var(--text-ghost);
+  padding: 0 14px;
+}
+
+.sb-ticker-collapse {
+  flex-shrink: 0;
+  margin-left: 2px;
+  width: 18px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sb-ticker-collapse:hover {
+  color: var(--text);
+  border-color: var(--border);
+  background: var(--surface-hover);
+}
+
+/* Collapsing drops the marquee and leaves the readout row on its own. */
+.status-bar--collapsed .status-bar-readout {
+  border-bottom: 0;
+}
+
+/* ── Density / responsiveness ───────────────────────────────── */
+
+@media (max-width: 1180px) {
+  .status-bar-readout {
+    grid-template-columns: minmax(200px, auto) minmax(0, 1fr) minmax(180px, auto);
+  }
+
+  .sb-sources {
+    max-width: 130px;
+  }
+}
+
+@media (max-width: 900px) {
+  .status-bar-layers {
+    display: none;
+  }
+
+  .status-bar-readout {
+    grid-template-columns: minmax(0, 1fr) minmax(160px, auto);
+  }
+}
+
+/* The bar is a pointer-precision instrument (hover coordinates, FPS) and
+   competes for scarce vertical space on phones — hide it there. */
+@media (max-width: 768px) {
+  .status-bar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-ticker-track--scrolling {
+    animation: none;
+  }
+}
+
+/* ── Light theme ────────────────────────────────────────────── */
+
+[data-theme='light'] .status-bar {
+  background: var(--surface);
+  border-top-color: var(--border-strong);
+}
+
+[data-theme='light'] .status-bar-ticker {
+  background: var(--bg-secondary);
+}
+
+/* ── Happy variant: softer, rounded shell ───────────────────── */
+
+[data-variant='happy'] .status-bar {
+  font-family: var(--font-body);
+  letter-spacing: 0.02em;
+}
+
+[data-variant='happy'] .sb-legend-label,
+[data-variant='happy'] .sb-country,
+[data-variant='happy'] .sb-tick-source {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
