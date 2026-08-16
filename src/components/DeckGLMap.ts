@@ -9786,11 +9786,7 @@ export class DeckGLMap implements MapEngine {
     }
 
     if (enabled) {
-      // Allow pitch and rotation for a natural globe feel
-      this.maplibreMap.setMaxPitch(85);
-      (this.maplibreMap as any).dragRotate?.enable();
-      (this.maplibreMap as any).touchPitch?.enable();
-      this.container.classList.add('globe-projection');
+      this.applyGlobeCameraMode(true);
       // SimCity-style default camera angle: tilt down ~55° so extruded layers
       // (3D buildings, job-dot density) read as rising terrain, like the
       // freestiler LODES app — top-down, but at an angle. Only applies when
@@ -9801,17 +9797,7 @@ export class DeckGLMap implements MapEngine {
         this.maplibreMap.easeTo({ pitch: GLOBE_TILT_PITCH, duration: 900 });
       }
     } else {
-      this.container.classList.remove('globe-projection');
-      // ALWAYS restore the flat-plane camera when leaving 3D. The old
-      // `MAP_INTERACTION_MODE === 'flat'` guard meant the default '3d' build
-      // kept the SimCity tilt (55°) after switching back to 2D — the flat map
-      // stayed at an angle. 2D is a flat, north-up plane: zero pitch, zero
-      // bearing, tilt/rotate disabled.
-      this.maplibreMap.setMaxPitch(0);
-      this.maplibreMap.setPitch(0);
-      this.maplibreMap.setBearing(0);
-      (this.maplibreMap as any).dragRotate?.disable();
-      (this.maplibreMap as any).touchPitch?.disable();
+      this.applyGlobeCameraMode(false);
     }
 
     this.syncGlobeNativeLayers();
@@ -9873,13 +9859,40 @@ export class DeckGLMap implements MapEngine {
     this._morphRaf = requestAnimationFrame(frame);
   }
 
+  // ── Camera mode shared by the globe transition paths ────────────────────
+  // transitionGlobeMorph drives the projection directly, so it must apply the
+  // same camera-mode changes setGlobeProjection applies — otherwise the morph
+  // lands on a straight-on globe (no SimCity tilt, no drag-rotate) and a morph
+  // EXIT leaves the flat map tilted. Keeping both paths on one helper means
+  // they can't drift apart again.
+  private applyGlobeCameraMode(enabled: boolean): void {
+    const map = this.maplibreMap;
+    if (!map) return;
+    if (enabled) {
+      // Allow pitch and rotation for a natural globe feel
+      map.setMaxPitch(85);
+      (map as any).dragRotate?.enable();
+      (map as any).touchPitch?.enable();
+      this.container.classList.add('globe-projection');
+    } else {
+      // 2D is a flat, north-up plane: zero pitch, zero bearing, tilt/rotate off.
+      map.setMaxPitch(0);
+      map.setPitch(0);
+      map.setBearing(0);
+      (map as any).dragRotate?.disable();
+      (map as any).touchPitch?.disable();
+      this.container.classList.remove('globe-projection');
+    }
+  }
+
   /**
    * The visible path. Morphs flat→globe (or globe→flat) on the GPU by driving
    * the globe projection's transitionState getter. The morph engine only lives
    * on the GlobeTransform, so both directions run on the globe projection held
    * at an intermediate t; the reverse morph lands on true mercator at the end.
-   * The existing overlay + layer-handoff logic is untouched — this only decides
-   * whether the veil shows (fallback) or the morph shows (primary).
+   * The camera work (SimCity tilt on entry, flatten on exit) runs IN PARALLEL
+   * with the morph — one 900ms move, not morph-then-tilt. The overlay +
+   * layer-handoff logic is untouched; it only shows on the fallback path.
    */
   public transitionGlobeMorph(enabled: boolean): boolean {
     if (!this.maplibreMap) return this._globeProjection;
@@ -9899,6 +9912,14 @@ export class DeckGLMap implements MapEngine {
       if (!this.morphPatchProjection()) { this.finishModeTransition(); return this.transitionGlobe(true); }
       this._morphT = 0;
       this._globeProjection = true;
+      this.applyGlobeCameraMode(true);
+      // SimCity tilt: as the globe inflates, the camera dips to the ~55°
+      // top-down-at-an-angle view. Same gate as setGlobeProjection so both
+      // paths land the identical camera — only when zoomed into terrain
+      // (z >= GLOBE_TILT_MIN_ZOOM) and not already tilted by the user.
+      if (this.maplibreMap.getPitch() < 30 && this.maplibreMap.getZoom() >= GLOBE_TILT_MIN_ZOOM) {
+        this.maplibreMap.easeTo({ pitch: GLOBE_TILT_PITCH, duration: DeckGLMap.MORPH_MS });
+      }
       this.syncGlobeNativeLayers();
       this.updateLayers(true);
       this.morphAnimateTo(1, DeckGLMap.MORPH_MS, () => this.finishModeTransition());
@@ -9907,10 +9928,14 @@ export class DeckGLMap implements MapEngine {
 
     // Reverse: animate down on the globe engine, then hard-switch to mercator.
     if (!this.morphPatchProjection()) { this.finishModeTransition(); return this.transitionGlobe(false); }
+    // Ease the tilt off as the globe deflates (hard flatten happens at the end,
+    // when the true mercator projection lands).
+    this.maplibreMap.easeTo({ pitch: 0, bearing: 0, duration: DeckGLMap.MORPH_MS });
     this.morphAnimateTo(0, DeckGLMap.MORPH_MS, () => {
       this.morphUnpatch();
       try { this.maplibreMap?.setProjection({ type: 'mercator' }); } catch { /* noop */ }
       this._globeProjection = false;
+      this.applyGlobeCameraMode(false);
       this.syncGlobeNativeLayers();
       this.updateLayers(true);
       this.finishModeTransition();
