@@ -79,11 +79,11 @@ import {
   formatCustomLookbackLabel,
   getCustomLookbackConfig,
   getTimeRangeShortLabel,
-  getTimeRangeWindowMs,
   setCustomLookbackConfig,
   type CustomLookbackUnit,
   type TimeRange,
 } from '@/utils/time-range';
+import { filterByTimeWindow, timeController } from '@/services/time-controller';
 import {
   DEFAULT_MAP_CONTROL_SETTINGS,
   loadMapControlSettings,
@@ -226,6 +226,7 @@ export class MapComponent {
   private onHotspotClick?: (hotspot: Hotspot) => void;
   private onEntityClick?: (type: string, data: unknown) => void;
   private onTimeRangeChange?: (range: TimeRange) => void;
+  private timeWindowUnsubscribe: (() => void) | null = null;
   private onLayerChange?: (layer: keyof MapLayers, enabled: boolean, source: 'user' | 'programmatic') => void;
   private layerZoomOverrides: Partial<Record<keyof MapLayers, boolean>> = {};
   private onStateChange?: (state: MapState) => void;
@@ -269,6 +270,8 @@ export class MapComponent {
   constructor(container: HTMLElement, initialState: MapState) {
     this.container = container;
     this.state = { ...initialState, timeRange: normalizeTimeRange(initialState.timeRange) };
+    timeController.initRange(this.state.timeRange);
+    this.timeWindowUnsubscribe = timeController.subscribe((snapshot) => this.applyTimeWindow(snapshot.range));
     this.hotspots = [...INTEL_HOTSPOTS];
 
     this.wrapper = document.createElement('div');
@@ -361,6 +364,8 @@ export class MapComponent {
   public destroy(): void {
     window.removeEventListener('theme-changed', this.handleThemeChange);
     document.removeEventListener('visibilitychange', this.boundVisibilityHandler);
+    this.timeWindowUnsubscribe?.();
+    this.timeWindowUnsubscribe = null;
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
@@ -554,7 +559,7 @@ export class MapComponent {
         if (unitSelect) unitSelect.value = next.unit;
         syncCustomSummary();
         this.updateTimeSliderButtons();
-        if (this.state.timeRange === 'custom') this.setTimeRange('custom');
+        if (this.state.timeRange === 'custom') timeController.refresh();
         return;
       }
       if (input instanceof HTMLInputElement && input.dataset.timeRangeSetting) {
@@ -595,14 +600,20 @@ export class MapComponent {
 
   public setTimeRange(range: TimeRange): void {
     const nextRange = normalizeTimeRange(range);
-    this.state.timeRange = nextRange;
-    this.onTimeRangeChange?.(nextRange);
-    this.updateTimeSliderButtons();
-    this.render();
+    // Route through the shared controller so this fallback map, the panels and
+    // any scrubber elsewhere in the app all filter against one window.
+    if (timeController.getRange() === nextRange && timeController.getMode() === 'preset') {
+      this.applyTimeWindow(nextRange);
+      return;
+    }
+    timeController.setRange(nextRange);
   }
 
-  private getTimeRangeMs(): number {
-    return getTimeRangeWindowMs(this.state.timeRange);
+  private applyTimeWindow(range: TimeRange): void {
+    this.state.timeRange = range;
+    this.onTimeRangeChange?.(range);
+    this.updateTimeSliderButtons();
+    this.render();
   }
 
   private getThemeMode(): 'light' | 'dark' {
@@ -1632,9 +1643,7 @@ export class MapComponent {
     // Earthquakes (magnitude-based sizing) - part of NATURAL layer
     if (this.state.layers.natural) {
       log.debug('[Map] Rendering earthquakes. Total:', this.earthquakes.length, 'Layer enabled:', this.state.layers.natural);
-      const filteredQuakes = this.state.timeRange === 'all'
-        ? this.earthquakes
-        : this.earthquakes.filter((eq) => eq.occurredAt >= Date.now() - this.getTimeRangeMs());
+      const filteredQuakes = filterByTimeWindow(this.earthquakes, (eq) => eq.occurredAt);
       log.debug('[Map] After time filter:', filteredQuakes.length, 'earthquakes. TimeRange:', this.state.timeRange);
       let rendered = 0;
       filteredQuakes.forEach((eq) => {

@@ -41,6 +41,9 @@ import {
 } from '@/services/aviation';
 import type { DisplacementFlow } from '@/services/displacement';
 import type { Earthquake } from '@/services/earthquakes';
+// The container is the single funnel both map engines are fed through, so it's
+// where feed data becomes scrubber markers.
+import { publishCyberMarkers, publishEarthquakeMarkers, publishUnrestMarkers } from '@/services/time-marker-sources';
 import type { ClimateAnomaly, ClimatePhysicalSignal } from '@/services/climate';
 import type { WeatherAlert } from '@/services/weather';
 import type { PositiveGeoEvent } from '@/services/positive-events-geo';
@@ -446,6 +449,7 @@ export class MapContainer {
 
   public setEarthquakes(earthquakes: Earthquake[]): void {
     this.cachedEarthquakes = earthquakes;
+    publishEarthquakeMarkers(earthquakes);
     if (this.useDeckGL) { this.deckGLMap?.setEarthquakes(earthquakes); } else { this.svgMap?.setEarthquakes(earthquakes); }
   }
 
@@ -511,6 +515,7 @@ export class MapContainer {
 
   public setProtests(events: SocialUnrestEvent[]): void {
     this.cachedProtests = events;
+    publishUnrestMarkers(events);
     if (this.useDeckGL) {
       this.deckGLMap?.setProtests(events);
     } else {
@@ -638,6 +643,7 @@ export class MapContainer {
 
   public setCyberThreats(threats: CyberThreat[]): void {
     this.cachedCyberThreats = threats;
+    publishCyberMarkers(threats);
     if (this.useDeckGL) {
       this.deckGLMap?.setCyberThreats(threats);
     } else {

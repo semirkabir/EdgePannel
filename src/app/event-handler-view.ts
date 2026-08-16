@@ -1,4 +1,5 @@
 import { buildMapUrl } from '@/utils';
+import { timeController } from '@/services/time-controller';
 import type { MapContainer, TimeRange } from '@/components';
 import type { CountryBriefPanel } from '@/components/CountryBriefPanel';
 import type { MapLayers } from '@/types';
@@ -27,6 +28,9 @@ export function buildShareUrl(
     zoom: state.zoom,
     center,
     timeRange: state.timeRange,
+    // A pinned window is part of what the sharer is looking at, so it travels
+    // with the link; presets stay relative to whenever the link is opened.
+    absoluteRange: timeController.getSnapshot().absolute,
     layers: state.layers,
     country: isCountryVisible ? (briefPage?.getCode() ?? undefined) : undefined,
     expanded: isCountryVisible && briefPage?.getIsMaximized?.() ? true : undefined,

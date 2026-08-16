@@ -1305,7 +1305,14 @@
 [data-tv-mode] .fullscreen-btn,
 [data-tv-mode] .tv-mode-btn,
 [data-tv-mode] #regionSelect,
-[data-tv-mode] #langSelect {
+[data-tv-mode] #langSelect,
+/* TV mode is a lean-back display: the scrubber's interactive parts have no
+   operator to use them, so only the preset chips stay — the same footprint
+   the time selector had before the timeline was added. */
+[data-tv-mode] .time-scrubber .ts-track,
+[data-tv-mode] .time-scrubber .ts-transport,
+[data-tv-mode] .time-scrubber .ts-picker,
+[data-tv-mode] .time-scrubber .ts-picker-toggle {
   display: none !important;
 }
 

@@ -6,7 +6,7 @@ import {
   removeResponsiveZoneListener,
   type ResponsiveZoneListener,
 } from '@/app/responsive-zone-listener';
-import { getTimeRangeLabel as formatTimeRangeLabel, getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
+import { describeTimeWindow, filterByTimeWindow, timeController } from '@/services/time-controller';
 import type { RelatedAsset } from '@/types';
 import type { TheaterPostureSummary } from '@/services/military-surge';
 import {
@@ -74,7 +74,7 @@ import { ForecastPanel } from '@/components/ForecastPanel';
 import { ConsumerPricesPanel } from '@/components/ConsumerPricesPanel';
 import { MarketplacePanel } from '@/components/MarketplacePanel';
 import { focusInvestmentOnMap } from '@/services/investments-focus';
-import { debounce, saveToStorage, loadFromStorage } from '@/utils';
+import { debounce, throttle, saveToStorage, loadFromStorage } from '@/utils';
 import { applyStoredMapHeight, scheduleMapResize } from '@/utils/map-layout-height';
 import { escapeHtml } from '@/utils/sanitize';
 import {
@@ -127,6 +127,13 @@ export class PanelLayoutManager implements AppModule {
   private criticalBannerEl: HTMLElement | null = null;
   private aviationCommandBar: AviationCommandBar | null = null;
   private readonly applyTimeRangeFilterDebounced: (() => void) & { cancel(): void };
+  /**
+   * Playback drives a window change every animation frame; a pure debounce
+   * would never settle while it runs, so a throttle carries the live updates
+   * and the debounce catches the final frame.
+   */
+  private readonly applyTimeRangeFilterThrottled: () => void;
+  private timeWindowUnsubscribe: (() => void) | null = null;
   private newsRefreshSweepCleanup: (() => void) | null = null;
   private scheduledLoadAllRaf: number | null = null;
   private scrollBtnCleanup: (() => void) | null = null;
@@ -138,6 +145,9 @@ export class PanelLayoutManager implements AppModule {
     this.applyTimeRangeFilterDebounced = debounce(() => {
       this.applyTimeRangeFilterToNewsPanels();
     }, 120);
+    this.applyTimeRangeFilterThrottled = throttle(() => {
+      this.applyTimeRangeFilterToNewsPanels();
+    }, 300);
     // Legacy custom categories were label-only and clicking one did nothing — drop them.
     clearLegacyCategories();
   }
@@ -151,6 +161,8 @@ export class PanelLayoutManager implements AppModule {
   destroy(): void {
     clearAllPendingCalls();
     this.applyTimeRangeFilterDebounced.cancel();
+    this.timeWindowUnsubscribe?.();
+    this.timeWindowUnsubscribe = null;
     this.newsRefreshSweepCleanup?.();
     this.newsRefreshSweepCleanup = null;
     if (this.scheduledLoadAllRaf !== null) {
@@ -1195,9 +1207,19 @@ export class PanelLayoutManager implements AppModule {
     );
 
     this.ctx.map.onTimeRangeChanged((range) => {
+      // Fires on every window change, including each playback frame — only
+      // persist and broadcast when the preset itself actually moved.
+      if (this.ctx.currentTimeRange === range) return;
       this.ctx.currentTimeRange = range;
       try { localStorage.setItem(APP_TIME_RANGE_STORAGE_KEY, range); } catch { /* ignore */ }
       window.dispatchEvent(new CustomEvent(APP_TIME_RANGE_EVENT, { detail: { range } }));
+    });
+
+    // Panels follow the resolved window, so brush drags, date-range picks and
+    // playback re-filter them the same way a preset switch does.
+    this.timeWindowUnsubscribe?.();
+    this.timeWindowUnsubscribe = timeController.subscribe(() => {
+      this.applyTimeRangeFilterThrottled();
       this.applyTimeRangeFilterDebounced();
     });
 
@@ -1629,31 +1651,28 @@ export class PanelLayoutManager implements AppModule {
   }
 
   private applyTimeRangeFilterToNewsPanels(): void {
-    console.log('[WM_DEBUG] applyTimeRangeFilterToNewsPanels', Object.keys(this.ctx.newsByCategory).length, Object.keys(this.ctx.newsPanels).length);
+    // The flash marks a deliberate range switch; during playback it would just
+    // strobe every panel several times a second.
+    const flash = !timeController.isPlaying();
     Object.entries(this.ctx.newsByCategory).forEach(([category, items]) => {
       const panel = this.ctx.newsPanels[category];
-      if (!panel) { console.log('[WM_DEBUG] no panel for', category); return; }
+      if (!panel) return;
       const filtered = this.filterItemsByTimeRange(items);
       if (filtered.length === 0 && items.length > 0) {
         panel.renderFilteredEmpty(`No items in ${this.getTimeRangeLabel()}`);
       } else {
         panel.renderNews(filtered);
       }
-      flashPanelUpdate(panel.getElement());
+      if (flash) flashPanelUpdate(panel.getElement());
     });
   }
 
-  private filterItemsByTimeRange(items: import('@/types').NewsItem[], range: import('@/components').TimeRange = this.ctx.currentTimeRange): import('@/types').NewsItem[] {
-    if (range === 'all') return items;
-    const cutoff = Date.now() - resolveTimeRangeWindowMs(range);
-    return items.filter((item) => {
-      const ts = item.pubDate instanceof Date ? item.pubDate.getTime() : new Date(item.pubDate).getTime();
-      return Number.isFinite(ts) ? ts >= cutoff : true;
-    });
+  private filterItemsByTimeRange(items: import('@/types').NewsItem[]): import('@/types').NewsItem[] {
+    return filterByTimeWindow(items, (item) => item.pubDate);
   }
 
   private getTimeRangeLabel(): string {
-    return formatTimeRangeLabel(this.ctx.currentTimeRange);
+    return describeTimeWindow();
   }
 
   private scheduleLoadAllData(): void {
@@ -1682,7 +1701,7 @@ export class PanelLayoutManager implements AppModule {
   private applyInitialUrlState(): void {
     if (!this.ctx.initialUrlState || !this.ctx.map) return;
 
-    const { view, zoom, lat, lon, timeRange, layers } = this.ctx.initialUrlState;
+    const { view, zoom, lat, lon, timeRange, absoluteRange, layers } = this.ctx.initialUrlState;
 
     if (view) {
       this.ctx.map.setView(view);
@@ -1690,6 +1709,11 @@ export class PanelLayoutManager implements AppModule {
 
     if (timeRange) {
       this.ctx.map.setTimeRange(timeRange);
+    }
+
+    // Applied after the preset, which clears any stored absolute range.
+    if (absoluteRange) {
+      timeController.setAbsoluteRange(absoluteRange);
     }
 
     if (layers) {

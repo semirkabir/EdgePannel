@@ -190,6 +190,8 @@ import {
   type CustomLookbackUnit,
   type TimeRange,
 } from '@/utils/time-range';
+import { timeController, type TimeControllerSnapshot } from '@/services/time-controller';
+import { TimeScrubber } from './TimeScrubber';
 import type { MapEngine } from './map-engine';
 import {
   clampNumber,
@@ -354,6 +356,12 @@ const BUILDINGS_PAINT: Record<'light' | 'dark', NonNullable<maplibregl.FillExtru
     'fill-extrusion-vertical-gradient': true,
   },
 };
+
+/**
+ * Minimum gap between supercluster rebuilds while the time scrubber is
+ * playing back — roughly 7 rebuilds a second instead of one per frame.
+ */
+const SUPERCLUSTER_PLAYBACK_INTERVAL_MS = 150;
 
 const METERS_PER_MILE = 1609.344;
 const GLOBE_AIRCRAFT_MIN_ALTITUDE_M = 6 * METERS_PER_MILE;
@@ -577,6 +585,12 @@ export class DeckGLMap implements MapEngine {
   private countryHoverSetup = false;
   private highlightedCountryCode: string | null = null;
 
+  // Time scrubber
+  private timeScrubber: TimeScrubber | null = null;
+  private timeWindowUnsubscribe: (() => void) | null = null;
+  private lastSuperclusterRebuildAt = 0;
+  private pendingSuperclusterRebuild: ReturnType<typeof setTimeout> | null = null;
+
   // Callbacks
   private onHotspotClick?: (hotspot: Hotspot) => void;
   private onTimeRangeChange?: (range: TimeRange) => void;
@@ -656,8 +670,13 @@ export class DeckGLMap implements MapEngine {
   private dirtyLayers = new Set<string>();
   private dataVersions: Map<string, number> = new Map();
   private versionCounter = 0;
-  private lastTimeRangeFilter: { range: TimeRange; versions: Map<string, number>; filtered: Map<string, unknown> } = {
-    range: 'all',
+  /**
+   * `signature` identifies the resolved time window, not just the preset — a
+   * playback frame or a dragged brush changes the window while the preset name
+   * stays put, and the cache has to notice.
+   */
+  private lastTimeRangeFilter: { signature: string; versions: Map<string, number>; filtered: Map<string, unknown> } = {
+    signature: '',
     versions: new Map(),
     filtered: new Map(),
   };
@@ -714,6 +733,9 @@ export class DeckGLMap implements MapEngine {
   constructor(container: HTMLElement, initialState: DeckMapState) {
     this.container = container;
     this.state = { ...initialState, timeRange: normalizeTimeRange(initialState.timeRange) };
+    // Seed the preset without disturbing a persisted pinned window; nothing is
+    // subscribed yet, so there is nothing to emit to either.
+    timeController.initRange(this.state.timeRange);
     this.hotspots = [...INTEL_HOTSPOTS];
     try {
       const storedDensity = Number(localStorage.getItem('wm-aircraft-density') || '');
@@ -1193,10 +1215,6 @@ export class DeckGLMap implements MapEngine {
     return false;
   }
 
-  private getTimeRangeMs(range: TimeRange = this.state.timeRange): number {
-    return getTimeRangeWindowMs(range);
-  }
-
   private parseTime(value: Date | string | number | undefined | null): number | null {
     if (value == null) return null;
     const ts = value instanceof Date ? value.getTime() : new Date(value).getTime();
@@ -1207,12 +1225,22 @@ export class DeckGLMap implements MapEngine {
     items: T[],
     getTime: (item: T) => Date | string | number | undefined | null
   ): T[] {
-    if (this.state.timeRange === 'all') return items;
-    const cutoff = Date.now() - this.getTimeRangeMs();
+    const { start, end } = timeController.getWindow();
+    if (start === -Infinity && end === Infinity) return items;
     return items.filter((item) => {
       const ts = this.parseTime(getTime(item));
-      return ts == null ? true : ts >= cutoff;
+      return ts == null ? true : ts >= start && ts <= end;
     });
+  }
+
+  /**
+   * Rolling presets slide with the clock, so their signature is quantised to a
+   * minute — otherwise the cache would miss on every single render.
+   */
+  private getTimeWindowSignature(): string {
+    const { start, end } = timeController.getWindow();
+    const quantise = (value: number) => (Number.isFinite(value) ? Math.round(value / 60_000) : value);
+    return `${quantise(start)}:${quantise(end)}`;
   }
 
   private getFilteredData<T>(
@@ -1220,25 +1248,28 @@ export class DeckGLMap implements MapEngine {
     items: T[],
     getTime: (item: T) => Date | string | number | undefined | null
   ): T[] {
-    const currentRange = this.state.timeRange;
+    const signature = this.getTimeWindowSignature();
     const cache = this.lastTimeRangeFilter;
     const version = this.dataVersions.get(cacheKey) ?? 0;
 
-    if (cache.range === currentRange && cache.versions.get(cacheKey) === version && cache.filtered.has(cacheKey)) {
+    if (cache.signature !== signature) {
+      cache.filtered.clear();
+      cache.versions.clear();
+      cache.signature = signature;
+    } else if (cache.versions.get(cacheKey) === version && cache.filtered.has(cacheKey)) {
       return cache.filtered.get(cacheKey) as T[];
     }
 
     const filtered = this.filterByTime(items, getTime);
     cache.filtered.set(cacheKey, filtered);
     cache.versions.set(cacheKey, version);
-    cache.range = currentRange;
     return filtered;
   }
 
   private clearFilterCache(): void {
     this.lastTimeRangeFilter.filtered.clear();
     this.lastTimeRangeFilter.versions.clear();
-    this.lastTimeRangeFilter.range = this.state.timeRange;
+    this.lastTimeRangeFilter.signature = this.getTimeWindowSignature();
   }
 
   private getFilteredProtests(): SocialUnrestEvent[] {
@@ -6409,12 +6440,8 @@ export class DeckGLMap implements MapEngine {
     slider.className = 'time-slider deckgl-time-slider';
     const settings = loadDeckControlSettings();
     const sortedRanges = [...TIME_RANGE_OPTIONS].sort((a, b) => getTimeRangeWindowMs(a) - getTimeRangeWindowMs(b));
-    const timeButtons = sortedRanges.map(range =>
-      `<button class="time-btn ${this.state.timeRange === range ? 'active' : ''}" data-range="${range}">${this.getTimeRangeControlLabel(range)}</button>`
-    ).join('');
     slider.innerHTML = `
       <div class="time-options">
-        ${timeButtons}
         <button class="time-settings-btn" type="button" aria-label="Map control settings" title="Map control settings">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/>
@@ -6423,6 +6450,20 @@ export class DeckGLMap implements MapEngine {
         </button>
       </div>
     `;
+
+    // The scrubber owns the preset chips now; the settings gear rides along in
+    // its top row so the control stays one visual unit.
+    this.timeScrubber = new TimeScrubber({
+      ranges: sortedRanges,
+      formatRangeLabel: (range) => this.getTimeRangeControlLabel(range),
+    });
+    const timeOptions = slider.querySelector<HTMLElement>('.time-options')!;
+    const settingsBtn = timeOptions.querySelector<HTMLElement>('.time-settings-btn');
+    timeOptions.prepend(this.timeScrubber.getElement());
+    if (settingsBtn) this.timeScrubber.getElement().querySelector('.ts-presets')?.appendChild(settingsBtn);
+
+    this.timeWindowUnsubscribe?.();
+    this.timeWindowUnsubscribe = timeController.subscribe((snapshot) => this.handleTimeWindowChange(snapshot));
 
     this.container.appendChild(slider);
     this.createDeckControlSettingsPanel(slider, settings);
@@ -6522,13 +6563,6 @@ export class DeckGLMap implements MapEngine {
     layersRow.classList.toggle('active', layersOpen);
     slider.appendChild(layersPanel);
 
-    slider.querySelectorAll('.time-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const range = (btn as HTMLElement).dataset.range as TimeRange;
-        this.setTimeRange(range);
-      });
-    });
-
     layersToggleBtn.addEventListener('click', () => {
       const panel = slider.querySelector('.layers-panel') as HTMLElement;
       if (panel) {
@@ -6560,11 +6594,6 @@ export class DeckGLMap implements MapEngine {
   private updateTimeSliderButtons(): void {
     const slider = this.container.querySelector<HTMLElement>('.deckgl-time-slider');
     if (!slider) return;
-    slider.querySelectorAll('.time-btn').forEach((btn) => {
-      const range = (btn as HTMLElement).dataset.range as TimeRange | undefined;
-      if (range) (btn as HTMLElement).textContent = this.getTimeRangeControlLabel(range);
-      btn.classList.toggle('active', range === this.state.timeRange);
-    });
     this.updateTimeRangeSettingLabels(slider);
     this.applyDeckControlSettings(slider);
   }
@@ -6696,7 +6725,9 @@ export class DeckGLMap implements MapEngine {
         if (unitSelect) unitSelect.value = next.unit;
         syncCustomSummary();
         this.updateTimeSliderButtons();
-        if (this.state.timeRange === 'custom') this.setTimeRange('custom');
+        // The "custom" preset's length just changed underneath the controller,
+        // so the window has to be re-broadcast even though the preset name hasn't.
+        if (this.state.timeRange === 'custom') timeController.refresh();
         return;
       }
 
@@ -6742,11 +6773,12 @@ export class DeckGLMap implements MapEngine {
 
   private applyDeckControlSettings(slider = this.container.querySelector<HTMLElement>('.deckgl-time-slider'), settings = loadDeckControlSettings()): void {
     if (!slider) return;
-    const visibleTimeRanges = new Set(settings.visibleTimeRanges);
-    slider.querySelectorAll<HTMLElement>('.time-btn[data-range]').forEach(btn => {
-      const range = btn.dataset.range as TimeRange | undefined;
-      btn.hidden = !!range && !visibleTimeRanges.has(range) && range !== this.state.timeRange;
-    });
+    // The active preset stays on offer even when hidden in settings, so the
+    // user can always see (and leave) the range they're currently in.
+    const ranges = [...TIME_RANGE_OPTIONS]
+      .filter((range) => settings.visibleTimeRanges.includes(range) || range === this.state.timeRange)
+      .sort((a, b) => getTimeRangeWindowMs(a) - getTimeRangeWindowMs(b));
+    this.timeScrubber?.setVisibleRanges(ranges);
     slider.classList.toggle('deckgl-hide-layer-count', !settings.showLayerCount);
     slider.classList.toggle('deckgl-hide-layer-actions', !settings.showLayerActions);
   }
@@ -7609,13 +7641,63 @@ export class DeckGLMap implements MapEngine {
 
   public setTimeRange(range: TimeRange): void {
     const nextRange = normalizeTimeRange(range);
-    this.state.timeRange = nextRange;
+    // The controller is the single writer; it echoes back through
+    // handleTimeWindowChange, which does the actual re-filter and re-render.
+    if (timeController.getRange() === nextRange && timeController.getMode() === 'preset') {
+      this.handleTimeWindowChange(timeController.getSnapshot());
+      return;
+    }
+    timeController.setRange(nextRange);
+  }
+
+  /**
+   * Single entry point for "the effective time window moved" — whether that
+   * came from a preset chip, a dragged brush, the date picker or a playback
+   * frame.
+   */
+  private handleTimeWindowChange(snapshot: TimeControllerSnapshot): void {
+    this.state.timeRange = snapshot.range;
     this.clearFilterCache();
-    if (this.state.layers.protests) this.rebuildProtestSupercluster();
-    if (SITE_VARIANT === 'tech' && this.state.layers.techEvents) this.rebuildTechEventSupercluster();
-    this.onTimeRangeChange?.(nextRange);
+    this.rebuildTimeFilteredSuperclusters(snapshot.playing);
+    this.onTimeRangeChange?.(snapshot.range);
     this.updateTimeSliderButtons();
     this.render();
+  }
+
+  /**
+   * Supercluster indexes are built from time-filtered data, so a moving window
+   * invalidates them. Playback moves the window every animation frame, and a
+   * full KD-tree rebuild at 60fps would dominate the frame budget — so while
+   * playing the rebuilds are coalesced, with a trailing one so the last frame
+   * is never left stale.
+   */
+  private rebuildTimeFilteredSuperclusters(playing: boolean): void {
+    const rebuild = () => {
+      if (this.state.layers.protests) this.rebuildProtestSupercluster();
+      if (SITE_VARIANT === 'tech' && this.state.layers.techEvents) this.rebuildTechEventSupercluster();
+      this.lastSuperclusterRebuildAt = Date.now();
+    };
+
+    if (this.pendingSuperclusterRebuild !== null) {
+      clearTimeout(this.pendingSuperclusterRebuild);
+      this.pendingSuperclusterRebuild = null;
+    }
+
+    if (!playing) {
+      rebuild();
+      return;
+    }
+
+    const elapsed = Date.now() - this.lastSuperclusterRebuildAt;
+    if (elapsed >= SUPERCLUSTER_PLAYBACK_INTERVAL_MS) {
+      rebuild();
+      return;
+    }
+    this.pendingSuperclusterRebuild = setTimeout(() => {
+      this.pendingSuperclusterRebuild = null;
+      rebuild();
+      this.render();
+    }, SUPERCLUSTER_PLAYBACK_INTERVAL_MS - elapsed);
   }
 
   public getTimeRange(): TimeRange {
@@ -10061,6 +10143,15 @@ export class DeckGLMap implements MapEngine {
     this.debouncedFetchBases.cancel();
     this.debouncedFetchAircraft.cancel();
     this.rafUpdateLayers.cancel();
+
+    this.timeWindowUnsubscribe?.();
+    this.timeWindowUnsubscribe = null;
+    this.timeScrubber?.destroy();
+    this.timeScrubber = null;
+    if (this.pendingSuperclusterRebuild !== null) {
+      clearTimeout(this.pendingSuperclusterRebuild);
+      this.pendingSuperclusterRebuild = null;
+    }
 
     if (this.moveTimeoutId) {
       clearTimeout(this.moveTimeoutId);

@@ -32460,3 +32460,513 @@ body[data-panel-density="comfortable"] .panel-tabs {
   text-transform: uppercase;
   color: rgba(230, 234, 250, 0.92);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Time Scrubber
+   Timeline replacement for the old preset-only time selector: brush-selectable
+   axis, activity density, key-event markers and playback transport.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.time-scrubber {
+  --ts-accent: var(--green, #44ff88);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 420px;
+  max-width: 560px;
+}
+
+.time-scrubber .ts-presets {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.time-scrubber .ts-picker-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  padding: 0;
+  height: 22px;
+}
+
+.time-scrubber .ts-picker-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ── Track ───────────────────────────────────────────────────────────────── */
+
+.time-scrubber .ts-track {
+  position: relative;
+  height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  cursor: var(--wm-cursor-pointer);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+.time-scrubber .ts-track:focus-visible {
+  outline: 1px solid var(--ts-accent);
+  outline-offset: 1px;
+}
+
+.time-scrubber.ts-dragging .ts-track {
+  cursor: grabbing;
+}
+
+/* Activity histogram sits behind everything and grows from the baseline. */
+.time-scrubber .ts-density {
+  position: absolute;
+  inset: 4px 0 16px;
+  pointer-events: none;
+}
+
+.time-scrubber .ts-density-bar {
+  position: absolute;
+  bottom: 0;
+  background: color-mix(in srgb, var(--text-dim) 28%, transparent);
+  border-radius: 1px 1px 0 0;
+}
+
+.time-scrubber .ts-axis {
+  position: absolute;
+  inset: auto 0 0;
+  height: 16px;
+  pointer-events: none;
+}
+
+.time-scrubber .ts-tick {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.time-scrubber .ts-tick i {
+  width: 1px;
+  height: 4px;
+  background: color-mix(in srgb, var(--border) 80%, var(--text-dim) 20%);
+}
+
+.time-scrubber .ts-tick b {
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ── Selection brush ─────────────────────────────────────────────────────── */
+
+.time-scrubber .ts-selection {
+  position: absolute;
+  top: 0;
+  bottom: 16px;
+  background: color-mix(in srgb, var(--ts-accent) 12%, transparent);
+  border-left: 1px solid var(--ts-accent);
+  border-right: 1px solid var(--ts-accent);
+}
+
+.time-scrubber .ts-selection-body {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+}
+
+.time-scrubber.ts-dragging .ts-selection-body {
+  cursor: grabbing;
+}
+
+.time-scrubber .ts-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  cursor: ew-resize;
+  z-index: 2;
+}
+
+.time-scrubber .ts-handle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--ts-accent);
+}
+
+.time-scrubber .ts-handle-start { left: -5px; }
+.time-scrubber .ts-handle-end { right: -5px; }
+
+.time-scrubber .ts-handle:focus-visible {
+  outline: 1px solid var(--ts-accent);
+  outline-offset: 1px;
+}
+
+.time-scrubber .ts-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 16px;
+  width: 1px;
+  background: var(--text);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--ts-accent) 60%, transparent);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ── Event markers ───────────────────────────────────────────────────────── */
+
+.time-scrubber .ts-markers {
+  position: absolute;
+  inset: 0 0 16px;
+  pointer-events: none;
+}
+
+.time-scrubber .ts-marker {
+  position: absolute;
+  top: 3px;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--threat-medium);
+  color: var(--bg);
+  font-size: 7px;
+  line-height: 1;
+  cursor: var(--wm-cursor-pointer);
+  pointer-events: auto;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+  z-index: 4;
+}
+
+.time-scrubber .ts-marker:hover,
+.time-scrubber .ts-marker:focus-visible {
+  transform: translateX(-50%) scale(1.35);
+  outline: none;
+  z-index: 5;
+}
+
+/* SVG elements ignore the `hidden` property, so the attribute needs a rule. */
+.time-scrubber svg[hidden] {
+  display: none;
+}
+
+.time-scrubber .ts-marker--critical { background: var(--threat-critical); }
+.time-scrubber .ts-marker--high { background: var(--threat-high); }
+.time-scrubber .ts-marker--medium { background: var(--threat-medium); }
+.time-scrubber .ts-marker--low { background: var(--threat-low); }
+
+/* Outside the filter window: still visible as context, clearly not selected. */
+.time-scrubber .ts-marker--outside {
+  opacity: 0.35;
+  filter: saturate(0.4);
+}
+
+/* Collapsed group of overlapping events — shows its count instead of a glyph. */
+.time-scrubber .ts-marker--cluster {
+  width: 14px;
+  height: 14px;
+  font-size: 8px;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px var(--bg);
+}
+
+.time-scrubber .ts-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  z-index: 10;
+  min-width: 160px;
+  max-width: 280px;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.time-scrubber .ts-tooltip-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+}
+
+.time-scrubber .ts-tooltip-sev {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--threat-medium);
+  flex: none;
+}
+
+.time-scrubber .ts-tooltip-sev--critical { background: var(--threat-critical); }
+.time-scrubber .ts-tooltip-sev--high { background: var(--threat-high); }
+.time-scrubber .ts-tooltip-sev--low { background: var(--threat-low); }
+
+.time-scrubber .ts-tooltip-time,
+.time-scrubber .ts-tooltip-cat {
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.time-scrubber .ts-tooltip-cat {
+  margin-left: auto;
+}
+
+.time-scrubber .ts-tooltip-entry + .ts-tooltip-entry {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.time-scrubber .ts-tooltip-title {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.time-scrubber .ts-tooltip-more {
+  margin-top: 4px;
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+.time-scrubber .ts-tooltip-detail,
+.time-scrubber .ts-tooltip-source {
+  margin-top: 2px;
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+/* ── Transport ───────────────────────────────────────────────────────────── */
+
+.time-scrubber .ts-transport {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.time-scrubber .ts-transport-btn,
+.time-scrubber .ts-speed,
+.time-scrubber .ts-live {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 5px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 9px;
+  cursor: var(--wm-cursor-pointer);
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.time-scrubber .ts-transport-btn {
+  width: 22px;
+  padding: 0;
+}
+
+.time-scrubber .ts-transport-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+.time-scrubber .ts-transport-btn:hover,
+.time-scrubber .ts-speed:hover,
+.time-scrubber .ts-live:hover {
+  border-color: var(--ts-accent);
+  color: var(--ts-accent);
+}
+
+.time-scrubber .ts-transport-btn.active,
+.time-scrubber .ts-speed.active {
+  background: var(--ts-accent);
+  border-color: var(--ts-accent);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.time-scrubber .ts-speeds {
+  display: flex;
+  gap: 1px;
+  margin-left: 2px;
+}
+
+.time-scrubber .ts-live {
+  border-color: var(--threat-high);
+  color: var(--threat-high);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* `display: inline-flex` above would otherwise defeat the [hidden] attribute. */
+.time-scrubber .ts-live[hidden],
+.time-scrubber .ts-transport-btn[hidden] {
+  display: none;
+}
+
+.time-scrubber .ts-readout {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Date range picker ───────────────────────────────────────────────────── */
+
+.time-scrubber .ts-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.time-scrubber .ts-picker[hidden] {
+  display: none;
+}
+
+.time-scrubber .ts-picker-row {
+  display: flex;
+  gap: 8px;
+}
+
+.time-scrubber .ts-picker-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.time-scrubber .ts-picker-field input {
+  padding: 3px 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.time-scrubber .ts-picker-field input:focus {
+  border-color: var(--ts-accent);
+  outline: none;
+}
+
+.time-scrubber .ts-picker-quick,
+.time-scrubber .ts-picker-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.time-scrubber .ts-picker-quick button,
+.time-scrubber .ts-picker-actions button {
+  padding: 3px 7px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 9px;
+  cursor: var(--wm-cursor-pointer);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.time-scrubber .ts-picker-quick button:hover,
+.time-scrubber .ts-picker-actions button:hover {
+  border-color: var(--ts-accent);
+  color: var(--ts-accent);
+}
+
+.time-scrubber .ts-picker-apply {
+  border-color: var(--ts-accent) !important;
+  color: var(--ts-accent) !important;
+}
+
+.time-scrubber .ts-picker-error {
+  font-size: 9px;
+  color: var(--threat-critical);
+}
+
+.time-scrubber .ts-picker-error[hidden] {
+  display: none;
+}
+
+/* ── Host overrides ──────────────────────────────────────────────────────── */
+
+/* The deck.gl slider is a max-content grid; the scrubber needs a real width. */
+.deckgl-time-slider .time-options {
+  align-items: flex-start;
+}
+
+.deckgl-time-slider .time-scrubber .ts-preset {
+  padding: 4px 8px;
+  font-size: 10px;
+}
+
+.map-time-slider .time-scrubber {
+  min-width: 320px;
+  padding: 6px 10px;
+}
+
+/* Reduced motion: markers stop scaling, playback still works. */
+@media (prefers-reduced-motion: reduce) {
+  .time-scrubber .ts-marker,
+  .time-scrubber .ts-transport-btn,
+  .time-scrubber .ts-speed,
+  .time-scrubber .ts-live {
+    transition: none;
+  }
+  .time-scrubber .ts-marker:hover,
+  .time-scrubber .ts-marker:focus-visible {
+    transform: translateX(-50%);
+  }
+}
+
+/* Narrow viewports: drop the histogram detail and tighten the transport row. */
+@media (max-width: 720px) {
+  .time-scrubber {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .time-scrubber .ts-track {
+    height: 38px;
+  }
+  .time-scrubber .ts-readout {
+    display: none;
+  }
+}

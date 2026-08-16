@@ -88,3 +88,40 @@ describe('expanded param round-trip', () => {
     assert.equal(parsed.expanded, undefined);
   });
 });
+
+describe('absolute range params', () => {
+  const base = 'https://worldmonitor.app/';
+  const baseState = {
+    view: 'global' as const,
+    zoom: 2,
+    center: { lat: 0, lon: 0 },
+    timeRange: '24h' as const,
+    layers: EMPTY_LAYERS,
+  };
+  const start = Date.parse('2026-08-01T00:00:00Z');
+  const end = Date.parse('2026-08-02T00:00:00Z');
+
+  it('round-trips a pinned window', () => {
+    const url = buildMapUrl(base, { ...baseState, absoluteRange: { start, end } });
+    const parsed = parseMapUrlState(new URL(url).search, EMPTY_LAYERS);
+    assert.deepEqual(parsed.absoluteRange, { start, end });
+  });
+
+  it('omits from/to when no window is pinned', () => {
+    const params = new URL(buildMapUrl(base, baseState)).searchParams;
+    assert.equal(params.has('from'), false);
+    assert.equal(params.has('to'), false);
+  });
+
+  it('accepts ISO timestamps in a hand-edited link', () => {
+    const parsed = parseMapUrlState('?from=2026-08-01T00:00:00Z&to=2026-08-02T00:00:00Z', EMPTY_LAYERS);
+    assert.deepEqual(parsed.absoluteRange, { start, end });
+  });
+
+  it('ignores a half-specified or unusable window', () => {
+    assert.equal(parseMapUrlState(`?from=${start}`, EMPTY_LAYERS).absoluteRange, undefined);
+    assert.equal(parseMapUrlState('?from=abc&to=def', EMPTY_LAYERS).absoluteRange, undefined);
+    // Under the one-minute minimum.
+    assert.equal(parseMapUrlState(`?from=${start}&to=${start + 500}`, EMPTY_LAYERS).absoluteRange, undefined);
+  });
+});

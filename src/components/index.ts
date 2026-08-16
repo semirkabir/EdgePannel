@@ -12,6 +12,7 @@ export * from './PredictionBriefPage';
 export * from './MonitorPanel';
 export * from './SignalModal';
 export * from './PlaybackControl';
+export { TimeScrubber, type TimeScrubberOptions } from './TimeScrubber';
 export * from './StatusPanel';
 export * from './EconomicPanel';
 export * from './SearchModal';

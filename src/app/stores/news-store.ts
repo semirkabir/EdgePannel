@@ -1,4 +1,5 @@
 import type { NewsItem } from '@/types';
+import { publishNewsMarkers } from '@/services/time-marker-sources';
 import type { AppEventBus } from '../event-bus';
 
 export interface NewsStore {
@@ -24,6 +25,8 @@ export function createNewsStore(bus: AppEventBus): NewsStore {
 
     setAllNews(news: NewsItem[]) {
       allNews = news;
+      // Alert-level headlines become key-event markers on the time scrubber.
+      publishNewsMarkers(news);
       bus.emit('news:all-updated', news);
     },
 

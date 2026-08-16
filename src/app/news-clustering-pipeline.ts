@@ -1,7 +1,8 @@
 import type { AppContext } from '@/app/app-context';
 import type { NewsItem, MapLayers } from '@/types';
 import type { TimeRange } from '@/components';
-import { getTimeRangeLabel as formatTimeRangeLabel, getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
+import { getTimeRangeWindowMs as resolveTimeRangeWindowMs } from '@/utils/time-range';
+import { describeTimeWindow, filterByTimeWindow } from '@/services/time-controller';
 import type { HappyContentCategory } from '@/services/positive-classifier';
 import type { PositiveGeoEvent } from '@/services/positive-events-geo';
 import {
@@ -98,17 +99,12 @@ export class NewsClusteringPipeline {
     return resolveTimeRangeWindowMs(range);
   }
 
-  filterItemsByTimeRange(items: NewsItem[], range: TimeRange = this.ctx.uiStore.currentTimeRange): NewsItem[] {
-    if (range === 'all') return items;
-    const cutoff = Date.now() - this.getTimeRangeWindowMs(range);
-    return items.filter((item) => {
-      const ts = item.pubDate instanceof Date ? item.pubDate.getTime() : new Date(item.pubDate).getTime();
-      return Number.isFinite(ts) ? ts >= cutoff : true;
-    });
+  filterItemsByTimeRange(items: NewsItem[]): NewsItem[] {
+    return filterByTimeWindow(items, (item) => item.pubDate);
   }
 
-  getTimeRangeLabel(range: TimeRange = this.ctx.uiStore.currentTimeRange): string {
-    return formatTimeRangeLabel(range);
+  getTimeRangeLabel(): string {
+    return describeTimeWindow();
   }
 
   renderNewsForCategory(category: string, items: NewsItem[]): void {
