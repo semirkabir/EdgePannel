@@ -250,6 +250,21 @@
     "labelZoom": null,
     "wasGreyFallback": true
   },
+  "clouds": {
+    "category": "environment",
+    "color": {
+      "light": "#64748b",
+      "dark": "#e2e8f0"
+    },
+    "variants": [
+      "commodity",
+      "full"
+    ],
+    "sources": null,
+    "minZoom": null,
+    "labelZoom": null,
+    "wasGreyFallback": false
+  },
   "democracy": {
     "category": "governance",
     "color": {

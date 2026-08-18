@@ -133,6 +133,7 @@ const layers = {
   ciiChoropleth: false,
   governanceChoropleth: false,
   dayNight: false,
+  clouds: false,
   miningSites: false,
   processingPlants: false,
   commodityPorts: false,
