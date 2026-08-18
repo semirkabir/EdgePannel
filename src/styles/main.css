@@ -11566,22 +11566,22 @@ a.prediction-link:hover {
   background: rgba(255, 68, 68, 0.1);
 }
 
-.popup-header.hotspot {
+.popup-header.hotspot-popup {
   background: linear-gradient(90deg, rgba(var(--status-live-rgb), 0.15) 0%, transparent 100%);
   border-left: 3px solid var(--green);
 }
 
-.popup-header.hotspot.high {
+.popup-header.hotspot-popup.high {
   border-left-color: var(--semantic-critical);
   background: linear-gradient(90deg, rgba(255, 50, 50, 0.15) 0%, transparent 100%);
 }
 
-.popup-header.hotspot.elevated {
+.popup-header.hotspot-popup.elevated {
   border-left-color: var(--semantic-high);
   background: linear-gradient(90deg, rgba(255, 165, 0, 0.15) 0%, transparent 100%);
 }
 
-.popup-header.hotspot.low {
+.popup-header.hotspot-popup.low {
   border-left-color: var(--green);
   background: linear-gradient(90deg, rgba(var(--status-live-rgb), 0.12) 0%, transparent 100%);
 }
@@ -11627,29 +11627,29 @@ a.prediction-link:hover {
   white-space: nowrap;
 }
 
-.popup-header.hotspot .popup-title {
+.popup-header.hotspot-popup .popup-title {
   color: var(--green);
 }
 
-.popup-header.hotspot.high .popup-title {
+.popup-header.hotspot-popup.high .popup-title {
   color: var(--semantic-critical);
 }
 
-.popup-header.hotspot.elevated .popup-title {
+.popup-header.hotspot-popup.elevated .popup-title {
   color: var(--semantic-high);
 }
 
 /* Hotspot severity badge colors — override the generic muted .low */
-.popup-header.hotspot .popup-badge.high {
+.popup-header.hotspot-popup .popup-badge.high {
   background: var(--semantic-critical);
 }
 
-.popup-header.hotspot .popup-badge.elevated {
+.popup-header.hotspot-popup .popup-badge.elevated {
   background: var(--semantic-high);
   color: var(--bg);
 }
 
-.popup-header.hotspot .popup-badge.low {
+.popup-header.hotspot-popup .popup-badge.low {
   background: var(--green);
   color: var(--bg);
 }
