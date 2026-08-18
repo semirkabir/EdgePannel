@@ -668,6 +668,8 @@ export interface MapLayers {
   governanceChoropleth: boolean;
   // Overlay layers
   dayNight: boolean;
+  /** Live cloud cover from NASA GIBS (MODIS Terra). */
+  clouds: boolean;
   // Commodity variant layers
   miningSites: boolean;
   processingPlants: boolean;

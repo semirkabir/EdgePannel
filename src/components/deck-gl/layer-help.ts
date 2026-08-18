@@ -120,7 +120,7 @@ export function buildLayerHelpHtml(): string {
   // ── COMMODITY variant ─────────────────────────────────────────────────────
   // Layers: miningSites, processingPlants, commodityPorts, commodityHubs,
   //         minerals, pipelines, waterways, tradeRoutes,
-  //         natural, weather, outages, dayNight
+  //         natural, weather, outages, clouds
   const commodityHelpContent = `
       ${helpHeader}
       <div class="layer-help-content">
@@ -140,7 +140,7 @@ export function buildLayerHelpHtml(): string {
     helpItem(label('naturalEvents'), 'commodityNatural'),
     helpItem(label('weatherAlerts'), 'commodityWeather'),
     helpItem(label('internetOutages'), 'commodityOutages'),
-    helpItem(label('dayNight'), 'dayNight'),
+    helpItem(label('clouds'), 'clouds'),
   ])}
         ${controlsFooter}
       </div>
@@ -198,6 +198,7 @@ export function buildLayerHelpHtml(): string {
     helpItem(label('ciiChoropleth'), 'ciiChoropleth'),
     helpItem(label('gpsJamming'), 'gpsJamming'),
     helpItem(label('dayNight'), 'dayNight'),
+    helpItem(label('clouds'), 'clouds'),
     helpItem(label('strategicWaterways'), 'waterwaysLabels'),
   ])}
         ${controlsFooter}

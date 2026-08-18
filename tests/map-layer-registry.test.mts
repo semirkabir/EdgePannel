@@ -66,8 +66,8 @@ function readDataSourceIds(): Set<string> {
 const registryKeys = Object.keys(LAYER_REGISTRY);
 
 describe('LAYER_REGISTRY — structural invariants', () => {
-  it('has exactly 63 layers (bump this deliberately per rollout batch)', () => {
-    assert.equal(registryKeys.length, 63);
+  it('has exactly 64 layers (bump this deliberately per rollout batch)', () => {
+    assert.equal(registryKeys.length, 64);
   });
 
   it('every definition has the required fields, well-formed', () => {
@@ -161,7 +161,7 @@ describe('LAYER_REGISTRY — golden snapshot vs. pre-Phase-1 state', () => {
     readFileSync(resolve(__dirname, 'fixtures', 'layer-registry.snapshot.json'), 'utf-8'),
   );
 
-  it('fixture covers exactly the same 63 keys as the live registry', () => {
+  it('fixture covers exactly the same 64 keys as the live registry', () => {
     assert.deepEqual([...registryKeys].sort(), Object.keys(fixture).sort());
   });
 

@@ -10,6 +10,18 @@ import { GeoJsonLayer, ScatterplotLayer, PathLayer, IconLayer, TextLayer, Polygo
 import maplibregl from 'maplibre-gl';
 import { PathStyleExtension } from '@deck.gl/extensions';
 import { registerBuildingsProtocol } from '@/utils/buildings-tiles';
+import {
+  EARTH_RADIUS_M,
+  aircraftDisplayAltitudeMeters,
+  satelliteDisplayAltitudeMeters,
+} from '@/components/deck-gl/globe-altitude';
+import {
+  CLOUD_ATTRIBUTION,
+  CLOUD_TILE_MAX_ZOOM,
+  CLOUD_TILE_SIZE,
+  CLOUD_TILE_URL_TEMPLATE,
+  registerCloudsProtocol,
+} from '@/utils/cloud-tiles';
 import { registerPMTilesProtocol, FALLBACK_DARK_STYLE, FALLBACK_LIGHT_STYLE, getUnifiedTheme, setUnifiedTheme, resolveUnifiedTheme, UNIFIED_THEME_OPTIONS, THEME_LAYER_OVERRIDES, getStyleForProvider, isLightMapTheme, CUSTOM_THEME_FILTERS } from '@/config/basemap';
 import { resolvePreciseUserCoordinates } from '@/utils/user-location';
 import { showShellNotification } from '@/app/shell-notifications';
@@ -113,7 +125,7 @@ import spaceportIconUrl from '@/assets/spaceport.png';
 import satelliteIconUrl from '@/assets/sattelite.png';
 import type { GulfInvestment } from '@/types';
 import { resolveTradeRouteSegments, TRADE_ROUTES as TRADE_ROUTES_LIST, type TradeRouteSegment } from '@/config/trade-routes';
-import { getLayersForVariant, getCategorizedLayersForVariant, getLayerCategory, getLayerZoomThreshold, resolveLayerLabel, resolveLayerAccentColor, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
+import { getLayersForVariant, getCategorizedLayersForVariant, getVariantAllowedLayerKeys, getLayerCategory, getLayerZoomThreshold, resolveLayerLabel, resolveLayerAccentColor, WEATHER_CATEGORY_ICONS, WEATHER_CATEGORY_COLORS, WEATHER_CATEGORY_LABELS, type MapVariant } from '@/config/map-layer-definitions';
 import { getSecretState } from '@/services/runtime-config';
 import { MapPopup, type PopupType } from './MapPopup';
 import { mountThinkingOrb, type MountedOrb } from './ThinkingOrbMount';
@@ -196,6 +208,7 @@ import {
   stableUnitInterval,
   smoothstep,
   lngLatToMercatorUnit,
+  offsetLatLonByBearing,
 } from './deck-gl/geo-math';
 import {
   advanceMotionState,
@@ -227,6 +240,8 @@ type GlobeAltitudePoint = {
   altitudeMeters: number;
   size: number;
   color: [number, number, number, number];
+  /** Track over ground, degrees clockwise from true north. Rotating sprites only. */
+  headingDeg?: number;
 };
 type SatellitePositionRecord = import('@/types').SatelliteData & {
   position: { lat: number; lon: number; alt: number };
@@ -355,12 +370,25 @@ const BUILDINGS_PAINT: Record<'light' | 'dark', NonNullable<maplibregl.FillExtru
   },
 };
 
-const METERS_PER_MILE = 1609.344;
-const GLOBE_AIRCRAFT_MIN_ALTITUDE_M = 6 * METERS_PER_MILE;
-const GLOBE_AIRCRAFT_MAX_ALTITUDE_M = 8 * METERS_PER_MILE;
-const GLOBE_LEO_MIN_ALTITUDE_M = 160_000;
-const GLOBE_LEO_MAX_ALTITUDE_M = 2_000_000;
-const GLOBE_LEO_FALLBACK_ALTITUDE_M = 550_000;
+/**
+ * How far ahead along the track the vertex shader probes to derive a sprite's
+ * screen-space rotation. Screen "up" is not north anywhere but the centre of an
+ * untilted globe, so the heading has to be projected, not just handed over as
+ * an angle. 10 km is long enough to clear float32 precision in mercator-unit
+ * space (~4000x the epsilon near 0.5) and short enough that great-circle
+ * curvature over the leg is irrelevant.
+ */
+const GLOBE_SPRITE_HEADING_PROBE_M = 10_000;
+
+/** Per-kind sprite setup for the globe altitude layers. */
+const GLOBE_ALTITUDE_SPRITES: Record<GlobeAltitudeKind, { iconUrl: string; rotate: boolean; tint: boolean }> = {
+  // Same nose-up jet silhouette flat mode uses, rotated to track and tinted by
+  // aircraft state (military / stale / on-ground / selected) via getColor.
+  aircraft: { iconUrl: AVIATION_PLANE_ICON_ATLAS, rotate: true, tint: true },
+  // Full-colour PNG — tinting it would just muddy the artwork.
+  satellite: { iconUrl: satelliteIconUrl, rotate: false, tint: false },
+};
+
 const AIRCRAFT_ZOOM_FADE_BAND = 0.08;
 /** ~30fps for the ambient aircraft glide; 15fps read as a stutter, not motion. */
 const AIRCRAFT_MOTION_FRAME_MS = 33;
@@ -702,6 +730,7 @@ export class DeckGLMap implements MapEngine {
   private satellitePositionSampleCache: SatellitePositionSampleCache | null = null;
   /** Last visibility applied to `wm-buildings-3d` — avoids setLayoutProperty spam every rAF. */
   private lastBuildingsVisibility: 'visible' | 'none' | null = null;
+  private lastCloudsVisible = false;
   /** Last theme the `wm-buildings-3d` paint was built for — recolors only on theme flips. */
   private lastBuildingsPaintTheme: 'light' | 'dark' | null = null;
   /** Last visibility applied to `wm-jobs-dots` — same spam guard. */
@@ -728,6 +757,7 @@ export class DeckGLMap implements MapEngine {
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
       try { this.syncGlobeNativeLayers(); } catch { /* isolate: buildings/jobs/obm syncs must still run */ }
       this.syncBuildingsLayer();
+      this.syncCloudsLayer();
       this.syncJobsDotsLayer();
       this.syncObmOccupancyLayer();
       this.updateAircraftStatusControl();
@@ -751,6 +781,7 @@ export class DeckGLMap implements MapEngine {
         try { this.syncGlobeNativeLayers(); } catch { /* isolate: buildings/jobs/obm syncs must still run */ }
       }
       this.syncBuildingsLayer();
+      this.syncCloudsLayer();
       this.syncJobsDotsLayer();
       this.syncObmOccupancyLayer();
       this.updateAircraftStatusControl();
@@ -882,6 +913,7 @@ export class DeckGLMap implements MapEngine {
       ? { provider: 'openfreemap' as const, theme: 'positron' }
       : resolveUnifiedTheme(initialUnified);
     registerBuildingsProtocol();
+    registerCloudsProtocol();
     if (initialProvider === 'pmtiles' || initialProvider === 'auto') registerPMTilesProtocol();
 
     const preset = VIEW_PRESETS[this.state.view];
@@ -2175,22 +2207,27 @@ export class DeckGLMap implements MapEngine {
     addLine('wm-globe-cables-line', 'wm-globe-cables', 0.82);
     addLine('wm-globe-pipelines-line', 'wm-globe-pipelines', 0.86);
     addLine('wm-globe-trade-routes-line', 'wm-globe-trade-routes', 0.72);
+    // Aircraft and satellites both draw as textured sprites at their real
+    // altitude (see createGlobeAltitudeLayer). MapLibre circle layers can't be
+    // elevated off the terrain, so their ground circles survive only as
+    // hover/click hit targets — invisible, and sized to cover the sprite
+    // floating above the ground point.
+    const addHitTarget = (id: typeof GLOBE_NATIVE_LAYERS[number], source: typeof GLOBE_NATIVE_SOURCES[number], radius: number): void => {
+      if (map.getLayer(id)) return;
+      map.addLayer({
+        id,
+        type: 'circle',
+        source,
+        paint: { 'circle-color': 'rgba(0,0,0,0.01)', 'circle-opacity': 0.01, 'circle-radius': radius },
+      } as maplibregl.LayerSpecification);
+    };
+
     addCircle('wm-globe-cable-advisories-circle', 'wm-globe-cable-advisories');
     addCircle('wm-globe-repair-ships-circle', 'wm-globe-repair-ships');
     addCircle('wm-globe-trade-chokepoints-circle', 'wm-globe-trade-chokepoints');
     addCircle('wm-globe-flight-delays-circle', 'wm-globe-flight-delays');
-    addCircle('wm-globe-aircraft-circle', 'wm-globe-aircraft');
-    // Satellites display as textured icon sprites at orbital altitude (below). A
-    // transparent ground-level circle is kept purely as a hover/click hit target,
-    // sized generously to cover the icon that floats above its ground point.
-    if (!map.getLayer('wm-globe-satellites-circle')) {
-      map.addLayer({
-        id: 'wm-globe-satellites-circle',
-        type: 'circle',
-        source: 'wm-globe-satellites',
-        paint: { 'circle-color': 'rgba(0,0,0,0.01)', 'circle-opacity': 0.01, 'circle-radius': 24 },
-      } as maplibregl.LayerSpecification);
-    }
+    addHitTarget('wm-globe-aircraft-circle', 'wm-globe-aircraft', 14);
+    addHitTarget('wm-globe-satellites-circle', 'wm-globe-satellites', 24);
     this.ensureGlobeAltitudeLayer('wm-globe-aircraft-altitude', 'aircraft');
     this.ensureGlobeAltitudeLayer('wm-globe-satellites-altitude', 'satellite');
   }
@@ -2290,6 +2327,68 @@ export class DeckGLMap implements MapEngine {
       map.setLayoutProperty('wm-buildings-3d', 'visibility', next);
       this.lastBuildingsVisibility = next;
     }
+  }
+
+  /**
+   * Live cloud cover, as a raster overlay so the globe projection handles it
+   * natively (the tiles are composited from two NASA GIBS products — see
+   * src/utils/cloud-tiles.ts). Sits directly under the first symbol layer so
+   * place labels stay readable through the cloud deck, and under every data
+   * layer so clouds never hide aircraft or markers.
+   */
+  private syncCloudsLayer(): void {
+    const map = this.maplibreMap;
+    if (!map || !map.isStyleLoaded()) return;
+
+    // Variant guard, not just a state check. The Cmd+K "enable all layers"
+    // action flips every key in MapLayers without consulting the variant
+    // allow-list, which would otherwise start NASA tile traffic and main-thread
+    // tile compositing on a variant whose picker has no toggle to stop it again.
+    const allowedInVariant = getVariantAllowedLayerKeys((SITE_VARIANT || 'full') as MapVariant).has('clouds');
+    const visible = allowedInVariant && !!this.state.layers.clouds && this.isLayerVisible('clouds');
+    if (!visible) {
+      // Tear the source down rather than just hiding it: a hidden raster source
+      // keeps its tiles resident, and these are composited on the main thread.
+      if (map.getLayer('wm-clouds')) map.removeLayer('wm-clouds');
+      if (map.getSource('wm-clouds')) map.removeSource('wm-clouds');
+      this.lastCloudsVisible = false;
+      return;
+    }
+    if (this.lastCloudsVisible && map.getLayer('wm-clouds')) return;
+
+    if (!map.getSource('wm-clouds')) {
+      map.addSource('wm-clouds', {
+        type: 'raster',
+        tiles: [CLOUD_TILE_URL_TEMPLATE],
+        tileSize: CLOUD_TILE_SIZE,
+        // The retrieval has no tiles above this; MapLibre overzooms instead.
+        maxzoom: CLOUD_TILE_MAX_ZOOM,
+        attribution: CLOUD_ATTRIBUTION,
+      });
+    }
+    if (!map.getLayer('wm-clouds')) {
+      const firstSymbolId = map.getStyle()?.layers?.find(l => l.type === 'symbol')?.id;
+      map.addLayer({
+        id: 'wm-clouds',
+        type: 'raster',
+        source: 'wm-clouds',
+        paint: {
+          'raster-opacity': 0.82,
+          // Smooths the retrieval's coarse footprint once overzoomed past z6.
+          'raster-resampling': 'linear',
+          'raster-fade-duration': 300,
+        },
+      } as maplibregl.LayerSpecification, firstSymbolId);
+    }
+    this.lastCloudsVisible = true;
+  }
+
+  private removeCloudsLayer(): void {
+    const map = this.maplibreMap;
+    if (!map) return;
+    if (map.getLayer('wm-clouds')) map.removeLayer('wm-clouds');
+    if (map.getSource('wm-clouds')) map.removeSource('wm-clouds');
+    this.lastCloudsVisible = false;
   }
 
   private removeBuildingsLayer(): void {
@@ -2475,17 +2574,15 @@ export class DeckGLMap implements MapEngine {
   }
 
   private getGlobeAircraftAltitudeMeters(position: PositionSample): number {
-    const sourceMeters = (position.altitudeFt ?? 0) * 0.3048;
-    if (Number.isFinite(sourceMeters) && sourceMeters > 0) {
-      return clampNumber(sourceMeters, GLOBE_AIRCRAFT_MIN_ALTITUDE_M, GLOBE_AIRCRAFT_MAX_ALTITUDE_M);
-    }
-    const offset = stableUnitInterval(position.icao24 || position.callsign || 'aircraft');
-    return GLOBE_AIRCRAFT_MIN_ALTITUDE_M + offset * (GLOBE_AIRCRAFT_MAX_ALTITUDE_M - GLOBE_AIRCRAFT_MIN_ALTITUDE_M);
+    return aircraftDisplayAltitudeMeters(position.altitudeFt, position.onGround);
   }
 
+  /**
+   * Shared by the globe render path and the hover hit-test, so the icon and its
+   * pick target always agree on where a satellite is.
+   */
   private getGlobeSatelliteAltitudeMeters(altitudeKm: number): number {
-    const altitudeMeters = Number.isFinite(altitudeKm) ? altitudeKm * 1000 : GLOBE_LEO_FALLBACK_ALTITUDE_M;
-    return clampNumber(altitudeMeters, GLOBE_LEO_MIN_ALTITUDE_M, GLOBE_LEO_MAX_ALTITUDE_M);
+    return satelliteDisplayAltitudeMeters(altitudeKm);
   }
 
   private getSatelliteCatalogSignature(): string {
@@ -2572,13 +2669,21 @@ export class DeckGLMap implements MapEngine {
   private getGlobeAircraftAltitudePoints(): GlobeAltitudePoint[] {
     if (!this.state.layers.flights) return [];
     return this.getGlobeAircraftPositions()
-      .map((position) => ({
-        lon: position.lon,
-        lat: position.lat,
-        altitudeMeters: this.getGlobeAircraftAltitudeMeters(position),
-        size: position.onGround ? 8 : 10,
-        color: position.onGround ? [156, 163, 175, 0.84] : [96, 165, 250, 0.94],
-      } satisfies GlobeAltitudePoint))
+      .map((position) => {
+        // Same smoothed/extrapolated position the ground hit-target and flat
+        // mode draw from — reading the raw sample here left the icon lagging
+        // its own pick target by a frame of glide.
+        const visual = this.getAircraftRenderPosition(position);
+        const [r, g, b, a] = this.getAircraftColor(position, position.onGround ? 214 : 240);
+        return {
+          lon: visual.lon,
+          lat: visual.lat,
+          altitudeMeters: this.getGlobeAircraftAltitudeMeters(visual),
+          size: position.icao24 === this.followedAircraftIcao ? 34 : position.onGround ? 15 : 22,
+          color: [r, g, b, a / 255],
+          headingDeg: visual.trackDeg,
+        } satisfies GlobeAltitudePoint;
+      })
       .filter((point) => Number.isFinite(point.lon) && Number.isFinite(point.lat));
   }
 
@@ -2597,11 +2702,12 @@ export class DeckGLMap implements MapEngine {
 
   private createGlobeAltitudeLayer(id: 'wm-globe-aircraft-altitude' | 'wm-globe-satellites-altitude', kind: GlobeAltitudeKind): maplibregl.CustomLayerInterface {
     const owner = this;
-    const useIcon = kind === 'satellite';
+    const sprite = GLOBE_ALTITUDE_SPRITES[kind];
     let buffer: WebGLBuffer | null = null;
     let program: WebGLProgram | null = null;
     let shaderVariant = '';
     let aMercator = -1;
+    let aMercatorAhead = -1;
     let aAltitude = -1;
     let aSize = -1;
     let aColor = -1;
@@ -2612,6 +2718,7 @@ export class DeckGLMap implements MapEngine {
     let uFallbackMatrix: WebGLUniformLocation | null = null;
     let uTexture: WebGLUniformLocation | null = null;
     let uUseTexture: WebGLUniformLocation | null = null;
+    let uViewport: WebGLUniformLocation | null = null;
     let iconTexture: WebGLTexture | null = null;
     let iconReady = false;
 
@@ -2637,48 +2744,84 @@ export class DeckGLMap implements MapEngine {
     const ensureProgram = (gl: WebGLRenderingContext | WebGL2RenderingContext, options: maplibregl.CustomRenderMethodInput): WebGLProgram | null => {
       if (program && shaderVariant === options.shaderData.variantName) return program;
       disposeProgram(gl);
+      // Rotation is derived in clip space, not handed over as a compass angle:
+      // on a globe, screen-up only equals north at the centre of an untilted
+      // view, so a plane over the Pacific rim needs a different screen rotation
+      // than one on the meridian for the same track. Projecting a second point
+      // GLOBE_SPRITE_HEADING_PROBE_M along the track and taking the screen-space
+      // delta gets curvature, bearing and pitch right for free.
       const vertexSource = `
         precision highp float;
         ${options.shaderData.vertexShaderPrelude}
         ${options.shaderData.define}
         attribute vec2 a_mercator;
+        attribute vec2 a_mercator_ahead;
         attribute float a_altitude;
         attribute float a_size;
         attribute vec4 a_color;
+        uniform vec2 u_viewport;
         varying vec4 v_color;
+        varying float v_angle;
         void main() {
-          gl_Position = projectTileFor3D(a_mercator, a_altitude);
+          vec4 projected = projectTileFor3D(a_mercator, a_altitude);
+          gl_Position = projected;
           gl_PointSize = a_size;
           v_color = a_color;
+        ${sprite.rotate ? `
+          vec4 ahead = projectTileFor3D(a_mercator_ahead, a_altitude);
+          vec2 here = projected.xy / projected.w;
+          vec2 next = ahead.xy / ahead.w;
+          // NDC delta scaled by the viewport is proportional to the pixel delta;
+          // the shared 0.5 factor and the y flip both drop out of the angle.
+          vec2 travel = (next - here) * u_viewport;
+          // atan(0, 0) is undefined in GLSL — degenerate probes point nose-up.
+          v_angle = dot(travel, travel) > 1e-12 ? atan(travel.x, travel.y) : 0.0;
+        ` : `
+          v_angle = 0.0;
+        `}
         }
       `;
-      const fragmentSource = useIcon ? `
+      // gl_PointCoord is y-down with its origin at the sprite's top-left, so it
+      // already matches screen orientation; v_angle is measured clockwise from
+      // screen-up, and the texture is sampled through the INVERSE rotation.
+      const sampleUv = sprite.rotate ? `
+            vec2 offset = gl_PointCoord - vec2(0.5);
+            float ca = cos(v_angle);
+            float sa = sin(v_angle);
+            vec2 rotated = vec2(offset.x * ca + offset.y * sa, -offset.x * sa + offset.y * ca) + vec2(0.5);
+            // The rotated square reaches outside the sprite at the corners;
+            // CLAMP_TO_EDGE would smear those samples along the border.
+            if (rotated.x < 0.0 || rotated.x > 1.0 || rotated.y < 0.0 || rotated.y > 1.0) discard;
+            vec2 uv = vec2(rotated.x, 1.0 - rotated.y);
+      ` : `
+            vec2 uv = vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y);
+      `;
+      // Masked artwork takes the fill from v_color and only its shape from the
+      // texture, so aircraft keep the exact state colours flat mode uses.
+      const texelColor = sprite.tint
+        ? 'gl_FragColor = vec4(v_color.rgb, tex.a * v_color.a);'
+        : 'gl_FragColor = vec4(tex.rgb, tex.a * v_color.a);';
+      const fragmentSource = `
         precision mediump float;
         varying vec4 v_color;
+        varying float v_angle;
         uniform sampler2D u_texture;
         uniform float u_use_texture;
         void main() {
           if (u_use_texture > 0.5) {
-            vec4 tex = texture2D(u_texture, vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y));
+        ${sampleUv}
+            vec4 tex = texture2D(u_texture, uv);
             if (tex.a < 0.04) discard;
-            gl_FragColor = vec4(tex.rgb, tex.a * v_color.a);
+            ${texelColor}
           } else {
+            // Until the artwork decodes, fall back to the old glow dot rather
+            // than dropping the layer.
             vec2 delta = gl_PointCoord - vec2(0.5);
             float dist = dot(delta, delta);
             if (dist > 0.25) discard;
             float glow = smoothstep(0.25, 0.02, dist);
             gl_FragColor = vec4(v_color.rgb, v_color.a * glow);
           }
-        }
-      ` : `
-        precision mediump float;
-        varying vec4 v_color;
-        void main() {
-          vec2 delta = gl_PointCoord - vec2(0.5);
-          float dist = dot(delta, delta);
-          if (dist > 0.25) discard;
-          float glow = smoothstep(0.25, 0.02, dist);
-          gl_FragColor = vec4(v_color.rgb, v_color.a * glow);
         }
       `;
       const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
@@ -2700,6 +2843,7 @@ export class DeckGLMap implements MapEngine {
       program = nextProgram;
       shaderVariant = options.shaderData.variantName;
       aMercator = gl.getAttribLocation(program, 'a_mercator');
+      aMercatorAhead = gl.getAttribLocation(program, 'a_mercator_ahead');
       aAltitude = gl.getAttribLocation(program, 'a_altitude');
       aSize = gl.getAttribLocation(program, 'a_size');
       aColor = gl.getAttribLocation(program, 'a_color');
@@ -2708,10 +2852,9 @@ export class DeckGLMap implements MapEngine {
       uClippingPlane = gl.getUniformLocation(program, 'u_projection_clipping_plane');
       uProjectionTransition = gl.getUniformLocation(program, 'u_projection_transition');
       uFallbackMatrix = gl.getUniformLocation(program, 'u_projection_fallback_matrix');
-      if (useIcon) {
-        uTexture = gl.getUniformLocation(program, 'u_texture');
-        uUseTexture = gl.getUniformLocation(program, 'u_use_texture');
-      }
+      uTexture = gl.getUniformLocation(program, 'u_texture');
+      uUseTexture = gl.getUniformLocation(program, 'u_use_texture');
+      uViewport = gl.getUniformLocation(program, 'u_viewport');
       return program;
     };
 
@@ -2721,22 +2864,26 @@ export class DeckGLMap implements MapEngine {
       renderingMode: '3d',
       onAdd(_map, gl) {
         buffer = gl.createBuffer();
-        if (useIcon) {
-          iconTexture = gl.createTexture();
-          const img = new Image();
-          img.onload = () => {
-            if (!iconTexture) return;
-            gl.bindTexture(gl.TEXTURE_2D, iconTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            iconReady = true;
-            owner.maplibreMap?.triggerRepaint();
-          };
-          img.src = satelliteIconUrl;
-        }
+        iconTexture = gl.createTexture();
+        const img = new Image();
+        img.onload = () => {
+          if (!iconTexture) return;
+          gl.bindTexture(gl.TEXTURE_2D, iconTexture);
+          // Pin the row order instead of inheriting whatever MapLibre's last
+          // upload left set — the shaders sample with an explicit `1.0 - y`, so
+          // an ambient FLIP_Y would silently render every sprite upside down.
+          const previousFlipY = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL) as boolean;
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, previousFlipY);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          iconReady = true;
+          owner.maplibreMap?.triggerRepaint();
+        };
+        img.src = sprite.iconUrl;
       },
       onRemove(_map, gl) {
         if (buffer) gl.deleteBuffer(buffer);
@@ -2753,23 +2900,32 @@ export class DeckGLMap implements MapEngine {
         const points = kind === 'aircraft' ? owner.getGlobeAircraftAltitudePoints() : owner.getGlobeSatelliteAltitudePoints();
         if (points.length === 0) return;
 
-        const vertexData = new Float32Array(points.length * 8);
+        const FLOATS_PER_POINT = 10;
+        const vertexData = new Float32Array(points.length * FLOATS_PER_POINT);
         for (let i = 0; i < points.length; i++) {
           const point = points[i]!;
           const [x, y] = lngLatToMercatorUnit(point.lon, point.lat);
+          let aheadX = x;
+          let aheadY = y;
+          if (sprite.rotate && Number.isFinite(point.headingDeg)) {
+            const ahead = offsetLatLonByBearing(point.lat, point.lon, point.headingDeg as number, GLOBE_SPRITE_HEADING_PROBE_M);
+            [aheadX, aheadY] = lngLatToMercatorUnit(ahead.lon, ahead.lat);
+          }
           const [r, g, b, a] = point.color;
           const rn = r > 1 ? r / 255 : r;
           const gn = g > 1 ? g / 255 : g;
           const bn = b > 1 ? b / 255 : b;
-          const offset = i * 8;
+          const offset = i * FLOATS_PER_POINT;
           vertexData[offset] = x;
           vertexData[offset + 1] = y;
-          vertexData[offset + 2] = point.altitudeMeters;
-          vertexData[offset + 3] = point.size;
-          vertexData[offset + 4] = rn * a;
-          vertexData[offset + 5] = gn * a;
-          vertexData[offset + 6] = bn * a;
-          vertexData[offset + 7] = a;
+          vertexData[offset + 2] = aheadX;
+          vertexData[offset + 3] = aheadY;
+          vertexData[offset + 4] = point.altitudeMeters;
+          vertexData[offset + 5] = point.size;
+          vertexData[offset + 6] = rn * a;
+          vertexData[offset + 7] = gn * a;
+          vertexData[offset + 8] = bn * a;
+          vertexData[offset + 9] = a;
         }
 
         gl.useProgram(activeProgram);
@@ -2778,30 +2934,36 @@ export class DeckGLMap implements MapEngine {
         gl.uniform4fv(uClippingPlane, options.defaultProjectionData.clippingPlane);
         gl.uniform1f(uProjectionTransition, options.defaultProjectionData.projectionTransition);
         gl.uniformMatrix4fv(uFallbackMatrix, false, options.defaultProjectionData.fallbackMatrix);
-        if (useIcon) {
-          gl.enable(gl.BLEND);
-          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, iconTexture);
-          gl.uniform1i(uTexture, 0);
-          gl.uniform1f(uUseTexture, iconReady ? 1.0 : 0.0);
-        }
+        gl.uniform2f(uViewport, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, iconTexture);
+        gl.uniform1i(uTexture, 0);
+        gl.uniform1f(uUseTexture, iconReady ? 1.0 : 0.0);
 
-        const stride = 8 * Float32Array.BYTES_PER_ELEMENT;
+        const stride = FLOATS_PER_POINT * Float32Array.BYTES_PER_ELEMENT;
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
         gl.enableVertexAttribArray(aMercator);
         gl.vertexAttribPointer(aMercator, 2, gl.FLOAT, false, stride, 0);
+        // Unused by the non-rotating variant, whose compiler drops the
+        // attribute and hands back -1.
+        if (aMercatorAhead >= 0) {
+          gl.enableVertexAttribArray(aMercatorAhead);
+          gl.vertexAttribPointer(aMercatorAhead, 2, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
+        }
         gl.enableVertexAttribArray(aAltitude);
-        gl.vertexAttribPointer(aAltitude, 1, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
+        gl.vertexAttribPointer(aAltitude, 1, gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
         gl.enableVertexAttribArray(aSize);
-        gl.vertexAttribPointer(aSize, 1, gl.FLOAT, false, stride, 3 * Float32Array.BYTES_PER_ELEMENT);
+        gl.vertexAttribPointer(aSize, 1, gl.FLOAT, false, stride, 5 * Float32Array.BYTES_PER_ELEMENT);
         gl.enableVertexAttribArray(aColor);
-        gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, stride, 4 * Float32Array.BYTES_PER_ELEMENT);
+        gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
         gl.depthMask(false);
         gl.drawArrays(gl.POINTS, 0, points.length);
         gl.depthMask(true);
         gl.disableVertexAttribArray(aMercator);
+        if (aMercatorAhead >= 0) gl.disableVertexAttribArray(aMercatorAhead);
         gl.disableVertexAttribArray(aAltitude);
         gl.disableVertexAttribArray(aSize);
         gl.disableVertexAttribArray(aColor);
@@ -7530,6 +7692,7 @@ export class DeckGLMap implements MapEngine {
     } catch { /* map may be mid-teardown (null.getProjection) */ }
     this.syncGlobeNativeLayers();
     this.syncBuildingsLayer();
+    this.syncCloudsLayer();
     this.syncJobsDotsLayer();
     this.syncObmOccupancyLayer();
     this.updateAircraftStatusControl(true);
@@ -9344,8 +9507,10 @@ export class DeckGLMap implements MapEngine {
       const cy = cr.height / 2;
       const dx = p0.x - cx;
       const dy = p0.y - cy;
-      const altKm = pos.alt ?? 500;
-      const s = 1 + altKm / 6371;
+      // Must track the DISPLAY altitude, not the raw SGP4 one — above the LEO
+      // knee those diverge, and hit-testing GEO birds against their true 5.6 R
+      // radius put the pick target nowhere near the drawn icon.
+      const s = 1 + this.getGlobeSatelliteAltitudeMeters(pos.alt) / EARTH_RADIUS_M;
       return { x: cx + dx * s, y: cy + dy * s };
     };
 
@@ -9618,6 +9783,7 @@ export class DeckGLMap implements MapEngine {
     const trySync = (attempt: number): void => {
       if (this.maplibreMap?.isStyleLoaded()) {
         this.syncBuildingsLayer();
+        this.syncCloudsLayer();
         this.syncJobsDotsLayer();
         this.syncObmOccupancyLayer();
         return;
@@ -10094,6 +10260,7 @@ export class DeckGLMap implements MapEngine {
     this.manageSatelliteAnimation(false);
     this.removeGlobeNativeLayers();
     this.removeBuildingsLayer();
+    this.removeCloudsLayer();
     if (this.aircraftFetchTimer) {
       clearInterval(this.aircraftFetchTimer);
       this.aircraftFetchTimer = null;
