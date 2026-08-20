@@ -81,10 +81,45 @@ interface MergedFeature {
   properties: Record<string, unknown>;
 }
 
+/**
+ * A building whose footprint straddled a z14 child tile boundary was clipped
+ * into separate fragments by the tile server, one per child. In flat 2D fill
+ * that's invisible — the fragments' cut edges land exactly on top of each
+ * other and read as one continuous shape from directly above. But this merge
+ * scales+offsets each child's raw rings into the parent without re-stitching
+ * them, so `fill-extrusion` walls EVERY ring edge, including the artificial
+ * cut — a fragment gets phantom vertical walls sliced straight through what
+ * should be the building's interior. That's invisible in 2D (forced top-down,
+ * pitch 0) but reads as glitched/broken buildings the moment 3D mode tilts
+ * the camera and the interior seams become visible.
+ *
+ * The four children meet at the parent's exact center (x=2048, y=2048 in the
+ * merged 4096-extent space, regardless of the child's own declared extent —
+ * see the `scale` derivation below), so any ring vertex landing on that cross
+ * came from a child-tile clip, not the building's real perimeter. `hide_3d`
+ * is the existing (previously unwired) escape hatch the fill-extrusion
+ * layer's filter already checks — flagging these fragments drops them back
+ * to flat basemap footprints instead of extruding a broken volume.
+ */
+const SEAM_EPS = 8;
+const PARENT_SEAM = 2048;
+function touchesInternalSeam(rings: { x: number; y: number }[][]): boolean {
+  for (const ring of rings) {
+    for (const p of ring) {
+      if (Math.abs(p.x - PARENT_SEAM) <= SEAM_EPS || Math.abs(p.y - PARENT_SEAM) <= SEAM_EPS) return true;
+    }
+  }
+  return false;
+}
+
 /** Minimal vector-tile-js-compatible layer over translated rings (vt-pbf accepts it directly). */
 class MergedLayer {
   name: string;
   extent = 4096;
+  // vt-pbf defaults a missing `version` to 1 (spec v1), which made MapLibre log
+  // "does not use vector tile spec v2 and therefore may have some rendering
+  // errors" for every merged z13 tile — the source data (openfreemap) is v2.
+  version = 2;
   length: number;
   private items: MergedFeature[];
 
@@ -136,11 +171,15 @@ function mergeChildren(children: (Uint8Array | null)[]): Uint8Array {
         const rings = f.loadGeometry().map((ring) =>
           ring.map((p) => ({ x: p.x * scale + ox, y: p.y * scale + oy })),
         );
+        const properties = f.properties ?? {};
         bucket.push({
           id: typeof f.id === 'number' ? f.id : undefined,
           type: f.type,
           rings,
-          properties: f.properties ?? {},
+          // Polygon features only (type 3) — the seam check is meaningless for
+          // points/lines and this source only ever carries `building` polygons,
+          // but stay defensive in case another layer rides along someday.
+          properties: f.type === 3 && touchesInternalSeam(rings) ? { ...properties, hide_3d: true } : properties,
         });
       }
     }
