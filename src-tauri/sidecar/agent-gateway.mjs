@@ -1,13 +1,16 @@
 import {
   AGENT_CONNECTORS_ENV_KEY,
+  CLIENT_EXECUTED_TOOLS,
   DEFAULT_AGENT_SCOPES,
   OPTIONAL_AGENT_SCOPES,
   WORLD_MONITOR_TOOLS,
   executeWorldMonitorTool,
   getScopedWorldMonitorTools,
+  isClientExecutedTool,
   normalizeScopes,
   toMcpTool,
   toOpenAiTool,
+  validateClientToolArguments,
 } from './agent-tool-registry.mjs';
 
 const CHAT_TIMEOUT_MS = 120_000;
@@ -211,6 +214,20 @@ function parseToolArguments(raw) {
 async function executeOpenAiToolCall(toolCall, options) {
   const functionName = toolCall.function?.name || toolCall.name;
   const args = parseToolArguments(toolCall.function?.arguments);
+
+  // Client-executed map tools: validate here, but do NOT execute. The result
+  // tells the LLM the command was accepted; the actual camera/layer change
+  // happens in the browser when AgentChatPanel forwards this toolEvent to
+  // applyAgentMapActions() (src/services/map-agent-bridge.ts).
+  if (isClientExecutedTool(functionName)) {
+    const validation = validateClientToolArguments(functionName, args);
+    if (!validation.ok) {
+      throw new Error(validation.error);
+    }
+    const result = { accepted: true, appliedByFrontend: true, action: validation.args };
+    return { name: functionName, args: validation.args, result, clientAction: validation.args };
+  }
+
   const worldTool = WORLD_MONITOR_TOOLS.find(tool => tool.name === functionName);
   if (worldTool) {
     if (!worldTool.scopes.some(scope => options.scopes.includes(scope))) {
@@ -279,6 +296,12 @@ async function handleChat(body, context) {
   const scopes = connector.scopes;
   const connectors = readAgentConnectors();
   const worldTools = getScopedWorldMonitorTools(scopes).map(toOpenAiTool);
+  // Client-executed map tools ride along in the tool list; the gateway
+  // intercepts their calls below and forwards them to the browser via
+  // toolEvents instead of executing anything server-side.
+  const clientMapTools = CLIENT_EXECUTED_TOOLS
+    .filter(tool => tool.scopes.some(scope => scopes.includes(scope)))
+    .map(toOpenAiTool);
   const externalTools = await listExternalMcpTools(connectors, connector);
   const externalOpenAiTools = externalTools.map(tool => ({
     type: 'function',
@@ -288,13 +311,13 @@ async function handleChat(body, context) {
       parameters: tool.parameters,
     },
   }));
-  const tools = [...worldTools, ...externalOpenAiTools];
+  const tools = [...worldTools, ...clientMapTools, ...externalOpenAiTools];
   const toolEvents = [];
   const alertDrafts = [];
   const conversation = [
     {
       role: 'system',
-      content: 'You are connected to World Monitor live data. Use tools when live or up-to-date intelligence is needed. Alert tools only create drafts that require user approval.',
+      content: 'You are connected to World Monitor live data and the analyst\'s map/globe. Use tools when live or up-to-date intelligence is needed. Use set_map_view, zoom_to_region, or toggle_map_layers to point the analyst\'s dashboard at what you are discussing. Alert tools only create drafts that require user approval.',
     },
     ...messages,
   ];

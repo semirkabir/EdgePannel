@@ -26,7 +26,8 @@ export interface AgentGatewayStatus {
 
 export interface AgentChatResponse {
   content: string;
-  toolEvents?: Array<{ name: string; args?: Record<string, unknown>; result?: unknown; error?: string }>;
+  /** Map-control tools (set_map_view etc.) carry a validated `clientAction` payload. */
+  toolEvents?: Array<{ name: string; args?: Record<string, unknown>; result?: unknown; error?: string; clientAction?: Record<string, unknown> }>;
   alertDrafts?: AgentAlertDraft[];
   error?: string;
 }

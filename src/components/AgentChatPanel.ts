@@ -4,6 +4,10 @@ import {
   sendAgentChat,
   type AgentGatewayStatus,
 } from '@/services/agent-gateway';
+import {
+  applyAgentMapToolEvents,
+  type AgentMapAccessors,
+} from '@/services/map-agent-bridge';
 import { escapeHtml } from '@/utils/sanitize';
 
 interface ChatMessage {
@@ -23,6 +27,13 @@ export class AgentChatPanel {
   private messages: ChatMessage[] = [];
   private status: AgentGatewayStatus | null = null;
   private isSending = false;
+
+  /** Injected by event-handlers; lets agent map tools drive the live map. */
+  private mapAccessors: AgentMapAccessors | null = null;
+
+  public setMapAccessors(accessors: AgentMapAccessors): void {
+    this.mapAccessors = accessors;
+  }
 
   constructor() {
     this.overlay = document.createElement('div');
@@ -161,6 +172,11 @@ export class AgentChatPanel {
       if (response.alertDrafts?.length) {
         saveAgentAlertDrafts(response.alertDrafts);
       }
+      // Apply client-executed map tools (set_map_view, zoom_to_region,
+      // toggle_map_layers) to the live map before rendering the reply.
+      const mapSummary = applyAgentMapToolEvents(response.toolEvents, this.mapAccessors ?? {
+        getMap: () => null, getCurrentLayers: () => ({}), commitLayers: () => {},
+      });
       const toolHtml = (response.toolEvents || []).map(event => `
         <div class="agent-chat-tool-event ${event.error ? 'error' : ''}">
           ${escapeHtml(event.name)}${event.error ? ` · ${escapeHtml(event.error)}` : ''}
@@ -175,10 +191,15 @@ export class AgentChatPanel {
           meta: { model: this.selectedModelLabel(), sourceCount: response.toolEvents?.length ?? 0 },
         });
       }
-      if (toolHtml || response.alertDrafts?.length) {
+      const mapActionCount = mapSummary.movedCamera + mapSummary.toggledKeys.length;
+      if (toolHtml || response.alertDrafts?.length || mapActionCount) {
         this.renderMessages(`
           <div class="agent-chat-tool-log">
             ${toolHtml}
+            ${mapActionCount ? `<div class="agent-chat-tool-event">Updated map: ${[
+              mapSummary.movedCamera ? `${mapSummary.movedCamera} camera move${mapSummary.movedCamera === 1 ? '' : 's'}` : '',
+              mapSummary.toggledKeys.length ? `${mapSummary.toggledKeys.join(', ')} switched` : '',
+            ].filter(Boolean).join(' · ')}</div>` : ''}
             ${response.alertDrafts?.length ? `<div class="agent-chat-tool-event">Created ${response.alertDrafts.length} alert draft${response.alertDrafts.length === 1 ? '' : 's'} pending approval</div>` : ''}
           </div>
         `);

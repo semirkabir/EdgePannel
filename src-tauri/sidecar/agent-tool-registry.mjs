@@ -1,3 +1,123 @@
+// --- Client-executed map-control tools ------------------------------------
+//
+// These tools are offered to the LLM during agent chat, but unlike
+// WORLD_MONITOR_TOOLS they are NOT executed in the sidecar: the gateway
+// intercepts them, returns an acknowledgement, and reports them back to the
+// frontend via `toolEvents`. The browser applies them against the live map
+// (see src/services/map-agent-bridge.ts). They never appear on the MCP
+// surface because a remote agent has no map to control.
+
+/** Region anchor points for zoom_to_region: [lat, lon, defaultZoom]. */
+export const MAP_REGION_ANCHORS = {
+  global:      { lat: 25,   lon: 10,  zoom: 2 },
+  mena:        { lat: 27,   lon: 40,  zoom: 4 },
+  europe:      { lat: 52,   lon: 14,  zoom: 4 },
+  asia:        { lat: 30,   lon: 105, zoom: 3 },
+  americas:    { lat: 15,   lon: -90, zoom: 3 },
+  africa:      { lat: 2,    lon: 20,  zoom: 3 },
+  middle_east: { lat: 27,   lon: 45,  zoom: 5 },
+  ukraine:     { lat: 49,   lon: 32,  zoom: 5.5 },
+  taiwan_strait: { lat: 24, lon: 119.5, zoom: 7 },
+  red_sea:     { lat: 19,   lon: 38.5, zoom: 6 },
+  south_china_sea: { lat: 13, lon: 114, zoom: 5.5 },
+  korea_peninsula: { lat: 38, lon: 127, zoom: 6.5 },
+};
+
+/** Plain-schema helpers kept local so this block has no load-order deps. */
+const clientStringParam = (description, required = false) => ({ type: 'string', description, required });
+const clientNumberParam = (description, required = false) => ({ type: 'number', description, required });
+
+export const CLIENT_EXECUTED_TOOLS = [
+  {
+    name: 'set_map_view',
+    description: 'Move the user\'s map/globe camera to a location. Use after discussing a place so the analyst sees it. Coordinates are WGS84 decimal degrees; latitude −90..90, longitude −180..180.',
+    scopes: ['intelligence'],
+    risk: 'client-map',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        lat: clientNumberParam('Center latitude, WGS84 decimal degrees.', true),
+        lon: clientNumberParam('Center longitude, WGS84 decimal degrees.', true),
+        zoom: clientNumberParam('Map zoom 1-16. Roughly: 2 world, 4 region, 6 country, 9 metro, 12 city districts.'),
+      },
+      required: ['lat', 'lon'],
+    },
+  },
+  {
+    name: 'zoom_to_region',
+    description: 'Move the user\'s map/globe camera to a named strategic region or theater. Prefer this over raw coordinates when the user names one of the supported regions.',
+    scopes: ['intelligence'],
+    risk: 'client-map',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        region: clientStringParam(`One of: ${Object.keys(MAP_REGION_ANCHORS).join(', ')}.`, true),
+      },
+      required: ['region'],
+    },
+  },
+  {
+    name: 'toggle_map_layers',
+    description: 'Switch map layers on or off on the user\'s dashboard. Only layers from list_map_layers can be toggled. Use to compose a view, e.g. enable cables and chokepoints while discussing maritime chokepoints.',
+    scopes: ['intelligence'],
+    risk: 'client-map',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        enable: clientStringParam('Comma-separated layer keys to turn ON.', false),
+        disable: clientStringParam('Comma-separated layer keys to turn OFF.', false),
+      },
+      required: [],
+    },
+  },
+];
+
+export function isClientExecutedTool(toolName) {
+  return CLIENT_EXECUTED_TOOLS.some(tool => tool.name === toolName);
+}
+
+/** Validate + normalize args for client-executed tools. Returns {ok,error} or {ok,args}. */
+export function validateClientToolArguments(toolName, args) {
+  const normalized = args && typeof args === 'object' ? args : {};
+  if (toolName === 'set_map_view') {
+    const lat = Number(normalized.lat);
+    const lon = Number(normalized.lon);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) return { ok: false, error: 'lat must be a number between -90 and 90.' };
+    if (!Number.isFinite(lon) || lon < -180 || lon > 180) return { ok: false, error: 'lon must be a number between -180 and 180.' };
+    let zoom = Number(normalized.zoom);
+    if (!Number.isFinite(zoom)) zoom = 7;
+    zoom = Math.max(1, Math.min(16, Math.round(zoom * 2) / 2));
+    return { ok: true, args: { lat, lon, zoom } };
+  }
+  if (toolName === 'zoom_to_region') {
+    const region = String(normalized.region || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    const anchor = MAP_REGION_ANCHORS[region];
+    if (!anchor) {
+      return { ok: false, error: `Unknown region '${normalized.region}'. Supported: ${Object.keys(MAP_REGION_ANCHORS).join(', ')}.` };
+    }
+    return { ok: true, args: { region, ...anchor } };
+  }
+  if (toolName === 'toggle_map_layers') {
+    const parseList = raw => String(raw || '')
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean)
+      .filter(key => MAP_LAYER_CATALOG.includes(key));
+    const rejected = String(`${normalized.enable || ''},${normalized.disable || ''}`)
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean)
+      .filter(key => !MAP_LAYER_CATALOG.includes(key));
+    const enable = parseList(normalized.enable);
+    const disable = parseList(normalized.disable);
+    if (enable.length === 0 && disable.length === 0) {
+      return { ok: false, error: `No valid layer keys supplied. Valid keys: ${MAP_LAYER_CATALOG.join(', ')}.` };
+    }
+    return { ok: true, args: { enable, disable, ...(rejected.length ? { rejected } : {}) } };
+  }
+  return { ok: false, error: `Unknown client tool: ${toolName}` };
+}
+
 export const AGENT_CONNECTORS_ENV_KEY = 'WM_AGENT_CONNECTORS';
 export const AGENT_ALERT_DRAFTS_KEY = 'wm-agent-alert-drafts-v1';
 
@@ -210,7 +330,7 @@ export const WORLD_MONITOR_TOOLS = [
   },
   {
     name: 'list_map_layers',
-    description: 'List key World Monitor map layers that can be referenced in analysis.',
+    description: 'List key World Monitor map layers. These can be switched on/off on the analyst\'s dashboard via toggle_map_layers.',
     scopes: ['intelligence', 'tracking', 'infrastructure'],
     risk: 'read',
     inputSchema: { type: 'object', properties: {}, required: [] },
@@ -395,7 +515,7 @@ export async function executeWorldMonitorTool(toolName, args, context) {
   if (tool.name === 'list_map_layers') {
     return {
       layers: MAP_LAYER_CATALOG.map(name => ({ name, status: 'available' })),
-      note: 'Layer activation is controlled by the user interface and URL state.',
+      note: 'Use toggle_map_layers to switch these on or off on the analyst\'s dashboard.',
     };
   }
 

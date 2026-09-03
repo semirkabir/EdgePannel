@@ -832,6 +832,19 @@ export class EventHandlerManager implements AppModule {
 
     if (this.ctx.isDesktopApp) {
       this.ctx.agentChatPanel = new AgentChatPanel();
+      // Agent map-control tools (set_map_view, zoom_to_region, toggle_map_layers)
+      // drive the live map through these accessors. Layer commits reuse the same
+      // path as manual toggles: ctx.mapLayers -> storage -> setLayers -> URL sync.
+      this.ctx.agentChatPanel.setMapAccessors({
+        getMap: () => this.ctx.map,
+        getCurrentLayers: () => ({ ...this.ctx.mapLayers }),
+        commitLayers: (layers) => {
+          this.ctx.mapLayers = layers;
+          saveToStorage(STORAGE_KEYS.mapLayers, layers);
+          this.ctx.map?.setLayers(layers);
+          this.syncUrlState();
+        },
+      });
       const headerRight = this.ctx.container.querySelector<HTMLElement>('.header-right');
       const overflowPanel = document.getElementById('headerOverflowPanel');
       const agentBtn = document.createElement('button');

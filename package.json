@@ -47,7 +47,7 @@
     "test:data:ci": "node --import tsx --test tests/climate-service-routes.test.mts tests/country-brief-format.test.mts tests/map-locale.test.mts tests/urlState.test.mts tests/country-instability-cii.test.mts",
     "test:ci": "npm run test:data && npm run test:sidecar:ci && node --test tests/deploy-config.test.mjs api/download.test.mjs api/fetch-article.test.mjs api/checkout.test.mjs",
     "test:feeds": "node scripts/validate-rss-feeds.mjs",
-    "test:sidecar": "node --test src-tauri/sidecar/local-api-server.test.mjs api/_cors.test.mjs api/youtube/embed.test.mjs api/cyber-threats.test.mjs api/usni-fleet.test.mjs scripts/ais-relay-rss.test.cjs api/loaders-xml-wms-regression.test.mjs",
+    "test:sidecar": "node --experimental-strip-types --test src-tauri/sidecar/local-api-server.test.mjs src-tauri/sidecar/agent-map-tools.test.mjs api/_cors.test.mjs api/youtube/embed.test.mjs api/cyber-threats.test.mjs api/usni-fleet.test.mjs scripts/ais-relay-rss.test.cjs api/loaders-xml-wms-regression.test.mjs",
     "test:sidecar:ci": "node --test api/_cors.test.mjs api/youtube/embed.test.mjs scripts/ais-relay-rss.test.cjs api/loaders-xml-wms-regression.test.mjs",
     "test:e2e:visual:full": "cross-env VITE_VARIANT=full playwright test -g \"matches golden screenshots per layer and zoom\"",
     "test:e2e:visual:tech": "cross-env VITE_VARIANT=tech playwright test -g \"matches golden screenshots per layer and zoom\"",
