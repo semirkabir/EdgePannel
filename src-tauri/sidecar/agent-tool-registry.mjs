@@ -27,6 +27,73 @@ export const MAP_REGION_ANCHORS = {
 const clientStringParam = (description, required = false) => ({ type: 'string', description, required });
 const clientNumberParam = (description, required = false) => ({ type: 'number', description, required });
 
+/** Asset types the map can flash/highlight via highlightAssets/flashAssets. */
+export const MAP_ASSET_TYPES = [
+  'pipeline', 'cable', 'datacenter', 'base', 'nuclear', 'irradiator', 'spaceport',
+  'waterway', 'economicCenter', 'aptGroup', 'mineral', 'startupHub', 'accelerator',
+  'cloudRegion', 'techHQ', 'stockExchange', 'financialCenter', 'centralBank',
+  'commodityHub', 'miningSite', 'processingPlant', 'commodityPort',
+];
+
+/**
+ * Server-answered map-context tools (chat only — need the browser's viewport
+ * snapshot on the request body). Never listed on MCP.
+ */
+export const MAP_CONTEXT_TOOLS = [
+  {
+    name: 'get_visible_region',
+    description: 'Read what the analyst currently sees on the map/globe: center, zoom, bounds, and mode. Use before reasoning about "what is on screen" or deciding whether to move the camera.',
+    scopes: ['intelligence'],
+    risk: 'map-context',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+];
+
+export function isMapContextTool(toolName) {
+  return MAP_CONTEXT_TOOLS.some(tool => tool.name === toolName);
+}
+
+/** Normalize a dashboard-provided mapViewport payload into a stable result shape. */
+export function normalizeMapViewport(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const centerSrc = raw.center && typeof raw.center === 'object' ? raw.center : raw;
+  const lat = Number(centerSrc.lat ?? centerSrc.latitude);
+  const lon = Number(centerSrc.lon ?? centerSrc.lng ?? centerSrc.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  let zoom = Number(raw.zoom);
+  if (!Number.isFinite(zoom)) zoom = null;
+  else zoom = Math.max(1, Math.min(16, Math.round(zoom * 2) / 2));
+
+  let bounds = null;
+  const b = raw.bounds;
+  if (b && typeof b === 'object') {
+    const west = Number(b.west ?? b.left ?? b.minLon);
+    const south = Number(b.south ?? b.bottom ?? b.minLat);
+    const east = Number(b.east ?? b.right ?? b.maxLon);
+    const north = Number(b.north ?? b.top ?? b.maxLat);
+    if ([west, south, east, north].every(Number.isFinite)) {
+      bounds = { west, south, east, north };
+    }
+  }
+
+  const mode = raw.mode === 'globe' || raw.mode === 'flat' || raw.mode === 'svg' ? raw.mode : undefined;
+  const span = bounds
+    ? {
+        latDeg: Math.abs(bounds.north - bounds.south),
+        lonDeg: Math.abs(((bounds.east - bounds.west + 540) % 360) - 180),
+      }
+    : undefined;
+
+  return {
+    center: { lat, lon },
+    ...(zoom != null ? { zoom } : {}),
+    ...(bounds ? { bounds } : {}),
+    ...(span ? { span } : {}),
+    ...(mode ? { mode } : {}),
+  };
+}
+
 export const CLIENT_EXECUTED_TOOLS = [
   {
     name: 'set_map_view',
@@ -70,10 +137,45 @@ export const CLIENT_EXECUTED_TOOLS = [
       required: [],
     },
   },
+  {
+    name: 'highlight_features',
+    description: 'Flash/highlight map features the analyst should look at. Prefer asset id+type when known (cable, pipeline, base, datacenter, …). Otherwise pass lat/lon pins. Highlights auto-clear after durationMs.',
+    scopes: ['intelligence'],
+    risk: 'client-map',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        items: clientStringParam(
+          'JSON array of {id?, type?, lat?, lon?, label?}. type must be a known asset type when id is used. At least one item needs (id+type) or (lat+lon).',
+          true,
+        ),
+        durationMs: clientNumberParam('Highlight duration in ms (800–8000). Default 3000.'),
+      },
+      required: ['items'],
+    },
+  },
 ];
 
 export function isClientExecutedTool(toolName) {
   return CLIENT_EXECUTED_TOOLS.some(tool => tool.name === toolName);
+}
+
+function parseHighlightItems(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === 'object') return [raw];
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (!text) return [];
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object') return [parsed];
+    } catch {
+      // fall through to CSV-ish id list
+    }
+    return text.split(',').map(part => part.trim()).filter(Boolean).map(id => ({ id }));
+  }
+  return [];
 }
 
 /** Validate + normalize args for client-executed tools. Returns {ok,error} or {ok,args}. */
@@ -114,6 +216,48 @@ export function validateClientToolArguments(toolName, args) {
       return { ok: false, error: `No valid layer keys supplied. Valid keys: ${MAP_LAYER_CATALOG.join(', ')}.` };
     }
     return { ok: true, args: { enable, disable, ...(rejected.length ? { rejected } : {}) } };
+  }
+  if (toolName === 'highlight_features') {
+    const rawItems = parseHighlightItems(normalized.items ?? normalized.features ?? normalized.ids);
+    const items = [];
+    const rejected = [];
+    for (const entry of rawItems) {
+      if (!entry || typeof entry !== 'object') {
+        rejected.push(String(entry));
+        continue;
+      }
+      const id = entry.id != null ? String(entry.id).trim() : '';
+      const label = entry.label != null ? String(entry.label).trim().slice(0, 120) : '';
+      let type = entry.type != null ? String(entry.type).trim() : '';
+      if (type === 'cables') type = 'cable';
+      if (type === 'pipelines') type = 'pipeline';
+      if (type === 'bases') type = 'base';
+      if (type === 'datacenters') type = 'datacenter';
+      const lat = Number(entry.lat ?? entry.latitude);
+      const lon = Number(entry.lon ?? entry.lng ?? entry.longitude);
+      const hasCoord = Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+      const hasAsset = Boolean(id && type && MAP_ASSET_TYPES.includes(type));
+      if (!hasAsset && !hasCoord) {
+        rejected.push(id || label || JSON.stringify(entry).slice(0, 40));
+        continue;
+      }
+      items.push({
+        ...(id ? { id } : {}),
+        ...(label ? { label } : {}),
+        ...(hasAsset ? { type } : {}),
+        ...(hasCoord ? { lat, lon } : {}),
+      });
+    }
+    if (items.length === 0) {
+      return {
+        ok: false,
+        error: `No valid highlight items. Provide id+type (${MAP_ASSET_TYPES.slice(0, 8).join(', ')}, …) and/or lat+lon.`,
+      };
+    }
+    let durationMs = Number(normalized.durationMs);
+    if (!Number.isFinite(durationMs)) durationMs = 3000;
+    durationMs = Math.max(800, Math.min(8000, Math.round(durationMs)));
+    return { ok: true, args: { items, durationMs, ...(rejected.length ? { rejected } : {}) } };
   }
   return { ok: false, error: `Unknown client tool: ${toolName}` };
 }

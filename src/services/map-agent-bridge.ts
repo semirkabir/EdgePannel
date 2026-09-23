@@ -1,12 +1,10 @@
 /**
  * Client-side executor for agent map-control tools.
  *
- * The desktop agent gateway (src-tauri/sidecar/agent-gateway.mjs) validates
- * set_map_view / zoom_to_region / toggle_map_layers calls from the LLM but
- * deliberately does NOT execute them — the live map lives in the browser.
- * It returns each accepted call as a toolEvent carrying a `clientAction`
- * payload; AgentChatPanel forwards those events here, and this module turns
- * them into real camera moves and layer switches via injected accessors.
+ * The agent gateway validates set_map_view / zoom_to_region / toggle_map_layers /
+ * highlight_features calls from the LLM but deliberately does NOT execute them —
+ * the live map lives in the browser. It returns each accepted call as a toolEvent
+ * carrying a `clientAction` payload; AgentChatPanel forwards those events here.
  *
  * Accessors keep this module decoupled from AppContext so the logic stays
  * unit-testable; event-handlers supplies them when constructing the panel.
@@ -21,6 +19,21 @@ export interface AgentMapToolEvent {
   error?: string;
 }
 
+export interface AgentMapViewport {
+  center: { lat: number; lon: number };
+  zoom?: number;
+  bounds?: { west: number; south: number; east: number; north: number };
+  mode?: 'flat' | 'globe' | 'svg';
+}
+
+export interface AgentHighlightItem {
+  id?: string;
+  type?: string;
+  lat?: number;
+  lon?: number;
+  label?: string;
+}
+
 /** Minimal view of the pieces of app state the bridge is allowed to touch. */
 export interface AgentMapAccessors {
   /** Active map container (flat or globe) — null before map init. */
@@ -29,6 +42,10 @@ export interface AgentMapAccessors {
   getCurrentLayers(): Record<string, boolean>;
   /** Persist + apply a merged layer record (storage, URL state, renderers). */
   commitLayers(layers: Record<string, boolean>): void;
+  /** Optional: flash asset ids / drop temporary pins. */
+  highlightFeatures?(items: AgentHighlightItem[], durationMs: number): void;
+  /** Optional: snapshot for get_visible_region (sent with each chat request). */
+  getViewport?(): AgentMapViewport | null;
 }
 
 export interface AgentMapApplySummary {
@@ -36,6 +53,8 @@ export interface AgentMapApplySummary {
   movedCamera: number;
   /** Layer keys actually flipped (present in state and changed value). */
   toggledKeys: string[];
+  /** Number of highlight_features batches applied. */
+  highlighted: number;
   /** Events that carried a clientAction but failed defensive checks. */
   rejected: string[];
 }
@@ -49,7 +68,12 @@ export function applyAgentMapToolEvents(
   events: readonly AgentMapToolEvent[] | undefined | null,
   accessors: AgentMapAccessors,
 ): AgentMapApplySummary {
-  const summary: AgentMapApplySummary = { movedCamera: 0, toggledKeys: [], rejected: [] };
+  const summary: AgentMapApplySummary = {
+    movedCamera: 0,
+    toggledKeys: [],
+    highlighted: 0,
+    rejected: [],
+  };
   if (!Array.isArray(events)) return summary;
 
   for (const event of events) {
@@ -88,8 +112,41 @@ export function applyAgentMapToolEvents(
       continue;
     }
 
+    if (event.name === 'highlight_features') {
+      const items = Array.isArray(action.items) ? action.items as AgentHighlightItem[] : [];
+      let durationMs = Number(action.durationMs);
+      if (!Number.isFinite(durationMs)) durationMs = 3000;
+      durationMs = Math.max(800, Math.min(8000, Math.round(durationMs)));
+      if (items.length === 0) {
+        summary.rejected.push(event.name);
+        continue;
+      }
+      // Prefer the first coordinate pin as a gentle camera nudge so the
+      // analyst is looking at the right region even when asset flash is no-op
+      // on SVG / missing layers.
+      const pin = items.find(item => Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lon)));
+      if (pin) {
+        accessors.getMap()?.setCenter(Number(pin.lat), Number(pin.lon));
+      }
+      if (typeof accessors.highlightFeatures === 'function') {
+        accessors.highlightFeatures(items, durationMs);
+      }
+      summary.highlighted++;
+      continue;
+    }
+
     summary.rejected.push(event.name || 'unknown');
   }
 
   return summary;
+}
+
+/** Read viewport for chat request bodies; null when map not ready. */
+export function readAgentMapViewport(accessors: AgentMapAccessors | null | undefined): AgentMapViewport | null {
+  if (!accessors || typeof accessors.getViewport !== 'function') return null;
+  try {
+    return accessors.getViewport() ?? null;
+  } catch {
+    return null;
+  }
 }

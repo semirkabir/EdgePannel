@@ -118,8 +118,17 @@ export function serializeAgentConnectors(connectors: AgentConnector[]): string {
   return JSON.stringify(connectors, null, 2);
 }
 
-export async function getAgentGatewayStatus(): Promise<AgentGatewayStatus> {
-  const response = await gatewayFetch('/api/agent-gateway/status');
+export async function getAgentGatewayStatus(options?: {
+  connectors?: AgentConnector[];
+}): Promise<AgentGatewayStatus> {
+  const connectors = options?.connectors;
+  const response = connectors
+    ? await gatewayFetch('/api/agent-gateway/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectors }),
+      })
+    : await gatewayFetch('/api/agent-gateway/status');
   if (!response.ok) throw new Error(`Agent gateway status failed (${response.status})`);
   return response.json() as Promise<AgentGatewayStatus>;
 }
@@ -135,11 +144,26 @@ export async function testAgentConnector(connector: AgentConnector): Promise<{ o
   return payload;
 }
 
-export async function sendAgentChat(connectorId: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<AgentChatResponse> {
+export async function sendAgentChat(
+  connectorId: string,
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  options?: {
+    connectors?: AgentConnector[];
+    mapViewport?: {
+      center: { lat: number; lon: number };
+      zoom?: number;
+      bounds?: { west: number; south: number; east: number; north: number };
+      mode?: string;
+    } | null;
+  },
+): Promise<AgentChatResponse> {
+  const body: Record<string, unknown> = { connectorId, messages };
+  if (options?.connectors) body.connectors = options.connectors;
+  if (options?.mapViewport) body.mapViewport = options.mapViewport;
   const response = await gatewayFetch('/api/agent-gateway/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ connectorId, messages }),
+    body: JSON.stringify(body),
   });
   const payload = await response.json() as AgentChatResponse;
   if (!response.ok && !payload.error) payload.error = `Agent chat failed (${response.status})`;

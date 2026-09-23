@@ -1,7 +1,7 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import { log } from '@/utils/logger';
 import type { AirlineIntelPanel } from '@/components/AirlineIntelPanel';
-import type { PanelConfig, CustomFeed } from '@/types';
+import type { PanelConfig, CustomFeed, MapLayers } from '@/types';
 import type { MapView } from '@/components';
 import type { ClusteredEvent } from '@/types';
 import type { DashboardSnapshot } from '@/services/storage';
@@ -830,19 +830,39 @@ export class EventHandlerManager implements AppModule {
       mount.appendChild(this.ctx.unifiedSettings.getButton());
     }
 
-    if (this.ctx.isDesktopApp) {
+    // Agent chat is available on desktop (sidecar) and web (/api/agent-gateway).
+    {
       this.ctx.agentChatPanel = new AgentChatPanel();
-      // Agent map-control tools (set_map_view, zoom_to_region, toggle_map_layers)
-      // drive the live map through these accessors. Layer commits reuse the same
-      // path as manual toggles: ctx.mapLayers -> storage -> setLayers -> URL sync.
+      // Agent map-control tools (set_map_view, zoom_to_region, toggle_map_layers,
+      // highlight_features) drive the live map through these accessors. Layer
+      // commits reuse the same path as manual toggles.
       this.ctx.agentChatPanel.setMapAccessors({
         getMap: () => this.ctx.map,
         getCurrentLayers: () => ({ ...this.ctx.mapLayers }),
-        commitLayers: (layers) => {
+        commitLayers: (next) => {
+          const layers = next as unknown as MapLayers;
           this.ctx.mapLayers = layers;
           saveToStorage(STORAGE_KEYS.mapLayers, layers);
           this.ctx.map?.setLayers(layers);
           this.syncUrlState();
+        },
+        getViewport: () => this.ctx.map?.getViewport?.() ?? null,
+        highlightFeatures: (items, _durationMs) => {
+          const byType = new Map<string, string[]>();
+          for (const item of items) {
+            if (item.id && item.type) {
+              const list = byType.get(item.type) || [];
+              list.push(item.id);
+              byType.set(item.type, list);
+            }
+          }
+          for (const [type, ids] of byType) {
+            try {
+              this.ctx.map?.flashAssets?.(type as never, ids);
+            } catch {
+              // flash optional on SVG fallback
+            }
+          }
         },
       });
       const headerRight = this.ctx.container.querySelector<HTMLElement>('.header-right');

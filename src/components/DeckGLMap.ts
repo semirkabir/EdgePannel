@@ -7640,6 +7640,12 @@ export class DeckGLMap implements MapEngine {
     });
   }
 
+  /** Current viewport bounds in degrees, or null before the map is ready. */
+  public getViewBounds(): { west: number; south: number; east: number; north: number } | null {
+    const b = this.maplibreMap?.getBounds();
+    return b ? { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() } : null;
+  }
+
   public getCenter(): { lat: number; lon: number } | null {
     if (this.maplibreMap) {
       const center = this.maplibreMap.getCenter();

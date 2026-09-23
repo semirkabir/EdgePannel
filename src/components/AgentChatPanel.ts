@@ -1,11 +1,13 @@
 import {
   getAgentGatewayStatus,
+  loadAgentConnectors,
   saveAgentAlertDrafts,
   sendAgentChat,
   type AgentGatewayStatus,
 } from '@/services/agent-gateway';
 import {
   applyAgentMapToolEvents,
+  readAgentMapViewport,
   type AgentMapAccessors,
 } from '@/services/map-agent-bridge';
 import { escapeHtml } from '@/utils/sanitize';
@@ -99,10 +101,37 @@ export class AgentChatPanel {
     this.overlay.remove();
   }
 
+  private localConnectors() {
+    return loadAgentConnectors();
+  }
+
   private async refreshStatus(): Promise<void> {
     try {
-      this.status = await getAgentGatewayStatus();
-      const chatConnectors = this.status.connectors.filter(connector => connector.type === 'openai-compatible' && connector.enabled);
+      const local = this.localConnectors();
+      this.status = await getAgentGatewayStatus({ connectors: local });
+      // Prefer server-merged connectors; fall back to localStorage when env empty (web).
+      const serverChat = (this.status.connectors || []).filter(c => c.type === 'openai-compatible' && c.enabled);
+      const localChat = local.filter(c => c.type === 'openai-compatible' && c.enabled);
+      const chatConnectors = serverChat.length ? serverChat : localChat.map(c => ({
+        ...c,
+        hasApiKey: Boolean(c.apiKey),
+      }));
+      // Keep status.connectors usable for model labels even when only local.
+      if (!serverChat.length && localChat.length) {
+        this.status = {
+          ...this.status,
+          connectors: localChat.map(c => ({
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            endpoint: c.endpoint,
+            model: c.model,
+            scopes: c.scopes,
+            enabled: c.enabled,
+            hasApiKey: Boolean(c.apiKey),
+          })),
+        };
+      }
       this.connectorSelect.innerHTML = chatConnectors.length
         ? chatConnectors.map(connector => `<option value="${escapeHtml(connector.id)}">${escapeHtml(connector.name)}</option>`).join('')
         : '<option value="">No chat connector configured</option>';
@@ -168,12 +197,15 @@ export class AgentChatPanel {
     this.renderMessages('<div class="agent-chat-tool-log">Agent is working…</div>');
 
     try {
-      const response = await sendAgentChat(connectorId, this.messages);
+      const response = await sendAgentChat(connectorId, this.messages, {
+        connectors: this.localConnectors(),
+        mapViewport: readAgentMapViewport(this.mapAccessors),
+      });
       if (response.alertDrafts?.length) {
         saveAgentAlertDrafts(response.alertDrafts);
       }
       // Apply client-executed map tools (set_map_view, zoom_to_region,
-      // toggle_map_layers) to the live map before rendering the reply.
+      // toggle_map_layers, highlight_features) to the live map before rendering.
       const mapSummary = applyAgentMapToolEvents(response.toolEvents, this.mapAccessors ?? {
         getMap: () => null, getCurrentLayers: () => ({}), commitLayers: () => {},
       });
@@ -191,7 +223,7 @@ export class AgentChatPanel {
           meta: { model: this.selectedModelLabel(), sourceCount: response.toolEvents?.length ?? 0 },
         });
       }
-      const mapActionCount = mapSummary.movedCamera + mapSummary.toggledKeys.length;
+      const mapActionCount = mapSummary.movedCamera + mapSummary.toggledKeys.length + mapSummary.highlighted;
       if (toolHtml || response.alertDrafts?.length || mapActionCount) {
         this.renderMessages(`
           <div class="agent-chat-tool-log">
@@ -199,6 +231,7 @@ export class AgentChatPanel {
             ${mapActionCount ? `<div class="agent-chat-tool-event">Updated map: ${[
               mapSummary.movedCamera ? `${mapSummary.movedCamera} camera move${mapSummary.movedCamera === 1 ? '' : 's'}` : '',
               mapSummary.toggledKeys.length ? `${mapSummary.toggledKeys.join(', ')} switched` : '',
+              mapSummary.highlighted ? `${mapSummary.highlighted} highlight${mapSummary.highlighted === 1 ? '' : 's'}` : '',
             ].filter(Boolean).join(' · ')}</div>` : ''}
             ${response.alertDrafts?.length ? `<div class="agent-chat-tool-event">Created ${response.alertDrafts.length} alert draft${response.alertDrafts.length === 1 ? '' : 's'} pending approval</div>` : ''}
           </div>

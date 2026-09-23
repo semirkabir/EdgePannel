@@ -421,6 +421,38 @@ export class MapContainer {
     return this.svgMap?.getCenter() ?? null;
   }
 
+  /**
+   * Snapshot used by agent chat (`get_visible_region` / mapViewport on requests).
+   * Bounds only available on MapLibre-backed deck mode.
+   */
+  public getViewport(): {
+    center: { lat: number; lon: number };
+    zoom?: number;
+    bounds?: { west: number; south: number; east: number; north: number };
+    mode: 'flat' | 'globe' | 'svg';
+  } | null {
+    const center = this.getCenter();
+    if (!center) return null;
+    const state = this.getState();
+    const mode: 'flat' | 'globe' | 'svg' = (this.isGlobeMode() || this.useGlobe)
+      ? 'globe'
+      : this.useDeckGL
+        ? 'flat'
+        : 'svg';
+    let bounds: { west: number; south: number; east: number; north: number } | undefined;
+    try {
+      bounds = this.deckGLMap?.getViewBounds() ?? undefined;
+    } catch {
+      // ignore — bounds optional
+    }
+    return {
+      center,
+      zoom: state?.zoom,
+      ...(bounds ? { bounds } : {}),
+      mode,
+    };
+  }
+
   public setTimeRange(range: TimeRange): void {
     if (this.useDeckGL) { this.deckGLMap?.setTimeRange(range); } else { this.svgMap?.setTimeRange(range); }
   }

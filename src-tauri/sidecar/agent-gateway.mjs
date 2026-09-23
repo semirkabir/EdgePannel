@@ -2,11 +2,14 @@ import {
   AGENT_CONNECTORS_ENV_KEY,
   CLIENT_EXECUTED_TOOLS,
   DEFAULT_AGENT_SCOPES,
+  MAP_CONTEXT_TOOLS,
   OPTIONAL_AGENT_SCOPES,
   WORLD_MONITOR_TOOLS,
   executeWorldMonitorTool,
   getScopedWorldMonitorTools,
   isClientExecutedTool,
+  isMapContextTool,
+  normalizeMapViewport,
   normalizeScopes,
   toMcpTool,
   toOpenAiTool,
@@ -26,6 +29,15 @@ function jsonResponse(payload, status = 200) {
 }
 
 async function readJsonBody(req) {
+  // Web Fetch Request (Vercel / browsers) — prefer .json()
+  if (req && typeof req.json === 'function' && typeof req[Symbol.asyncIterator] !== 'function') {
+    try {
+      const data = await req.json();
+      return data && typeof data === 'object' ? data : {};
+    } catch {
+      return {};
+    }
+  }
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   if (chunks.length === 0) return {};
@@ -34,18 +46,28 @@ async function readJsonBody(req) {
   return JSON.parse(text);
 }
 
-export function readAgentConnectors() {
-  const raw = process.env[AGENT_CONNECTORS_ENV_KEY] || '[]';
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(connector => connector && typeof connector === 'object')
-      .map(normalizeConnector)
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
+export function readAgentConnectors(extra) {
+  const fromEnv = (() => {
+    const raw = process.env[AGENT_CONNECTORS_ENV_KEY] || '[]';
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter(connector => connector && typeof connector === 'object')
+        .map(normalizeConnector)
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  })();
+  const fromExtra = Array.isArray(extra)
+    ? extra.filter(connector => connector && typeof connector === 'object').map(normalizeConnector).filter(Boolean)
+    : [];
+  if (fromExtra.length === 0) return fromEnv;
+  const map = new Map();
+  for (const connector of fromEnv) map.set(connector.id, connector);
+  for (const connector of fromExtra) map.set(connector.id, connector);
+  return [...map.values()];
 }
 
 function normalizeConnector(connector) {
@@ -80,8 +102,9 @@ function redactConnector(connector) {
   };
 }
 
-function getConnector(id) {
-  return readAgentConnectors().find(connector => connector.id === id && connector.enabled);
+function getConnector(id, connectors) {
+  const list = Array.isArray(connectors) ? connectors : readAgentConnectors();
+  return list.find(connector => connector.id === id && connector.enabled);
 }
 
 function isLoopbackHostname(hostname) {
@@ -218,7 +241,7 @@ async function executeOpenAiToolCall(toolCall, options) {
   // Client-executed map tools: validate here, but do NOT execute. The result
   // tells the LLM the command was accepted; the actual camera/layer change
   // happens in the browser when AgentChatPanel forwards this toolEvent to
-  // applyAgentMapActions() (src/services/map-agent-bridge.ts).
+  // applyAgentMapToolEvents() (src/services/map-agent-bridge.ts).
   if (isClientExecutedTool(functionName)) {
     const validation = validateClientToolArguments(functionName, args);
     if (!validation.ok) {
@@ -226,6 +249,18 @@ async function executeOpenAiToolCall(toolCall, options) {
     }
     const result = { accepted: true, appliedByFrontend: true, action: validation.args };
     return { name: functionName, args: validation.args, result, clientAction: validation.args };
+  }
+
+  // Map-context reads answered from the dashboard's mapViewport snapshot.
+  if (isMapContextTool(functionName)) {
+    if (functionName === 'get_visible_region') {
+      const viewport = normalizeMapViewport(options.mapViewport);
+      if (!viewport) {
+        throw new Error('No map viewport provided by the dashboard. Open the map view and retry.');
+      }
+      return { name: functionName, args: {}, result: viewport };
+    }
+    throw new Error(`Unknown map context tool: ${functionName}`);
   }
 
   const worldTool = WORLD_MONITOR_TOOLS.find(tool => tool.name === functionName);
@@ -277,8 +312,19 @@ async function callOpenAiChat(connector, messages, tools) {
   return response.json();
 }
 
+function gatewayBaseUrl(context) {
+  if (context?.baseUrl && typeof context.baseUrl === 'string') {
+    return context.baseUrl.replace(/\/$/, '');
+  }
+  const port = Number(context?.port);
+  if (Number.isFinite(port) && port > 0) return `http://127.0.0.1:${port}`;
+  return '';
+}
+
 async function handleChat(body, context) {
-  const connector = getConnector(body.connectorId);
+  // Web clients send connectors in the body (localStorage); desktop still uses env.
+  const connectors = readAgentConnectors(body.connectors);
+  const connector = getConnector(body.connectorId, connectors);
   if (!connector) return jsonResponse({ error: 'Connector not found or disabled.' }, 404);
   if (connector.type !== 'openai-compatible') {
     return jsonResponse({ error: 'Chat requires an OpenAI-compatible connector.' }, 400);
@@ -294,12 +340,14 @@ async function handleChat(body, context) {
   if (messages.length === 0) return jsonResponse({ error: 'At least one message is required.' }, 400);
 
   const scopes = connector.scopes;
-  const connectors = readAgentConnectors();
   const worldTools = getScopedWorldMonitorTools(scopes).map(toOpenAiTool);
   // Client-executed map tools ride along in the tool list; the gateway
   // intercepts their calls below and forwards them to the browser via
   // toolEvents instead of executing anything server-side.
   const clientMapTools = CLIENT_EXECUTED_TOOLS
+    .filter(tool => tool.scopes.some(scope => scopes.includes(scope)))
+    .map(toOpenAiTool);
+  const mapContextTools = MAP_CONTEXT_TOOLS
     .filter(tool => tool.scopes.some(scope => scopes.includes(scope)))
     .map(toOpenAiTool);
   const externalTools = await listExternalMcpTools(connectors, connector);
@@ -311,16 +359,19 @@ async function handleChat(body, context) {
       parameters: tool.parameters,
     },
   }));
-  const tools = [...worldTools, ...clientMapTools, ...externalOpenAiTools];
+  const tools = [...worldTools, ...clientMapTools, ...mapContextTools, ...externalOpenAiTools];
   const toolEvents = [];
   const alertDrafts = [];
   const conversation = [
     {
       role: 'system',
-      content: 'You are connected to World Monitor live data and the analyst\'s map/globe. Use tools when live or up-to-date intelligence is needed. Use set_map_view, zoom_to_region, or toggle_map_layers to point the analyst\'s dashboard at what you are discussing. Alert tools only create drafts that require user approval.',
+      content: 'You are connected to World Monitor live data and the analyst\'s map/globe. Use tools when live or up-to-date intelligence is needed. Call get_visible_region to learn what is currently on screen. Use set_map_view, zoom_to_region, toggle_map_layers, or highlight_features to point the analyst\'s dashboard at what you are discussing. Alert tools only create drafts that require user approval.',
     },
     ...messages,
   ];
+
+  const baseUrl = gatewayBaseUrl(context);
+  const mapViewport = body.mapViewport;
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const payload = await callOpenAiChat(connector, conversation, tools);
@@ -346,8 +397,9 @@ async function handleChat(body, context) {
           scopes,
           connectors,
           externalTools,
-          baseUrl: `http://127.0.0.1:${context.port}`,
+          baseUrl,
           token: process.env.LOCAL_API_TOKEN || '',
+          mapViewport,
         });
         toolEvents.push(event);
         if (event.result?.alertDraft) alertDrafts.push(event.result.alertDraft);
@@ -398,7 +450,7 @@ async function handleMcp(requestUrl, body, context) {
       const tool = scopedTools.find(entry => entry.name === name);
       if (!tool) throw new Error(`Tool not found or scope denied: ${name}`);
       const result = await executeWorldMonitorTool(name, args, {
-        baseUrl: `http://127.0.0.1:${context.port}`,
+        baseUrl: gatewayBaseUrl(context),
         token: process.env.LOCAL_API_TOKEN || '',
         source: 'mcp',
       });
@@ -410,9 +462,32 @@ async function handleMcp(requestUrl, body, context) {
   }
 }
 
+function listStatusTools() {
+  return [
+    ...WORLD_MONITOR_TOOLS,
+    ...CLIENT_EXECUTED_TOOLS,
+    ...MAP_CONTEXT_TOOLS,
+  ].map(tool => ({
+    name: tool.name,
+    description: tool.description,
+    scopes: tool.scopes,
+    risk: tool.risk,
+  }));
+}
+
 export async function handleAgentGateway(requestUrl, req, context) {
   if (requestUrl.pathname === '/api/agent-gateway/status') {
-    const connectors = readAgentConnectors();
+    // Optional POST body connectors for web (localStorage) merge with env.
+    let bodyConnectors;
+    if (req.method === 'POST') {
+      try {
+        const body = await readJsonBody(req);
+        bodyConnectors = body.connectors;
+      } catch {
+        bodyConnectors = undefined;
+      }
+    }
+    const connectors = readAgentConnectors(bodyConnectors);
     return jsonResponse({
       ok: true,
       transport: 'streamable-http',
@@ -420,12 +495,7 @@ export async function handleAgentGateway(requestUrl, req, context) {
       defaultScopes: DEFAULT_AGENT_SCOPES,
       optionalScopes: OPTIONAL_AGENT_SCOPES,
       connectors: connectors.map(redactConnector),
-      tools: WORLD_MONITOR_TOOLS.map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        scopes: tool.scopes,
-        risk: tool.risk,
-      })),
+      tools: listStatusTools(),
     });
   }
 
