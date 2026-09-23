@@ -29,7 +29,7 @@ const BASE_LAYERS: MapLayers = {
   commodityHubs: false, gulfInvestments: false,
   positiveEvents: false, kindness: false, happiness: false,
   speciesRecovery: false, renewableInstallations: false,
-  tradeRoutes: false, ciiChoropleth: false, governanceChoropleth: false, dayNight: false,
+  tradeRoutes: false, ciiChoropleth: false, governanceChoropleth: false, dayNight: false, clouds: false,
   miningSites: false, processingPlants: false, commodityPorts: false,
   aptGroups: false,
   gemRisk: false, democracy: false, elections: false,

@@ -287,6 +287,12 @@ export const LAYER_REGISTRY = {
     { light: '#c2410c', dark: '#fb923c' }, FULL_ONLY, { renderers: ['flat', 'globe'] }),
   dayNight: def('dayNight', ICONS.sunMoon, 'dayNight', 'Day/Night', 'environment',
     { light: '#334155', dark: '#94a3b8' }, FULL_ONLY, { renderers: ['flat'] }),
+  // Raster overlay, so it survives the globe projection natively. Deliberately
+  // ungated on zoom: the GIBS retrieval stops at z6 (CLOUD_TILE_MAX_ZOOM) but
+  // MapLibre overzooms those tiles, so the deck stays visible when you push in
+  // rather than blinking out at a threshold.
+  clouds: def('clouds', ICONS.cloud, 'clouds', 'Cloud Cover', 'environment',
+    { light: '#64748b', dark: '#e2e8f0' }, ['full', 'commodity'], { renderers: ['flat', 'globe'] }),
 
   // Governance & Society
   ciiChoropleth: def('ciiChoropleth', ICONS.globe, 'ciiChoropleth', 'CII Instability', 'governance',
@@ -450,7 +456,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     'ucdpEvents', 'gdeltEvents', 'displacement', 'climate', 'weather',
     'outages', 'cyberThreats', 'aptGroups', 'natural', 'earthquakes', 'fires',
     'waterways', 'navWarnings', 'economic', 'marketPerf', 'polymarketMarkets', 'minerals', 'gpsJamming', 'satellite',
-    'ciiChoropleth', 'governanceChoropleth', 'dayNight',
+    'ciiChoropleth', 'governanceChoropleth', 'dayNight', 'clouds',
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions', 'techEvents',
     'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments',
     'positiveEvents', 'kindness', 'happiness', 'speciesRecovery', 'renewableInstallations',
@@ -485,7 +491,7 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
   commodity: [
     'miningSites', 'processingPlants', 'commodityPorts', 'commodityHubs',
     'minerals', 'pipelines', 'waterways', 'tradeRoutes',
-    'natural', 'earthquakes', 'tariffBarriers', 'weather',
+    'natural', 'earthquakes', 'tariffBarriers', 'weather', 'clouds',
     'buildings',
     'jobsDots',
     'obmOccupancy',

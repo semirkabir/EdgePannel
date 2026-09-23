@@ -112,6 +112,44 @@ export function projectAircraftPosition(position: PositionSample, elapsedMs: num
   };
 }
 
+const EARTH_RADIUS_M = 6_371_008.8;
+
+let angularStepCache: { meters: number; sin: number; cos: number } | null = null;
+function angularStepTrig(distanceMeters: number): { sin: number; cos: number } {
+  if (angularStepCache?.meters !== distanceMeters) {
+    const angular = distanceMeters / EARTH_RADIUS_M;
+    angularStepCache = { meters: distanceMeters, sin: Math.sin(angular), cos: Math.cos(angular) };
+  }
+  return angularStepCache;
+}
+
+/**
+ * Point `distanceMeters` from (lat, lon) along `bearingDeg`, on a sphere.
+ *
+ * Longitude is deliberately NOT normalised: callers feed both endpoints into
+ * mercator space to take a delta, and wrapping one side of an
+ * antimeridian-crossing pair across the seam would swing that delta by a full
+ * world width.
+ */
+export function offsetLatLonByBearing(lat: number, lon: number, bearingDeg: number, distanceMeters: number): { lat: number; lon: number } {
+  // Called once per aircraft per frame, so the leg-length trig — constant for a
+  // fixed probe distance — is memoised rather than recomputed thousands of
+  // times a frame.
+  const { sin: sinAngular, cos: cosAngular } = angularStepTrig(distanceMeters);
+  const bearing = (bearingDeg * Math.PI) / 180;
+  const latRad = (lat * Math.PI) / 180;
+  const sinLat = Math.sin(latRad);
+  const cosLat = Math.cos(latRad);
+
+  const nextLat = Math.asin(sinLat * cosAngular + cosLat * sinAngular * Math.cos(bearing));
+  const deltaLon = Math.atan2(
+    Math.sin(bearing) * sinAngular * cosLat,
+    cosAngular - sinLat * Math.sin(nextLat),
+  );
+
+  return { lat: (nextLat * 180) / Math.PI, lon: lon + (deltaLon * 180) / Math.PI };
+}
+
 export function lngLatToMercatorUnit(lon: number, lat: number): [number, number] {
   const safeLat = clampNumber(lat, -85.05112878, 85.05112878);
   const x = (lon + 180) / 360;
