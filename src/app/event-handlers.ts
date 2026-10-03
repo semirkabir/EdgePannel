@@ -847,6 +847,14 @@ export class EventHandlerManager implements AppModule {
           this.syncUrlState();
         },
         getViewport: () => this.ctx.map?.getViewport?.() ?? null,
+        // Same path as the manual time selector / command palette 'time'
+        // action: MapContainer.setTimeRange fires onTimeRangeChanged, which
+        // updates ctx.currentTimeRange, persists it, re-filters news and
+        // (via onStateChanged) syncs the URL.
+        setTimeRange: (range) => {
+          this.ctx.map?.setTimeRange(range);
+          this.syncUrlState();
+        },
         highlightFeatures: (items, _durationMs) => {
           const byType = new Map<string, string[]>();
           for (const item of items) {

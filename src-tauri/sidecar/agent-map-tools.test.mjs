@@ -4,6 +4,7 @@ import {
   CLIENT_EXECUTED_TOOLS,
   MAP_CONTEXT_TOOLS,
   MAP_REGION_ANCHORS,
+  AGENT_TIME_RANGE_VALUES,
   isClientExecutedTool,
   isMapContextTool,
   normalizeMapViewport,
@@ -18,7 +19,7 @@ import { handleAgentGateway } from './agent-gateway.mjs';
 
 test('client-executed tools are declared with intelligence scope and non-server risk', () => {
   const names = CLIENT_EXECUTED_TOOLS.map(tool => tool.name);
-  assert.deepEqual(names.sort(), ['highlight_features', 'set_map_view', 'toggle_map_layers', 'zoom_to_region']);
+  assert.deepEqual(names.sort(), ['highlight_features', 'set_map_view', 'set_time_range', 'toggle_map_layers', 'zoom_to_region']);
   for (const tool of CLIENT_EXECUTED_TOOLS) {
     assert.ok(tool.scopes.includes('intelligence'), `${tool.name} must require the intelligence scope`);
     assert.equal(tool.risk, 'client-map');
@@ -32,6 +33,7 @@ test('isClientExecutedTool matches only map-control tool names', () => {
   assert.equal(isClientExecutedTool('toggle_map_layers'), true);
   assert.equal(isClientExecutedTool('zoom_to_region'), true);
   assert.equal(isClientExecutedTool('highlight_features'), true);
+  assert.equal(isClientExecutedTool('set_time_range'), true);
   assert.equal(isClientExecutedTool('get_visible_region'), false);
   assert.equal(isClientExecutedTool('search_news'), false);
   assert.equal(isClientExecutedTool('mcp__foo__bar'), false);
@@ -255,4 +257,120 @@ test('bridge is a no-op without events or without accessors wired to a map', () 
     { name: 'set_map_view', clientAction: { lat: 1, lon: 2, zoom: 3 } },
   ], { getMap: () => null, getCurrentLayers: () => ({}), commitLayers: () => {} });
   assert.equal(noMap.movedCamera, 1);
+});
+
+// ---------------------------------------------------------------------------
+// set_time_range: registry validation + bridge
+// ---------------------------------------------------------------------------
+
+test('set_time_range only emits existing TimeRange values (minus custom)', async () => {
+  // Parse the source-of-truth union from src/utils/time-range.ts so the agent
+  // list cannot drift from the app's TimeRange type.
+  const { readFile } = await import('node:fs/promises');
+  const src = await readFile(new URL('../../src/utils/time-range.ts', import.meta.url), 'utf8');
+  const union = src.match(/export type TimeRange = ([^;]+);/)[1];
+  const appRanges = [...union.matchAll(/'([^']+)'/g)].map(m => m[1]);
+  assert.deepEqual([...AGENT_TIME_RANGE_VALUES].sort(), appRanges.filter(r => r !== 'custom').sort());
+});
+
+test('set_time_range accepts exact ranges and aliases without clamping', () => {
+  for (const range of ['1h', '6h', '24h', '48h', '7d', 'all']) {
+    assert.deepEqual(validateClientToolArguments('set_time_range', { range }), { ok: true, args: { range } });
+  }
+  assert.equal(validateClientToolArguments('set_time_range', { range: 'week' }).args.range, '7d');
+  assert.equal(validateClientToolArguments('set_time_range', { range: 'this week' }).args.range, '7d');
+  assert.equal(validateClientToolArguments('set_time_range', { range: 'today' }).args.range, '24h');
+  assert.equal(validateClientToolArguments('set_time_range', { range: '24' }).args.range, '24h');
+});
+
+test('set_time_range snaps lookbacks up to the smallest covering window and clamps past 7d', () => {
+  const cases = [
+    [{ range: '72h' }, '7d'],
+    [{ hours: 72 }, '7d'],
+    [{ range: '3d' }, '7d'],
+    [{ range: '30m' }, '1h'],
+    [{ hours: 12 }, '24h'],
+    [{ range: '2 days' }, '48h'],
+    [{ hours: 36 }, '48h'],
+    [{ range: '30d' }, '7d'],
+    [{ hours: 10_000 }, '7d'],
+  ];
+  for (const [args, expected] of cases) {
+    const result = validateClientToolArguments('set_time_range', args);
+    assert.equal(result.ok, true, JSON.stringify(args));
+    assert.equal(result.args.range, expected, JSON.stringify(args));
+  }
+  const snapped = validateClientToolArguments('set_time_range', { hours: 72 });
+  assert.equal(snapped.args.clamped, true);
+  assert.equal(snapped.args.requested, '72h');
+  // Exact 48 hours does not report clamping.
+  assert.equal(validateClientToolArguments('set_time_range', { hours: 48 }).args.clamped, undefined);
+});
+
+test('set_time_range rejects missing, zero, negative, and garbage input', () => {
+  for (const args of [{}, { range: '' }, { hours: 0 }, { hours: -5 }, { hours: 'abc' }, { range: 'forever-ish' }, { range: 'custom' }, null]) {
+    assert.equal(validateClientToolArguments('set_time_range', args).ok, false, JSON.stringify(args));
+  }
+});
+
+test('bridge applies set_time_range via accessor and rejects unknown ranges', () => {
+  const applied = [];
+  const accessors = {
+    getMap: () => null,
+    getCurrentLayers: () => ({}),
+    commitLayers: () => {},
+    setTimeRange: range => applied.push(range),
+  };
+  const summary = applyAgentMapToolEvents([
+    { name: 'set_time_range', clientAction: { range: '48h' } },
+    { name: 'set_time_range', clientAction: { range: '7d', clamped: true, requested: '72h' } },
+    { name: 'set_time_range', clientAction: { range: '90d' } },
+    { name: 'set_time_range', clientAction: { range: 'custom' } },
+  ], accessors);
+  assert.deepEqual(applied, ['48h', '7d']);
+  assert.equal(summary.timeRange, '7d');
+  assert.deepEqual(summary.rejected, ['set_time_range', 'set_time_range']);
+
+  const noSetter = applyAgentMapToolEvents([
+    { name: 'set_time_range', clientAction: { range: '24h' } },
+  ], { getMap: () => null, getCurrentLayers: () => ({}), commitLayers: () => {} });
+  assert.deepEqual(noSetter.rejected, ['set_time_range']);
+  assert.equal(noSetter.timeRange, undefined);
+});
+
+test('gateway system prompt advertises set_time_range', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const src = await readFile(new URL('./agent-gateway.mjs', import.meta.url), 'utf8');
+  assert.match(src, /Use set_time_range \(1h, 6h, 24h, 48h, 7d, all\)/);
+});
+
+// ---------------------------------------------------------------------------
+// Connector endpoint SSRF guard
+// ---------------------------------------------------------------------------
+
+test('validateConnectorEndpoint blocks private, CGNAT, mapped and IPv6-local hosts', async () => {
+  const { validateConnectorEndpoint } = await import('./agent-gateway.mjs');
+  for (const endpoint of [
+    'https://10.0.0.5/v1', 'https://192.168.1.1/v1', 'https://172.20.0.1/v1', 'https://169.254.169.254/latest',
+    'https://100.100.1.1/v1', 'https://0.0.0.0/v1', 'https://127.0.0.2/v1', 'https://[::ffff:7f00:1]/v1',
+    'https://[fd00::1]/v1', 'https://[fe80::1]/v1', 'http://example.com/v1', 'ftp://example.com',
+  ]) {
+    assert.equal(validateConnectorEndpoint(endpoint).ok, false, endpoint);
+  }
+  for (const endpoint of ['https://api.openai.com/v1', 'https://100.20.0.1/v1', 'http://localhost:11434/v1']) {
+    assert.equal(validateConnectorEndpoint(endpoint).ok, true, endpoint);
+  }
+});
+
+test('validateConnectorEndpoint refuses localhost on the hosted (Vercel) gateway', async () => {
+  const { validateConnectorEndpoint } = await import('./agent-gateway.mjs');
+  const previous = process.env.VERCEL;
+  process.env.VERCEL = '1';
+  try {
+    assert.equal(validateConnectorEndpoint('http://localhost:11434/v1').ok, false);
+    assert.equal(validateConnectorEndpoint('http://127.0.0.1:8080/v1').ok, false);
+    assert.equal(validateConnectorEndpoint('https://api.openai.com/v1').ok, true);
+  } finally {
+    if (previous === undefined) delete process.env.VERCEL; else process.env.VERCEL = previous;
+  }
 });

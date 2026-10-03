@@ -19,6 +19,21 @@ let cachedToken: string | null = null;
 let tokenExpiryMs = 0;
 const firebaseConfigured = isFirebaseConfigured();
 
+/**
+ * Current user's Firebase ID token (cached), or null when signed out /
+ * Firebase is unconfigured. Exported for callers that need to attach the
+ * token explicitly (e.g. agent-gateway on web) rather than rely on the
+ * implicit interceptor below.
+ */
+export async function getApiIdToken(): Promise<string | null> {
+  if (!firebaseConfigured) return null;
+  try {
+    return await getIdTokenCached();
+  } catch {
+    return null;
+  }
+}
+
 async function getIdTokenCached(): Promise<string | null> {
   if (cachedToken && Date.now() < tokenExpiryMs) return cachedToken;
   const token = await getIdToken();

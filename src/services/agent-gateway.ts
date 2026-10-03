@@ -1,5 +1,6 @@
 import { getApiBaseUrl, isDesktopRuntime } from '@/services/runtime';
 import { tryInvokeTauri } from '@/services/tauri-bridge';
+import { getApiIdToken } from '@/services/api-auth-fetch';
 
 export type AgentConnectorType = 'openai-compatible' | 'mcp-server' | 'openclaw-mcp';
 
@@ -30,6 +31,22 @@ export interface AgentChatResponse {
   toolEvents?: Array<{ name: string; args?: Record<string, unknown>; result?: unknown; error?: string; clientAction?: Record<string, unknown> }>;
   alertDrafts?: AgentAlertDraft[];
   error?: string;
+  /**
+   * Web gate outcome: 'auth_required' / 'auth_invalid' (HTTP 401) or
+   * 'rate_limited' (HTTP 429). Absent on success and on desktop.
+   */
+  code?: AgentGatewayErrorCode;
+  status?: number;
+  retryAfterSeconds?: number;
+}
+
+export type AgentGatewayErrorCode = 'auth_required' | 'auth_invalid' | 'rate_limited';
+
+/** Classify a gateway HTTP status into the friendly UI states. */
+export function classifyAgentGatewayStatus(status: number, code?: string): AgentGatewayErrorCode | undefined {
+  if (status === 401) return code === 'auth_invalid' ? 'auth_invalid' : 'auth_required';
+  if (status === 429) return 'rate_limited';
+  return undefined;
 }
 
 export interface AgentAlertDraft {
@@ -73,8 +90,17 @@ async function getLocalApiToken(): Promise<string | null> {
 
 async function gatewayFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  const token = await getLocalApiToken();
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (isDesktopRuntime()) {
+    // Desktop: local sidecar token (unchanged).
+    const token = await getLocalApiToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  } else {
+    // Web: chat/mcp/test-connector require a signed-in Firebase user
+    // (api/_agent-gateway-guard.js). Attach the ID token explicitly so the
+    // gate works even if the global fetch interceptor is bypassed.
+    const idToken = await getApiIdToken();
+    if (idToken) headers.set('Authorization', `Bearer ${idToken}`);
+  }
   return fetch(`${getApiBaseUrl()}${path}`, { ...init, headers });
 }
 
@@ -165,8 +191,17 @@ export async function sendAgentChat(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const payload = await response.json() as AgentChatResponse;
-  if (!response.ok && !payload.error) payload.error = `Agent chat failed (${response.status})`;
+  const payload = await response.json().catch(() => ({})) as AgentChatResponse & { retryAfterSeconds?: number };
+  if (!response.ok) {
+    payload.status = response.status;
+    const code = classifyAgentGatewayStatus(response.status, payload.code);
+    if (code) payload.code = code;
+    if (code === 'rate_limited' && payload.retryAfterSeconds == null) {
+      const retryAfter = Number(response.headers.get('Retry-After'));
+      if (Number.isFinite(retryAfter)) payload.retryAfterSeconds = retryAfter;
+    }
+    if (!payload.error) payload.error = `Agent chat failed (${response.status})`;
+  }
   return payload;
 }
 

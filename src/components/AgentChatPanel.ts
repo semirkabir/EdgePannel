@@ -11,6 +11,8 @@ import {
   type AgentMapAccessors,
 } from '@/services/map-agent-bridge';
 import { escapeHtml } from '@/utils/sanitize';
+import { isDesktopRuntime } from '@/services/runtime';
+import { getCurrentUser, isFirebaseConfigured, loginWithGoogle } from '@/services/firebase-auth';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -89,7 +91,43 @@ export class AgentChatPanel {
     this.overlay.hidden = false;
     this.overlay.classList.add('active');
     await this.refreshStatus();
+    if (this.needsWebSignIn()) this.renderGateNotice('auth_required');
     this.inputEl.focus();
+  }
+
+  /** Web copilot is gated on a Firebase sign-in; desktop uses the local sidecar. */
+  private needsWebSignIn(): boolean {
+    if (isDesktopRuntime() || !isFirebaseConfigured()) return false;
+    try {
+      return getCurrentUser() == null;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Friendly inline state for the web gate instead of a raw HTTP error. */
+  private renderGateNotice(code: 'auth_required' | 'auth_invalid' | 'rate_limited', detail?: string): void {
+    if (code === 'rate_limited') {
+      this.renderMessages(`
+        <div class="agent-chat-gate agent-chat-gate--limit">
+          <strong>Rate limit hit</strong>
+          <p>${escapeHtml(detail || 'You have sent a lot of copilot requests. Please wait a moment and try again.')}</p>
+        </div>
+      `);
+      return;
+    }
+    this.renderMessages(`
+      <div class="agent-chat-gate agent-chat-gate--auth">
+        <strong>Sign in to use the copilot</strong>
+        <p>${code === 'auth_invalid' ? 'Your session expired.' : 'The map copilot is available to signed-in users.'} Sign in with Google to continue.</p>
+        <button type="button" class="agent-chat-signin">Sign in</button>
+      </div>
+    `);
+    this.messagesEl.querySelector<HTMLButtonElement>('.agent-chat-signin')?.addEventListener('click', () => {
+      void loginWithGoogle().then((user) => {
+        if (user) this.renderMessages();
+      });
+    });
   }
 
   public close(): void {
@@ -201,6 +239,21 @@ export class AgentChatPanel {
         connectors: this.localConnectors(),
         mapViewport: readAgentMapViewport(this.mapAccessors),
       });
+      if (response.code) {
+        // Web gate (401/429): drop the unsent user turn from history so a
+        // retry after sign-in / cooldown does not duplicate it, and restore
+        // the draft into the input.
+        this.messages.pop();
+        this.inputEl.value = content;
+        const retry = response.retryAfterSeconds;
+        this.renderGateNotice(
+          response.code,
+          response.code === 'rate_limited'
+            ? (response.error || (retry ? `Try again in ${retry}s.` : undefined))
+            : undefined,
+        );
+        return;
+      }
       if (response.alertDrafts?.length) {
         saveAgentAlertDrafts(response.alertDrafts);
       }
@@ -223,7 +276,7 @@ export class AgentChatPanel {
           meta: { model: this.selectedModelLabel(), sourceCount: response.toolEvents?.length ?? 0 },
         });
       }
-      const mapActionCount = mapSummary.movedCamera + mapSummary.toggledKeys.length + mapSummary.highlighted;
+      const mapActionCount = mapSummary.movedCamera + mapSummary.toggledKeys.length + mapSummary.highlighted + (mapSummary.timeRange ? 1 : 0);
       if (toolHtml || response.alertDrafts?.length || mapActionCount) {
         this.renderMessages(`
           <div class="agent-chat-tool-log">
@@ -232,6 +285,7 @@ export class AgentChatPanel {
               mapSummary.movedCamera ? `${mapSummary.movedCamera} camera move${mapSummary.movedCamera === 1 ? '' : 's'}` : '',
               mapSummary.toggledKeys.length ? `${mapSummary.toggledKeys.join(', ')} switched` : '',
               mapSummary.highlighted ? `${mapSummary.highlighted} highlight${mapSummary.highlighted === 1 ? '' : 's'}` : '',
+              mapSummary.timeRange ? `time range ${escapeHtml(mapSummary.timeRange)}` : '',
             ].filter(Boolean).join(' · ')}</div>` : ''}
             ${response.alertDrafts?.length ? `<div class="agent-chat-tool-event">Created ${response.alertDrafts.length} alert draft${response.alertDrafts.length === 1 ? '' : 's'} pending approval</div>` : ''}
           </div>

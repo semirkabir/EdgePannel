@@ -113,6 +113,14 @@ function isLoopbackHostname(hostname) {
 
 function isPrivateHostname(hostname) {
   if (isLoopbackHostname(hostname)) return false;
+  const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  // Unspecified / other loopback forms, IPv4-mapped IPv6, IPv6 ULA + link-local.
+  if (host === '0.0.0.0' || host === '::' || /^127\./.test(host) || /^0\./.test(host)) return true;
+  if (host.startsWith('::ffff:')) return true;
+  if (/^f[cd][0-9a-f]{0,2}:/.test(host) || /^fe[89ab][0-9a-f]?:/.test(host)) return true;
+  // Carrier-grade NAT (100.64.0.0/10) — includes Tailscale addresses.
+  const cgnat = host.match(/^100\.(\d+)\./);
+  if (cgnat && Number(cgnat[1]) >= 64 && Number(cgnat[1]) <= 127) return true;
   if (/^10\./.test(hostname)) return true;
   if (/^192\.168\./.test(hostname)) return true;
   const match = hostname.match(/^172\.(\d+)\./);
@@ -128,6 +136,11 @@ export function validateConnectorEndpoint(endpoint) {
   try {
     const url = new URL(endpoint);
     if (!['http:', 'https:'].includes(url.protocol)) return { ok: false, error: 'Endpoint must be http(s).' };
+    // On the hosted web gateway "localhost" is the serverless host itself, not
+    // the analyst's machine — refuse it so user-supplied connectors can't probe it.
+    if (process.env.VERCEL && isLoopbackHostname(url.hostname)) {
+      return { ok: false, error: 'Localhost endpoints are only available in the desktop app.' };
+    }
     if (url.protocol === 'http:' && !isLoopbackHostname(url.hostname)) {
       return { ok: false, error: 'HTTP endpoints are only allowed for localhost.' };
     }
@@ -365,7 +378,7 @@ async function handleChat(body, context) {
   const conversation = [
     {
       role: 'system',
-      content: 'You are connected to World Monitor live data and the analyst\'s map/globe. Use tools when live or up-to-date intelligence is needed. Call get_visible_region to learn what is currently on screen. Use set_map_view, zoom_to_region, toggle_map_layers, or highlight_features to point the analyst\'s dashboard at what you are discussing. Alert tools only create drafts that require user approval.',
+      content: 'You are connected to World Monitor live data and the analyst\'s map/globe. Use tools when live or up-to-date intelligence is needed. Call get_visible_region to learn what is currently on screen. Use set_map_view, zoom_to_region, toggle_map_layers, or highlight_features to point the analyst\'s dashboard at what you are discussing. Use set_time_range (1h, 6h, 24h, 48h, 7d, all) to scope map events and news to the period in question, e.g. before answering "what changed in the last 72h"; other lookbacks snap up to the smallest covering window, so tell the analyst which window was applied. Alert tools only create drafts that require user approval.',
     },
     ...messages,
   ];

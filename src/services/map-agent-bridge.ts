@@ -2,7 +2,7 @@
  * Client-side executor for agent map-control tools.
  *
  * The agent gateway validates set_map_view / zoom_to_region / toggle_map_layers /
- * highlight_features calls from the LLM but deliberately does NOT execute them —
+ * highlight_features / set_time_range calls from the LLM but deliberately does NOT execute them —
  * the live map lives in the browser. It returns each accepted call as a toolEvent
  * carrying a `clientAction` payload; AgentChatPanel forwards those events here.
  *
@@ -34,6 +34,18 @@ export interface AgentHighlightItem {
   label?: string;
 }
 
+/**
+ * Time windows the agent may select. Mirrors TimeRange in
+ * src/utils/time-range.ts minus 'custom' (user-configured lookback); kept as a
+ * local literal list so this module stays importable from node tests.
+ */
+export const AGENT_SETTABLE_TIME_RANGES = ['1h', '6h', '24h', '48h', '7d', 'all'] as const;
+export type AgentTimeRange = typeof AGENT_SETTABLE_TIME_RANGES[number];
+
+export function isAgentTimeRange(value: unknown): value is AgentTimeRange {
+  return typeof value === 'string' && (AGENT_SETTABLE_TIME_RANGES as readonly string[]).includes(value);
+}
+
 /** Minimal view of the pieces of app state the bridge is allowed to touch. */
 export interface AgentMapAccessors {
   /** Active map container (flat or globe) — null before map init. */
@@ -46,6 +58,12 @@ export interface AgentMapAccessors {
   highlightFeatures?(items: AgentHighlightItem[], durationMs: number): void;
   /** Optional: snapshot for get_visible_region (sent with each chat request). */
   getViewport?(): AgentMapViewport | null;
+  /**
+   * Optional: apply a dashboard time range through the same path as the manual
+   * time selector (MapContainer.setTimeRange → onTimeRangeChanged → UI store,
+   * news filter, URL state).
+   */
+  setTimeRange?(range: AgentTimeRange): void;
 }
 
 export interface AgentMapApplySummary {
@@ -55,6 +73,8 @@ export interface AgentMapApplySummary {
   toggledKeys: string[];
   /** Number of highlight_features batches applied. */
   highlighted: number;
+  /** Last time range applied via set_time_range, if any. */
+  timeRange?: AgentTimeRange;
   /** Events that carried a clientAction but failed defensive checks. */
   rejected: string[];
 }
@@ -132,6 +152,19 @@ export function applyAgentMapToolEvents(
         accessors.highlightFeatures(items, durationMs);
       }
       summary.highlighted++;
+      continue;
+    }
+
+    if (event.name === 'set_time_range') {
+      const range = action.range;
+      // Defensive re-check: the gateway already snapped/validated, but never
+      // hand an unknown string to the map's TimeRange setter.
+      if (!isAgentTimeRange(range) || typeof accessors.setTimeRange !== 'function') {
+        summary.rejected.push(event.name);
+        continue;
+      }
+      accessors.setTimeRange(range);
+      summary.timeRange = range;
       continue;
     }
 

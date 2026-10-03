@@ -112,3 +112,23 @@ export async function checkKeyedRateLimit(request, key, limit, window, corsHeade
     return null;
   }
 }
+
+/**
+ * Keyed limit on an arbitrary identifier (e.g. a Firebase uid) rather than
+ * the client IP. Returns the raw verdict so callers can build their own
+ * response body, or null when Upstash is not configured / errored — callers
+ * that must not fail open (e.g. LLM-billing endpoints) should fall back to a
+ * local limiter on null.
+ *
+ * @returns {Promise<{ success: boolean, limit: number, remaining: number, reset: number } | null>}
+ */
+export async function checkIdentifierRateLimit(key, identifier, limit, window) {
+  const rl = getKeyedRatelimit(key, limit, window);
+  if (!rl) return null;
+  try {
+    const { success, limit: max, remaining, reset } = await rl.limit(`${key}:${identifier}`);
+    return { success, limit: max, remaining, reset };
+  } catch {
+    return null;
+  }
+}

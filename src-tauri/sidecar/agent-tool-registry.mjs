@@ -94,6 +94,75 @@ export function normalizeMapViewport(raw) {
   };
 }
 
+/**
+ * Time-range windows the dashboard supports — MUST mirror TimeRange in
+ * src/utils/time-range.ts ('custom' is intentionally excluded: it depends on
+ * a per-user lookback stored in localStorage, so the agent cannot reason
+ * about it). Ordered shortest → longest; hours = window length.
+ */
+export const AGENT_TIME_RANGES = [
+  { range: '1h', hours: 1 },
+  { range: '6h', hours: 6 },
+  { range: '24h', hours: 24 },
+  { range: '48h', hours: 48 },
+  { range: '7d', hours: 168 },
+];
+export const AGENT_TIME_RANGE_VALUES = [...AGENT_TIME_RANGES.map(entry => entry.range), 'all'];
+
+const TIME_RANGE_ALIASES = {
+  hour: '1h', '60m': '1h', '1hr': '1h',
+  day: '24h', today: '24h', '1d': '24h', '24hr': '24h',
+  '2d': '48h', '2days': '48h',
+  week: '7d', '1w': '7d', this_week: '7d', last_week: '7d', '168h': '7d',
+  all_time: 'all', everything: 'all', max: 'all',
+};
+
+/** Parse "72h", "3d", "90m", "2 days", 72 → hours (number) or null. */
+function parseLookbackHours(raw) {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+  const text = String(raw ?? '').trim().toLowerCase();
+  const match = text.match(/^(\d+(?:\.\d+)?)\s*(m|min|mins|minutes?|h|hr|hrs|hours?|d|days?|w|wk|weeks?)?$/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  const unit = (match[2] || 'h')[0];
+  if (unit === 'm') return value / 60;
+  if (unit === 'd') return value * 24;
+  if (unit === 'w') return value * 168;
+  return value;
+}
+
+/**
+ * Map a requested lookback onto the smallest supported window that still
+ * COVERS it (72h → 7d, 30m → 1h). Anything longer than 7d clamps to 7d;
+ * only an explicit 'all' selects the unbounded window.
+ */
+export function resolveAgentTimeRange(args) {
+  const normalized = args && typeof args === 'object' ? args : {};
+  const rawRange = normalized.range ?? normalized.timeRange ?? normalized.window;
+  if (rawRange != null && String(rawRange).trim() !== '') {
+    const key = String(rawRange).trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (AGENT_TIME_RANGE_VALUES.includes(key)) return { ok: true, range: key, clamped: false };
+    const alias = TIME_RANGE_ALIASES[key] ?? TIME_RANGE_ALIASES[key.replace(/_/g, '')];
+    if (alias) return { ok: true, range: alias, clamped: false, requested: String(rawRange) };
+    const hours = parseLookbackHours(String(rawRange).replace(/_/g, ' '));
+    if (hours != null) return coverHours(hours, String(rawRange));
+    return { ok: false, error: `Unknown time range '${rawRange}'. Supported: ${AGENT_TIME_RANGE_VALUES.join(', ')} (or hours: N).` };
+  }
+  if (normalized.hours != null && normalized.hours !== '') {
+    const hours = Number(normalized.hours);
+    if (!Number.isFinite(hours)) return { ok: false, error: 'hours must be a number.' };
+    return coverHours(hours, `${normalized.hours}h`);
+  }
+  return { ok: false, error: `Provide range (${AGENT_TIME_RANGE_VALUES.join(', ')}) or hours.` };
+}
+
+function coverHours(hours, requested) {
+  if (!(hours > 0)) return { ok: false, error: 'Lookback must be greater than zero.' };
+  const match = AGENT_TIME_RANGES.find(entry => entry.hours >= hours) ?? AGENT_TIME_RANGES[AGENT_TIME_RANGES.length - 1];
+  const exact = match.hours === hours;
+  return { ok: true, range: match.range, clamped: !exact, requested };
+}
+
 export const CLIENT_EXECUTED_TOOLS = [
   {
     name: 'set_map_view',
@@ -152,6 +221,20 @@ export const CLIENT_EXECUTED_TOOLS = [
         durationMs: clientNumberParam('Highlight duration in ms (800–8000). Default 3000.'),
       },
       required: ['items'],
+    },
+  },
+  {
+    name: 'set_time_range',
+    description: 'Set the dashboard time window that filters map events and news (e.g. to answer "what changed in the last 72h"). Supported windows: 1h, 6h, 24h, 48h, 7d, all. Other lookbacks (e.g. 72h, 3d) snap UP to the smallest window that covers them; anything past 7d clamps to 7d unless you pass all.',
+    scopes: ['intelligence'],
+    risk: 'client-map',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        range: clientStringParam('One of: 1h, 6h, 24h, 48h, 7d, all. Also accepts lookbacks like "72h" or "3d".'),
+        hours: clientNumberParam('Alternative to range: lookback in hours; snapped up to a supported window.'),
+      },
+      required: [],
     },
   },
 ];
@@ -258,6 +341,18 @@ export function validateClientToolArguments(toolName, args) {
     if (!Number.isFinite(durationMs)) durationMs = 3000;
     durationMs = Math.max(800, Math.min(8000, Math.round(durationMs)));
     return { ok: true, args: { items, durationMs, ...(rejected.length ? { rejected } : {}) } };
+  }
+  if (toolName === 'set_time_range') {
+    const resolved = resolveAgentTimeRange(normalized);
+    if (!resolved.ok) return { ok: false, error: resolved.error };
+    return {
+      ok: true,
+      args: {
+        range: resolved.range,
+        ...(resolved.clamped ? { clamped: true } : {}),
+        ...(resolved.requested ? { requested: resolved.requested } : {}),
+      },
+    };
   }
   return { ok: false, error: `Unknown client tool: ${toolName}` };
 }

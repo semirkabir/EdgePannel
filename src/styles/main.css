@@ -1982,6 +1982,33 @@ canvas,
   margin-top: 4px;
 }
 
+.agent-chat-gate {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border, rgba(255,255,255,0.16));
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  font-size: 13px;
+}
+
+.agent-chat-gate p {
+  margin: 6px 0 10px;
+  color: var(--text-muted, #9aa0aa);
+}
+
+.agent-chat-gate--limit {
+  border-left: 3px solid var(--threat-high, #f59e0b);
+}
+
+.agent-chat-signin {
+  border: 1px solid var(--border, rgba(255,255,255,0.16));
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: var(--text, #f5f5f5);
+  background: rgba(255,255,255,0.08);
+  cursor: pointer;
+}
+
 .agent-chat-tool-event.error {
   border-left-color: var(--threat-critical);
 }
