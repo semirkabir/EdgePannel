@@ -103,6 +103,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   'world-clock':         p2('World Clock'),
   'economic-calendar':   p1('Economic Calendar'),
   'sanctions-tracker':   p1('Sanctions Tracker'),
+  'solar-weather':       { name: 'Solar Weather', enabled: false, priority: 2 },
   'alert-rules':         p2('Alert Rules'),
   'geopolitical-risk':   p1('Geopolitical Risk Index'),
   'risk-dashboard':      p2('GEM Risk Dashboard'),
