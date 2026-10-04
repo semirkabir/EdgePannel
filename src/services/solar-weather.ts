@@ -38,18 +38,25 @@ function parseAlertSeverity(message: string): SolarWeatherAlert['severity'] {
   return 'low';
 }
 
-function getLatestNumericRow(rows: unknown[]): string[] | null {
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const row = rows[i];
-    if (Array.isArray(row) && row.length > 1) return row.map(value => String(value));
-  }
-  return null;
+interface RtswWindRow {
+  time_tag: string;
+  active: boolean;
+  proton_speed: number | null;
+  proton_density: number | null;
+}
+
+/** Newest row from the active spacecraft with usable values (feed is newest-first, mixed sources). */
+function getLatestWindRow(rows: RtswWindRow[]): RtswWindRow | null {
+  return rows.find(row => row.active && (row.proton_speed != null || row.proton_density != null))
+    ?? rows.find(row => row.proton_speed != null || row.proton_density != null)
+    ?? null;
 }
 
 async function fetchFreshSolarWeather(): Promise<SolarWeatherSnapshot> {
   const [kpResp, plasmaResp, alertsResp] = await Promise.all([
     fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', { signal: AbortSignal.timeout(8000) }),
-    fetch('https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json', { signal: AbortSignal.timeout(8000) }),
+    // products/solar-wind/plasma-*.json was retired by SWPC (404); rtsw is the current real-time feed.
+    fetch('https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json', { signal: AbortSignal.timeout(8000) }),
     fetch('https://services.swpc.noaa.gov/products/alerts.json', { signal: AbortSignal.timeout(8000) }),
   ]);
 
@@ -58,16 +65,16 @@ async function fetchFreshSolarWeather(): Promise<SolarWeatherSnapshot> {
   }
 
   const kpRows = await kpResp.json() as Array<{ time_tag: string; Kp: number }>;
-  const plasmaRows = await plasmaResp.json() as unknown[];
+  const windRows = await plasmaResp.json() as RtswWindRow[];
   const alertRows = await alertsResp.json() as Array<{ product_id: string; issue_datetime: string; message: string }>;
 
   const latestKp = kpRows[kpRows.length - 1]?.Kp ?? 0;
-  const latestPlasma = getLatestNumericRow(plasmaRows);
+  const latestWind = Array.isArray(windRows) ? getLatestWindRow(windRows) : null;
 
   return {
     kpIndex: latestKp,
-    solarWindSpeed: latestPlasma && latestPlasma.length >= 3 ? Number(latestPlasma[2]) || null : null,
-    plasmaDensity: latestPlasma && latestPlasma.length >= 2 ? Number(latestPlasma[1]) || null : null,
+    solarWindSpeed: latestWind?.proton_speed ?? null,
+    plasmaDensity: latestWind?.proton_density ?? null,
     alerts: alertRows.slice(0, 8).map(alert => ({
       productId: alert.product_id,
       issuedAt: alert.issue_datetime,

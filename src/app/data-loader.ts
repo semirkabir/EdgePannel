@@ -317,6 +317,20 @@ export class DataLoaderManager implements AppModule {
       }
     }, { priority });
 
+    // Tiny fetches that must not queue behind slow feeds (news can hold a
+    // scheduler slot for 100s+ on 2-core machines): run them immediately.
+    const runNow = async (name: string, fn: () => Promise<void>): Promise<void> => {
+      if (this.ctx.isDestroyed || this.ctx.inFlight.has(name)) return;
+      this.ctx.inFlight.add(name);
+      try {
+        await fn();
+      } catch (e) {
+        if (!this.ctx.isDestroyed) console.error(`[App] ${name} failed:`, e);
+      } finally {
+        this.ctx.inFlight.delete(name);
+      }
+    };
+
     const tasks: Array<{ name: string; task: Promise<void> }> = [
       { name: 'news', task: runGuarded('news', () => this.loadNews(), 'high') },
     ];
@@ -370,10 +384,10 @@ export class DataLoaderManager implements AppModule {
         }
       }
       if (this.hasActiveSanctionsConsumer()) {
-        tasks.push({ name: 'sanctions', task: runGuarded('sanctions', () => this.loadSanctions()) });
+        tasks.push({ name: 'sanctions', task: runGuarded('sanctions', () => this.loadSanctions(), 'high') });
       }
       if (this.hasActiveSolarWeatherConsumer()) {
-        tasks.push({ name: 'solarWeather', task: runGuarded('solarWeather', () => this.loadSolarWeather()) });
+        tasks.push({ name: 'solarWeather', task: runNow('solarWeather', () => this.loadSolarWeather()) });
       }
       // Map layers the user has on: load now instead of waiting for the first refresh tick.
       if (this.ctx.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
