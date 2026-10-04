@@ -899,39 +899,6 @@ fn sanitize_path_for_node(p: &Path) -> String {
     }
 }
 
-#[cfg(test)]
-mod sanitize_path_tests {
-    use super::sanitize_path_for_node;
-    use std::path::Path;
-
-    #[test]
-    fn strips_extended_drive_prefix() {
-        let raw = Path::new(r"\\?\C:\Program Files\nodejs\node.exe");
-        assert_eq!(
-            sanitize_path_for_node(raw),
-            r"C:\Program Files\nodejs\node.exe".to_string()
-        );
-    }
-
-    #[test]
-    fn strips_extended_unc_prefix_and_preserves_unc_root() {
-        let raw = Path::new(r"\\?\UNC\server\share\sidecar\local-api-server.mjs");
-        assert_eq!(
-            sanitize_path_for_node(raw),
-            r"\\server\share\sidecar\local-api-server.mjs".to_string()
-        );
-    }
-
-    #[test]
-    fn leaves_standard_paths_unchanged() {
-        let raw = Path::new(r"C:\Users\alice\sidecar\local-api-server.mjs");
-        assert_eq!(
-            sanitize_path_for_node(raw),
-            r"C:\Users\alice\sidecar\local-api-server.mjs".to_string()
-        );
-    }
-}
-
 fn local_api_paths(app: &AppHandle) -> (PathBuf, PathBuf) {
     let resource_dir = app
         .path()
@@ -1432,12 +1399,12 @@ fn main() {
         ])
         .setup(|app| {
             // Load persistent cache into memory (avoids 14MB file I/O on every IPC call)
-            let cache_path = cache_file_path(&app.handle()).unwrap_or_default();
+            let cache_path = cache_file_path(app.handle()).unwrap_or_default();
             app.manage(PersistentCache::load(&cache_path));
 
-            if let Err(err) = start_local_api(&app.handle()) {
+            if let Err(err) = start_local_api(app.handle()) {
                 append_desktop_log(
-                    &app.handle(),
+                    app.handle(),
                     "ERROR",
                     &format!("local API sidecar failed to start: {err}"),
                 );
@@ -1496,4 +1463,37 @@ fn main() {
                 _ => {}
             }
         });
+}
+
+#[cfg(test)]
+mod sanitize_path_tests {
+    use super::sanitize_path_for_node;
+    use std::path::Path;
+
+    #[test]
+    fn strips_extended_drive_prefix() {
+        let raw = Path::new(r"\\?\C:\Program Files\nodejs\node.exe");
+        assert_eq!(
+            sanitize_path_for_node(raw),
+            r"C:\Program Files\nodejs\node.exe".to_string()
+        );
+    }
+
+    #[test]
+    fn strips_extended_unc_prefix_and_preserves_unc_root() {
+        let raw = Path::new(r"\\?\UNC\server\share\sidecar\local-api-server.mjs");
+        assert_eq!(
+            sanitize_path_for_node(raw),
+            r"\\server\share\sidecar\local-api-server.mjs".to_string()
+        );
+    }
+
+    #[test]
+    fn leaves_standard_paths_unchanged() {
+        let raw = Path::new(r"C:\Users\alice\sidecar\local-api-server.mjs");
+        assert_eq!(
+            sanitize_path_for_node(raw),
+            r"C:\Users\alice\sidecar\local-api-server.mjs".to_string()
+        );
+    }
 }
