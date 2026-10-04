@@ -16,7 +16,9 @@ use reqwest::Url;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Manager, RunEvent, Webview, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+#[cfg(target_os = "macos")]
+use tauri::WindowEvent;
+use tauri::{AppHandle, Manager, RunEvent, Webview, WebviewUrl, WebviewWindowBuilder};
 
 const DEFAULT_LOCAL_API_PORT: u16 = 46123;
 const KEYRING_SERVICE: &str = "world-monitor";
@@ -685,16 +687,19 @@ fn open_settings_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    let _settings_window =
+    let builder =
         WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
             .title("World Monitor Settings")
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
             .inner_size(980.0, 600.0)
             .min_inner_size(820.0, 480.0)
             .resizable(true)
-            .background_color(tauri::webview::Color(26, 28, 30, 255))
-            .build()
-            .map_err(|e| format!("Failed to create settings window: {e}"))?;
+            .background_color(tauri::webview::Color(26, 28, 30, 255));
+    // title_bar_style is a macOS-only builder method.
+    #[cfg(target_os = "macos")]
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay);
+    let _settings_window = builder
+        .build()
+        .map_err(|e| format!("Failed to create settings window: {e}"))?;
 
     // On Windows/Linux, menus are per-window. Remove the inherited app menu
     // from the settings window (macOS uses a shared app-wide menu bar instead).
@@ -724,13 +729,15 @@ fn open_live_channels_window(app: &AppHandle, base_url: Option<String>) -> Resul
         _ => WebviewUrl::App("live-channels.html".into()),
     };
 
-    let _live_channels_window = WebviewWindowBuilder::new(app, "live-channels", url)
+    let builder = WebviewWindowBuilder::new(app, "live-channels", url)
         .title("Channel management - World Monitor")
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
         .inner_size(680.0, 760.0)
         .min_inner_size(520.0, 600.0)
         .resizable(true)
-        .background_color(tauri::webview::Color(26, 28, 30, 255))
+        .background_color(tauri::webview::Color(26, 28, 30, 255));
+    #[cfg(target_os = "macos")]
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay);
+    let _live_channels_window = builder
         .build()
         .map_err(|e| format!("Failed to create live channels window: {e}"))?;
 
