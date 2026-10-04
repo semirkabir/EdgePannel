@@ -84,10 +84,11 @@ describe('redis caching behavior', { concurrency: 1 }, () => {
         getCalls += 1;
         return jsonResponse({ result: undefined });
       }
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         setCalls += 1;
         return jsonResponse({ result: 'OK' });
       }
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -169,6 +170,7 @@ describe('cachedFetchJsonWithMeta source labeling', { concurrency: 1 }, () => {
       if (raw.includes('/get/')) {
         return jsonResponse({ result: JSON.stringify({ value: 'cached-data' }) });
       }
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -202,6 +204,7 @@ describe('cachedFetchJsonWithMeta source labeling', { concurrency: 1 }, () => {
       const raw = String(url);
       if (raw.includes('/get/')) return jsonResponse({ result: undefined });
       if (raw.includes('/set/')) return jsonResponse({ result: 'OK' });
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -232,6 +235,7 @@ describe('cachedFetchJsonWithMeta source labeling', { concurrency: 1 }, () => {
       const raw = String(url);
       if (raw.includes('/get/')) return jsonResponse({ result: undefined });
       if (raw.includes('/set/')) return jsonResponse({ result: 'OK' });
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -283,6 +287,7 @@ describe('cachedFetchJsonWithMeta source labeling', { concurrency: 1 }, () => {
         return jsonResponse({ result: JSON.stringify({ value: 'from-other-instance' }) });
       }
       if (raw.includes('/set/')) return jsonResponse({ result: 'OK' });
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -327,13 +332,14 @@ describe('negative-result caching', { concurrency: 1 }, () => {
         const val = store.get(key);
         return jsonResponse({ result: val ?? undefined });
       }
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         const parts = raw.split('/set/').pop().split('/');
         const key = decodeURIComponent(parts[0]);
         const value = decodeURIComponent(parts[1]);
         store.set(key, value);
         return jsonResponse({ result: 'OK' });
       }
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -376,13 +382,14 @@ describe('negative-result caching', { concurrency: 1 }, () => {
         const val = store.get(key);
         return jsonResponse({ result: val ?? undefined });
       }
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         const parts = raw.split('/set/').pop().split('/');
         const key = decodeURIComponent(parts[0]);
         const value = decodeURIComponent(parts[1]);
         store.set(key, value);
         return jsonResponse({ result: 'OK' });
       }
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -417,10 +424,11 @@ describe('negative-result caching', { concurrency: 1 }, () => {
     globalThis.fetch = async (url) => {
       const raw = String(url);
       if (raw.includes('/get/')) return jsonResponse({ result: undefined });
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         setCalls += 1;
         return jsonResponse({ result: 'OK' });
       }
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -482,7 +490,7 @@ describe('theater posture caching behavior', { concurrency: 1 }, () => {
       if (raw.includes('/get/') || raw.includes('/pipeline')) {
         return jsonResponse({ result: undefined });
       }
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         return jsonResponse({ result: 'OK' });
       }
       if (raw.includes('opensky-network.org')) {
@@ -538,7 +546,7 @@ describe('theater posture caching behavior', { concurrency: 1 }, () => {
         }
         return jsonResponse({ result: undefined });
       }
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         return jsonResponse({ result: 'OK' });
       }
       if (raw.includes('opensky-network.org')) {
@@ -575,7 +583,7 @@ describe('theater posture caching behavior', { concurrency: 1 }, () => {
       if (raw.includes('/get/')) {
         return jsonResponse({ result: undefined });
       }
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         return jsonResponse({ result: 'OK' });
       }
       if (raw.includes('opensky-network.org')) {
@@ -613,7 +621,7 @@ describe('theater posture caching behavior', { concurrency: 1 }, () => {
       if (raw.includes('/get/')) {
         return jsonResponse({ result: undefined });
       }
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         const key = decodeURIComponent(raw.split('/set/').pop()?.split('/').shift() || '');
         cacheWrites.push(key);
         return jsonResponse({ result: 'OK' });
@@ -680,7 +688,7 @@ describe('country intel brief caching behavior', { concurrency: 1 }, () => {
         const key = parseRedisKey(raw, 'get');
         return jsonResponse({ result: store.get(key) });
       }
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         const key = parseRedisKey(raw, 'set');
         const encodedValue = raw.slice(raw.indexOf('/set/') + 5).split('/')[1] || '';
         store.set(key, decodeURIComponent(encodedValue));
@@ -693,6 +701,7 @@ describe('country intel brief caching behavior', { concurrency: 1 }, () => {
         userPrompts.push(body.messages?.[1]?.content || '');
         return jsonResponse({ choices: [{ message: { content: `brief-${groqCalls}` } }] });
       }
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -741,7 +750,7 @@ describe('country intel brief caching behavior', { concurrency: 1 }, () => {
         const key = parseRedisKey(raw, 'get');
         return jsonResponse({ result: store.get(key) });
       }
-      if (raw.includes('/set/')) {
+      if (raw.includes('/set/') && !raw.includes('seed-meta')) {
         const key = parseRedisKey(raw, 'set');
         const encodedValue = raw.slice(raw.indexOf('/set/') + 5).split('/')[1] || '';
         store.set(key, decodeURIComponent(encodedValue));
@@ -754,6 +763,7 @@ describe('country intel brief caching behavior', { concurrency: 1 }, () => {
         userPrompts.push(body.messages?.[1]?.content || '');
         return jsonResponse({ choices: [{ message: { content: 'base-brief' } }] });
       }
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
@@ -808,7 +818,8 @@ describe('military flights bbox behavior', { concurrency: 1 }, () => {
       const raw = String(url);
       fetchUrls.push(raw);
       if (!raw.includes('opensky-network.org/api/states/all')) {
-        throw new Error(`Unexpected fetch URL: ${raw}`);
+        if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
+      throw new Error(`Unexpected fetch URL: ${raw}`);
       }
       return jsonResponse({
         states: [
@@ -871,6 +882,7 @@ describe('military flights bbox behavior', { concurrency: 1 }, () => {
       if (raw.includes('opensky-network.org/api/states/all')) {
         openskyCalls += 1;
       }
+      if (raw.includes('seed-meta')) return jsonResponse({ result: 'OK' });
       throw new Error(`Unexpected fetch URL: ${raw}`);
     };
 
