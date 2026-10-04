@@ -9,11 +9,11 @@ function makeRequest(query = '') {
 test('redirects to releases page when platform is missing or invalid', async () => {
   const missing = await handler(makeRequest());
   assert.equal(missing.status, 302);
-  assert.equal(missing.headers.get('location'), 'https://github.com/koala73/worldmonitor/releases/latest');
+  assert.equal(missing.headers.get('location'), 'https://edgepannel.com/downloads');
 
   const invalid = await handler(makeRequest('?platform=unknown'));
   assert.equal(invalid.status, 302);
-  assert.equal(invalid.headers.get('location'), 'https://github.com/koala73/worldmonitor/releases/latest');
+  assert.equal(invalid.headers.get('location'), 'https://edgepannel.com/downloads');
 });
 
 test('redirects to matching asset on the "latest" release for the default/full edition', async () => {
@@ -104,7 +104,7 @@ test('falls back to releases page when upstream returns no matching asset', asyn
   try {
     const response = await handler(makeRequest('?platform=linux-appimage&variant=finance'));
     assert.equal(response.status, 302);
-    assert.equal(response.headers.get('location'), 'https://github.com/koala73/worldmonitor/releases/latest');
+    assert.equal(response.headers.get('location'), 'https://edgepannel.com/downloads');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -117,8 +117,32 @@ test('falls back to releases page when upstream request fails', async () => {
   try {
     const response = await handler(makeRequest('?platform=windows-exe&variant=full'));
     assert.equal(response.status, 302);
-    assert.equal(response.headers.get('location'), 'https://github.com/koala73/worldmonitor/releases/latest');
+    assert.equal(response.headers.get('location'), 'https://edgepannel.com/downloads');
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('version endpoint reports no release for drafts / empty releases', async () => {
+  const { default: versionHandler } = await import('./version.js');
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({ tag_name: 'v0.1.0', draft: false, assets: [] }), { status: 200 });
+    assert.equal((await versionHandler()).status, 404);
+    globalThis.fetch = async () => new Response('{}', { status: 404 });
+    assert.equal((await versionHandler()).status, 502);
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      tag_name: 'v1.0.0', html_url: 'https://example.com/r', assets: [{ name: 'EdgePannel_1.0.0_x64-setup.exe' }],
+    }), { status: 200 });
+    const ok = await versionHandler();
+    assert.equal(ok.status, 200);
+    assert.equal((await ok.json()).version, '1.0.0');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('download route never points at the upstream worldmonitor repo', async () => {
+  const src = (await import('node:fs')).readFileSync(new URL('./download.js', import.meta.url), 'utf-8');
+  assert.ok(!src.includes('koala73'), 'api/download.js must resolve releases from semirkabir/EdgePannel');
 });

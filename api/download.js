@@ -1,9 +1,12 @@
 // Non-sebuf: returns XML/HTML, stays as standalone Vercel function
 export const config = { runtime: 'edge' };
 
-const RELEASES_URL = 'https://api.github.com/repos/koala73/worldmonitor/releases/latest';
-const RELEASES_LIST_URL = 'https://api.github.com/repos/koala73/worldmonitor/releases?per_page=30';
-const RELEASES_PAGE = 'https://github.com/koala73/worldmonitor/releases/latest';
+const RELEASES_REPO = 'semirkabir/EdgePannel';
+const RELEASES_URL = `https://api.github.com/repos/${RELEASES_REPO}/releases/latest`;
+const RELEASES_LIST_URL = `https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=30`;
+// Fallback when no published asset matches. Our own downloads page (not a
+// GitHub releases page) — the repo is private, so GitHub links 404 publicly.
+const RELEASES_PAGE = 'https://edgepannel.com/downloads';
 
 const PLATFORM_PATTERNS = {
   'windows-exe': (name) => name.endsWith('_x64-setup.exe'),

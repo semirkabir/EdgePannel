@@ -52,7 +52,7 @@ import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { SituationReportPanel } from '@/components/SituationReportPanel';
 import { DataSourcesPanel } from '@/components/DataSourcesPanel';
 import { switchToVariant, canSwitchVariantInPlace, SITE_VARIANTS } from '@/app/panel-layout-helpers';
-import { refineDesktopDownloadUrl } from '@/utils/desktop-download';
+import { isDesktopReleaseAvailable, refineDesktopDownloadUrl } from '@/utils/desktop-download';
 import { VisitorCounter } from '@/components/VisitorCounter';
 import { SituationRoomDrawer } from '@/components/SituationRoomDrawer';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -409,6 +409,10 @@ export class EventHandlerManager implements AppModule {
       // right CPU architecture when the browser will tell us (Chromium only).
       void refineDesktopDownloadUrl(SITE_VARIANT).then((url) => {
         if (url) downloadAppBtn.setAttribute('href', url);
+      });
+      // Rendered hidden; only shown once a published release exists.
+      void isDesktopReleaseAvailable().then((available) => {
+        if (available) downloadAppBtn.removeAttribute('hidden');
       });
     }
 

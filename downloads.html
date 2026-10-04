@@ -71,12 +71,12 @@
               <a class="lp-btn lp-btn-primary lp-btn-lg" data-slot="primary-cta" href="#desktop" hidden>
                 <span data-slot="primary-label">Download</span> <span aria-hidden="true">↓</span>
               </a>
-              <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#desktop">See all builds</a>
+              <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#desktop" data-slot="all-builds" hidden>See all builds</a>
               <a class="lp-btn lp-btn-ghost lp-btn-lg" href="/app">Or just use the web app</a>
             </div>
             <p class="lp-dl-version" data-slot="version" hidden>
-              <a data-slot="version-link" href="https://github.com/koala73/worldmonitor/releases/latest" target="_blank" rel="noopener">Latest release</a>
-              · <a href="https://github.com/koala73/worldmonitor/releases" target="_blank" rel="noopener">release notes</a>
+              <a data-slot="version-link" href="/downloads#desktop" target="_blank" rel="noopener">Latest release</a>
+              · <a href="/downloads#desktop" target="_blank" rel="noopener">release notes</a>
             </p>
           </div>
         </section>
@@ -90,14 +90,16 @@
               from the release itself — no installer bundles, no telemetry wrapper.
             </p>
 
-            <div class="lp-src-chips lp-reveal" data-slot="editions" role="group" aria-label="Choose an edition">
+            <div class="lp-src-chips lp-reveal" data-slot="editions" hidden role="group" aria-label="Choose an edition">
               <button type="button" class="lp-chip lp-chip-on" data-edition="full" aria-pressed="true">World <span>all layers</span></button>
               <button type="button" class="lp-chip" data-edition="tech" aria-pressed="false">Tech <span>startups &amp; AI</span></button>
               <button type="button" class="lp-chip" data-edition="finance" aria-pressed="false">Finance <span>markets &amp; macro</span></button>
               <button type="button" class="lp-chip" data-edition="conflicts" aria-pressed="false">Conflicts <span>war &amp; security</span></button>
             </div>
 
-            <div class="lp-dl-grid lp-reveal">
+            <p class="lp-dl-note" data-slot="no-release">Desktop builds are not published yet. The web app has everything in the meantime — <a href="/app">open the dashboard</a>.</p>
+
+            <div class="lp-dl-grid lp-reveal" data-slot="builds" hidden>
               <article class="lp-dl-card" data-os="macos">
                 <header>
                   <h3>macOS</h3>
@@ -141,7 +143,7 @@
               <ul>
                 <li><strong>macOS:</strong> if you see “cannot be opened because it is from an unidentified developer”, right-click the app in Applications and choose <em>Open</em>, then confirm once.</li>
                 <li><strong>Windows:</strong> SmartScreen may show “Windows protected your PC” — choose <em>More info</em> → <em>Run anyway</em>.</li>
-                <li><strong>Verify first:</strong> each release lists the SHA-256 of every asset in its <a href="https://github.com/koala73/worldmonitor/releases/latest" target="_blank" rel="noopener">release notes</a>. Compare it against <code>shasum -a 256 &lt;file&gt;</code> before you open anything.</li>
+                <li><strong>Verify first:</strong> each release lists the SHA-256 of every asset in its <a href="/downloads#desktop" target="_blank" rel="noopener">release notes</a>. Compare it against <code>shasum -a 256 &lt;file&gt;</code> before you open anything.</li>
               </ul>
             </div>
             <p class="lp-footnote lp-reveal" style="margin-top: 22px">

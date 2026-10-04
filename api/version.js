@@ -1,7 +1,7 @@
 // Non-sebuf: returns XML/HTML, stays as standalone Vercel function
 export const config = { runtime: 'edge' };
 
-const RELEASES_URL = 'https://api.github.com/repos/koala73/worldmonitor/releases/latest';
+const RELEASES_URL = 'https://api.github.com/repos/semirkabir/EdgePannel/releases/latest';
 
 export default async function handler() {
   try {
@@ -20,6 +20,15 @@ export default async function handler() {
     }
 
     const release = await res.json();
+    // Drafts never come back from /releases/latest, but guard anyway: only a
+    // published release with assets counts as "downloadable".
+    const hasAssets = Array.isArray(release.assets) && release.assets.length > 0;
+    if (release.draft || !hasAssets) {
+      return new Response(JSON.stringify({ error: 'no_release' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
     const tag = release.tag_name ?? '';
     const version = tag.replace(/^v/, '');
 
