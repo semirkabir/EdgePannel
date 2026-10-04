@@ -11,9 +11,9 @@ const FILE_BUDGETS = [
   ['src/app/event-handlers.ts', 1850],
   ['src/components/MapPopup.ts', 2800],
   ['src/components/Map.ts', 4400],
-  // Raised 9400 -> 10400 (2026-10): buildings overzoom, globe morph and copilot
+  // Raised 9400 -> 10400 -> 10600 (2026-10, +globe altitudes #17): buildings overzoom, globe morph and copilot
   // highlight work landed here. Splitting the layer builders out is a follow-up.
-  ['src/components/DeckGLMap.ts', 10400],
+  ['src/components/DeckGLMap.ts', 10600],
 ];
 
 const ARTIFACT_BUDGETS = {
