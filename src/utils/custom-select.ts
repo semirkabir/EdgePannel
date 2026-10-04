@@ -25,7 +25,7 @@ function buildOption(opt: HTMLOptionElement, currentValue: string): HTMLElement 
 }
 
 function populateMenu(menu: HTMLElement, select: HTMLSelectElement): void {
-  menu.innerHTML = '';
+  menu.replaceChildren();
   const val = select.value;
   for (const child of Array.from(select.children)) {
     if (child instanceof HTMLOptGroupElement) {

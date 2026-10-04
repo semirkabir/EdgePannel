@@ -11,10 +11,15 @@ const MATCHERS = [
   { label: 'outerHTML assignment', regex: /\bouterHTML\s*=/g },
 ];
 
+// Each entry reviewed: static markup or values passed through escapeHtml.
 const ALLOWED_MATCH_COUNTS = new Map([
-  ['src/app/event-handlers.ts', 2],
+  ['src/app/event-handlers.ts', 1],          // fullscreen icon swap (static SVG)
+  ['src/app/panel-layout-helpers.ts', 1],    // workspace tabs (escapeHtml on id/name)
   ['src/app/panel-layout.ts', 2],
-  ['src/services/preferences-content.ts', 2],
+  ['src/services/auth-modal.ts', 1],         // static modal shell, no interpolation
+  ['src/services/aviation/airspace-controls.ts', 1], // static control markup
+  ['src/services/preferences-content.ts', 1], // toast (escapeHtml on message)
+  ['src/utils/custom-select.ts', 1],         // static arrow SVG
   ['src/utils/dom-utils.ts', 2],
   ['src/utils/export.ts', 1],
 ]);
