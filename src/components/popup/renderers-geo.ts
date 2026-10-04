@@ -249,7 +249,7 @@ export function renderHotspotPopup(hotspot: Hotspot, relatedNews?: NewsItem[]): 
   const showCodeBadge = localizedSubtext && hotspot.name.toUpperCase() !== localizedSubtext.toUpperCase();
 
   return `
-    <div class="popup-header hotspot ${severityClass}">
+    <div class="popup-header hotspot-popup ${severityClass}">
       <div class="popup-title-block">
         <span class="popup-title">${escapeHtml(displayTitle.toUpperCase())}</span>
         ${showCodeBadge ? `<span class="popup-code">${escapeHtml(hotspot.name)}</span>` : ''}
