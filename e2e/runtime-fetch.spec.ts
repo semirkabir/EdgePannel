@@ -607,7 +607,8 @@ test.describe('desktop runtime routing guardrails', () => {
       const fakeCtx = {
         latestMarkets: [] as Array<unknown>,
         panels: {
-            markets: {
+            // Stock quotes render into the watchlist panel since 6156d262 (markets now shows risk overlays).
+            watchlist: {
               renderMarkets: (data: Array<unknown>) => marketRenders.push(data.length),
               showConfigError: (message: string) => marketConfigErrors.push(message),
             },
@@ -623,6 +624,7 @@ test.describe('desktop runtime routing guardrails', () => {
             crypto: {
               renderCrypto: (data: Array<unknown>) => cryptoRenders.push(data.length),
               showRetrying: () => {},
+              updateDefiProtocols: () => {},
             },
           },
           statusPanel: {
