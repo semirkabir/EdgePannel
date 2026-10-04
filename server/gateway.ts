@@ -51,6 +51,26 @@ const TIER_CDN_CACHE: Record<CacheTier, string | null> = {
 };
 
 const RPC_CACHE_TIER: Record<string, CacheTier> = {
+  // Tiers below follow each handler's Redis TTL (or the data's update cadence
+  // where the handler isn't implemented yet).
+  '/api/consumer-prices/v1/get-consumer-price-overview': 'slow',
+  '/api/consumer-prices/v1/get-consumer-price-basket-series': 'slow',
+  '/api/consumer-prices/v1/list-consumer-price-categories': 'slow',
+  '/api/consumer-prices/v1/list-consumer-price-movers': 'slow',
+  '/api/consumer-prices/v1/list-retailer-price-spreads': 'slow',
+  '/api/consumer-prices/v1/get-consumer-price-freshness': 'medium',
+  '/api/economic/v1/get-data360-data': 'static',          // Redis TTL 24h (governance 7d)
+  '/api/forecast/v1/get-forecasts': 'medium',
+  '/api/forecast/v1/get-simulation-outcome': 'medium',
+  '/api/forecast/v1/get-simulation-package': 'medium',
+  '/api/infrastructure/v1/list-temporal-anomalies': 'medium', // TTL 15m
+  '/api/market/v1/list-historical-prices': 'medium',      // TTL 15m
+  '/api/market/v1/list-sec-filings': 'slow',              // TTL 30m
+  '/api/reference/v1/lookup-by-lei': 'static',
+  '/api/reference/v1/resolve-entity': 'static',
+  '/api/reference/v1/search-entities': 'static',
+  '/api/resilience/v1/get-resilience-ranking': 'static',  // TTL 6h
+  '/api/resilience/v1/get-resilience-score': 'static',    // TTL 6h
   '/api/maritime/v1/get-vessel-snapshot': 'no-store',
 
   '/api/market/v1/list-market-quotes': 'medium',
