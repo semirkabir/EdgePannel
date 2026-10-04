@@ -83,15 +83,11 @@ describe('idle performance guards', () => {
     assert.doesNotMatch(setGlobeProjection, /_startGlobeSpin\(\)/);
   });
 
-  it('starts notification polling lazily and stops it after the close grace period', () => {
+  it('notification center is bus-driven and never polls', () => {
+    // Polling was replaced by NotificationBus subscriptions: no timers to leak while idle.
     const src = readSrc('src/components/NotificationCenter.ts');
-    const constructorBody = extractMethodBody(src, 'constructor');
-
-    assert.doesNotMatch(constructorBody, /setInterval\(/);
-    assert.match(src, /private ensurePollingStarted\(\): void/);
-    assert.match(src, /private schedulePollingStop\(\): void/);
-    assert.match(src, /private show\(\): void \{[\s\S]*this\.ensurePollingStarted\(\);/);
-    assert.match(src, /private close\(\): void \{[\s\S]*this\.schedulePollingStop\(\);/);
-    assert.match(src, /const POLL_STOP_GRACE_MS = 60_000;/);
+    assert.doesNotMatch(src, /setInterval\(/);
+    assert.match(src, /notificationBus\.subscribe\(/);
+    assert.match(src, /this\.unsubscribe\(\)/, 'must unsubscribe on destroy');
   });
 });
