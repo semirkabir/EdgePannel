@@ -1,4 +1,4 @@
-import { fetchWithProxy } from '@/utils';
+import { fetchWithProxy } from '@/utils/proxy';
 
 export interface SecFilingEntry {
   id: string;
