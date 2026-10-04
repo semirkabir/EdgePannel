@@ -29,9 +29,12 @@ describe('Edge Function shared helpers resolve', () => {
 });
 
 describe('Edge Function no node: built-ins', () => {
+  // Routes that explicitly opt into the Node.js runtime may use node: built-ins.
+  const isNodeRuntime = (src) => /runtime:\s*['"]nodejs['"]/.test(src);
   for (const { name, path } of allApiFiles) {
     it(`${name} does not import node: built-ins (unsupported in Vercel Edge Runtime)`, () => {
       const src = readFileSync(path, 'utf-8');
+      if (isNodeRuntime(src)) return;
       const match = src.match(/from\s+['"]node:(\w+)['"]/);
       assert.ok(
         !match,

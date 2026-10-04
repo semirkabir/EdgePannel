@@ -233,9 +233,11 @@ describe('startSmartPollLoop', () => {
       }
 
       assert.ok(delays.length >= 8, `expected at least 8 calls, got ${delays.length}`);
+      // The clock advances in 500ms ticks, so observed delays are quantized up to one tick late.
+      const TICK = 500;
       for (const d of delays) {
         assert.ok(d >= 8_000, `delay ${d} should be >= 8000`);
-        assert.ok(d <= 12_000, `delay ${d} should be <= 12000`);
+        assert.ok(d <= 12_000 + TICK, `delay ${d} should be <= ${12_000 + TICK}`);
       }
     });
   });

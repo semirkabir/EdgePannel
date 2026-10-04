@@ -31746,6 +31746,11 @@ body[data-panel-density="comfortable"] .panel-tabs {
   width: 100%;
 }
 
+/* Hidden until a published desktop release exists (see isDesktopReleaseAvailable). */
+.download-app-btn[hidden] {
+  display: none !important;
+}
+
 /* ── Normalized overflow row base ──────────────────────────────────
    Every menu row gets the same bordered button treatment.
    ─────────────────────────────────────────────────────────────── */

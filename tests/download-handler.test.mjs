@@ -2,10 +2,17 @@ import { strict as assert } from 'node:assert';
 import test from 'node:test';
 import handler from '../api/download.js';
 
-const RELEASES_PAGE = 'https://github.com/koala73/worldmonitor/releases/latest';
+const RELEASES_PAGE = 'https://edgepannel.com/downloads';
 
 function makeGitHubReleaseResponse(assets) {
   return new Response(JSON.stringify({ assets }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+function makeGitHubReleaseListResponse(tagName, assets) {
+  return new Response(JSON.stringify([{ tag_name: tagName, draft: false, assets }]), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
@@ -36,7 +43,8 @@ test('matches full variant for dotted World.Monitor AppImage asset names', async
 
 test('matches tech variant for dashed Tech-Monitor AppImage asset names', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => makeGitHubReleaseResponse([
+  // Non-default editions resolve from the release list via their -tech tag.
+  globalThis.fetch = async () => makeGitHubReleaseListResponse('v2.5.7-tech', [
     {
       name: 'Tech-Monitor_2.5.7_amd64.AppImage',
       browser_download_url: 'https://downloads.example/Tech-Monitor_2.5.7_amd64.AppImage',

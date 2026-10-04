@@ -53,22 +53,24 @@ describe('breaking-news-alerts oref_siren integration', () => {
   });
 });
 
-describe('data-loader oref breaking news wiring', () => {
-  const DL = readFileSync(join(__dirname, '..', 'src', 'app', 'data-loader.ts'), 'utf8');
+describe('signal-publisher oref breaking news wiring', () => {
+  // OREF polling moved from data-loader.ts to signal-publisher.ts in the
+  // DataLoaderManager split (see AGENTS.md).
+  const SP = readFileSync(join(__dirname, '..', 'src', 'app', 'signal-publisher.ts'), 'utf8');
+  const orefStart = SP.indexOf('startOrefPolling(');
+  const orefSection = SP.slice(Math.max(0, orefStart - 1500), orefStart + 400);
 
   it('imports dispatchOrefBreakingAlert', () => {
-    assert.ok(DL.includes('dispatchOrefBreakingAlert'), 'data-loader should import dispatchOrefBreakingAlert');
+    assert.match(SP, /import \{ dispatchOrefBreakingAlert \} from '@\/services\/breaking-news-alerts'/);
   });
 
   it('calls dispatchOrefBreakingAlert on initial fetch', () => {
-    const orefSection = DL.slice(DL.indexOf('// OREF sirens'), DL.indexOf('// GPS/GNSS'));
-    const initialCall = orefSection.indexOf('dispatchOrefBreakingAlert');
-    assert.ok(initialCall > -1, 'should call on initial fetch');
+    const beforeCallback = orefSection.slice(0, orefSection.indexOf('onOrefAlertsUpdate('));
+    assert.ok(beforeCallback.includes('dispatchOrefBreakingAlert('), 'should call on initial fetch');
   });
 
   it('calls dispatchOrefBreakingAlert in onOrefAlertsUpdate callback', () => {
-    const orefSection = DL.slice(DL.indexOf('// OREF sirens'), DL.indexOf('// GPS/GNSS'));
-    const callbackSection = orefSection.slice(orefSection.indexOf('onOrefAlertsUpdate'));
-    assert.ok(callbackSection.includes('dispatchOrefBreakingAlert'), 'should call in update callback');
+    const callbackSection = orefSection.slice(orefSection.indexOf('onOrefAlertsUpdate('));
+    assert.ok(callbackSection.includes('dispatchOrefBreakingAlert('), 'should call in update callback');
   });
 });

@@ -11,7 +11,6 @@ const BOOTSTRAP_CACHE_KEYS = {
   marketQuotes:     'market:stocks-bootstrap:v1',
   commodityQuotes:  'market:commodities-bootstrap:v1',
   sectors:          'market:sectors:v1',
-  etfFlows:         'market:etf-flows:v1',
   macroSignals:     'economic:macro-signals:v1',
   bisPolicy:        'economic:bis:policy:v1',
   bisExchange:      'economic:bis:eer:v1',
@@ -46,7 +45,7 @@ const BOOTSTRAP_CACHE_KEYS = {
 
 const SLOW_KEYS = new Set([
   'bisPolicy', 'bisExchange', 'bisCredit', 'minerals', 'giving',
-  'sectors', 'etfFlows', 'shippingRates', 'wildfires', 'climateAnomalies',
+  'sectors', 'shippingRates', 'wildfires', 'climateAnomalies',
   'cyberThreats', 'techReadiness', 'progressData', 'renewableEnergy',
   'theaterPosture', 'naturalEvents',
   'cryptoQuotes', 'gulfQuotes', 'stablecoinMarkets', 'unrestEvents', 'ucdpEvents',

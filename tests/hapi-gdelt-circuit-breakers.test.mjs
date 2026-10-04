@@ -85,63 +85,30 @@ describe('conflict/index.ts — per-country HAPI circuit breakers', () => {
 // 2. Static analysis: gdelt-intel.ts — split breakers per query type
 // ============================================================
 
-describe('gdelt-intel.ts — dedicated circuit breakers per GDELT query type', () => {
+describe('gdelt-intel.ts — per-query caching (breakers removed)', () => {
+  // GDELT article fetches no longer go through a circuit breaker: a shared
+  // breaker served one topic's cached articles for another ("cross-topic cache
+  // pollution"). Isolation now comes from per-query cache keys, with the
+  // positive feed in its own key namespace.
   const src = readSrc('src/services/gdelt-intel.ts');
-
-  // Scoped function body slices
   const posStart = src.indexOf('export async function fetchPositiveGdeltArticles');
-  assert.ok(posStart !== -1, 'fetchPositiveGdeltArticles not found in gdelt-intel.ts — was it renamed?');
-  const posBody = src.slice(posStart, src.indexOf('\nexport ', posStart + 1));
   const regStart = src.indexOf('export async function fetchGdeltArticles');
-  assert.ok(regStart !== -1, 'fetchGdeltArticles not found in gdelt-intel.ts — was it renamed?');
+  assert.ok(posStart !== -1 && regStart !== -1, 'GDELT fetchers not found in gdelt-intel.ts — were they renamed?');
+  const posBody = src.slice(posStart, src.indexOf('\nexport ', posStart + 1));
   const regBody = src.slice(regStart, src.indexOf('\nexport ', regStart + 1));
 
-  it('has a dedicated positiveGdeltBreaker separate from gdeltBreaker', () => {
-    assert.match(
-      src,
-      /\bpositiveGdeltBreaker\s*=\s*createCircuitBreaker/,
-      'positiveGdeltBreaker must be a separate createCircuitBreaker instance',
-    );
+  it('does not route article fetches through a shared circuit breaker', () => {
+    assert.doesNotMatch(regBody, /Breaker\.execute/);
+    assert.doesNotMatch(posBody, /Breaker\.execute/);
   });
 
-  it('GDELT breakers have distinct names', () => {
-    assert.match(
-      src,
-      /GDELT Intelligence/,
-      'gdeltBreaker must have name "GDELT Intelligence"',
-    );
-    assert.match(
-      src,
-      /GDELT Positive/,
-      'positiveGdeltBreaker must have name "GDELT Positive"',
-    );
+  it('cache keys embed the full query parameters', () => {
+    assert.match(regBody, /cacheKey\s*=\s*`\$\{query\}:\$\{maxrecords\}:\$\{timespan\}`/);
+    assert.match(posBody, /cacheKey\s*=\s*`positive:\$\{query\}:/, 'positive feed must use its own cache namespace');
   });
 
-  it('fetchGdeltArticles uses gdeltBreaker, NOT positiveGdeltBreaker', () => {
-    assert.match(
-      regBody,
-      /gdeltBreaker\.execute/,
-      'fetchGdeltArticles must use gdeltBreaker.execute',
-    );
-    assert.doesNotMatch(
-      regBody,
-      /positiveGdeltBreaker\.execute/,
-      'fetchGdeltArticles must NOT use positiveGdeltBreaker',
-    );
-  });
-
-  it('fetchPositiveGdeltArticles uses positiveGdeltBreaker, NOT gdeltBreaker', () => {
-    assert.match(
-      posBody,
-      /positiveGdeltBreaker\.execute/,
-      'fetchPositiveGdeltArticles must use positiveGdeltBreaker.execute',
-    );
-    // word-boundary prevents matching `positiveGdeltBreaker.execute`
-    assert.doesNotMatch(
-      posBody,
-      /\bgdeltBreaker\.execute/,
-      'fetchPositiveGdeltArticles must NOT use gdeltBreaker (only positiveGdeltBreaker)',
-    );
+  it('positive feed falls back to its own stale cache on error', () => {
+    assert.match(posBody, /return cached\?\.articles \|\| \[\]/);
   });
 });
 

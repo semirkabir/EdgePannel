@@ -23,15 +23,14 @@ function installDom(): void {
   });
 }
 
-test('renders locator maps for geography and capital cards', () => {
+test('renders geography and capital cards', () => {
   installDom();
   const data = loadFactbookFixture('dz');
 
   const geography = renderFactbookTab('geography', data, 'Algeria');
   const government = renderFactbookTab('government', data, 'Algeria');
 
-  assert.equal(geography.querySelectorAll('.cdp-fb-locator-svg').length >= 1, true);
-  assert.equal(government.querySelectorAll('.cdp-fb-locator-svg').length >= 1, true);
+  // Locator SVGs were removed in 67e09845 (replaced by the elevation chart).
   assert.match(government.textContent ?? '', /Algiers/);
   assert.match(geography.textContent ?? '', /Northern Africa/);
 });

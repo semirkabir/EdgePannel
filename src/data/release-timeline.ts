@@ -10,7 +10,7 @@ export interface ReleaseTimelineEntry {
 }
 
 export const RELEASE_AUTHOR = 'Semir Kabir';
-export const RELEASE_SOURCE_URL = 'https://github.com/koala73/worldmonitor/releases';
+export const RELEASE_SOURCE_URL = 'https://edgepannel.com/downloads';
 
 /* ── Changelog parser ─────────────────────────────────────────────── */
 

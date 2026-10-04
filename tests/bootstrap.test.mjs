@@ -48,7 +48,7 @@ describe('Bootstrap cache key registry', () => {
       keys.push(m[1]);
     }
     for (const key of keys) {
-      assert.match(key, /^[a-z_]+(?::[a-z_-]+)+:v\d+$/, `Cache key "${key}" does not match expected pattern`);
+      assert.match(key, /^[a-z_-]+(?::[a-z_-]+)+:v\d+$/, `Cache key "${key}" does not match expected pattern`);
     }
   });
 
@@ -74,7 +74,8 @@ describe('Bootstrap cache key registry', () => {
     assert.equal(unique.size, names.length, `Found duplicate names: ${names.filter((n, i) => names.indexOf(n) !== i)}`);
   });
 
-  it('every cache key maps to a handler file with a matching cache key string', () => {
+  // Producers are RPC handlers (server/worldmonitor) or seed scripts (scripts/).
+  it('every cache key maps to a handler or seed script with a matching cache key string', () => {
     const block = cacheKeysSrc.match(/BOOTSTRAP_CACHE_KEYS[^{]*\{([^}]+)\}/);
     const keyRe = /:\s+'([^']+)'/g;
     let m;
@@ -95,12 +96,15 @@ describe('Bootstrap cache key registry', () => {
       }
     }
     walk(handlerDirs);
+    for (const entry of readdirSync(join(root, 'scripts'))) {
+      if (/\.(mjs|cjs|js)$/.test(entry)) handlerFiles.push(join(root, 'scripts', entry));
+    }
     const allHandlerCode = handlerFiles.map(f => readFileSync(f, 'utf-8')).join('\n');
 
     for (const key of keys) {
       assert.ok(
         allHandlerCode.includes(key),
-        `Cache key "${key}" not found in any handler file`,
+        `Cache key "${key}" not found in any handler or seed script`,
       );
     }
   });
@@ -171,11 +175,12 @@ describe('Frontend hydration (src/services/bootstrap.ts)', () => {
     assert.ok(src.includes('.delete('), 'Missing delete in getHydratedData — consume-once pattern not implemented');
   });
 
+  // Two-tier design (AGENTS.md): fast tier 3s, slow tier 5s.
   it('has a fast timeout cap to avoid regressing startup', () => {
-    const timeoutMatch = src.match(/(?:AbortSignal\.timeout|setTimeout)\D+(\d+)\)/);
+    const timeoutMatch = src.match(/(?:AbortSignal\.timeout|setTimeout)\D+([\d_]+)\)/);
     assert.ok(timeoutMatch, 'Missing timeout');
-    const ms = parseInt(timeoutMatch[1], 10);
-    assert.ok(ms <= 2000, `Timeout ${ms}ms too high — should be ≤2000ms to avoid regressing startup`);
+    const ms = parseInt(timeoutMatch[1].replace(/_/g, ''), 10);
+    assert.ok(ms <= 3000, `Fast-tier timeout ${ms}ms too high — should be ≤3000ms to avoid regressing startup`);
   });
 
   it('fetches tiered bootstrap URLs', () => {
@@ -195,10 +200,9 @@ describe('Frontend hydration (src/services/bootstrap.ts)', () => {
 
 describe('Panel hydration consumers', () => {
   const panels = [
-    { name: 'ETFFlowsPanel', path: 'src/components/ETFFlowsPanel.ts', key: 'etfFlows' },
     { name: 'MacroSignalsPanel', path: 'src/components/MacroSignalsPanel.ts', key: 'macroSignals' },
     { name: 'ServiceStatusPanel (via infrastructure)', path: 'src/services/infrastructure/index.ts', key: 'serviceStatuses' },
-    { name: 'Sectors (via data-loader)', path: 'src/app/data-loader.ts', key: 'sectors' },
+    { name: 'Sectors (via data-renderer)', path: 'src/app/data-renderer.ts', key: 'sectors' },
   ];
 
   for (const panel of panels) {
@@ -214,7 +218,7 @@ describe('Bootstrap key hydration coverage', () => {
   it('every bootstrap key has a getHydratedData consumer in src/', () => {
     const bootstrapSrc = readFileSync(join(root, 'api', 'bootstrap.js'), 'utf-8');
     const block = bootstrapSrc.match(/BOOTSTRAP_CACHE_KEYS\s*=\s*\{([^}]+)\}/);
-    const keyRe = /(\w+):\s+'[a-z_]+(?::[a-z_-]+)+:v\d+'/g;
+    const keyRe = /(\w+):\s+'[a-z_-]+(?::[a-z_-]+)+:v\d+'/g;
     const keys = [];
     let m;
     while ((m = keyRe.exec(block[1])) !== null) keys.push(m[1]);

@@ -16,7 +16,9 @@ use reqwest::Url;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Manager, RunEvent, Webview, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+#[cfg(target_os = "macos")]
+use tauri::WindowEvent;
+use tauri::{AppHandle, Manager, RunEvent, Webview, WebviewUrl, WebviewWindowBuilder};
 
 const DEFAULT_LOCAL_API_PORT: u16 = 46123;
 const KEYRING_SERVICE: &str = "world-monitor";
@@ -685,16 +687,19 @@ fn open_settings_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    let _settings_window =
+    let builder =
         WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
             .title("World Monitor Settings")
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
             .inner_size(980.0, 600.0)
             .min_inner_size(820.0, 480.0)
             .resizable(true)
-            .background_color(tauri::webview::Color(26, 28, 30, 255))
-            .build()
-            .map_err(|e| format!("Failed to create settings window: {e}"))?;
+            .background_color(tauri::webview::Color(26, 28, 30, 255));
+    // title_bar_style is a macOS-only builder method.
+    #[cfg(target_os = "macos")]
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay);
+    let _settings_window = builder
+        .build()
+        .map_err(|e| format!("Failed to create settings window: {e}"))?;
 
     // On Windows/Linux, menus are per-window. Remove the inherited app menu
     // from the settings window (macOS uses a shared app-wide menu bar instead).
@@ -724,13 +729,15 @@ fn open_live_channels_window(app: &AppHandle, base_url: Option<String>) -> Resul
         _ => WebviewUrl::App("live-channels.html".into()),
     };
 
-    let _live_channels_window = WebviewWindowBuilder::new(app, "live-channels", url)
+    let builder = WebviewWindowBuilder::new(app, "live-channels", url)
         .title("Channel management - World Monitor")
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
         .inner_size(680.0, 760.0)
         .min_inner_size(520.0, 600.0)
         .resizable(true)
-        .background_color(tauri::webview::Color(26, 28, 30, 255))
+        .background_color(tauri::webview::Color(26, 28, 30, 255));
+    #[cfg(target_os = "macos")]
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay);
+    let _live_channels_window = builder
         .build()
         .map_err(|e| format!("Failed to create live channels window: {e}"))?;
 
@@ -889,39 +896,6 @@ fn sanitize_path_for_node(p: &Path) -> String {
         stripped.to_string()
     } else {
         s.into_owned()
-    }
-}
-
-#[cfg(test)]
-mod sanitize_path_tests {
-    use super::sanitize_path_for_node;
-    use std::path::Path;
-
-    #[test]
-    fn strips_extended_drive_prefix() {
-        let raw = Path::new(r"\\?\C:\Program Files\nodejs\node.exe");
-        assert_eq!(
-            sanitize_path_for_node(raw),
-            r"C:\Program Files\nodejs\node.exe".to_string()
-        );
-    }
-
-    #[test]
-    fn strips_extended_unc_prefix_and_preserves_unc_root() {
-        let raw = Path::new(r"\\?\UNC\server\share\sidecar\local-api-server.mjs");
-        assert_eq!(
-            sanitize_path_for_node(raw),
-            r"\\server\share\sidecar\local-api-server.mjs".to_string()
-        );
-    }
-
-    #[test]
-    fn leaves_standard_paths_unchanged() {
-        let raw = Path::new(r"C:\Users\alice\sidecar\local-api-server.mjs");
-        assert_eq!(
-            sanitize_path_for_node(raw),
-            r"C:\Users\alice\sidecar\local-api-server.mjs".to_string()
-        );
     }
 }
 
@@ -1425,12 +1399,12 @@ fn main() {
         ])
         .setup(|app| {
             // Load persistent cache into memory (avoids 14MB file I/O on every IPC call)
-            let cache_path = cache_file_path(&app.handle()).unwrap_or_default();
+            let cache_path = cache_file_path(app.handle()).unwrap_or_default();
             app.manage(PersistentCache::load(&cache_path));
 
-            if let Err(err) = start_local_api(&app.handle()) {
+            if let Err(err) = start_local_api(app.handle()) {
                 append_desktop_log(
-                    &app.handle(),
+                    app.handle(),
                     "ERROR",
                     &format!("local API sidecar failed to start: {err}"),
                 );
@@ -1489,4 +1463,37 @@ fn main() {
                 _ => {}
             }
         });
+}
+
+#[cfg(test)]
+mod sanitize_path_tests {
+    use super::sanitize_path_for_node;
+    use std::path::Path;
+
+    #[test]
+    fn strips_extended_drive_prefix() {
+        let raw = Path::new(r"\\?\C:\Program Files\nodejs\node.exe");
+        assert_eq!(
+            sanitize_path_for_node(raw),
+            r"C:\Program Files\nodejs\node.exe".to_string()
+        );
+    }
+
+    #[test]
+    fn strips_extended_unc_prefix_and_preserves_unc_root() {
+        let raw = Path::new(r"\\?\UNC\server\share\sidecar\local-api-server.mjs");
+        assert_eq!(
+            sanitize_path_for_node(raw),
+            r"\\server\share\sidecar\local-api-server.mjs".to_string()
+        );
+    }
+
+    #[test]
+    fn leaves_standard_paths_unchanged() {
+        let raw = Path::new(r"C:\Users\alice\sidecar\local-api-server.mjs");
+        assert_eq!(
+            sanitize_path_for_node(raw),
+            r"C:\Users\alice\sidecar\local-api-server.mjs".to_string()
+        );
+    }
 }

@@ -32,6 +32,8 @@ import { getPersistentCache, setPersistentCache } from '@/services/persistent-ca
 import { dataTaskScheduler } from './data-task-scheduler';
 import { log } from '@/utils/logger';
 
+const CYBER_LAYER_ENABLED = import.meta.env.VITE_ENABLE_CYBER_LAYER === 'true';
+
 const NEWS_REFRESH_SWEEP_EVENT = 'wm:news-refresh-sweep';
 
 export interface DataLoaderCallbacks {
@@ -315,6 +317,20 @@ export class DataLoaderManager implements AppModule {
       }
     }, { priority });
 
+    // Tiny fetches that must not queue behind slow feeds (news can hold a
+    // scheduler slot for 100s+ on 2-core machines): run them immediately.
+    const runNow = async (name: string, fn: () => Promise<void>): Promise<void> => {
+      if (this.ctx.isDestroyed || this.ctx.inFlight.has(name)) return;
+      this.ctx.inFlight.add(name);
+      try {
+        await fn();
+      } catch (e) {
+        if (!this.ctx.isDestroyed) console.error(`[App] ${name} failed:`, e);
+      } finally {
+        this.ctx.inFlight.delete(name);
+      }
+    };
+
     const tasks: Array<{ name: string; task: Promise<void> }> = [
       { name: 'news', task: runGuarded('news', () => this.loadNews(), 'high') },
     ];
@@ -341,9 +357,62 @@ export class DataLoaderManager implements AppModule {
       if (this.isPanelEnabled('telegram-intel')) {
         tasks.push({ name: 'telegram-intel', task: runGuarded('telegram-intel', () => this.loadTelegramIntel(), 'normal') });
       }
+      // Restored after the April refactor dropped them: the refresh scheduler
+      // does not run immediately, so without these the panels sat empty until
+      // their first interval (or forever, for sanctions/solar weather).
+      if (isLocalDevTaskEnabled('pizzint') && this.hasActivePizzIntConsumer()) {
+        tasks.push({ name: 'pizzint', task: runGuarded('pizzint', () => this.loadPizzInt()) });
+      }
+      if (isLocalDevTaskEnabled('fred') && this.hasActiveEconomicConsumer()) {
+        tasks.push({ name: 'fred', task: runGuarded('fred', () => this.loadFredData()) });
+      }
+      if (isLocalDevTaskEnabled('oil') && this.hasActiveEconomicConsumer()) {
+        tasks.push({ name: 'oil', task: runGuarded('oil', () => this.loadOilAnalytics()) });
+      }
+      if (isLocalDevTaskEnabled('spending') && this.hasActiveEconomicConsumer()) {
+        tasks.push({ name: 'spending', task: runGuarded('spending', () => this.loadGovernmentSpending()) });
+      }
+      if (isLocalDevTaskEnabled('bis') && this.hasActiveEconomicConsumer()) {
+        tasks.push({ name: 'bis', task: runGuarded('bis', () => this.loadBisData()) });
+      }
+      if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
+        if (isLocalDevTaskEnabled('tradePolicy') && this.hasActiveTradePolicyConsumer()) {
+          tasks.push({ name: 'tradePolicy', task: runGuarded('tradePolicy', () => this.loadTradePolicy()) });
+        }
+        if (isLocalDevTaskEnabled('supplyChain') && this.hasActiveSupplyChainConsumer()) {
+          tasks.push({ name: 'supplyChain', task: runGuarded('supplyChain', () => this.loadSupplyChain()) });
+        }
+      }
+      if (this.hasActiveSanctionsConsumer()) {
+        tasks.push({ name: 'sanctions', task: runGuarded('sanctions', () => this.loadSanctions(), 'high') });
+      }
+      if (this.hasActiveSolarWeatherConsumer()) {
+        tasks.push({ name: 'solarWeather', task: runNow('solarWeather', () => this.loadSolarWeather()) });
+      }
+      // Map layers the user has on: load now instead of waiting for the first refresh tick.
+      if (this.ctx.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
+      if (this.ctx.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
+      if (this.ctx.mapLayers.cables) {
+        tasks.push({ name: 'cables', task: runGuarded('cables', () => this.loadCableActivity()) });
+        tasks.push({ name: 'cableHealth', task: runGuarded('cableHealth', () => this.loadCableHealth()) });
+      }
+      if (this.ctx.mapLayers.flights) tasks.push({ name: 'flights', task: runGuarded('flights', () => this.loadFlightDelays()) });
+      if (CYBER_LAYER_ENABLED && this.ctx.mapLayers.cyberThreats) {
+        tasks.push({ name: 'cyberThreats', task: runGuarded('cyberThreats', () => this.loadCyberThreats()) });
+      }
+    }
+    if (SITE_VARIANT === 'full' && this.hasActiveFirmsConsumer()) {
+      tasks.push({ name: 'firms', task: runGuarded('firms', () => this.loadFirmsData()) });
+    }
+    if (this.ctx.mapLayers.natural) tasks.push({ name: 'natural', task: runGuarded('natural', () => this.loadNatural()) });
+    if (this.hasActiveCiiConsumer()) {
+      tasks.push({ name: 'governanceBaselines', task: runGuarded('governanceBaselines', () => this.loadGovernanceBaselines()) });
     }
 
     if (SITE_VARIANT === 'happy') {
+      tasks.push({ name: 'progress', task: runGuarded('progress', () => this.loadProgressData()) });
+      tasks.push({ name: 'species', task: runGuarded('species', () => this.loadSpeciesData()) });
+      tasks.push({ name: 'renewable', task: runGuarded('renewable', () => this.loadRenewableData()) });
       tasks.push({
         name: 'happinessMap',
         task: runGuarded('happinessMap', async () => {
@@ -571,6 +640,18 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
+  private async runOnDemand(name: string, fn: () => Promise<void>): Promise<void> {
+    if (this.ctx.isDestroyed || this.ctx.inFlight.has(name)) return;
+    this.ctx.inFlight.add(name);
+    try {
+      await fn();
+    } catch (e) {
+      if (!this.ctx.isDestroyed) console.error(`[App] ${name} failed:`, e);
+    } finally {
+      this.ctx.inFlight.delete(name);
+    }
+  }
+
   async loadDataForPanel(panelKey: string): Promise<void> {
     if (this.isNewsPanelEnabled(panelKey) || this.ctx.newsPanels[panelKey]) {
       if (this.ctx.isDestroyed || this.ctx.inFlight.has('news')) return;
@@ -621,7 +702,36 @@ export class DataLoaderManager implements AppModule {
         return;
       }
       case 'polymarket':
-        await this.loadPredictions();
+        await this.runOnDemand('predictions', () => this.loadPredictions());
+        return;
+      case 'economic':
+        await Promise.all([
+          this.runOnDemand('fred', () => this.loadFredData()),
+          this.runOnDemand('oil', () => this.loadOilAnalytics()),
+          this.runOnDemand('spending', () => this.loadGovernmentSpending()),
+          this.runOnDemand('bis', () => this.loadBisData()),
+        ]);
+        return;
+      case 'trade-policy':
+        await this.runOnDemand('tradePolicy', () => this.loadTradePolicy());
+        return;
+      case 'supply-chain':
+        await this.runOnDemand('supplyChain', () => this.loadSupplyChain());
+        return;
+      case 'sanctions-tracker':
+        await this.runOnDemand('sanctions', () => this.loadSanctions());
+        return;
+      case 'solar-weather':
+        await this.runOnDemand('solarWeather', () => this.loadSolarWeather());
+        return;
+      case 'satellite-fires':
+        await this.runOnDemand('firms', () => this.loadFirmsData());
+        return;
+      case 'cii':
+        await Promise.all([
+          this.runOnDemand('governanceBaselines', () => this.loadGovernanceBaselines()),
+          this.runOnDemand('intelligence', () => this.loadIntelligenceSignals()),
+        ]);
         return;
       case 'displacement':
       case 'climate':
@@ -764,6 +874,18 @@ export class DataLoaderManager implements AppModule {
 
   async loadBisData(): Promise<void> {
     if (this.callbacks.dataRenderer) { await this.callbacks.dataRenderer.loadBisData(); return; }
+  }
+
+  async loadProgressData(): Promise<void> {
+    await this.callbacks.newsPipeline?.loadProgressData();
+  }
+
+  async loadSpeciesData(): Promise<void> {
+    await this.callbacks.newsPipeline?.loadSpeciesData();
+  }
+
+  async loadRenewableData(): Promise<void> {
+    await this.callbacks.newsPipeline?.loadRenewableData();
   }
 
   async loadSanctions(): Promise<void> {

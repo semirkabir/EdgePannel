@@ -92,7 +92,6 @@ export function initDownloads(): void {
     hero.dataset.platform = platform;
     const label = hero.querySelector<HTMLElement>('[data-slot="primary-label"]');
     if (label) label.textContent = `Download for ${PLATFORM_LABELS[platform]}`;
-    hero.hidden = false;
   }
 
   // --- Live release version (fails soft: the line just stays hidden) ---
@@ -104,6 +103,13 @@ export function initDownloads(): void {
         if (!res.ok) return;
         const data = (await res.json()) as { version?: string; url?: string };
         if (!data.version) return;
+        // A published release exists: reveal the download UI, drop the notice.
+        if (hero && platform) hero.hidden = false;
+        for (const slot of ['builds', 'editions', 'all-builds']) {
+          const el = root.querySelector<HTMLElement>(`[data-slot="${slot}"]`);
+          if (el) el.hidden = false;
+        }
+        root.querySelector<HTMLElement>('[data-slot="no-release"]')?.remove();
         const link = versionSlot.querySelector<HTMLAnchorElement>('[data-slot="version-link"]');
         if (link) {
           link.textContent = `Version ${data.version}`;

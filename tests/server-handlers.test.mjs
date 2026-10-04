@@ -198,9 +198,10 @@ describe('getVesselSnapshot caching (HIGH-1)', () => {
     assert.match(src, /let inFlightRequest/);
   });
 
-  it('has 10-second TTL cache', () => {
-    assert.match(src, /SNAPSHOT_CACHE_TTL_MS\s*=\s*10[_]?000/,
-      'TTL should be 10 seconds (10000ms)');
+  it('has a 5-minute TTL cache matching the client poll interval', () => {
+    // Bumped from 10s in #626 so the cache lines up with the 5-min client poll.
+    assert.match(src, /SNAPSHOT_CACHE_TTL_MS\s*=\s*300[_]?000/,
+      'TTL should be 5 minutes (300000ms)');
   });
 
   it('checks cache before calling relay', () => {

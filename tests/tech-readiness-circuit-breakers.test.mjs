@@ -35,7 +35,7 @@ const readSrc = (relPath) => readFileSync(resolve(root, relPath), 'utf-8');
 // ============================================================
 
 describe('economic/index.ts — per-indicator World Bank circuit breakers', () => {
-  const src = readSrc('src/services/economic/index.ts');
+  const src = readSrc('src/services/economic/worldbank.ts');
 
   it('does NOT have a single shared wbBreaker', () => {
     // The old bug: `const wbBreaker = createCircuitBreaker<...>({ name: 'World Bank', ... })`
@@ -79,23 +79,8 @@ describe('economic/index.ts — per-indicator World Bank circuit breakers', () =
     );
   });
 
-  it('mirrors getFredBreaker pattern (consistency check)', () => {
-    // getFredBreaker already uses this pattern correctly — wbBreaker must follow suit
-    assert.match(src, /getFredBreaker\s*\(/, 'getFredBreaker pattern must still exist as reference');
-    assert.match(src, /getWbBreaker\s*\(/, 'getWbBreaker must mirror getFredBreaker');
-
-    // Both should use a Map
-    const fredBreakerSection = src.slice(
-      src.indexOf('fredBreakers'),
-      src.indexOf('fredBreakers') + 300,
-    );
-    const wbBreakerSection = src.slice(
-      src.indexOf('wbBreakers'),
-      src.indexOf('wbBreakers') + 300,
-    );
-    assert.match(fredBreakerSection, /new\s+Map/, 'fredBreakers uses Map');
-    assert.match(wbBreakerSection, /new\s+Map/, 'wbBreakers uses Map');
-  });
+  // (getFredBreaker consistency check removed: FRED moved to a single batch
+  // breaker in fred.ts, so there is no per-series pattern left to mirror.)
 });
 
 // ============================================================
@@ -202,7 +187,7 @@ describe('CircuitBreaker isolation — independent per-indicator instances', () 
 // ============================================================
 
 describe('getTechReadinessRankings — bootstrap-only data flow', () => {
-  const src = readSrc('src/services/economic/index.ts');
+  const src = readSrc('src/services/economic/worldbank.ts');
 
   it('reads from bootstrap hydration or endpoint, never calls WB API directly', () => {
     const fnStart = src.indexOf('export async function getTechReadinessRankings');

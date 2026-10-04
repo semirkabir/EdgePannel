@@ -2666,3 +2666,9 @@ a { color: inherit; }
   .lp-footer-links { justify-content: flex-start; }
   .lp-footer-cols { gap: 28px 48px; }
 }
+
+/* Download UI stays hidden until /api/version confirms a published release. */
+.lp-dl-grid[hidden],
+.lp-src-chips[hidden] {
+  display: none !important;
+}

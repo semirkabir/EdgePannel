@@ -10,7 +10,7 @@ import {
 } from '../src/services/prediction/country-fetcher';
 import type { GeoPredictionMarket, PolymarketEvent } from '../src/services/prediction/types';
 
-const STORAGE_KEY = 'worldmonitor-persistent-cache:prediction:geo-markets:v2';
+const STORAGE_KEY = 'worldmonitor-persistent-cache:prediction:geo-markets:v3';
 
 function installLocalStorageMock() {
   const store = new Map<string, string>();
@@ -35,7 +35,8 @@ describe('prediction geotag extraction', () => {
   it('maps an invasion target to the target country', () => {
     const tag = extractPredictionGeotag('Will China invade Taiwan?');
     assert.equal(tag?.country, 'Taiwan');
-    assert.equal(tag?.extractedFrom, 'context');
+    // Resolved by the explicit action-target pattern ("invade X"), which outranks context scoring.
+    assert.equal(tag?.extractedFrom, 'pattern');
   });
 
   it('maps a meeting market to the meeting location', () => {
@@ -141,7 +142,7 @@ describe('prediction event grouping and geotag cache', () => {
       lon: 121,
     }];
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      key: 'prediction:geo-markets:v2',
+      key: 'prediction:geo-markets:v3',
       updatedAt: Date.now() - 30 * 60 * 1000,
       data: stale,
     }));

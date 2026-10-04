@@ -3,6 +3,10 @@ import { createGunzip } from 'node:zlib';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
+// Streams + gunzips large SEC/13F payloads with node:zlib, so this route must
+// run on the Node.js runtime (Vercel's default), never Edge.
+export const config = { runtime: 'nodejs' };
+
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const SEC_UA = 'EdgePannel/1.0 (contact@edgepannel.com)';
 const UPSTREAM_TIMEOUT = 15000;

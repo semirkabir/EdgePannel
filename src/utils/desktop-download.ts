@@ -20,6 +20,28 @@ export function hasDesktopBuild(variant: string): boolean {
   return VARIANTS_WITH_DESKTOP_BUILD.has(variant);
 }
 
+let releaseAvailability: Promise<boolean> | null = null;
+
+/**
+ * Whether a published desktop release exists to download. `/api/version`
+ * answers non-2xx when there is no published release with assets, so download
+ * UI stays hidden (fails closed) rather than pointing at an empty or
+ * inaccessible releases page. Memoised for the page lifetime.
+ */
+export function isDesktopReleaseAvailable(): Promise<boolean> {
+  releaseAvailability ??= (async () => {
+    try {
+      const res = await fetch('/api/version', { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return false;
+      const data = (await res.json()) as { version?: string };
+      return Boolean(data.version);
+    } catch {
+      return false;
+    }
+  })();
+  return releaseAvailability;
+}
+
 /** Platform ids accepted by `api/download.js`. */
 export type DesktopDownloadPlatform =
   | 'windows-exe'

@@ -34,7 +34,7 @@ import {
   type CursorTheme,
 } from '@/utils/forced-cursor';
 
-const DESKTOP_RELEASES_URL = 'https://github.com/koala73/worldmonitor/releases';
+const DESKTOP_RELEASES_URL = 'https://edgepannel.com/downloads';
 
 const HEADER_TZ_KEY = 'worldmonitor-header-timezone';
 const HEADER_FMT_KEY = 'worldmonitor-header-clock-format';
