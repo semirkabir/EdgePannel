@@ -38,6 +38,8 @@ export const BOOTSTRAP_CACHE_KEYS: Record<string, string> = {
   iranEvents:       'conflict:iran-events:v1',
   ucdpEvents:       'conflict:ucdp-events:v1',
   temporalAnomalies: 'temporal:anomalies:v1',
+  governanceBaselines: 'economic:worldbank-governance:v1',
+  economicVulnerability: 'economic:worldbank-economic-vulnerability:v1',
 };
 
 export const BOOTSTRAP_TIERS: Record<string, 'slow' | 'fast'> = {
@@ -49,6 +51,7 @@ export const BOOTSTRAP_TIERS: Record<string, 'slow' | 'fast'> = {
   theaterPosture: 'slow', naturalEvents: 'slow',
   cryptoQuotes: 'slow', gulfQuotes: 'slow', stablecoinMarkets: 'slow',
   unrestEvents: 'slow', ucdpEvents: 'slow',
+  governanceBaselines: 'slow', economicVulnerability: 'slow',
   earthquakes: 'fast', outages: 'fast', serviceStatuses: 'fast',
   macroSignals: 'fast', chokepoints: 'fast', riskScores: 'fast',
   marketQuotes: 'fast', commodityQuotes: 'fast', positiveGeoEvents: 'fast',

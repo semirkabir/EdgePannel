@@ -238,7 +238,10 @@ fn require_trusted_window(label: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_local_api_token(webview: Webview, state: tauri::State<'_, LocalApiState>) -> Result<String, String> {
+fn get_local_api_token(
+    webview: Webview,
+    state: tauri::State<'_, LocalApiState>,
+) -> Result<String, String> {
     require_trusted_window(webview.label())?;
     let token = state
         .token
@@ -250,7 +253,10 @@ fn get_local_api_token(webview: Webview, state: tauri::State<'_, LocalApiState>)
 }
 
 #[tauri::command]
-fn get_desktop_runtime_info(webview: Webview, state: tauri::State<'_, LocalApiState>) -> Result<DesktopRuntimeInfo, String> {
+fn get_desktop_runtime_info(
+    webview: Webview,
+    state: tauri::State<'_, LocalApiState>,
+) -> Result<DesktopRuntimeInfo, String> {
     require_trusted_window(webview.label())?;
     let port = state.port.lock().ok().and_then(|g| *g);
     Ok(DesktopRuntimeInfo {
@@ -261,9 +267,14 @@ fn get_desktop_runtime_info(webview: Webview, state: tauri::State<'_, LocalApiSt
 }
 
 #[tauri::command]
-fn get_local_api_port(webview: Webview, state: tauri::State<'_, LocalApiState>) -> Result<u16, String> {
+fn get_local_api_port(
+    webview: Webview,
+    state: tauri::State<'_, LocalApiState>,
+) -> Result<u16, String> {
     require_trusted_window(webview.label())?;
-    state.port.lock()
+    state
+        .port
+        .lock()
         .map_err(|_| "Failed to lock port state".to_string())?
         .ok_or_else(|| "Port not yet assigned".to_string())
 }
@@ -294,7 +305,10 @@ fn get_secret(
 }
 
 #[tauri::command]
-fn get_all_secrets(webview: Webview, cache: tauri::State<'_, SecretsCache>) -> Result<HashMap<String, String>, String> {
+fn get_all_secrets(
+    webview: Webview,
+    cache: tauri::State<'_, SecretsCache>,
+) -> Result<HashMap<String, String>, String> {
     require_trusted_window(webview.label())?;
     Ok(cache
         .secrets
@@ -332,7 +346,11 @@ fn set_secret(
 }
 
 #[tauri::command]
-fn delete_secret(webview: Webview, key: String, cache: tauri::State<'_, SecretsCache>) -> Result<(), String> {
+fn delete_secret(
+    webview: Webview,
+    key: String,
+    cache: tauri::State<'_, SecretsCache>,
+) -> Result<(), String> {
     require_trusted_window(webview.label())?;
     if !SUPPORTED_SECRET_KEYS.contains(&key.as_str()) {
         return Err(format!("Unsupported secret key: {key}"));
@@ -359,7 +377,11 @@ fn cache_file_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-fn read_cache_entry(webview: Webview, cache: tauri::State<'_, PersistentCache>, key: String) -> Result<Option<Value>, String> {
+fn read_cache_entry(
+    webview: Webview,
+    cache: tauri::State<'_, PersistentCache>,
+    key: String,
+) -> Result<Option<Value>, String> {
     require_trusted_window(webview.label())?;
     Ok(cache.get(&key))
 }
@@ -372,7 +394,10 @@ fn schedule_debounced_flush(cache: &PersistentCache, app: &AppHandle) {
         *gen += 1;
     }
     let should_spawn = {
-        let mut sched = cache.flush_scheduled.lock().unwrap_or_else(|e| e.into_inner());
+        let mut sched = cache
+            .flush_scheduled
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         if *sched {
             false
         } else {
@@ -386,8 +411,12 @@ fn schedule_debounced_flush(cache: &PersistentCache, app: &AppHandle) {
             let mut retries = 0u32;
             loop {
                 std::thread::sleep(std::time::Duration::from_secs(2));
-                let Some(c) = handle.try_state::<PersistentCache>() else { break };
-                let Ok(path) = cache_file_path(&handle) else { break };
+                let Some(c) = handle.try_state::<PersistentCache>() else {
+                    break;
+                };
+                let Ok(path) = cache_file_path(&handle) else {
+                    break;
+                };
                 let gen_before = *c.generation.lock().unwrap_or_else(|e| e.into_inner());
                 match c.flush(&path) {
                     Ok(_) => {
@@ -416,7 +445,12 @@ fn schedule_debounced_flush(cache: &PersistentCache, app: &AppHandle) {
 }
 
 #[tauri::command]
-fn delete_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, PersistentCache>, key: String) -> Result<(), String> {
+fn delete_cache_entry(
+    webview: Webview,
+    app: AppHandle,
+    cache: tauri::State<'_, PersistentCache>,
+    key: String,
+) -> Result<(), String> {
     require_trusted_window(webview.label())?;
     {
         let mut data = cache.data.lock().unwrap_or_else(|e| e.into_inner());
@@ -431,10 +465,16 @@ fn delete_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, 
 }
 
 #[tauri::command]
-fn write_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, PersistentCache>, key: String, value: String) -> Result<(), String> {
+fn write_cache_entry(
+    webview: Webview,
+    app: AppHandle,
+    cache: tauri::State<'_, PersistentCache>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
     require_trusted_window(webview.label())?;
-    let parsed_value: Value = serde_json::from_str(&value)
-        .map_err(|e| format!("Invalid cache payload JSON: {e}"))?;
+    let parsed_value: Value =
+        serde_json::from_str(&value).map_err(|e| format!("Invalid cache payload JSON: {e}"))?;
     {
         let mut data = cache.data.lock().unwrap_or_else(|e| e.into_inner());
         data.insert(key, parsed_value);
@@ -607,7 +647,12 @@ fn close_live_channels_window(app: AppHandle) -> Result<(), String> {
 /// Fetch JSON from Polymarket Gamma API using native TLS (bypasses Cloudflare JA3 blocking).
 /// Called from frontend when browser CORS and sidecar Node.js TLS both fail.
 #[tauri::command]
-async fn fetch_polymarket(webview: Webview, state: tauri::State<'_, LocalApiState>, path: String, params: String) -> Result<String, String> {
+async fn fetch_polymarket(
+    webview: Webview,
+    state: tauri::State<'_, LocalApiState>,
+    path: String,
+    params: String,
+) -> Result<String, String> {
     require_trusted_window(webview.label())?;
     let allowed = ["events", "markets", "tags"];
     let segment = path.trim_start_matches('/');
@@ -615,7 +660,8 @@ async fn fetch_polymarket(webview: Webview, state: tauri::State<'_, LocalApiStat
         return Err("Invalid Polymarket path".into());
     }
     let url = format!("https://gamma-api.polymarket.com/{}?{}", segment, params);
-    let resp = state.http_client
+    let resp = state
+        .http_client
         .get(&url)
         .header("Accept", "application/json")
         .timeout(std::time::Duration::from_secs(10))
@@ -639,15 +685,16 @@ fn open_settings_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    let _settings_window = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
-        .title("World Monitor Settings")
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .inner_size(980.0, 600.0)
-        .min_inner_size(820.0, 480.0)
-        .resizable(true)
-        .background_color(tauri::webview::Color(26, 28, 30, 255))
-        .build()
-        .map_err(|e| format!("Failed to create settings window: {e}"))?;
+    let _settings_window =
+        WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
+            .title("World Monitor Settings")
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .inner_size(980.0, 600.0)
+            .min_inner_size(820.0, 480.0)
+            .resizable(true)
+            .background_color(tauri::webview::Color(26, 28, 30, 255))
+            .build()
+            .map_err(|e| format!("Failed to create settings window: {e}"))?;
 
     // On Windows/Linux, menus are per-window. Remove the inherited app menu
     // from the settings window (macOS uses a shared app-wide menu bar instead).
@@ -678,14 +725,14 @@ fn open_live_channels_window(app: &AppHandle, base_url: Option<String>) -> Resul
     };
 
     let _live_channels_window = WebviewWindowBuilder::new(app, "live-channels", url)
-    .title("Channel management - World Monitor")
-    .title_bar_style(tauri::TitleBarStyle::Overlay)
-    .inner_size(680.0, 760.0)
-    .min_inner_size(520.0, 600.0)
-    .resizable(true)
-    .background_color(tauri::webview::Color(26, 28, 30, 255))
-    .build()
-    .map_err(|e| format!("Failed to create live channels window: {e}"))?;
+        .title("Channel management - World Monitor")
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .inner_size(680.0, 760.0)
+        .min_inner_size(520.0, 600.0)
+        .resizable(true)
+        .background_color(tauri::webview::Color(26, 28, 30, 255))
+        .build()
+        .map_err(|e| format!("Failed to create live channels window: {e}"))?;
 
     #[cfg(not(target_os = "macos"))]
     let _ = _live_channels_window.remove_menu();
@@ -1240,9 +1287,14 @@ fn main() {
             || std::fs::read_to_string("/sys/class/dmi/id/sys_vendor")
                 .map(|v| {
                     let v = v.trim().to_lowercase();
-                    v.contains("qemu") || v.contains("vmware") || v.contains("virtualbox")
-                        || v.contains("apple") || v.contains("parallels") || v.contains("xen")
-                        || v.contains("microsoft") || v.contains("innotek")
+                    v.contains("qemu")
+                        || v.contains("vmware")
+                        || v.contains("virtualbox")
+                        || v.contains("apple")
+                        || v.contains("parallels")
+                        || v.contains("xen")
+                        || v.contains("microsoft")
+                        || v.contains("innotek")
                 })
                 .unwrap_or(false);
 
