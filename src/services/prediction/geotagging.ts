@@ -847,8 +847,9 @@ function extractBestGeotag(text: string): PredictionGeotag | null {
   const country = findCountryWithContext(text);
   if (country) candidates.push({ geotag: country, score: scoreCandidate(text, country) + 5 });
 
-  // 7. Fuzzy country match (last resort)
-  if (candidates.length === 0) {
+  // 7. Fuzzy country match (last resort). Never for crypto-only markets:
+  // 'bitcoin' etc. fuzzy-match short country names and land pins at random.
+  if (candidates.length === 0 && !CRYPTO_ONLY_RE.test(text)) {
     const fuzzy = fuzzyCountryMatch(text);
     if (fuzzy) {
       const fuzzyTag = toCountryGeotag(fuzzy, 'country', fuzzy.name, 'low');
@@ -1021,12 +1022,12 @@ export function extractPredictionGeotag(title: string, description = ''): Predic
   const best = extractBestGeotag(text);
   if (best) return best;
 
+  // Crypto-only markets have no geographic focus — check before fuzzy matching.
+  if (CRYPTO_ONLY_RE.test(text)) return null;
+
   // Fuzzy match as last resort before giving up
   const fuzzy = fuzzyCountryMatch(text);
   if (fuzzy) return toCountryGeotag(fuzzy, 'country', fuzzy.name, 'low');
-
-  // Crypto-only markets have no geographic focus
-  if (CRYPTO_ONLY_RE.test(text)) return null;
 
   return null;
 }
