@@ -6644,7 +6644,7 @@ export class DeckGLMap implements MapEngine {
     layersToggleBtn.title = 'Toggle Layers';
     layersToggleBtn.setAttribute('aria-controls', 'layersPanel');
     layersToggleBtn.setAttribute('aria-expanded', 'false');
-    layersToggleBtn.innerHTML = 'LAYERS <span class="layers-btn-count"></span>';
+    layersToggleBtn.innerHTML = 'Layers <span class="layers-btn-count"></span>';
 
     const layersClearBtn = document.createElement('button');
     layersClearBtn.className = 'layers-row-clear';

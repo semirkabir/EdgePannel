@@ -15,11 +15,16 @@ test.describe('UI polish guardrails', () => {
     await expect(page.locator('.header-live-actions')).toBeVisible();
     await expect(page.locator('#searchBtn')).toBeVisible();
     await expect(page.locator('#headerOverflowMenu')).toBeVisible();
-    await expect(page.getByLabel('More dashboard actions')).toBeVisible();
+    // 'More dashboard actions' labels the menu panel, which is a closed <details>
+    // body (hidden by design) until the summary ('More actions') is clicked.
+    await expect(page.locator('#headerOverflowMenu summary')).toBeVisible();
+    await expect(page.getByLabel('More dashboard actions')).toBeHidden();
 
     await page.locator('#headerOverflowMenu summary').click();
     await expect(page.locator('#headerOverflowPanel')).toBeVisible();
-    await expect(page.getByLabel(/settings/i)).toBeVisible();
+    await expect(page.getByLabel('More dashboard actions')).toBeVisible();
+    // Scope to the menu: the (hidden) settings modal also carries a SETTINGS label.
+    await expect(page.locator('#headerOverflowPanel').getByLabel(/settings/i)).toBeVisible();
   });
 
   test('mobile critical controls avoid horizontal page overflow and keep touch-sized targets', async ({ page }) => {
