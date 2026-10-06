@@ -1,0 +1,104 @@
+/* EdgePannel design system v2 — loaded LAST (see base-layer.css).
+   Redefines legacy tokens so existing rules inherit the new look.
+   Do not add component rules here that aren't listed in the UI plan.
+
+   Cascade note: main.css lives in `@layer base`; this file is unlayered, so it
+   beats main.css regardless of specificity. The `:where(:not([data-…]))`
+   guards below keep the user's text-tone / accent-color preferences (which
+   main.css defines inside the layer) working: `:where()` adds no specificity,
+   so the guarded blocks still lose to [data-variant] rules in happy-theme.css. */
+:root {
+  --bg: #08090c;
+  --bg-secondary: #0c0d11;
+  --surface: #101116;
+  --surface-hover: #16181f;
+  --surface-active: #1b1d25;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --frame-border: var(--border);
+  --frame-border-strong: var(--border-strong);
+  --panel-border: var(--border);
+  --accent-contrast: #0b0b0d;
+  --semantic-positive: #22c55e;
+  --semantic-normal: #22c55e;
+  --semantic-critical: #ef4444;
+  --semantic-elevated: #f59e0b;
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-data: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --font-mono: var(--font-data);
+  --font-inter: var(--font-ui);
+  --ds-radius-panel: 8px;
+  --ds-radius-ctrl: 6px;
+  --ds-radius-pill: 999px;
+  --ds-shadow-float: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --ui-focus-ring: 0 0 0 2px rgba(255, 122, 89, 0.6);
+}
+
+/* Text + accent: skipped when the "terminal" text tone is active. */
+:root:where(:not([data-text-tone="terminal"])) {
+  --text: #ededef;
+  --text-secondary: #b4b6be;
+  --text-dim: #8b8e98;
+  --text-muted: #8b8e98;
+  --text-faint: #6b6e78;
+  --accent: #ff7a59;
+}
+
+/* Live/selected accent: skipped when the user picked another accent color. */
+:root:where(:not([data-accent-color])) {
+  --status-live: #ff7a59;
+  --status-live-rgb: 255, 122, 89;
+}
+
+[data-theme="light"] {
+  --bg: #f7f7f8;
+  --bg-secondary: #efeff1;
+  --surface: #ffffff;
+  --surface-hover: #f2f2f4;
+  --surface-active: #e8e8f0;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --accent-contrast: #ffffff;
+  /* Darker semantic variants for light backgrounds (mirrors main.css light block). */
+  --semantic-positive: #16a34a;
+  --semantic-normal: #15803d;
+  --semantic-critical: #dc2626;
+  --semantic-elevated: #d97706;
+  --ui-focus-ring: 0 0 0 2px rgba(217, 72, 15, 0.6);
+}
+
+[data-theme="light"]:where(:not([data-text-tone="terminal"])) {
+  --text: #111113;
+  --text-secondary: #3a3b40;
+  --text-dim: #5d5f66;
+  --text-muted: #5d5f66;
+  --text-faint: #aaa;
+  --accent: #d9480f;
+}
+
+[data-theme="light"]:where(:not([data-accent-color])) {
+  --status-live: #d9480f;
+  --status-live-rgb: 217, 72, 15;
+}
+
+body {
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ds-eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.ds-num,
+time,
+[data-num] {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}

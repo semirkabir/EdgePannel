@@ -8,3 +8,4 @@
 @import url('./main.css') layer(base);
 @import url('./country-deep-dive.css') layer(base);
 @import url('./entity-detail.css') layer(base);
+@import './design-system.css';

@@ -33,8 +33,13 @@ import { onAuthChange, isFirebaseConfigured } from '@/services/firebase-auth';
 import { onUserLogin, onUserLogout } from '@/services/preferences-sync';
 
 const FONT_STYLESHEETS = [
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Tajawal:wght@200;300;400;500;700;800;900&display=swap',
-  'https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Playfair+Display:wght@700;900&family=Montserrat:wght@800;900&family=Poppins:wght@300;400;500;600&display=swap',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Tajawal:wght@400;500;700&display=swap',
+  // Poppins backs the selectable "poppins" body-font preference and its settings preview.
+  'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap',
+  // Nunito is the happy variant's body font (happy-theme.css, happy-share-renderer.ts).
+  ...(SITE_VARIANT === 'happy'
+    ? ['https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap']
+    : []),
 ];
 
 function loadDeferredFontStylesheets(): void {
