@@ -1,6 +1,5 @@
 import {
   getPanelDensityPreference,
-  isMobileHelpDismissed,
   setMobileHelpDismissed,
   setPanelDensityPreference,
 } from './ui-preferences';
@@ -29,7 +28,7 @@ export function setupShellGuidance(_isMobile: boolean): void {
   // replaced by search placeholder hint
 }
 
-export function setupMobileHelpSheet(isMobile: boolean): void {
+export function setupMobileHelpSheet(): void {
   const overlay = document.getElementById('mobileHelpOverlay');
   if (!overlay) return;
 
@@ -43,10 +42,6 @@ export function setupMobileHelpSheet(isMobile: boolean): void {
   overlay.addEventListener('click', (event) => {
     if (event.target === overlay) closeMobileHelpSheet();
   });
-
-  if (isMobile && !isMobileHelpDismissed()) {
-    window.setTimeout(openMobileHelpSheet, 200);
-  }
 }
 
 export function openMobileHelpSheet(): void {

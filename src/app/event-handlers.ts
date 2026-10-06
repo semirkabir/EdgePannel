@@ -139,7 +139,7 @@ export class EventHandlerManager implements AppModule {
     this.setupEventListeners();
     applyPanelDensity();
     setupShellGuidance(this.ctx.isMobile);
-    setupMobileHelpSheet(this.ctx.isMobile);
+    setupMobileHelpSheet();
     new OnboardingHints().init();
     this.setupIdleDetection();
     this.setupTvMode();

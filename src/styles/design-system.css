@@ -316,3 +316,49 @@ time,
 }
 /* Known gap (not fixed here): .live-news-backend-badge sets its colours inline in
    LiveNewsPanel.ts, so its 2.5:1 "youtube" pill can't be themed from CSS without !important. */
+/* === Phase 6: Mobile === */
+@media (max-width: 600px) {
+  /* Time range: scroll horizontally instead of clipping the last option ("All").
+     The slider's grid track is capped at the container width so .time-options
+     (not the slider, which also hosts absolutely-positioned dropdown panels)
+     becomes the scroller. */
+  .deckgl-time-slider {
+    grid-template-columns: minmax(0, max-content);
+  }
+
+  .deckgl-time-slider .time-options {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .deckgl-time-slider .time-options::-webkit-scrollbar {
+    display: none;
+  }
+
+  .deckgl-time-slider .time-btn,
+  .deckgl-time-slider .time-settings-btn {
+    flex: 0 0 auto;
+  }
+
+  /* 44px touch targets. main.css pins width/height to 40px with !important
+     inside @layer base (which beats unlayered !important), so use min-* here. */
+  .deckgl-controls .map-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .map-toolbar .layers-toggle-btn,
+  .map-toolbar .map-btn,
+  .map-toolbar .map-draw-btn,
+  .map-toolbar .map-theme-picker-btn {
+    min-height: 44px;
+  }
+
+  .deckgl-time-slider .layers-row .layers-toggle-btn,
+  .deckgl-time-slider .layers-row .layers-row-help,
+  .deckgl-time-slider .layers-row .layers-row-clear,
+  .deckgl-time-slider .layers-row .layers-row-marketplace {
+    min-height: 44px;
+  }
+}

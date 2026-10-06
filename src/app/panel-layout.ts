@@ -325,7 +325,7 @@ export class PanelLayoutManager implements AppModule {
             <button class="mobile-help-close" id="mobileHelpClose" aria-label="Close">×</button>
           </div>
           <div class="mobile-help-list">
-            <div class="mobile-help-item"><strong>Search</strong><span>Use the floating search button to jump to regions, layers, and panels.</span></div>
+            <div class="mobile-help-item"><strong>Search</strong><span>Use the search icon in the header to jump to regions, layers, and panels.</span></div>
             <div class="mobile-help-item"><strong>Map</strong><span>Tap markers for details and drag the popup sheet upward for more context.</span></div>
             <div class="mobile-help-item"><strong>Layout</strong><span>Save, share, or reset the current view directly from the header.</span></div>
           </div>
