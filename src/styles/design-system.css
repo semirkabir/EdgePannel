@@ -212,3 +212,61 @@ time,
   color: var(--text-dim);
   opacity: 1;
 }
+/* === Phase 4: Map HUD === */
+.map-hud-rail {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--ds-shadow-float);
+}
+
+.map-hud-rail .map-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ds-radius-ctrl);
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+}
+
+.map-hud-rail .map-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  transform: none;
+}
+
+.map-hud-rail .map-btn.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.map-hud-rail .map-theme-picker { position: static; }
+
+.map-hud-rail .map-theme-picker-panel {
+  right: calc(100% + 8px);
+  top: 0;
+  background: var(--surface);
+  border-radius: var(--ds-radius-panel);
+  box-shadow: var(--ds-shadow-float);
+}
+
+.map-legend {
+  left: 12px;
+  bottom: 12px;
+  transform: none;
+  font-size: 11px;
+  letter-spacing: 0;
+  border-radius: 10px;
+  border-color: var(--border);
+}
+
+.map-legend.collapsed { max-width: 180px; }
