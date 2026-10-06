@@ -21,7 +21,7 @@ const HINTS: HintDef[] = [
     anchor: '.panels-grid .panel-header',
     title: 'Drag to reorder',
     body: 'Drag any panel header to reorder panels. Your layout is saved automatically.',
-    placement: 'above',
+    placement: 'below',
   },
   {
     id: 'search',

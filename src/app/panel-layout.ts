@@ -92,7 +92,6 @@ import { getSecretState } from '@/services/runtime-config';
 import { checkFeatureAccess } from '@/services/auth-modal';
 import { isLoggedIn } from '@/services/user-auth';
 import { LIMITED_LOCAL_RPC_DEV_MODE } from '@/services/local-dev-stability';
-import { isLocalDevApiNoticeDismissed } from '@/app/ui-preferences';
 import { buildDesktopDownloadUrl, detectDesktopPlatform, hasDesktopBuild } from '@/utils/desktop-download';
 import { saveMapLayoutSnapshot, savePanelLayoutSnapshot } from './layout-snapshot';
 import { createPanelScrollButtons } from './panel-scroll-buttons';
@@ -145,7 +144,6 @@ export class PanelLayoutManager implements AppModule {
   init(): void {
     this.renderLayout();
     this.setupNewsRefreshSweepEffect();
-    this.initShellGuidanceAfterRender();
   }
 
   destroy(): void {
@@ -237,7 +235,7 @@ export class PanelLayoutManager implements AppModule {
         </div>
         <div class="header-right" aria-label="Dashboard actions">
           <div class="header-live-actions" id="headerLiveActions" aria-label="Live dashboard actions"></div>
-          <button class="search-btn" id="searchBtn" aria-label="${t('header.search')}"><kbd class="search-kbd-hint">${/Mac|iPhone|iPad|iPod/.test(navigator.platform || '') ? '⌘K' : 'Ctrl+K'}</kbd><span class="search-ticker"><span class="search-ticker-text">${t('header.search')}</span></span></button>
+          <button class="search-btn" id="searchBtn" aria-label="${t('header.search')}" title="${t('header.search')}"><span class="search-ticker"><span class="search-ticker-text">Search or jump…</span></span><kbd class="search-kbd-hint">${/Mac|iPhone|iPad|iPod/.test(navigator.platform || '') ? '⌘K' : 'Ctrl+K'}</kbd></button>
           <details class="header-overflow-menu" id="headerOverflowMenu">
             <summary class="header-overflow-btn" aria-label="More actions" title="More actions">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -259,25 +257,6 @@ export class PanelLayoutManager implements AppModule {
           </details>
         </div>
       </div>
-      <div class="shell-guidance-strip hidden" id="shellGuidanceStrip" role="note">
-        <div class="shell-guidance-copy">
-          <strong>Faster navigation:</strong> use Cmd/Ctrl+K to jump between regions, layers, and panels. Save your view, share it, or reset back to the default layout from the shell.
-        </div>
-        <div class="shell-guidance-actions">
-          <button type="button" class="shell-guidance-btn" id="shellGuidanceSearch">Open search</button>
-          <button type="button" class="shell-guidance-btn" id="shellGuidanceDismiss">Dismiss</button>
-        </div>
-      </div>
-      ${LIMITED_LOCAL_RPC_DEV_MODE && !isLocalDevApiNoticeDismissed() ? `
-      <div class="local-dev-api-notice" role="note" id="localDevApiNotice">
-        <div class="local-dev-api-notice-copy">
-          <strong>Local API mode:</strong> some RPC-backed panels are off by default in web dev because their local routes are unavailable. They still remain in Add Panel if you want to test them manually.
-        </div>
-        <div class="shell-guidance-actions">
-          <button type="button" class="shell-guidance-btn" id="localDevApiDismiss">Dismiss</button>
-        </div>
-      </div>
-      ` : ''}
       <div class="playback-mode-banner" id="playbackModeBanner" role="status" aria-live="polite">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span class="playback-banner-text"><strong>HISTORICAL PLAYBACK</strong> &mdash; <span id="playbackBannerTime"></span><span class="playback-banner-sep"> &middot; </span><span id="playbackBannerRelative" class="playback-banner-relative"></span></span>
@@ -415,6 +394,10 @@ export class PanelLayoutManager implements AppModule {
         <button class="search-mobile-fab" id="searchMobileFab" aria-label="Search">\u{1F50D}</button>
       </div>
     `;
+
+    if (LIMITED_LOCAL_RPC_DEV_MODE) {
+      console.info('[dev] Local API mode: some RPC-backed panels are off; enable them from Add Panel.');
+    }
 
     applyStoredMapHeight();
     this.createPanels();
@@ -2151,23 +2134,5 @@ export class PanelLayoutManager implements AppModule {
       custom.forEach(f => sources.add(f.name));
     } catch {}
     return Array.from(sources).sort((a, b) => a.localeCompare(b));
-  }
-
-  initShellGuidanceAfterRender(): void {
-    const strip = document.getElementById('shellGuidanceStrip');
-    if (strip) {
-      const alreadyDismissed = this.ctx.isMobile || localStorage.getItem('wm-ui-desktop-onboarding-dismissed') === 'true';
-      const inPlayback = document.body.classList.contains('playback-mode');
-      // Strip starts hidden in HTML — only reveal it when appropriate
-      strip.classList.toggle('hidden', alreadyDismissed || inPlayback);
-      // Guard against duplicate listeners on re-render
-      if (!strip.dataset.guidanceInitDone) {
-        strip.dataset.guidanceInitDone = '1';
-        document.getElementById('shellGuidanceDismiss')?.addEventListener('click', () => {
-          localStorage.setItem('wm-ui-desktop-onboarding-dismissed', 'true');
-          strip.classList.add('hidden');
-        });
-      }
-    }
   }
 }

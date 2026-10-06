@@ -312,9 +312,7 @@ export class PlaybackControl {
     if (!this.element?.isConnected) return;
     this.onSnapshotChange?.(snapshot);
     document.body.classList.add('playback-mode');
-    document.getElementById('shellGuidanceStrip')?.classList.add('hidden');
     this.updateProgressBar();
-    document.getElementById('localDevApiNotice')?.style.setProperty('display', 'none', 'important');
     this.panel.querySelector('.playback-live-btn')?.classList.remove('active');
   }
 
@@ -383,7 +381,6 @@ export class PlaybackControl {
     this.onSnapshotChange?.(null);
     document.body.classList.remove('playback-mode');
     document.documentElement.style.removeProperty('--playback-progress');
-    document.getElementById('localDevApiNotice')?.style.removeProperty('display');
     this.panel.querySelector('.playback-live-btn')?.classList.add('active');
   }
 

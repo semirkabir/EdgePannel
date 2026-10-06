@@ -1,9 +1,6 @@
 import {
   getPanelDensityPreference,
-  isDesktopOnboardingDismissed,
   isMobileHelpDismissed,
-  setDesktopOnboardingDismissed,
-  setLocalDevApiNoticeDismissed,
   setMobileHelpDismissed,
   setPanelDensityPreference,
 } from './ui-preferences';
@@ -28,20 +25,8 @@ export function togglePanelDensity(): void {
   );
 }
 
-export function setupShellGuidance(isMobile: boolean): void {
-  const strip = document.getElementById('shellGuidanceStrip');
-  if (!strip) return;
-  const shouldHide = isMobile || isDesktopOnboardingDismissed() || document.body.classList.contains('playback-mode');
-  strip.classList.toggle('hidden', shouldHide);
-  document.getElementById('shellGuidanceDismiss')?.addEventListener('click', () => {
-    setDesktopOnboardingDismissed(true);
-    strip.classList.add('hidden');
-  });
-
-  document.getElementById('localDevApiDismiss')?.addEventListener('click', () => {
-    setLocalDevApiNoticeDismissed(true);
-    document.getElementById('localDevApiNotice')?.remove();
-  });
+export function setupShellGuidance(_isMobile: boolean): void {
+  // replaced by search placeholder hint
 }
 
 export function setupMobileHelpSheet(isMobile: boolean): void {
