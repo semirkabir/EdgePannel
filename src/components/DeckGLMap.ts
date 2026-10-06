@@ -58,6 +58,7 @@ import { fetchMilitaryBases, type MilitaryBaseCluster as ServerBaseCluster } fro
 import type { MilitaryBaseType } from '@/types';
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import { fetchAircraftPositions, AirspaceControls, registerAircraftCallback, unregisterAircraftCallback, filterRenderableAircraftPositions, setAircraftFollowBackend, notifyAircraftFollowEnded } from '@/services/aviation';
+import { flightIconScale, flightMinPixels, sampleForZoom } from './map-density';
 import {
   registerAisCallback,
   unregisterAisCallback,
@@ -3752,7 +3753,8 @@ export class DeckGLMap implements MapEngine {
   }
 
   private createAircraftPositionsLayer(): IconLayer<PositionSample> {
-    const data = this.getDisplayedAircraftPositions();
+    const zoom = this.maplibreMap?.getZoom() ?? this.state.zoom;
+    const data = sampleForZoom(this.getDisplayedAircraftPositions(), zoom, [this.selectedAircraftIcao, this.followedAircraftIcao]);
     return new IconLayer<PositionSample>({
       id: 'aircraft-positions-layer',
       data,
@@ -3768,9 +3770,10 @@ export class DeckGLMap implements MapEngine {
         return d.onGround ? 18 : 24;
       },
       getColor: (d) => this.getAircraftColor(d),
-      sizeMinPixels: 10,
+      sizeMinPixels: flightMinPixels(zoom),
       sizeMaxPixels: 36,
-      sizeScale: 1,
+      sizeScale: flightIconScale(zoom),
+      updateTriggers: { getSize: [flightIconScale(zoom)] },
       pickable: true,
       getAngle: (d) => -this.getAircraftRenderPosition(d).trackDeg,
       billboard: true,
