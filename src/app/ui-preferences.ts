@@ -3,7 +3,6 @@ export type PanelDensity = 'compact' | 'comfortable';
 export const UI_PREFERENCE_KEYS = {
   desktopOnboardingDismissed: 'wm-ui-desktop-onboarding-dismissed',
   mobileHelpDismissed: 'wm-ui-mobile-help-dismissed',
-  localDevApiNoticeDismissed: 'wm-ui-local-dev-api-dismissed',
   panelDensity: 'wm-ui-panel-density',
   deckLayersOpen: 'wm-ui-deck-layers-open',
   deckLegendCollapsed: 'wm-ui-deck-legend-collapsed',
@@ -40,14 +39,6 @@ export function setDesktopOnboardingDismissed(value: boolean): void {
 
 export function isMobileHelpDismissed(): boolean {
   return readBoolean(UI_PREFERENCE_KEYS.mobileHelpDismissed, false);
-}
-
-export function isLocalDevApiNoticeDismissed(): boolean {
-  return readBoolean(UI_PREFERENCE_KEYS.localDevApiNoticeDismissed, false);
-}
-
-export function setLocalDevApiNoticeDismissed(value: boolean): void {
-  writeBoolean(UI_PREFERENCE_KEYS.localDevApiNoticeDismissed, value);
 }
 
 export function setMobileHelpDismissed(value: boolean): void {

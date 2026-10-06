@@ -19,8 +19,6 @@ import {
   setThemeWithLinkedMap,
 } from '@/utils';
 import { applyStoredMapHeight, scheduleMapResize } from '@/utils/map-layout-height';
-import { startSearchTicker } from '@/utils/search-ticker';
-import { buildLiveSearchTickerPhrases } from '@/utils/live-search-suggestions';
 import {
   IDLE_PAUSE_MS,
   STORAGE_KEYS,
@@ -120,7 +118,6 @@ export class EventHandlerManager implements AppModule {
   private statusDropdownEl: SourceStatusPanel | null = null;
   private statusDropdownTimer: ReturnType<typeof setTimeout> | null = null;
   private statusDropdownPinned = false;
-  private searchTickerStop: (() => void) | null = null;
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -204,8 +201,6 @@ export class EventHandlerManager implements AppModule {
   }
 
   destroy(): void {
-    this.searchTickerStop?.();
-    this.searchTickerStop = null;
     this.debouncedUrlSync.cancel();
     if (this.handlers.fullscreen) {
       document.removeEventListener('fullscreenchange', this.handlers.fullscreen);
@@ -315,12 +310,6 @@ export class EventHandlerManager implements AppModule {
     document.getElementById('searchBtn')?.addEventListener('click', openSearch);
     document.getElementById('mobileSearchBtn')?.addEventListener('click', openSearch);
     document.getElementById('searchMobileFab')?.addEventListener('click', openSearch);
-    document.getElementById('shellGuidanceSearch')?.addEventListener('click', openSearch);
-
-    this.searchTickerStop = startSearchTicker(
-      document.querySelector<HTMLElement>('.header-right .search-ticker-text'),
-      { getPhrases: () => buildLiveSearchTickerPhrases(this.ctx) },
-    );
 
     document.getElementById('saveLayoutBtn')?.addEventListener('click', async () => {
       if (!checkFeatureAccess('save-layout')) return;
