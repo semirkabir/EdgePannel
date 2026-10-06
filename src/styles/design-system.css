@@ -270,3 +270,49 @@ time,
 }
 
 .map-legend.collapsed { max-width: 180px; }
+/* === Phase 7: light theme parity === */
+/* Audit at 1920x1080 (computed text vs effective background) found these
+   light-mode text/fill pairs under 4.5:1. Fixes are scoped to light theme. */
+[data-theme="light"]:where(:not([data-text-tone="terminal"])) {
+  /* #aaa was 2.2:1 on the light bg; this clears 4.5:1 on --bg and --surface. */
+  --text-faint: #6b6e78;
+}
+
+[data-theme="light"] {
+  /* Ember darkened for small text / filled controls: >=5.3:1 on white and on the 10% ember tint (--accent is 4.3:1). */
+  --accent-text: #a8380a;
+}
+
+/* Filled "active" controls: white on a darker fill instead of --bg on --accent/--primary. */
+[data-theme="light"] .map-dim-btn.active {
+  background: var(--accent-text);
+  color: #fff;
+}
+[data-theme="light"] .time-btn.active {
+  background: var(--semantic-normal);
+  border-color: var(--semantic-normal);
+  color: #fff;
+}
+[data-theme="light"] .live-channel-btn.active {
+  background: var(--semantic-critical);
+  border-color: var(--semantic-critical);
+}
+[data-theme="light"] .live-channel-btn.active .live-telemetry-text {
+  color: #fff;
+}
+
+/* The channel toolbar's 20% black wash is dark-theme only; it dimmed inactive tabs to 3.6:1. */
+[data-theme="light"] .live-news-toolbar {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Small coloured text on tinted/white backgrounds. */
+[data-theme="light"] .variant-option.active .variant-label,
+[data-theme="light"] .vc-tooltip-action {
+  color: var(--accent-text);
+}
+[data-theme="light"] .mtp-item--active {
+  color: var(--semantic-normal);
+}
+/* Known gap (not fixed here): .live-news-backend-badge sets its colours inline in
+   LiveNewsPanel.ts, so its 2.5:1 "youtube" pill can't be themed from CSS without !important. */
