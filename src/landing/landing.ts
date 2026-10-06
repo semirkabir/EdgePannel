@@ -256,7 +256,7 @@ function driveHeroDescent(globe: { setCamera(t: number): void }): void {
 
   // Must match the CSS collapse breakpoint below, or the JS would keep driving
   // --hero-t against a stage that is no longer pinned.
-  const collapsed = window.matchMedia('(max-width: 720px)');
+  const collapsed = window.matchMedia('(max-width: 960px)');
 
   let ticking = false;
   let lastT = -1;
@@ -392,4 +392,12 @@ if (widgetHosts.length > 0) {
   } else {
     load();
   }
+}
+
+// --- Lazy: page-specific modules, loaded only on the page that has their root ---
+if (document.getElementById('data-sources')) {
+  void import('./data-sources').then((m) => m.initDataSources());
+}
+if (document.getElementById('downloads')) {
+  void import('./downloads').then((m) => m.initDownloads());
 }

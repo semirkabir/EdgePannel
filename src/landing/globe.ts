@@ -10,8 +10,8 @@ import { LAND_DOTS } from './land-dots';
 
 const TILT_DEG = -16;
 const ROTATE_DEG_PER_SEC = 2.2;
-const DOT_COLOR = '61, 255, 162';
-const ARC_COLOR = '61, 255, 162';
+const DOT_COLOR = '190, 196, 214';
+const ARC_COLOR = '255, 122, 89';
 const MAX_ARCS = 4;
 
 /** Hub endpoints for signal arcs: [lon, lat] of major cities/chokepoints. */

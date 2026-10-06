@@ -10,13 +10,13 @@ test.describe('landing page', () => {
   });
 
   test('renders hero with headline, CTAs and stats', async ({ page }) => {
-    await expect(page.locator('.lp-h1')).toContainText('Headlines run hours late.');
+    await expect(page.locator('.lp-h1')).toContainText('The whole world, live on one map.');
     await expect(page.locator('.lp-hero-ctas a[href="/app"]')).toBeVisible();
     await expect(page.locator('.lp-hero-stats div')).toHaveCount(3);
   });
 
-  test('renders hero live-proof strip and dashboard frame', async ({ page }) => {
-    await expect(page.locator('.lp-hero-frame')).toBeVisible();
+  test('renders hero live-proof strip and product card', async ({ page }) => {
+    await expect(page.locator('.lp-hero-product img')).toBeVisible();
     // The strip either resolves to real numbers or hides itself entirely —
     // it never stays stuck on placeholders.
     const strip = page.locator('#hero-proof');
@@ -51,7 +51,7 @@ test.describe('landing page', () => {
     for (const resource of [
       { path: '/roadmap.html', heading: 'Build the signal.' },
       { path: '/feature-request.html', heading: 'Start with the problem.' },
-      { path: '/terms.html', heading: 'Terms of Service' },
+      { path: '/terms.html', heading: 'The terms,' },
       { path: '/data-sources.html', heading: 'Every source,' },
       { path: '/downloads.html', heading: 'Run the map' },
     ]) {

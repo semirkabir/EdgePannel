@@ -6,7 +6,7 @@
     <title>EdgePannel — Real-Time Global Intelligence Dashboard</title>
     <meta name="description" content="Free real-time global intelligence dashboard. 60 map layers, 572 live feeds — ships, flights, markets, earthquakes, outages and conflict signals on one live map, with AI briefs. No signup." />
     <link rel="canonical" href="https://edgepannel.com/" />
-    <meta name="theme-color" content="#04080a" />
+    <meta name="theme-color" content="#08090c" />
 
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://edgepannel.com/" />
@@ -94,24 +94,20 @@
            the globe descends from orbit and the dashboard rises into frame. -->
       <section class="lp-hero" id="hero">
        <div class="lp-hero-stage" id="hero-stage">
-        <!-- Decorative: the argument the product inherits, not information.
-             Named in the copy, so it needs no alt text of its own. -->
-        <div class="lp-hero-art" aria-hidden="true"></div>
         <div class="lp-hero-globe" aria-hidden="true">
           <canvas id="globe-canvas"></canvas>
         </div>
         <div class="lp-hero-content">
           <p class="lp-eyebrow"><span class="lp-live-dot" aria-hidden="true"></span>Live global intelligence</p>
           <h1 class="lp-h1">
-            Know more.<br />
-            See further.<br />
-            <span class="lp-h1-accent">Move first.</span>
+            The whole world, <span class="lp-h1-accent">live on one map.</span>
           </h1>
           <p class="lp-hero-sub">
-            The world moves fast. EdgePannel gives you the intelligence to understand what's happening, connect the dots, and stay ahead of what comes next.
+            Conflicts, flights, ships, markets and news on one real-time map. Free, no signup.
           </p>
           <div class="lp-hero-ctas">
             <a class="lp-btn lp-btn-primary lp-btn-lg" href="/app">Launch the dashboard <span aria-hidden="true">→</span></a>
+            <a class="lp-btn lp-btn-ghost lp-btn-lg" href="/data-sources">Browse sources</a>
           </div>
           <div class="lp-hero-proof" id="hero-proof" aria-label="Live data sample from the dashboard APIs">
             <div class="lp-hero-proof-item lp-hero-proof-pulse" data-widget="hero-pulse">
@@ -142,6 +138,18 @@
             <div><dt data-count="21">21</dt><dd>languages</dd></div>
           </dl>
         </div>
+
+        <!-- The real product, framed as a card; the ember/violet glow is CSS. -->
+        <figure class="lp-hero-product">
+          <img
+            src="/landing/product-hero.webp"
+            width="1600"
+            height="900"
+            alt="EdgePannel dashboard: a live world map with conflict zones, flights and ships, next to live news and the analyst workbench."
+            fetchpriority="high"
+            decoding="async"
+          />
+        </figure>
 
         <!-- The descent lands here. Inert until the camera is most of the way
              down, so it never steals clicks from the hero CTA above it. -->
@@ -313,7 +321,7 @@
             <div><dt data-count="11">11</dt><dd>layer categories</dd></div>
           </dl>
           <div class="lp-bento lp-reveal">
-            <a class="lp-card" href="/app" style="--lp-card: #3dffa2">
+            <a class="lp-card" href="/app" style="--lp-card: #ff7a59">
               <span class="lp-card-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg>
               </span>
