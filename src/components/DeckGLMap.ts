@@ -6446,7 +6446,7 @@ export class DeckGLMap implements MapEngine {
 
   private createControls(): void {
     const controls = document.createElement('div');
-    controls.className = 'map-controls deckgl-controls';
+    controls.className = 'map-controls deckgl-controls map-hud-rail';
 
     // Build theme picker panel HTML
     const currentTheme = getUnifiedTheme();
@@ -6601,13 +6601,7 @@ export class DeckGLMap implements MapEngine {
     viewSelect.addEventListener('change', () => {
       this.setView(viewSelect.value as DeckMapView);
     });
-
-    // Relocate the map-type picker into the toolbar row above the canvas
-    // (if present) — same elements, same listeners, just a different parent.
-    // The draw & measure trigger stays in the floating zoom stack under the
-    // home button.
-    const toolbarRight = document.getElementById('mapToolbarRight');
-    if (toolbarRight) toolbarRight.prepend(picker);
+    // Map-type picker stays inside the HUD rail (Phase 4); no toolbar relocation.
   }
 
   private createTimeSlider(): void {
@@ -7556,6 +7550,7 @@ export class DeckGLMap implements MapEngine {
       }
     };
 
+    applyCollapsedState(true); // collapsed by default (no stored preference)
     header?.addEventListener('click', () => {
       applyCollapsedState(!legend.classList.contains('collapsed'));
       this.refreshLegend();
