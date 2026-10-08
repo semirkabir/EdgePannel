@@ -1,23 +1,11 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/logo-light.png">
-  <img alt="EdgePannel" src="docs/screenshots/logo-dark.png" width="360">
-</picture>
+<img src="docs/screenshots/banner.png" alt="EdgePannel: live global intelligence" width="100%">
 
 ### The whole world, live, on one map.
 
 Conflicts, flights, ships, markets and breaking news fused onto a single real-time WebGL map,<br>
 with AI briefs, country risk scoring and six purpose-built intelligence dashboards.
-
-<br>
-
-<a href="https://edgepannel.com"><img src="https://img.shields.io/badge/Launch_the_web_app-edgepannel.com-ff7a59?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Web App"></a>
-
-<a href="https://edgepannel.com/api/download?platform=windows-exe"><img src="https://img.shields.io/badge/Windows-.exe-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Download Windows"></a>
-<a href="https://edgepannel.com/api/download?platform=macos-arm64"><img src="https://img.shields.io/badge/macOS-Apple_Silicon-000000?style=flat-square&logo=apple&logoColor=white" alt="Download macOS ARM"></a>
-<a href="https://edgepannel.com/api/download?platform=macos-x64"><img src="https://img.shields.io/badge/macOS-Intel-555555?style=flat-square&logo=apple&logoColor=white" alt="Download macOS Intel"></a>
-<a href="https://edgepannel.com/api/download?platform=linux-appimage"><img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Download Linux"></a>
 
 <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
 <img src="https://img.shields.io/badge/Preact-673AB8?style=flat-square&logo=preact&logoColor=white" alt="Preact">
@@ -43,12 +31,14 @@ with AI briefs, country risk scoring and six purpose-built intelligence dashboar
 
 <table>
   <tr>
-    <td align="center" width="16%"><h2>6</h2><sub>dashboards from<br>one codebase</sub></td>
-    <td align="center" width="16%"><h2>64</h2><sub>toggleable map layers<br>in 12 categories</sub></td>
-    <td align="center" width="16%"><h2>570+</h2><sub>curated live<br>news feeds</sub></td>
-    <td align="center" width="16%"><h2>70+</h2><sub>live data<br>panels</sub></td>
-    <td align="center" width="16%"><h2>28</h2><sub>typed API services<br>(168 proto files)</sub></td>
-    <td align="center" width="16%"><h2>21</h2><sub>languages,<br>incl. RTL</sub></td>
+    <td align="center" width="33%"><h2>6</h2><sub>dashboards from<br>one codebase</sub></td>
+    <td align="center" width="33%"><h2>64</h2><sub>toggleable map layers<br>in 12 categories</sub></td>
+    <td align="center" width="33%"><h2>570+</h2><sub>curated live<br>news feeds</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><h2>70+</h2><sub>live data<br>panels</sub></td>
+    <td align="center"><h2>28</h2><sub>typed API services<br>(168 proto files)</sub></td>
+    <td align="center"><h2>21</h2><sub>languages,<br>incl. RTL</sub></td>
   </tr>
 </table>
 
