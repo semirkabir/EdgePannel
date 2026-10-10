@@ -1,4 +1,5 @@
-import maplibregl, { type StyleSpecification } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import type { StyleSpecification } from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
 import { layers, namedFlavor } from '@protomaps/basemaps';
 
@@ -140,14 +141,14 @@ export function setUnifiedThemeForMode(mode: MapColorMode): string {
 export interface ThemePaintOverride {
   match: string;
   type?: string;
-  property: string;
+  property: Parameters<maplibregl.Map['setPaintProperty']>[1];
   value: unknown;
 }
 
 export interface ThemeLayoutOverride {
   match: string;
   type?: string;
-  property: string;
+  property: Parameters<maplibregl.Map['setLayoutProperty']>[1];
   value: unknown;
 }
 

@@ -26,7 +26,7 @@
  * composite fills in through the UTC day as Terra's swaths land — so a tile
  * that misses on today retries yesterday before giving up.
  */
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 
 const GIBS_BASE = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best';
 

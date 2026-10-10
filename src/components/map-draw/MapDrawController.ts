@@ -10,7 +10,7 @@
  * `getDrawnZones()` exposes the enclosed-area shapes for future consumers
  * (e.g. alert geofencing).
  */
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { haversineKm, bearingDeg, destinationPoint, formatDistance, type DistanceUnit } from '@/utils/geo';
 import {
   arrowHead,

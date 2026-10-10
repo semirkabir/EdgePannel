@@ -7,7 +7,8 @@ import { MapboxOverlay } from '@deck.gl/mapbox';
 import { log } from '@/utils/logger';
 import type { Layer, LayersList, PickingInfo } from '@deck.gl/core';
 import { GeoJsonLayer, ScatterplotLayer, PathLayer, IconLayer, TextLayer, PolygonLayer } from '@deck.gl/layers';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import '@/utils/maplibre-worker';
 import { PathStyleExtension } from '@deck.gl/extensions';
 import { registerBuildingsProtocol } from '@/utils/buildings-tiles';
 import {
@@ -1030,8 +1031,8 @@ export class DeckGLMap implements MapEngine {
     let tileLoadOk = false;
     let tileErrorCount = 0;
 
-    this.maplibreMap.on('error', (e: { error?: Error; message?: string }) => {
-      const msg = e.error?.message ?? e.message ?? '';
+    this.maplibreMap.on('error', (e: maplibregl.ErrorEvent) => {
+      const msg = e.error?.message ?? '';
       console.warn('[DeckGLMap] map error:', msg);
       if (msg.includes('Failed to fetch') || msg.includes('AJAXError') || msg.includes('CORS') || msg.includes('NetworkError') || msg.includes('403') || msg.includes('Forbidden')) {
         tileErrorCount++;
@@ -2348,7 +2349,7 @@ export class DeckGLMap implements MapEngine {
       // flip, NOT per rAF: setPaintProperty diff is cheap, but syncBuildingsLayer
       // fires every frame via rafUpdateLayers and unconditional calls would churn.
       for (const [key, value] of Object.entries(BUILDINGS_PAINT[paintTheme])) {
-        map.setPaintProperty('wm-buildings-3d', key, value);
+        map.setPaintProperty('wm-buildings-3d', key as keyof typeof BUILDINGS_PAINT[typeof paintTheme], value as never);
       }
       this.lastBuildingsPaintTheme = paintTheme;
     }
@@ -9795,14 +9796,14 @@ export class DeckGLMap implements MapEngine {
         if (override.paint) {
           for (const po of override.paint) {
             if (id.includes(po.match) && (!po.type || layer.type === po.type)) {
-              this.maplibreMap!.setPaintProperty(layer.id, po.property, po.value);
+              this.maplibreMap!.setPaintProperty(layer.id, po.property, po.value as never);
             }
           }
         }
         if (override.layout) {
           for (const lo of override.layout) {
             if (id.includes(lo.match) && (!lo.type || layer.type === lo.type)) {
-              this.maplibreMap!.setLayoutProperty(layer.id, lo.property, lo.value);
+              this.maplibreMap!.setLayoutProperty(layer.id, lo.property, lo.value as never);
             }
           }
         }
@@ -9883,9 +9884,9 @@ export class DeckGLMap implements MapEngine {
       if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
     };
 
-    const onError = (e: { error?: Error; message?: string }) => {
+    const onError = (e: maplibregl.ErrorEvent) => {
       if (gen !== this.tileMonitorGeneration) { cleanup(); return; }
-      const msg = e.error?.message ?? e.message ?? '';
+      const msg = e.error?.message ?? '';
       if (msg.includes('Failed to fetch') || msg.includes('AJAXError') || msg.includes('CORS') || msg.includes('NetworkError') || msg.includes('403') || msg.includes('Forbidden')) {
         errCount++;
         if (!ok && errCount >= 2) {

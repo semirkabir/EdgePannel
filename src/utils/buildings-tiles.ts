@@ -17,7 +17,7 @@
  * Registered once via maplibregl.addProtocol('buildings', ...) — the handler
  * runs on the main thread and the merged buffer is transferred to the worker.
  */
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { VectorTile } from '@mapbox/vector-tile';
 import pbf from 'pbf';
 import vtpbf from 'vt-pbf';
