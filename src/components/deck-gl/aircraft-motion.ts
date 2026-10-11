@@ -19,13 +19,21 @@
  */
 import type { PositionSample } from '@/services/aviation';
 import {
+  AIRCRAFT_EXTRAPOLATION_MAX_MS,
   clampNumber,
   METERS_PER_DEGREE_LAT,
   normalizeLongitude,
-  projectAircraftPosition,
   shortestLongitudeDelta,
   smoothstep,
 } from './geo-math';
+import {
+  AIRCRAFT_MAX_TURN_DPS,
+  courseSlewDurationMs,
+  estimateTurnRateDps,
+  heldCourseDeg,
+  KNOTS_TO_MPS,
+  projectAlongArc,
+} from './turn-motion';
 
 /**
  * How much observation backlog we are willing to project forward when a fix
@@ -57,6 +65,8 @@ export interface AircraftMotionState {
   offsetTrackDeg: number;
   offsetStartMs: number;
   offsetDurationMs: number;
+  /** Signed turn rate (°/s) estimated from the last two fixes; 0 = straight. */
+  turnRateDps: number;
 }
 
 const ZERO_OFFSETS = {
@@ -102,6 +112,38 @@ export function createMotionState(
     anchor: sample,
     anchorClockMs: anchorClockFor(sample, nowMs, nowEpochMs),
     ...ZERO_OFFSETS,
+    turnRateDps: 0,
+  };
+}
+
+/**
+ * Dead-reckon the anchor along its estimated turn. Same gating as the old
+ * straight-line projector: grounded, stale, implausibly slow/fast or
+ * track-less aircraft are drawn where they were reported.
+ */
+function projectAnchor(state: AircraftMotionState, elapsedMs: number): PositionSample {
+  const position = state.anchor;
+  if (position.onGround || position.freshness === 'stale') return position;
+  if (!Number.isFinite(position.groundSpeedKts) || position.groundSpeedKts < 25 || position.groundSpeedKts > 750) return position;
+  if (!Number.isFinite(position.trackDeg)) return position;
+  const seconds = clampNumber(elapsedMs, 0, AIRCRAFT_EXTRAPOLATION_MAX_MS) / 1000;
+  if (seconds <= 0) return position;
+
+  const moved = projectAlongArc(
+    position.lat,
+    position.lon,
+    position.trackDeg,
+    position.groundSpeedKts * KNOTS_TO_MPS,
+    state.turnRateDps,
+    seconds,
+  );
+  const climbFt = Number.isFinite(position.verticalRateMps) ? position.verticalRateMps * seconds * 3.28084 : 0;
+  return {
+    ...position,
+    lat: moved.lat,
+    lon: moved.lon,
+    trackDeg: moved.courseDeg,
+    altitudeFt: Math.max(0, position.altitudeFt + climbFt),
   };
 }
 
@@ -110,7 +152,7 @@ export function createMotionState(
  * `nowMs`, plus whatever is left of the pending correction.
  */
 export function resolveMotionPosition(state: AircraftMotionState, nowMs: number): PositionSample {
-  const base = projectAircraftPosition(state.anchor, nowMs - state.anchorClockMs);
+  const base = projectAnchor(state, nowMs - state.anchorClockMs);
   if (state.offsetDurationMs <= 0) return base;
 
   const elapsed = nowMs - state.offsetStartMs;
@@ -138,9 +180,6 @@ export function advanceMotionState(
   nowMs: number,
   nowEpochMs: number,
 ): AircraftMotionState {
-  const anchorClockMs = anchorClockFor(sample, nowMs, nowEpochMs);
-  const next: AircraftMotionState = { anchor: sample, anchorClockMs, ...ZERO_OFFSETS };
-
   const previousObserved = observedAtEpochMs(previous.anchor);
   const nextObserved = observedAtEpochMs(sample);
   // Out-of-order fix (a stale cache entry landing after a fresher one) — keep
@@ -150,21 +189,34 @@ export function advanceMotionState(
   }
 
   const drawn = resolveMotionPosition(previous, nowMs);
+  const speedMps = sample.groundSpeedKts * KNOTS_TO_MPS;
+  // At hover the reported track is GPS noise — keep the course we are drawing.
+  const trackDeg = heldCourseDeg(sample.trackDeg, speedMps, drawn.trackDeg);
+  const anchor = trackDeg === sample.trackDeg ? sample : { ...sample, trackDeg };
+  const turnRateDps = estimateTurnRateDps(
+    { courseDeg: previous.anchor.trackDeg, speedMps: previous.anchor.groundSpeedKts * KNOTS_TO_MPS, epochMs: previousObserved },
+    { courseDeg: sample.trackDeg, speedMps, epochMs: nextObserved },
+    AIRCRAFT_MAX_TURN_DPS,
+  );
+  const anchorClockMs = anchorClockFor(sample, nowMs, nowEpochMs);
+  const next: AircraftMotionState = { anchor, anchorClockMs, ...ZERO_OFFSETS, turnRateDps };
   const predicted = resolveMotionPosition(next, nowMs);
 
   const residualM = metersBetween(predicted.lat, predicted.lon, drawn.lat, drawn.lon);
   if (residualM > SNAP_DISTANCE_M) return next;
-  if (residualM < 1) return next;
+  const trackResidualDeg = shortestLongitudeDelta(predicted.trackDeg, drawn.trackDeg);
+  if (residualM < 1 && Math.abs(trackResidualDeg) < 0.5) return next;
 
   next.offsetLat = drawn.lat - predicted.lat;
   next.offsetLon = shortestLongitudeDelta(predicted.lon, drawn.lon);
   next.offsetAltitudeFt = (drawn.altitudeFt ?? 0) - (predicted.altitudeFt ?? 0);
-  next.offsetTrackDeg = shortestLongitudeDelta(predicted.trackDeg, drawn.trackDeg);
+  next.offsetTrackDeg = trackResidualDeg;
   next.offsetStartMs = nowMs;
-  next.offsetDurationMs = clampNumber(
-    residualM * CORRECTION_MS_PER_METER,
-    CORRECTION_MIN_MS,
-    CORRECTION_MAX_MS,
+  // Long enough to absorb the position residual, and long enough that a slow
+  // mover's nose never swings faster than its speed-scaled slew cap.
+  next.offsetDurationMs = Math.max(
+    clampNumber(residualM * CORRECTION_MS_PER_METER, CORRECTION_MIN_MS, CORRECTION_MAX_MS),
+    Math.min(courseSlewDurationMs(trackResidualDeg, speedMps), CORRECTION_MAX_MS * 3),
   );
   return next;
 }

@@ -80,6 +80,8 @@ export interface AisPositionData {
   heading?: number;
   speed?: number;
   course?: number;
+  /** Epoch ms the relay received this report — anchors client-side dead reckoning. */
+  observedAt?: number;
 }
 
 // ---- Internal Interfaces ----
@@ -314,6 +316,7 @@ function emitCandidateReports(reports: SnapshotCandidateReport[]): void {
       heading: report.heading,
       speed: report.speed,
       course: report.course,
+      observedAt: reportTs,
     });
   }
 
