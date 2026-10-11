@@ -1,7 +1,7 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import { log } from '@/utils/logger';
 import type { AirlineIntelPanel } from '@/components/AirlineIntelPanel';
-import type { PanelConfig, CustomFeed, MapLayers, NewsItem } from '@/types';
+import type { PanelConfig, CustomFeed, MapLayers } from '@/types';
 import type { MapView } from '@/components';
 import type { ClusteredEvent } from '@/types';
 import type { DashboardSnapshot } from '@/services/storage';
@@ -48,10 +48,9 @@ import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
 import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { MissionBriefingPanel } from '@/components/MissionBriefingPanel';
-import { isMissionPickerSeen, setMissionPickerSeen, shouldAutoOpenMissionPicker } from '@/app/ui-preferences';
+import { isMissionPickerSeen } from '@/app/ui-preferences';
+import { loadMissionSnapshot, openInitialMission } from '@/app/mission-wiring';
 import type { AgentMapAccessors } from '@/services/map-agent-bridge';
-import { getPreferredCountryScores } from '@/services/cached-risk-scores';
-import { fetchChokepointStatus } from '@/services/supply-chain';
 import { SituationReportPanel } from '@/components/SituationReportPanel';
 import { DataSourcesPanel } from '@/components/DataSourcesPanel';
 import { switchToVariant, canSwitchVariantInPlace, SITE_VARIANTS } from '@/app/panel-layout-helpers';
@@ -505,42 +504,6 @@ export class EventHandlerManager implements AppModule {
     }
   }
 
-  /** `?mission=<id>` deep link, else the one-time first-visit picker. */
-  private openInitialMission(): void {
-    const panel = this.ctx.missionBriefingPanel;
-    if (!panel) return;
-    const missionId = new URLSearchParams(window.location.search).get('mission');
-    // Wait for the map so camera moves land; 1.5s matches the other first-load UI.
-    setTimeout(() => {
-      if (missionId && panel.openMission(missionId)) {
-        setMissionPickerSeen(true);
-        return;
-      }
-      if (shouldAutoOpenMissionPicker(window.location.search, window.innerWidth, isMissionPickerSeen())) {
-        panel.open();
-        setMissionPickerSeen(true);
-      }
-    }, 1500);
-  }
-
-  /**
-   * Current news, or the first batch if feeds are still loading (capped).
-   * Returns undefined when nothing arrived, so briefings can say "still
-   * loading" instead of reporting a quiet region.
-   */
-  private waitForNews(timeoutMs: number): Promise<NewsItem[] | undefined> {
-    const current = this.ctx.newsStore.allNews;
-    if (current.length > 0) return Promise.resolve(current);
-    return new Promise(resolve => {
-      const timer = setTimeout(() => { off(); resolve(undefined); }, timeoutMs);
-      const off = this.ctx.eventBus.once('news:all-updated', () => {
-        clearTimeout(timer);
-        const news = this.ctx.newsStore.allNews;
-        resolve(news.length > 0 ? news : undefined);
-      });
-    });
-  }
-
   private setupMobileMenu(): void {
     const hamburger = document.getElementById('hamburgerBtn');
     const overlay = document.getElementById('mobileMenuOverlay');
@@ -915,15 +878,7 @@ export class EventHandlerManager implements AppModule {
 
       // Mission briefings share the same accessors, so free missions and
       // connected agents drive the map through one path.
-      this.ctx.missionBriefingPanel = new MissionBriefingPanel(async () => ({
-        cii: getPreferredCountryScores().map(s => ({ region: s.code, combinedScore: s.score, trend: s.trend })),
-        // Capped: a hung feed must not freeze the panel; missing data shows as a gap.
-        chokepoints: (await Promise.race([
-          fetchChokepointStatus().catch(() => null),
-          new Promise<null>(resolve => setTimeout(() => resolve(null), 4000)),
-        ]))?.chokepoints ?? [],
-        headlines: (await this.waitForNews(8000))?.map(n => ({ title: n.title, link: n.link, source: n.source, publishedAt: n.pubDate?.getTime?.() })),
-      }));
+      this.ctx.missionBriefingPanel = new MissionBriefingPanel(() => loadMissionSnapshot(this.ctx));
       this.ctx.missionBriefingPanel.setMapAccessors(mapAccessors);
       const headerRight = this.ctx.container.querySelector<HTMLElement>('.header-right');
       const overflowPanel = document.getElementById('headerOverflowPanel');
@@ -943,7 +898,7 @@ export class EventHandlerManager implements AppModule {
       briefBtn.setAttribute('aria-label', 'Mission briefings');
       briefBtn.textContent = 'Brief';
       briefBtn.addEventListener('click', () => this.ctx.missionBriefingPanel?.open());
-      this.openInitialMission();
+      openInitialMission(this.ctx.missionBriefingPanel);
       if (overflowPanel) {
         overflowPanel.insertBefore(briefBtn, mount || null);
         overflowPanel.insertBefore(agentBtn, mount || null);
