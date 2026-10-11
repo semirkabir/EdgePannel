@@ -8,6 +8,7 @@ import {
 import {
   applyAgentMapToolEvents,
   readAgentMapViewport,
+  readAgentMapSnapshot,
   type AgentMapAccessors,
 } from '@/services/map-agent-bridge';
 import { escapeHtml } from '@/utils/sanitize';
@@ -238,6 +239,7 @@ export class AgentChatPanel {
       const response = await sendAgentChat(connectorId, this.messages, {
         connectors: this.localConnectors(),
         mapViewport: readAgentMapViewport(this.mapAccessors),
+        mapSnapshot: readAgentMapSnapshot(this.mapAccessors),
       });
       if (response.code) {
         // Web gate (401/429): drop the unsent user turn from history so a

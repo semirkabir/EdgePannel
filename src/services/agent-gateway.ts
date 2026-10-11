@@ -181,11 +181,13 @@ export async function sendAgentChat(
       bounds?: { west: number; south: number; east: number; north: number };
       mode?: string;
     } | null;
+    mapSnapshot?: unknown;
   },
 ): Promise<AgentChatResponse> {
   const body: Record<string, unknown> = { connectorId, messages };
   if (options?.connectors) body.connectors = options.connectors;
   if (options?.mapViewport) body.mapViewport = options.mapViewport;
+  if (options?.mapSnapshot) body.mapSnapshot = options.mapSnapshot;
   const response = await gatewayFetch('/api/agent-gateway/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

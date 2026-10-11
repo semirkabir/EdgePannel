@@ -10,6 +10,8 @@
  * unit-testable; event-handlers supplies them when constructing the panel.
  */
 
+import type { AgentMapSnapshot } from './map-agent-snapshot';
+
 /** Shape of the gateway's toolEvents entries relevant to the map. */
 export interface AgentMapToolEvent {
   name: string;
@@ -58,6 +60,8 @@ export interface AgentMapAccessors {
   highlightFeatures?(items: AgentHighlightItem[], durationMs: number): void;
   /** Optional: snapshot for get_visible_region (sent with each chat request). */
   getViewport?(): AgentMapViewport | null;
+  /** Optional: live-record snapshot sent with each chat request for query_live_map. */
+  getSnapshot?(): AgentMapSnapshot | null;
   /**
    * Optional: apply a dashboard time range through the same path as the manual
    * time selector (MapContainer.setTimeRange → onTimeRangeChanged → UI store,
@@ -172,6 +176,16 @@ export function applyAgentMapToolEvents(
   }
 
   return summary;
+}
+
+/** Read the live-record snapshot for chat request bodies; null when unavailable. */
+export function readAgentMapSnapshot(accessors: AgentMapAccessors | null | undefined): AgentMapSnapshot | null {
+  if (!accessors || typeof accessors.getSnapshot !== 'function') return null;
+  try {
+    return accessors.getSnapshot() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Read viewport for chat request bodies; null when map not ready. */

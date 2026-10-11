@@ -212,6 +212,7 @@ import {
   lngLatToMercatorUnit,
   offsetLatLonByBearing,
 } from './deck-gl/geo-math';
+import type { AgentMapSources } from '@/services/map-agent-snapshot';
 import {
   advanceMotionState,
   createMotionState,
@@ -7802,6 +7803,19 @@ export class DeckGLMap implements MapEngine {
   }
 
   /** Current viewport bounds in degrees, or null before the map is ready. */
+  /** Raw arrays currently held by the map, for the agent's query_live_map snapshot. */
+  public getAgentSnapshotSources(): AgentMapSources {
+    return {
+      flights: this.aircraftPositions,
+      militaryFlights: this.militaryFlights,
+      ships: Array.from(this.aisVessels.values()),
+      militaryVessels: this.militaryVessels,
+      earthquakes: this.earthquakes,
+      naturalEvents: this.naturalEvents,
+      fires: this.firmsFireData,
+    };
+  }
+
   public getViewBounds(): { west: number; south: number; east: number; north: number } | null {
     const b = this.maplibreMap?.getBounds();
     return b ? { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() } : null;

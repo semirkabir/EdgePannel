@@ -840,6 +840,7 @@ export class EventHandlerManager implements AppModule {
           this.syncUrlState();
         },
         getViewport: () => this.ctx.map?.getViewport?.() ?? null,
+        getSnapshot: () => this.ctx.map?.getAgentSnapshot?.() ?? null,
         // Same path as the manual time selector / command palette 'time'
         // action: MapContainer.setTimeRange fires onTimeRangeChanged, which
         // updates ctx.currentTimeRange, persists it, re-filters news and
