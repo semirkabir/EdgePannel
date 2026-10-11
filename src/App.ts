@@ -400,6 +400,7 @@ export class App {
       exportPanel: null,
       unifiedSettings: null,
       agentChatPanel: null,
+      missionBriefingPanel: null,
       situationReportPanel: null,
       dataSourcesPanel: null,
       situationRoomDrawer: null,

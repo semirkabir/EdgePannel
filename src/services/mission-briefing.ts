@@ -109,7 +109,9 @@ export function buildBriefing(mission: Mission, snapshot: BriefingSnapshot): Bri
   const stories = (snapshot.headlines ?? [])
     .filter(item => item.title && matchesMission(item.title, mission))
     .sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0));
-  if (stories.length === 0) dataGaps.push('No matching headlines in the current window');
+  const newsLoaded = snapshot.headlines !== undefined;
+  if (!newsLoaded) dataGaps.push('News feeds still loading');
+  else if (stories.length === 0) dataGaps.push('No matching headlines in the current window');
   else stats.push({ label: 'Related headlines', value: String(stories.length) });
 
   // Hotspots: explicit hotspots in bbox, plus non-calm chokepoints with coords
@@ -130,7 +132,7 @@ export function buildBriefing(mission: Mission, snapshot: BriefingSnapshot): Bri
 
   return {
     missionId: mission.id,
-    headline: buildHeadline(mission, alertSignals, stories.length),
+    headline: buildHeadline(mission, alertSignals, stories.length, newsLoaded),
     stats,
     hotspots: hotspots.slice(0, MAX_HOTSPOTS),
     topStories: stories.slice(0, MAX_STORIES).map(s => ({ title: s.title, url: s.link, source: s.source })),
@@ -138,10 +140,12 @@ export function buildBriefing(mission: Mission, snapshot: BriefingSnapshot): Bri
   };
 }
 
-function buildHeadline(mission: Mission, alertSignals: string[], storyCount: number): string {
+function buildHeadline(mission: Mission, alertSignals: string[], storyCount: number, newsLoaded: boolean): string {
   if (alertSignals.length > 0) return `${mission.title}: elevated — ${alertSignals.join('; ')}`;
   if (storyCount >= 5) return `${mission.title}: active — ${storyCount} related headlines`;
   if (storyCount > 0) return `${mission.title}: watch — ${storyCount} related headline${storyCount === 1 ? '' : 's'}`;
+  // Never call a region quiet when we simply haven't heard yet.
+  if (!newsLoaded) return `${mission.title}: signals still loading`;
   return `${mission.title}: quiet in the current window`;
 }
 

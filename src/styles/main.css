@@ -7295,7 +7295,8 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 @media (min-width: 900px) {
   body:has(.detail-panel.dp-active:not(.dp-maximized)),
   body:has(.country-deep-dive.active:not(.maximized)),
-  body:has(.findings-detail-panel.active) {
+  body:has(.findings-detail-panel.active),
+  body:has(.mission-overlay.active) {
     --signal-toast-inset: calc(var(--detail-rail-width) + var(--signal-toast-gap));
   }
 

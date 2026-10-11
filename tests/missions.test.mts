@@ -87,15 +87,22 @@ describe('buildBriefing', () => {
 
   it('reports gaps instead of zeros on an empty snapshot', () => {
     const b = buildBriefing(redSea, {});
-    assert.equal(b.headline, 'Red Sea shipping: quiet in the current window');
+    assert.equal(b.headline, 'Red Sea shipping: signals still loading');
     assert.deepEqual(b.stats, []);
     assert.deepEqual(b.hotspots, []);
     assert.deepEqual(b.dataGaps, [
       'Chokepoint status unavailable',
       'Instability scores unavailable',
       'Live vessel tracking unavailable',
-      'No matching headlines in the current window',
+      'News feeds still loading',
     ]);
+  });
+
+  it('calls a region quiet only when news loaded and nothing matched', () => {
+    const b = buildBriefing(redSea, { headlines: [{ title: 'Fed holds rates steady' }] });
+    assert.equal(b.headline, 'Red Sea shipping: quiet in the current window');
+    assert.ok(b.dataGaps.includes('No matching headlines in the current window'));
+    assert.ok(!b.dataGaps.includes('News feeds still loading'));
   });
 
   it('handles a partial snapshot (headlines only)', () => {
