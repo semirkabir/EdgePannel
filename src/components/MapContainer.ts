@@ -5,6 +5,7 @@
  */
 // MapContainer is dynamic-imported from panel-layout, so this CSS rides into
 // the lazy map chunk instead of blocking the entry HTML.
+import { buildAgentMapSnapshot, type AgentMapSnapshot } from '@/services/map-agent-snapshot';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { log } from '@/utils/logger';
 import { isMobileDevice } from '@/utils';
@@ -451,6 +452,20 @@ export class MapContainer {
       ...(bounds ? { bounds } : {}),
       mode,
     };
+  }
+
+  /**
+   * Live-record snapshot for the agent's query_live_map tool. Only the deck
+   * (flat/globe-projection) renderer holds the raw arrays; SVG mode returns null.
+   */
+  public getAgentSnapshot(): AgentMapSnapshot | null {
+    if (!this.deckGLMap) return null;
+    let viewport: { west: number; south: number; east: number; north: number } | null = null;
+    try { viewport = this.deckGLMap.getViewBounds(); } catch { /* bounds optional */ }
+    return buildAgentMapSnapshot(this.deckGLMap.getAgentSnapshotSources(), {
+      enabledLayers: this.getState().layers as unknown as Record<string, boolean>,
+      viewport,
+    });
   }
 
   public setTimeRange(range: TimeRange): void {

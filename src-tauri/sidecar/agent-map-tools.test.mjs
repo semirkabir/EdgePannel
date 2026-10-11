@@ -39,8 +39,9 @@ test('isClientExecutedTool matches only map-control tool names', () => {
   assert.equal(isClientExecutedTool('mcp__foo__bar'), false);
 });
 
-test('map context tools include get_visible_region only', () => {
-  assert.deepEqual(MAP_CONTEXT_TOOLS.map(t => t.name), ['get_visible_region']);
+test('map context tools are get_visible_region and query_live_map', () => {
+  assert.deepEqual(MAP_CONTEXT_TOOLS.map(t => t.name).sort(), ['get_visible_region', 'query_live_map']);
+  assert.equal(isMapContextTool('query_live_map'), true);
   assert.equal(isMapContextTool('get_visible_region'), true);
   assert.equal(isMapContextTool('set_map_view'), false);
 });

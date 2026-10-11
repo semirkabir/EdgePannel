@@ -1,3 +1,5 @@
+import { ANALYST_QUERY_TOOL } from './agent-analyst-engine.mjs';
+
 // --- Client-executed map-control tools ------------------------------------
 //
 // These tools are offered to the LLM during agent chat, but unlike
@@ -40,6 +42,7 @@ export const MAP_ASSET_TYPES = [
  * snapshot on the request body). Never listed on MCP.
  */
 export const MAP_CONTEXT_TOOLS = [
+  ANALYST_QUERY_TOOL,
   {
     name: 'get_visible_region',
     description: 'Read what the analyst currently sees on the map/globe: center, zoom, bounds, and mode. Use before reasoning about "what is on screen" or deciding whether to move the camera.',
