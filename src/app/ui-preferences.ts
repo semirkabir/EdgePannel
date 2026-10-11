@@ -9,6 +9,7 @@ export const UI_PREFERENCE_KEYS = {
   svgLegendCollapsed: 'wm-ui-svg-legend-collapsed',
   svgLayersCollapsed: 'wm-ui-svg-layers-collapsed',
   powerHintsDismissed: 'wm-ui-power-hints-dismissed-v1',
+  missionPickerSeen: 'wm-ui-mission-picker-seen-v1',
 } as const;
 
 function readBoolean(key: string, fallback = false): boolean {
@@ -35,6 +36,25 @@ export function isDesktopOnboardingDismissed(): boolean {
 
 export function setDesktopOnboardingDismissed(value: boolean): void {
   writeBoolean(UI_PREFERENCE_KEYS.desktopOnboardingDismissed, value);
+}
+
+export function isMissionPickerSeen(): boolean {
+  return readBoolean(UI_PREFERENCE_KEYS.missionPickerSeen, false);
+}
+
+export function setMissionPickerSeen(value: boolean): void {
+  writeBoolean(UI_PREFERENCE_KEYS.missionPickerSeen, value);
+}
+
+/**
+ * First-visit mission picker: desktop width, never seen, and not arriving on
+ * a shared link that already sets a view (lat/lon/zoom/country/layers).
+ * `?mission=<id>` always wins and is handled separately.
+ */
+export function shouldAutoOpenMissionPicker(search: string, viewportWidth: number, seen: boolean): boolean {
+  if (seen || viewportWidth < 900) return false;
+  const params = new URLSearchParams(search);
+  return !['lat', 'lon', 'zoom', 'country', 'layers', 'mission'].some(key => params.has(key));
 }
 
 export function isMobileHelpDismissed(): boolean {

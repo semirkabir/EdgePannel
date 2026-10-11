@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.describe('map HUD', () => {
   test.setTimeout(180000);
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('worldmonitor-variant', 'full'));
+    await page.addInitScript(() => { localStorage.setItem('worldmonitor-variant', 'full'); localStorage.setItem('wm-ui-mission-picker-seen-v1', 'true'); });
   });
 
   test('map controls live in one HUD rail; legend collapsed by default', async ({ page }) => {

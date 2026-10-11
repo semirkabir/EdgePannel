@@ -1,7 +1,7 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import { log } from '@/utils/logger';
 import type { AirlineIntelPanel } from '@/components/AirlineIntelPanel';
-import type { PanelConfig, CustomFeed, MapLayers } from '@/types';
+import type { PanelConfig, CustomFeed, MapLayers, NewsItem } from '@/types';
 import type { MapView } from '@/components';
 import type { ClusteredEvent } from '@/types';
 import type { DashboardSnapshot } from '@/services/storage';
@@ -47,6 +47,11 @@ import { getEnrichmentDataSourceId } from '@/services/enrichment-gates';
 import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
 import { AgentChatPanel } from '@/components/AgentChatPanel';
+import { MissionBriefingPanel } from '@/components/MissionBriefingPanel';
+import { isMissionPickerSeen, setMissionPickerSeen, shouldAutoOpenMissionPicker } from '@/app/ui-preferences';
+import type { AgentMapAccessors } from '@/services/map-agent-bridge';
+import { getPreferredCountryScores } from '@/services/cached-risk-scores';
+import { fetchChokepointStatus } from '@/services/supply-chain';
 import { SituationReportPanel } from '@/components/SituationReportPanel';
 import { DataSourcesPanel } from '@/components/DataSourcesPanel';
 import { switchToVariant, canSwitchVariantInPlace, SITE_VARIANTS } from '@/app/panel-layout-helpers';
@@ -140,7 +145,9 @@ export class EventHandlerManager implements AppModule {
     applyPanelDensity();
     setupShellGuidance(this.ctx.isMobile);
     setupMobileHelpSheet();
-    new OnboardingHints().init();
+    // First visit gets the mission picker instead of the hint chips; hints
+    // resume on later visits once the picker has been seen.
+    if (isMissionPickerSeen()) new OnboardingHints().init();
     this.setupIdleDetection();
     this.setupTvMode();
     this.setupBloombergShortcuts();
@@ -290,6 +297,8 @@ export class EventHandlerManager implements AppModule {
     this.ctx.unifiedSettings = null;
     this.ctx.agentChatPanel?.destroy();
     this.ctx.agentChatPanel = null;
+    this.ctx.missionBriefingPanel?.destroy();
+    this.ctx.missionBriefingPanel = null;
     this.ctx.situationReportPanel?.destroy();
     this.ctx.situationReportPanel = null;
     this.ctx.dataSourcesPanel?.destroy();
@@ -494,6 +503,42 @@ export class EventHandlerManager implements AppModule {
       };
       document.addEventListener('click', this.handlers.desktopExternalLink, true);
     }
+  }
+
+  /** `?mission=<id>` deep link, else the one-time first-visit picker. */
+  private openInitialMission(): void {
+    const panel = this.ctx.missionBriefingPanel;
+    if (!panel) return;
+    const missionId = new URLSearchParams(window.location.search).get('mission');
+    // Wait for the map so camera moves land; 1.5s matches the other first-load UI.
+    setTimeout(() => {
+      if (missionId && panel.openMission(missionId)) {
+        setMissionPickerSeen(true);
+        return;
+      }
+      if (shouldAutoOpenMissionPicker(window.location.search, window.innerWidth, isMissionPickerSeen())) {
+        panel.open();
+        setMissionPickerSeen(true);
+      }
+    }, 1500);
+  }
+
+  /**
+   * Current news, or the first batch if feeds are still loading (capped).
+   * Returns undefined when nothing arrived, so briefings can say "still
+   * loading" instead of reporting a quiet region.
+   */
+  private waitForNews(timeoutMs: number): Promise<NewsItem[] | undefined> {
+    const current = this.ctx.newsStore.allNews;
+    if (current.length > 0) return Promise.resolve(current);
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { off(); resolve(undefined); }, timeoutMs);
+      const off = this.ctx.eventBus.once('news:all-updated', () => {
+        clearTimeout(timer);
+        const news = this.ctx.newsStore.allNews;
+        resolve(news.length > 0 ? news : undefined);
+      });
+    });
   }
 
   private setupMobileMenu(): void {
@@ -829,7 +874,7 @@ export class EventHandlerManager implements AppModule {
       // Agent map-control tools (set_map_view, zoom_to_region, toggle_map_layers,
       // highlight_features) drive the live map through these accessors. Layer
       // commits reuse the same path as manual toggles.
-      this.ctx.agentChatPanel.setMapAccessors({
+      const mapAccessors: AgentMapAccessors = {
         getMap: () => this.ctx.map,
         getCurrentLayers: () => ({ ...this.ctx.mapLayers }),
         commitLayers: (next) => {
@@ -865,7 +910,21 @@ export class EventHandlerManager implements AppModule {
             }
           }
         },
-      });
+      };
+      this.ctx.agentChatPanel.setMapAccessors(mapAccessors);
+
+      // Mission briefings share the same accessors, so free missions and
+      // connected agents drive the map through one path.
+      this.ctx.missionBriefingPanel = new MissionBriefingPanel(async () => ({
+        cii: getPreferredCountryScores().map(s => ({ region: s.code, combinedScore: s.score, trend: s.trend })),
+        // Capped: a hung feed must not freeze the panel; missing data shows as a gap.
+        chokepoints: (await Promise.race([
+          fetchChokepointStatus().catch(() => null),
+          new Promise<null>(resolve => setTimeout(() => resolve(null), 4000)),
+        ]))?.chokepoints ?? [],
+        headlines: (await this.waitForNews(8000))?.map(n => ({ title: n.title, link: n.link, source: n.source, publishedAt: n.pubDate?.getTime?.() })),
+      }));
+      this.ctx.missionBriefingPanel.setMapAccessors(mapAccessors);
       const headerRight = this.ctx.container.querySelector<HTMLElement>('.header-right');
       const overflowPanel = document.getElementById('headerOverflowPanel');
       const agentBtn = document.createElement('button');
@@ -877,9 +936,19 @@ export class EventHandlerManager implements AppModule {
       agentBtn.addEventListener('click', () => {
         void this.ctx.agentChatPanel?.open();
       });
+      const briefBtn = document.createElement('button');
+      briefBtn.type = 'button';
+      briefBtn.className = 'agent-chat-open-btn mission-open-btn';
+      briefBtn.title = 'Mission briefings';
+      briefBtn.setAttribute('aria-label', 'Mission briefings');
+      briefBtn.textContent = 'Brief';
+      briefBtn.addEventListener('click', () => this.ctx.missionBriefingPanel?.open());
+      this.openInitialMission();
       if (overflowPanel) {
+        overflowPanel.insertBefore(briefBtn, mount || null);
         overflowPanel.insertBefore(agentBtn, mount || null);
       } else if (headerRight) {
+        headerRight.insertBefore(briefBtn, mount?.parentElement === headerRight ? mount : null);
         headerRight.insertBefore(agentBtn, mount?.parentElement === headerRight ? mount : null);
       }
     }

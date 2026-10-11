@@ -18,7 +18,7 @@ function contrast(a: number[], b: number[]): number {
 test.describe('light theme (full variant)', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
-      localStorage.setItem('worldmonitor-variant', 'full');
+      localStorage.setItem('worldmonitor-variant', 'full'); localStorage.setItem('wm-ui-mission-picker-seen-v1', 'true');
       localStorage.setItem('worldmonitor-theme', 'light');
       localStorage.removeItem('wm-settings-open');
     });

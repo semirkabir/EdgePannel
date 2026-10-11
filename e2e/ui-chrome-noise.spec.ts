@@ -4,7 +4,7 @@ test.describe('ui chrome noise', () => {
   test.setTimeout(120000);
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
-      localStorage.setItem('worldmonitor-variant', 'full');
+      localStorage.setItem('worldmonitor-variant', 'full'); localStorage.setItem('wm-ui-mission-picker-seen-v1', 'true');
       localStorage.removeItem('wm-ui-power-hints-dismissed-v1');
     });
   });

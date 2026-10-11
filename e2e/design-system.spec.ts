@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('design system', () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('worldmonitor-variant', 'full'));
+    await page.addInitScript(() => { localStorage.setItem('worldmonitor-variant', 'full'); localStorage.setItem('wm-ui-mission-picker-seen-v1', 'true'); });
   });
 
   test('dark tokens come from design-system.css', async ({ page }) => {

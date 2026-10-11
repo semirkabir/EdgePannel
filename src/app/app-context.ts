@@ -33,6 +33,7 @@ import type { TvModeController } from '@/services/tv-mode';
 import type { MarketplaceManager } from './marketplace-manager';
 import type { AppEventBus } from './event-bus';
 import type { NewsStore } from './stores/news-store';
+import type { MissionBriefingPanel } from '@/components/MissionBriefingPanel';
 import type { IntelligenceStore } from './stores/intelligence-store';
 import type { UIStore } from './stores/ui-store';
 import type { MapStore } from './stores/map-store';
@@ -116,6 +117,7 @@ export interface AppContext {
   exportPanel: ExportPanel | null;
   unifiedSettings: UnifiedSettings | null;
   agentChatPanel: AgentChatPanel | null;
+  missionBriefingPanel: MissionBriefingPanel | null;
   situationReportPanel: SituationReportPanel | null;
   dataSourcesPanel: DataSourcesPanel | null;
   situationRoomDrawer: SituationRoomDrawer | null;
