@@ -219,6 +219,13 @@ import {
   type AircraftMotionState,
 } from './deck-gl/aircraft-motion';
 import {
+  advanceVesselMotionState,
+  createVesselMotionState,
+  resolveVesselPosition,
+  type VesselMotionState,
+  type VesselRenderPosition,
+} from './deck-gl/vessel-motion';
+import {
   countryToFlagEmoji,
   loadCustomCategories,
   saveCustomCategories,
@@ -399,6 +406,8 @@ const AIRCRAFT_MOTION_FRAME_MS = 33;
  * aircraft jitters against the basemap — so the follow tick runs uncapped.
  */
 const AIRCRAFT_FOLLOW_FRAME_MS = 0;
+/** Ships move metres per second — 10fps is visually continuous and keeps the frame budget for aircraft. */
+const VESSEL_MOTION_FRAME_MS = 100;
 /** Zoom used when follow mode starts from a wide view. */
 const AIRCRAFT_FOLLOW_DEFAULT_ZOOM = 9;
 /** Below this the followed aircraft is a speck; snap in on follow. */
@@ -530,6 +539,11 @@ export class DeckGLMap implements MapEngine {
   private aisDisruptions: AisDisruptionEvent[] = [];
   private aisDensity: AisDensityZone[] = [];
   private aisVessels: Map<string, AisPositionData> = new Map();
+  private vesselMotion = new Map<string, VesselMotionState>();
+  private vesselRenderCache = new Map<string, VesselRenderPosition>();
+  private vesselRenderCacheAtMs = -1;
+  private vesselAnimationId: number | null = null;
+  private lastVesselAnimationFrameMs = 0;
   private aisTrackHistory: Map<string, Array<[number, number]>> = new Map();
   private aisFocusBounds: [[number, number], [number, number]] | null = null;
   private aisLiveCallback: ((data: AisPositionData[]) => void) | null = null;
@@ -4203,6 +4217,54 @@ export class DeckGLMap implements MapEngine {
     return vessels.filter((vessel) => vessel.lon >= minLon && vessel.lon <= maxLon && vessel.lat >= minLat && vessel.lat <= maxLat);
   }
 
+  /** Dead-reckoned vessel position for this frame, memoised across deck.gl's per-accessor calls. */
+  private getVesselRenderPosition(vessel: AisPositionData): VesselRenderPosition {
+    const motion = this.vesselMotion.get(vessel.mmsi);
+    if (!motion) {
+      const course = vessel.course != null && vessel.course >= 0 && vessel.course < 360 ? vessel.course : NaN;
+      const heading = vessel.heading != null && vessel.heading >= 0 && vessel.heading < 360 ? vessel.heading : course;
+      return { lat: vessel.lat, lon: vessel.lon, displayDeg: heading };
+    }
+    const now = performance.now();
+    if (now !== this.vesselRenderCacheAtMs) {
+      this.vesselRenderCacheAtMs = now;
+      this.vesselRenderCache.clear();
+    }
+    let resolved = this.vesselRenderCache.get(vessel.mmsi);
+    if (!resolved) {
+      resolved = resolveVesselPosition(motion, now);
+      this.vesselRenderCache.set(vessel.mmsi, resolved);
+    }
+    return resolved;
+  }
+
+  private manageVesselMotionAnimation(enabled: boolean): void {
+    if (enabled) {
+      if (this.vesselAnimationId) return;
+      const tick = () => {
+        if (!this.vesselAnimationId) return;
+        const now = performance.now();
+        if (
+          !this.renderPaused &&
+          !this.webglLost &&
+          this.maplibreMap &&
+          this.state.layers.ais &&
+          this.vesselMotion.size > 0 &&
+          now - this.lastVesselAnimationFrameMs >= VESSEL_MOTION_FRAME_MS
+        ) {
+          this.lastVesselAnimationFrameMs = now;
+          this.render('ais');
+        }
+        this.vesselAnimationId = requestAnimationFrame(tick);
+      };
+      this.lastVesselAnimationFrameMs = 0;
+      this.vesselAnimationId = requestAnimationFrame(tick);
+    } else if (this.vesselAnimationId) {
+      cancelAnimationFrame(this.vesselAnimationId);
+      this.vesselAnimationId = null;
+    }
+  }
+
   private createAisVesselTracksLayer(): PathLayer<{ id: string; path: Array<[number, number]> }> {
     const paths = Array.from(this.aisTrackHistory.entries())
       .filter(([, path]) => path.length > 1)
@@ -4223,16 +4285,18 @@ export class DeckGLMap implements MapEngine {
     return new IconLayer<AisPositionData>({
       id: 'ais-vessels-layer',
       data: vessels,
-      getPosition: (d) => [d.lon, d.lat],
+      getPosition: (d) => {
+        const visual = this.getVesselRenderPosition(d);
+        return [visual.lon, visual.lat];
+      },
       getIcon: () => 'ship',
       iconAtlas: AIS_VESSEL_ICON_ATLAS,
       iconMapping: AIS_VESSEL_ICON_MAPPING,
       getSize: 16,
       getColor: () => [200, 200, 200, 210] as [number, number, number, number],
       getAngle: (d) => {
-        if (d.heading != null && d.heading >= 0 && d.heading <= 360) return -d.heading;
-        if (d.course != null && d.course >= 0 && d.course < 360) return -d.course;
-        return 0;
+        const deg = this.getVesselRenderPosition(d).displayDeg;
+        return Number.isFinite(deg) ? -deg : 0;
       },
       sizeMinPixels: 6,
       sizeMaxPixels: 18,
@@ -8113,8 +8177,17 @@ export class DeckGLMap implements MapEngine {
   public enableAisLiveTracking(): void {
     if (this.aisLiveCallback) return;
     this.aisLiveCallback = (batch: AisPositionData[]) => {
+      const now = performance.now();
+      const nowEpoch = Date.now();
       for (const vessel of batch) {
         this.aisVessels.set(vessel.mmsi, vessel);
+        const previous = this.vesselMotion.get(vessel.mmsi);
+        this.vesselMotion.set(
+          vessel.mmsi,
+          previous
+            ? advanceVesselMotionState(previous, vessel, now, nowEpoch)
+            : createVesselMotionState(vessel, now, nowEpoch),
+        );
         if (this.aisFocusBounds) {
           const [[minLon, minLat], [maxLon, maxLat]] = this.aisFocusBounds;
           if (vessel.lon >= minLon && vessel.lon <= maxLon && vessel.lat >= minLat && vessel.lat <= maxLat) {
@@ -8129,13 +8202,17 @@ export class DeckGLMap implements MapEngine {
       this.render('ais');
     };
     registerAisCallback(this.aisLiveCallback);
+    this.manageVesselMotionAnimation(true);
   }
 
   public disableAisLiveTracking(): void {
     if (!this.aisLiveCallback) return;
     unregisterAisCallback(this.aisLiveCallback);
     this.aisLiveCallback = null;
+    this.manageVesselMotionAnimation(false);
     this.aisVessels.clear();
+    this.vesselMotion.clear();
+    this.vesselRenderCache.clear();
     this.aisTrackHistory.clear();
     this.render('ais');
   }
@@ -10357,6 +10434,7 @@ export class DeckGLMap implements MapEngine {
   }
 
   public destroy(): void {
+    this.manageVesselMotionAnimation(false);
     window.removeEventListener('theme-changed', this.handleThemeChange);
     window.removeEventListener('map-theme-changed', this.handleMapThemeChange);
     this.debouncedRebuildLayers.cancel();
