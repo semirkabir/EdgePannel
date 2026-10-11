@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.describe('UI polish guardrails', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
-      localStorage.setItem('worldmonitor-variant', 'full');
+      localStorage.setItem('worldmonitor-variant', 'full'); localStorage.setItem('wm-ui-mission-picker-seen-v1', 'true');
       localStorage.removeItem('wm-settings-open');
     });
   });

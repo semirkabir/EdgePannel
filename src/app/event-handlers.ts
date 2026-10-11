@@ -48,6 +48,7 @@ import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
 import { AgentChatPanel } from '@/components/AgentChatPanel';
 import { MissionBriefingPanel } from '@/components/MissionBriefingPanel';
+import { isMissionPickerSeen, setMissionPickerSeen, shouldAutoOpenMissionPicker } from '@/app/ui-preferences';
 import type { AgentMapAccessors } from '@/services/map-agent-bridge';
 import { getPreferredCountryScores } from '@/services/cached-risk-scores';
 import { fetchChokepointStatus } from '@/services/supply-chain';
@@ -144,7 +145,9 @@ export class EventHandlerManager implements AppModule {
     applyPanelDensity();
     setupShellGuidance(this.ctx.isMobile);
     setupMobileHelpSheet();
-    new OnboardingHints().init();
+    // First visit gets the mission picker instead of the hint chips; hints
+    // resume on later visits once the picker has been seen.
+    if (isMissionPickerSeen()) new OnboardingHints().init();
     this.setupIdleDetection();
     this.setupTvMode();
     this.setupBloombergShortcuts();
@@ -500,6 +503,24 @@ export class EventHandlerManager implements AppModule {
       };
       document.addEventListener('click', this.handlers.desktopExternalLink, true);
     }
+  }
+
+  /** `?mission=<id>` deep link, else the one-time first-visit picker. */
+  private openInitialMission(): void {
+    const panel = this.ctx.missionBriefingPanel;
+    if (!panel) return;
+    const missionId = new URLSearchParams(window.location.search).get('mission');
+    // Wait for the map so camera moves land; 1.5s matches the other first-load UI.
+    setTimeout(() => {
+      if (missionId && panel.openMission(missionId)) {
+        setMissionPickerSeen(true);
+        return;
+      }
+      if (shouldAutoOpenMissionPicker(window.location.search, window.innerWidth, isMissionPickerSeen())) {
+        panel.open();
+        setMissionPickerSeen(true);
+      }
+    }, 1500);
   }
 
   /**
@@ -922,6 +943,7 @@ export class EventHandlerManager implements AppModule {
       briefBtn.setAttribute('aria-label', 'Mission briefings');
       briefBtn.textContent = 'Brief';
       briefBtn.addEventListener('click', () => this.ctx.missionBriefingPanel?.open());
+      this.openInitialMission();
       if (overflowPanel) {
         overflowPanel.insertBefore(briefBtn, mount || null);
         overflowPanel.insertBefore(agentBtn, mount || null);

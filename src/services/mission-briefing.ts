@@ -167,7 +167,7 @@ export function missionMapEvents(
     { name: 'set_time_range', clientAction: { range: mission.timeRange } },
   ];
   if (hotspots.length > 0) {
-    events.push({ name: 'highlight_features', clientAction: { items: hotspots, durationMs: 6000 } });
+    events.push({ name: 'highlight_features', clientAction: { items: hotspots, durationMs: 6000, focus: false } });
   }
   return events;
 }

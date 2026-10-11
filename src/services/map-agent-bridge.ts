@@ -144,7 +144,11 @@ export function applyAgentMapToolEvents(
       // Prefer the first coordinate pin as a gentle camera nudge so the
       // analyst is looking at the right region even when asset flash is no-op
       // on SVG / missing layers.
-      const pin = items.find(item => Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lon)));
+      // `focus: false` (missions) flashes in place: the mission already set the
+      // camera, and a zoom-less nudge here would cancel that fly-to mid-flight.
+      const pin = action.focus === false
+        ? undefined
+        : items.find(item => Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lon)));
       if (pin) {
         accessors.getMap()?.setCenter(Number(pin.lat), Number(pin.lon));
       }

@@ -8,6 +8,7 @@ import { MISSIONS, getMission } from '../src/config/missions';
 import { MAP_REGION_ANCHORS } from '../src/config/map-regions';
 import { buildBriefing, missionMapEvents, inBBox, type BriefingSnapshot } from '../src/services/mission-briefing';
 import { applyAgentMapToolEvents } from '../src/services/map-agent-bridge';
+import { shouldAutoOpenMissionPicker } from '../src/app/ui-preferences';
 import { MAP_REGION_ANCHORS as SIDECAR_ANCHORS } from '../src-tauri/sidecar/agent-tool-registry.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -137,7 +138,7 @@ describe('missionMapEvents', () => {
     const briefing = buildBriefing(redSea, FULL_SNAPSHOT);
     const summary = applyAgentMapToolEvents(missionMapEvents(redSea, layers, briefing.hotspots), accessors);
 
-    assert.deepEqual(centers[0], [19, 38.5, 6]);
+    assert.deepEqual(centers, [[19, 38.5, 6]], 'highlight must not re-center the camera');
     assert.equal(summary.movedCamera, 1);
     assert.deepEqual(summary.toggledKeys.sort(), ['ais', 'tradeRoutes']);
     assert.equal(layers.flights, true, 'missions never switch off layers the user had on');
@@ -151,5 +152,19 @@ describe('missionMapEvents', () => {
     const events = missionMapEvents(redSea, { ais: false });
     assert.deepEqual(events.map(e => e.name), ['zoom_to_region', 'toggle_map_layers', 'set_time_range']);
     assert.deepEqual(events[1]!.clientAction, { enable: ['ais'], disable: [] });
+  });
+});
+
+describe('shouldAutoOpenMissionPicker', () => {
+  it('opens on a plain first desktop visit', () => {
+    assert.equal(shouldAutoOpenMissionPicker('', 1440, false), true);
+    assert.equal(shouldAutoOpenMissionPicker('?timeRange=24h', 1440, false), true);
+  });
+  it('stays closed once seen, on mobile, or on shared links', () => {
+    assert.equal(shouldAutoOpenMissionPicker('', 1440, true), false);
+    assert.equal(shouldAutoOpenMissionPicker('', 600, false), false);
+    for (const q of ['?lat=1&lon=2', '?zoom=4', '?country=UA', '?layers=ais', '?mission=red-sea']) {
+      assert.equal(shouldAutoOpenMissionPicker(q, 1440, false), false, q);
+    }
   });
 });

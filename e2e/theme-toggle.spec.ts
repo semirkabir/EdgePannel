@@ -16,6 +16,7 @@ test.describe('theme toggle (happy variant)', () => {
         localStorage.removeItem('worldmonitor-theme');
         localStorage.removeItem('worldmonitor-variant');
         localStorage.setItem('worldmonitor-variant', 'happy');
+        localStorage.setItem('wm-ui-mission-picker-seen-v1', 'true');
         sessionStorage.setItem('__test_init_done', '1');
       }
     });

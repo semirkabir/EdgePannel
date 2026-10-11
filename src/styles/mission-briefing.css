@@ -1,7 +1,8 @@
 /* Mission briefings panel — design-system tokens only (see design-system.css). */
 
 /* No scrim: the user should watch the map move while the panel is open. */
-.mission-overlay { background: transparent; pointer-events: none; }
+/* .active qualifier needed to beat .agent-chat-overlay.active { pointer-events: auto }. */
+.mission-overlay, .mission-overlay.active { background: transparent; pointer-events: none; }
 .mission-overlay.active .mission-panel { pointer-events: auto; }
 
 .mission-panel {

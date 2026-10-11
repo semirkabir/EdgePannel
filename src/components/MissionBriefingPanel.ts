@@ -55,6 +55,15 @@ export class MissionBriefingPanel {
     this.renderPicker();
   }
 
+  /** Open straight into a mission (deep link `?mission=<id>`). Returns false for unknown ids. */
+  public openMission(id: string): boolean {
+    if (!getMission(id)) return false;
+    this.overlay.hidden = false;
+    this.overlay.classList.add('active');
+    void this.run(id);
+    return true;
+  }
+
   public close(): void {
     this.overlay.classList.remove('active');
     this.overlay.hidden = true;
@@ -102,9 +111,16 @@ export class MissionBriefingPanel {
     const mission = getMission(id);
     if (!mission) return;
     this.body.innerHTML = '<p class="mission-loading">Pulling live signals…</p>';
+    // Move the map first (instant feedback), then flash hotspots once the
+    // briefing data is in. Highlights never move the camera (focus: false).
+    const accessors = this.insetAccessors();
+    if (accessors) applyAgentMapToolEvents(missionMapEvents(mission, accessors.getCurrentLayers()), accessors);
     const briefing = buildBriefing(mission, await this.loadSnapshot().catch(() => ({})));
-    if (this.accessors) {
-      applyAgentMapToolEvents(missionMapEvents(mission, this.accessors.getCurrentLayers(), briefing.hotspots), this.insetAccessors()!);
+    if (accessors && briefing.hotspots.length > 0) {
+      applyAgentMapToolEvents(
+        missionMapEvents(mission, accessors.getCurrentLayers(), briefing.hotspots).filter(e => e.name === 'highlight_features'),
+        accessors,
+      );
     }
     this.renderBriefing(mission, briefing);
   }
