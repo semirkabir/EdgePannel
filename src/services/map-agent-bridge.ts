@@ -64,6 +64,17 @@ export interface AgentMapAccessors {
    * news filter, URL state).
    */
   setTimeRange?(range: AgentTimeRange): void;
+  /**
+   * Optional: draw (or replace) a server-computed analysis overlay, e.g. the
+   * analyze_terrain viewshed. `overlay` is a GeoJSON FeatureCollection.
+   */
+  showAnalysisOverlay?(id: string, overlay: AgentAnalysisOverlay): void;
+}
+
+/** GeoJSON FeatureCollection produced by a server-side map analysis tool. */
+export interface AgentAnalysisOverlay {
+  type: 'FeatureCollection';
+  features: Array<{ type: 'Feature'; properties?: Record<string, unknown> | null; geometry: { type: string; coordinates: unknown } }>;
 }
 
 export interface AgentMapApplySummary {
@@ -75,6 +86,8 @@ export interface AgentMapApplySummary {
   highlighted: number;
   /** Last time range applied via set_time_range, if any. */
   timeRange?: AgentTimeRange;
+  /** Analysis overlays drawn (analyze_terrain), by overlay id. */
+  overlays?: string[];
   /** Events that carried a clientAction but failed defensive checks. */
   rejected: string[];
 }
@@ -169,6 +182,19 @@ export function applyAgentMapToolEvents(
       }
       accessors.setTimeRange(range);
       summary.timeRange = range;
+      continue;
+    }
+
+    if (event.name === 'analyze_terrain') {
+      const overlay = action.overlay as AgentAnalysisOverlay | undefined;
+      const id = typeof action.overlayId === 'string' ? action.overlayId : 'terrain';
+      if (overlay?.type !== 'FeatureCollection' || !Array.isArray(overlay.features)
+        || typeof accessors.showAnalysisOverlay !== 'function') {
+        summary.rejected.push(event.name);
+        continue;
+      }
+      accessors.showAnalysisOverlay(id, overlay);
+      summary.overlays = [...(summary.overlays ?? []), id];
       continue;
     }
 

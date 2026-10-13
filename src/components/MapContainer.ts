@@ -893,6 +893,11 @@ export class MapContainer {
     }
   }
 
+  /** Draw/replace a GeoJSON analysis overlay (agent terrain analysis). Flat/globe deck.gl only. */
+  public setAnalysisOverlay(id: string, overlay: GeoJSON.FeatureCollection | null): void {
+    if (this.useDeckGL) this.deckGLMap?.setAnalysisOverlay(id, overlay);
+  }
+
   public flashAssets(assetType: AssetType, ids: string[]): void {
     if (this.useDeckGL) {
       this.deckGLMap?.flashAssets(assetType, ids);

@@ -2,12 +2,14 @@ import {
   AGENT_CONNECTORS_ENV_KEY,
   CLIENT_EXECUTED_TOOLS,
   DEFAULT_AGENT_SCOPES,
+  MAP_ANALYSIS_TOOLS,
   MAP_CONTEXT_TOOLS,
   OPTIONAL_AGENT_SCOPES,
   WORLD_MONITOR_TOOLS,
   executeWorldMonitorTool,
   getScopedWorldMonitorTools,
   isClientExecutedTool,
+  isMapAnalysisTool,
   isMapContextTool,
   normalizeMapViewport,
   normalizeScopes,
@@ -15,6 +17,7 @@ import {
   toOpenAiTool,
   validateClientToolArguments,
 } from './agent-tool-registry.mjs';
+import { analyzeTerrain, rustgisCliPath } from './rustgis-terrain.mjs';
 
 const CHAT_TIMEOUT_MS = 120_000;
 const CONNECTOR_TEST_TIMEOUT_MS = 8_000;
@@ -264,6 +267,19 @@ async function executeOpenAiToolCall(toolCall, options) {
     return { name: functionName, args: validation.args, result, clientAction: validation.args };
   }
 
+  // Server-computed analysis drawn on the map: the LLM sees only the compact
+  // summary; the GeoJSON overlay rides to the browser as a clientAction.
+  if (isMapAnalysisTool(functionName)) {
+    const analyze = options.analyzeTerrain ?? analyzeTerrain;
+    const { summary, overlay } = await analyze(args);
+    return {
+      name: functionName,
+      args,
+      result: { ...summary, drawnOnMap: true },
+      clientAction: { overlayId: 'terrain', summary, overlay },
+    };
+  }
+
   // Map-context reads answered from the dashboard's mapViewport snapshot.
   if (isMapContextTool(functionName)) {
     if (functionName === 'get_visible_region') {
@@ -372,13 +388,18 @@ async function handleChat(body, context) {
       parameters: tool.parameters,
     },
   }));
-  const tools = [...worldTools, ...clientMapTools, ...mapContextTools, ...externalOpenAiTools];
+  // Terrain analysis is offered only where the RustGIS binary is installed
+  // (desktop sidecar / configured server), never on plain web deploys.
+  const analysisTools = (context?.analyzeTerrain || rustgisCliPath())
+    ? MAP_ANALYSIS_TOOLS.filter(tool => tool.scopes.some(scope => scopes.includes(scope))).map(toOpenAiTool)
+    : [];
+  const tools = [...worldTools, ...clientMapTools, ...mapContextTools, ...analysisTools, ...externalOpenAiTools];
   const toolEvents = [];
   const alertDrafts = [];
   const conversation = [
     {
       role: 'system',
-      content: 'You are connected to World Monitor live data and the analyst\'s map/globe. Use tools when live or up-to-date intelligence is needed. Call get_visible_region to learn what is currently on screen. Use set_map_view, zoom_to_region, toggle_map_layers, or highlight_features to point the analyst\'s dashboard at what you are discussing. Use set_time_range (1h, 6h, 24h, 48h, 7d, all) to scope map events and news to the period in question, e.g. before answering "what changed in the last 72h"; other lookbacks snap up to the smallest covering window, so tell the analyst which window was applied. Alert tools only create drafts that require user approval.',
+      content: 'You are connected to World Monitor live data and the analyst\'s map/globe. Use tools when live or up-to-date intelligence is needed. Call get_visible_region to learn what is currently on screen. Use set_map_view, zoom_to_region, toggle_map_layers, or highlight_features to point the analyst\'s dashboard at what you are discussing. When analyze_terrain is available, use it for visibility questions (what can a site see, is there line of sight from A to B) and report its numbers with the DEM caveat. Use set_time_range (1h, 6h, 24h, 48h, 7d, all) to scope map events and news to the period in question, e.g. before answering "what changed in the last 72h"; other lookbacks snap up to the smallest covering window, so tell the analyst which window was applied. Alert tools only create drafts that require user approval.',
     },
     ...messages,
   ];
@@ -413,6 +434,7 @@ async function handleChat(body, context) {
           baseUrl,
           token: process.env.LOCAL_API_TOKEN || '',
           mapViewport,
+          analyzeTerrain: context?.analyzeTerrain,
         });
         toolEvents.push(event);
         if (event.result?.alertDraft) alertDrafts.push(event.result.alertDraft);
@@ -480,6 +502,7 @@ function listStatusTools() {
     ...WORLD_MONITOR_TOOLS,
     ...CLIENT_EXECUTED_TOOLS,
     ...MAP_CONTEXT_TOOLS,
+    ...(rustgisCliPath() ? MAP_ANALYSIS_TOOLS : []),
   ].map(tool => ({
     name: tool.name,
     description: tool.description,

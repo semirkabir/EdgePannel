@@ -893,6 +893,9 @@ export class EventHandlerManager implements AppModule {
           this.ctx.map?.setTimeRange(range);
           this.syncUrlState();
         },
+        showAnalysisOverlay: (id, overlay) => {
+          this.ctx.map?.setAnalysisOverlay(id, overlay as GeoJSON.FeatureCollection);
+        },
         highlightFeatures: (items, _durationMs) => {
           const byType = new Map<string, string[]>();
           for (const item of items) {

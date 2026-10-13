@@ -111,6 +111,7 @@ type MapHarness = {
   prepareVisualScenario: (scenarioId: string) => boolean;
   isVisualScenarioReady: (scenarioId: string) => boolean;
   getDeckLayerSnapshot: () => LayerSnapshot[];
+  setAnalysisOverlay: (id: string, overlay: GeoJSON.FeatureCollection | null) => void;
   getLayerDataCount: (layerId: string) => number;
   getLayerFirstScreenTransform: (layerId: string) => string | null;
   showFirstLayerPopup: (layerId: string) => string | null;
@@ -1462,6 +1463,9 @@ window.__mapHarness = {
   prepareVisualScenario,
   isVisualScenarioReady,
   getDeckLayerSnapshot,
+  setAnalysisOverlay: (id: string, overlay: GeoJSON.FeatureCollection | null): void => {
+    map.setAnalysisOverlay(id, overlay);
+  },
   getLayerDataCount,
   getLayerFirstScreenTransform,
   showFirstLayerPopup,
