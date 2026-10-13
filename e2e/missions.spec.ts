@@ -77,8 +77,13 @@ test.describe('mission briefings', () => {
   });
 
   test('?mission= deep link opens straight into the briefing', async ({ page }) => {
+    const terrain = page.waitForResponse(r => r.url().endsWith('/data/terrain/znpp-viewshed.json'), { timeout: 120000 });
     await page.goto('/?mission=ukraine-front');
     await expect(page.locator('.mission-headline')).toContainText('Ukraine front', { timeout: 120000 });
+    // Ukraine ships a precomputed RustGIS viewshed (Zaporizhzhia NPP).
+    const asset = await (await terrain).json();
+    expect(asset.overlay.features.length).toBeGreaterThan(0);
+    expect(asset.summary.visibleAreaKm2).toBeGreaterThan(100);
     await expect.poll(async () => (await urlState(page)).timeRange, { timeout: 15000 }).toBe('48h');
   });
 

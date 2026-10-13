@@ -38,6 +38,12 @@ export interface Mission {
   keywords: string[];
   /** Appended to the agent paste sentence: "...then <agentPrompt>". */
   agentPrompt: string;
+  /**
+   * Optional precomputed terrain overlay (public/data/terrain/<id>.json, built
+   * by scripts/build-terrain-overlays.mjs with RustGIS). Static so it works
+   * on web where the RustGIS engine cannot run.
+   */
+  terrainOverlay?: string;
 }
 
 export const MISSIONS: readonly Mission[] = [
@@ -53,6 +59,7 @@ export const MISSIONS: readonly Mission[] = [
     chokepoints: [],
     keywords: ['ukrain', 'kyiv', 'zaporizh', 'kharkiv', 'donbas', 'donetsk', 'odesa', 'crimea'],
     agentPrompt: 'brief me on the Ukraine front',
+    terrainOverlay: 'znpp-viewshed',
   },
   {
     id: 'iran-gulf',
