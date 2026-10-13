@@ -204,6 +204,24 @@ export interface GetSecFilingAnalysisRequest {
   documentUrl: string;
 }
 
+export interface GetSecFilingAnalysisResponse {
+  ticker: string;
+  companyName: string;
+  cik: string;
+  accessionNumber: string;
+  filingType: string;
+  formCategory: string;
+  filedAt: string;
+  title: string;
+  url: string;
+  summaryBullets: string[];
+  metrics: SecFilingMetric[];
+  events: SecFilingEvent[];
+  series: SecFilingSeries[];
+  structured: boolean;
+  fallbackReason: string;
+}
+
 export interface SecFilingMetric {
   id: string;
   label: string;
@@ -223,12 +241,6 @@ export interface SecFilingEvent {
   kind: string;
 }
 
-export interface SecFilingSeriesPoint {
-  label: string;
-  value: number;
-  filedAt: string;
-}
-
 export interface SecFilingSeries {
   id: string;
   label: string;
@@ -236,22 +248,10 @@ export interface SecFilingSeries {
   points: SecFilingSeriesPoint[];
 }
 
-export interface GetSecFilingAnalysisResponse {
-  ticker: string;
-  companyName: string;
-  cik: string;
-  accessionNumber: string;
-  filingType: string;
-  formCategory: string;
+export interface SecFilingSeriesPoint {
+  label: string;
+  value: number;
   filedAt: string;
-  title: string;
-  url: string;
-  summaryBullets: string[];
-  metrics: SecFilingMetric[];
-  events: SecFilingEvent[];
-  series: SecFilingSeries[];
-  structured: boolean;
-  fallbackReason: string;
 }
 
 export interface ListHistoricalPricesRequest {
@@ -274,57 +274,8 @@ export interface DailyPrice {
   volume: string;
 }
 
-export interface GetMarketBreadthHistoryRequest {}
-
-export interface GetMarketBreadthHistoryResponse {
-  currentPctAbove20d?: number;
-  currentPctAbove50d?: number;
-  currentPctAbove200d?: number;
-  updatedAt: string;
-  history: BreadthSnapshot[];
-  unavailable: boolean;
+export interface GetFearGreedIndexRequest {
 }
-
-export interface BreadthSnapshot {
-  date: string;
-  pctAbove20d?: number;
-  pctAbove50d?: number;
-  pctAbove200d?: number;
-}
-
-export interface GetGoldIntelligenceRequest {}
-
-export interface GetGoldIntelligenceResponse {
-  goldPrice: number;
-  goldChangePct: number;
-  goldSparkline: number[];
-  silverPrice: number;
-  platinumPrice: number;
-  palladiumPrice: number;
-  goldSilverRatio?: number;
-  goldPlatinumPremiumPct?: number;
-  crossCurrencyPrices: GoldCrossCurrencyPrice[];
-  cot?: GoldCotPositioning;
-  updatedAt: string;
-  unavailable: boolean;
-}
-
-export interface GoldCrossCurrencyPrice {
-  currency: string;
-  flag: string;
-  price: number;
-}
-
-export interface GoldCotPositioning {
-  reportDate: string;
-  managedMoneyLong: number;
-  managedMoneyShort: number;
-  netPct: number;
-  dealerLong: number;
-  dealerShort: number;
-}
-
-export interface GetFearGreedIndexRequest {}
 
 export interface GetFearGreedIndexResponse {
   compositeScore: number;
@@ -360,6 +311,58 @@ export interface FearGreedCategory {
   contribution: number;
   degraded: boolean;
   inputsJson: string;
+}
+
+export interface GetGoldIntelligenceRequest {
+}
+
+export interface GetGoldIntelligenceResponse {
+  goldPrice: number;
+  goldChangePct: number;
+  goldSparkline: number[];
+  silverPrice: number;
+  platinumPrice: number;
+  palladiumPrice: number;
+  goldSilverRatio?: number;
+  goldPlatinumPremiumPct?: number;
+  crossCurrencyPrices: GoldCrossCurrencyPrice[];
+  cot?: GoldCotPositioning;
+  updatedAt: string;
+  unavailable: boolean;
+}
+
+export interface GoldCrossCurrencyPrice {
+  currency: string;
+  flag: string;
+  price: number;
+}
+
+export interface GoldCotPositioning {
+  reportDate: string;
+  managedMoneyLong: number;
+  managedMoneyShort: number;
+  netPct: number;
+  dealerLong: number;
+  dealerShort: number;
+}
+
+export interface GetMarketBreadthHistoryRequest {
+}
+
+export interface GetMarketBreadthHistoryResponse {
+  currentPctAbove20d?: number;
+  currentPctAbove50d?: number;
+  currentPctAbove200d?: number;
+  updatedAt: string;
+  history: BreadthSnapshot[];
+  unavailable: boolean;
+}
+
+export interface BreadthSnapshot {
+  date: string;
+  pctAbove20d?: number;
+  pctAbove50d?: number;
+  pctAbove200d?: number;
 }
 
 export interface FieldViolation {
@@ -694,8 +697,31 @@ export class MarketServiceClient {
     return await resp.json() as ListHistoricalPricesResponse;
   }
 
+  async getFearGreedIndex(_req: GetFearGreedIndexRequest, options?: MarketServiceCallOptions): Promise<GetFearGreedIndexResponse> {
+    let path = "/api/market/v1/get-fear-greed-index";
+    const url = this.baseURL + path;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as GetFearGreedIndexResponse;
+  }
+
   async getGoldIntelligence(_req: GetGoldIntelligenceRequest, options?: MarketServiceCallOptions): Promise<GetGoldIntelligenceResponse> {
-    const path = "/api/market/v1/get-gold-intelligence";
+    let path = "/api/market/v1/get-gold-intelligence";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -718,7 +744,7 @@ export class MarketServiceClient {
   }
 
   async getMarketBreadthHistory(_req: GetMarketBreadthHistoryRequest, options?: MarketServiceCallOptions): Promise<GetMarketBreadthHistoryResponse> {
-    const path = "/api/market/v1/get-market-breadth-history";
+    let path = "/api/market/v1/get-market-breadth-history";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -738,29 +764,6 @@ export class MarketServiceClient {
     }
 
     return await resp.json() as GetMarketBreadthHistoryResponse;
-  }
-
-  async getFearGreedIndex(_req: GetFearGreedIndexRequest, options?: MarketServiceCallOptions): Promise<GetFearGreedIndexResponse> {
-    const path = "/api/market/v1/get-fear-greed-index";
-    const url = this.baseURL + path;
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...this.defaultHeaders,
-      ...options?.headers,
-    };
-
-    const resp = await this.fetchFn(url, {
-      method: "GET",
-      headers,
-      signal: options?.signal,
-    });
-
-    if (!resp.ok) {
-      return this.handleError(resp);
-    }
-
-    return await resp.json() as GetFearGreedIndexResponse;
   }
 
   private async handleError(resp: Response): Promise<never> {

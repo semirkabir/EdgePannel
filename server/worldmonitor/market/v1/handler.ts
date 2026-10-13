@@ -12,6 +12,8 @@
  *   - ListGulfQuotes        (Yahoo Finance GCC indices, currencies, oil)
  *   - GetSecFilingAnalysis  (SEC EDGAR structured filing reader)
  *   - ListHistoricalPrices  (Yahoo Finance historical daily OHLCV)
+ *   - GetFearGreedIndex / GetGoldIntelligence / GetMarketBreadthHistory
+ *                           (no data source yet: return unavailable)
  */
 
 import type { MarketServiceHandler } from '../../../../src/generated/server/worldmonitor/market/v1/service_server';
@@ -26,6 +28,7 @@ import { listGulfQuotes } from './list-gulf-quotes';
 import { listSecFilings } from './list-sec-filings';
 import { getSecFilingAnalysis } from './get-sec-filing-analysis';
 import { listHistoricalPrices } from './list-historical-prices';
+import { getFearGreedIndex, getGoldIntelligence, getMarketBreadthHistory } from './unseeded-panels';
 
 export const marketHandler: MarketServiceHandler = {
   listMarketQuotes,
@@ -39,4 +42,7 @@ export const marketHandler: MarketServiceHandler = {
   listSecFilings,
   getSecFilingAnalysis,
   listHistoricalPrices,
+  getFearGreedIndex,
+  getGoldIntelligence,
+  getMarketBreadthHistory,
 };

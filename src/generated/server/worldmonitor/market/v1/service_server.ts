@@ -204,6 +204,24 @@ export interface GetSecFilingAnalysisRequest {
   documentUrl: string;
 }
 
+export interface GetSecFilingAnalysisResponse {
+  ticker: string;
+  companyName: string;
+  cik: string;
+  accessionNumber: string;
+  filingType: string;
+  formCategory: string;
+  filedAt: string;
+  title: string;
+  url: string;
+  summaryBullets: string[];
+  metrics: SecFilingMetric[];
+  events: SecFilingEvent[];
+  series: SecFilingSeries[];
+  structured: boolean;
+  fallbackReason: string;
+}
+
 export interface SecFilingMetric {
   id: string;
   label: string;
@@ -223,12 +241,6 @@ export interface SecFilingEvent {
   kind: string;
 }
 
-export interface SecFilingSeriesPoint {
-  label: string;
-  value: number;
-  filedAt: string;
-}
-
 export interface SecFilingSeries {
   id: string;
   label: string;
@@ -236,22 +248,10 @@ export interface SecFilingSeries {
   points: SecFilingSeriesPoint[];
 }
 
-export interface GetSecFilingAnalysisResponse {
-  ticker: string;
-  companyName: string;
-  cik: string;
-  accessionNumber: string;
-  filingType: string;
-  formCategory: string;
+export interface SecFilingSeriesPoint {
+  label: string;
+  value: number;
   filedAt: string;
-  title: string;
-  url: string;
-  summaryBullets: string[];
-  metrics: SecFilingMetric[];
-  events: SecFilingEvent[];
-  series: SecFilingSeries[];
-  structured: boolean;
-  fallbackReason: string;
 }
 
 export interface ListHistoricalPricesRequest {
@@ -272,6 +272,97 @@ export interface DailyPrice {
   date: string;
   close: number;
   volume: string;
+}
+
+export interface GetFearGreedIndexRequest {
+}
+
+export interface GetFearGreedIndexResponse {
+  compositeScore: number;
+  compositeLabel: string;
+  previousScore: number;
+  seededAt: string;
+  sentiment?: FearGreedCategory;
+  volatility?: FearGreedCategory;
+  positioning?: FearGreedCategory;
+  trend?: FearGreedCategory;
+  breadth?: FearGreedCategory;
+  momentum?: FearGreedCategory;
+  liquidity?: FearGreedCategory;
+  credit?: FearGreedCategory;
+  macro?: FearGreedCategory;
+  crossAsset?: FearGreedCategory;
+  vix: number;
+  hySpread: number;
+  yield10y: number;
+  putCallRatio: number;
+  pctAbove200d: number;
+  cnnFearGreed: number;
+  cnnLabel: string;
+  aaiiBull: number;
+  aaiiBear: number;
+  fedRate: string;
+  unavailable: boolean;
+}
+
+export interface FearGreedCategory {
+  score: number;
+  weight: number;
+  contribution: number;
+  degraded: boolean;
+  inputsJson: string;
+}
+
+export interface GetGoldIntelligenceRequest {
+}
+
+export interface GetGoldIntelligenceResponse {
+  goldPrice: number;
+  goldChangePct: number;
+  goldSparkline: number[];
+  silverPrice: number;
+  platinumPrice: number;
+  palladiumPrice: number;
+  goldSilverRatio?: number;
+  goldPlatinumPremiumPct?: number;
+  crossCurrencyPrices: GoldCrossCurrencyPrice[];
+  cot?: GoldCotPositioning;
+  updatedAt: string;
+  unavailable: boolean;
+}
+
+export interface GoldCrossCurrencyPrice {
+  currency: string;
+  flag: string;
+  price: number;
+}
+
+export interface GoldCotPositioning {
+  reportDate: string;
+  managedMoneyLong: number;
+  managedMoneyShort: number;
+  netPct: number;
+  dealerLong: number;
+  dealerShort: number;
+}
+
+export interface GetMarketBreadthHistoryRequest {
+}
+
+export interface GetMarketBreadthHistoryResponse {
+  currentPctAbove20d?: number;
+  currentPctAbove50d?: number;
+  currentPctAbove200d?: number;
+  updatedAt: string;
+  history: BreadthSnapshot[];
+  unavailable: boolean;
+}
+
+export interface BreadthSnapshot {
+  date: string;
+  pctAbove20d?: number;
+  pctAbove50d?: number;
+  pctAbove200d?: number;
 }
 
 export interface FieldViolation {
@@ -330,6 +421,9 @@ export interface MarketServiceHandler {
   listSecFilings(ctx: ServerContext, req: ListSecFilingsRequest): Promise<ListSecFilingsResponse>;
   getSecFilingAnalysis(ctx: ServerContext, req: GetSecFilingAnalysisRequest): Promise<GetSecFilingAnalysisResponse>;
   listHistoricalPrices(ctx: ServerContext, req: ListHistoricalPricesRequest): Promise<ListHistoricalPricesResponse>;
+  getFearGreedIndex(ctx: ServerContext, req: GetFearGreedIndexRequest): Promise<GetFearGreedIndexResponse>;
+  getGoldIntelligence(ctx: ServerContext, req: GetGoldIntelligenceRequest): Promise<GetGoldIntelligenceResponse>;
+  getMarketBreadthHistory(ctx: ServerContext, req: GetMarketBreadthHistoryRequest): Promise<GetMarketBreadthHistoryResponse>;
 }
 
 export function createMarketServiceRoutes(
@@ -826,6 +920,117 @@ export function createMarketServiceRoutes(
 
           const result = await handler.listHistoricalPrices(ctx, body);
           return new Response(JSON.stringify(result as ListHistoricalPricesResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/market/v1/get-fear-greed-index",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const body = {} as GetFearGreedIndexRequest;
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.getFearGreedIndex(ctx, body);
+          return new Response(JSON.stringify(result as GetFearGreedIndexResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/market/v1/get-gold-intelligence",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const body = {} as GetGoldIntelligenceRequest;
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.getGoldIntelligence(ctx, body);
+          return new Response(JSON.stringify(result as GetGoldIntelligenceResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/market/v1/get-market-breadth-history",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const body = {} as GetMarketBreadthHistoryRequest;
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.getMarketBreadthHistory(ctx, body);
+          return new Response(JSON.stringify(result as GetMarketBreadthHistoryResponse), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
