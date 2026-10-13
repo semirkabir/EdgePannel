@@ -4,11 +4,25 @@ deps:
 lint:
   use:
     - STANDARD
-    - COMMENTS
   enum_zero_value_suffix: _UNSPECIFIED
   service_suffix: Service
   ignore:
     - sebuf
+  # Pre-existing violations, ignored per file so new protos still get checked.
+  # Fix and drop an entry here rather than adding new ones.
+  ignore_only:
+    PROTOVALIDATE:
+      - worldmonitor/aviation/v1/get_flight_status.proto
+      - worldmonitor/aviation/v1/search_flight_prices.proto
+    IMPORT_USED:
+      - worldmonitor/conflict/v1/get_humanitarian_summary_batch.proto
+      - worldmonitor/economic/v1/get_fred_series_batch.proto
+      - worldmonitor/infrastructure/v1/list_temporal_anomalies.proto
+      - worldmonitor/military/v1/get_aircraft_details_batch.proto
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - worldmonitor/news/v1/service.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - worldmonitor/news/v1/service.proto
 breaking:
   use:
     - FILE
