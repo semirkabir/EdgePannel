@@ -239,6 +239,39 @@ export const CLIENT_EXECUTED_TOOLS = [
   },
 ];
 
+/**
+ * Server-computed tools whose result is ALSO drawn on the analyst's map. The
+ * gateway runs them (sidecar/server), sends only `summary` back to the LLM,
+ * and forwards the heavy `overlay` GeoJSON to the browser as a clientAction.
+ * Chat only (no MCP): a remote agent has no map to draw on.
+ */
+export const MAP_ANALYSIS_TOOLS = [
+  {
+    name: 'analyze_terrain',
+    description: 'Compute terrain visibility from real elevation data (Copernicus 90 m DEM, RustGIS engine) and draw it on the analyst\'s map. mode=viewshed: what ground is visible from an observer (radar, OP, ridge, plant) within radiusM. mode=line_of_sight: whether a target point is visible from the observer, and where the line is first blocked. Land only; observer and target must lie in the same 1° tile. Returns a numeric summary; the overlay is drawn for you.',
+    scopes: ['intelligence'],
+    risk: 'map-analysis',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        mode: clientStringParam('viewshed (default) or line_of_sight.'),
+        lat: clientNumberParam('Observer latitude, WGS84.', true),
+        lon: clientNumberParam('Observer longitude, WGS84.', true),
+        observerHeight: clientNumberParam('Observer height above ground in metres (default 10; mast/tower 30-60).'),
+        radiusM: clientNumberParam('Viewshed radius in metres, 500-50000 (default 20000).'),
+        targetLat: clientNumberParam('line_of_sight only: target latitude.'),
+        targetLon: clientNumberParam('line_of_sight only: target longitude.'),
+        targetHeight: clientNumberParam('line_of_sight only: target height above ground in metres (default 2).'),
+      },
+      required: ['lat', 'lon'],
+    },
+  },
+];
+
+export function isMapAnalysisTool(toolName) {
+  return MAP_ANALYSIS_TOOLS.some(tool => tool.name === toolName);
+}
+
 export function isClientExecutedTool(toolName) {
   return CLIENT_EXECUTED_TOOLS.some(tool => tool.name === toolName);
 }

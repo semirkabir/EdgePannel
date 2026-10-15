@@ -115,6 +115,9 @@ export class MissionBriefingPanel {
     // briefing data is in. Highlights never move the camera (focus: false).
     const accessors = this.insetAccessors();
     if (accessors) applyAgentMapToolEvents(missionMapEvents(mission, accessors.getCurrentLayers()), accessors);
+    // Clear any overlay from a previous mission, then draw this one's (if any).
+    this.accessors?.showAnalysisOverlay?.('terrain', { type: 'FeatureCollection', features: [] });
+    if (mission.terrainOverlay) void this.showTerrainOverlay(mission.terrainOverlay);
     const briefing = buildBriefing(mission, await this.loadSnapshot().catch(() => ({})));
     if (accessors && briefing.hotspots.length > 0) {
       applyAgentMapToolEvents(
@@ -123,6 +126,22 @@ export class MissionBriefingPanel {
       );
     }
     this.renderBriefing(mission, briefing);
+  }
+
+  /** Fetch a precomputed terrain overlay and route it through the agent bridge. */
+  private async showTerrainOverlay(id: string): Promise<void> {
+    if (!this.accessors?.showAnalysisOverlay || !/^[a-z0-9-]+$/.test(id)) return;
+    try {
+      const response = await fetch(`/data/terrain/${id}.json`);
+      if (!response.ok) return;
+      const asset = await response.json() as { summary?: unknown; overlay?: unknown };
+      applyAgentMapToolEvents(
+        [{ name: 'analyze_terrain', clientAction: { overlayId: 'terrain', summary: asset.summary, overlay: asset.overlay } }],
+        this.accessors,
+      );
+    } catch {
+      // Optional layer: a missing asset must not break the briefing.
+    }
   }
 
   private renderBriefing(mission: Mission, b: Briefing): void {

@@ -656,6 +656,7 @@ export class DeckGLMap implements MapEngine {
   private marketplaceLayers: MarketplaceRuntimeLayer[] = [];
 
   // Highlighted assets
+  private analysisOverlays = new Map<string, GeoJSON.FeatureCollection>();
   private highlightedAssets: Record<AssetType, Set<string>> = {
     pipeline: new Set(),
     cable: new Set(),
@@ -2107,6 +2108,11 @@ export class DeckGLMap implements MapEngine {
     // News geo-locations (tied to conflicts layer)
     if (mapLayers.conflicts && this.newsLocations.length > 0) {
       layers.push(...this.createNewsLocationsLayer());
+    }
+
+    // Agent analysis overlays (terrain viewshed / line of sight) on top.
+    if (this.analysisOverlays.size > 0) {
+      layers.push(...this.createAnalysisOverlayLayers());
     }
 
     const result = layers.filter(Boolean) as LayersList;
@@ -9026,6 +9032,30 @@ export class DeckGLMap implements MapEngine {
     } else {
       toggle.classList.remove('active');
     }
+  }
+
+  /** Draw/replace (or clear with null) a GeoJSON analysis overlay from the agent. */
+  public setAnalysisOverlay(id: string, overlay: GeoJSON.FeatureCollection | null): void {
+    if (overlay && overlay.features.length > 0) this.analysisOverlays.set(id, overlay);
+    else this.analysisOverlays.delete(id);
+    this.render();
+  }
+
+  private createAnalysisOverlayLayers(): GeoJsonLayer[] {
+    return [...this.analysisOverlays].map(([id, data]) => new GeoJsonLayer({
+      id: `analysis-overlay-${id}`,
+      data,
+      pickable: false,
+      stroked: true,
+      filled: true,
+      lineWidthUnits: 'pixels',
+      // Viewshed: translucent green fill. Line of sight: green visible / red blocked.
+      getFillColor: [46, 204, 113, 90],
+      getLineColor: (f: { properties?: { kind?: string; visible?: boolean } }) => (
+        f.properties?.kind === 'los' ? (f.properties.visible ? [46, 204, 113, 255] : [231, 76, 60, 255]) : [46, 204, 113, 0]
+      ),
+      getLineWidth: (f: { properties?: { kind?: string } }) => (f.properties?.kind === 'los' ? 4 : 0),
+    }));
   }
 
   public flashAssets(assetType: AssetType, ids: string[]): void {
