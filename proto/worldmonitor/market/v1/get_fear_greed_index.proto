@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package worldmonitor.market.v1;
+
+// GetFearGreedIndexRequest takes no parameters; the index is global.
+message GetFearGreedIndexRequest {}
+
+// FearGreedCategory is one weighted component of the composite index.
+message FearGreedCategory {
+  // Component score, 0-100.
+  double score = 1;
+  // Weight of this component in the composite.
+  double weight = 2;
+  // Weighted contribution to the composite score.
+  double contribution = 3;
+  // True when some inputs were missing and the score is partial.
+  bool degraded = 4;
+  // Raw inputs behind the score, JSON-encoded.
+  string inputs_json = 5;
+}
+
+// GetFearGreedIndexResponse is the composite market sentiment index.
+message GetFearGreedIndexResponse {
+  // Composite index, 0 (extreme fear) to 100 (extreme greed).
+  double composite_score = 1;
+  // Label for the composite score, e.g. "Fear".
+  string composite_label = 2;
+  // Composite score from the previous seed run.
+  double previous_score = 3;
+  // ISO timestamp of the seed run that produced this data.
+  string seeded_at = 4;
+  // Survey and options sentiment component.
+  FearGreedCategory sentiment = 5;
+  // Volatility (VIX) component.
+  FearGreedCategory volatility = 6;
+  // Investor positioning component.
+  FearGreedCategory positioning = 7;
+  // Price trend component.
+  FearGreedCategory trend = 8;
+  // Market breadth component.
+  FearGreedCategory breadth = 9;
+  // Price momentum component.
+  FearGreedCategory momentum = 10;
+  // Liquidity conditions component.
+  FearGreedCategory liquidity = 11;
+  // Credit spread component.
+  FearGreedCategory credit = 12;
+  // Macro conditions component.
+  FearGreedCategory macro = 13;
+  // Cross-asset risk appetite component.
+  FearGreedCategory cross_asset = 14;
+  // CBOE VIX level.
+  double vix = 15;
+  // High-yield credit spread, percent.
+  double hy_spread = 16;
+  // US 10-year Treasury yield, percent.
+  double yield_10y = 17;
+  // Equity put/call ratio.
+  double put_call_ratio = 18;
+  // Percent of S&P 500 members above their 200-day average.
+  double pct_above_200d = 19;
+  // CNN Fear & Greed reading, for comparison.
+  double cnn_fear_greed = 20;
+  // CNN Fear & Greed label.
+  string cnn_label = 21;
+  // AAII survey bullish percent.
+  double aaii_bull = 22;
+  // AAII survey bearish percent.
+  double aaii_bear = 23;
+  // Fed funds target range, as text.
+  string fed_rate = 24;
+  // True when no seeded data is available.
+  bool unavailable = 25;
+}

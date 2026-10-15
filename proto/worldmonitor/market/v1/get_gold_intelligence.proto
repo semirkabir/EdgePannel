@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package worldmonitor.market.v1;
+
+// GetGoldIntelligenceRequest takes no parameters.
+message GetGoldIntelligenceRequest {}
+
+// GoldCrossCurrencyPrice is the gold price in one currency.
+message GoldCrossCurrencyPrice {
+  // ISO 4217 currency code.
+  string currency = 1;
+  // Flag emoji for the currency.
+  string flag = 2;
+  // Gold price per troy ounce in this currency.
+  double price = 3;
+}
+
+// GoldCotPositioning is CFTC Commitments of Traders positioning for gold.
+message GoldCotPositioning {
+  // COT report date (YYYY-MM-DD).
+  string report_date = 1;
+  // Managed-money long contracts.
+  double managed_money_long = 2;
+  // Managed-money short contracts.
+  double managed_money_short = 3;
+  // Managed-money net position as a percent of open interest.
+  double net_pct = 4;
+  // Swap-dealer long contracts.
+  double dealer_long = 5;
+  // Swap-dealer short contracts.
+  double dealer_short = 6;
+}
+
+// GetGoldIntelligenceResponse bundles precious-metal prices and positioning.
+message GetGoldIntelligenceResponse {
+  // Gold spot price, USD per troy ounce.
+  double gold_price = 1;
+  // Gold daily change, percent.
+  double gold_change_pct = 2;
+  // Recent gold closes for a sparkline.
+  repeated double gold_sparkline = 3;
+  // Silver spot price, USD per troy ounce.
+  double silver_price = 4;
+  // Platinum spot price, USD per troy ounce.
+  double platinum_price = 5;
+  // Palladium spot price, USD per troy ounce.
+  double palladium_price = 6;
+  // Gold/silver price ratio.
+  optional double gold_silver_ratio = 7;
+  // Gold premium over platinum, percent.
+  optional double gold_platinum_premium_pct = 8;
+  // Gold priced in major currencies.
+  repeated GoldCrossCurrencyPrice cross_currency_prices = 9;
+  // Latest CFTC positioning for gold futures.
+  GoldCotPositioning cot = 10;
+  // ISO timestamp of the last update.
+  string updated_at = 11;
+  // True when no data is available.
+  bool unavailable = 12;
+}

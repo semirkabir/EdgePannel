@@ -433,6 +433,84 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
+    /api/market/v1/get-fear-greed-index:
+        get:
+            tags:
+                - MarketService
+            summary: GetFearGreedIndex
+            description: GetFearGreedIndex retrieves the composite fear & greed sentiment index.
+            operationId: GetFearGreedIndex
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetFearGreedIndexResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/market/v1/get-gold-intelligence:
+        get:
+            tags:
+                - MarketService
+            summary: GetGoldIntelligence
+            description: GetGoldIntelligence retrieves precious-metal prices, ratios and COT positioning.
+            operationId: GetGoldIntelligence
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetGoldIntelligenceResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/market/v1/get-market-breadth-history:
+        get:
+            tags:
+                - MarketService
+            summary: GetMarketBreadthHistory
+            description: GetMarketBreadthHistory retrieves S&P breadth (% above moving averages) history.
+            operationId: GetMarketBreadthHistory
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetMarketBreadthHistoryResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
         Error:
@@ -1144,3 +1222,249 @@ components:
                     format: int64
                     description: Trading volume.
             description: DailyPrice represents a single day's closing price.
+        GetFearGreedIndexRequest:
+            type: object
+            description: GetFearGreedIndexRequest takes no parameters; the index is global.
+        GetFearGreedIndexResponse:
+            type: object
+            properties:
+                compositeScore:
+                    type: number
+                    format: double
+                    description: Composite index, 0 (extreme fear) to 100 (extreme greed).
+                compositeLabel:
+                    type: string
+                    description: Label for the composite score, e.g. "Fear".
+                previousScore:
+                    type: number
+                    format: double
+                    description: Composite score from the previous seed run.
+                seededAt:
+                    type: string
+                    description: ISO timestamp of the seed run that produced this data.
+                sentiment:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                volatility:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                positioning:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                trend:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                breadth:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                momentum:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                liquidity:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                credit:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                macro:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                crossAsset:
+                    $ref: '#/components/schemas/FearGreedCategory'
+                vix:
+                    type: number
+                    format: double
+                    description: CBOE VIX level.
+                hySpread:
+                    type: number
+                    format: double
+                    description: High-yield credit spread, percent.
+                yield10y:
+                    type: number
+                    format: double
+                    description: US 10-year Treasury yield, percent.
+                putCallRatio:
+                    type: number
+                    format: double
+                    description: Equity put/call ratio.
+                pctAbove200d:
+                    type: number
+                    format: double
+                    description: Percent of S&P 500 members above their 200-day average.
+                cnnFearGreed:
+                    type: number
+                    format: double
+                    description: CNN Fear & Greed reading, for comparison.
+                cnnLabel:
+                    type: string
+                    description: CNN Fear & Greed label.
+                aaiiBull:
+                    type: number
+                    format: double
+                    description: AAII survey bullish percent.
+                aaiiBear:
+                    type: number
+                    format: double
+                    description: AAII survey bearish percent.
+                fedRate:
+                    type: string
+                    description: Fed funds target range, as text.
+                unavailable:
+                    type: boolean
+                    description: True when no seeded data is available.
+            description: GetFearGreedIndexResponse is the composite market sentiment index.
+        FearGreedCategory:
+            type: object
+            properties:
+                score:
+                    type: number
+                    format: double
+                    description: Component score, 0-100.
+                weight:
+                    type: number
+                    format: double
+                    description: Weight of this component in the composite.
+                contribution:
+                    type: number
+                    format: double
+                    description: Weighted contribution to the composite score.
+                degraded:
+                    type: boolean
+                    description: True when some inputs were missing and the score is partial.
+                inputsJson:
+                    type: string
+                    description: Raw inputs behind the score, JSON-encoded.
+            description: FearGreedCategory is one weighted component of the composite index.
+        GetGoldIntelligenceRequest:
+            type: object
+            description: GetGoldIntelligenceRequest takes no parameters.
+        GetGoldIntelligenceResponse:
+            type: object
+            properties:
+                goldPrice:
+                    type: number
+                    format: double
+                    description: Gold spot price, USD per troy ounce.
+                goldChangePct:
+                    type: number
+                    format: double
+                    description: Gold daily change, percent.
+                goldSparkline:
+                    type: array
+                    items:
+                        type: number
+                        format: double
+                        description: Recent gold closes for a sparkline.
+                silverPrice:
+                    type: number
+                    format: double
+                    description: Silver spot price, USD per troy ounce.
+                platinumPrice:
+                    type: number
+                    format: double
+                    description: Platinum spot price, USD per troy ounce.
+                palladiumPrice:
+                    type: number
+                    format: double
+                    description: Palladium spot price, USD per troy ounce.
+                goldSilverRatio:
+                    type: number
+                    format: double
+                    description: Gold/silver price ratio.
+                goldPlatinumPremiumPct:
+                    type: number
+                    format: double
+                    description: Gold premium over platinum, percent.
+                crossCurrencyPrices:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GoldCrossCurrencyPrice'
+                cot:
+                    $ref: '#/components/schemas/GoldCotPositioning'
+                updatedAt:
+                    type: string
+                    description: ISO timestamp of the last update.
+                unavailable:
+                    type: boolean
+                    description: True when no data is available.
+            description: GetGoldIntelligenceResponse bundles precious-metal prices and positioning.
+        GoldCrossCurrencyPrice:
+            type: object
+            properties:
+                currency:
+                    type: string
+                    description: ISO 4217 currency code.
+                flag:
+                    type: string
+                    description: Flag emoji for the currency.
+                price:
+                    type: number
+                    format: double
+                    description: Gold price per troy ounce in this currency.
+            description: GoldCrossCurrencyPrice is the gold price in one currency.
+        GoldCotPositioning:
+            type: object
+            properties:
+                reportDate:
+                    type: string
+                    description: COT report date (YYYY-MM-DD).
+                managedMoneyLong:
+                    type: number
+                    format: double
+                    description: Managed-money long contracts.
+                managedMoneyShort:
+                    type: number
+                    format: double
+                    description: Managed-money short contracts.
+                netPct:
+                    type: number
+                    format: double
+                    description: Managed-money net position as a percent of open interest.
+                dealerLong:
+                    type: number
+                    format: double
+                    description: Swap-dealer long contracts.
+                dealerShort:
+                    type: number
+                    format: double
+                    description: Swap-dealer short contracts.
+            description: GoldCotPositioning is CFTC Commitments of Traders positioning for gold.
+        GetMarketBreadthHistoryRequest:
+            type: object
+            description: GetMarketBreadthHistoryRequest takes no parameters.
+        GetMarketBreadthHistoryResponse:
+            type: object
+            properties:
+                currentPctAbove20d:
+                    type: number
+                    format: double
+                    description: Latest percent above the 20-day average.
+                currentPctAbove50d:
+                    type: number
+                    format: double
+                    description: Latest percent above the 50-day average.
+                currentPctAbove200d:
+                    type: number
+                    format: double
+                    description: Latest percent above the 200-day average.
+                updatedAt:
+                    type: string
+                    description: ISO timestamp of the last update.
+                history:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/BreadthSnapshot'
+                unavailable:
+                    type: boolean
+                    description: True when no seeded data is available.
+            description: GetMarketBreadthHistoryResponse is current breadth plus daily history.
+        BreadthSnapshot:
+            type: object
+            properties:
+                date:
+                    type: string
+                    description: Trading day (YYYY-MM-DD).
+                pctAbove20d:
+                    type: number
+                    format: double
+                    description: Percent of members above their 20-day average.
+                pctAbove50d:
+                    type: number
+                    format: double
+                    description: Percent of members above their 50-day average.
+                pctAbove200d:
+                    type: number
+                    format: double
+                    description: Percent of S&P 500 members above their 200-day average.
+            description: BreadthSnapshot is one day of market breadth readings.

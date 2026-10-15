@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package worldmonitor.market.v1;
+
+// GetMarketBreadthHistoryRequest takes no parameters.
+message GetMarketBreadthHistoryRequest {}
+
+// BreadthSnapshot is one day of market breadth readings.
+message BreadthSnapshot {
+  // Trading day (YYYY-MM-DD).
+  string date = 1;
+  // Percent of members above their 20-day average.
+  optional double pct_above_20d = 2;
+  // Percent of members above their 50-day average.
+  optional double pct_above_50d = 3;
+  // Percent of S&P 500 members above their 200-day average.
+  optional double pct_above_200d = 4;
+}
+
+// GetMarketBreadthHistoryResponse is current breadth plus daily history.
+message GetMarketBreadthHistoryResponse {
+  // Latest percent above the 20-day average.
+  optional double current_pct_above_20d = 1;
+  // Latest percent above the 50-day average.
+  optional double current_pct_above_50d = 2;
+  // Latest percent above the 200-day average.
+  optional double current_pct_above_200d = 3;
+  // ISO timestamp of the last update.
+  string updated_at = 4;
+  // Daily breadth snapshots, oldest first.
+  repeated BreadthSnapshot history = 5;
+  // True when no seeded data is available.
+  bool unavailable = 6;
+}
